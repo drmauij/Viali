@@ -2069,6 +2069,17 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       console.log('[EDIT] Bailing out - missing editingValue or anesthesiaRecordId');
       return;
     }
+    
+    if (!canWrite) {
+      toast({
+        title: t('common.recordLocked', 'Record locked'),
+        description: t('common.cannotModifyLocked', 'Cannot modify a locked record'),
+        variant: "destructive",
+      });
+      setEditDialogOpen(false);
+      setEditingValue(null);
+      return;
+    }
 
     const { type, time, originalTime } = editingValue;
     const pointId = editingValue.pointId;
@@ -2160,6 +2171,17 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
   const handleDeleteValue = async () => {
     if (!editingValue || !anesthesiaRecordId) return;
+    
+    if (!canWrite) {
+      toast({
+        title: t('common.recordLocked', 'Record locked'),
+        description: t('common.cannotModifyLocked', 'Cannot modify a locked record'),
+        variant: "destructive",
+      });
+      setEditDialogOpen(false);
+      setEditingValue(null);
+      return;
+    }
 
     const { type, time, originalTime } = editingValue;
     const pointId = editingValue.pointId;
@@ -2195,6 +2217,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     time: number;
   }) => {
     if (!anesthesiaRecordId) return;
+    if (!canWrite) {
+      toast({
+        title: t('common.recordLocked', 'Record locked'),
+        description: t('common.cannotModifyLocked', 'Cannot modify a locked record'),
+        variant: "destructive",
+      });
+      return;
+    }
 
     const timestamp = new Date(data.time).toISOString();
 
@@ -2237,6 +2267,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
   // Handle clicking on Zeiten swimlane to place next time marker or edit existing
   const handleZeitenClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!canWrite) return; // Silently ignore clicks on locked records
+    
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
     
@@ -2290,6 +2322,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // Handle updating time marker time
   const handleUpdateTimeMarker = (newTime: number) => {
     if (!editingTimeMarker) return;
+    if (!canWrite) return; // Ignore updates on locked records
     
     const updated = [...timeMarkers];
     updated[editingTimeMarker.index] = { ...updated[editingTimeMarker.index], time: newTime };
@@ -2313,6 +2346,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // Handle deleting time marker
   const handleDeleteTimeMarker = () => {
     if (!editingTimeMarker) return;
+    if (!canWrite) return; // Ignore deletes on locked records
     
     const updated = [...timeMarkers];
     updated[editingTimeMarker.index] = { ...updated[editingTimeMarker.index], time: null };
@@ -2554,6 +2588,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const handleChartClick = (params: any) => {
       // Don't handle clicks when actively placing new values
       if (activeToolMode) return;
+      // Don't allow edits on locked records
+      if (!canWrite) return;
 
       // Handle clicks on scatter/custom data points
       if (params.componentType === 'series' && (params.seriesType === 'scatter' || params.seriesType === 'custom')) {
@@ -2611,7 +2647,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     return () => {
       chart.off('click', handleChartClick);
     };
-  }, [chartRef, activeToolMode, hrDataPoints, bpDataPoints, spo2DataPoints, clinicalSnapshot, currentTime]);
+  }, [chartRef, activeToolMode, hrDataPoints, bpDataPoints, spo2DataPoints, clinicalSnapshot, currentTime, canWrite]);
 
   // Update zoom state when zoom changes
   useEffect(() => {
@@ -5251,11 +5287,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 setPendingSysValue(null);
               }
             }}
+            disabled={!canWrite}
             className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
               activeToolMode === 'bp' 
                 ? 'border-foreground bg-foreground/20' 
                 : 'border-border bg-background hover:border-foreground hover:bg-foreground/10'
-            }`}
+            } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
             data-testid="button-vitals-bp"
             title="Blood Pressure (NIBP)"
           >
@@ -5263,11 +5300,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           </button>
           <button
             onClick={() => setActiveToolMode(activeToolMode === 'hr' ? null : 'hr')}
+            disabled={!canWrite}
             className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
               activeToolMode === 'hr' 
                 ? 'border-red-500 bg-red-500/20' 
                 : 'border-border bg-background hover:border-red-500 hover:bg-red-500/10'
-            }`}
+            } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
             data-testid="button-vitals-heart"
             title="Heart Rate"
           >
@@ -5275,11 +5313,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           </button>
           <button
             onClick={() => setActiveToolMode(activeToolMode === 'spo2' ? null : 'spo2')}
+            disabled={!canWrite}
             className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
               activeToolMode === 'spo2' 
                 ? 'border-blue-500 bg-blue-500/20' 
                 : 'border-border bg-background hover:border-blue-500 hover:bg-blue-500/10'
-            }`}
+            } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
             data-testid="button-vitals-oxygen"
             title="Oxygenation (SpO2)"
           >
@@ -5295,11 +5334,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 setBlendSequenceStep('sys');
               }
             }}
+            disabled={!canWrite}
             className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
               activeToolMode === 'blend' 
                 ? 'border-purple-500 bg-purple-500/20' 
                 : 'border-border bg-background hover:border-purple-500 hover:bg-purple-500/10'
-            }`}
+            } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
             data-testid="button-vitals-combo"
             title="Sequential Vitals Mode"
           >
@@ -5315,11 +5355,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 setActiveToolMode('edit');
               }
             }}
+            disabled={!canWrite}
             className={`p-2 rounded-md border transition-colors flex items-center justify-center shadow-sm ${
               activeToolMode === 'edit' 
                 ? 'border-amber-500 bg-amber-500/20' 
                 : 'border-border bg-background hover:border-amber-500 hover:bg-amber-500/10'
-            }`}
+            } ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
             data-testid="button-vitals-edit"
             title="Edit Mode - Move Vital Points"
           >
@@ -5391,6 +5432,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 <div className="flex items-center justify-between gap-1 flex-1">
                   <button
                     onClick={() => {
+                      if (!canWrite) return; // Don't allow modifications on locked records
+                      
                       const nextMarkerIndex = timeMarkers.findIndex(m => m.time === null);
                       if (nextMarkerIndex !== -1) {
                         const nextMarker = timeMarkers[nextMarkerIndex];
@@ -5486,7 +5529,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                         }
                       }
                     }}
-                    className="flex items-center gap-1 text-left bg-primary/10 text-foreground px-2 py-1 rounded text-xs hover:bg-primary/20 transition-colors pointer-events-auto truncate flex-1 max-w-[140px]"
+                    disabled={!canWrite}
+                    className={`flex items-center gap-1 text-left bg-primary/10 text-foreground px-2 py-1 rounded text-xs hover:bg-primary/20 transition-colors pointer-events-auto truncate flex-1 max-w-[140px] ${!canWrite ? 'opacity-50 cursor-not-allowed' : ''}`}
                     data-testid="button-next-timepoint"
                     title={(() => {
                       const nextMarker = timeMarkers.find(m => m.time === null);
