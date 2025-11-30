@@ -416,6 +416,65 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       });
     },
   });
+  
+  // Mutation for locking the anesthesia record
+  const lockRecordMutation = useMutation({
+    mutationFn: async (recordId: string) => {
+      const response = await apiRequest('POST', `/api/anesthesia/records/${recordId}/lock`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      console.log('[RECORD_LOCK] Record locked successfully', data);
+      if (anesthesiaRecordId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/records', anesthesiaRecordId] });
+        // Also invalidate surgery-based query
+        if (data.surgeryId) {
+          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${data.surgeryId}`] });
+        }
+      }
+      toast({
+        title: t('anesthesia.record.locked', 'Record Locked'),
+        description: t('anesthesia.record.lockedDescription', 'The anesthesia record has been locked. Unlock to make changes.'),
+      });
+    },
+    onError: (error) => {
+      console.error('[RECORD_LOCK] Lock failed', error);
+      toast({
+        title: t('common.error', 'Error'),
+        description: error instanceof Error ? error.message : t('anesthesia.record.lockFailed', 'Failed to lock record'),
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Mutation for unlocking the anesthesia record
+  const unlockRecordMutation = useMutation({
+    mutationFn: async ({ recordId, reason }: { recordId: string; reason: string }) => {
+      const response = await apiRequest('POST', `/api/anesthesia/records/${recordId}/unlock`, { reason });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      console.log('[RECORD_UNLOCK] Record unlocked successfully', data);
+      if (anesthesiaRecordId) {
+        queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/records', anesthesiaRecordId] });
+        if (data.surgeryId) {
+          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${data.surgeryId}`] });
+        }
+      }
+      toast({
+        title: t('anesthesia.record.unlocked', 'Record Unlocked'),
+        description: t('anesthesia.record.unlockedDescription', 'You can now make changes. Remember to lock when done.'),
+      });
+    },
+    onError: (error) => {
+      console.error('[RECORD_UNLOCK] Unlock failed', error);
+      toast({
+        title: t('common.error', 'Error'),
+        description: error instanceof Error ? error.message : t('anesthesia.record.unlockFailed', 'Failed to unlock record'),
+        variant: "destructive",
+      });
+    },
+  });
 
 
   // Mutation hooks for ventilation mode
@@ -5282,15 +5341,54 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       if (nextMarkerIndex !== -1) {
                         const nextMarker = timeMarkers[nextMarkerIndex];
                         
-                        // Check if trying to set PACU End (P) with pending commits (BLOCKING)
-                        if (nextMarker.code === 'P' && inventoryCommitState.hasPendingCommits) {
-                          console.log('[P_CHECK] Blocking PACU End - pending commits exist');
-                          toast({
-                            title: "Cannot set PACU End",
-                            description: "Please commit all inventory items before marking PACU End.",
-                            variant: "destructive",
+                        // Check if trying to set PACU End (P) - must stop all infusions first
+                        if (nextMarker.code === 'P') {
+                          // Check for running rate-controlled infusions
+                          const runningRateInfusions: string[] = [];
+                          Object.entries(rateInfusionSessions).forEach(([swimlaneId, sessions]) => {
+                            if (Array.isArray(sessions)) {
+                              sessions.forEach(session => {
+                                if (session.state === 'running') {
+                                  runningRateInfusions.push(session.label || swimlaneId);
+                                }
+                              });
+                            }
                           });
-                          return;
+                          
+                          // Check for running free-flow infusions
+                          const runningFreeFlowInfusions: string[] = [];
+                          Object.entries(freeFlowSessions).forEach(([swimlaneId, sessions]) => {
+                            if (Array.isArray(sessions)) {
+                              sessions.forEach(session => {
+                                if (!session.endTime) {
+                                  runningFreeFlowInfusions.push(swimlaneId);
+                                }
+                              });
+                            }
+                          });
+                          
+                          const allRunningInfusions = [...runningRateInfusions, ...runningFreeFlowInfusions];
+                          
+                          if (allRunningInfusions.length > 0) {
+                            console.log('[P_CHECK] Blocking PACU End - running infusions exist:', allRunningInfusions);
+                            toast({
+                              title: t('anesthesia.pacuEnd.cannotSetTitle', 'Cannot set PACU End'),
+                              description: t('anesthesia.pacuEnd.stopInfusionsFirst', 'Please stop all running infusions before marking PACU End: {{infusions}}', { infusions: allRunningInfusions.slice(0, 3).join(', ') + (allRunningInfusions.length > 3 ? '...' : '') }),
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          
+                          // Check for pending commits
+                          if (inventoryCommitState.hasPendingCommits) {
+                            console.log('[P_CHECK] Blocking PACU End - pending commits exist');
+                            toast({
+                              title: t('anesthesia.pacuEnd.cannotSetTitle', 'Cannot set PACU End'),
+                              description: t('anesthesia.pacuEnd.commitInventoryFirst', 'Please commit all inventory items before marking PACU End.'),
+                              variant: "destructive",
+                            });
+                            return;
+                          }
                         }
 
                         // Check if setting X2 (Anesthesia End) with pending commits (NON-BLOCKING REMINDER)
@@ -5312,6 +5410,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                           saveTimeMarkersMutation.mutate({
                             anesthesiaRecordId,
                             timeMarkers: updatedMarkers,
+                          }, {
+                            onSuccess: () => {
+                              // Auto-lock record when PACU End (P) is set
+                              if (nextMarker.code === 'P') {
+                                console.log('[RECORD_LOCK] Auto-locking record after PACU End set');
+                                lockRecordMutation.mutate(anesthesiaRecordId);
+                              }
+                            }
                           });
                         }
 
