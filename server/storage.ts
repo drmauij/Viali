@@ -361,6 +361,24 @@ export interface IStorage {
       pip?: number;
     }
   ): Promise<ClinicalSnapshot>;
+  updateBulkVentilationParameters(
+    anesthesiaRecordId: string,
+    originalTimestamp: string,
+    newTimestamp: string,
+    parameters: {
+      peep?: number;
+      fio2?: number;
+      tidalVolume?: number;
+      respiratoryRate?: number;
+      minuteVolume?: number;
+      etco2?: number;
+      pip?: number;
+    }
+  ): Promise<ClinicalSnapshot>;
+  deleteBulkVentilationParameters(
+    anesthesiaRecordId: string,
+    timestamp: string
+  ): Promise<ClinicalSnapshot>;
   
   // Output operations
   addOutputPoint(anesthesiaRecordId: string, paramKey: string, timestamp: string, value: number): Promise<ClinicalSnapshot>;
@@ -2752,6 +2770,116 @@ export class DatabaseStorage implements IStorage {
           a.timestamp.localeCompare(b.timestamp)
         );
       }
+    }
+    
+    // Single database update with all changes
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Update bulk ventilation parameters at a specific timestamp
+   * Removes existing values at originalTimestamp and adds new values at newTimestamp
+   */
+  async updateBulkVentilationParameters(
+    anesthesiaRecordId: string,
+    originalTimestamp: string,
+    newTimestamp: string,
+    parameters: {
+      peep?: number;
+      fio2?: number;
+      tidalVolume?: number;
+      respiratoryRate?: number;
+      minuteVolume?: number;
+      etco2?: number;
+      pip?: number;
+    }
+  ): Promise<ClinicalSnapshot> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    const data = snapshot.data as any;
+    
+    // Parameter keys to update
+    const vitalTypes = ['peep', 'fio2', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'etco2', 'pip'];
+    
+    // Build updated data object
+    const updatedData = { ...data };
+    
+    // For each parameter type, remove the point at originalTimestamp and add new one if provided
+    for (const vitalType of vitalTypes) {
+      const currentPoints = data[vitalType] || [];
+      
+      // Remove any points at the original timestamp (within 1 second tolerance for timestamp matching)
+      const originalTs = new Date(originalTimestamp).getTime();
+      const filteredPoints = currentPoints.filter((p: any) => {
+        const pointTs = new Date(p.timestamp).getTime();
+        return Math.abs(pointTs - originalTs) > 1000; // Keep points not within 1 second of original
+      });
+      
+      // Add new point if value is provided
+      const value = parameters[vitalType as keyof typeof parameters];
+      if (value !== undefined && value !== null) {
+        const newPoint = {
+          id: randomUUID(),
+          timestamp: newTimestamp,
+          value,
+        };
+        updatedData[vitalType] = [...filteredPoints, newPoint].sort((a, b) => 
+          a.timestamp.localeCompare(b.timestamp)
+        );
+      } else {
+        updatedData[vitalType] = filteredPoints;
+      }
+    }
+    
+    // Single database update with all changes
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Delete bulk ventilation parameters at a specific timestamp
+   * Removes all ventilation parameter values at the given timestamp
+   */
+  async deleteBulkVentilationParameters(
+    anesthesiaRecordId: string,
+    timestamp: string
+  ): Promise<ClinicalSnapshot> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    const data = snapshot.data as any;
+    
+    // Parameter keys to delete
+    const vitalTypes = ['peep', 'fio2', 'tidalVolume', 'respiratoryRate', 'minuteVolume', 'etco2', 'pip'];
+    
+    // Build updated data object
+    const updatedData = { ...data };
+    
+    // For each parameter type, remove any points at the timestamp
+    const targetTs = new Date(timestamp).getTime();
+    
+    for (const vitalType of vitalTypes) {
+      const currentPoints = data[vitalType] || [];
+      
+      // Remove any points within 1 second of the target timestamp
+      updatedData[vitalType] = currentPoints.filter((p: any) => {
+        const pointTs = new Date(p.timestamp).getTime();
+        return Math.abs(pointTs - targetTs) > 1000;
+      });
     }
     
     // Single database update with all changes

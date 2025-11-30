@@ -2644,6 +2644,106 @@ router.post('/api/anesthesia/ventilation/bulk', isAuthenticated, requireWriteAcc
   }
 });
 
+// PUT - Update ventilation parameters at a specific timestamp (replace existing values)
+router.put('/api/anesthesia/ventilation/bulk', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { anesthesiaRecordId, originalTimestamp, newTimestamp, parameters } = req.body;
+
+    if (!anesthesiaRecordId || !originalTimestamp || !parameters) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+
+    const record = await storage.getAnesthesiaRecordById(anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Update the ventilation parameters at the original timestamp
+    const updatedSnapshot = await storage.updateBulkVentilationParameters(
+      anesthesiaRecordId,
+      originalTimestamp,
+      newTimestamp || originalTimestamp,
+      parameters
+    );
+    
+    broadcastAnesthesiaUpdate({
+      recordId: anesthesiaRecordId,
+      section: 'ventilation',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+    
+    res.json(updatedSnapshot);
+  } catch (error) {
+    console.error("Error updating bulk ventilation parameters:", error);
+    res.status(500).json({ message: "Failed to update bulk ventilation parameters" });
+  }
+});
+
+// DELETE - Delete all ventilation parameters at a specific timestamp
+router.delete('/api/anesthesia/ventilation/bulk', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { anesthesiaRecordId, timestamp } = req.query;
+
+    if (!anesthesiaRecordId || !timestamp) {
+      return res.status(400).json({ message: "Missing required query parameters" });
+    }
+
+    const record = await storage.getAnesthesiaRecordById(anesthesiaRecordId as string);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Delete all ventilation parameters at this timestamp
+    const updatedSnapshot = await storage.deleteBulkVentilationParameters(
+      anesthesiaRecordId as string,
+      timestamp as string
+    );
+    
+    broadcastAnesthesiaUpdate({
+      recordId: anesthesiaRecordId as string,
+      section: 'ventilation',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+    
+    res.json(updatedSnapshot);
+  } catch (error) {
+    console.error("Error deleting bulk ventilation parameters:", error);
+    res.status(500).json({ message: "Failed to delete bulk ventilation parameters" });
+  }
+});
+
 router.post('/api/anesthesia/output', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;

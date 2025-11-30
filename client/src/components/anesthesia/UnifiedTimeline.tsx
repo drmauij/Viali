@@ -8008,6 +8008,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           setEditingVentilationEntryTimestamp(null);
         }}
         readOnly={!canWrite}
+        editingTimestamp={editingVentilationEntryTimestamp}
         skipModeSelection={ventilationEntrySkipMode}
       />
 

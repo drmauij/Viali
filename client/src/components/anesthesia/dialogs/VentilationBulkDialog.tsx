@@ -31,6 +31,7 @@ interface VentilationBulkDialogProps {
   onVentilationBulkCreated?: () => void;
   readOnly?: boolean;
   skipModeSelection?: boolean; // When true, only show parameter inputs (no ventilation mode selection)
+  editingTimestamp?: number | null; // When set, indicates we're editing an existing entry at this timestamp
 }
 
 const VENTILATION_MODES = [
@@ -52,6 +53,7 @@ export function VentilationBulkDialog({
   onVentilationBulkCreated,
   readOnly = false,
   skipModeSelection = false,
+  editingTimestamp = null,
 }: VentilationBulkDialogProps) {
   const { t } = useTranslation();
   const [ventilationMode, setVentilationMode] = useState("PCV - druckkontrolliert");
@@ -127,6 +129,8 @@ export function VentilationBulkDialog({
     }
   }, [open, patientWeight, pendingVentilationBulk]);
 
+  const isEditing = editingTimestamp !== null;
+  
   const handleSave = async () => {
     if (readOnly) return;
     if (!anesthesiaRecordId) return;
@@ -160,15 +164,26 @@ export function VentilationBulkDialog({
         }
       }
       
-      // Single API call to save everything atomically
-      const requestData = {
-        anesthesiaRecordId,
-        timestamp,
-        ventilationMode: modeValue,
-        parameters,
-      };
-      console.log('[VENTILATION-BULK] Sending request:', requestData);
-      await apiRequest('POST', '/api/anesthesia/ventilation/bulk', requestData);
+      // When editing, use PUT with originalTimestamp to update; otherwise POST to create
+      if (isEditing) {
+        const requestData = {
+          anesthesiaRecordId,
+          originalTimestamp: new Date(editingTimestamp).toISOString(),
+          newTimestamp: timestamp,
+          parameters,
+        };
+        console.log('[VENTILATION-BULK] Updating existing entry:', requestData);
+        await apiRequest('PUT', '/api/anesthesia/ventilation/bulk', requestData);
+      } else {
+        const requestData = {
+          anesthesiaRecordId,
+          timestamp,
+          ventilationMode: modeValue,
+          parameters,
+        };
+        console.log('[VENTILATION-BULK] Creating new entry:', requestData);
+        await apiRequest('POST', '/api/anesthesia/ventilation/bulk', requestData);
+      }
       
       // Manually invalidate the cache once at the end to prevent flickering
       await queryClient.invalidateQueries({ 
@@ -179,6 +194,27 @@ export function VentilationBulkDialog({
       handleClose();
     } catch (error) {
       console.error('[VENTILATION-BULK] Error saving bulk entry:', error);
+    }
+  };
+  
+  const handleDelete = async () => {
+    if (readOnly) return;
+    if (!anesthesiaRecordId || !editingTimestamp) return;
+    
+    try {
+      const timestamp = new Date(editingTimestamp).toISOString();
+      console.log('[VENTILATION-BULK] Deleting entry at:', timestamp);
+      await apiRequest('DELETE', `/api/anesthesia/ventilation/bulk?anesthesiaRecordId=${anesthesiaRecordId}&timestamp=${encodeURIComponent(timestamp)}`);
+      
+      // Invalidate cache
+      await queryClient.invalidateQueries({ 
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`] 
+      });
+      
+      onVentilationBulkCreated?.();
+      handleClose();
+    } catch (error) {
+      console.error('[VENTILATION-BULK] Error deleting entry:', error);
     }
   };
 
@@ -451,10 +487,11 @@ export function VentilationBulkDialog({
         <DialogFooterWithTime
           time={dialogTime}
           onTimeChange={setDialogTime}
-          showDelete={false}
+          showDelete={isEditing}
+          onDelete={handleDelete}
           onCancel={handleClose}
           onSave={handleSave}
-          saveLabel={skipModeSelection ? t('anesthesia.timeline.save') : t('anesthesia.timeline.addAll')}
+          saveLabel={isEditing ? t('common.save', 'Save') : (skipModeSelection ? t('anesthesia.timeline.save') : t('anesthesia.timeline.addAll'))}
           saveDisabled={readOnly}
         />
       </DialogContent>
