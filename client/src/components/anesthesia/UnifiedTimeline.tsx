@@ -6053,7 +6053,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       {/* VentilationEntryLane - Interactive layer with vertical lines for parameter entry */}
       {(() => {
         const entryLane = swimlanePositions.find(l => l.id === "ventilation-entry");
-        if (!entryLane || !xScale || !contentBounds) return null;
+        if (!entryLane || !contentBounds) return null;
         
         return (
           <div
@@ -6079,8 +6079,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               const rect = e.currentTarget.getBoundingClientRect();
               const clickX = e.clientX - rect.left;
               const chartWidth = rect.width;
-              const timeRange = contentBounds.maxTime - contentBounds.minTime;
-              const clickedTime = contentBounds.minTime + (clickX / chartWidth) * timeRange;
+              const timeRange = contentBounds.end - contentBounds.start;
+              const clickedTime = contentBounds.start + (clickX / chartWidth) * timeRange;
               
               // Check if clicked near an existing marker (within 2 minutes = 120000ms)
               const CLICK_THRESHOLD = 120000;
@@ -6111,7 +6111,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 existingParams.peep = findValue(ventilationData.peep, nearbyTimestamp);
                 existingParams.tidalVolume = findValue(ventilationData.tidalVolume, nearbyTimestamp);
                 existingParams.respiratoryRate = findValue(ventilationData.respiratoryRate, nearbyTimestamp);
-                existingParams.fio2 = findValue(ventilationData.fio2, nearbyTimestamp);
+                existingParams.fio2 = findValue(ventilationData.fiO2, nearbyTimestamp);
                 existingParams.etco2 = findValue(ventilationData.etCO2, nearbyTimestamp);
                 
                 setEditingVentilationEntryTimestamp(nearbyTimestamp);
@@ -6130,8 +6130,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           >
             {/* Render vertical lines at each ventilation timestamp */}
             {ventilationEntryTimestamps.map((timestamp) => {
-              const chartWidth = contentBounds ? (contentBounds.maxTime - contentBounds.minTime) : 1;
-              const leftPercent = ((timestamp - (contentBounds?.minTime || 0)) / chartWidth) * 100;
+              const chartWidth = contentBounds ? (contentBounds.end - contentBounds.start) : 1;
+              const leftPercent = ((timestamp - (contentBounds?.start || 0)) / chartWidth) * 100;
               
               // Skip if outside visible range
               if (leftPercent < 0 || leftPercent > 100) return null;
@@ -6176,7 +6176,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                     existingParams.peep = findValue(ventilationData.peep, timestamp);
                     existingParams.tidalVolume = findValue(ventilationData.tidalVolume, timestamp);
                     existingParams.respiratoryRate = findValue(ventilationData.respiratoryRate, timestamp);
-                    existingParams.fio2 = findValue(ventilationData.fio2, timestamp);
+                    existingParams.fio2 = findValue(ventilationData.fiO2, timestamp);
                     existingParams.etco2 = findValue(ventilationData.etCO2, timestamp);
                     
                     setEditingVentilationEntryTimestamp(timestamp);
