@@ -609,6 +609,119 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // Medications and events: always 1 minute
   const [currentVitalsSnapInterval, setCurrentVitalsSnapInterval] = useState<number>(1 * 60 * 1000);
   const [currentDrugSnapInterval] = useState<number>(1 * 60 * 1000); // Always 1 minute
+
+  // Determine if this is a historical (completed/past) record
+  // Historical records: caseStatus is closed/amended OR anesthesia presence end marker (A2) is set
+  const isHistoricalRecord = useMemo(() => {
+    // Check caseStatus
+    if (anesthesiaRecord?.caseStatus === 'closed' || anesthesiaRecord?.caseStatus === 'amended') {
+      return true;
+    }
+    
+    // Check if anesthesia presence end marker (A2) has a time set
+    const timeMarkersArray = anesthesiaRecord?.timeMarkers;
+    if (Array.isArray(timeMarkersArray)) {
+      const a2Marker = timeMarkersArray.find((m: any) => m.code === 'A2');
+      if (a2Marker?.time) {
+        return true;
+      }
+    }
+    
+    return false;
+  }, [anesthesiaRecord?.caseStatus, anesthesiaRecord?.timeMarkers]);
+
+  // Compute content bounds from all data sources for smart viewport positioning
+  // Uses synchronous data from props and derived infusion sessions
+  const contentBounds = useMemo(() => {
+    const timestamps: number[] = [];
+    
+    // Collect timestamps from vitals (synchronous prop data)
+    // VitalPoint is [timestamp, value] tuple
+    if (data.vitals?.hr) {
+      data.vitals.hr.forEach((p: VitalPoint) => timestamps.push(p[0]));
+    }
+    if (data.vitals?.sysBP) {
+      data.vitals.sysBP.forEach((p: VitalPoint) => timestamps.push(p[0]));
+    }
+    if (data.vitals?.diaBP) {
+      data.vitals.diaBP.forEach((p: VitalPoint) => timestamps.push(p[0]));
+    }
+    if (data.vitals?.spo2) {
+      data.vitals.spo2.forEach((p: VitalPoint) => timestamps.push(p[0]));
+    }
+    
+    // Collect timestamps from medications
+    if (data.medications) {
+      data.medications.forEach((m: any) => {
+        if (m.timestamp) timestamps.push(new Date(m.timestamp).getTime());
+        if (m.endTimestamp) timestamps.push(new Date(m.endTimestamp).getTime());
+      });
+    }
+    
+    // Collect timestamps from rate infusion sessions (derived from medications)
+    Object.values(rateInfusionSessions).forEach(sessions => {
+      if (Array.isArray(sessions)) {
+        sessions.forEach(session => {
+          if (session.startTime) timestamps.push(session.startTime);
+          if (session.endTime) timestamps.push(session.endTime);
+          // Include all segment boundaries
+          if (session.segments && session.segments.length > 0) {
+            session.segments.forEach((seg, i) => {
+              if (seg.startTime) timestamps.push(seg.startTime);
+              // Infer segment end from next segment start or session end
+              if (i < session.segments.length - 1) {
+                const nextSeg = session.segments[i + 1];
+                if (nextSeg?.startTime) timestamps.push(nextSeg.startTime);
+              } else if (session.endTime) {
+                timestamps.push(session.endTime);
+              }
+            });
+          }
+        });
+      }
+    });
+    
+    // Collect timestamps from free-flow infusion sessions
+    Object.values(freeFlowSessions).forEach(sessions => {
+      if (Array.isArray(sessions)) {
+        sessions.forEach(session => {
+          if (session.startTime) timestamps.push(session.startTime);
+          if (session.endTime) timestamps.push(session.endTime);
+        });
+      }
+    });
+    
+    // Collect timestamps from events (uses 'time' field, not 'timestamp')
+    if (data.events) {
+      data.events.forEach((e: TimelineEvent) => {
+        if (e.time) timestamps.push(e.time);
+      });
+    }
+    
+    // Collect timestamps from time markers
+    const timeMarkersArray = anesthesiaRecord?.timeMarkers;
+    if (Array.isArray(timeMarkersArray)) {
+      timeMarkersArray.forEach((m: any) => {
+        if (m.time) timestamps.push(m.time);
+      });
+    }
+    
+    if (timestamps.length === 0) {
+      return null; // No content, use default behavior
+    }
+    
+    const minTime = Math.min(...timestamps);
+    const maxTime = Math.max(...timestamps);
+    
+    // Add padding: 15 minutes before first data, 15 minutes after last data
+    const padding = 15 * 60 * 1000;
+    
+    // Clamp to valid data range to avoid ECharts clamping issues
+    return {
+      start: Math.max(data.startTime, minTime - padding),
+      end: Math.min(data.endTime, maxTime + padding),
+    };
+  }, [data.vitals, data.medications, data.events, anesthesiaRecord?.timeMarkers, rateInfusionSessions, freeFlowSessions, data.startTime, data.endTime]);
   
   // State to trigger graphics regeneration on scroll/zoom
   const [graphicsRevision, setGraphicsRevision] = useState<number>(0);
@@ -2211,35 +2324,105 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     hasSetInitialZoomRef.current = false;
   }, [anesthesiaRecordId]);
 
-  // Handle chart ready - set initial zoom to 60-minute window with NOW positioned left
+  // Handle chart ready - set initial zoom based on record type
+  // Historical records: center on content range
+  // Active records: center on NOW (current time)
   const handleChartReady = (chart: any) => {
     // Mark chart as ready for image export
     setIsChartReady(true);
     
     if (hasSetInitialZoomRef.current) return;
 
-    const currentTime = now || data.endTime;
-    const fifteenMinutes = 15 * 60 * 1000;
-    const fortyFiveMinutes = 45 * 60 * 1000;
-    const initialStartTime = currentTime - fifteenMinutes;  // 15min before NOW
-    const initialEndTime = currentTime + fortyFiveMinutes;  // 45min after NOW
+    let initialStartTime: number;
+    let initialEndTime: number;
+    
+    // For historical records with data, center on the content
+    if (isHistoricalRecord && contentBounds) {
+      initialStartTime = contentBounds.start;
+      initialEndTime = contentBounds.end;
+      console.log('[TIMELINE-INIT] Historical record - centering on content bounds:', {
+        start: new Date(initialStartTime).toISOString(),
+        end: new Date(initialEndTime).toISOString(),
+      });
+    } else {
+      // For active records, center on NOW with 15min before and 45min after
+      const currentTime = now || data.endTime;
+      const fifteenMinutes = 15 * 60 * 1000;
+      const fortyFiveMinutes = 45 * 60 * 1000;
+      initialStartTime = currentTime - fifteenMinutes;
+      initialEndTime = currentTime + fortyFiveMinutes;
+      console.log('[TIMELINE-INIT] Active record - centering on NOW:', {
+        now: new Date(currentTime).toISOString(),
+      });
+    }
     
     const startPercent = ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100;
     const endPercent = ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100;
     
+    // Clamp to valid range (0-100)
+    const clampedStart = Math.max(0, Math.min(100, startPercent));
+    const clampedEnd = Math.max(0, Math.min(100, endPercent));
+    
     // Set zoom state first so useMemo picks it up
-    setZoomPercent({ start: startPercent, end: endPercent });
+    setZoomPercent({ start: clampedStart, end: clampedEnd });
     
     // Then set in chart
     chart.setOption({
       dataZoom: [{
-        start: startPercent,
-        end: endPercent,
+        start: clampedStart,
+        end: clampedEnd,
       }]
     });
     
     hasSetInitialZoomRef.current = true;
   };
+
+  // Re-center chart when contentBounds changes for historical records
+  // This handles the case where data arrives after initial mount
+  // Uses a stable hash of content bounds to detect meaningful changes
+  const lastAppliedBoundsRef = useRef<string | null>(null);
+  
+  useEffect(() => {
+    // Only apply for historical records with content
+    if (!isHistoricalRecord || !contentBounds) return;
+    
+    const chart = chartRef.current?.getEchartsInstance();
+    if (!chart) return;
+    
+    // Create a hash of current bounds to detect changes
+    const boundsHash = `${contentBounds.start}-${contentBounds.end}`;
+    
+    // Skip if we already applied these exact bounds
+    if (lastAppliedBoundsRef.current === boundsHash) return;
+    
+    const startPercent = ((contentBounds.start - data.startTime) / (data.endTime - data.startTime)) * 100;
+    const endPercent = ((contentBounds.end - data.startTime) / (data.endTime - data.startTime)) * 100;
+    
+    const clampedStart = Math.max(0, Math.min(100, startPercent));
+    const clampedEnd = Math.max(0, Math.min(100, endPercent));
+    
+    console.log('[TIMELINE-RECENTER] Applying content bounds for historical record:', {
+      start: new Date(contentBounds.start).toISOString(),
+      end: new Date(contentBounds.end).toISOString(),
+    });
+    
+    setZoomPercent({ start: clampedStart, end: clampedEnd });
+    chart.setOption({
+      dataZoom: [{
+        start: clampedStart,
+        end: clampedEnd,
+      }]
+    });
+    
+    lastAppliedBoundsRef.current = boundsHash;
+    // Also update the initial zoom ref so handleChartReady doesn't override
+    hasSetInitialZoomRef.current = true;
+  }, [isHistoricalRecord, contentBounds, data.startTime, data.endTime]);
+  
+  // Reset the applied bounds when switching records
+  useEffect(() => {
+    lastAppliedBoundsRef.current = null;
+  }, [anesthesiaRecordId]);
 
   // Update dataZoom xAxisIndex when swimlane structure changes
   useEffect(() => {
@@ -5648,19 +5831,21 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         })}
       </div>
 
-      {/* NOW line - Current time indicator */}
-      <div
-        className="absolute z-40 pointer-events-none"
-        style={{
-          left: nowLinePosition,
-          top: '32px', // VITALS_TOP position
-          width: '2px',
-          height: `${backgroundsHeight - 32}px`,
-          backgroundColor: isDark ? '#ef4444' : '#dc2626',
-          transition: nowLineTransitionsEnabled ? 'left 0.3s ease-out' : 'none',
-        }}
-        data-testid="now-line-indicator"
-      />
+      {/* NOW line - Current time indicator (hidden for historical records) */}
+      {!isHistoricalRecord && (
+        <div
+          className="absolute z-40 pointer-events-none"
+          style={{
+            left: nowLinePosition,
+            top: '32px', // VITALS_TOP position
+            width: '2px',
+            height: `${backgroundsHeight - 32}px`,
+            backgroundColor: isDark ? '#ef4444' : '#dc2626',
+            transition: nowLineTransitionsEnabled ? 'left 0.3s ease-out' : 'none',
+          }}
+          data-testid="now-line-indicator"
+        />
+      )}
 
 
 
