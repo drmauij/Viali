@@ -717,10 +717,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const padding = 15 * 60 * 1000;
     
     // Clamp to valid data range to avoid ECharts clamping issues
-    return {
-      start: Math.max(data.startTime, minTime - padding),
-      end: Math.min(data.endTime, maxTime + padding),
-    };
+    let start = Math.max(data.startTime, minTime - padding);
+    let end = Math.min(data.endTime, maxTime + padding);
+    
+    // Ensure start <= end (defensive - should not happen with valid data)
+    if (start > end) {
+      [start, end] = [end, start];
+    }
+    
+    return { start, end };
   }, [data.vitals, data.medications, data.events, anesthesiaRecord?.timeMarkers, rateInfusionSessions, freeFlowSessions, data.startTime, data.endTime]);
   
   // State to trigger graphics regeneration on scroll/zoom
@@ -2335,15 +2340,26 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
     let initialStartTime: number;
     let initialEndTime: number;
+    let usedRealContentBounds = false;
     
     // For historical records with data, center on the content
     if (isHistoricalRecord && contentBounds) {
       initialStartTime = contentBounds.start;
       initialEndTime = contentBounds.end;
+      usedRealContentBounds = true;
       console.log('[TIMELINE-INIT] Historical record - centering on content bounds:', {
         start: new Date(initialStartTime).toISOString(),
         end: new Date(initialEndTime).toISOString(),
       });
+    } else if (isHistoricalRecord && !contentBounds) {
+      // Historical record but no content bounds yet - use temporary fallback
+      // Don't set hasSetInitialZoomRef so re-centering effect can apply real bounds later
+      const currentTime = now || data.endTime;
+      const fifteenMinutes = 15 * 60 * 1000;
+      const fortyFiveMinutes = 45 * 60 * 1000;
+      initialStartTime = currentTime - fifteenMinutes;
+      initialEndTime = currentTime + fortyFiveMinutes;
+      console.log('[TIMELINE-INIT] Historical record - temporary fallback (awaiting content bounds)');
     } else {
       // For active records, center on NOW with 15min before and 45min after
       const currentTime = now || data.endTime;
@@ -2359,9 +2375,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const startPercent = ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100;
     const endPercent = ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100;
     
-    // Clamp to valid range (0-100)
-    const clampedStart = Math.max(0, Math.min(100, startPercent));
-    const clampedEnd = Math.max(0, Math.min(100, endPercent));
+    // Clamp to valid range (0-100) and ensure start <= end
+    let clampedStart = Math.max(0, Math.min(100, startPercent));
+    let clampedEnd = Math.max(0, Math.min(100, endPercent));
+    if (clampedStart > clampedEnd) {
+      [clampedStart, clampedEnd] = [clampedEnd, clampedStart];
+    }
     
     // Set zoom state first so useMemo picks it up
     setZoomPercent({ start: clampedStart, end: clampedEnd });
@@ -2374,7 +2393,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       }]
     });
     
-    hasSetInitialZoomRef.current = true;
+    // Only mark as set if we used real content bounds or it's an active record
+    // For historical records without bounds, allow re-centering effect to apply later
+    if (usedRealContentBounds || !isHistoricalRecord) {
+      hasSetInitialZoomRef.current = true;
+    }
   };
 
   // Re-center chart when contentBounds changes for historical records
@@ -2398,8 +2421,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const startPercent = ((contentBounds.start - data.startTime) / (data.endTime - data.startTime)) * 100;
     const endPercent = ((contentBounds.end - data.startTime) / (data.endTime - data.startTime)) * 100;
     
-    const clampedStart = Math.max(0, Math.min(100, startPercent));
-    const clampedEnd = Math.max(0, Math.min(100, endPercent));
+    // Clamp to valid range and ensure start <= end
+    let clampedStart = Math.max(0, Math.min(100, startPercent));
+    let clampedEnd = Math.max(0, Math.min(100, endPercent));
+    if (clampedStart > clampedEnd) {
+      [clampedStart, clampedEnd] = [clampedEnd, clampedStart];
+    }
     
     console.log('[TIMELINE-RECENTER] Applying content bounds for historical record:', {
       start: new Date(contentBounds.start).toISOString(),
