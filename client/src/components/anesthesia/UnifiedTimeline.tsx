@@ -5447,6 +5447,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           } else if (swimlaneConfig?.hierarchyLevel === 'group') {
             // Level 2: Administration group headers (non-collapsible, bold, smaller)
             labelClass = "text-xs font-semibold";
+          } else if (swimlaneConfig?.hierarchyLevel === 'entry') {
+            // Entry lane (e.g., Vent. Params) - bold, smaller text
+            labelClass = "text-xs font-semibold";
           } else if (swimlaneConfig?.hierarchyLevel === 'item' || isVentChild || isOutputChild || isStaffChild || isOthersChild) {
             // Level 3: Individual items (non-collapsible, not bold, smaller)
             labelClass = "text-xs";
