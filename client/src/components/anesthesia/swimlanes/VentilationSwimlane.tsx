@@ -64,7 +64,7 @@ interface VentilationSwimlaneProps {
   onVentilationDialogOpen: (pending: { paramKey: keyof VentilationData; time: number; label: string }) => void;
   onVentilationEditDialogOpen: (editing: { paramKey: keyof VentilationData; time: number; value: string; index: number; label: string; id: string }) => void;
   onVentilationModeEditDialogOpen: (editing: { time: number; mode: string; index: number; id: string }) => void;
-  onVentilationBulkDialogOpen: (pending: { time: number }) => void;
+  onVentilationModeAddDialogOpen: (pending: { time: number }) => void;
   clinicalSnapshot?: any;
 }
 
@@ -74,7 +74,7 @@ export function VentilationSwimlane({
   onVentilationDialogOpen,
   onVentilationEditDialogOpen,
   onVentilationModeEditDialogOpen,
-  onVentilationBulkDialogOpen,
+  onVentilationModeAddDialogOpen,
   clinicalSnapshot,
 }: VentilationSwimlaneProps) {
   const {
@@ -103,7 +103,7 @@ export function VentilationSwimlane({
     label: string;
   } | null>(null);
 
-  const [ventilationBulkHoverInfo, setVentilationBulkHoverInfo] = useState<{
+  const [ventilationModeHoverInfo, setVentilationModeHoverInfo] = useState<{
     x: number;
     y: number;
     time: number;
@@ -119,7 +119,7 @@ export function VentilationSwimlane({
 
   return (
     <>
-      {/* Interactive layer for ventilation parent swimlane - bulk entry */}
+      {/* Interactive layer for ventilation parent swimlane - mode selection */}
       {!activeToolMode && ventilationParentLane && !collapsedSwimlanes.has('ventilation') && (
         <div
           className="absolute cursor-pointer hover:bg-primary/5 transition-colors"
@@ -139,16 +139,16 @@ export function VentilationSwimlane({
             const xPercent = x / rect.width;
             let time = visibleStart + (xPercent * visibleRange);
 
-            // Snap to zoom-dependent interval for ventilation parameters
+            // Snap to zoom-dependent interval
             time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
 
-            setVentilationBulkHoverInfo({
+            setVentilationModeHoverInfo({
               x: e.clientX,
               y: e.clientY,
               time
             });
           }}
-          onMouseLeave={() => setVentilationBulkHoverInfo(null)}
+          onMouseLeave={() => setVentilationModeHoverInfo(null)}
           onClick={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             const x = e.clientX - rect.left;
@@ -156,29 +156,29 @@ export function VentilationSwimlane({
             const xPercent = x / rect.width;
             let time = visibleStart + (xPercent * visibleRange);
 
-            // Snap to zoom-dependent interval for ventilation parameters
+            // Snap to zoom-dependent interval
             time = Math.round(time / currentVitalsSnapInterval) * currentVitalsSnapInterval;
 
-            onVentilationBulkDialogOpen({ time });
+            onVentilationModeAddDialogOpen({ time });
           }}
-          data-testid="interactive-ventilation-bulk-lane"
+          data-testid="interactive-ventilation-mode-lane"
         />
       )}
 
-      {/* Tooltip for ventilation bulk entry */}
-      {ventilationBulkHoverInfo && !isTouchDevice && (
+      {/* Tooltip for ventilation mode selection */}
+      {ventilationModeHoverInfo && !isTouchDevice && (
         <div
           className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
           style={{
-            left: ventilationBulkHoverInfo.x + 10,
-            top: ventilationBulkHoverInfo.y - 40,
+            left: ventilationModeHoverInfo.x + 10,
+            top: ventilationModeHoverInfo.y - 40,
           }}
         >
           <div className="text-sm font-semibold text-primary">
-            Click for bulk entry
+            Click to add mode
           </div>
           <div className="text-xs text-muted-foreground">
-            {formatTime(ventilationBulkHoverInfo.time)}
+            {formatTime(ventilationModeHoverInfo.time)}
           </div>
         </div>
       )}

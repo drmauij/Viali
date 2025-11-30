@@ -7,7 +7,7 @@ interface DialogFooterWithTimeProps {
   onTimeChange?: (newTime: number) => void;
   onDelete?: () => void;
   onCancel: () => void;
-  onSave: () => void;
+  onSave?: () => void;
   showDelete?: boolean;
   saveDisabled?: boolean;
   saveLabel?: string;
@@ -51,16 +51,18 @@ export function DialogFooterWithTime({
             <Trash2 className="w-4 h-4" />
           </Button>
         )}
-        <Button
-          onClick={() => {
-            console.log('[BUTTON] Save button clicked in DialogFooterWithTime');
-            onSave();
-          }}
-          data-testid="button-save"
-          disabled={saveDisabled}
-        >
-          {saveLabel}
-        </Button>
+        {onSave && (
+          <Button
+            onClick={() => {
+              console.log('[BUTTON] Save button clicked in DialogFooterWithTime');
+              onSave();
+            }}
+            data-testid="button-save"
+            disabled={saveDisabled}
+          >
+            {saveLabel}
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -41,6 +41,7 @@ import { MedicationEditDialog } from "./dialogs/MedicationEditDialog";
 import { VentilationDialog } from "./dialogs/VentilationDialog";
 import { VentilationEditDialog } from "./dialogs/VentilationEditDialog";
 import { VentilationModeEditDialog } from "./dialogs/VentilationModeEditDialog";
+import { VentilationModeAddDialog } from "./dialogs/VentilationModeAddDialog";
 import { VentilationBulkDialog } from "./dialogs/VentilationBulkDialog";
 import { OutputDialog } from "./dialogs/OutputDialog";
 import { OutputEditDialog } from "./dialogs/OutputEditDialog";
@@ -1339,6 +1340,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // State for ventilation mode edit dialog
   const [showVentilationModeEditDialog, setShowVentilationModeEditDialog] = useState(false);
   const [editingVentilationMode, setEditingVentilationMode] = useState<{ time: number; mode: string; index: number; id: string } | null>(null);
+
+  // State for ventilation mode add dialog
+  const [showVentilationModeAddDialog, setShowVentilationModeAddDialog] = useState(false);
+  const [pendingVentilationMode, setPendingVentilationMode] = useState<{ time: number } | null>(null);
 
   // State for ventilation bulk entry dialog
   const [showVentilationBulkDialog, setShowVentilationBulkDialog] = useState(false);
@@ -5914,9 +5919,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           setEditingVentilationMode(editing);
           setShowVentilationModeEditDialog(true);
         }}
-        onVentilationBulkDialogOpen={(pending) => {
-          setPendingVentilationBulk(pending);
-          setShowVentilationBulkDialog(true);
+        onVentilationModeAddDialogOpen={(pending) => {
+          setPendingVentilationMode(pending);
+          setShowVentilationModeAddDialog(true);
         }}
         clinicalSnapshot={clinicalSnapshot}
       />
@@ -6057,7 +6062,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         
         return (
           <div
-            className="absolute pointer-events-auto"
+            className="absolute pointer-events-auto cursor-pointer hover:bg-primary/5 transition-colors"
             style={{
               left: '200px',
               right: '10px',
@@ -6065,6 +6070,20 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               height: `${entryLane.height}px`,
               zIndex: 30,
             }}
+            onMouseMove={(e) => {
+              if (isTouchDevice) return;
+              const rect = e.currentTarget.getBoundingClientRect();
+              const clickX = e.clientX - rect.left;
+              const chartWidth = rect.width;
+              const timeRange = contentBounds.end - contentBounds.start;
+              const hoveredTime = contentBounds.start + (clickX / chartWidth) * timeRange;
+              setVentilationBulkHoverInfo({
+                x: e.clientX,
+                y: e.clientY,
+                time: hoveredTime,
+              });
+            }}
+            onMouseLeave={() => setVentilationBulkHoverInfo(null)}
             onClick={(e) => {
               if (!canWrite) {
                 toast({
@@ -6192,6 +6211,24 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           </div>
         );
       })()}
+
+      {/* Tooltip for ventilation parameter bulk entry */}
+      {ventilationBulkHoverInfo && !isTouchDevice && (
+        <div
+          className="fixed z-50 pointer-events-none bg-background border border-border rounded-md shadow-lg px-3 py-2"
+          style={{
+            left: ventilationBulkHoverInfo.x + 10,
+            top: ventilationBulkHoverInfo.y - 40,
+          }}
+        >
+          <div className="text-sm font-semibold text-primary">
+            {t('anesthesia.ventilation.clickBulkEntry', 'Click for bulk entry/edit')}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {new Date(ventilationBulkHoverInfo.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+          </div>
+        </div>
+      )}
 
       {/* Tooltip for administration group configuration */}
       {adminGroupHoverInfo && !isTouchDevice && (
@@ -7787,6 +7824,19 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }}
         onVentilationModeDeleted={() => {
           setEditingVentilationMode(null);
+        }}
+        readOnly={!canWrite}
+      />
+
+      {/* Ventilation Mode Add Dialog */}
+      <VentilationModeAddDialog
+        open={showVentilationModeAddDialog}
+        onOpenChange={setShowVentilationModeAddDialog}
+        anesthesiaRecordId={anesthesiaRecordId}
+        pendingVentilationMode={pendingVentilationMode}
+        ventilationModeData={ventilationModeData}
+        onVentilationModeCreated={() => {
+          setPendingVentilationMode(null);
         }}
         readOnly={!canWrite}
       />
