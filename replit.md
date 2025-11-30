@@ -24,8 +24,9 @@ The backend follows a modular architecture for improved maintainability:
   - `inventory.ts`: Dashboard KPIs, folders CRUD, items CRUD, bulk operations - ~550 lines
   - `admin.ts`: Hospital settings, anesthesia/surgery config, surgeons, units, users CRUD - ~460 lines
   - `checklists.ts`: Checklist templates CRUD, pending checklists, completions, history - ~280 lines
+  - `anesthesia.ts`: Complete anesthesia module (100 endpoints, ~4,300 lines) including patients, cases, surgeries, records, vitals, rhythm, TOF, ventilation, medications, events, positions, staff, inventory usage, audit, billing, PACU, pre-op assessments, surgery rooms, medication/administration groups
   - `middleware.ts`: Shared middleware for auth/access checks
-  - Future modules: anesthesia.ts, orders.ts
+  - Future modules: orders.ts
 - **server/utils/**: Shared utility modules
   - `encryption.ts`: Patient data encryption (AES-256-CBC) with key derivation
   - `accessControl.ts`: User role verification, hospital access control, unit management
@@ -37,14 +38,14 @@ The backend follows a modular architecture for improved maintainability:
   - `google.ts`: Google OAuth strategy, session management, isAuthenticated middleware
 
 ### Routes Refactoring Pattern (Incremental Migration)
-The monolithic `server/routes.ts` (originally 9,000+ lines) is being incrementally migrated to domain-specific modules:
+The monolithic `server/routes.ts` (originally 9,000+ lines) has been significantly refactored into domain-specific modules:
 1. Create new router file in `server/routes/` (e.g., `inventory.ts`)
 2. Extract relevant route handlers from `routes.ts` to the new file
 3. Export as Express Router and register in `server/routes/index.ts`
 4. Remove duplicate handlers from `routes.ts`
 5. Test functionality before proceeding to next domain
 
-Current status: Auth, inventory, admin, and checklists routes migrated (~1,600 lines total). ~7,100 lines remaining in routes.ts (~21% reduction achieved).
+Current status: Auth, inventory, admin, checklists, and anesthesia routes migrated (~6,000 lines total). ~2,500 lines remaining in routes.ts (~72% reduction achieved).
 
 ### Authentication & Authorization
 Viali implements a hybrid authentication strategy (Google OAuth and local email/password) combined with robust role-based and multi-hospital authorization. A comprehensive user management system handles user creation, password changes, and hospital assignments. Data isolation between hospitals is enforced at the API layer through authorization, query parameter filtering, and resource-based authorization.
