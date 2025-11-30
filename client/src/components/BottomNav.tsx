@@ -114,15 +114,22 @@ export default function BottomNav() {
     };
   }, [activeHospital?.id]);
 
+  const canAccessClinicalDashboard = activeHospital?.isAnesthesiaModule && 
+    (activeHospital?.role === "admin" || activeHospital?.role === "doctor");
+
   const navItems: NavItem[] = useMemo(() => {
     if (activeModule === "anesthesia") {
-      return [
+      const items: NavItem[] = [
         { id: "patients", icon: "fas fa-users", label: t('bottomNav.anesthesia.patients'), path: "/anesthesia/patients" },
         { id: "preop", icon: "fas fa-clipboard-list", label: t('bottomNav.anesthesia.preop'), path: "/anesthesia/preop" },
         { id: "op", icon: "fas fa-heartbeat", label: t('bottomNav.anesthesia.op'), path: "/anesthesia/op" },
         { id: "pacu", icon: "fas fa-bed-pulse", label: t('bottomNav.anesthesia.pacu'), path: "/anesthesia/pacu" },
-        { id: "settings", icon: "fas fa-cog", label: t('bottomNav.anesthesia.settings'), path: "/anesthesia/settings" },
       ];
+      if (canAccessClinicalDashboard) {
+        items.push({ id: "clinical", icon: "fas fa-chart-line", label: t('bottomNav.anesthesia.clinical'), path: "/anesthesia/clinical" });
+      }
+      items.push({ id: "settings", icon: "fas fa-cog", label: t('bottomNav.anesthesia.settings'), path: "/anesthesia/settings" });
+      return items;
     }
     
     if (activeModule === "surgery") {
@@ -156,7 +163,7 @@ export default function BottomNav() {
       { id: "controlled", icon: "fas fa-shield-halved", label: t('bottomNav.controlled'), path: "/inventory/controlled" },
       { id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists'), path: "/inventory/checklists" },
     ];
-  }, [t, activeModule]);
+  }, [t, activeModule, canAccessClinicalDashboard]);
 
   const isActive = (path: string) => {
     if (path === "/inventory/items") {
