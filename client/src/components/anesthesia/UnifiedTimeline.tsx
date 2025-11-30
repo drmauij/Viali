@@ -5391,42 +5391,45 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       if (nextMarkerIndex !== -1) {
                         const nextMarker = timeMarkers[nextMarkerIndex];
                         
-                        // Check if trying to set PACU End (P) - must stop all infusions first
+                        // Check if trying to set PACU End (P) - auto-stop all running infusions first
                         if (nextMarker.code === 'P') {
-                          // Check for running rate-controlled infusions
-                          const runningRateInfusions: string[] = [];
+                          // Collect and auto-stop all running rate-controlled infusions
+                          const stoppedInfusions: string[] = [];
                           Object.entries(rateInfusionSessions).forEach(([swimlaneId, sessions]) => {
                             if (Array.isArray(sessions)) {
                               sessions.forEach(session => {
-                                if (session.state === 'running') {
-                                  runningRateInfusions.push(session.label || swimlaneId);
+                                if (session.state === 'running' && session.id) {
+                                  stoppedInfusions.push(session.label || swimlaneId);
+                                  updateMedication.mutate({
+                                    id: session.id,
+                                    endTimestamp: new Date(currentTime),
+                                  });
                                 }
                               });
                             }
                           });
                           
-                          // Check for running free-flow infusions
-                          const runningFreeFlowInfusions: string[] = [];
+                          // Collect and auto-stop all running free-flow infusions
                           Object.entries(freeFlowSessions).forEach(([swimlaneId, sessions]) => {
                             if (Array.isArray(sessions)) {
                               sessions.forEach(session => {
-                                if (!session.endTime) {
-                                  runningFreeFlowInfusions.push(swimlaneId);
+                                if (!session.endTime && session.id) {
+                                  stoppedInfusions.push(swimlaneId);
+                                  updateMedication.mutate({
+                                    id: session.id,
+                                    endTimestamp: new Date(currentTime),
+                                  });
                                 }
                               });
                             }
                           });
                           
-                          const allRunningInfusions = [...runningRateInfusions, ...runningFreeFlowInfusions];
-                          
-                          if (allRunningInfusions.length > 0) {
-                            console.log('[P_CHECK] Blocking PACU End - running infusions exist:', allRunningInfusions);
+                          if (stoppedInfusions.length > 0) {
+                            console.log('[P_CHECK] Auto-stopped running infusions:', stoppedInfusions);
                             toast({
-                              title: t('anesthesia.pacuEnd.cannotSetTitle', 'Cannot set PACU End'),
-                              description: t('anesthesia.pacuEnd.stopInfusionsFirst', 'Please stop all running infusions before marking PACU End: {{infusions}}', { infusions: allRunningInfusions.slice(0, 3).join(', ') + (allRunningInfusions.length > 3 ? '...' : '') }),
-                              variant: "destructive",
+                              title: t('anesthesia.pacuEnd.infusionsStopped', 'Infusions stopped'),
+                              description: t('anesthesia.pacuEnd.autoStoppedInfusions', '{{count}} running infusion(s) automatically stopped', { count: stoppedInfusions.length }),
                             });
-                            return;
                           }
                           
                           // Check for pending commits
