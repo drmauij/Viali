@@ -288,7 +288,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
   const { t } = useTranslation();
-  const canWrite = useCanWrite();
+  const canWriteBase = useCanWrite();
+  
+  // Extract lock status from anesthesia record
+  const isRecordLocked = anesthesiaRecord?.isLocked ?? false;
+  
+  // Effective canWrite: user must have write permission AND record must not be locked
+  // When record is locked, editing is blocked until explicitly unlocked
+  const canWrite = canWriteBase && !isRecordLocked;
 
   // Expose chart image export function
   useImperativeHandle(ref, () => ({
@@ -553,9 +560,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // State for unlock dialog
   const [showUnlockDialog, setShowUnlockDialog] = useState(false);
   const [unlockReason, setUnlockReason] = useState('');
-  
-  // Extract lock status from anesthesia record
-  const isRecordLocked = anesthesiaRecord?.isLocked ?? false;
   
   // State for medication reorder mode
   const [isReorderMode, setIsReorderMode] = useState(false);
