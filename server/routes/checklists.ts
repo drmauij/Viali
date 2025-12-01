@@ -288,7 +288,12 @@ router.get('/api/checklists/history/:hospitalId', isAuthenticated, async (req: a
       )
     );
     
-    const completions = allCompletions.flat().sort((a, b) => 
+    const completionsMap = new Map();
+    allCompletions.flat().forEach(completion => {
+      completionsMap.set(completion.id, completion);
+    });
+    
+    const completions = Array.from(completionsMap.values()).sort((a, b) => 
       new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime()
     );
     
