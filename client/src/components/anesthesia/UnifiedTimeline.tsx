@@ -815,11 +815,20 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
     
     if (timestamps.length === 0) {
+      console.log('[CONTENT-BOUNDS] No timestamps found, returning null');
       return null; // No content, use default behavior
     }
     
     const minTime = Math.min(...timestamps);
     const maxTime = Math.max(...timestamps);
+    
+    console.log('[CONTENT-BOUNDS] Calculating:', {
+      timestampCount: timestamps.length,
+      minTime: new Date(minTime).toISOString(),
+      maxTime: new Date(maxTime).toISOString(),
+      dataStartTime: data.startTime,
+      dataEndTime: data.endTime
+    });
     
     // Add padding: 15 minutes before first data, 15 minutes after last data
     const padding = 15 * 60 * 1000;
@@ -827,6 +836,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // Clamp to valid data range to avoid ECharts clamping issues
     let start = Math.max(data.startTime, minTime - padding);
     let end = Math.min(data.endTime, maxTime + padding);
+    
+    console.log('[CONTENT-BOUNDS] Result:', {
+      start: isFinite(start) ? new Date(start).toISOString() : start,
+      end: isFinite(end) ? new Date(end).toISOString() : end
+    });
     
     // Ensure start <= end (defensive - should not happen with valid data)
     if (start > end) {
