@@ -716,8 +716,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const timeMarkersArray = anesthesiaRecord?.timeMarkers;
     if (Array.isArray(timeMarkersArray)) {
       const a2Marker = timeMarkersArray.find((m: any) => m.code === 'A2');
-      if (a2Marker?.time) {
-        console.log('[HISTORICAL-CHECK] Detected as historical: A2 marker set at', new Date(a2Marker.time).toISOString());
+      if (a2Marker?.time && isFinite(a2Marker.time)) {
+        console.log('[HISTORICAL-CHECK] Detected as historical: A2 marker set at', a2Marker.time);
         return true;
       }
     }
@@ -725,15 +725,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // Fallback: If the data.endTime is more than 1 hour in the past, treat as historical
     // This helps with records that were ended but not properly marked
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
-    if (data.endTime < oneHourAgo) {
-      console.log('[HISTORICAL-CHECK] Detected as historical: data.endTime =', new Date(data.endTime).toISOString(), 'is more than 1 hour old');
+    if (isFinite(data.endTime) && data.endTime < oneHourAgo) {
+      console.log('[HISTORICAL-CHECK] Detected as historical: data.endTime =', data.endTime, 'is more than 1 hour old');
       return true;
     }
     
     console.log('[HISTORICAL-CHECK] Not historical. caseStatus:', anesthesiaRecord?.caseStatus, 
       'isLocked:', anesthesiaRecord?.isLocked,
       'A2 marker:', timeMarkersArray?.find((m: any) => m.code === 'A2'),
-      'data.endTime:', new Date(data.endTime).toISOString(),
+      'data.endTime:', data.endTime,
       'data.isHistoricalData:', data.isHistoricalData);
     return false;
   }, [anesthesiaRecord?.caseStatus, anesthesiaRecord?.timeMarkers, anesthesiaRecord?.isLocked, data.endTime, data.isHistoricalData]);
@@ -814,18 +814,22 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       });
     }
     
-    if (timestamps.length === 0) {
-      console.log('[CONTENT-BOUNDS] No timestamps found, returning null');
+    // Filter out invalid timestamps (NaN, null, undefined, 0)
+    const validTimestamps = timestamps.filter(t => t && isFinite(t) && t > 0);
+    
+    if (validTimestamps.length === 0) {
+      console.log('[CONTENT-BOUNDS] No valid timestamps found, returning null. Raw count:', timestamps.length);
       return null; // No content, use default behavior
     }
     
-    const minTime = Math.min(...timestamps);
-    const maxTime = Math.max(...timestamps);
+    const minTime = Math.min(...validTimestamps);
+    const maxTime = Math.max(...validTimestamps);
     
     console.log('[CONTENT-BOUNDS] Calculating:', {
-      timestampCount: timestamps.length,
-      minTime: new Date(minTime).toISOString(),
-      maxTime: new Date(maxTime).toISOString(),
+      validCount: validTimestamps.length,
+      rawCount: timestamps.length,
+      minTime: minTime,
+      maxTime: maxTime,
       dataStartTime: data.startTime,
       dataEndTime: data.endTime
     });
@@ -2608,8 +2612,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       
       usedRealContentBounds = true;
       console.log('[TIMELINE-INIT] Historical record - centering on content with 2h window:', {
-        start: new Date(initialStartTime).toISOString(),
-        end: new Date(initialEndTime).toISOString(),
+        start: initialStartTime,
+        end: initialEndTime,
         contentSpan: Math.round(contentSpan / 60000) + ' min',
       });
     } else if (isHistoricalRecord && (!contentBounds || !isFinite(contentBounds.start) || !isFinite(contentBounds.end))) {
@@ -2629,7 +2633,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       initialStartTime = currentTime - fifteenMinutes;
       initialEndTime = currentTime + fortyFiveMinutes;
       console.log('[TIMELINE-INIT] Active record - centering on NOW:', {
-        now: new Date(currentTime).toISOString(),
+        now: currentTime,
       });
     }
     
@@ -2712,8 +2716,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return;
     }
     console.log('[TIMELINE-RECENTER] Valid contentBounds detected:', {
-      start: new Date(contentBounds.start).toISOString(),
-      end: new Date(contentBounds.end).toISOString()
+      start: contentBounds.start,
+      end: contentBounds.end
     });
     
     // Create a hash of current bounds to detect changes
@@ -2783,10 +2787,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       }
       
       console.log('[TIMELINE-RECENTER] Applying 2h window for historical record:', {
-        contentStart: new Date(contentBounds.start).toISOString(),
-        contentEnd: new Date(contentBounds.end).toISOString(),
-        viewStart: new Date(viewStart).toISOString(),
-        viewEnd: new Date(viewEnd).toISOString(),
+        contentStart: contentBounds.start,
+        contentEnd: contentBounds.end,
+        viewStart: viewStart,
+        viewEnd: viewEnd,
         contentSpan: Math.round(contentSpan / 60000) + ' min',
       });
       
