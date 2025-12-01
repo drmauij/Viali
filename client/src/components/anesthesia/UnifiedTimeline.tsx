@@ -2579,24 +2579,24 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     let initialEndTime: number;
     let usedRealContentBounds = false;
     
-    // For historical records with data, show a 2-hour window centered on the content
+    // For historical records with data, show a 3-hour window centered on the content
     // This gives comfortable 30-minute tick intervals instead of showing full (potentially 6+ hour) range
     if (isHistoricalRecord && contentBounds && 
         isFinite(contentBounds.start) && isFinite(contentBounds.end) &&
         contentBounds.start > 0 && contentBounds.end > 0) {
       const contentSpan = contentBounds.end - contentBounds.start;
-      const TWO_HOURS = 2 * 60 * 60 * 1000;
+      const THREE_HOURS = 3 * 60 * 60 * 1000;
       const PADDING = 15 * 60 * 1000;
       const contentCenter = (contentBounds.start + contentBounds.end) / 2;
       
-      // If content is less than 2 hours, show it all with some padding
-      // Otherwise, show a 2-hour window centered on the content
-      if (contentSpan <= TWO_HOURS) {
+      // If content is less than 3 hours, show it all with some padding
+      // Otherwise, show a 3-hour window centered on the content
+      if (contentSpan <= THREE_HOURS) {
         initialStartTime = contentBounds.start - PADDING;
         initialEndTime = contentBounds.end + PADDING;
       } else {
-        initialStartTime = contentCenter - TWO_HOURS / 2;
-        initialEndTime = contentCenter + TWO_HOURS / 2;
+        initialStartTime = contentCenter - THREE_HOURS / 2;
+        initialEndTime = contentCenter + THREE_HOURS / 2;
       }
       
       // Clamp to data bounds and preserve window size
@@ -2747,22 +2747,22 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       }
       console.log('[TIMELINE-RECENTER] applyBounds: chart ready, applying zoom');
       
-      // Calculate a 2-hour window centered on the content instead of showing full range
+      // Calculate a 3-hour window centered on the content instead of showing full range
       // This gives comfortable 30-minute tick intervals
       const contentSpan = contentBounds.end - contentBounds.start;
-      const TWO_HOURS = 2 * 60 * 60 * 1000;
+      const THREE_HOURS = 3 * 60 * 60 * 1000;
       const PADDING = 15 * 60 * 1000;
       const contentCenter = (contentBounds.start + contentBounds.end) / 2;
       
       let viewStart: number;
       let viewEnd: number;
       
-      if (contentSpan <= TWO_HOURS) {
+      if (contentSpan <= THREE_HOURS) {
         viewStart = contentBounds.start - PADDING;
         viewEnd = contentBounds.end + PADDING;
       } else {
-        viewStart = contentCenter - TWO_HOURS / 2;
-        viewEnd = contentCenter + TWO_HOURS / 2;
+        viewStart = contentCenter - THREE_HOURS / 2;
+        viewEnd = contentCenter + THREE_HOURS / 2;
       }
       
       // Clamp to data bounds and preserve window size
