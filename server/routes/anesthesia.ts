@@ -1118,7 +1118,10 @@ router.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requir
           previousA2HasTime,
           newA2HasTime,
           previousA2Time: previousA2?.time,
-          newA2Time: newA2?.time
+          newA2Time: newA2?.time,
+          previousA2Raw: JSON.stringify(previousA2),
+          newA2Raw: JSON.stringify(newA2),
+          currentIsLocked: record.isLocked,
         });
         
         // Only change lock status if A2 status is actually changing
@@ -1126,14 +1129,21 @@ router.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requir
           // A2 is being set for the first time - lock the record
           updateData.isLocked = true;
           updateData.lockedAt = new Date();
-          console.log(`[TIME-MARKERS] A2 marker set for record ${id} - locking record`);
+          console.log(`[TIME-MARKERS] A2 marker set for record ${id} - LOCKING record`);
         } else if (!newA2HasTime && previousA2HasTime) {
           // A2 is being explicitly cleared (time set to null/empty) - unlock the record
           updateData.isLocked = false;
           updateData.lockedAt = null;
-          console.log(`[TIME-MARKERS] A2 marker cleared for record ${id} - unlocking record`);
+          console.log(`[TIME-MARKERS] A2 marker cleared for record ${id} - UNLOCKING record`);
+        } else {
+          // A2 status unchanged - no lock change
+          console.log(`[TIME-MARKERS] A2 marker status unchanged for record ${id} - no lock change (both have time: ${newA2HasTime && previousA2HasTime}, both empty: ${!newA2HasTime && !previousA2HasTime})`);
         }
-        // If A2 status is unchanged (both have time or both don't), don't change lock status
+        // Log the final update data
+        console.log(`[TIME-MARKERS] Update data for record ${id}:`, {
+          willUpdateIsLocked: 'isLocked' in updateData,
+          newIsLocked: updateData.isLocked,
+        });
       }
       // If A2 is not in the new array at all, don't change lock status (partial update)
     }

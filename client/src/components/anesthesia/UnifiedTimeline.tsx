@@ -2561,16 +2561,42 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     let initialEndTime: number;
     let usedRealContentBounds = false;
     
-    // For historical records with data, center on the content
+    // For historical records with data, show a 2-hour window centered on the content
+    // This gives comfortable 30-minute tick intervals instead of showing full (potentially 6+ hour) range
     if (isHistoricalRecord && contentBounds && 
         isFinite(contentBounds.start) && isFinite(contentBounds.end) &&
         contentBounds.start > 0 && contentBounds.end > 0) {
-      initialStartTime = contentBounds.start;
-      initialEndTime = contentBounds.end;
+      const contentSpan = contentBounds.end - contentBounds.start;
+      const TWO_HOURS = 2 * 60 * 60 * 1000;
+      const PADDING = 15 * 60 * 1000;
+      const contentCenter = (contentBounds.start + contentBounds.end) / 2;
+      
+      // If content is less than 2 hours, show it all with some padding
+      // Otherwise, show a 2-hour window centered on the content
+      if (contentSpan <= TWO_HOURS) {
+        initialStartTime = contentBounds.start - PADDING;
+        initialEndTime = contentBounds.end + PADDING;
+      } else {
+        initialStartTime = contentCenter - TWO_HOURS / 2;
+        initialEndTime = contentCenter + TWO_HOURS / 2;
+      }
+      
+      // Clamp to data bounds and preserve window size
+      const targetWindow = initialEndTime - initialStartTime;
+      if (initialStartTime < data.startTime) {
+        initialStartTime = data.startTime;
+        initialEndTime = Math.min(data.endTime, initialStartTime + targetWindow);
+      }
+      if (initialEndTime > data.endTime) {
+        initialEndTime = data.endTime;
+        initialStartTime = Math.max(data.startTime, initialEndTime - targetWindow);
+      }
+      
       usedRealContentBounds = true;
-      console.log('[TIMELINE-INIT] Historical record - centering on content bounds:', {
+      console.log('[TIMELINE-INIT] Historical record - centering on content with 2h window:', {
         start: new Date(initialStartTime).toISOString(),
         end: new Date(initialEndTime).toISOString(),
+        contentSpan: Math.round(contentSpan / 60000) + ' min',
       });
     } else if (isHistoricalRecord && (!contentBounds || !isFinite(contentBounds.start) || !isFinite(contentBounds.end))) {
       // Historical record but no content bounds yet - use temporary fallback
@@ -2690,8 +2716,37 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         return false;
       }
       
-      const startPercent = ((contentBounds.start - data.startTime) / (data.endTime - data.startTime)) * 100;
-      const endPercent = ((contentBounds.end - data.startTime) / (data.endTime - data.startTime)) * 100;
+      // Calculate a 2-hour window centered on the content instead of showing full range
+      // This gives comfortable 30-minute tick intervals
+      const contentSpan = contentBounds.end - contentBounds.start;
+      const TWO_HOURS = 2 * 60 * 60 * 1000;
+      const PADDING = 15 * 60 * 1000;
+      const contentCenter = (contentBounds.start + contentBounds.end) / 2;
+      
+      let viewStart: number;
+      let viewEnd: number;
+      
+      if (contentSpan <= TWO_HOURS) {
+        viewStart = contentBounds.start - PADDING;
+        viewEnd = contentBounds.end + PADDING;
+      } else {
+        viewStart = contentCenter - TWO_HOURS / 2;
+        viewEnd = contentCenter + TWO_HOURS / 2;
+      }
+      
+      // Clamp to data bounds and preserve window size
+      const targetWindow = viewEnd - viewStart;
+      if (viewStart < data.startTime) {
+        viewStart = data.startTime;
+        viewEnd = Math.min(data.endTime, viewStart + targetWindow);
+      }
+      if (viewEnd > data.endTime) {
+        viewEnd = data.endTime;
+        viewStart = Math.max(data.startTime, viewEnd - targetWindow);
+      }
+      
+      const startPercent = ((viewStart - data.startTime) / (data.endTime - data.startTime)) * 100;
+      const endPercent = ((viewEnd - data.startTime) / (data.endTime - data.startTime)) * 100;
       
       // Clamp to valid range and ensure start <= end
       let clampedStart = Math.max(0, Math.min(100, startPercent));
@@ -2700,11 +2755,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         [clampedStart, clampedEnd] = [clampedEnd, clampedStart];
       }
       
-      console.log('[TIMELINE-RECENTER] Applying content bounds for historical record:', {
-        start: new Date(contentBounds.start).toISOString(),
-        end: new Date(contentBounds.end).toISOString(),
-        startPercent: clampedStart,
-        endPercent: clampedEnd,
+      console.log('[TIMELINE-RECENTER] Applying 2h window for historical record:', {
+        contentStart: new Date(contentBounds.start).toISOString(),
+        contentEnd: new Date(contentBounds.end).toISOString(),
+        viewStart: new Date(viewStart).toISOString(),
+        viewEnd: new Date(viewEnd).toISOString(),
+        contentSpan: Math.round(contentSpan / 60000) + ' min',
       });
       
       setZoomPercent({ start: clampedStart, end: clampedEnd });
