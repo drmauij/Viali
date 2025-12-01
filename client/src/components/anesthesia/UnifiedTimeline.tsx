@@ -6315,6 +6315,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 existingParams.respiratoryRate = findValue(ventilationData.respiratoryRate, nearbyTimestamp);
                 existingParams.fio2 = findValue(ventilationData.fiO2, nearbyTimestamp);
                 existingParams.etco2 = findValue(ventilationData.etCO2, nearbyTimestamp);
+                existingParams.minuteVolume = findValue(ventilationData.minuteVolume, nearbyTimestamp);
                 
                 setEditingVentilationEntryTimestamp(nearbyTimestamp);
                 setPendingVentilationBulk({ time: nearbyTimestamp, existingParams });
@@ -6380,6 +6381,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                     existingParams.respiratoryRate = findValue(ventilationData.respiratoryRate, timestamp);
                     existingParams.fio2 = findValue(ventilationData.fiO2, timestamp);
                     existingParams.etco2 = findValue(ventilationData.etCO2, timestamp);
+                    existingParams.minuteVolume = findValue(ventilationData.minuteVolume, timestamp);
                     
                     setEditingVentilationEntryTimestamp(timestamp);
                     setPendingVentilationBulk({ time: timestamp, existingParams });
