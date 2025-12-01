@@ -1135,8 +1135,14 @@ router.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requir
           updateData.isLocked = false;
           updateData.lockedAt = null;
           console.log(`[TIME-MARKERS] A2 marker cleared for record ${id} - UNLOCKING record`);
+        } else if (newA2HasTime && previousA2HasTime && !record.isLocked) {
+          // REPAIR: A2 has time but record is not locked (data inconsistency from before locking was implemented)
+          // Lock the record to fix the inconsistency
+          updateData.isLocked = true;
+          updateData.lockedAt = new Date();
+          console.log(`[TIME-MARKERS] A2 marker already set but record not locked for ${id} - REPAIRING: locking record`);
         } else {
-          // A2 status unchanged - no lock change
+          // A2 status unchanged and lock status is correct - no change needed
           console.log(`[TIME-MARKERS] A2 marker status unchanged for record ${id} - no lock change (both have time: ${newA2HasTime && previousA2HasTime}, both empty: ${!newA2HasTime && !previousA2HasTime})`);
         }
         // Log the final update data
