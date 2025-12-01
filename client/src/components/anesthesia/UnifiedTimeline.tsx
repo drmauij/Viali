@@ -696,19 +696,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const isHistoricalRecord = useMemo(() => {
     // Check data-driven historical flag first (most reliable for viewport centering)
     if (data.isHistoricalData) {
-      console.log('[HISTORICAL-CHECK] Detected as historical: data.isHistoricalData = true');
       return true;
     }
     
     // Check caseStatus
     if (anesthesiaRecord?.caseStatus === 'closed' || anesthesiaRecord?.caseStatus === 'amended') {
-      console.log('[HISTORICAL-CHECK] Detected as historical: caseStatus =', anesthesiaRecord?.caseStatus);
       return true;
     }
     
     // Check if record is locked
     if (anesthesiaRecord?.isLocked) {
-      console.log('[HISTORICAL-CHECK] Detected as historical: isLocked = true');
       return true;
     }
     
@@ -717,7 +714,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     if (Array.isArray(timeMarkersArray)) {
       const a2Marker = timeMarkersArray.find((m: any) => m.code === 'A2');
       if (a2Marker?.time && isFinite(a2Marker.time)) {
-        console.log('[HISTORICAL-CHECK] Detected as historical: A2 marker set at', a2Marker.time);
         return true;
       }
     }
@@ -726,15 +722,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // This helps with records that were ended but not properly marked
     const oneHourAgo = Date.now() - (60 * 60 * 1000);
     if (isFinite(data.endTime) && data.endTime < oneHourAgo) {
-      console.log('[HISTORICAL-CHECK] Detected as historical: data.endTime =', data.endTime, 'is more than 1 hour old');
       return true;
     }
     
-    console.log('[HISTORICAL-CHECK] Not historical. caseStatus:', anesthesiaRecord?.caseStatus, 
-      'isLocked:', anesthesiaRecord?.isLocked,
-      'A2 marker:', timeMarkersArray?.find((m: any) => m.code === 'A2'),
-      'data.endTime:', data.endTime,
-      'data.isHistoricalData:', data.isHistoricalData);
     return false;
   }, [anesthesiaRecord?.caseStatus, anesthesiaRecord?.timeMarkers, anesthesiaRecord?.isLocked, data.endTime, data.isHistoricalData]);
 
@@ -818,21 +808,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const validTimestamps = timestamps.filter(t => t && isFinite(t) && t > 0);
     
     if (validTimestamps.length === 0) {
-      console.log('[CONTENT-BOUNDS] No valid timestamps found, returning null. Raw count:', timestamps.length);
       return null; // No content, use default behavior
     }
     
     const minTime = Math.min(...validTimestamps);
     const maxTime = Math.max(...validTimestamps);
-    
-    console.log('[CONTENT-BOUNDS] Calculating:', {
-      validCount: validTimestamps.length,
-      rawCount: timestamps.length,
-      minTime: minTime,
-      maxTime: maxTime,
-      dataStartTime: data.startTime,
-      dataEndTime: data.endTime
-    });
     
     // Add padding: 15 minutes before first data, 15 minutes after last data
     const padding = 15 * 60 * 1000;
@@ -840,11 +820,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // Clamp to valid data range to avoid ECharts clamping issues
     let start = Math.max(data.startTime, minTime - padding);
     let end = Math.min(data.endTime, maxTime + padding);
-    
-    console.log('[CONTENT-BOUNDS] Result:', {
-      start: isFinite(start) ? new Date(start).toISOString() : start,
-      end: isFinite(end) ? new Date(end).toISOString() : end
-    });
     
     // Ensure start <= end (defensive - should not happen with valid data)
     if (start > end) {
@@ -2611,11 +2586,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       }
       
       usedRealContentBounds = true;
-      console.log('[TIMELINE-INIT] Historical record - centering on content with 2h window:', {
-        start: initialStartTime,
-        end: initialEndTime,
-        contentSpan: Math.round(contentSpan / 60000) + ' min',
-      });
     } else if (isHistoricalRecord && (!contentBounds || !isFinite(contentBounds.start) || !isFinite(contentBounds.end))) {
       // Historical record but no content bounds yet - use temporary fallback
       // Don't set hasSetInitialZoomRef so re-centering effect can apply real bounds later
@@ -2624,7 +2594,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       const fortyFiveMinutes = 45 * 60 * 1000;
       initialStartTime = currentTime - fifteenMinutes;
       initialEndTime = currentTime + fortyFiveMinutes;
-      console.log('[TIMELINE-INIT] Historical record - temporary fallback (awaiting content bounds)');
     } else {
       // For active records, center on NOW with 15min before and 45min after
       const currentTime = now || data.endTime;
@@ -2632,9 +2601,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       const fortyFiveMinutes = 45 * 60 * 1000;
       initialStartTime = currentTime - fifteenMinutes;
       initialEndTime = currentTime + fortyFiveMinutes;
-      console.log('[TIMELINE-INIT] Active record - centering on NOW:', {
-        now: currentTime,
-      });
     }
     
     const startPercent = ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100;
@@ -2688,47 +2654,27 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // Reset refs if context changed OR this is first render with historical data
     // The first render case ensures we don't miss immediate historical records
     if (historyStatusChanged || recordIdChanged || (isFirstRender && isHistoricalRecord)) {
-      console.log('[TIMELINE-RECENTER] Status/record changed - resetting zoom refs', {
-        historyStatusChanged,
-        recordIdChanged,
-        isFirstRender,
-        prevIsHistorical: prevIsHistoricalRecordRef.current,
-        currentIsHistorical: isHistoricalRecord,
-        prevRecordId: prevAnesthesiaRecordIdRef.current,
-        currentRecordId: anesthesiaRecordId
-      });
       lastAppliedBoundsRef.current = null;
       historicalRecenterAppliedRef.current = false;
       hasSetInitialZoomRef.current = false;
-      // NOTE: Don't update prevIsHistoricalRecordRef/prevAnesthesiaRecordIdRef here!
-      // We update them AFTER successfully applying bounds, so if we return early
-      // due to invalid contentBounds, the next render will still detect the change
     }
     
     // Only apply for historical records with valid content bounds
     if (!isHistoricalRecord || !contentBounds) {
-      console.log('[TIMELINE-RECENTER] Early return: isHistoricalRecord =', isHistoricalRecord, 'contentBounds =', contentBounds);
       return;
     }
     if (!isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
         contentBounds.start <= 0 || contentBounds.end <= 0) {
-      console.log('[TIMELINE-RECENTER] Early return: invalid contentBounds', contentBounds);
       return;
     }
-    console.log('[TIMELINE-RECENTER] Valid contentBounds detected:', {
-      start: contentBounds.start,
-      end: contentBounds.end
-    });
     
     // Create a hash of current bounds to detect changes
     const boundsHash = `${contentBounds.start}-${contentBounds.end}`;
     
     // Skip if we already successfully applied these exact bounds for this record
     if (lastAppliedBoundsRef.current === boundsHash && historicalRecenterAppliedRef.current) {
-      console.log('[TIMELINE-RECENTER] Skipping: already applied these bounds', boundsHash);
       return;
     }
-    console.log('[TIMELINE-RECENTER] Will attempt to apply bounds. lastApplied:', lastAppliedBoundsRef.current, 'current:', boundsHash, 'recenterApplied:', historicalRecenterAppliedRef.current);
     
     // Track if this effect instance is still valid (not cleaned up)
     let isCancelled = false;
@@ -2736,16 +2682,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     const applyBounds = (): boolean => {
       if (isCancelled) {
-        console.log('[TIMELINE-RECENTER] applyBounds: cancelled');
         return false;
       }
       
       const chart = chartRef.current?.getEchartsInstance();
       if (!chart) {
-        console.log('[TIMELINE-RECENTER] applyBounds: chart not ready, will retry');
         return false;
       }
-      console.log('[TIMELINE-RECENTER] applyBounds: chart ready, applying zoom');
       
       // Calculate a 5-hour window centered on the content instead of showing full range
       // This gives comfortable 30-minute tick intervals
@@ -2785,14 +2728,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       if (clampedStart > clampedEnd) {
         [clampedStart, clampedEnd] = [clampedEnd, clampedStart];
       }
-      
-      console.log('[TIMELINE-RECENTER] Applying 2h window for historical record:', {
-        contentStart: contentBounds.start,
-        contentEnd: contentBounds.end,
-        viewStart: viewStart,
-        viewEnd: viewEnd,
-        contentSpan: Math.round(contentSpan / 60000) + ' min',
-      });
       
       setZoomPercent({ start: clampedStart, end: clampedEnd });
       chart.setOption({
