@@ -2689,32 +2689,45 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // Only apply for historical records with valid content bounds
     if (!isHistoricalRecord || !contentBounds) {
+      console.log('[TIMELINE-RECENTER] Early return: isHistoricalRecord =', isHistoricalRecord, 'contentBounds =', contentBounds);
       return;
     }
     if (!isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
         contentBounds.start <= 0 || contentBounds.end <= 0) {
+      console.log('[TIMELINE-RECENTER] Early return: invalid contentBounds', contentBounds);
       return;
     }
+    console.log('[TIMELINE-RECENTER] Valid contentBounds detected:', {
+      start: new Date(contentBounds.start).toISOString(),
+      end: new Date(contentBounds.end).toISOString()
+    });
     
     // Create a hash of current bounds to detect changes
     const boundsHash = `${contentBounds.start}-${contentBounds.end}`;
     
     // Skip if we already successfully applied these exact bounds for this record
     if (lastAppliedBoundsRef.current === boundsHash && historicalRecenterAppliedRef.current) {
+      console.log('[TIMELINE-RECENTER] Skipping: already applied these bounds', boundsHash);
       return;
     }
+    console.log('[TIMELINE-RECENTER] Will attempt to apply bounds. lastApplied:', lastAppliedBoundsRef.current, 'current:', boundsHash, 'recenterApplied:', historicalRecenterAppliedRef.current);
     
     // Track if this effect instance is still valid (not cleaned up)
     let isCancelled = false;
     let retryTimeoutId: NodeJS.Timeout | null = null;
     
     const applyBounds = (): boolean => {
-      if (isCancelled) return false;
+      if (isCancelled) {
+        console.log('[TIMELINE-RECENTER] applyBounds: cancelled');
+        return false;
+      }
       
       const chart = chartRef.current?.getEchartsInstance();
       if (!chart) {
+        console.log('[TIMELINE-RECENTER] applyBounds: chart not ready, will retry');
         return false;
       }
+      console.log('[TIMELINE-RECENTER] applyBounds: chart ready, applying zoom');
       
       // Calculate a 2-hour window centered on the content instead of showing full range
       // This gives comfortable 30-minute tick intervals
