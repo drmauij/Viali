@@ -355,8 +355,8 @@ export default function Checklists() {
           }
         }}
       >
-        <DialogContent className="max-w-2xl" data-testid="dialog-complete-checklist">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col" data-testid="dialog-complete-checklist">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle data-testid="text-modal-title">
               {t("checklists.complete")} - {selectedTemplate?.name}
             </DialogTitle>
@@ -365,7 +365,7 @@ export default function Checklists() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 mt-4">
+          <div className="flex-1 overflow-y-auto space-y-4 mt-4 pr-1">
             {/* Checklist Items */}
             {selectedTemplate && Array.isArray(selectedTemplate.items) && selectedTemplate.items.length > 0 && (
               <div>
@@ -460,7 +460,7 @@ export default function Checklists() {
             </div>
           </div>
 
-          <div className="flex gap-3 mt-6">
+          <div className="flex gap-3 mt-6 flex-shrink-0 pt-4 border-t">
             <Button
               variant="outline"
               onClick={() => {
