@@ -1,7 +1,7 @@
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
 import { generateChartImageFromSnapshot } from "@/lib/generateChartImage";
 import type { Surgery, Patient } from "@shared/schema";
-import type { UnifiedTimelineRef, ChartExportResult } from "@/components/anesthesia/UnifiedTimeline";
+import type { ChartExportResult } from "@/components/anesthesia/UnifiedTimeline";
 
 interface AllergyItem {
   id: string;
@@ -24,7 +24,6 @@ interface DownloadPdfOptions {
   patient: Patient;
   hospitalId: string;
   anesthesiaSettings?: AnesthesiaSettingsForPdf | null;
-  timelineRef?: React.RefObject<UnifiedTimelineRef>;
 }
 
 interface DownloadPdfResult {
@@ -36,13 +35,13 @@ interface DownloadPdfResult {
 /**
  * Single entry point for downloading anesthesia record PDFs.
  * Fetches all required data and generates the PDF with proper allergy ID to label conversion.
- * Uses the visible UnifiedTimeline for chart export with 4-hour zoom centered on data.
+ * Uses an offscreen chart renderer with fixed dimensions for consistent, high-quality output.
  * 
  * @param options - The options for PDF download
  * @returns Promise with success status and any warnings
  */
 export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): Promise<DownloadPdfResult> {
-  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings, timelineRef } = options;
+  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings } = options;
 
   try {
     // Fetch critical data (anesthesia record, pre-op assessment, items, and settings if not provided)
@@ -121,48 +120,33 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       }
     }
 
-    // Export chart image from visible timeline (4-hour window centered on data)
-    // Falls back to generating chart from clinical snapshot if no timeline is visible
+    // Generate chart image using offscreen renderer with controlled dimensions
+    // This ensures consistent, high-quality chart output regardless of viewport size
     let chartImage: ChartExportResult | null = null;
     
-    if (timelineRef?.current) {
-      // Primary: Use visible timeline component
+    if (clinicalSnapshot) {
       try {
-        console.log("[PDF-EXPORT] Exporting from visible timeline with 4-hour zoom...");
-        chartImage = await timelineRef.current.exportForPdf();
+        console.log("[PDF-EXPORT] Generating chart from clinical snapshot with fixed dimensions...");
+        chartImage = await generateChartImageFromSnapshot({ 
+          clinicalSnapshot,
+          width: 1800,
+          height: 500,
+        });
         if (chartImage) {
-          console.log("[PDF-EXPORT] Timeline image exported successfully:", {
+          console.log("[PDF-EXPORT] Chart generated successfully:", {
             size: Math.round(chartImage.image.length / 1024) + "KB",
             dimensions: `${chartImage.width}x${chartImage.height}px`,
           });
         } else {
-          console.warn("[PDF-EXPORT] Timeline export returned null");
+          console.warn("[PDF-EXPORT] Chart generation returned null");
         }
       } catch (error) {
-        console.error("[PDF-EXPORT] Failed to export timeline:", error);
-      }
-    }
-    
-    // Fallback: Generate chart from clinical snapshot when no visible timeline
-    if (!chartImage && clinicalSnapshot) {
-      try {
-        console.log("[PDF-EXPORT] No visible timeline - generating chart from clinical snapshot...");
-        chartImage = await generateChartImageFromSnapshot({ clinicalSnapshot });
-        if (chartImage) {
-          console.log("[PDF-EXPORT] Fallback chart generated successfully:", {
-            size: Math.round(chartImage.image.length / 1024) + "KB",
-            dimensions: `${chartImage.width}x${chartImage.height}px`,
-          });
-        } else {
-          console.warn("[PDF-EXPORT] Fallback chart generation returned null");
-        }
-      } catch (error) {
-        console.error("[PDF-EXPORT] Failed to generate fallback chart:", error);
+        console.error("[PDF-EXPORT] Failed to generate chart:", error);
       }
     }
     
     if (!chartImage) {
-      console.warn("[PDF-EXPORT] No chart available for PDF - vitals section will be omitted");
+      console.warn("[PDF-EXPORT] No chart available for PDF - vitals section will use simplified rendering");
     }
 
     // Convert allergy IDs to labels for PDF display

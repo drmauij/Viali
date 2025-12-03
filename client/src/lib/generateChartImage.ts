@@ -1,10 +1,10 @@
 import * as echarts from 'echarts/core';
 import { CanvasRenderer } from 'echarts/renderers';
 import { LineChart, CustomChart } from 'echarts/charts';
-import { GridComponent, TooltipComponent, LegendComponent, DataZoomComponent } from 'echarts/components';
+import { GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, GraphicComponent } from 'echarts/components';
 import type { ChartExportResult } from "@/components/anesthesia/UnifiedTimeline";
 
-echarts.use([CanvasRenderer, LineChart, CustomChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent]);
+echarts.use([CanvasRenderer, LineChart, CustomChart, GridComponent, TooltipComponent, LegendComponent, DataZoomComponent, GraphicComponent]);
 
 type VitalPoint = [number, number];
 
@@ -35,7 +35,7 @@ function createIconSeries(
   iconPath: string,
   color: string,
   yAxisIndex: number,
-  size: number = 16,
+  size: number = 18,
   zLevel: number = 20,
   isCircleDot: boolean = false
 ) {
@@ -61,22 +61,22 @@ function createIconSeries(
               type: 'circle',
               x: 0,
               y: 0,
-              shape: { r: 8 * scale },
+              shape: { r: 10 * scale },
               style: {
                 fill: 'none',
                 stroke: color,
-                lineWidth: 2,
+                lineWidth: 3,
               },
             },
             {
               type: 'circle',
               x: 0,
               y: 0,
-              shape: { r: 2 * scale },
+              shape: { r: 3 * scale },
               style: {
                 fill: color,
                 stroke: color,
-                lineWidth: 1.5,
+                lineWidth: 2,
               },
             },
           ],
@@ -95,7 +95,7 @@ function createIconSeries(
         style: {
           fill: 'none',
           stroke: color,
-          lineWidth: 2,
+          lineWidth: 3,
         },
         scaleX: scale,
         scaleY: scale,
@@ -105,7 +105,7 @@ function createIconSeries(
 }
 
 export async function generateChartImageFromSnapshot(options: GenerateChartOptions): Promise<ChartExportResult | null> {
-  const { clinicalSnapshot, width = 1400, height = 400 } = options;
+  const { clinicalSnapshot, width = 1800, height = 500 } = options;
   
   if (!clinicalSnapshot) {
     console.warn('[CHART-GEN] No clinical snapshot provided');
@@ -156,7 +156,6 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
   const paddedMin = centerTime - windowSize / 2;
   const paddedMax = centerTime + windowSize / 2;
 
-  // Calculate y-axis ranges from actual data (with padding)
   const allHrBpValues = [
     ...hrData.map(d => d[1]),
     ...sysData.map(d => d[1]),
@@ -165,19 +164,17 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
   
   const allSpo2Values = spo2Data.map(d => d[1]).filter(v => !isNaN(v) && isFinite(v));
   
-  // HR/BP axis: use data range with 15% padding, min 40-180 range
   let hrBpMin = allHrBpValues.length > 0 ? Math.min(...allHrBpValues) : 60;
   let hrBpMax = allHrBpValues.length > 0 ? Math.max(...allHrBpValues) : 120;
   const hrBpRange = hrBpMax - hrBpMin;
   const hrBpPadding = Math.max(hrBpRange * 0.15, 10);
-  hrBpMin = Math.max(30, Math.floor((hrBpMin - hrBpPadding) / 10) * 10);
-  hrBpMax = Math.min(220, Math.ceil((hrBpMax + hrBpPadding) / 10) * 10);
+  hrBpMin = Math.max(20, Math.floor((hrBpMin - hrBpPadding) / 10) * 10);
+  hrBpMax = Math.min(240, Math.ceil((hrBpMax + hrBpPadding) / 10) * 10);
   
-  // SpO2 axis: use data range with padding, typically 90-100
   let spo2Min = allSpo2Values.length > 0 ? Math.min(...allSpo2Values) : 95;
   let spo2Max = allSpo2Values.length > 0 ? Math.max(...allSpo2Values) : 100;
   spo2Min = Math.max(80, Math.floor(spo2Min - 3));
-  spo2Max = Math.min(100, Math.ceil(spo2Max + 1));
+  spo2Max = Math.min(105, Math.ceil(spo2Max + 2));
 
   console.log('[CHART-GEN] Generating chart with calculated ranges:', {
     minTime: new Date(minTime).toISOString(),
@@ -185,6 +182,7 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
     hrBpRange: `${hrBpMin}-${hrBpMax}`,
     spo2Range: `${spo2Min}-${spo2Max}`,
     dataPoints: allTimes.length,
+    chartDimensions: `${width}x${height}`,
   });
 
   const colors = {
@@ -192,6 +190,9 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
     bp: "#000000",
     spo2: "#8b5cf6",
   };
+  
+  const textColor = "#1f2937";
+  const gridColor = "#e5e7eb";
 
   const series: any[] = [];
 
@@ -202,17 +203,17 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
       xAxisIndex: 0,
       yAxisIndex: 0,
       data: hrData,
-      lineStyle: { color: colors.hr, width: 2 },
+      lineStyle: { color: colors.hr, width: 2.5 },
       symbol: 'none',
       z: 15,
     });
-    series.push(createIconSeries('Heart Rate', hrData, VITAL_ICON_PATHS.heart, colors.hr, 0, 14, 100));
+    series.push(createIconSeries('Heart Rate', hrData, VITAL_ICON_PATHS.heart, colors.hr, 0, 20, 100));
   }
 
   if (sysData.length > 0 && diaData.length > 0) {
     series.push({
       type: 'line',
-      name: 'Diastolic',
+      name: 'Diastolic Base',
       xAxisIndex: 0,
       yAxisIndex: 0,
       data: diaData,
@@ -239,12 +240,21 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
       symbol: 'none',
       lineStyle: { color: colors.bp, width: 1, opacity: 0.3 },
       stack: 'bp',
-      areaStyle: { color: 'rgba(0, 0, 0, 0.08)' },
+      areaStyle: {
+        color: {
+          type: 'linear',
+          x: 0, y: 0, x2: 0, y2: 1,
+          colorStops: [
+            { offset: 0, color: 'rgba(0, 0, 0, 0.12)' },
+            { offset: 1, color: 'rgba(0, 0, 0, 0.06)' }
+          ]
+        }
+      },
       z: 8,
     });
 
-    series.push(createIconSeries('Systolic', sysData, VITAL_ICON_PATHS.chevronDown, colors.bp, 0, 14, 30));
-    series.push(createIconSeries('Diastolic BP', diaData, VITAL_ICON_PATHS.chevronUp, colors.bp, 0, 14, 30));
+    series.push(createIconSeries('Systolic', sysData, VITAL_ICON_PATHS.chevronDown, colors.bp, 0, 20, 30));
+    series.push(createIconSeries('Diastolic BP', diaData, VITAL_ICON_PATHS.chevronUp, colors.bp, 0, 20, 30));
   }
 
   if (spo2Data.length > 0) {
@@ -258,20 +268,21 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
       symbol: 'none',
       z: 16,
     });
-    series.push(createIconSeries('SpO2 Points', spo2Data, '', colors.spo2, 1, 14, 100, true));
+    series.push(createIconSeries('SpO2 Points', spo2Data, '', colors.spo2, 1, 18, 100, true));
   }
 
   const option = {
     backgroundColor: '#ffffff',
     animation: false,
     title: {
-      text: 'Vital Signs Timeline',
+      text: 'VITAL SIGNS TIMELINE',
       left: 'center',
-      top: 10,
+      top: 15,
       textStyle: {
-        color: '#1f2937',
-        fontSize: 16,
+        color: textColor,
+        fontSize: 24,
         fontWeight: 'bold',
+        fontFamily: 'Arial, sans-serif',
       },
     },
     tooltip: {
@@ -279,15 +290,28 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
       axisPointer: { type: 'cross' },
     },
     legend: {
-      data: ['HR', 'Systolic', 'Diastolic BP', 'SpO2'],
-      bottom: 10,
-      textStyle: { color: '#1f2937', fontSize: 11 },
+      data: [
+        { name: 'HR', icon: 'path://' + VITAL_ICON_PATHS.heart, itemStyle: { color: colors.hr } },
+        { name: 'Systolic', icon: 'path://' + VITAL_ICON_PATHS.chevronDown, itemStyle: { color: colors.bp } },
+        { name: 'Diastolic BP', icon: 'path://' + VITAL_ICON_PATHS.chevronUp, itemStyle: { color: colors.bp } },
+        { name: 'SpO2', icon: 'circle', itemStyle: { color: colors.spo2 } },
+      ],
+      bottom: 20,
+      textStyle: { 
+        color: textColor, 
+        fontSize: 14,
+        fontFamily: 'Arial, sans-serif',
+      },
+      itemGap: 30,
+      itemWidth: 20,
+      itemHeight: 14,
     },
     grid: {
-      left: 60,
-      right: 60,
-      top: 50,
-      bottom: 60,
+      left: 80,
+      right: 80,
+      top: 70,
+      bottom: 80,
+      containLabel: false,
     },
     xAxis: {
       type: 'time',
@@ -298,30 +322,83 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
           const date = new Date(value);
           return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
         },
-        color: '#1f2937',
-        fontSize: 11,
+        color: textColor,
+        fontSize: 14,
+        fontFamily: 'Arial, sans-serif',
+        rotate: 0,
       },
-      axisLine: { show: true, lineStyle: { color: '#9ca3af' } },
-      splitLine: { show: true, lineStyle: { color: '#e5e7eb', type: 'dashed' } },
+      axisLine: { 
+        show: true,
+        lineStyle: { color: '#9ca3af', width: 2 } 
+      },
+      axisTick: { show: true },
+      splitLine: { 
+        show: true, 
+        lineStyle: { color: gridColor, type: 'dashed' } 
+      },
+      name: 'Time',
+      nameLocation: 'middle',
+      nameGap: 40,
+      nameTextStyle: {
+        color: textColor,
+        fontSize: 14,
+        fontWeight: 'bold',
+        fontFamily: 'Arial, sans-serif',
+      },
     },
     yAxis: [
       {
         type: 'value',
-        name: 'HR/BP',
+        name: 'HR / BP (bpm / mmHg)',
+        nameLocation: 'middle',
+        nameGap: 55,
+        nameTextStyle: {
+          color: textColor,
+          fontSize: 14,
+          fontWeight: 'bold',
+          fontFamily: 'Arial, sans-serif',
+        },
         min: hrBpMin,
         max: hrBpMax,
-        axisLabel: { color: '#1f2937', fontSize: 10 },
-        axisLine: { show: true, lineStyle: { color: '#9ca3af' } },
-        splitLine: { show: true, lineStyle: { color: '#f3f4f6' } },
+        interval: 20,
+        axisLabel: { 
+          color: textColor, 
+          fontSize: 12,
+          fontFamily: 'Arial, sans-serif',
+        },
+        axisLine: { 
+          show: true,
+          lineStyle: { color: '#9ca3af', width: 2 } 
+        },
+        splitLine: { 
+          show: true,
+          lineStyle: { color: gridColor, type: 'dashed' } 
+        },
       },
       {
         type: 'value',
-        name: 'SpO₂',
+        name: 'SpO₂ (%)',
+        nameLocation: 'middle',
+        nameGap: 45,
+        nameTextStyle: {
+          color: colors.spo2,
+          fontSize: 14,
+          fontWeight: 'bold',
+          fontFamily: 'Arial, sans-serif',
+        },
         position: 'right',
         min: spo2Min,
         max: spo2Max,
-        axisLabel: { color: colors.spo2, fontSize: 10 },
-        axisLine: { show: true, lineStyle: { color: colors.spo2 } },
+        interval: 5,
+        axisLabel: { 
+          color: colors.spo2, 
+          fontSize: 12,
+          fontFamily: 'Arial, sans-serif',
+        },
+        axisLine: { 
+          show: true,
+          lineStyle: { color: colors.spo2, width: 2 } 
+        },
         splitLine: { show: false },
       },
     ],
@@ -332,22 +409,38 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
 
   return new Promise((resolve) => {
     try {
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
+      const container = document.createElement('div');
+      container.style.cssText = `
+        position: fixed;
+        left: -10000px;
+        top: -10000px;
+        width: ${width}px;
+        height: ${height}px;
+        visibility: hidden;
+        pointer-events: none;
+        overflow: hidden;
+      `;
+      document.body.appendChild(container);
       
-      const chart = echarts.init(canvas as any);
+      const chart = echarts.init(container, null, {
+        width: width,
+        height: height,
+        renderer: 'canvas',
+        devicePixelRatio: pixelRatio,
+      });
+      
       chart.setOption(option);
       
       setTimeout(() => {
         try {
           const dataURL = chart.getDataURL({
             type: 'png',
-            pixelRatio,
+            pixelRatio: 1,
             backgroundColor: '#ffffff',
           });
           
           chart.dispose();
+          document.body.removeChild(container);
           
           console.log('[CHART-GEN] Chart generated successfully:', {
             size: Math.round(dataURL.length / 1024) + 'KB',
@@ -362,9 +455,12 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
         } catch (error) {
           console.error('[CHART-GEN] Failed to export chart:', error);
           chart.dispose();
+          if (container.parentNode) {
+            document.body.removeChild(container);
+          }
           resolve(null);
         }
-      }, 200);
+      }, 500);
     } catch (error) {
       console.error('[CHART-GEN] Failed to create chart:', error);
       resolve(null);
