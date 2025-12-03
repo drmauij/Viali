@@ -1,7 +1,7 @@
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
 import { generateChartImageFromSnapshot } from "@/lib/generateChartImage";
 import type { Surgery, Patient } from "@shared/schema";
-import type { UnifiedTimelineRef, ChartExportResult } from "@/components/anesthesia/UnifiedTimeline";
+import type { UnifiedTimelineRef, ChartExportResult, SwimlaneExportResult } from "@/components/anesthesia/UnifiedTimeline";
 
 interface AllergyItem {
   id: string;
@@ -122,26 +122,46 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       }
     }
 
-    // Generate chart image for PDF
-    // Priority 1: Use UnifiedTimeline's exportForPdf (includes ALL swimlanes - vitals, medications, ventilation, etc.)
-    // Priority 2: Fall back to offscreen vitals-only renderer if timeline not available
+    // Generate chart images for PDF
+    // Approach A: Full unified timeline export (includes ALL swimlanes)
+    // Approach B: Separate exports per swimlane section (for comparison)
     let chartImage: ChartExportResult | null = null;
+    let swimlaneExports: SwimlaneExportResult | null = null;
     
-    // Primary: Use UnifiedTimeline export (full chart with all swimlanes at fixed dimensions)
+    // Primary: Use UnifiedTimeline exports if available
     if (timelineRef?.current) {
+      // Approach A: Full chart export
       try {
-        console.log("[PDF-EXPORT] Exporting full timeline chart (vitals + all swimlanes)...");
+        console.log("[PDF-EXPORT] Approach A: Exporting full timeline chart...");
         chartImage = await timelineRef.current.exportForPdf();
         if (chartImage) {
-          console.log("[PDF-EXPORT] Full timeline exported successfully:", {
+          console.log("[PDF-EXPORT] Approach A success:", {
             size: Math.round(chartImage.image.length / 1024) + "KB",
             dimensions: `${chartImage.width}x${chartImage.height}px`,
           });
         } else {
-          console.warn("[PDF-EXPORT] Timeline export returned null");
+          console.warn("[PDF-EXPORT] Approach A returned null");
         }
       } catch (error) {
-        console.error("[PDF-EXPORT] Failed to export timeline:", error);
+        console.error("[PDF-EXPORT] Approach A failed:", error);
+      }
+      
+      // Approach B: Per-swimlane exports (additional pages for comparison)
+      try {
+        console.log("[PDF-EXPORT] Approach B: Exporting separate swimlane sections...");
+        swimlaneExports = await timelineRef.current.exportSwimlanesForPdf();
+        if (swimlaneExports) {
+          console.log("[PDF-EXPORT] Approach B success:", {
+            vitals: swimlaneExports.vitals ? `${Math.round(swimlaneExports.vitals.image.length / 1024)}KB` : 'null',
+            medications: swimlaneExports.medications ? `${Math.round(swimlaneExports.medications.image.length / 1024)}KB` : 'null',
+            ventilation: swimlaneExports.ventilation ? `${Math.round(swimlaneExports.ventilation.image.length / 1024)}KB` : 'null',
+            others: swimlaneExports.others ? `${Math.round(swimlaneExports.others.image.length / 1024)}KB` : 'null',
+          });
+        } else {
+          console.warn("[PDF-EXPORT] Approach B returned null");
+        }
+      } catch (error) {
+        console.error("[PDF-EXPORT] Approach B failed:", error);
       }
     } else {
       console.log("[PDF-EXPORT] No timeline ref available - using fallback chart renderer");
@@ -203,7 +223,7 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       allergies: convertedAllergies,
     };
 
-    // Generate PDF
+    // Generate PDF with both Approach A (full chart) and Approach B (per-swimlane) images
     generateAnesthesiaRecordPDF({
       patient: patientWithAllergyLabels,
       surgery,
@@ -218,6 +238,7 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       timeMarkers: (anesthesiaRecord?.timeMarkers as any[]) || [],
       checklistSettings: anesthesiaSettings?.checklistItems || null,
       chartImage,
+      swimlaneExports, // Approach B: per-section charts
     });
 
     return {

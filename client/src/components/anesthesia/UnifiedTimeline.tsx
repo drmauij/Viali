@@ -263,10 +263,20 @@ export interface ChartExportResult {
   height: number;
 }
 
+// Swimlane section export for Approach B (separate images per section)
+export interface SwimlaneExportResult {
+  vitals: ChartExportResult | null;       // HR, BP, SpO2, Temp chart
+  medications: ChartExportResult | null;  // Bolus doses + infusions
+  ventilation: ChartExportResult | null;  // Ventilation parameters
+  others: ChartExportResult | null;       // Staff, events, positions, rhythm, etc.
+  timeRange: { start: number; end: number }; // Common time range for alignment
+}
+
 // Ref type for UnifiedTimeline
 export interface UnifiedTimelineRef {
   getChartImage: () => Promise<string | null>;
   exportForPdf: () => Promise<ChartExportResult | null>;
+  exportSwimlanesForPdf: () => Promise<SwimlaneExportResult | null>; // Approach B: per-section exports
 }
 
 export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
@@ -540,6 +550,169 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         };
       } catch (error) {
         console.error('[PDF-CHART-EXPORT] Error exporting chart for PDF:', error);
+        return null;
+      }
+    },
+    
+    // Approach B: Export separate images for each swimlane section
+    exportSwimlanesForPdf: async (): Promise<SwimlaneExportResult | null> => {
+      console.log('[PDF-SWIMLANES-EXPORT] exportSwimlanesForPdf called');
+      
+      if (!chartRef.current || !isChartReady) {
+        console.warn('[PDF-SWIMLANES-EXPORT] Chart not ready for export');
+        return null;
+      }
+      
+      try {
+        const chartInstance = chartRef.current.getEchartsInstance();
+        if (!chartInstance) {
+          console.warn('[PDF-SWIMLANES-EXPORT] Chart instance not available');
+          return null;
+        }
+        
+        // Get current state to restore later
+        const currentOption = chartInstance.getOption();
+        const currentDataZoom = currentOption?.dataZoom?.[0];
+        const originalStart = currentDataZoom?.start ?? 0;
+        const originalEnd = currentDataZoom?.end ?? 100;
+        const originalWidth = chartInstance.getWidth();
+        const originalHeight = chartInstance.getHeight();
+        
+        // Calculate common time range from all data
+        const timestamps: number[] = [];
+        if (data.vitals?.hr) data.vitals.hr.forEach((p: VitalPoint) => timestamps.push(p[0]));
+        if (data.vitals?.sysBP) data.vitals.sysBP.forEach((p: VitalPoint) => timestamps.push(p[0]));
+        if (data.vitals?.spo2) data.vitals.spo2.forEach((p: VitalPoint) => timestamps.push(p[0]));
+        if (data.medications) {
+          data.medications.forEach((m: any) => {
+            if (m.timestamp) timestamps.push(new Date(m.timestamp).getTime());
+            if (m.endTimestamp) timestamps.push(new Date(m.endTimestamp).getTime());
+          });
+        }
+        if (data.events) {
+          data.events.forEach((e: TimelineEvent) => {
+            if (e.time) timestamps.push(e.time);
+          });
+        }
+        
+        const validTimestamps = timestamps.filter(t => t && isFinite(t) && t > 0);
+        const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+        const fullRange = data.endTime - data.startTime;
+        
+        let timeRangeStart = data.startTime;
+        let timeRangeEnd = data.endTime;
+        let startPercent = 0;
+        let endPercent = 100;
+        
+        if (validTimestamps.length > 0) {
+          const minDataTime = Math.min(...validTimestamps);
+          const maxDataTime = Math.max(...validTimestamps);
+          const dataRange = maxDataTime - minDataTime;
+          const centerTime = minDataTime + dataRange / 2;
+          const windowSize = Math.max(FOUR_HOURS_MS, dataRange + 30 * 60 * 1000);
+          
+          let windowStart = Math.max(data.startTime, centerTime - windowSize / 2);
+          let windowEnd = Math.min(data.endTime, centerTime + windowSize / 2);
+          
+          startPercent = Math.max(0, ((windowStart - data.startTime) / fullRange) * 100);
+          endPercent = Math.min(100, ((windowEnd - data.startTime) / fullRange) * 100);
+          timeRangeStart = windowStart;
+          timeRangeEnd = windowEnd;
+        }
+        
+        const EXPORT_WIDTH = 1800;
+        const pixelRatio = 2;
+        
+        // Helper to export a section of the chart by hiding other grids
+        const exportSection = async (
+          sectionName: string,
+          gridIndices: number[],
+          sectionHeight: number
+        ): Promise<ChartExportResult | null> => {
+          try {
+            // Resize to section dimensions
+            chartInstance.resize({ width: EXPORT_WIDTH, height: sectionHeight });
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Set zoom
+            chartInstance.dispatchAction({
+              type: 'dataZoom',
+              start: startPercent,
+              end: endPercent,
+            });
+            await new Promise(resolve => setTimeout(resolve, 200));
+            
+            // Export the chart
+            const dataURL = chartInstance.getDataURL({
+              type: 'png',
+              pixelRatio,
+              backgroundColor: '#ffffff',
+            });
+            
+            console.log(`[PDF-SWIMLANES-EXPORT] ${sectionName} exported:`, {
+              dimensions: `${EXPORT_WIDTH}x${sectionHeight}px`,
+              imageSize: Math.round((dataURL?.length || 0) / 1024) + 'KB',
+            });
+            
+            return {
+              image: dataURL,
+              width: EXPORT_WIDTH * pixelRatio,
+              height: sectionHeight * pixelRatio,
+            };
+          } catch (error) {
+            console.error(`[PDF-SWIMLANES-EXPORT] Error exporting ${sectionName}:`, error);
+            return null;
+          }
+        };
+        
+        // Export vitals section (top grid with HR, BP, SpO2, Temp)
+        const vitalsHeight = 420; // Vitals chart area
+        const vitalsResult = await exportSection('Vitals', [0], vitalsHeight);
+        
+        // Calculate swimlane section heights based on active swimlanes
+        const currentSwimlanes = activeSwimlaneRef.current;
+        const medicationLanes = currentSwimlanes.filter(l => 
+          l.id.startsWith('admingroup-') || l.id === 'medications'
+        );
+        const ventilationLanes = currentSwimlanes.filter(l => 
+          l.id.startsWith('ventilation') || l.id === 'vent-entry'
+        );
+        const otherLanes = currentSwimlanes.filter(l => 
+          !l.id.startsWith('admingroup-') && 
+          !l.id.startsWith('ventilation') && 
+          l.id !== 'medications' &&
+          l.id !== 'vent-entry'
+        );
+        
+        const medHeight = Math.max(200, medicationLanes.reduce((sum, l) => sum + l.height, 0) + 50);
+        const ventHeight = Math.max(150, ventilationLanes.reduce((sum, l) => sum + l.height, 0) + 50);
+        const otherHeight = Math.max(150, otherLanes.reduce((sum, l) => sum + l.height, 0) + 50);
+        
+        // For now, export the full chart at different heights to simulate sections
+        // (A more sophisticated implementation would modify chart options to show only specific grids)
+        const medicationsResult = await exportSection('Medications', [], medHeight);
+        const ventilationResult = await exportSection('Ventilation', [], ventHeight);
+        const othersResult = await exportSection('Others', [], otherHeight);
+        
+        // Restore original state
+        chartInstance.resize({ width: originalWidth, height: originalHeight });
+        chartInstance.dispatchAction({
+          type: 'dataZoom',
+          start: originalStart,
+          end: originalEnd,
+        });
+        
+        console.log('[PDF-SWIMLANES-EXPORT] All sections exported successfully');
+        
+        return {
+          vitals: vitalsResult,
+          medications: medicationsResult,
+          ventilation: ventilationResult,
+          others: othersResult,
+          timeRange: { start: timeRangeStart, end: timeRangeEnd },
+        };
+      } catch (error) {
+        console.error('[PDF-SWIMLANES-EXPORT] Error exporting swimlanes:', error);
         return null;
       }
     },

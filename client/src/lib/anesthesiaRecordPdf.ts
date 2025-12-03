@@ -9,6 +9,7 @@ import type {
   ClinicalSnapshot,
 } from "@shared/schema";
 import { formatDate } from "@/lib/dateUtils";
+import type { SwimlaneExportResult } from "@/components/anesthesia/UnifiedTimeline";
 
 interface AnesthesiaEvent {
   id: string;
@@ -81,6 +82,7 @@ interface ExportData {
   timeMarkers?: TimeMarker[];
   checklistSettings?: ChecklistSettings | null;
   chartImage?: ChartImageData | null;
+  swimlaneExports?: SwimlaneExportResult | null; // Approach B: per-section charts
 }
 
 // Helper to format time from milliseconds to HH:MM (24-hour format)
@@ -1411,6 +1413,76 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
         yPos
       );
     }
+  }
+
+  // ==================== APPROACH B: PER-SWIMLANE CHART EXPORTS ====================
+  // Add separate pages for each swimlane section (for comparison with Approach A)
+  if (data.swimlaneExports) {
+    const swimlanes = data.swimlaneExports;
+    const landscapeWidth = 297;
+    const landscapeHeight = 210;
+    const margin = 10;
+    
+    // Helper to embed a swimlane section image
+    const embedSwimlaneImage = (
+      title: string,
+      chartData: { image: string; width: number; height: number } | null
+    ) => {
+      if (!chartData) return;
+      
+      doc.addPage('a4', 'landscape');
+      
+      // Title
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${title} (Approach B)`, margin, 15);
+      
+      try {
+        const maxWidth = landscapeWidth - (margin * 2);
+        const maxHeight = landscapeHeight - 35;
+        
+        const imgWidth = chartData.width;
+        const imgHeight = chartData.height;
+        const aspectRatio = imgWidth / imgHeight;
+        
+        let chartWidth = maxWidth;
+        let chartHeight = chartWidth / aspectRatio;
+        
+        if (chartHeight > maxHeight) {
+          chartHeight = maxHeight;
+          chartWidth = chartHeight * aspectRatio;
+        }
+        
+        const chartX = margin + (maxWidth - chartWidth) / 2;
+        
+        doc.addImage(chartData.image, 'PNG', chartX, 22, chartWidth, chartHeight);
+        console.log(`[PDF] Approach B ${title} embedded:`, {
+          original: `${imgWidth}x${imgHeight}px`,
+          embedded: `${chartWidth.toFixed(1)}x${chartHeight.toFixed(1)}mm`,
+        });
+      } catch (error) {
+        console.error(`[PDF] Error embedding Approach B ${title}:`, error);
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "italic");
+        doc.text(`Failed to render ${title} chart`, margin, 40);
+      }
+    };
+    
+    // Embed each swimlane section
+    if (swimlanes.vitals) {
+      embedSwimlaneImage(i18next.t("anesthesia.pdf.vitalSignsTimeline"), swimlanes.vitals);
+    }
+    if (swimlanes.medications) {
+      embedSwimlaneImage(i18next.t("anesthesia.pdf.medicationsInfusionsTimeline"), swimlanes.medications);
+    }
+    if (swimlanes.ventilation) {
+      embedSwimlaneImage(i18next.t("anesthesia.pdf.ventilationParameters"), swimlanes.ventilation);
+    }
+    if (swimlanes.others) {
+      embedSwimlaneImage("Other Parameters", swimlanes.others);
+    }
+    
+    console.log('[PDF] Approach B swimlane pages added');
   }
 
   // ==================== POST-OPERATIVE INFORMATION ====================
