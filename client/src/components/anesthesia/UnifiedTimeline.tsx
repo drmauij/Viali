@@ -2500,6 +2500,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
     const handleDataZoom = (params: any) => {
       const option = chart.getOption() as any;
+      if (!option) return;
       const dataZoom = option.dataZoom?.[0];
       
       if (dataZoom) {
@@ -2785,6 +2786,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // Update dataZoom to include all current x-axes without resetting zoom state
     const numGrids = activeSwimlanes.length + 1; // +1 for vitals grid
     const currentOption = chart.getOption() as any;
+    if (!currentOption) return;
     const currentDataZoom = currentOption.dataZoom?.[0];
     
     chart.setOption({
@@ -2875,6 +2877,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       if (!chart) return;
       
       const option = chart.getOption() as any;
+      if (!option) return;
       const dataZoom = option.dataZoom?.[0];
       if (!dataZoom) return;
       
@@ -3186,6 +3189,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
+      if (!option) return;
       const dataZoom = option.dataZoom?.[0];
       if (dataZoom) {
         // Calculate actual values from percentages
@@ -3234,6 +3238,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
+      if (!option) return;
       const dataZoom = option.dataZoom?.[0];
       if (dataZoom) {
         // Calculate actual values from percentages
@@ -3282,6 +3287,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
+      if (!option) return;
       const dataZoom = option.dataZoom?.[0];
       if (dataZoom) {
         // Calculate actual values from percentages
@@ -3320,6 +3326,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
+      if (!option) return;
       const dataZoom = option.dataZoom?.[0];
       if (dataZoom) {
         // Calculate actual values from percentages
