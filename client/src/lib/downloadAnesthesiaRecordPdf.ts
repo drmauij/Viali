@@ -1,7 +1,7 @@
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
 import { generateChartImageFromSnapshot } from "@/lib/generateChartImage";
 import type { Surgery, Patient } from "@shared/schema";
-import type { ChartExportResult } from "@/components/anesthesia/UnifiedTimeline";
+import type { UnifiedTimelineRef, ChartExportResult } from "@/components/anesthesia/UnifiedTimeline";
 
 interface AllergyItem {
   id: string;
@@ -24,6 +24,7 @@ interface DownloadPdfOptions {
   patient: Patient;
   hospitalId: string;
   anesthesiaSettings?: AnesthesiaSettingsForPdf | null;
+  timelineRef?: React.RefObject<UnifiedTimelineRef>;
 }
 
 interface DownloadPdfResult {
@@ -36,12 +37,13 @@ interface DownloadPdfResult {
  * Single entry point for downloading anesthesia record PDFs.
  * Fetches all required data and generates the PDF with proper allergy ID to label conversion.
  * Uses an offscreen chart renderer with fixed dimensions for consistent, high-quality output.
+ * Falls back to visible timeline export if clinical snapshot is unavailable.
  * 
  * @param options - The options for PDF download
  * @returns Promise with success status and any warnings
  */
 export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): Promise<DownloadPdfResult> {
-  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings } = options;
+  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings, timelineRef } = options;
 
   try {
     // Fetch critical data (anesthesia record, pre-op assessment, items, and settings if not provided)
@@ -122,8 +124,10 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
 
     // Generate chart image using offscreen renderer with controlled dimensions
     // This ensures consistent, high-quality chart output regardless of viewport size
+    // Falls back to visible timeline if snapshot is unavailable
     let chartImage: ChartExportResult | null = null;
     
+    // Primary: Use offscreen renderer with fixed dimensions (preferred for consistent quality)
     if (clinicalSnapshot) {
       try {
         console.log("[PDF-EXPORT] Generating chart from clinical snapshot with fixed dimensions...");
@@ -138,10 +142,28 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
             dimensions: `${chartImage.width}x${chartImage.height}px`,
           });
         } else {
-          console.warn("[PDF-EXPORT] Chart generation returned null");
+          console.warn("[PDF-EXPORT] Offscreen chart generation returned null");
         }
       } catch (error) {
-        console.error("[PDF-EXPORT] Failed to generate chart:", error);
+        console.error("[PDF-EXPORT] Failed to generate offscreen chart:", error);
+      }
+    }
+    
+    // Fallback: Use visible timeline if offscreen rendering failed or no snapshot
+    if (!chartImage && timelineRef?.current) {
+      try {
+        console.log("[PDF-EXPORT] Falling back to visible timeline export...");
+        chartImage = await timelineRef.current.exportForPdf();
+        if (chartImage) {
+          console.log("[PDF-EXPORT] Timeline image exported successfully:", {
+            size: Math.round(chartImage.image.length / 1024) + "KB",
+            dimensions: `${chartImage.width}x${chartImage.height}px`,
+          });
+        } else {
+          console.warn("[PDF-EXPORT] Timeline export returned null");
+        }
+      } catch (error) {
+        console.error("[PDF-EXPORT] Failed to export timeline:", error);
       }
     }
     

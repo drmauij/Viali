@@ -883,6 +883,7 @@ export default function Op() {
       patient,
       hospitalId: activeHospital.id,
       anesthesiaSettings,
+      timelineRef,
     });
 
     if (result.success) {

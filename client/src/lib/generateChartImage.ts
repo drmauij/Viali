@@ -405,7 +405,7 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
     series,
   };
 
-  const pixelRatio = 2;
+  const exportPixelRatio = 2;
 
   return new Promise((resolve) => {
     try {
@@ -426,7 +426,6 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
         width: width,
         height: height,
         renderer: 'canvas',
-        devicePixelRatio: pixelRatio,
       });
       
       chart.setOption(option);
@@ -435,22 +434,25 @@ export async function generateChartImageFromSnapshot(options: GenerateChartOptio
         try {
           const dataURL = chart.getDataURL({
             type: 'png',
-            pixelRatio: 1,
+            pixelRatio: exportPixelRatio,
             backgroundColor: '#ffffff',
           });
+          
+          const finalWidth = width * exportPixelRatio;
+          const finalHeight = height * exportPixelRatio;
           
           chart.dispose();
           document.body.removeChild(container);
           
           console.log('[CHART-GEN] Chart generated successfully:', {
             size: Math.round(dataURL.length / 1024) + 'KB',
-            dimensions: `${width * pixelRatio}x${height * pixelRatio}px`,
+            dimensions: `${finalWidth}x${finalHeight}px`,
           });
           
           resolve({
             image: dataURL,
-            width: width * pixelRatio,
-            height: height * pixelRatio,
+            width: finalWidth,
+            height: finalHeight,
           });
         } catch (error) {
           console.error('[CHART-GEN] Failed to export chart:', error);
