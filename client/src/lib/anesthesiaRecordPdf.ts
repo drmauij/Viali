@@ -61,6 +61,12 @@ interface ChecklistSettings {
   signOut?: Array<{ id: string; label: string }>;
 }
 
+interface ChartImageData {
+  image: string;
+  width: number;
+  height: number;
+}
+
 interface ExportData {
   patient: Patient;
   surgery: Surgery;
@@ -74,7 +80,7 @@ interface ExportData {
   positions?: PositionEntry[];
   timeMarkers?: TimeMarker[];
   checklistSettings?: ChecklistSettings | null;
-  chartImage?: string | null;
+  chartImage?: ChartImageData | null;
 }
 
 // Helper to format time from milliseconds to HH:MM (24-hour format)
@@ -1253,7 +1259,8 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     // Draw Vitals Chart - use actual chart image if available and valid, otherwise use simplified chart
     const EMPTY_DATA_URL_PREFIX = "data:image/png;base64,";
     const isValidChartImage = data.chartImage && 
-      data.chartImage.length > EMPTY_DATA_URL_PREFIX.length + 100;
+      data.chartImage.image && 
+      data.chartImage.image.length > EMPTY_DATA_URL_PREFIX.length + 100;
     
     if (isValidChartImage) {
       // Add a new dedicated page for the timeline chart in LANDSCAPE orientation
@@ -1272,15 +1279,35 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       
       let chartSucceeded = false;
       try {
-        // Use nearly full landscape page for the chart
-        // Available width: 297 - 20 (margins) = 277mm
-        // Available height: 210 - 25 (title + margin) - 10 (bottom margin) = 175mm
-        const chartWidth = landscapeWidth - (margin * 2); // 277mm
-        const chartHeight = landscapeHeight - 35; // 175mm - gives excellent vertical space
+        // Available space for chart
+        const maxWidth = landscapeWidth - (margin * 2); // 277mm
+        const maxHeight = landscapeHeight - 35; // 175mm (title + margins)
         
-        // Add the chart image (chartImage is validated as non-null above)
-        doc.addImage(data.chartImage!, 'PNG', margin, 22, chartWidth, chartHeight);
-        console.log('[PDF] Chart image embedded in landscape page:', chartWidth, 'x', chartHeight, 'mm');
+        // Get chart dimensions and calculate proper aspect ratio
+        const imgWidth = data.chartImage!.width;
+        const imgHeight = data.chartImage!.height;
+        const aspectRatio = imgWidth / imgHeight;
+        
+        // Fit chart to available space while maintaining aspect ratio
+        let chartWidth = maxWidth;
+        let chartHeight = chartWidth / aspectRatio;
+        
+        // If too tall, scale down to fit height
+        if (chartHeight > maxHeight) {
+          chartHeight = maxHeight;
+          chartWidth = chartHeight * aspectRatio;
+        }
+        
+        // Center horizontally if narrower than available space
+        const chartX = margin + (maxWidth - chartWidth) / 2;
+        
+        // Add the chart image with correct aspect ratio
+        doc.addImage(data.chartImage!.image, 'PNG', chartX, 22, chartWidth, chartHeight);
+        console.log('[PDF] Chart image embedded with proper aspect ratio:', {
+          original: `${imgWidth}x${imgHeight}px`,
+          embedded: `${chartWidth.toFixed(1)}x${chartHeight.toFixed(1)}mm`,
+          aspectRatio: aspectRatio.toFixed(2),
+        });
         chartSucceeded = true;
         
       } catch (error) {
@@ -1326,7 +1353,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       }
     } else {
       // Fallback to simplified line chart when no valid chart image
-      console.log('[PDF] No valid chart image, using simplified chart. Image length:', data.chartImage?.length || 0);
+      console.log('[PDF] No valid chart image, using simplified chart. Image data:', data.chartImage ? 'present' : 'missing');
       yPos = drawTimelineChart(
         doc,
         i18next.t("anesthesia.pdf.vitalSignsTimeline"),

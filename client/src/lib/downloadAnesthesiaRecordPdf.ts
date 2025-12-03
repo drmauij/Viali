@@ -1,6 +1,7 @@
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
+import { generateChartImageFromSnapshot } from "@/lib/generateChartImage";
 import type { Surgery, Patient } from "@shared/schema";
-import type { UnifiedTimelineRef } from "@/components/anesthesia/UnifiedTimeline";
+import type { UnifiedTimelineRef, ChartExportResult } from "@/components/anesthesia/UnifiedTimeline";
 
 interface AllergyItem {
   id: string;
@@ -121,22 +122,47 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
     }
 
     // Export chart image from visible timeline (4-hour window centered on data)
-    let chartImage: string | null = null;
+    // Falls back to generating chart from clinical snapshot if no timeline is visible
+    let chartImage: ChartExportResult | null = null;
     
     if (timelineRef?.current) {
+      // Primary: Use visible timeline component
       try {
         console.log("[PDF-EXPORT] Exporting from visible timeline with 4-hour zoom...");
         chartImage = await timelineRef.current.exportForPdf();
         if (chartImage) {
-          console.log("[PDF-EXPORT] Timeline image exported successfully, size:", Math.round(chartImage.length / 1024), "KB");
+          console.log("[PDF-EXPORT] Timeline image exported successfully:", {
+            size: Math.round(chartImage.image.length / 1024) + "KB",
+            dimensions: `${chartImage.width}x${chartImage.height}px`,
+          });
         } else {
           console.warn("[PDF-EXPORT] Timeline export returned null");
         }
       } catch (error) {
         console.error("[PDF-EXPORT] Failed to export timeline:", error);
       }
-    } else {
-      console.warn("[PDF-EXPORT] No timeline ref available - chart will be omitted from PDF");
+    }
+    
+    // Fallback: Generate chart from clinical snapshot when no visible timeline
+    if (!chartImage && clinicalSnapshot) {
+      try {
+        console.log("[PDF-EXPORT] No visible timeline - generating chart from clinical snapshot...");
+        chartImage = await generateChartImageFromSnapshot({ clinicalSnapshot });
+        if (chartImage) {
+          console.log("[PDF-EXPORT] Fallback chart generated successfully:", {
+            size: Math.round(chartImage.image.length / 1024) + "KB",
+            dimensions: `${chartImage.width}x${chartImage.height}px`,
+          });
+        } else {
+          console.warn("[PDF-EXPORT] Fallback chart generation returned null");
+        }
+      } catch (error) {
+        console.error("[PDF-EXPORT] Failed to generate fallback chart:", error);
+      }
+    }
+    
+    if (!chartImage) {
+      console.warn("[PDF-EXPORT] No chart available for PDF - vitals section will be omitted");
     }
 
     // Convert allergy IDs to labels for PDF display

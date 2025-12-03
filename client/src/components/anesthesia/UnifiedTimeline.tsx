@@ -256,10 +256,17 @@ type AdministrationGroup = {
   createdAt: string;
 };
 
+// Chart export result with dimensions for proper PDF aspect ratio
+export interface ChartExportResult {
+  image: string;
+  width: number;
+  height: number;
+}
+
 // Ref type for UnifiedTimeline
 export interface UnifiedTimelineRef {
   getChartImage: () => Promise<string | null>;
-  exportForPdf: () => Promise<string | null>;
+  exportForPdf: () => Promise<ChartExportResult | null>;
 }
 
 export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
@@ -330,7 +337,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       }
     },
     
-    exportForPdf: async (): Promise<string | null> => {
+    exportForPdf: async (): Promise<ChartExportResult | null> => {
       if (!chartRef.current || !isChartReady) {
         console.warn('[PDF-CHART-EXPORT] Chart not ready for export');
         return null;
@@ -446,10 +453,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         // Wait for chart to update
         await new Promise(resolve => setTimeout(resolve, 300));
         
-        // Export with white background at moderate resolution (1.5 instead of 3 for smaller file size)
+        // Get chart dimensions for proper aspect ratio in PDF
+        const chartWidth = chartInstance.getWidth();
+        const chartHeight = chartInstance.getHeight();
+        const pixelRatio = 2; // Higher resolution for better text clarity
+        
+        // Export with white background at good resolution
         const dataURL = chartInstance.getDataURL({
           type: 'png',
-          pixelRatio: 1.5,
+          pixelRatio,
           backgroundColor: '#ffffff',
         });
         
@@ -460,8 +472,18 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           end: originalEnd,
         });
         
-        console.log('[PDF-CHART-EXPORT] Chart exported for PDF successfully, dataURL length:', dataURL?.length);
-        return dataURL;
+        console.log('[PDF-CHART-EXPORT] Chart exported for PDF:', {
+          width: chartWidth,
+          height: chartHeight,
+          pixelRatio,
+          imageSize: Math.round((dataURL?.length || 0) / 1024) + 'KB',
+        });
+        
+        return {
+          image: dataURL,
+          width: chartWidth * pixelRatio,
+          height: chartHeight * pixelRatio,
+        };
       } catch (error) {
         console.error('[PDF-CHART-EXPORT] Error exporting chart for PDF:', error);
         return null;
