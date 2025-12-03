@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Trash2, Download, CheckCircle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -101,6 +102,11 @@ export default function PatientDetail() {
     otherAllergies: "",
     internalNotes: "",
   });
+  
+  // Quick contact edit state for Pre-Op dialog
+  const [isQuickContactOpen, setIsQuickContactOpen] = useState(false);
+  const [quickContactForm, setQuickContactForm] = useState({ email: "", phone: "" });
+  const [isQuickContactSaving, setIsQuickContactSaving] = useState(false);
   
   // Fetch patient data from API
   const { data: patient, isLoading, error } = useQuery<Patient>({
@@ -507,6 +513,42 @@ export default function PatientDetail() {
       });
     },
   });
+
+  // Handler for quick contact edit in Pre-Op dialog
+  const handleQuickContactSave = async () => {
+    if (!patient) return;
+    
+    // Check if anything changed to avoid unnecessary updates
+    const emailChanged = (quickContactForm.email || "") !== (patient.email || "");
+    const phoneChanged = (quickContactForm.phone || "") !== (patient.phone || "");
+    
+    if (!emailChanged && !phoneChanged) {
+      setIsQuickContactOpen(false);
+      return;
+    }
+    
+    setIsQuickContactSaving(true);
+    try {
+      await apiRequest("PATCH", `/api/patients/${patient.id}`, {
+        email: quickContactForm.email || null,
+        phone: quickContactForm.phone || null,
+      });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patient.id}`] });
+      toast({
+        title: t('anesthesia.patientDetail.successContactUpdated'),
+        description: t('anesthesia.patientDetail.successContactUpdatedDesc'),
+      });
+      setIsQuickContactOpen(false);
+    } catch (error: any) {
+      toast({
+        title: t('anesthesia.patientDetail.error'),
+        description: error.message || t('anesthesia.patientDetail.errorContactUpdated'),
+        variant: "destructive",
+      });
+    } finally {
+      setIsQuickContactSaving(false);
+    }
+  };
 
   // Fetch pre-op assessment for selected surgery
   const { data: existingAssessment } = useQuery<any>({
@@ -1844,22 +1886,98 @@ export default function PatientDetail() {
                 <p className="text-xs text-muted-foreground text-left" data-testid="text-preop-patient-info">
                   {formatDate(patient.birthday)} ({calculateAge(patient.birthday)} y) • ID: {patient.patientNumber}
                 </p>
-                {(patient.phone || patient.email) && (
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    {patient.phone && (
-                      <a href={`tel:${patient.phone}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1" data-testid="text-preop-patient-phone">
-                        <Phone className="h-3 w-3" />
-                        {patient.phone}
-                      </a>
-                    )}
-                    {patient.email && (
-                      <a href={`mailto:${patient.email}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1" data-testid="text-preop-patient-email">
-                        <Mail className="h-3 w-3" />
-                        {patient.email}
-                      </a>
-                    )}
-                  </div>
-                )}
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  {patient.phone && (
+                    <a href={`tel:${patient.phone}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1" data-testid="text-preop-patient-phone">
+                      <Phone className="h-3 w-3" />
+                      {patient.phone}
+                    </a>
+                  )}
+                  {patient.email && (
+                    <a href={`mailto:${patient.email}`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1" data-testid="text-preop-patient-email">
+                      <Mail className="h-3 w-3" />
+                      {patient.email}
+                    </a>
+                  )}
+                  {!patient.phone && !patient.email && (
+                    <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.noContactInfo')}</span>
+                  )}
+                  {!isPreOpReadOnly && (
+                    <Popover open={isQuickContactOpen} onOpenChange={(open) => {
+                      setIsQuickContactOpen(open);
+                      if (open) {
+                        setQuickContactForm({
+                          email: patient.email || "",
+                          phone: patient.phone || "",
+                        });
+                      }
+                    }}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 ml-1"
+                          data-testid="button-quick-contact-edit"
+                        >
+                          <Pencil className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-72 p-4" align="start">
+                        <div className="space-y-3">
+                          <h4 className="font-medium text-sm">{t('anesthesia.patientDetail.quickContactEdit')}</h4>
+                          <div className="space-y-2">
+                            <Label htmlFor="quick-phone" className="text-xs">{t('anesthesia.patientDetail.phone')}</Label>
+                            <Input
+                              id="quick-phone"
+                              type="tel"
+                              value={quickContactForm.phone}
+                              onChange={(e) => setQuickContactForm(prev => ({ ...prev, phone: e.target.value }))}
+                              placeholder={t('anesthesia.patientDetail.enterPhone')}
+                              className="h-8 text-sm"
+                              data-testid="input-quick-phone"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="quick-email" className="text-xs">{t('anesthesia.patientDetail.email')}</Label>
+                            <Input
+                              id="quick-email"
+                              type="email"
+                              value={quickContactForm.email}
+                              onChange={(e) => setQuickContactForm(prev => ({ ...prev, email: e.target.value }))}
+                              placeholder={t('anesthesia.patientDetail.enterEmail')}
+                              className="h-8 text-sm"
+                              data-testid="input-quick-email"
+                            />
+                          </div>
+                          <div className="flex gap-2 pt-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setIsQuickContactOpen(false)}
+                              className="flex-1"
+                              data-testid="button-quick-contact-cancel"
+                            >
+                              {t('common.cancel')}
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={handleQuickContactSave}
+                              disabled={isQuickContactSaving}
+                              className="flex-1"
+                              data-testid="button-quick-contact-save"
+                            >
+                              {isQuickContactSaving ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                t('common.save')
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  )}
+                </div>
               </div>
             </div>
           </DialogHeader>
