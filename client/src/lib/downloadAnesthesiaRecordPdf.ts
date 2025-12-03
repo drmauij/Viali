@@ -143,16 +143,19 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       } catch (error) {
         console.error("[PDF-EXPORT] Failed to export timeline:", error);
       }
+    } else {
+      console.log("[PDF-EXPORT] No timeline ref available - using fallback chart renderer");
     }
     
     // Fallback: Use offscreen vitals-only renderer if timeline export failed
+    // Uses larger dimensions (1800x900) to fill the landscape PDF page better
     if (!chartImage && clinicalSnapshot) {
       try {
         console.log("[PDF-EXPORT] Falling back to vitals-only offscreen chart...");
         chartImage = await generateChartImageFromSnapshot({ 
           clinicalSnapshot,
           width: 1800,
-          height: 500,
+          height: 900,
         });
         if (chartImage) {
           console.log("[PDF-EXPORT] Vitals-only chart generated:", {
