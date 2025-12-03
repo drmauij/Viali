@@ -526,7 +526,7 @@ export default function PatientDetail() {
         height: existingAssessment.height || "",
         weight: existingAssessment.weight || "",
         allergies: existingAssessment.allergies || patient?.allergies || [],
-        allergiesOther: existingAssessment.allergiesOther || "",
+        allergiesOther: existingAssessment.allergiesOther || patient?.otherAllergies || "",
         cave: existingAssessment.cave || "",
         asa: existingAssessment.asa || "",
         specialNotes: existingAssessment.specialNotes || "",
@@ -600,6 +600,7 @@ export default function PatientDetail() {
       setAssessmentData(prev => ({
         ...prev,
         allergies: patient.allergies || [],
+        allergiesOther: patient.otherAllergies || "",
         doctorName: currentUserName,
       }));
     }
