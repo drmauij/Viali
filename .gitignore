@@ -5,6 +5,13 @@ server/public
 vite.config.ts.*
 *.tar.gz
 attached_assets
+# Logs
+logs/
+*.log
+*.log.*
+
+# PM2
+.pm2/
 
 # Production config with secrets - DO NOT COMMIT
 ecosystem.config.cjs
