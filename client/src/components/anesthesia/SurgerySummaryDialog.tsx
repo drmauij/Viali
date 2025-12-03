@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,6 @@ import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSett
 import { useToast } from "@/hooks/use-toast";
 import type { Module } from "@/contexts/ModuleContext";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
-import { HiddenChartExporter, type HiddenChartExporterRef } from "@/components/anesthesia/HiddenChartExporter";
-import { HiddenFullTimelineExporter, type HiddenFullTimelineExporterRef } from "@/components/anesthesia/HiddenFullTimelineExporter";
 
 interface SurgerySummaryDialogProps {
   open: boolean;
@@ -38,9 +36,6 @@ export default function SurgerySummaryDialog({
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
-  
-  const hiddenChartRef = useRef<HiddenChartExporterRef>(null);
-  const hiddenTimelineRef = useRef<HiddenFullTimelineExporterRef>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
   const { data: surgery } = useQuery<any>({
@@ -146,8 +141,6 @@ export default function SurgerySummaryDialog({
         patient: patient as any,
         hospitalId: activeHospital.id,
         anesthesiaSettings,
-        hiddenChartRef,
-        hiddenTimelineRef,
       });
 
       if (result.success) {
@@ -484,10 +477,6 @@ export default function SurgerySummaryDialog({
           </Button>
         </div>
       </DialogContent>
-      
-      {/* Hidden exporters for PDF generation */}
-      <HiddenChartExporter ref={hiddenChartRef} />
-      <HiddenFullTimelineExporter ref={hiddenTimelineRef} />
     </Dialog>
   );
 }

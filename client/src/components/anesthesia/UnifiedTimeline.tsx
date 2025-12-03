@@ -353,7 +353,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         const originalStart = currentDataZoom?.start ?? 0;
         const originalEnd = currentDataZoom?.end ?? 100;
         
-        // Calculate content bounds for zoom
+        // Calculate content bounds from all data points
         const timestamps: number[] = [];
         
         // Collect timestamps from vitals
@@ -396,32 +396,47 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         // Filter valid timestamps
         const validTimestamps = timestamps.filter(t => t && isFinite(t) && t > 0);
         
+        const fullRange = data.endTime - data.startTime;
+        const FOUR_HOURS_MS = 4 * 60 * 60 * 1000; // 4 hours for ~30 min intervals
+        
         let startPercent = 0;
         let endPercent = 100;
         
         if (validTimestamps.length > 0) {
-          const minTime = Math.min(...validTimestamps);
-          const maxTime = Math.max(...validTimestamps);
-          const fullRange = data.endTime - data.startTime;
+          const minDataTime = Math.min(...validTimestamps);
+          const maxDataTime = Math.max(...validTimestamps);
+          const dataRange = maxDataTime - minDataTime;
           
-          // Add 15 minute padding on each side
-          const PADDING = 15 * 60 * 1000;
-          const paddedStart = Math.max(data.startTime, minTime - PADDING);
-          const paddedEnd = Math.min(data.endTime, maxTime + PADDING);
+          // Center point of data
+          const centerTime = minDataTime + dataRange / 2;
+          
+          // Use 4-hour window or actual data range + padding, whichever is larger
+          const windowSize = Math.max(FOUR_HOURS_MS, dataRange + 30 * 60 * 1000); // At least 30min padding
+          
+          // Calculate window start/end centered on data
+          let windowStart = centerTime - windowSize / 2;
+          let windowEnd = centerTime + windowSize / 2;
+          
+          // Clamp to data boundaries
+          windowStart = Math.max(data.startTime, windowStart);
+          windowEnd = Math.min(data.endTime, windowEnd);
           
           // Convert to percentages
-          startPercent = Math.max(0, ((paddedStart - data.startTime) / fullRange) * 100);
-          endPercent = Math.min(100, ((paddedEnd - data.startTime) / fullRange) * 100);
+          startPercent = Math.max(0, ((windowStart - data.startTime) / fullRange) * 100);
+          endPercent = Math.min(100, ((windowEnd - data.startTime) / fullRange) * 100);
           
-          console.log('[PDF-CHART-EXPORT] Content bounds:', {
-            minTime: new Date(minTime).toISOString(),
-            maxTime: new Date(maxTime).toISOString(),
-            startPercent,
-            endPercent
+          console.log('[PDF-CHART-EXPORT] 4-hour window centered on data:', {
+            minDataTime: new Date(minDataTime).toISOString(),
+            maxDataTime: new Date(maxDataTime).toISOString(),
+            centerTime: new Date(centerTime).toISOString(),
+            windowStart: new Date(windowStart).toISOString(),
+            windowEnd: new Date(windowEnd).toISOString(),
+            startPercent: startPercent.toFixed(2),
+            endPercent: endPercent.toFixed(2),
           });
         }
         
-        // Temporarily set zoom to content bounds
+        // Temporarily set zoom to 4-hour window
         chartInstance.dispatchAction({
           type: 'dataZoom',
           start: startPercent,
@@ -431,10 +446,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         // Wait for chart to update
         await new Promise(resolve => setTimeout(resolve, 300));
         
-        // Export with white background at high resolution
+        // Export with white background at moderate resolution (1.5 instead of 3 for smaller file size)
         const dataURL = chartInstance.getDataURL({
           type: 'png',
-          pixelRatio: 3, // Higher resolution for PDF quality
+          pixelRatio: 1.5,
           backgroundColor: '#ffffff',
         });
         
@@ -445,7 +460,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           end: originalEnd,
         });
         
-        console.log('[PDF-CHART-EXPORT] Chart exported for PDF successfully');
+        console.log('[PDF-CHART-EXPORT] Chart exported for PDF successfully, dataURL length:', dataURL?.length);
         return dataURL;
       } catch (error) {
         console.error('[PDF-CHART-EXPORT] Error exporting chart for PDF:', error);

@@ -1,6 +1,5 @@
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
 import type { Surgery, Patient } from "@shared/schema";
-import type { FullTimelineExportData, HiddenFullTimelineExporterRef } from "@/components/anesthesia/HiddenFullTimelineExporter";
 import type { UnifiedTimelineRef } from "@/components/anesthesia/UnifiedTimeline";
 
 interface AllergyItem {
@@ -24,8 +23,6 @@ interface DownloadPdfOptions {
   patient: Patient;
   hospitalId: string;
   anesthesiaSettings?: AnesthesiaSettingsForPdf | null;
-  hiddenChartRef?: React.RefObject<{ exportChart: (snapshot: any) => Promise<string | null> }>;
-  hiddenTimelineRef?: React.RefObject<HiddenFullTimelineExporterRef>;
   timelineRef?: React.RefObject<UnifiedTimelineRef>;
 }
 
@@ -38,12 +35,13 @@ interface DownloadPdfResult {
 /**
  * Single entry point for downloading anesthesia record PDFs.
  * Fetches all required data and generates the PDF with proper allergy ID to label conversion.
+ * Uses the visible UnifiedTimeline for chart export with 4-hour zoom centered on data.
  * 
  * @param options - The options for PDF download
  * @returns Promise with success status and any warnings
  */
 export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): Promise<DownloadPdfResult> {
-  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings, hiddenChartRef, hiddenTimelineRef, timelineRef } = options;
+  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings, timelineRef } = options;
 
   try {
     // Fetch critical data (anesthesia record, pre-op assessment, items, and settings if not provided)
@@ -122,107 +120,23 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       }
     }
 
-    // Export chart image for PDF
-    // Priority: 1) Actual visible timeline (best quality), 2) Hidden full timeline, 3) Hidden vitals chart
+    // Export chart image from visible timeline (4-hour window centered on data)
     let chartImage: string | null = null;
     
-    // Try visible timeline first - this captures exactly what the user sees
     if (timelineRef?.current) {
       try {
-        console.log("[PDF-EXPORT] Exporting from visible timeline (preferred)...");
+        console.log("[PDF-EXPORT] Exporting from visible timeline with 4-hour zoom...");
         chartImage = await timelineRef.current.exportForPdf();
         if (chartImage) {
-          console.log("[PDF-EXPORT] Visible timeline image exported successfully");
+          console.log("[PDF-EXPORT] Timeline image exported successfully, size:", Math.round(chartImage.length / 1024), "KB");
         } else {
-          console.warn("[PDF-EXPORT] Visible timeline export returned null, trying fallback...");
+          console.warn("[PDF-EXPORT] Timeline export returned null");
         }
       } catch (error) {
-        console.error("[PDF-EXPORT] Failed to export visible timeline:", error);
+        console.error("[PDF-EXPORT] Failed to export timeline:", error);
       }
-    }
-    
-    // Fallback to hidden full timeline exporter (includes all swimlanes)
-    if (!chartImage && hiddenTimelineRef?.current && anesthesiaRecord) {
-      try {
-        console.log("[PDF-EXPORT] Exporting full timeline image (fallback 1)...");
-        
-        // Calculate start/end time from anesthesia record or surgery
-        const startTime = anesthesiaRecord.anesthesiaStartTime 
-          ? new Date(anesthesiaRecord.anesthesiaStartTime).getTime()
-          : surgery.actualStartTime 
-            ? new Date(surgery.actualStartTime).getTime()
-            : new Date(surgery.plannedDate).getTime();
-        
-        const endTime = anesthesiaRecord.anesthesiaEndTime
-          ? new Date(anesthesiaRecord.anesthesiaEndTime).getTime()
-          : surgery.actualEndTime
-            ? new Date(surgery.actualEndTime).getTime()
-            : startTime + (4 * 60 * 60 * 1000); // Default 4 hours if no end time
-        
-        // Extract data from clinicalSnapshot - structure may be nested under 'data'
-        const snapshotData = clinicalSnapshot?.data || clinicalSnapshot;
-        
-        // Extract vitals (hr, bp, spo2, temp)
-        const vitals = snapshotData ? {
-          hr: snapshotData.hr || [],
-          bp: snapshotData.bp || [],
-          spo2: snapshotData.spo2 || [],
-          temp: snapshotData.temp || [],
-        } : undefined;
-        
-        // Extract ventilation data (pip, peep, tidalVolume, respiratoryRate, fio2, etco2)
-        const ventilation = snapshotData ? {
-          pip: snapshotData.pip || [],
-          peep: snapshotData.peep || [],
-          tidalVolume: snapshotData.tidalVolume || [],
-          respiratoryRate: snapshotData.respiratoryRate || [],
-          fio2: snapshotData.fio2 || [],
-          etco2: snapshotData.etco2 || [],
-        } : undefined;
-        
-        // Extract BIS and TOF data
-        const bis = snapshotData?.bis || [];
-        const tof = snapshotData?.tof || [];
-        
-        const timelineData: FullTimelineExportData = {
-          startTime,
-          endTime,
-          vitals,
-          events,
-          medications,
-          anesthesiaItems,
-          staffMembers,
-          positions,
-          ventilation,
-          bis,
-          tof,
-        };
-        
-        const fullTimelineImage = await hiddenTimelineRef.current.exportTimeline(timelineData);
-        if (fullTimelineImage) {
-          console.log("[PDF-EXPORT] Full timeline image exported successfully");
-          chartImage = fullTimelineImage;
-        } else {
-          console.warn("[PDF-EXPORT] Full timeline export returned null, trying vitals chart fallback");
-        }
-      } catch (error) {
-        console.error("[PDF-EXPORT] Failed to export full timeline:", error);
-      }
-    }
-    
-    // Last fallback: vitals-only chart
-    if (!chartImage && clinicalSnapshot && hiddenChartRef?.current) {
-      try {
-        console.log("[PDF-EXPORT] Exporting vitals chart image (fallback 2)...");
-        chartImage = await hiddenChartRef.current.exportChart(clinicalSnapshot);
-        if (chartImage) {
-          console.log("[PDF-EXPORT] Vitals chart image exported successfully");
-        } else {
-          console.warn("[PDF-EXPORT] Vitals chart export returned null");
-        }
-      } catch (error) {
-        console.error("[PDF-EXPORT] Failed to export vitals chart:", error);
-      }
+    } else {
+      console.warn("[PDF-EXPORT] No timeline ref available - chart will be omitted from PDF");
     }
 
     // Convert allergy IDs to labels for PDF display

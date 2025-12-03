@@ -2,7 +2,6 @@ import { useToast } from "@/hooks/use-toast";
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
 import { useTranslation } from "react-i18next";
 import type { UnifiedTimelineRef } from "@/components/anesthesia/UnifiedTimeline";
-import type { HiddenChartExporterRef } from "@/components/anesthesia/HiddenChartExporter";
 import type { RefObject } from "react";
 
 interface UsePdfExportProps {
@@ -19,7 +18,6 @@ interface UsePdfExportProps {
   positions: any[];
   anesthesiaSettings: any;
   timelineRef: RefObject<UnifiedTimelineRef>;
-  hiddenChartRef?: RefObject<HiddenChartExporterRef>;
   isRecordLoading: boolean;
   isVitalsLoading: boolean;
   isMedicationsLoading: boolean;
@@ -139,13 +137,13 @@ export function usePdfExport(props: UsePdfExportProps) {
     try {
       let chartImage: string | null = null;
       
-      // Try to export chart image from timeline first (when visible)
+      // Export chart image from visible timeline with 4-hour zoom centered on data
       if (props.timelineRef.current) {
         try {
-          console.log('[PDF-EXPORT] Attempting to export chart from visible timeline...');
-          chartImage = await props.timelineRef.current.getChartImage();
+          console.log('[PDF-EXPORT] Exporting chart from visible timeline with 4-hour zoom...');
+          chartImage = await props.timelineRef.current.exportForPdf();
           if (chartImage) {
-            console.log('[PDF-EXPORT] Chart image exported from timeline successfully');
+            console.log('[PDF-EXPORT] Chart image exported successfully');
           } else {
             console.warn('[PDF-EXPORT] Timeline chart export returned null');
           }
@@ -153,24 +151,8 @@ export function usePdfExport(props: UsePdfExportProps) {
           console.error('[PDF-EXPORT] Failed to export chart from timeline:', error);
         }
       }
-      
-      // Fallback to hidden chart exporter if timeline export failed
-      if (!chartImage && props.hiddenChartRef?.current && props.clinicalSnapshot) {
-        try {
-          console.log('[PDF-EXPORT] Falling back to hidden chart exporter...');
-          chartImage = await props.hiddenChartRef.current.exportChart(props.clinicalSnapshot);
-          if (chartImage) {
-            console.log('[PDF-EXPORT] Chart image exported from hidden exporter successfully');
-          } else {
-            console.warn('[PDF-EXPORT] Hidden chart export returned null');
-          }
-        } catch (error) {
-          console.error('[PDF-EXPORT] Failed to export chart from hidden exporter:', error);
-        }
-      }
 
       // Convert allergy IDs to labels for PDF display
-      // IMPORTANT: Keep null/undefined intact so PDF shows "No allergies known" fallback text
       let convertedAllergies: string[] | null = null;
       if (props.patient.allergies && props.patient.allergies.length > 0) {
         convertedAllergies = props.patient.allergies.map((allergyId: string) => {

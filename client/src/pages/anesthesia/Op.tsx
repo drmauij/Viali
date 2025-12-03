@@ -3,8 +3,6 @@ import { useParams, useLocation } from "wouter";
 import { useTranslation } from 'react-i18next';
 import { useModule } from "@/contexts/ModuleContext";
 import { UnifiedTimeline, type UnifiedTimelineRef, type UnifiedTimelineData, type TimelineVitals, type TimelineEvent, type VitalPoint } from "@/components/anesthesia/UnifiedTimeline";
-import { HiddenChartExporter, type HiddenChartExporterRef } from "@/components/anesthesia/HiddenChartExporter";
-import { HiddenFullTimelineExporter, type HiddenFullTimelineExporterRef } from "@/components/anesthesia/HiddenFullTimelineExporter";
 import { PreOpOverview } from "@/components/anesthesia/PreOpOverview";
 import { 
   InstallationsSection,
@@ -103,8 +101,6 @@ export default function Op() {
   const isSurgeryMode = activeModule === "surgery" || location.startsWith("/surgery");
   const hasAttemptedCreate = useRef(false);
   const timelineRef = useRef<UnifiedTimelineRef>(null);
-  const hiddenChartRef = useRef<HiddenChartExporterRef>(null);
-  const hiddenTimelineRef = useRef<HiddenFullTimelineExporterRef>(null);
 
   // Determine mode based on route (PACU mode if URL contains /pacu)
   const isPacuMode = location.includes('/pacu');
@@ -887,8 +883,6 @@ export default function Op() {
       patient,
       hospitalId: activeHospital.id,
       anesthesiaSettings,
-      hiddenChartRef,
-      hiddenTimelineRef,
       timelineRef,
     });
 
@@ -3218,12 +3212,6 @@ export default function Op() {
       }}
       title="Sign Out Signature"
     />
-
-    {/* Hidden Chart Exporter for PDF export fallback */}
-    <HiddenChartExporter ref={hiddenChartRef} />
-    
-    {/* Hidden Full Timeline Exporter for PDF export (primary) */}
-    <HiddenFullTimelineExporter ref={hiddenTimelineRef} />
     </>
   );
 }
