@@ -40,6 +40,7 @@ export default function Landing() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password })
       });
 
@@ -68,6 +69,7 @@ export default function Landing() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ 
           email: 'demo@viali.app', 
           password: 'demo123' 
@@ -107,6 +109,7 @@ export default function Landing() {
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ email, password, firstName, lastName, hospitalName })
       });
 
@@ -414,6 +417,7 @@ export default function Landing() {
                   const response = await fetch('/api/auth/forgot-password', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({ email: resetEmail }),
                   });
                   

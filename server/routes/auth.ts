@@ -87,7 +87,7 @@ router.post('/api/auth/login', async (req, res) => {
       mustChangePassword: user.mustChangePassword
     }, (err) => {
       if (err) {
-        console.error("Error logging in user:", err);
+        console.error("[Auth] Error logging in user:", err);
         return res.status(500).json({ message: "Login failed" });
       }
       res.json({ 

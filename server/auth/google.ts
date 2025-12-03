@@ -33,7 +33,7 @@ export function getSession() {
     tableName: "sessions",
   });
   
-  // Only use secure cookies when actually using HTTPS
+  // Use secure cookies when PRODUCTION_URL is HTTPS
   const isHttps = process.env.PRODUCTION_URL?.startsWith('https://') || false;
   
   sessionMiddleware = session({
