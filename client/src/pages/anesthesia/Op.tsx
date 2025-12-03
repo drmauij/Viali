@@ -889,6 +889,7 @@ export default function Op() {
       anesthesiaSettings,
       hiddenChartRef,
       hiddenTimelineRef,
+      timelineRef,
     });
 
     if (result.success) {

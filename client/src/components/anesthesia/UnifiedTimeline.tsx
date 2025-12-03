@@ -259,6 +259,7 @@ type AdministrationGroup = {
 // Ref type for UnifiedTimeline
 export interface UnifiedTimelineRef {
   getChartImage: () => Promise<string | null>;
+  exportForPdf: () => Promise<string | null>;
 }
 
 export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
@@ -299,7 +300,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // When record is locked, editing is blocked until explicitly unlocked
   const canWrite = canWriteBase && !isRecordLocked;
 
-  // Expose chart image export function
+  // Expose chart image export functions
   useImperativeHandle(ref, () => ({
     getChartImage: async (): Promise<string | null> => {
       if (!chartRef.current || !isChartReady) {
@@ -328,7 +329,130 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         return null;
       }
     },
-  }), [isChartReady]);
+    
+    exportForPdf: async (): Promise<string | null> => {
+      if (!chartRef.current || !isChartReady) {
+        console.warn('[PDF-CHART-EXPORT] Chart not ready for export');
+        return null;
+      }
+      
+      try {
+        const chartInstance = chartRef.current.getEchartsInstance();
+        if (!chartInstance) {
+          console.warn('[PDF-CHART-EXPORT] Chart instance not available');
+          return null;
+        }
+        
+        // Get current option to restore later
+        const currentOption = chartInstance.getOption();
+        if (!currentOption) {
+          console.warn('[PDF-CHART-EXPORT] Could not get current option');
+          return null;
+        }
+        const currentDataZoom = currentOption.dataZoom?.[0];
+        const originalStart = currentDataZoom?.start ?? 0;
+        const originalEnd = currentDataZoom?.end ?? 100;
+        
+        // Calculate content bounds for zoom
+        const timestamps: number[] = [];
+        
+        // Collect timestamps from vitals
+        if (data.vitals?.hr) {
+          data.vitals.hr.forEach((p: VitalPoint) => timestamps.push(p[0]));
+        }
+        if (data.vitals?.sysBP) {
+          data.vitals.sysBP.forEach((p: VitalPoint) => timestamps.push(p[0]));
+        }
+        if (data.vitals?.diaBP) {
+          data.vitals.diaBP.forEach((p: VitalPoint) => timestamps.push(p[0]));
+        }
+        if (data.vitals?.spo2) {
+          data.vitals.spo2.forEach((p: VitalPoint) => timestamps.push(p[0]));
+        }
+        
+        // Collect timestamps from medications
+        if (data.medications) {
+          data.medications.forEach((m: any) => {
+            if (m.timestamp) timestamps.push(new Date(m.timestamp).getTime());
+            if (m.endTimestamp) timestamps.push(new Date(m.endTimestamp).getTime());
+          });
+        }
+        
+        // Collect from events
+        if (data.events) {
+          data.events.forEach((e: TimelineEvent) => {
+            if (e.time) timestamps.push(e.time);
+          });
+        }
+        
+        // Collect from time markers
+        const timeMarkersArray = anesthesiaRecord?.timeMarkers;
+        if (Array.isArray(timeMarkersArray)) {
+          timeMarkersArray.forEach((m: any) => {
+            if (m.time) timestamps.push(m.time);
+          });
+        }
+        
+        // Filter valid timestamps
+        const validTimestamps = timestamps.filter(t => t && isFinite(t) && t > 0);
+        
+        let startPercent = 0;
+        let endPercent = 100;
+        
+        if (validTimestamps.length > 0) {
+          const minTime = Math.min(...validTimestamps);
+          const maxTime = Math.max(...validTimestamps);
+          const fullRange = data.endTime - data.startTime;
+          
+          // Add 15 minute padding on each side
+          const PADDING = 15 * 60 * 1000;
+          const paddedStart = Math.max(data.startTime, minTime - PADDING);
+          const paddedEnd = Math.min(data.endTime, maxTime + PADDING);
+          
+          // Convert to percentages
+          startPercent = Math.max(0, ((paddedStart - data.startTime) / fullRange) * 100);
+          endPercent = Math.min(100, ((paddedEnd - data.startTime) / fullRange) * 100);
+          
+          console.log('[PDF-CHART-EXPORT] Content bounds:', {
+            minTime: new Date(minTime).toISOString(),
+            maxTime: new Date(maxTime).toISOString(),
+            startPercent,
+            endPercent
+          });
+        }
+        
+        // Temporarily set zoom to content bounds
+        chartInstance.dispatchAction({
+          type: 'dataZoom',
+          start: startPercent,
+          end: endPercent,
+        });
+        
+        // Wait for chart to update
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Export with white background at high resolution
+        const dataURL = chartInstance.getDataURL({
+          type: 'png',
+          pixelRatio: 3, // Higher resolution for PDF quality
+          backgroundColor: '#ffffff',
+        });
+        
+        // Restore original zoom state
+        chartInstance.dispatchAction({
+          type: 'dataZoom',
+          start: originalStart,
+          end: originalEnd,
+        });
+        
+        console.log('[PDF-CHART-EXPORT] Chart exported for PDF successfully');
+        return dataURL;
+      } catch (error) {
+        console.error('[PDF-CHART-EXPORT] Error exporting chart for PDF:', error);
+        return null;
+      }
+    },
+  }), [isChartReady, data.vitals, data.medications, data.events, anesthesiaRecord?.timeMarkers, data.startTime, data.endTime]);
 
   // Fetch configured anesthesia items from inventory
   const { data: allAnesthesiaItems = [] } = useQuery<AnesthesiaItem[]>({

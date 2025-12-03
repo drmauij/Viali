@@ -1,6 +1,7 @@
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
 import type { Surgery, Patient } from "@shared/schema";
 import type { FullTimelineExportData, HiddenFullTimelineExporterRef } from "@/components/anesthesia/HiddenFullTimelineExporter";
+import type { UnifiedTimelineRef } from "@/components/anesthesia/UnifiedTimeline";
 
 interface AllergyItem {
   id: string;
@@ -25,6 +26,7 @@ interface DownloadPdfOptions {
   anesthesiaSettings?: AnesthesiaSettingsForPdf | null;
   hiddenChartRef?: React.RefObject<{ exportChart: (snapshot: any) => Promise<string | null> }>;
   hiddenTimelineRef?: React.RefObject<HiddenFullTimelineExporterRef>;
+  timelineRef?: React.RefObject<UnifiedTimelineRef>;
 }
 
 interface DownloadPdfResult {
@@ -41,7 +43,7 @@ interface DownloadPdfResult {
  * @returns Promise with success status and any warnings
  */
 export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): Promise<DownloadPdfResult> {
-  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings, hiddenChartRef, hiddenTimelineRef } = options;
+  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings, hiddenChartRef, hiddenTimelineRef, timelineRef } = options;
 
   try {
     // Fetch critical data (anesthesia record, pre-op assessment, items, and settings if not provided)
@@ -120,15 +122,29 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       }
     }
 
-    // Export full timeline image using hidden timeline exporter (preferred)
-    // Falls back to vitals-only chart if full timeline export fails
+    // Export chart image for PDF
+    // Priority: 1) Actual visible timeline (best quality), 2) Hidden full timeline, 3) Hidden vitals chart
     let chartImage: string | null = null;
-    let fullTimelineImage: string | null = null;
     
-    // Try full timeline export first (includes all swimlanes)
-    if (hiddenTimelineRef?.current && anesthesiaRecord) {
+    // Try visible timeline first - this captures exactly what the user sees
+    if (timelineRef?.current) {
       try {
-        console.log("[PDF-EXPORT] Exporting full timeline image...");
+        console.log("[PDF-EXPORT] Exporting from visible timeline (preferred)...");
+        chartImage = await timelineRef.current.exportForPdf();
+        if (chartImage) {
+          console.log("[PDF-EXPORT] Visible timeline image exported successfully");
+        } else {
+          console.warn("[PDF-EXPORT] Visible timeline export returned null, trying fallback...");
+        }
+      } catch (error) {
+        console.error("[PDF-EXPORT] Failed to export visible timeline:", error);
+      }
+    }
+    
+    // Fallback to hidden full timeline exporter (includes all swimlanes)
+    if (!chartImage && hiddenTimelineRef?.current && anesthesiaRecord) {
+      try {
+        console.log("[PDF-EXPORT] Exporting full timeline image (fallback 1)...");
         
         // Calculate start/end time from anesthesia record or surgery
         const startTime = anesthesiaRecord.anesthesiaStartTime 
@@ -182,22 +198,22 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
           tof,
         };
         
-        fullTimelineImage = await hiddenTimelineRef.current.exportTimeline(timelineData);
+        const fullTimelineImage = await hiddenTimelineRef.current.exportTimeline(timelineData);
         if (fullTimelineImage) {
           console.log("[PDF-EXPORT] Full timeline image exported successfully");
           chartImage = fullTimelineImage;
         } else {
-          console.warn("[PDF-EXPORT] Full timeline export returned null, falling back to vitals chart");
+          console.warn("[PDF-EXPORT] Full timeline export returned null, trying vitals chart fallback");
         }
       } catch (error) {
         console.error("[PDF-EXPORT] Failed to export full timeline:", error);
       }
     }
     
-    // Fallback to vitals-only chart if full timeline failed
+    // Last fallback: vitals-only chart
     if (!chartImage && clinicalSnapshot && hiddenChartRef?.current) {
       try {
-        console.log("[PDF-EXPORT] Exporting vitals chart image (fallback)...");
+        console.log("[PDF-EXPORT] Exporting vitals chart image (fallback 2)...");
         chartImage = await hiddenChartRef.current.exportChart(clinicalSnapshot);
         if (chartImage) {
           console.log("[PDF-EXPORT] Vitals chart image exported successfully");
