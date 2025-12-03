@@ -291,6 +291,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   onEventsPanelChange, // Callback when events panel state changes
 }, ref) {
   const chartRef = useRef<any>(null);
+  const activeSwimlaneRef = useRef<SwimlaneConfig[]>([]); // Stores latest swimlanes for PDF export
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
   const [showCommitReminder, setShowCommitReminder] = useState(false);
   const [isChartReady, setIsChartReady] = useState(false);
@@ -350,7 +351,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           return null;
         }
         
-        // Get current option to restore later
+        // Get current option and dimensions to restore later
         const currentOption = chartInstance.getOption();
         if (!currentOption) {
           console.warn('[PDF-CHART-EXPORT] Could not get current option');
@@ -359,6 +360,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         const currentDataZoom = currentOption.dataZoom?.[0];
         const originalStart = currentDataZoom?.start ?? 0;
         const originalEnd = currentDataZoom?.end ?? 100;
+        const originalWidth = chartInstance.getWidth();
+        const originalHeight = chartInstance.getHeight();
         
         // Calculate content bounds from all data points
         const timestamps: number[] = [];
@@ -443,6 +446,46 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           });
         }
         
+        // === FIXED DIMENSIONS FOR CONSISTENT PDF EXPORT ===
+        // Use fixed width (1800px) and calculate height based on current swimlanes
+        // This ensures consistent, high-quality output regardless of viewport size
+        const EXPORT_WIDTH = 1800;
+        const VITALS_HEIGHT = 380;
+        const VITALS_TOP = 32;
+        
+        // Calculate swimlane heights from activeSwimlaneRef (stores latest swimlane config)
+        // Fallback to original height if ref is empty (component just mounted)
+        const currentSwimlanes = activeSwimlaneRef.current;
+        let swimlanesHeight: number;
+        
+        if (currentSwimlanes.length > 0) {
+          swimlanesHeight = currentSwimlanes.reduce((sum, lane) => sum + lane.height, 0);
+        } else {
+          // Fallback: use original height minus vitals section, or minimum 400px for swimlanes
+          swimlanesHeight = Math.max(400, originalHeight - VITALS_TOP - VITALS_HEIGHT);
+        }
+        
+        const EXPORT_HEIGHT = VITALS_TOP + VITALS_HEIGHT + swimlanesHeight + 20; // +20 for bottom padding
+        
+        console.log('[PDF-CHART-EXPORT] Using fixed export dimensions:', {
+          width: EXPORT_WIDTH,
+          height: EXPORT_HEIGHT,
+          swimlanesCount: currentSwimlanes.length,
+          swimlanesHeight,
+          originalWidth,
+          originalHeight,
+          usingFallback: currentSwimlanes.length === 0,
+        });
+        
+        // Resize chart to fixed export dimensions
+        chartInstance.resize({
+          width: EXPORT_WIDTH,
+          height: EXPORT_HEIGHT,
+        });
+        
+        // Wait for resize to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         // Temporarily set zoom to 4-hour window
         chartInstance.dispatchAction({
           type: 'dataZoom',
@@ -450,12 +493,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           end: endPercent,
         });
         
-        // Wait for chart to update
+        // Wait for chart to update with new zoom
         await new Promise(resolve => setTimeout(resolve, 300));
         
-        // Get chart dimensions for proper aspect ratio in PDF
-        const chartWidth = chartInstance.getWidth();
-        const chartHeight = chartInstance.getHeight();
         const pixelRatio = 2; // Higher resolution for better text clarity
         
         // Export with white background at good resolution
@@ -465,7 +505,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           backgroundColor: '#ffffff',
         });
         
-        // Restore original zoom state
+        // === RESTORE ORIGINAL STATE ===
+        // First restore original size
+        chartInstance.resize({
+          width: originalWidth,
+          height: originalHeight,
+        });
+        
+        // Then restore original zoom state
         chartInstance.dispatchAction({
           type: 'dataZoom',
           start: originalStart,
@@ -473,16 +520,17 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         });
         
         console.log('[PDF-CHART-EXPORT] Chart exported for PDF:', {
-          width: chartWidth,
-          height: chartHeight,
+          exportWidth: EXPORT_WIDTH,
+          exportHeight: EXPORT_HEIGHT,
           pixelRatio,
+          finalImageDimensions: `${EXPORT_WIDTH * pixelRatio}x${EXPORT_HEIGHT * pixelRatio}px`,
           imageSize: Math.round((dataURL?.length || 0) / 1024) + 'KB',
         });
         
         return {
           image: dataURL,
-          width: chartWidth * pixelRatio,
-          height: chartHeight * pixelRatio,
+          width: EXPORT_WIDTH * pixelRatio,
+          height: EXPORT_HEIGHT * pixelRatio,
         };
       } catch (error) {
         console.error('[PDF-CHART-EXPORT] Error exporting chart for PDF:', error);
@@ -2300,6 +2348,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts]);
+
+  // Keep the ref updated with latest swimlanes for PDF export
+  useEffect(() => {
+    activeSwimlaneRef.current = activeSwimlanes;
+  }, [activeSwimlanes]);
 
   // Compute unique timestamps from ventilation parameter data for the entry lane markers
   const ventilationEntryTimestamps = useMemo(() => {

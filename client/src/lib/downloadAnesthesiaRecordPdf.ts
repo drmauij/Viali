@@ -122,40 +122,18 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       }
     }
 
-    // Generate chart image using offscreen renderer with controlled dimensions
-    // This ensures consistent, high-quality chart output regardless of viewport size
-    // Falls back to visible timeline if snapshot is unavailable
+    // Generate chart image for PDF
+    // Priority 1: Use UnifiedTimeline's exportForPdf (includes ALL swimlanes - vitals, medications, ventilation, etc.)
+    // Priority 2: Fall back to offscreen vitals-only renderer if timeline not available
     let chartImage: ChartExportResult | null = null;
     
-    // Primary: Use offscreen renderer with fixed dimensions (preferred for consistent quality)
-    if (clinicalSnapshot) {
+    // Primary: Use UnifiedTimeline export (full chart with all swimlanes at fixed dimensions)
+    if (timelineRef?.current) {
       try {
-        console.log("[PDF-EXPORT] Generating chart from clinical snapshot with fixed dimensions...");
-        chartImage = await generateChartImageFromSnapshot({ 
-          clinicalSnapshot,
-          width: 1800,
-          height: 500,
-        });
-        if (chartImage) {
-          console.log("[PDF-EXPORT] Chart generated successfully:", {
-            size: Math.round(chartImage.image.length / 1024) + "KB",
-            dimensions: `${chartImage.width}x${chartImage.height}px`,
-          });
-        } else {
-          console.warn("[PDF-EXPORT] Offscreen chart generation returned null");
-        }
-      } catch (error) {
-        console.error("[PDF-EXPORT] Failed to generate offscreen chart:", error);
-      }
-    }
-    
-    // Fallback: Use visible timeline if offscreen rendering failed or no snapshot
-    if (!chartImage && timelineRef?.current) {
-      try {
-        console.log("[PDF-EXPORT] Falling back to visible timeline export...");
+        console.log("[PDF-EXPORT] Exporting full timeline chart (vitals + all swimlanes)...");
         chartImage = await timelineRef.current.exportForPdf();
         if (chartImage) {
-          console.log("[PDF-EXPORT] Timeline image exported successfully:", {
+          console.log("[PDF-EXPORT] Full timeline exported successfully:", {
             size: Math.round(chartImage.image.length / 1024) + "KB",
             dimensions: `${chartImage.width}x${chartImage.height}px`,
           });
@@ -164,6 +142,28 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
         }
       } catch (error) {
         console.error("[PDF-EXPORT] Failed to export timeline:", error);
+      }
+    }
+    
+    // Fallback: Use offscreen vitals-only renderer if timeline export failed
+    if (!chartImage && clinicalSnapshot) {
+      try {
+        console.log("[PDF-EXPORT] Falling back to vitals-only offscreen chart...");
+        chartImage = await generateChartImageFromSnapshot({ 
+          clinicalSnapshot,
+          width: 1800,
+          height: 500,
+        });
+        if (chartImage) {
+          console.log("[PDF-EXPORT] Vitals-only chart generated:", {
+            size: Math.round(chartImage.image.length / 1024) + "KB",
+            dimensions: `${chartImage.width}x${chartImage.height}px`,
+          });
+        } else {
+          console.warn("[PDF-EXPORT] Offscreen chart generation returned null");
+        }
+      } catch (error) {
+        console.error("[PDF-EXPORT] Failed to generate offscreen chart:", error);
       }
     }
     
