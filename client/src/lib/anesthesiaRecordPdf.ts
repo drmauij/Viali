@@ -9,7 +9,6 @@ import type {
   ClinicalSnapshot,
 } from "@shared/schema";
 import { formatDate } from "@/lib/dateUtils";
-import type { SwimlaneExportResult } from "@/components/anesthesia/UnifiedTimeline";
 
 interface AnesthesiaEvent {
   id: string;
@@ -62,12 +61,6 @@ interface ChecklistSettings {
   signOut?: Array<{ id: string; label: string }>;
 }
 
-interface ChartImageData {
-  image: string;
-  width: number;
-  height: number;
-}
-
 interface ExportData {
   patient: Patient;
   surgery: Surgery;
@@ -81,8 +74,6 @@ interface ExportData {
   positions?: PositionEntry[];
   timeMarkers?: TimeMarker[];
   checklistSettings?: ChecklistSettings | null;
-  chartImage?: ChartImageData | null;
-  swimlaneExports?: SwimlaneExportResult | null; // Approach B: per-section charts
 }
 
 // Helper to format time from milliseconds to HH:MM (24-hour format)
@@ -416,6 +407,572 @@ function drawTimelineChart(
 
   doc.setTextColor(0, 0, 0);
   return chartY + chartHeight + 5;
+}
+
+// ==================== LANDSCAPE CHART FUNCTIONS ====================
+// These functions are optimized for landscape A4 pages (297mm x 210mm)
+
+// Landscape version of timeline chart - full width for better visibility
+function drawLandscapeTimelineChart(
+  doc: jsPDF,
+  title: string,
+  dataSeries: Array<{
+    name: string;
+    data: Array<{ time: number; value: number }>;
+    color: [number, number, number];
+  }>,
+  yPos: number,
+  options: {
+    chartWidth: number;
+    height?: number;
+  }
+): number {
+  const chartHeight = options.height || 80;
+  const chartX = 15;
+  const chartY = yPos;
+  const plotWidth = options.chartWidth;
+
+  // Draw title
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, chartX, chartY);
+  
+  const plotY = chartY + 12;
+  const plotHeight = chartHeight - 25;
+
+  // Check if we have any data
+  const hasData = dataSeries.some(series => series.data.length > 0);
+  if (!hasData) {
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "italic");
+    doc.text(i18next.t("anesthesia.pdf.noDataAvailable"), chartX + 10, plotY + plotHeight / 2);
+    return chartY + chartHeight + 8;
+  }
+
+  // Find global min/max time and values
+  let allTimes: number[] = [];
+  let allValues: number[] = [];
+  dataSeries.forEach(series => {
+    series.data.forEach(point => {
+      allTimes.push(point.time);
+      allValues.push(point.value);
+    });
+  });
+
+  if (allTimes.length === 0) {
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "italic");
+    doc.text(i18next.t("anesthesia.pdf.noDataAvailable"), chartX + 10, plotY + plotHeight / 2);
+    return chartY + chartHeight + 8;
+  }
+
+  let minTime = Math.min(...allTimes);
+  let maxTime = Math.max(...allTimes);
+  let minValue = Math.floor(Math.min(...allValues) * 0.9);
+  let maxValue = Math.ceil(Math.max(...allValues) * 1.1);
+
+  // Guard against single data point
+  if (maxTime === minTime) {
+    minTime -= 3600000;
+    maxTime += 3600000;
+  }
+  if (maxValue === minValue) {
+    const range = Math.max(maxValue * 0.1, 10);
+    minValue -= range;
+    maxValue += range;
+  }
+
+  // Draw chart border
+  doc.setDrawColor(180, 180, 180);
+  doc.setLineWidth(0.3);
+  doc.rect(chartX, plotY, plotWidth, plotHeight);
+
+  // Draw grid lines (horizontal)
+  doc.setDrawColor(230, 230, 230);
+  doc.setLineWidth(0.15);
+  for (let i = 1; i < 5; i++) {
+    const y = plotY + (plotHeight / 5) * i;
+    doc.line(chartX, y, chartX + plotWidth, y);
+  }
+
+  // Draw vertical grid lines for time
+  for (let i = 1; i < 8; i++) {
+    const x = chartX + (plotWidth / 8) * i;
+    doc.line(x, plotY, x, plotY + plotHeight);
+  }
+
+  // Draw Y-axis labels
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(80, 80, 80);
+  for (let i = 0; i <= 5; i++) {
+    const value = maxValue - ((maxValue - minValue) / 5) * i;
+    const y = plotY + (plotHeight / 5) * i;
+    doc.text(value.toFixed(0), chartX - 2, y + 2, { align: "right" });
+  }
+
+  // Draw X-axis time labels
+  const numXLabels = 8;
+  for (let i = 0; i <= numXLabels; i++) {
+    const time = minTime + ((maxTime - minTime) / numXLabels) * i;
+    const x = chartX + (plotWidth / numXLabels) * i;
+    doc.setFontSize(8);
+    doc.text(formatTimeFrom24h(time), x, plotY + plotHeight + 4, { align: "center" });
+  }
+
+  // Plot data series with thicker lines for visibility
+  dataSeries.forEach(series => {
+    if (series.data.length === 0) return;
+
+    doc.setDrawColor(...series.color);
+    doc.setLineWidth(1.0);
+
+    const sortedData = [...series.data].sort((a, b) => a.time - b.time);
+
+    for (let i = 0; i < sortedData.length - 1; i++) {
+      const p1 = sortedData[i];
+      const p2 = sortedData[i + 1];
+
+      const x1 = chartX + ((p1.time - minTime) / (maxTime - minTime)) * plotWidth;
+      const y1 = plotY + plotHeight - ((p1.value - minValue) / (maxValue - minValue)) * plotHeight;
+      const x2 = chartX + ((p2.time - minTime) / (maxTime - minTime)) * plotWidth;
+      const y2 = plotY + plotHeight - ((p2.value - minValue) / (maxValue - minValue)) * plotHeight;
+
+      doc.line(x1, y1, x2, y2);
+    }
+
+    // Draw data points
+    sortedData.forEach(point => {
+      const x = chartX + ((point.time - minTime) / (maxTime - minTime)) * plotWidth;
+      const y = plotY + plotHeight - ((point.value - minValue) / (maxValue - minValue)) * plotHeight;
+      doc.setFillColor(...series.color);
+      doc.circle(x, y, 0.8, "F");
+    });
+  });
+
+  // Draw legend at bottom
+  let legendX = chartX;
+  const legendY = plotY + plotHeight + 10;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  dataSeries.forEach(series => {
+    doc.setFillColor(...series.color);
+    doc.rect(legendX, legendY - 2, 4, 4, "F");
+    doc.setTextColor(0, 0, 0);
+    doc.text(series.name, legendX + 6, legendY + 1);
+    legendX += doc.getTextWidth(series.name) + 18;
+  });
+
+  doc.setTextColor(0, 0, 0);
+  return chartY + chartHeight + 15;
+}
+
+// Landscape medication timeline
+function drawLandscapeMedicationTimeline(
+  doc: jsPDF,
+  title: string,
+  medications: MedicationAdministration[],
+  anesthesiaItems: AnesthesiaItem[],
+  yPos: number,
+  options: { chartWidth: number }
+): number {
+  const chartX = 15;
+  const plotWidth = options.chartWidth;
+  let chartY = yPos;
+
+  // Draw title
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, chartX, chartY);
+
+  if (!medications || medications.length === 0) {
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "italic");
+    doc.text(i18next.t("anesthesia.pdf.noMedicationsAdministered"), chartX + 10, chartY + 15);
+    return chartY + 25;
+  }
+
+  let plotY = chartY + 12;
+  const itemMap = new Map(anesthesiaItems.map(item => [item.id, item]));
+
+  // Group medications by item
+  const medsByItem = new Map<string, MedicationAdministration[]>();
+  medications.forEach(med => {
+    const meds = medsByItem.get(med.itemId) || [];
+    meds.push(med);
+    medsByItem.set(med.itemId, meds);
+  });
+
+  const sortedItems = Array.from(medsByItem.entries()).sort((a, b) => {
+    const aTime = new Date(a[1][0]?.timestamp || 0).getTime();
+    const bTime = new Date(b[1][0]?.timestamp || 0).getTime();
+    return aTime - bTime;
+  });
+
+  // Get time range
+  const allTimes = medications.flatMap(m => {
+    const times = [new Date(m.timestamp).getTime()];
+    if (m.endTimestamp) times.push(new Date(m.endTimestamp).getTime());
+    return times;
+  });
+  let minTime = Math.min(...allTimes);
+  let maxTime = Math.max(...allTimes);
+
+  if (maxTime === minTime) {
+    minTime -= 3600000;
+    maxTime += 3600000;
+  }
+
+  const labelWidth = 55;
+  const timelineX = chartX + labelWidth;
+  const timelineWidth = plotWidth - labelWidth;
+  const rowHeight = 8;
+
+  // Draw time axis at top
+  doc.setDrawColor(200, 200, 200);
+  doc.setLineWidth(0.3);
+  doc.line(timelineX, plotY - 2, timelineX + timelineWidth, plotY - 2);
+
+  // Time labels
+  const numLabels = 10;
+  for (let i = 0; i <= numLabels; i++) {
+    const time = minTime + ((maxTime - minTime) / numLabels) * i;
+    const x = timelineX + (timelineWidth / numLabels) * i;
+    doc.setFontSize(7);
+    doc.setTextColor(100, 100, 100);
+    doc.text(formatTimeFrom24h(time), x, plotY - 4, { align: "center" });
+  }
+
+  // Draw each medication row
+  sortedItems.forEach(([itemId, meds]) => {
+    const item = itemMap.get(itemId);
+    const itemName = item?.name || 'Unknown';
+    const displayName = itemName.length > 25 ? itemName.substring(0, 22) + '...' : itemName;
+
+    // Medication name
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(0, 0, 0);
+    doc.text(displayName, chartX, plotY + rowHeight / 2 + 1);
+
+    // Draw timeline for this medication
+    meds.forEach(med => {
+      const startTime = new Date(med.timestamp).getTime();
+      const startX = timelineX + ((startTime - minTime) / (maxTime - minTime)) * timelineWidth;
+
+      if (med.type === 'bolus') {
+        // Bolus: vertical bar
+        doc.setFillColor(59, 130, 246);
+        doc.rect(startX - 1, plotY, 2, rowHeight - 1, "F");
+        
+        // Dose label
+        doc.setFontSize(6);
+        doc.setTextColor(59, 130, 246);
+        doc.text(med.dose || '', startX, plotY - 1, { align: "center" });
+      } else {
+        // Infusion: horizontal bar
+        const endTime = med.endTimestamp ? new Date(med.endTimestamp).getTime() : maxTime;
+        const endX = timelineX + ((endTime - minTime) / (maxTime - minTime)) * timelineWidth;
+        const barWidth = Math.max(endX - startX, 3);
+
+        doc.setFillColor(34, 197, 94);
+        doc.rect(startX, plotY + 2, barWidth, rowHeight - 5, "F");
+
+        // Rate/dose label
+        const label = med.rate ? `${med.rate}` : med.dose || '';
+        doc.setFontSize(6);
+        doc.setTextColor(34, 197, 94);
+        doc.text(label, startX + 2, plotY + 1);
+      }
+    });
+
+    plotY += rowHeight + 2;
+  });
+
+  // Legend
+  plotY += 5;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setFillColor(59, 130, 246);
+  doc.rect(chartX, plotY - 2, 4, 4, "F");
+  doc.setTextColor(0, 0, 0);
+  doc.text("Bolus", chartX + 6, plotY + 1);
+  doc.setFillColor(34, 197, 94);
+  doc.rect(chartX + 30, plotY - 2, 10, 4, "F");
+  doc.text("Infusion", chartX + 42, plotY + 1);
+
+  doc.setTextColor(0, 0, 0);
+  return plotY + 10;
+}
+
+// Landscape ventilation swimlanes
+function drawLandscapeVentilationSwimlanes(
+  doc: jsPDF,
+  title: string,
+  snapshotData: any,
+  yPos: number,
+  options: { chartWidth: number }
+): number {
+  const chartX = 15;
+  const plotWidth = options.chartWidth;
+  let chartY = yPos;
+
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, chartX, chartY);
+
+  const plotY = chartY + 10;
+  const labelWidth = 50;
+  const timelineX = chartX + labelWidth;
+  const timelineWidth = plotWidth - labelWidth;
+  const rowHeight = 7;
+
+  // Define ventilation parameters
+  const ventParams = [
+    { key: 'pip', label: 'PIP (cmH₂O)', color: [239, 68, 68] as [number, number, number] },
+    { key: 'peep', label: 'PEEP (cmH₂O)', color: [34, 197, 94] as [number, number, number] },
+    { key: 'tidalVolume', label: 'TV (ml)', color: [59, 130, 246] as [number, number, number] },
+    { key: 'respiratoryRate', label: 'RR (/min)', color: [168, 85, 247] as [number, number, number] },
+    { key: 'fio2', label: 'FiO₂ (%)', color: [251, 146, 60] as [number, number, number] },
+    { key: 'etco2', label: 'EtCO₂ (mmHg)', color: [20, 184, 166] as [number, number, number] },
+  ];
+
+  // Get time range from all data
+  const allTimes: number[] = [];
+  ventParams.forEach(param => {
+    const data = snapshotData[param.key];
+    if (Array.isArray(data)) {
+      data.forEach((p: any) => {
+        if (p.timestamp) allTimes.push(new Date(p.timestamp).getTime());
+      });
+    }
+  });
+
+  if (allTimes.length === 0) {
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "italic");
+    doc.text(i18next.t("anesthesia.pdf.noDataAvailable"), chartX + 10, plotY + 15);
+    return chartY + 35;
+  }
+
+  let minTime = Math.min(...allTimes);
+  let maxTime = Math.max(...allTimes);
+  if (maxTime === minTime) {
+    minTime -= 3600000;
+    maxTime += 3600000;
+  }
+
+  // Time axis labels
+  const numLabels = 10;
+  for (let i = 0; i <= numLabels; i++) {
+    const time = minTime + ((maxTime - minTime) / numLabels) * i;
+    const x = timelineX + (timelineWidth / numLabels) * i;
+    doc.setFontSize(7);
+    doc.setTextColor(100, 100, 100);
+    doc.text(formatTimeFrom24h(time), x, plotY - 2, { align: "center" });
+  }
+
+  let currentY = plotY;
+
+  ventParams.forEach(param => {
+    const data = snapshotData[param.key];
+    
+    // Row label
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(0, 0, 0);
+    doc.text(param.label, chartX, currentY + rowHeight / 2 + 1);
+
+    // Draw background
+    doc.setFillColor(250, 250, 250);
+    doc.rect(timelineX, currentY, timelineWidth, rowHeight, "F");
+    doc.setDrawColor(230, 230, 230);
+    doc.rect(timelineX, currentY, timelineWidth, rowHeight, "S");
+
+    if (Array.isArray(data) && data.length > 0) {
+      // Plot values as text at their positions
+      const sortedData = [...data].sort((a: any, b: any) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+
+      sortedData.forEach((point: any) => {
+        const time = new Date(point.timestamp).getTime();
+        const x = timelineX + ((time - minTime) / (maxTime - minTime)) * timelineWidth;
+        const value = point.value ?? point.sys ?? 0;
+        
+        doc.setFontSize(6);
+        doc.setTextColor(...param.color);
+        doc.text(String(Math.round(value)), x, currentY + rowHeight / 2 + 1, { align: "center" });
+      });
+    }
+
+    currentY += rowHeight + 1;
+  });
+
+  doc.setTextColor(0, 0, 0);
+  return currentY + 8;
+}
+
+// Landscape output chart
+function drawLandscapeOutputChart(
+  doc: jsPDF,
+  title: string,
+  snapshotData: any,
+  yPos: number,
+  options: { chartWidth: number }
+): number {
+  const chartX = 15;
+  let chartY = yPos;
+
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, chartX, chartY);
+
+  const outputs = [
+    { key: 'urine', label: 'Urine', color: [251, 191, 36] as [number, number, number] },
+    { key: 'drainage', label: 'Drainage', color: [239, 68, 68] as [number, number, number] },
+    { key: 'gastricTube', label: 'Gastric', color: [34, 197, 94] as [number, number, number] },
+    { key: 'blood', label: 'Blood', color: [220, 38, 38] as [number, number, number] },
+  ];
+
+  let plotY = chartY + 10;
+  const barHeight = 8;
+  const maxBarWidth = 150;
+
+  // Calculate max value for scaling
+  let maxValue = 0;
+  outputs.forEach(o => {
+    const value = snapshotData[o.key];
+    if (typeof value === 'number') maxValue = Math.max(maxValue, value);
+  });
+
+  if (maxValue === 0) maxValue = 100;
+
+  outputs.forEach(o => {
+    const value = snapshotData[o.key];
+    if (typeof value !== 'number' || value <= 0) return;
+
+    // Label
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(0, 0, 0);
+    doc.text(o.label, chartX, plotY + barHeight / 2 + 2);
+
+    // Bar
+    const barWidth = (value / maxValue) * maxBarWidth;
+    doc.setFillColor(...o.color);
+    doc.rect(chartX + 45, plotY, barWidth, barHeight, "F");
+
+    // Value label
+    doc.setFontSize(8);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`${value} ml`, chartX + 50 + barWidth, plotY + barHeight / 2 + 2);
+
+    plotY += barHeight + 4;
+  });
+
+  doc.setTextColor(0, 0, 0);
+  return plotY + 5;
+}
+
+// Landscape rhythm timeline
+function drawLandscapeRhythmTimeline(
+  doc: jsPDF,
+  title: string,
+  rhythmData: Array<{ timestamp: string; rhythm: string }>,
+  yPos: number,
+  options: { chartWidth: number }
+): number {
+  const chartX = 15;
+  const plotWidth = options.chartWidth;
+  let chartY = yPos;
+
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text(title, chartX, chartY);
+
+  if (!rhythmData || rhythmData.length === 0) {
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "italic");
+    doc.text(i18next.t("anesthesia.pdf.noDataAvailable"), chartX + 10, chartY + 15);
+    return chartY + 25;
+  }
+
+  const plotY = chartY + 10;
+  const barHeight = 15;
+
+  // Get time range
+  const times = rhythmData.map(r => new Date(r.timestamp).getTime());
+  let minTime = Math.min(...times);
+  let maxTime = Math.max(...times);
+  if (maxTime === minTime) {
+    maxTime += 3600000;
+  }
+
+  // Rhythm colors
+  const rhythmColors: { [key: string]: [number, number, number] } = {
+    'SR': [34, 197, 94],
+    'Sinus Rhythm': [34, 197, 94],
+    'AF': [239, 68, 68],
+    'Atrial Fibrillation': [239, 68, 68],
+    'SVT': [251, 146, 60],
+    'VT': [185, 28, 28],
+  };
+
+  // Draw time labels
+  const numLabels = 10;
+  for (let i = 0; i <= numLabels; i++) {
+    const time = minTime + ((maxTime - minTime) / numLabels) * i;
+    const x = chartX + (plotWidth / numLabels) * i;
+    doc.setFontSize(7);
+    doc.setTextColor(100, 100, 100);
+    doc.text(formatTimeFrom24h(time), x, plotY + barHeight + 5, { align: "center" });
+  }
+
+  // Draw rhythm segments
+  const sortedData = [...rhythmData].sort((a, b) => 
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+
+  for (let i = 0; i < sortedData.length; i++) {
+    const current = sortedData[i];
+    const next = sortedData[i + 1];
+    
+    const startTime = new Date(current.timestamp).getTime();
+    const endTime = next ? new Date(next.timestamp).getTime() : maxTime;
+    
+    const startX = chartX + ((startTime - minTime) / (maxTime - minTime)) * plotWidth;
+    const endX = chartX + ((endTime - minTime) / (maxTime - minTime)) * plotWidth;
+    const width = Math.max(endX - startX, 2);
+
+    const color = rhythmColors[current.rhythm] || [156, 163, 175];
+    doc.setFillColor(...color);
+    doc.rect(startX, plotY, width, barHeight, "F");
+
+    // Rhythm label if segment is wide enough
+    if (width > 20) {
+      doc.setFontSize(7);
+      doc.setTextColor(255, 255, 255);
+      doc.text(current.rhythm, startX + width / 2, plotY + barHeight / 2 + 2, { align: "center" });
+    }
+  }
+
+  // Legend
+  let legendY = plotY + barHeight + 12;
+  let legendX = chartX;
+  doc.setFontSize(8);
+  Object.entries(rhythmColors).forEach(([rhythm, color]) => {
+    if (['SR', 'AF', 'SVT', 'VT'].includes(rhythm)) {
+      doc.setFillColor(...color);
+      doc.rect(legendX, legendY - 2, 6, 4, "F");
+      doc.setTextColor(0, 0, 0);
+      doc.text(rhythm, legendX + 8, legendY + 1);
+      legendX += 30;
+    }
+  });
+
+  doc.setTextColor(0, 0, 0);
+  return legendY + 10;
 }
 
 // Helper to draw medication timeline swimlanes - shows ALL medications with proper page breaks
@@ -1234,9 +1791,18 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
 
     yPos += 5;
 
-    // ==================== VISUAL CHARTS: VITALS TIMELINE ====================
-    yPos = checkPageBreak(doc, yPos, 90);
-
+    // ==================== VISUAL CHARTS ON LANDSCAPE PAGE ====================
+    // Add a dedicated landscape page for all timeline visualizations
+    // This gives maximum space for comprehensive chart display
+    doc.addPage('a4', 'landscape');
+    
+    // Landscape A4 dimensions: 297mm x 210mm
+    const landscapeWidth = 297;
+    const landscapeHeight = 210;
+    const margin = 15;
+    const chartWidth = landscapeWidth - (margin * 2); // Full width minus margins
+    
+    // Prepare vitals data
     const hrData = (snapshotData.hr || []).map((p: any) => ({
       time: new Date(p.timestamp).getTime(),
       value: p.value
@@ -1258,231 +1824,83 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       value: p.value
     }));
 
-    // Draw Vitals Chart - use actual chart image if available and valid, otherwise use simplified chart
-    const EMPTY_DATA_URL_PREFIX = "data:image/png;base64,";
-    const isValidChartImage = data.chartImage && 
-      data.chartImage.image && 
-      data.chartImage.image.length > EMPTY_DATA_URL_PREFIX.length + 100;
-    
-    if (isValidChartImage) {
-      // Add a new dedicated page for the timeline chart in LANDSCAPE orientation
-      // This gives maximum space for the comprehensive timeline visualization
-      doc.addPage('a4', 'landscape');
-      
-      // Landscape A4 dimensions: 297mm x 210mm
-      const landscapeWidth = 297;
-      const landscapeHeight = 210;
-      const margin = 10;
-      
-      // Title on landscape page
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text(i18next.t("anesthesia.pdf.vitalSignsTimeline"), margin, 15);
-      
-      let chartSucceeded = false;
-      try {
-        // Available space for chart
-        const maxWidth = landscapeWidth - (margin * 2); // 277mm
-        const maxHeight = landscapeHeight - 35; // 175mm (title + margins)
-        
-        // Get chart dimensions and calculate proper aspect ratio
-        const imgWidth = data.chartImage!.width;
-        const imgHeight = data.chartImage!.height;
-        const aspectRatio = imgWidth / imgHeight;
-        
-        // Fit chart to available space while maintaining aspect ratio
-        let chartWidth = maxWidth;
-        let chartHeight = chartWidth / aspectRatio;
-        
-        // If too tall, scale down to fit height
-        if (chartHeight > maxHeight) {
-          chartHeight = maxHeight;
-          chartWidth = chartHeight * aspectRatio;
-        }
-        
-        // Center horizontally if narrower than available space
-        const chartX = margin + (maxWidth - chartWidth) / 2;
-        
-        // Add the chart image with correct aspect ratio
-        doc.addImage(data.chartImage!.image, 'PNG', chartX, 22, chartWidth, chartHeight);
-        console.log('[PDF] Chart image embedded with proper aspect ratio:', {
-          original: `${imgWidth}x${imgHeight}px`,
-          embedded: `${chartWidth.toFixed(1)}x${chartHeight.toFixed(1)}mm`,
-          aspectRatio: aspectRatio.toFixed(2),
-        });
-        chartSucceeded = true;
-        
-      } catch (error) {
-        console.error('[PDF] Error embedding chart image:', error);
-        // On error, add portrait page and use simplified chart
-        doc.addPage();
-        yPos = 20;
-        yPos = drawTimelineChart(
-          doc,
-          i18next.t("anesthesia.pdf.vitalSignsTimeline"),
-          [
-            { name: i18next.t("anesthesia.pdf.hrBpm"), data: hrData, color: [59, 130, 246] },
-            { name: i18next.t("anesthesia.pdf.bpSys"), data: bpSysData, color: [220, 38, 38] },
-            { name: i18next.t("anesthesia.pdf.bpDia"), data: bpDiaData, color: [239, 68, 68] },
-            { name: i18next.t("anesthesia.pdf.spo2Percent"), data: spo2Data, color: [34, 197, 94] },
-            { name: i18next.t("anesthesia.pdf.tempCelsius"), data: tempData, color: [251, 146, 60] },
-          ],
-          yPos,
-          { yLabel: i18next.t("anesthesia.pdf.value"), height: 80 }
-        );
-      }
-      
-      // Only add a portrait page if the chart succeeded (we're on landscape) and there's more content
-      if (chartSucceeded) {
-        // Check if there's more content to render after the timeline chart
-        // Note: Ventilation swimlanes and output chart always render within clinical snapshot block,
-        // so we only need to check if we're in the snapshot block (which we are if chart succeeded)
-        // Additionally check for sections outside the snapshot block
-        const hasMoreContent = 
-          // Content inside clinical snapshot block (always renders if we have snapshot data)
-          snapshotData ||
-          // Content outside clinical snapshot block
-          data.anesthesiaRecord?.postOpData ||
-          (data.staffMembers && data.staffMembers.length > 0) ||
-          (data.positions && data.positions.length > 0) ||
-          (data.medications && data.medications.length > 0);
-        
-        if (hasMoreContent) {
-          // Add portrait page for remaining content (ventilation, output charts, etc.)
-          doc.addPage('a4', 'portrait');
-          yPos = 20;
-        }
-      }
-    } else {
-      // Fallback to simplified line chart when no valid chart image
-      console.log('[PDF] No valid chart image, using simplified chart. Image data:', data.chartImage ? 'present' : 'missing');
-      yPos = drawTimelineChart(
-        doc,
-        i18next.t("anesthesia.pdf.vitalSignsTimeline"),
-        [
-          { name: i18next.t("anesthesia.pdf.hrBpm"), data: hrData, color: [59, 130, 246] },
-          { name: i18next.t("anesthesia.pdf.bpSys"), data: bpSysData, color: [220, 38, 38] },
-          { name: i18next.t("anesthesia.pdf.bpDia"), data: bpDiaData, color: [239, 68, 68] },
-          { name: i18next.t("anesthesia.pdf.spo2Percent"), data: spo2Data, color: [34, 197, 94] },
-          { name: i18next.t("anesthesia.pdf.tempCelsius"), data: tempData, color: [251, 146, 60] },
-        ],
-        yPos,
-        { yLabel: i18next.t("anesthesia.pdf.value"), height: 80 }
-      );
-    }
+    // ========== SECTION 1: VITALS TIMELINE (Landscape - full width) ==========
+    yPos = margin;
+    yPos = drawLandscapeTimelineChart(
+      doc,
+      i18next.t("anesthesia.pdf.vitalSignsTimeline"),
+      [
+        { name: i18next.t("anesthesia.pdf.hrBpm"), data: hrData, color: [59, 130, 246] },
+        { name: i18next.t("anesthesia.pdf.bpSys"), data: bpSysData, color: [220, 38, 38] },
+        { name: i18next.t("anesthesia.pdf.bpDia"), data: bpDiaData, color: [239, 68, 68] },
+        { name: i18next.t("anesthesia.pdf.spo2Percent"), data: spo2Data, color: [34, 197, 94] },
+        { name: i18next.t("anesthesia.pdf.tempCelsius"), data: tempData, color: [251, 146, 60] },
+      ],
+      yPos,
+      { chartWidth, height: 80 }
+    );
 
-    // ==================== VISUAL CHARTS: MEDICATIONS TIMELINE ====================
+    // ========== SECTION 2: MEDICATIONS TIMELINE (Landscape) ==========
     if (data.medications && data.medications.length > 0) {
-      yPos = checkPageBreak(doc, yPos, 80);
-      yPos = drawMedicationTimeline(
+      // Check if we need a new page
+      if (yPos > landscapeHeight - 70) {
+        doc.addPage('a4', 'landscape');
+        yPos = margin;
+      }
+      yPos = drawLandscapeMedicationTimeline(
         doc,
         i18next.t("anesthesia.pdf.medicationsInfusionsTimeline"),
         data.medications,
         data.anesthesiaItems || [],
-        yPos
+        yPos,
+        { chartWidth }
       );
     }
 
-    // ==================== VISUAL CHARTS: VENTILATION PARAMETERS (SWIMLANES) ====================
-    yPos = checkPageBreak(doc, yPos, 90);
-    
-    // Use new swimlanes visualization for ventilation parameters
-    yPos = drawVentilationSwimlanes(
+    // ========== SECTION 3: VENTILATION PARAMETERS (Landscape) ==========
+    if (yPos > landscapeHeight - 60) {
+      doc.addPage('a4', 'landscape');
+      yPos = margin;
+    }
+    yPos = drawLandscapeVentilationSwimlanes(
       doc,
       i18next.t("anesthesia.pdf.ventilationParameters"),
       snapshotData,
-      yPos
+      yPos,
+      { chartWidth }
     );
 
-    // ==================== VISUAL CHARTS: FLUID BALANCE & OUTPUT ====================
-    yPos = checkPageBreak(doc, yPos, 70);
-    yPos = drawOutputChart(
+    // ========== SECTION 4: FLUID OUTPUT (Landscape) ==========
+    if (yPos > landscapeHeight - 50) {
+      doc.addPage('a4', 'landscape');
+      yPos = margin;
+    }
+    yPos = drawLandscapeOutputChart(
       doc,
       i18next.t("anesthesia.pdf.fluidBalanceOutput"),
       snapshotData,
-      yPos
+      yPos,
+      { chartWidth }
     );
 
-    // ==================== VISUAL CHARTS: HEART RHYTHM ====================
+    // ========== SECTION 5: HEART RHYTHM (Landscape) ==========
     if (snapshotData.heartRhythm && snapshotData.heartRhythm.length > 0) {
-      yPos = checkPageBreak(doc, yPos, 50);
-      yPos = drawRhythmTimeline(
+      if (yPos > landscapeHeight - 40) {
+        doc.addPage('a4', 'landscape');
+        yPos = margin;
+      }
+      yPos = drawLandscapeRhythmTimeline(
         doc,
         i18next.t("anesthesia.pdf.heartRhythm"),
         snapshotData.heartRhythm,
-        yPos
+        yPos,
+        { chartWidth }
       );
     }
-  }
-
-  // ==================== APPROACH B: PER-SWIMLANE CHART EXPORTS ====================
-  // Add separate pages for each swimlane section (for comparison with Approach A)
-  if (data.swimlaneExports) {
-    const swimlanes = data.swimlaneExports;
-    const landscapeWidth = 297;
-    const landscapeHeight = 210;
-    const margin = 10;
     
-    // Helper to embed a swimlane section image
-    const embedSwimlaneImage = (
-      title: string,
-      chartData: { image: string; width: number; height: number } | null
-    ) => {
-      if (!chartData) return;
-      
-      doc.addPage('a4', 'landscape');
-      
-      // Title
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text(`${title} (Approach B)`, margin, 15);
-      
-      try {
-        const maxWidth = landscapeWidth - (margin * 2);
-        const maxHeight = landscapeHeight - 35;
-        
-        const imgWidth = chartData.width;
-        const imgHeight = chartData.height;
-        const aspectRatio = imgWidth / imgHeight;
-        
-        let chartWidth = maxWidth;
-        let chartHeight = chartWidth / aspectRatio;
-        
-        if (chartHeight > maxHeight) {
-          chartHeight = maxHeight;
-          chartWidth = chartHeight * aspectRatio;
-        }
-        
-        const chartX = margin + (maxWidth - chartWidth) / 2;
-        
-        doc.addImage(chartData.image, 'PNG', chartX, 22, chartWidth, chartHeight);
-        console.log(`[PDF] Approach B ${title} embedded:`, {
-          original: `${imgWidth}x${imgHeight}px`,
-          embedded: `${chartWidth.toFixed(1)}x${chartHeight.toFixed(1)}mm`,
-        });
-      } catch (error) {
-        console.error(`[PDF] Error embedding Approach B ${title}:`, error);
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "italic");
-        doc.text(`Failed to render ${title} chart`, margin, 40);
-      }
-    };
-    
-    // Embed each swimlane section
-    if (swimlanes.vitals) {
-      embedSwimlaneImage(i18next.t("anesthesia.pdf.vitalSignsTimeline"), swimlanes.vitals);
-    }
-    if (swimlanes.medications) {
-      embedSwimlaneImage(i18next.t("anesthesia.pdf.medicationsInfusionsTimeline"), swimlanes.medications);
-    }
-    if (swimlanes.ventilation) {
-      embedSwimlaneImage(i18next.t("anesthesia.pdf.ventilationParameters"), swimlanes.ventilation);
-    }
-    if (swimlanes.others) {
-      embedSwimlaneImage("Other Parameters", swimlanes.others);
-    }
-    
-    console.log('[PDF] Approach B swimlane pages added');
+    // Add portrait page for remaining content (post-op, staff, etc.)
+    doc.addPage('a4', 'portrait');
+    yPos = 20;
   }
 
   // ==================== POST-OPERATIVE INFORMATION ====================

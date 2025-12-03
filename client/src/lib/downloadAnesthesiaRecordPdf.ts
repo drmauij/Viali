@@ -1,7 +1,5 @@
 import { generateAnesthesiaRecordPDF } from "@/lib/anesthesiaRecordPdf";
-import { generateChartImageFromSnapshot } from "@/lib/generateChartImage";
 import type { Surgery, Patient } from "@shared/schema";
-import type { UnifiedTimelineRef, ChartExportResult, SwimlaneExportResult } from "@/components/anesthesia/UnifiedTimeline";
 
 interface AllergyItem {
   id: string;
@@ -24,7 +22,6 @@ interface DownloadPdfOptions {
   patient: Patient;
   hospitalId: string;
   anesthesiaSettings?: AnesthesiaSettingsForPdf | null;
-  timelineRef?: React.RefObject<UnifiedTimelineRef>;
 }
 
 interface DownloadPdfResult {
@@ -36,14 +33,13 @@ interface DownloadPdfResult {
 /**
  * Single entry point for downloading anesthesia record PDFs.
  * Fetches all required data and generates the PDF with proper allergy ID to label conversion.
- * Uses an offscreen chart renderer with fixed dimensions for consistent, high-quality output.
- * Falls back to visible timeline export if clinical snapshot is unavailable.
+ * Uses jsPDF native drawing for all charts (reliable, full-width landscape rendering).
  * 
  * @param options - The options for PDF download
  * @returns Promise with success status and any warnings
  */
 export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): Promise<DownloadPdfResult> {
-  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings, timelineRef } = options;
+  const { surgery, patient, hospitalId, anesthesiaSettings: providedSettings } = options;
 
   try {
     // Fetch critical data (anesthesia record, pre-op assessment, items, and settings if not provided)
@@ -122,78 +118,6 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       }
     }
 
-    // Generate chart images for PDF
-    // Approach A: Full unified timeline export (includes ALL swimlanes)
-    // Approach B: Separate exports per swimlane section (for comparison)
-    let chartImage: ChartExportResult | null = null;
-    let swimlaneExports: SwimlaneExportResult | null = null;
-    
-    // Primary: Use UnifiedTimeline exports if available
-    if (timelineRef?.current) {
-      // Approach A: Full chart export
-      try {
-        console.log("[PDF-EXPORT] Approach A: Exporting full timeline chart...");
-        chartImage = await timelineRef.current.exportForPdf();
-        if (chartImage) {
-          console.log("[PDF-EXPORT] Approach A success:", {
-            size: Math.round(chartImage.image.length / 1024) + "KB",
-            dimensions: `${chartImage.width}x${chartImage.height}px`,
-          });
-        } else {
-          console.warn("[PDF-EXPORT] Approach A returned null");
-        }
-      } catch (error) {
-        console.error("[PDF-EXPORT] Approach A failed:", error);
-      }
-      
-      // Approach B: Per-swimlane exports (additional pages for comparison)
-      try {
-        console.log("[PDF-EXPORT] Approach B: Exporting separate swimlane sections...");
-        swimlaneExports = await timelineRef.current.exportSwimlanesForPdf();
-        if (swimlaneExports) {
-          console.log("[PDF-EXPORT] Approach B success:", {
-            vitals: swimlaneExports.vitals ? `${Math.round(swimlaneExports.vitals.image.length / 1024)}KB` : 'null',
-            medications: swimlaneExports.medications ? `${Math.round(swimlaneExports.medications.image.length / 1024)}KB` : 'null',
-            ventilation: swimlaneExports.ventilation ? `${Math.round(swimlaneExports.ventilation.image.length / 1024)}KB` : 'null',
-            others: swimlaneExports.others ? `${Math.round(swimlaneExports.others.image.length / 1024)}KB` : 'null',
-          });
-        } else {
-          console.warn("[PDF-EXPORT] Approach B returned null");
-        }
-      } catch (error) {
-        console.error("[PDF-EXPORT] Approach B failed:", error);
-      }
-    } else {
-      console.log("[PDF-EXPORT] No timeline ref available - using fallback chart renderer");
-    }
-    
-    // Fallback: Use offscreen vitals-only renderer if timeline export failed
-    // Uses larger dimensions (1800x900) to fill the landscape PDF page better
-    if (!chartImage && clinicalSnapshot) {
-      try {
-        console.log("[PDF-EXPORT] Falling back to vitals-only offscreen chart...");
-        chartImage = await generateChartImageFromSnapshot({ 
-          clinicalSnapshot,
-          width: 1800,
-          height: 900,
-        });
-        if (chartImage) {
-          console.log("[PDF-EXPORT] Vitals-only chart generated:", {
-            size: Math.round(chartImage.image.length / 1024) + "KB",
-            dimensions: `${chartImage.width}x${chartImage.height}px`,
-          });
-        } else {
-          console.warn("[PDF-EXPORT] Offscreen chart generation returned null");
-        }
-      } catch (error) {
-        console.error("[PDF-EXPORT] Failed to generate offscreen chart:", error);
-      }
-    }
-    
-    if (!chartImage) {
-      console.warn("[PDF-EXPORT] No chart available for PDF - vitals section will use simplified rendering");
-    }
-
     // Convert allergy IDs to labels for PDF display
     // IMPORTANT: Keep null/undefined intact so PDF shows "No allergies known" fallback text
     let convertedAllergies: string[] | null = null;
@@ -223,7 +147,7 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       allergies: convertedAllergies,
     };
 
-    // Generate PDF with both Approach A (full chart) and Approach B (per-swimlane) images
+    // Generate PDF with native jsPDF charts (reliable, full-width landscape rendering)
     generateAnesthesiaRecordPDF({
       patient: patientWithAllergyLabels,
       surgery,
@@ -237,8 +161,6 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       positions,
       timeMarkers: (anesthesiaRecord?.timeMarkers as any[]) || [],
       checklistSettings: anesthesiaSettings?.checklistItems || null,
-      chartImage,
-      swimlaneExports, // Approach B: per-section charts
     });
 
     return {
