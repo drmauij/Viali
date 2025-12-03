@@ -339,8 +339,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     },
     
     exportForPdf: async (): Promise<ChartExportResult | null> => {
+      console.log('[PDF-CHART-EXPORT] exportForPdf called:', { 
+        hasChartRef: !!chartRef.current, 
+        isChartReady,
+        hasSwimlanes: activeSwimlaneRef.current.length,
+      });
+      
       if (!chartRef.current || !isChartReady) {
-        console.warn('[PDF-CHART-EXPORT] Chart not ready for export');
+        console.warn('[PDF-CHART-EXPORT] Chart not ready for export:', { hasChartRef: !!chartRef.current, isChartReady });
         return null;
       }
       
