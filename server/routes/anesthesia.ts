@@ -960,6 +960,46 @@ router.get('/api/anesthesia/records/surgery/:surgeryId', isAuthenticated, async 
   }
 });
 
+// Get ALL anesthesia records for a surgery (for duplicate detection and management)
+router.get('/api/anesthesia/records/surgery/:surgeryId/all', isAuthenticated, async (req: any, res) => {
+  try {
+    const { surgeryId } = req.params;
+    const userId = req.user.id;
+
+    const surgery = await storage.getSurgery(surgeryId);
+    
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const records = await storage.getAllAnesthesiaRecordsForSurgery(surgeryId);
+    
+    // Enrich each record with data counts
+    const enrichedRecords = await Promise.all(
+      records.map(async (record) => {
+        const counts = await storage.getAnesthesiaRecordDataCounts(record.id);
+        return {
+          ...record,
+          dataCounts: counts,
+          totalDataPoints: counts.vitals + counts.medications + counts.events,
+        };
+      })
+    );
+
+    res.json(enrichedRecords);
+  } catch (error) {
+    console.error("Error fetching all anesthesia records for surgery:", error);
+    res.status(500).json({ message: "Failed to fetch anesthesia records" });
+  }
+});
+
 router.get('/api/anesthesia/records/:id', isAuthenticated, async (req: any, res) => {
   try {
     const { id } = req.params;
@@ -1064,6 +1104,51 @@ router.patch('/api/anesthesia/records/:id', isAuthenticated, requireWriteAccess,
   } catch (error) {
     console.error("Error updating anesthesia record:", error);
     res.status(500).json({ message: "Failed to update anesthesia record" });
+  }
+});
+
+// Delete an anesthesia record (for duplicate cleanup)
+router.delete('/api/anesthesia/records/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const record = await storage.getAnesthesiaRecordById(id);
+    
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Safety check: Don't allow deleting the only record for a surgery
+    const allRecords = await storage.getAllAnesthesiaRecordsForSurgery(record.surgeryId);
+    if (allRecords.length <= 1) {
+      return res.status(400).json({ 
+        message: "Cannot delete the only anesthesia record for this surgery. At least one record must remain." 
+      });
+    }
+
+    // Get data counts for audit logging
+    const counts = await storage.getAnesthesiaRecordDataCounts(id);
+    console.log(`[ANESTHESIA] Deleting duplicate record ${id} for surgery ${record.surgeryId} (vitals: ${counts.vitals}, meds: ${counts.medications}, events: ${counts.events})`);
+
+    await storage.deleteAnesthesiaRecord(id);
+    
+    res.json({ message: "Anesthesia record deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting anesthesia record:", error);
+    res.status(500).json({ message: "Failed to delete anesthesia record" });
   }
 });
 
