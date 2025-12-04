@@ -413,14 +413,21 @@ function drawTimelineChart(
 // These functions are optimized for landscape A4 pages (297mm x 210mm)
 
 // Landscape version of timeline chart - full width for better visibility
+// Enhanced with:
+// - Black BP with carets (up for systolic, down for diastolic) and gray fill between
+// - Red HR with heart icons
+// - Blue SpO2 with separate 50-100 scale on right axis
+// - Orange Temperature with circles
 function drawLandscapeTimelineChart(
   doc: jsPDF,
   title: string,
-  dataSeries: Array<{
-    name: string;
-    data: Array<{ time: number; value: number }>;
-    color: [number, number, number];
-  }>,
+  vitalsData: {
+    hr: Array<{ time: number; value: number }>;
+    bpSys: Array<{ time: number; value: number }>;
+    bpDia: Array<{ time: number; value: number }>;
+    spo2: Array<{ time: number; value: number }>;
+    temp: Array<{ time: number; value: number }>;
+  },
   yPos: number,
   options: {
     chartWidth: number;
@@ -428,9 +435,9 @@ function drawLandscapeTimelineChart(
   }
 ): number {
   const chartHeight = options.height || 80;
-  const chartX = 15;
+  const chartX = 20; // Extra margin for left Y-axis
   const chartY = yPos;
-  const plotWidth = options.chartWidth;
+  const plotWidth = options.chartWidth - 10; // Reserve space for right Y-axis
 
   // Draw title
   doc.setFontSize(14);
@@ -441,7 +448,8 @@ function drawLandscapeTimelineChart(
   const plotHeight = chartHeight - 25;
 
   // Check if we have any data
-  const hasData = dataSeries.some(series => series.data.length > 0);
+  const hasData = vitalsData.hr.length > 0 || vitalsData.bpSys.length > 0 || 
+                  vitalsData.spo2.length > 0 || vitalsData.temp.length > 0;
   if (!hasData) {
     doc.setFontSize(11);
     doc.setFont("helvetica", "italic");
@@ -449,14 +457,10 @@ function drawLandscapeTimelineChart(
     return chartY + chartHeight + 8;
   }
 
-  // Find global min/max time and values
+  // Find global time range
   let allTimes: number[] = [];
-  let allValues: number[] = [];
-  dataSeries.forEach(series => {
-    series.data.forEach(point => {
-      allTimes.push(point.time);
-      allValues.push(point.value);
-    });
+  [vitalsData.hr, vitalsData.bpSys, vitalsData.bpDia, vitalsData.spo2, vitalsData.temp].forEach(arr => {
+    arr.forEach(point => allTimes.push(point.time));
   });
 
   if (allTimes.length === 0) {
@@ -468,19 +472,30 @@ function drawLandscapeTimelineChart(
 
   let minTime = Math.min(...allTimes);
   let maxTime = Math.max(...allTimes);
-  let minValue = Math.floor(Math.min(...allValues) * 0.9);
-  let maxValue = Math.ceil(Math.max(...allValues) * 1.1);
-
-  // Guard against single data point
   if (maxTime === minTime) {
     minTime -= 3600000;
     maxTime += 3600000;
   }
-  if (maxValue === minValue) {
-    const range = Math.max(maxValue * 0.1, 10);
-    minValue -= range;
-    maxValue += range;
+
+  // Calculate left Y-axis range (for HR, BP, Temp) - typically 0-200
+  let leftAxisValues: number[] = [];
+  [vitalsData.hr, vitalsData.bpSys, vitalsData.bpDia, vitalsData.temp].forEach(arr => {
+    arr.forEach(point => leftAxisValues.push(point.value));
+  });
+  
+  let minLeftValue = leftAxisValues.length > 0 ? Math.floor(Math.min(...leftAxisValues) * 0.9) : 0;
+  let maxLeftValue = leftAxisValues.length > 0 ? Math.ceil(Math.max(...leftAxisValues) * 1.1) : 200;
+  if (maxLeftValue === minLeftValue) {
+    minLeftValue = Math.max(0, minLeftValue - 20);
+    maxLeftValue = maxLeftValue + 20;
   }
+  // Ensure reasonable range for vitals
+  minLeftValue = Math.max(0, minLeftValue);
+  maxLeftValue = Math.max(maxLeftValue, 180);
+
+  // Right Y-axis for SpO2 (fixed 50-100 range)
+  const minSpo2 = 50;
+  const maxSpo2 = 100;
 
   // Draw chart border
   doc.setDrawColor(180, 180, 180);
@@ -501,67 +516,212 @@ function drawLandscapeTimelineChart(
     doc.line(x, plotY, x, plotY + plotHeight);
   }
 
-  // Draw Y-axis labels
-  doc.setFontSize(9);
+  // Draw LEFT Y-axis labels (HR, BP, Temp scale)
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(80, 80, 80);
   for (let i = 0; i <= 5; i++) {
-    const value = maxValue - ((maxValue - minValue) / 5) * i;
+    const value = maxLeftValue - ((maxLeftValue - minLeftValue) / 5) * i;
     const y = plotY + (plotHeight / 5) * i;
     doc.text(value.toFixed(0), chartX - 2, y + 2, { align: "right" });
   }
+
+  // Draw RIGHT Y-axis labels (SpO2 scale: 50-100)
+  doc.setTextColor(59, 130, 246); // Blue to match SpO2 color
+  for (let i = 0; i <= 5; i++) {
+    const value = maxSpo2 - ((maxSpo2 - minSpo2) / 5) * i;
+    const y = plotY + (plotHeight / 5) * i;
+    doc.text(value.toFixed(0), chartX + plotWidth + 3, y + 2, { align: "left" });
+  }
+  doc.setTextColor(80, 80, 80);
 
   // Draw X-axis time labels
   const numXLabels = 8;
   for (let i = 0; i <= numXLabels; i++) {
     const time = minTime + ((maxTime - minTime) / numXLabels) * i;
     const x = chartX + (plotWidth / numXLabels) * i;
-    doc.setFontSize(8);
+    doc.setFontSize(7);
     doc.text(formatTimeFrom24h(time), x, plotY + plotHeight + 4, { align: "center" });
   }
 
-  // Plot data series with thicker lines for visibility
-  dataSeries.forEach(series => {
-    if (series.data.length === 0) return;
+  // Helper to get X position from time
+  const getX = (time: number) => chartX + ((time - minTime) / (maxTime - minTime)) * plotWidth;
+  // Helper to get Y position from value (left axis)
+  const getYLeft = (value: number) => plotY + plotHeight - ((value - minLeftValue) / (maxLeftValue - minLeftValue)) * plotHeight;
+  // Helper to get Y position from value (right axis - SpO2)
+  const getYRight = (value: number) => plotY + plotHeight - ((value - minSpo2) / (maxSpo2 - minSpo2)) * plotHeight;
 
-    doc.setDrawColor(...series.color);
-    doc.setLineWidth(1.0);
+  // Helper to draw caret up (for systolic)
+  const drawCaretUp = (x: number, y: number, size: number, color: [number, number, number]) => {
+    doc.setFillColor(...color);
+    doc.triangle(x, y - size, x - size * 0.7, y + size * 0.5, x + size * 0.7, y + size * 0.5, "F");
+  };
 
-    const sortedData = [...series.data].sort((a, b) => a.time - b.time);
+  // Helper to draw caret down (for diastolic)
+  const drawCaretDown = (x: number, y: number, size: number, color: [number, number, number]) => {
+    doc.setFillColor(...color);
+    doc.triangle(x, y + size, x - size * 0.7, y - size * 0.5, x + size * 0.7, y - size * 0.5, "F");
+  };
 
-    for (let i = 0; i < sortedData.length - 1; i++) {
-      const p1 = sortedData[i];
-      const p2 = sortedData[i + 1];
+  // Helper to draw heart shape (for HR)
+  const drawHeart = (x: number, y: number, size: number, color: [number, number, number]) => {
+    doc.setFillColor(...color);
+    // Simplified heart using two circles and a triangle
+    const r = size * 0.5;
+    doc.circle(x - r * 0.5, y - r * 0.3, r * 0.6, "F");
+    doc.circle(x + r * 0.5, y - r * 0.3, r * 0.6, "F");
+    doc.triangle(x - size * 0.7, y, x + size * 0.7, y, x, y + size * 0.9, "F");
+  };
 
-      const x1 = chartX + ((p1.time - minTime) / (maxTime - minTime)) * plotWidth;
-      const y1 = plotY + plotHeight - ((p1.value - minValue) / (maxValue - minValue)) * plotHeight;
-      const x2 = chartX + ((p2.time - minTime) / (maxTime - minTime)) * plotWidth;
-      const y2 = plotY + plotHeight - ((p2.value - minValue) / (maxValue - minValue)) * plotHeight;
+  // Colors
+  const bpColor: [number, number, number] = [40, 40, 40]; // Black/dark gray for BP
+  const hrColor: [number, number, number] = [220, 38, 38]; // Red for HR
+  const spo2Color: [number, number, number] = [59, 130, 246]; // Blue for SpO2
+  const tempColor: [number, number, number] = [251, 146, 60]; // Orange for Temp
 
-      doc.line(x1, y1, x2, y2);
-    }
+  // Sort data by time
+  const sortedBpSys = [...vitalsData.bpSys].sort((a, b) => a.time - b.time);
+  const sortedBpDia = [...vitalsData.bpDia].sort((a, b) => a.time - b.time);
+  const sortedHr = [...vitalsData.hr].sort((a, b) => a.time - b.time);
+  const sortedSpo2 = [...vitalsData.spo2].sort((a, b) => a.time - b.time);
+  const sortedTemp = [...vitalsData.temp].sort((a, b) => a.time - b.time);
 
-    // Draw data points
-    sortedData.forEach(point => {
-      const x = chartX + ((point.time - minTime) / (maxTime - minTime)) * plotWidth;
-      const y = plotY + plotHeight - ((point.value - minValue) / (maxValue - minValue)) * plotHeight;
-      doc.setFillColor(...series.color);
-      doc.circle(x, y, 0.8, "F");
+  // ========== DRAW BP AREA FILL (light gray between systolic and diastolic) ==========
+  if (sortedBpSys.length > 0 && sortedBpDia.length > 0) {
+    // Match sys and dia by timestamp for area fill
+    const matchedPairs: Array<{ time: number; sys: number; dia: number }> = [];
+    sortedBpSys.forEach(sysPoint => {
+      const diaPoint = sortedBpDia.find(d => d.time === sysPoint.time);
+      if (diaPoint) {
+        matchedPairs.push({ time: sysPoint.time, sys: sysPoint.value, dia: diaPoint.value });
+      }
     });
+
+    if (matchedPairs.length > 1) {
+      // Draw filled area between sys and dia using light gray triangles
+      doc.setFillColor(230, 230, 230); // Very light gray
+      
+      for (let i = 0; i < matchedPairs.length - 1; i++) {
+        const p1 = matchedPairs[i];
+        const p2 = matchedPairs[i + 1];
+        const x1 = getX(p1.time);
+        const x2 = getX(p2.time);
+        const sysY1 = getYLeft(p1.sys);
+        const sysY2 = getYLeft(p2.sys);
+        const diaY1 = getYLeft(p1.dia);
+        const diaY2 = getYLeft(p2.dia);
+        
+        // Draw quadrilateral as two triangles
+        doc.triangle(x1, sysY1, x2, sysY2, x1, diaY1, "F");
+        doc.triangle(x2, sysY2, x2, diaY2, x1, diaY1, "F");
+      }
+    }
+  }
+
+  // ========== DRAW BP LINES (black) ==========
+  if (sortedBpSys.length > 1) {
+    doc.setDrawColor(...bpColor);
+    doc.setLineWidth(0.8);
+    for (let i = 0; i < sortedBpSys.length - 1; i++) {
+      const p1 = sortedBpSys[i];
+      const p2 = sortedBpSys[i + 1];
+      doc.line(getX(p1.time), getYLeft(p1.value), getX(p2.time), getYLeft(p2.value));
+    }
+  }
+  if (sortedBpDia.length > 1) {
+    doc.setDrawColor(...bpColor);
+    doc.setLineWidth(0.8);
+    for (let i = 0; i < sortedBpDia.length - 1; i++) {
+      const p1 = sortedBpDia[i];
+      const p2 = sortedBpDia[i + 1];
+      doc.line(getX(p1.time), getYLeft(p1.value), getX(p2.time), getYLeft(p2.value));
+    }
+  }
+
+  // Draw BP points with carets
+  sortedBpSys.forEach(point => {
+    drawCaretUp(getX(point.time), getYLeft(point.value), 1.5, bpColor);
+  });
+  sortedBpDia.forEach(point => {
+    drawCaretDown(getX(point.time), getYLeft(point.value), 1.5, bpColor);
   });
 
-  // Draw legend at bottom
+  // ========== DRAW HR LINE (red with heart icons) ==========
+  if (sortedHr.length > 1) {
+    doc.setDrawColor(...hrColor);
+    doc.setLineWidth(0.8);
+    for (let i = 0; i < sortedHr.length - 1; i++) {
+      const p1 = sortedHr[i];
+      const p2 = sortedHr[i + 1];
+      doc.line(getX(p1.time), getYLeft(p1.value), getX(p2.time), getYLeft(p2.value));
+    }
+  }
+  sortedHr.forEach(point => {
+    drawHeart(getX(point.time), getYLeft(point.value), 1.8, hrColor);
+  });
+
+  // ========== DRAW SpO2 LINE (blue, using RIGHT axis) ==========
+  if (sortedSpo2.length > 1) {
+    doc.setDrawColor(...spo2Color);
+    doc.setLineWidth(0.8);
+    for (let i = 0; i < sortedSpo2.length - 1; i++) {
+      const p1 = sortedSpo2[i];
+      const p2 = sortedSpo2[i + 1];
+      doc.line(getX(p1.time), getYRight(p1.value), getX(p2.time), getYRight(p2.value));
+    }
+  }
+  sortedSpo2.forEach(point => {
+    doc.setFillColor(...spo2Color);
+    doc.circle(getX(point.time), getYRight(point.value), 1, "F");
+  });
+
+  // ========== DRAW TEMPERATURE LINE (orange with circles) ==========
+  if (sortedTemp.length > 1) {
+    doc.setDrawColor(...tempColor);
+    doc.setLineWidth(0.8);
+    for (let i = 0; i < sortedTemp.length - 1; i++) {
+      const p1 = sortedTemp[i];
+      const p2 = sortedTemp[i + 1];
+      doc.line(getX(p1.time), getYLeft(p1.value), getX(p2.time), getYLeft(p2.value));
+    }
+  }
+  sortedTemp.forEach(point => {
+    doc.setFillColor(...tempColor);
+    doc.circle(getX(point.time), getYLeft(point.value), 0.8, "F");
+  });
+
+  // ========== DRAW LEGEND ==========
   let legendX = chartX;
   const legendY = plotY + plotHeight + 10;
-  doc.setFontSize(9);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "normal");
-  dataSeries.forEach(series => {
-    doc.setFillColor(...series.color);
-    doc.rect(legendX, legendY - 2, 4, 4, "F");
-    doc.setTextColor(0, 0, 0);
-    doc.text(series.name, legendX + 6, legendY + 1);
-    legendX += doc.getTextWidth(series.name) + 18;
-  });
+
+  // HR legend (heart shape)
+  drawHeart(legendX + 2, legendY - 1, 1.5, hrColor);
+  doc.setTextColor(0, 0, 0);
+  doc.text(i18next.t("anesthesia.pdf.hrBpm"), legendX + 6, legendY + 1);
+  legendX += doc.getTextWidth(i18next.t("anesthesia.pdf.hrBpm")) + 14;
+
+  // BP Sys legend (caret up)
+  drawCaretUp(legendX + 2, legendY - 1, 1.2, bpColor);
+  doc.text(i18next.t("anesthesia.pdf.bpSys"), legendX + 6, legendY + 1);
+  legendX += doc.getTextWidth(i18next.t("anesthesia.pdf.bpSys")) + 14;
+
+  // BP Dia legend (caret down)
+  drawCaretDown(legendX + 2, legendY - 1, 1.2, bpColor);
+  doc.text(i18next.t("anesthesia.pdf.bpDia"), legendX + 6, legendY + 1);
+  legendX += doc.getTextWidth(i18next.t("anesthesia.pdf.bpDia")) + 14;
+
+  // SpO2 legend (circle)
+  doc.setFillColor(...spo2Color);
+  doc.circle(legendX + 2, legendY - 1, 1, "F");
+  doc.text(i18next.t("anesthesia.pdf.spo2Percent"), legendX + 6, legendY + 1);
+  legendX += doc.getTextWidth(i18next.t("anesthesia.pdf.spo2Percent")) + 14;
+
+  // Temp legend (small circle)
+  doc.setFillColor(...tempColor);
+  doc.circle(legendX + 2, legendY - 1, 0.8, "F");
+  doc.text(i18next.t("anesthesia.pdf.tempCelsius"), legendX + 6, legendY + 1);
 
   doc.setTextColor(0, 0, 0);
   return chartY + chartHeight + 15;
@@ -1829,13 +1989,13 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     yPos = drawLandscapeTimelineChart(
       doc,
       i18next.t("anesthesia.pdf.vitalSignsTimeline"),
-      [
-        { name: i18next.t("anesthesia.pdf.hrBpm"), data: hrData, color: [59, 130, 246] },
-        { name: i18next.t("anesthesia.pdf.bpSys"), data: bpSysData, color: [220, 38, 38] },
-        { name: i18next.t("anesthesia.pdf.bpDia"), data: bpDiaData, color: [239, 68, 68] },
-        { name: i18next.t("anesthesia.pdf.spo2Percent"), data: spo2Data, color: [34, 197, 94] },
-        { name: i18next.t("anesthesia.pdf.tempCelsius"), data: tempData, color: [251, 146, 60] },
-      ],
+      {
+        hr: hrData,
+        bpSys: bpSysData,
+        bpDia: bpDiaData,
+        spo2: spo2Data,
+        temp: tempData,
+      },
       yPos,
       { chartWidth, height: 80 }
     );
