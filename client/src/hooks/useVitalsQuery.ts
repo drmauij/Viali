@@ -58,6 +58,8 @@ export function useClinicalSnapshot(anesthesiaRecordId: string | undefined) {
   return useQuery<ClinicalSnapshot>({
     queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
     enabled: !!anesthesiaRecordId,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 }
 

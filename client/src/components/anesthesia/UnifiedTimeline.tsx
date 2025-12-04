@@ -1238,19 +1238,26 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const { data: clinicalSnapshot } = useClinicalSnapshot(anesthesiaRecordId);
   
   // Fetch positions, staff, and events from separate tables
+  // Use staleTime: 0 and refetchOnMount to ensure fresh data on navigation
   const { data: apiPositions = [] } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/positions/${anesthesiaRecordId}`],
     enabled: !!anesthesiaRecordId,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   
   const { data: apiStaff = [] } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/staff/${anesthesiaRecordId}`],
     enabled: !!anesthesiaRecordId,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   
   const { data: apiEvents = [] } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/events/${anesthesiaRecordId}`],
     enabled: !!anesthesiaRecordId,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   
   // NEW: Get mutation hooks for point-based CRUD
