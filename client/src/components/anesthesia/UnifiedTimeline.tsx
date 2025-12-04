@@ -1075,6 +1075,25 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // When set, prevents auto-recentering on data changes
   const userPinnedViewportRef = useRef<boolean>(false);
   
+  // ========== UNIFIED VIEWPORT CONTROLLER ==========
+  // Single source of truth for viewport state management
+  // Prevents competing effects from causing viewport jumps
+  const viewportControllerRef = useRef<{
+    // Whether initial viewport has been set for current record
+    hasInitialized: boolean;
+    // The record ID for which viewport was initialized
+    initializedForRecordId: string | null;
+    // Captured content bounds at initialization time (doesn't change with data updates)
+    capturedContentBounds: { start: number; end: number } | null;
+    // Whether a WebSocket/query update is in progress (ignore viewport changes during updates)
+    isDataUpdateInProgress: boolean;
+  }>({
+    hasInitialized: false,
+    initializedForRecordId: null,
+    capturedContentBounds: null,
+    isDataUpdateInProgress: false,
+  });
+  
   // State for tracking snap intervals (in milliseconds)
   // Vitals and ventilation: zoom-dependent (1min, 5min, or 10min based on zoom level)
   // Medications and events: always 1 minute
@@ -2963,123 +2982,36 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     };
   }, []);
 
-  // Track initial zoom state
+  // Track initial zoom state (used by unified controller)
   const hasSetInitialZoomRef = useRef(false);
-  
-  // Note: hasSetInitialZoomRef is reset in the combined effect below that handles
-  // both anesthesiaRecordId and isHistoricalRecord changes
 
-  // Handle chart ready - set initial zoom based on record type
-  // Auto-recentering to show all data ONLY happens when:
-  // - Record is locked AND PACU End (P) is entered
-  // All other cases: center on NOW (current time)
+  // Handle chart ready - mark chart as ready and let unified effect handle viewport
+  // Viewport initialization is deferred to the unified effect for consistency
   const handleChartReady = (chart: any) => {
     // Mark chart as ready for image export
     setIsChartReady(true);
-    
-    if (hasSetInitialZoomRef.current) return;
-
-    let initialStartTime: number;
-    let initialEndTime: number;
-    let usedRealContentBounds = false;
-    
-    // ONLY auto-recenter to show all data when record is locked AND PACU End is entered
-    // This is the strict condition to prevent continuous recentering during active recording
-    if (shouldAutoRecenterView && contentBounds && 
-        isFinite(contentBounds.start) && isFinite(contentBounds.end) &&
-        contentBounds.start > 0 && contentBounds.end > 0) {
-      const contentSpan = contentBounds.end - contentBounds.start;
-      const FIVE_HOURS = 5 * 60 * 60 * 1000;
-      const PADDING = 15 * 60 * 1000;
-      const contentCenter = (contentBounds.start + contentBounds.end) / 2;
-      
-      // If content is less than 5 hours, show it all with some padding
-      // Otherwise, show a 5-hour window centered on the content
-      if (contentSpan <= FIVE_HOURS) {
-        initialStartTime = contentBounds.start - PADDING;
-        initialEndTime = contentBounds.end + PADDING;
-      } else {
-        initialStartTime = contentCenter - FIVE_HOURS / 2;
-        initialEndTime = contentCenter + FIVE_HOURS / 2;
-      }
-      
-      // Clamp to data bounds and preserve window size
-      const targetWindow = initialEndTime - initialStartTime;
-      if (initialStartTime < data.startTime) {
-        initialStartTime = data.startTime;
-        initialEndTime = Math.min(data.endTime, initialStartTime + targetWindow);
-      }
-      if (initialEndTime > data.endTime) {
-        initialEndTime = data.endTime;
-        initialStartTime = Math.max(data.startTime, initialEndTime - targetWindow);
-      }
-      
-      usedRealContentBounds = true;
-    } else {
-      // For all other cases (active records, records without PACU End, etc.),
-      // center on NOW with 15min before and 45min after
-      const currentTime = now || data.endTime;
-      const fifteenMinutes = 15 * 60 * 1000;
-      const fortyFiveMinutes = 45 * 60 * 1000;
-      initialStartTime = currentTime - fifteenMinutes;
-      initialEndTime = currentTime + fortyFiveMinutes;
-    }
-    
-    const startPercent = ((initialStartTime - data.startTime) / (data.endTime - data.startTime)) * 100;
-    const endPercent = ((initialEndTime - data.startTime) / (data.endTime - data.startTime)) * 100;
-    
-    // Clamp to valid range (0-100) and ensure start <= end
-    let clampedStart = Math.max(0, Math.min(100, startPercent));
-    let clampedEnd = Math.max(0, Math.min(100, endPercent));
-    if (clampedStart > clampedEnd) {
-      [clampedStart, clampedEnd] = [clampedEnd, clampedStart];
-    }
-    
-    // Set zoom state first so useMemo picks it up
-    setZoomPercent({ start: clampedStart, end: clampedEnd });
-    
-    // Then set in chart
-    chart.setOption({
-      dataZoom: [{
-        start: clampedStart,
-        end: clampedEnd,
-      }]
-    });
-    
-    // Always mark as set after initial zoom to prevent repeated applications
-    hasSetInitialZoomRef.current = true;
+    // Viewport initialization is handled by the unified effect
+    // This callback just signals that the chart is ready
   };
 
-  // Re-center chart ONCE on load - ONLY for locked records with PACU End
-  // This ref tracks if we've already recentered for the current record
-  // Once set, we NEVER recenter again for this record (regardless of data changes)
-  const recenterAppliedForRecordRef = useRef<string | null>(null);
-  const prevAnesthesiaRecordIdRef = useRef<string | undefined>(undefined);
-  
+  // ========== UNIFIED VIEWPORT INITIALIZATION ==========
+  // Single effect that handles ALL viewport initialization logic
+  // CRITICAL: NO dependency on contentBounds to prevent WebSocket-triggered recalculations
+  // contentBounds is read via ref at the moment of initialization, not as a dependency
   useEffect(() => {
-    // If record ID changed, reset the recenter tracking
-    if (prevAnesthesiaRecordIdRef.current !== anesthesiaRecordId) {
-      recenterAppliedForRecordRef.current = null;
+    const controller = viewportControllerRef.current;
+    
+    // Reset controller when record ID changes
+    if (controller.initializedForRecordId !== anesthesiaRecordId) {
+      controller.hasInitialized = false;
+      controller.initializedForRecordId = null;
+      controller.capturedContentBounds = null;
       hasSetInitialZoomRef.current = false;
       userPinnedViewportRef.current = false;
-      prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
     }
     
-    // CRITICAL: Only apply auto-recentering when record is locked AND PACU End is entered
-    // In all other cases, this mechanism is completely disabled
-    if (!shouldAutoRecenterView) {
-      return;
-    }
-    
-    // ONCE ONLY: Skip if we've already recentered for this record ID
-    // This prevents any repeated recentering regardless of data/bounds changes
-    if (recenterAppliedForRecordRef.current === anesthesiaRecordId) {
-      return;
-    }
-    
-    // Need valid content bounds to center on
-    if (!contentBounds || !isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
-        contentBounds.start <= 0 || contentBounds.end <= 0) {
+    // Skip if already initialized for this record
+    if (controller.hasInitialized && controller.initializedForRecordId === anesthesiaRecordId) {
       return;
     }
     
@@ -3088,35 +3020,54 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return;
     }
     
-    // Track if this effect instance is still valid (not cleaned up)
+    // For locked+PACU records, we need valid content bounds
+    // For active records, we just center on NOW
+    if (shouldAutoRecenterView) {
+      // Need valid content bounds for historical view
+      if (!contentBounds || !isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
+          contentBounds.start <= 0 || contentBounds.end <= 0) {
+        return; // Wait for valid bounds
+      }
+      // Capture bounds ONCE - this ref won't change with data updates
+      if (!controller.capturedContentBounds) {
+        controller.capturedContentBounds = { ...contentBounds };
+      }
+    }
+    
     let isCancelled = false;
     let retryTimeoutId: NodeJS.Timeout | null = null;
     
-    const applyBounds = (): boolean => {
-      if (isCancelled) {
-        return false;
-      }
+    const applyViewport = (): boolean => {
+      if (isCancelled) return false;
       
       const chart = chartRef.current?.getEchartsInstance();
-      if (!chart) {
-        return false;
-      }
-      
-      // Calculate a 5-hour window centered on the content
-      const contentSpan = contentBounds.end - contentBounds.start;
-      const FIVE_HOURS = 5 * 60 * 60 * 1000;
-      const PADDING = 15 * 60 * 1000;
-      const contentCenter = (contentBounds.start + contentBounds.end) / 2;
+      if (!chart) return false;
       
       let viewStart: number;
       let viewEnd: number;
       
-      if (contentSpan <= FIVE_HOURS) {
-        viewStart = contentBounds.start - PADDING;
-        viewEnd = contentBounds.end + PADDING;
+      if (shouldAutoRecenterView && controller.capturedContentBounds) {
+        // Historical/locked record: center on CAPTURED content bounds (not live)
+        const bounds = controller.capturedContentBounds;
+        const contentSpan = bounds.end - bounds.start;
+        const FIVE_HOURS = 5 * 60 * 60 * 1000;
+        const PADDING = 15 * 60 * 1000;
+        const contentCenter = (bounds.start + bounds.end) / 2;
+        
+        if (contentSpan <= FIVE_HOURS) {
+          viewStart = bounds.start - PADDING;
+          viewEnd = bounds.end + PADDING;
+        } else {
+          viewStart = contentCenter - FIVE_HOURS / 2;
+          viewEnd = contentCenter + FIVE_HOURS / 2;
+        }
       } else {
-        viewStart = contentCenter - FIVE_HOURS / 2;
-        viewEnd = contentCenter + FIVE_HOURS / 2;
+        // Active record: center on NOW with 15min before and 45min after
+        const currentTime = now || data.endTime;
+        const fifteenMinutes = 15 * 60 * 1000;
+        const fortyFiveMinutes = 45 * 60 * 1000;
+        viewStart = currentTime - fifteenMinutes;
+        viewEnd = currentTime + fortyFiveMinutes;
       }
       
       // Clamp to data bounds and preserve window size
@@ -3130,10 +3081,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         viewStart = Math.max(data.startTime, viewEnd - targetWindow);
       }
       
-      const startPercent = ((viewStart - data.startTime) / (data.endTime - data.startTime)) * 100;
-      const endPercent = ((viewEnd - data.startTime) / (data.endTime - data.startTime)) * 100;
+      const fullRange = data.endTime - data.startTime;
+      if (fullRange <= 0) return false; // Invalid range
       
-      // Clamp to valid range and ensure start <= end
+      const startPercent = ((viewStart - data.startTime) / fullRange) * 100;
+      const endPercent = ((viewEnd - data.startTime) / fullRange) * 100;
+      
       let clampedStart = Math.max(0, Math.min(100, startPercent));
       let clampedEnd = Math.max(0, Math.min(100, endPercent));
       if (clampedStart > clampedEnd) {
@@ -3148,41 +3101,39 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }]
       });
       
-      // MARK AS DONE FOR THIS RECORD - will never recenter again
-      recenterAppliedForRecordRef.current = anesthesiaRecordId ?? null;
+      // MARK AS FULLY INITIALIZED - will never re-run for this record
+      controller.hasInitialized = true;
+      controller.initializedForRecordId = anesthesiaRecordId ?? null;
       hasSetInitialZoomRef.current = true;
+      
       return true;
     };
     
-    // Try to apply immediately
-    if (applyBounds()) {
-      return;
-    }
+    // Try immediately
+    if (applyViewport()) return;
     
-    // If chart not ready, retry once after a short delay (max 3 retries)
+    // Retry with exponential backoff if chart not ready
     const scheduleRetry = (delay: number, attempt: number, maxAttempts: number) => {
       if (isCancelled || attempt >= maxAttempts) return;
       
       retryTimeoutId = setTimeout(() => {
-        if (!isCancelled && !applyBounds() && attempt + 1 < maxAttempts) {
+        if (!isCancelled && !applyViewport() && attempt + 1 < maxAttempts) {
           scheduleRetry(delay * 2, attempt + 1, maxAttempts);
         }
       }, delay);
     };
     
-    // Max 3 retries with exponential backoff: 200ms, 400ms, 800ms
     scheduleRetry(200, 0, 3);
     
     return () => {
       isCancelled = true;
-      if (retryTimeoutId) {
-        clearTimeout(retryTimeoutId);
-      }
+      if (retryTimeoutId) clearTimeout(retryTimeoutId);
     };
-  }, [shouldAutoRecenterView, contentBounds, data.startTime, data.endTime, anesthesiaRecordId]);
-  
-  // Note: Ref resets are now handled inline in the recenter effect above
-  // to ensure the reset happens BEFORE the short-circuit check
+    // CRITICAL: contentBounds is intentionally NOT in dependencies
+    // We read it via ref to prevent WebSocket updates from triggering viewport changes
+    // isChartReady is included to trigger initialization once chart is ready
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shouldAutoRecenterView, anesthesiaRecordId, data.startTime, data.endTime, now, isChartReady]);
 
   // Update dataZoom xAxisIndex when swimlane structure changes
   useEffect(() => {
