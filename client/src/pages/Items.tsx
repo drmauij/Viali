@@ -223,6 +223,33 @@ export default function Items() {
 
   // Edit dialog tab state
   const [editDialogTab, setEditDialogTab] = useState<string>("details");
+  
+  // Item codes and supplier codes state
+  const [itemCodes, setItemCodes] = useState<{
+    gtin?: string;
+    pharmacode?: string;
+    migel?: string;
+    atc?: string;
+    manufacturer?: string;
+    packContent?: string;
+    unitsPerPack?: number;
+    contentPerUnit?: string;
+  } | null>(null);
+  const [supplierCodes, setSupplierCodes] = useState<Array<{
+    id: string;
+    supplierName: string;
+    articleCode?: string;
+    catalogUrl?: string;
+    pricePerPack?: string;
+    isPreferred: boolean;
+  }>>([]);
+  const [isLoadingCodes, setIsLoadingCodes] = useState(false);
+  const [newSupplier, setNewSupplier] = useState({
+    supplierName: "",
+    articleCode: "",
+    catalogUrl: "",
+    pricePerPack: "",
+  });
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -580,7 +607,7 @@ export default function Items() {
     }
   }, [editFormData.controlled, selectedUnit]);
 
-  const handleEditItem = (item: ItemWithStock) => {
+  const handleEditItem = async (item: ItemWithStock) => {
     setSelectedItem(item);
     setEditFormData({
       name: item.name,
@@ -598,8 +625,34 @@ export default function Items() {
       imageUrl: item.imageUrl || "",
     });
     setSelectedUnit(normalizeUnit(item.unit));
-    setEditDialogTab("details"); // Reset to details tab when opening
+    setEditDialogTab("details");
+    setItemCodes(null);
+    setSupplierCodes([]);
+    setNewSupplier({ supplierName: "", articleCode: "", catalogUrl: "", pricePerPack: "" });
     setEditDialogOpen(true);
+    
+    // Load item codes and supplier codes in background
+    setIsLoadingCodes(true);
+    try {
+      const [codesRes, suppliersRes] = await Promise.all([
+        fetch(`/api/items/${item.id}/codes`),
+        fetch(`/api/items/${item.id}/suppliers`)
+      ]);
+      
+      if (codesRes.ok) {
+        const codes = await codesRes.json();
+        setItemCodes(codes);
+      }
+      
+      if (suppliersRes.ok) {
+        const suppliers = await suppliersRes.json();
+        setSupplierCodes(suppliers);
+      }
+    } catch (error) {
+      console.error('Failed to load item codes:', error);
+    } finally {
+      setIsLoadingCodes(false);
+    }
   };
 
   const quickOrderMutation = useMutation({
@@ -3078,8 +3131,9 @@ export default function Items() {
           </DialogHeader>
           <form onSubmit={handleUpdateItem} className="space-y-4">
             <Tabs defaultValue="details" value={editDialogTab} onValueChange={setEditDialogTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="details" data-testid="tab-item-details">{t('items.itemDetails')}</TabsTrigger>
+                <TabsTrigger value="codes" data-testid="tab-item-codes">Codes</TabsTrigger>
                 <TabsTrigger value="photo" data-testid="tab-item-photo">{t('items.itemPhoto')}</TabsTrigger>
               </TabsList>
               
@@ -3317,6 +3371,307 @@ export default function Items() {
                 />
               </div>
             </div>
+              </TabsContent>
+
+              <TabsContent value="codes" className="space-y-6 mt-4">
+                {isLoadingCodes ? (
+                  <div className="flex items-center justify-center py-8">
+                    <i className="fas fa-spinner fa-spin text-2xl text-muted-foreground"></i>
+                  </div>
+                ) : (
+                  <>
+                    {/* Universal Product Codes Section */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <i className="fas fa-barcode text-primary"></i>
+                        <h3 className="font-semibold">Universal Codes</h3>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label htmlFor="gtin">GTIN/EAN</Label>
+                          <Input 
+                            id="gtin"
+                            placeholder="e.g., 7680123456789"
+                            value={itemCodes?.gtin || ""}
+                            onChange={(e) => setItemCodes(prev => ({ ...prev, gtin: e.target.value }))}
+                            disabled={!canWrite}
+                            data-testid="input-gtin"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="pharmacode">Pharmacode</Label>
+                          <Input 
+                            id="pharmacode"
+                            placeholder="7-digit Swiss code"
+                            value={itemCodes?.pharmacode || ""}
+                            onChange={(e) => setItemCodes(prev => ({ ...prev, pharmacode: e.target.value }))}
+                            disabled={!canWrite}
+                            data-testid="input-pharmacode"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="migel">MiGeL Code</Label>
+                          <Input 
+                            id="migel"
+                            placeholder="Swiss device code"
+                            value={itemCodes?.migel || ""}
+                            onChange={(e) => setItemCodes(prev => ({ ...prev, migel: e.target.value }))}
+                            disabled={!canWrite}
+                            data-testid="input-migel"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="atc">ATC Code</Label>
+                          <Input 
+                            id="atc"
+                            placeholder="e.g., N02BE01"
+                            value={itemCodes?.atc || ""}
+                            onChange={(e) => setItemCodes(prev => ({ ...prev, atc: e.target.value }))}
+                            disabled={!canWrite}
+                            data-testid="input-atc"
+                          />
+                        </div>
+                        <div className="col-span-2">
+                          <Label htmlFor="manufacturer">Manufacturer</Label>
+                          <Input 
+                            id="manufacturer"
+                            placeholder="e.g., B. Braun, 3M"
+                            value={itemCodes?.manufacturer || ""}
+                            onChange={(e) => setItemCodes(prev => ({ ...prev, manufacturer: e.target.value }))}
+                            disabled={!canWrite}
+                            data-testid="input-manufacturer"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Pack Information */}
+                      <div className="pt-2 border-t">
+                        <Label className="text-sm text-muted-foreground mb-2 block">Pack Information</Label>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <Label htmlFor="packContent" className="text-xs">Pack Content</Label>
+                            <Input 
+                              id="packContent"
+                              placeholder="e.g., 10x5ml"
+                              value={itemCodes?.packContent || ""}
+                              onChange={(e) => setItemCodes(prev => ({ ...prev, packContent: e.target.value }))}
+                              disabled={!canWrite}
+                              data-testid="input-pack-content"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="unitsPerPack" className="text-xs">Units/Pack</Label>
+                            <Input 
+                              id="unitsPerPack"
+                              type="number"
+                              min="1"
+                              placeholder="10"
+                              value={itemCodes?.unitsPerPack || ""}
+                              onChange={(e) => setItemCodes(prev => ({ ...prev, unitsPerPack: parseInt(e.target.value) || undefined }))}
+                              disabled={!canWrite}
+                              data-testid="input-units-per-pack"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="contentPerUnit" className="text-xs">Per Unit</Label>
+                            <Input 
+                              id="contentPerUnit"
+                              placeholder="e.g., 5ml"
+                              value={itemCodes?.contentPerUnit || ""}
+                              onChange={(e) => setItemCodes(prev => ({ ...prev, contentPerUnit: e.target.value }))}
+                              disabled={!canWrite}
+                              data-testid="input-content-per-unit"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {canWrite && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="w-full"
+                          onClick={async () => {
+                            if (!selectedItem) return;
+                            try {
+                              await apiRequest("PUT", `/api/items/${selectedItem.id}/codes`, itemCodes || {});
+                              toast({ title: t('common.success'), description: "Product codes saved" });
+                            } catch (error: any) {
+                              toast({ title: t('common.error'), description: error.message, variant: "destructive" });
+                            }
+                          }}
+                          data-testid="button-save-codes"
+                        >
+                          <i className="fas fa-save mr-2"></i>
+                          Save Codes
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Supplier Codes Section */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <i className="fas fa-truck text-primary"></i>
+                          <h3 className="font-semibold">Supplier Pricing</h3>
+                        </div>
+                      </div>
+                      
+                      {/* Existing Suppliers List */}
+                      {supplierCodes.length > 0 && (
+                        <div className="space-y-2">
+                          {supplierCodes.map((supplier) => (
+                            <div 
+                              key={supplier.id}
+                              className={`p-3 rounded-lg border ${supplier.isPreferred ? 'border-primary bg-primary/5' : 'border-border'}`}
+                              data-testid={`supplier-${supplier.id}`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">{supplier.supplierName}</span>
+                                    {supplier.isPreferred && (
+                                      <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">Preferred</span>
+                                    )}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {supplier.articleCode && <span>Art: {supplier.articleCode}</span>}
+                                    {supplier.pricePerPack && <span className="ml-3">CHF {supplier.pricePerPack}/pack</span>}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  {supplier.catalogUrl && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => window.open(supplier.catalogUrl, '_blank')}
+                                      data-testid={`link-catalog-${supplier.id}`}
+                                    >
+                                      <i className="fas fa-external-link-alt"></i>
+                                    </Button>
+                                  )}
+                                  {canWrite && !supplier.isPreferred && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={async () => {
+                                        if (!selectedItem) return;
+                                        try {
+                                          await apiRequest("POST", `/api/items/${selectedItem.id}/suppliers/${supplier.id}/set-preferred`, {});
+                                          const res = await fetch(`/api/items/${selectedItem.id}/suppliers`);
+                                          if (res.ok) setSupplierCodes(await res.json());
+                                          toast({ title: t('common.success'), description: "Set as preferred supplier" });
+                                        } catch (error: any) {
+                                          toast({ title: t('common.error'), description: error.message, variant: "destructive" });
+                                        }
+                                      }}
+                                      data-testid={`button-set-preferred-${supplier.id}`}
+                                    >
+                                      <i className="fas fa-star"></i>
+                                    </Button>
+                                  )}
+                                  {canWrite && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={async () => {
+                                        if (!selectedItem || !window.confirm('Delete this supplier?')) return;
+                                        try {
+                                          await apiRequest("DELETE", `/api/items/${selectedItem.id}/suppliers/${supplier.id}`, {});
+                                          setSupplierCodes(prev => prev.filter(s => s.id !== supplier.id));
+                                          toast({ title: t('common.success'), description: "Supplier removed" });
+                                        } catch (error: any) {
+                                          toast({ title: t('common.error'), description: error.message, variant: "destructive" });
+                                        }
+                                      }}
+                                      data-testid={`button-delete-supplier-${supplier.id}`}
+                                    >
+                                      <Trash2 className="w-4 h-4 text-destructive" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Add New Supplier Form */}
+                      {canWrite && (
+                        <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                          <Label className="text-sm font-medium">Add Supplier</Label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Input
+                              placeholder="Supplier name *"
+                              value={newSupplier.supplierName}
+                              onChange={(e) => setNewSupplier(prev => ({ ...prev, supplierName: e.target.value }))}
+                              data-testid="input-new-supplier-name"
+                            />
+                            <Input
+                              placeholder="Article code"
+                              value={newSupplier.articleCode}
+                              onChange={(e) => setNewSupplier(prev => ({ ...prev, articleCode: e.target.value }))}
+                              data-testid="input-new-supplier-article"
+                            />
+                            <Input
+                              placeholder="Catalog URL"
+                              value={newSupplier.catalogUrl}
+                              onChange={(e) => setNewSupplier(prev => ({ ...prev, catalogUrl: e.target.value }))}
+                              data-testid="input-new-supplier-url"
+                            />
+                            <Input
+                              placeholder="Price per pack (CHF)"
+                              type="number"
+                              step="0.01"
+                              value={newSupplier.pricePerPack}
+                              onChange={(e) => setNewSupplier(prev => ({ ...prev, pricePerPack: e.target.value }))}
+                              data-testid="input-new-supplier-price"
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            disabled={!newSupplier.supplierName}
+                            onClick={async () => {
+                              if (!selectedItem || !newSupplier.supplierName) return;
+                              try {
+                                const res = await apiRequest("POST", `/api/items/${selectedItem.id}/suppliers`, {
+                                  supplierName: newSupplier.supplierName,
+                                  articleCode: newSupplier.articleCode || null,
+                                  catalogUrl: newSupplier.catalogUrl || null,
+                                  pricePerPack: newSupplier.pricePerPack || null,
+                                  isPreferred: supplierCodes.length === 0, // First supplier is auto-preferred
+                                });
+                                const created = await res.json();
+                                setSupplierCodes(prev => [...prev, created]);
+                                setNewSupplier({ supplierName: "", articleCode: "", catalogUrl: "", pricePerPack: "" });
+                                toast({ title: t('common.success'), description: "Supplier added" });
+                              } catch (error: any) {
+                                toast({ title: t('common.error'), description: error.message, variant: "destructive" });
+                              }
+                            }}
+                            data-testid="button-add-supplier"
+                          >
+                            <i className="fas fa-plus mr-2"></i>
+                            Add Supplier
+                          </Button>
+                        </div>
+                      )}
+
+                      {supplierCodes.length === 0 && !canWrite && (
+                        <div className="text-center py-4 text-muted-foreground text-sm">
+                          No suppliers configured
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </TabsContent>
 
               <TabsContent value="photo" className="space-y-4 mt-4">
