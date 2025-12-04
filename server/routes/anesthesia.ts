@@ -1180,12 +1180,12 @@ router.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requir
       return res.status(400).json({ message: "Cannot update closed or amended records. Use amend endpoint instead." });
     }
 
-    // Check if A2 (Anesthesia Presence End / PACU End) marker status is changing
-    // Only toggle lock when A2 status actually changes (set or cleared)
-    // IMPORTANT: If A2 is omitted from the new array, we don't change lock status
+    // Check if P (PACU End) marker status is changing - this is the final timestamp
+    // Only toggle lock when P status actually changes (set or cleared)
+    // IMPORTANT: If P is omitted from the new array, we don't change lock status
     const updateData: { timeMarkers: any; isLocked?: boolean; lockedAt?: Date | null } = { timeMarkers };
     
-    // Helper to normalize A2 time to boolean - handles both ISO strings and numeric timestamps
+    // Helper to normalize marker time to boolean - handles both ISO strings and numeric timestamps
     const hasValidTime = (marker: any): boolean => {
       if (!marker?.time) return false;
       // Handle both numeric timestamps and ISO strings
@@ -1194,51 +1194,51 @@ router.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requir
     };
     
     if (Array.isArray(timeMarkers)) {
-      // Get the previous A2 marker from existing record
+      // Get the previous P (PACU End) marker from existing record
       const existingTimeMarkers = record.timeMarkers as any[] | null;
-      const previousA2 = Array.isArray(existingTimeMarkers) 
-        ? existingTimeMarkers.find((m: any) => m.code === 'A2')
+      const previousP = Array.isArray(existingTimeMarkers) 
+        ? existingTimeMarkers.find((m: any) => m.code === 'P')
         : null;
-      const previousA2HasTime = hasValidTime(previousA2);
+      const previousPHasTime = hasValidTime(previousP);
       
-      // Get the new A2 marker from the update
-      const newA2 = timeMarkers.find((m: any) => m.code === 'A2');
+      // Get the new P marker from the update
+      const newP = timeMarkers.find((m: any) => m.code === 'P');
       
-      // Only process lock changes if A2 marker is actually present in the new array
-      // If A2 is omitted entirely, we don't change lock status (partial update scenario)
-      if (newA2 !== undefined) {
-        const newA2HasTime = hasValidTime(newA2);
+      // Only process lock changes if P marker is actually present in the new array
+      // If P is omitted entirely, we don't change lock status (partial update scenario)
+      if (newP !== undefined) {
+        const newPHasTime = hasValidTime(newP);
         
-        console.log(`[TIME-MARKERS] A2 comparison for record ${id}:`, {
-          previousA2HasTime,
-          newA2HasTime,
-          previousA2Time: previousA2?.time,
-          newA2Time: newA2?.time,
-          previousA2Raw: JSON.stringify(previousA2),
-          newA2Raw: JSON.stringify(newA2),
+        console.log(`[TIME-MARKERS] P (PACU End) comparison for record ${id}:`, {
+          previousPHasTime,
+          newPHasTime,
+          previousPTime: previousP?.time,
+          newPTime: newP?.time,
+          previousPRaw: JSON.stringify(previousP),
+          newPRaw: JSON.stringify(newP),
           currentIsLocked: record.isLocked,
         });
         
-        // Only change lock status if A2 status is actually changing
-        if (newA2HasTime && !previousA2HasTime) {
-          // A2 is being set for the first time - lock the record
+        // Only change lock status if P (PACU End) status is actually changing
+        if (newPHasTime && !previousPHasTime) {
+          // P is being set for the first time - lock the record
           updateData.isLocked = true;
           updateData.lockedAt = new Date();
-          console.log(`[TIME-MARKERS] A2 marker set for record ${id} - LOCKING record`);
-        } else if (!newA2HasTime && previousA2HasTime) {
-          // A2 is being explicitly cleared (time set to null/empty) - unlock the record
+          console.log(`[TIME-MARKERS] P (PACU End) marker set for record ${id} - LOCKING record`);
+        } else if (!newPHasTime && previousPHasTime) {
+          // P is being explicitly cleared (time set to null/empty) - unlock the record
           updateData.isLocked = false;
           updateData.lockedAt = null;
-          console.log(`[TIME-MARKERS] A2 marker cleared for record ${id} - UNLOCKING record`);
-        } else if (newA2HasTime && previousA2HasTime && !record.isLocked) {
-          // REPAIR: A2 has time but record is not locked (data inconsistency from before locking was implemented)
+          console.log(`[TIME-MARKERS] P (PACU End) marker cleared for record ${id} - UNLOCKING record`);
+        } else if (newPHasTime && previousPHasTime && !record.isLocked) {
+          // REPAIR: P has time but record is not locked (data inconsistency from before locking was implemented)
           // Lock the record to fix the inconsistency
           updateData.isLocked = true;
           updateData.lockedAt = new Date();
-          console.log(`[TIME-MARKERS] A2 marker already set but record not locked for ${id} - REPAIRING: locking record`);
+          console.log(`[TIME-MARKERS] P marker already set but record not locked for ${id} - REPAIRING: locking record`);
         } else {
-          // A2 status unchanged and lock status is correct - no change needed
-          console.log(`[TIME-MARKERS] A2 marker status unchanged for record ${id} - no lock change (both have time: ${newA2HasTime && previousA2HasTime}, both empty: ${!newA2HasTime && !previousA2HasTime})`);
+          // P status unchanged and lock status is correct - no change needed
+          console.log(`[TIME-MARKERS] P marker status unchanged for record ${id} - no lock change (both have time: ${newPHasTime && previousPHasTime}, both empty: ${!newPHasTime && !previousPHasTime})`);
         }
         // Log the final update data
         console.log(`[TIME-MARKERS] Update data for record ${id}:`, {
@@ -1246,7 +1246,7 @@ router.patch('/api/anesthesia/records/:id/time-markers', isAuthenticated, requir
           newIsLocked: updateData.isLocked,
         });
       }
-      // If A2 is not in the new array at all, don't change lock status (partial update)
+      // If P is not in the new array at all, don't change lock status (partial update)
     }
 
     const updatedRecord = await storage.updateAnesthesiaRecord(id, updateData);
