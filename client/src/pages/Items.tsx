@@ -143,6 +143,13 @@ export default function Items() {
     controlled: false,
     trackExactQuantity: false,
     imageUrl: "",
+    gtin: "",
+    pharmacode: "",
+    migel: "",
+    atc: "",
+    manufacturer: "",
+    lotNumber: "",
+    expiryDate: "",
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -1262,6 +1269,11 @@ export default function Items() {
               description: result.description || prev.description,
               barcode: result.barcode || prev.barcode,
               imageUrl: i === 0 ? compressedImage : prev.imageUrl, // Save first image as item photo
+              gtin: result.gtin || prev.gtin,
+              pharmacode: result.pharmacode || prev.pharmacode,
+              manufacturer: result.manufacturer || prev.manufacturer,
+              lotNumber: result.lotNumber || prev.lotNumber,
+              expiryDate: result.expiryDate || prev.expiryDate,
             }));
             
             if (result.unit) {
@@ -1299,7 +1311,7 @@ export default function Items() {
     }
   };
 
-  const handleAddItem = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     const itemData = {
@@ -1319,7 +1331,41 @@ export default function Items() {
       imageUrl: formData.imageUrl || undefined,
     };
 
-    createItemMutation.mutate(itemData);
+    createItemMutation.mutate(itemData, {
+      onSuccess: async (createdItem) => {
+        if (!createdItem) return;
+        
+        // Save item codes if any were extracted
+        const hasCodes = formData.gtin || formData.pharmacode || formData.migel || formData.atc || formData.manufacturer;
+        if (hasCodes) {
+          try {
+            await apiRequest("PUT", `/api/items/${createdItem.id}/codes`, {
+              gtin: formData.gtin || null,
+              pharmacode: formData.pharmacode || null,
+              migel: formData.migel || null,
+              atc: formData.atc || null,
+              manufacturer: formData.manufacturer || null,
+            });
+          } catch (error) {
+            console.error('Failed to save item codes:', error);
+          }
+        }
+        
+        // Create lot if lot number was extracted
+        if (formData.lotNumber) {
+          try {
+            await apiRequest("POST", `/api/items/${createdItem.id}/lots`, {
+              itemId: createdItem.id,
+              unitId: activeHospital?.unitId,
+              lotNumber: formData.lotNumber,
+              expiryDate: formData.expiryDate ? new Date(formData.expiryDate).toISOString() : null,
+            });
+          } catch (error) {
+            console.error('Failed to create lot:', error);
+          }
+        }
+      }
+    });
   };
 
   const resetForm = () => {
@@ -1337,6 +1383,13 @@ export default function Items() {
       controlled: false,
       trackExactQuantity: false,
       imageUrl: "",
+      gtin: "",
+      pharmacode: "",
+      migel: "",
+      atc: "",
+      manufacturer: "",
+      lotNumber: "",
+      expiryDate: "",
     });
     setSelectedUnit("Pack");
     setUploadedImages([]);
@@ -3126,6 +3179,91 @@ export default function Items() {
                 />
               </div>
             </div>
+
+            {/* Extracted Codes Section - Collapsible */}
+            {(formData.gtin || formData.pharmacode || formData.manufacturer || formData.lotNumber) && (
+              <Accordion type="single" collapsible defaultValue="codes" className="border rounded-lg">
+                <AccordionItem value="codes" className="border-0">
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <i className="fas fa-barcode text-primary"></i>
+                      <span className="font-medium">Extracted Product Codes</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <div className="space-y-3">
+                      {formData.gtin && (
+                        <div>
+                          <Label htmlFor="add-gtin" className="text-xs text-muted-foreground">GTIN/EAN</Label>
+                          <Input 
+                            id="add-gtin"
+                            value={formData.gtin}
+                            onChange={(e) => setFormData(prev => ({ ...prev, gtin: e.target.value }))}
+                            data-testid="input-add-gtin"
+                            className="h-8"
+                          />
+                        </div>
+                      )}
+                      {formData.pharmacode && (
+                        <div>
+                          <Label htmlFor="add-pharmacode" className="text-xs text-muted-foreground">Pharmacode</Label>
+                          <Input 
+                            id="add-pharmacode"
+                            value={formData.pharmacode}
+                            onChange={(e) => setFormData(prev => ({ ...prev, pharmacode: e.target.value }))}
+                            data-testid="input-add-pharmacode"
+                            className="h-8"
+                          />
+                        </div>
+                      )}
+                      {formData.manufacturer && (
+                        <div>
+                          <Label htmlFor="add-manufacturer" className="text-xs text-muted-foreground">Manufacturer</Label>
+                          <Input 
+                            id="add-manufacturer"
+                            value={formData.manufacturer}
+                            onChange={(e) => setFormData(prev => ({ ...prev, manufacturer: e.target.value }))}
+                            data-testid="input-add-manufacturer"
+                            className="h-8"
+                          />
+                        </div>
+                      )}
+                      {(formData.lotNumber || formData.expiryDate) && (
+                        <div className="pt-2 border-t">
+                          <div className="flex items-center gap-2 mb-2">
+                            <i className="fas fa-boxes text-xs text-muted-foreground"></i>
+                            <span className="text-xs font-medium text-muted-foreground">Lot Information</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <Label htmlFor="add-lot" className="text-xs text-muted-foreground">Lot Number</Label>
+                              <Input 
+                                id="add-lot"
+                                value={formData.lotNumber}
+                                onChange={(e) => setFormData(prev => ({ ...prev, lotNumber: e.target.value }))}
+                                data-testid="input-add-lot"
+                                className="h-8 font-mono"
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="add-expiry" className="text-xs text-muted-foreground">Expiry Date</Label>
+                              <Input 
+                                id="add-expiry"
+                                type="date"
+                                value={formData.expiryDate}
+                                onChange={(e) => setFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                                data-testid="input-add-expiry"
+                                className="h-8"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            )}
 
             <div className="flex gap-3 pt-4 justify-end">
               <Button type="button" variant="outline" onClick={() => { setAddDialogOpen(false); resetForm(); }}>
