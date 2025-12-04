@@ -1120,6 +1120,29 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     return false;
   }, [anesthesiaRecord?.caseStatus, anesthesiaRecord?.timeMarkers, anesthesiaRecord?.isLocked, data.endTime, data.isHistoricalData]);
 
+  // STRICT condition for auto-recentering view to show all data:
+  // ONLY apply when record is LOCKED AND PACU End (P marker) is entered
+  // This prevents continuous recentering during active recording
+  const shouldAutoRecenterView = useMemo(() => {
+    // Must be locked
+    if (!anesthesiaRecord?.isLocked) {
+      return false;
+    }
+    
+    // Must have PACU End (P) marker set
+    const timeMarkersArray = anesthesiaRecord?.timeMarkers;
+    if (!Array.isArray(timeMarkersArray)) {
+      return false;
+    }
+    
+    const pacuEndMarker = timeMarkersArray.find((m: any) => m.code === 'P');
+    if (!pacuEndMarker?.time || !isFinite(pacuEndMarker.time)) {
+      return false;
+    }
+    
+    return true;
+  }, [anesthesiaRecord?.isLocked, anesthesiaRecord?.timeMarkers]);
+
   // Compute content bounds from all data sources for smart viewport positioning
   // Uses synchronous data from props and derived infusion sessions
   const contentBounds = useMemo(() => {
@@ -2947,8 +2970,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // both anesthesiaRecordId and isHistoricalRecord changes
 
   // Handle chart ready - set initial zoom based on record type
-  // Historical records: center on content range
-  // Active records: center on NOW (current time)
+  // Auto-recentering to show all data ONLY happens when:
+  // - Record is locked AND PACU End (P) is entered
+  // All other cases: center on NOW (current time)
   const handleChartReady = (chart: any) => {
     // Mark chart as ready for image export
     setIsChartReady(true);
@@ -2959,9 +2983,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     let initialEndTime: number;
     let usedRealContentBounds = false;
     
-    // For historical records with data, show a 5-hour window centered on the content
-    // This gives comfortable 30-minute tick intervals instead of showing full (potentially 6+ hour) range
-    if (isHistoricalRecord && contentBounds && 
+    // ONLY auto-recenter to show all data when record is locked AND PACU End is entered
+    // This is the strict condition to prevent continuous recentering during active recording
+    if (shouldAutoRecenterView && contentBounds && 
         isFinite(contentBounds.start) && isFinite(contentBounds.end) &&
         contentBounds.start > 0 && contentBounds.end > 0) {
       const contentSpan = contentBounds.end - contentBounds.start;
@@ -2991,16 +3015,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       }
       
       usedRealContentBounds = true;
-    } else if (isHistoricalRecord && (!contentBounds || !isFinite(contentBounds.start) || !isFinite(contentBounds.end))) {
-      // Historical record but no content bounds yet - use temporary fallback
-      // Don't set hasSetInitialZoomRef so re-centering effect can apply real bounds later
-      const currentTime = now || data.endTime;
-      const fifteenMinutes = 15 * 60 * 1000;
-      const fortyFiveMinutes = 45 * 60 * 1000;
-      initialStartTime = currentTime - fifteenMinutes;
-      initialEndTime = currentTime + fortyFiveMinutes;
     } else {
-      // For active records, center on NOW with 15min before and 45min after
+      // For all other cases (active records, records without PACU End, etc.),
+      // center on NOW with 15min before and 45min after
       const currentTime = now || data.endTime;
       const fifteenMinutes = 15 * 60 * 1000;
       const fortyFiveMinutes = 45 * 60 * 1000;
@@ -3029,64 +3046,54 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       }]
     });
     
-    // Only mark as set if we used real content bounds or it's an active record
-    // For historical records without bounds, allow re-centering effect to apply later
-    if (usedRealContentBounds || !isHistoricalRecord) {
-      hasSetInitialZoomRef.current = true;
-    }
+    // Always mark as set after initial zoom to prevent repeated applications
+    hasSetInitialZoomRef.current = true;
   };
 
-  // Re-center chart when contentBounds changes for historical records
+  // Re-center chart when contentBounds changes - ONLY for locked records with PACU End
   // This handles the case where data arrives after initial mount
   // Uses a stable hash of content bounds to detect meaningful changes
   const lastAppliedBoundsRef = useRef<string | null>(null);
-  const historicalRecenterAppliedRef = useRef<boolean>(false);
-  // Use null as sentinel value to detect first render - ensures reset runs on first historical pass
-  const prevIsHistoricalRecordRef = useRef<boolean | null>(null);
+  const recenterAppliedRef = useRef<boolean>(false);
+  // Use null as sentinel value to detect first render
+  const prevShouldAutoRecenterRef = useRef<boolean | null>(null);
   const prevAnesthesiaRecordIdRef = useRef<string | undefined>(undefined);
   
   useEffect(() => {
-    // Check if isHistoricalRecord changed (e.g., from data.isHistoricalData arriving)
-    // or if the record ID changed - if so, reset the zoom tracking refs
-    // IMPORTANT: We check change BEFORE guards, but only update prev refs AFTER successful application
-    // This ensures that if we return early (e.g., contentBounds not ready), the next render
-    // will still detect the change and reset again
-    // Using null as sentinel ensures first render with isHistoricalRecord=true also triggers reset
-    const historyStatusChanged = prevIsHistoricalRecordRef.current !== isHistoricalRecord;
+    // Check if shouldAutoRecenterView changed or if the record ID changed
+    // Reset the zoom tracking refs when context changes
+    const recenterStatusChanged = prevShouldAutoRecenterRef.current !== shouldAutoRecenterView;
     const recordIdChanged = prevAnesthesiaRecordIdRef.current !== anesthesiaRecordId;
-    const isFirstRender = prevIsHistoricalRecordRef.current === null;
+    const isFirstRender = prevShouldAutoRecenterRef.current === null;
     
-    // Reset refs if context changed OR this is first render with historical data
-    // The first render case ensures we don't miss immediate historical records
-    if (historyStatusChanged || recordIdChanged || (isFirstRender && isHistoricalRecord)) {
+    // Reset refs if context changed OR this is first render with auto-recenter enabled
+    if (recenterStatusChanged || recordIdChanged || (isFirstRender && shouldAutoRecenterView)) {
       lastAppliedBoundsRef.current = null;
-      historicalRecenterAppliedRef.current = false;
+      recenterAppliedRef.current = false;
       hasSetInitialZoomRef.current = false;
       // Also reset user-pinned viewport when switching records
       userPinnedViewportRef.current = false;
     }
     
-    // Only apply for historical records with valid content bounds
-    if (!isHistoricalRecord || !contentBounds) {
+    // CRITICAL: Only apply auto-recentering when record is locked AND PACU End is entered
+    // In all other cases, this mechanism is completely disabled
+    if (!shouldAutoRecenterView || !contentBounds) {
       // Update prev refs even on early return to prevent reset loops
-      prevIsHistoricalRecordRef.current = isHistoricalRecord;
+      prevShouldAutoRecenterRef.current = shouldAutoRecenterView;
       prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
       return;
     }
     if (!isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
         contentBounds.start <= 0 || contentBounds.end <= 0) {
       // Update prev refs even on early return to prevent reset loops
-      prevIsHistoricalRecordRef.current = isHistoricalRecord;
+      prevShouldAutoRecenterRef.current = shouldAutoRecenterView;
       prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
       return;
     }
     
-    // CRITICAL: Skip auto-recentering if user has manually adjusted viewport
-    // This prevents the view from jumping when adding data in the past
+    // Skip auto-recentering if user has manually adjusted viewport
     if (userPinnedViewportRef.current) {
-      // IMPORTANT: Still update prev refs so we don't get into a reset loop
-      // Without this, the next render might think it's first render and clear the pin flag
-      prevIsHistoricalRecordRef.current = isHistoricalRecord;
+      prevShouldAutoRecenterRef.current = shouldAutoRecenterView;
       prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
       return;
     }
@@ -3095,7 +3102,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     const boundsHash = `${contentBounds.start}-${contentBounds.end}`;
     
     // Skip if we already successfully applied these exact bounds for this record
-    if (lastAppliedBoundsRef.current === boundsHash && historicalRecenterAppliedRef.current) {
+    // This ensures recentering only happens ONCE per record load
+    if (lastAppliedBoundsRef.current === boundsHash && recenterAppliedRef.current) {
       return;
     }
     
@@ -3162,10 +3170,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       
       lastAppliedBoundsRef.current = boundsHash;
       hasSetInitialZoomRef.current = true;
-      historicalRecenterAppliedRef.current = true;
+      recenterAppliedRef.current = true;
       // Update prev refs now that we've successfully applied bounds
-      // This prevents unnecessary resets on subsequent renders
-      prevIsHistoricalRecordRef.current = isHistoricalRecord;
+      prevShouldAutoRecenterRef.current = shouldAutoRecenterView;
       prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
       return true;
     };
@@ -3195,7 +3202,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         clearTimeout(retryTimeoutId);
       }
     };
-  }, [isHistoricalRecord, contentBounds, data.startTime, data.endTime, anesthesiaRecordId]);
+  }, [shouldAutoRecenterView, contentBounds, data.startTime, data.endTime, anesthesiaRecordId]);
   
   // Note: Ref resets are now handled inline in the recenter effect above
   // to ensure the reset happens BEFORE the short-circuit check
