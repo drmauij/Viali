@@ -10,7 +10,7 @@ import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 
-function getPreOpSummary(assessment: any, t: (key: string) => string): string | null {
+function getPreOpSummary(assessment: any, surgery: any, t: (key: string) => string): string | null {
   if (!assessment) return null;
   
   const parts: string[] = [];
@@ -91,6 +91,18 @@ function getPreOpSummary(assessment: any, t: (key: string) => string): string | 
     parts.push(assessment.anesthesiaOther);
   }
   
+  // Add patient allergies from surgery data (fetched from patient record)
+  const allergies: string[] = [];
+  if (surgery?.patientAllergies && Array.isArray(surgery.patientAllergies) && surgery.patientAllergies.length > 0) {
+    allergies.push(...surgery.patientAllergies);
+  }
+  if (surgery?.patientOtherAllergies) {
+    allergies.push(surgery.patientOtherAllergies);
+  }
+  if (allergies.length > 0) {
+    parts.push(`${t('anesthesia.preop.allergies')}: ${allergies.join(', ')}`);
+  }
+  
   return parts.length > 0 ? parts.join(', ') : null;
 }
 
@@ -99,6 +111,7 @@ export default function PreOpList() {
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "planned" | "draft" | "standby" | "completed">("all");
+  const [standByFilter, setStandByFilter] = useState<"all" | "consent_required" | "signature_missing">("all");
 
   // Get active hospital
   const activeHospital = useActiveHospital();
@@ -120,10 +133,19 @@ export default function PreOpList() {
     );
   });
 
+  // Get all standby items (before filter, for count display)
+  const allStandByItems = filteredAssessments.filter((item) => item.assessment?.standBy);
+  
+  // Apply standby reason filter
+  const filteredStandByItems = allStandByItems.filter((item) => {
+    if (standByFilter === 'all') return true;
+    return item.assessment?.standByReason === standByFilter;
+  });
+
   const groupedByStatus = {
     planned: filteredAssessments.filter((item) => item.status === 'planned' && !item.assessment?.standBy),
     draft: filteredAssessments.filter((item) => item.status === 'draft' && !item.assessment?.standBy),
-    standby: filteredAssessments.filter((item) => item.assessment?.standBy),
+    standby: filteredStandByItems,
     completed: filteredAssessments.filter((item) => item.status === 'completed' && !item.assessment?.standBy),
   };
 
@@ -235,8 +257,8 @@ export default function PreOpList() {
         </div>
       </Tabs>
 
-      {/* Search */}
-      <div className="mb-6">
+      {/* Search and Stand-By Filter */}
+      <div className="mb-6 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -247,6 +269,36 @@ export default function PreOpList() {
             data-testid="input-search-preop"
           />
         </div>
+        
+        {/* Stand-By Filter - only visible when Stand-By tab is active */}
+        {activeTab === 'standby' && (
+          <div className="flex flex-wrap gap-2">
+            <Badge 
+              variant={standByFilter === 'all' ? 'default' : 'outline'}
+              className="cursor-pointer hover:bg-primary/80 transition-colors"
+              onClick={() => setStandByFilter('all')}
+              data-testid="filter-standby-all"
+            >
+              {t('anesthesia.preop.filterAll')} ({allStandByItems.length})
+            </Badge>
+            <Badge 
+              variant={standByFilter === 'consent_required' ? 'default' : 'outline'}
+              className="cursor-pointer hover:bg-primary/80 transition-colors"
+              onClick={() => setStandByFilter('consent_required')}
+              data-testid="filter-standby-consent"
+            >
+              {t('anesthesia.preop.standByReasons.consentRequired')} ({allStandByItems.filter(i => i.assessment?.standByReason === 'consent_required').length})
+            </Badge>
+            <Badge 
+              variant={standByFilter === 'signature_missing' ? 'default' : 'outline'}
+              className="cursor-pointer hover:bg-primary/80 transition-colors"
+              onClick={() => setStandByFilter('signature_missing')}
+              data-testid="filter-standby-signature"
+            >
+              {t('anesthesia.preop.standByReasons.signatureMissing')} ({allStandByItems.filter(i => i.assessment?.standByReason === 'signature_missing').length})
+            </Badge>
+          </div>
+        )}
       </div>
 
       {/* Cases List */}
@@ -317,13 +369,13 @@ export default function PreOpList() {
                         </div>
                       )}
                       {/* Pre-Op Assessment Summary */}
-                      {getPreOpSummary(item.assessment, t) && (
+                      {getPreOpSummary(item.assessment, surgery, t) && (
                         <div 
                           className="flex items-start gap-2 text-sm text-muted-foreground mt-2 pt-2 border-t border-border/50 select-text cursor-text"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <Stethoscope className="h-4 w-4 mt-0.5 shrink-0 text-green-600 dark:text-green-400" />
-                          <span data-testid={`text-preop-summary-${surgery.id}`}>{getPreOpSummary(item.assessment, t)}</span>
+                          <span data-testid={`text-preop-summary-${surgery.id}`}>{getPreOpSummary(item.assessment, surgery, t)}</span>
                         </div>
                       )}
                     </div>

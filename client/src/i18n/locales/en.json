@@ -753,7 +753,9 @@
       "procedureNotSpecified": "Procedure not specified",
       "years": "years",
       "noMatchingCases": "No matching cases found",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "allergies": "Allergies",
+      "filterAll": "All"
     },
     "pacu": {
       "title": "Post-Anesthesia Care Unit",

@@ -2176,6 +2176,9 @@ export class DatabaseStorage implements IStorage {
         patientBirthday: patient?.birthday || null,
         patientSex: patient?.sex || null,
         procedureName: surgery.plannedSurgery,
+        // Include patient allergies for pre-op summary display
+        patientAllergies: patient?.allergies || [],
+        patientOtherAllergies: patient?.otherAllergies || null,
       };
 
       return {

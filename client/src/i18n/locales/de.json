@@ -753,7 +753,9 @@
       "procedureNotSpecified": "Verfahren nicht angegeben",
       "years": "Jahre",
       "noMatchingCases": "Keine passenden Fälle gefunden",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "allergies": "Allergien",
+      "filterAll": "Alle"
     },
     "pacu": {
       "title": "Aufwachraum",
