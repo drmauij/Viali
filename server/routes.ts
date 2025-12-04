@@ -5,6 +5,9 @@ import { setupAuth, isAuthenticated, getSessionMiddleware } from "./auth/google"
 import { initSocketIO, broadcastAnesthesiaUpdate, type AnesthesiaDataSection } from "./socket";
 import { 
   insertItemSchema, 
+  insertItemCodeSchema,
+  insertSupplierCodeSchema,
+  insertLotSchema,
   insertFolderSchema, 
   insertActivitySchema, 
   insertChecklistTemplateSchema, 
@@ -671,6 +674,178 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error exporting items:", error);
       res.status(500).json({ message: error.message || "Failed to export items" });
+    }
+  });
+
+  // ==================== Item Codes Routes ====================
+  
+  // Get item codes (universal identifiers) for an item
+  app.get('/api/items/:itemId/codes', isAuthenticated, async (req: any, res) => {
+    try {
+      const { itemId } = req.params;
+      const code = await storage.getItemCode(itemId);
+      res.json(code || null);
+    } catch (error: any) {
+      console.error("Error fetching item codes:", error);
+      res.status(500).json({ message: error.message || "Failed to fetch item codes" });
+    }
+  });
+
+  // Create or update item codes
+  app.put('/api/items/:itemId/codes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { itemId } = req.params;
+      const validatedData = insertItemCodeSchema.omit({ itemId: true }).parse(req.body);
+      const code = await storage.updateItemCode(itemId, validatedData);
+      res.json(code);
+    } catch (error: any) {
+      console.error("Error updating item codes:", error);
+      res.status(500).json({ message: error.message || "Failed to update item codes" });
+    }
+  });
+
+  // Delete item codes
+  app.delete('/api/items/:itemId/codes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { itemId } = req.params;
+      await storage.deleteItemCode(itemId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting item codes:", error);
+      res.status(500).json({ message: error.message || "Failed to delete item codes" });
+    }
+  });
+
+  // ==================== Supplier Codes Routes ====================
+  
+  // Get supplier codes for an item
+  app.get('/api/items/:itemId/suppliers', isAuthenticated, async (req: any, res) => {
+    try {
+      const { itemId } = req.params;
+      const codes = await storage.getSupplierCodes(itemId);
+      res.json(codes);
+    } catch (error: any) {
+      console.error("Error fetching supplier codes:", error);
+      res.status(500).json({ message: error.message || "Failed to fetch supplier codes" });
+    }
+  });
+
+  // Add a supplier code
+  app.post('/api/items/:itemId/suppliers', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { itemId } = req.params;
+      const validatedData = insertSupplierCodeSchema.parse({ ...req.body, itemId });
+      const code = await storage.createSupplierCode(validatedData);
+      res.status(201).json(code);
+    } catch (error: any) {
+      console.error("Error creating supplier code:", error);
+      res.status(500).json({ message: error.message || "Failed to create supplier code" });
+    }
+  });
+
+  // Update a supplier code
+  app.put('/api/items/:itemId/suppliers/:supplierId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { supplierId } = req.params;
+      const validatedData = insertSupplierCodeSchema.partial().parse(req.body);
+      const code = await storage.updateSupplierCode(supplierId, validatedData);
+      res.json(code);
+    } catch (error: any) {
+      console.error("Error updating supplier code:", error);
+      res.status(500).json({ message: error.message || "Failed to update supplier code" });
+    }
+  });
+
+  // Delete a supplier code
+  app.delete('/api/items/:itemId/suppliers/:supplierId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { supplierId } = req.params;
+      await storage.deleteSupplierCode(supplierId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting supplier code:", error);
+      res.status(500).json({ message: error.message || "Failed to delete supplier code" });
+    }
+  });
+
+  // Set preferred supplier
+  app.post('/api/items/:itemId/suppliers/:supplierId/set-preferred', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { itemId, supplierId } = req.params;
+      await storage.setPreferredSupplier(itemId, supplierId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error setting preferred supplier:", error);
+      res.status(500).json({ message: error.message || "Failed to set preferred supplier" });
+    }
+  });
+
+  // ==================== Lot Routes ====================
+  
+  // Get lots for an item
+  app.get('/api/items/:itemId/lots', isAuthenticated, async (req: any, res) => {
+    try {
+      const { itemId } = req.params;
+      const itemLots = await storage.getLots(itemId);
+      res.json(itemLots);
+    } catch (error: any) {
+      console.error("Error fetching lots:", error);
+      res.status(500).json({ message: error.message || "Failed to fetch lots" });
+    }
+  });
+
+  // Add a lot
+  app.post('/api/items/:itemId/lots', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { itemId } = req.params;
+      const { lotNumber, expiryDate, unitId, qty } = req.body;
+      
+      if (!lotNumber || !unitId) {
+        return res.status(400).json({ message: "Lot number and unit ID are required" });
+      }
+      
+      const lot = await storage.createLot({
+        itemId,
+        lotNumber,
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+        unitId,
+        qty: qty || 0,
+      });
+      res.status(201).json(lot);
+    } catch (error: any) {
+      console.error("Error creating lot:", error);
+      res.status(500).json({ message: error.message || "Failed to create lot" });
+    }
+  });
+
+  // Update a lot
+  app.put('/api/items/:itemId/lots/:lotId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { lotId } = req.params;
+      const { lotNumber, expiryDate, qty } = req.body;
+      
+      const updates: any = {};
+      if (lotNumber !== undefined) updates.lotNumber = lotNumber;
+      if (expiryDate !== undefined) updates.expiryDate = expiryDate ? new Date(expiryDate) : null;
+      if (qty !== undefined) updates.qty = qty;
+      
+      const lot = await storage.updateLot(lotId, updates);
+      res.json(lot);
+    } catch (error: any) {
+      console.error("Error updating lot:", error);
+      res.status(500).json({ message: error.message || "Failed to update lot" });
+    }
+  });
+
+  // Delete a lot
+  app.delete('/api/items/:itemId/lots/:lotId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { lotId } = req.params;
+      await storage.deleteLot(lotId);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting lot:", error);
+      res.status(500).json({ message: error.message || "Failed to delete lot" });
     }
   });
 

@@ -173,6 +173,71 @@ export const items = pgTable("items", {
   index("idx_items_folder").on(table.folderId),
 ]);
 
+// Item Codes (universal product identifiers - one per item)
+export const itemCodes = pgTable("item_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemId: varchar("item_id").notNull().references(() => items.id, { onDelete: 'cascade' }).unique(),
+  
+  // Universal identifiers
+  gtin: varchar("gtin"), // Global Trade Item Number (EAN) - 13-14 digits
+  pharmacode: varchar("pharmacode"), // Swiss pharmacy code - 7 digits
+  swissmedicNr: varchar("swissmedic_nr"), // Swiss authorization number
+  migel: varchar("migel"), // Swiss medical device list code (e.g., "03.07.02.06.1")
+  atc: varchar("atc"), // Anatomical Therapeutic Chemical code (e.g., "C01BD01")
+  
+  // Manufacturer info
+  manufacturer: varchar("manufacturer"), // Producer name (Sintetica, Fresenius Kabi, etc.)
+  manufacturerRef: varchar("manufacturer_ref"), // Manufacturer's own reference code (REF)
+  
+  // Pack content info (for cost calculation)
+  packContent: varchar("pack_content"), // Human readable (e.g., "10 Amp. à 5 ml")
+  unitsPerPack: integer("units_per_pack"), // Numeric quantity per pack
+  contentPerUnit: varchar("content_per_unit"), // Per-unit content (e.g., "5 ml", "50 mg")
+  
+  // Regulatory
+  abgabekategorie: varchar("abgabekategorie"), // Swiss dispensing category (A, B, C, D, E)
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_item_codes_item").on(table.itemId),
+  index("idx_item_codes_gtin").on(table.gtin),
+  index("idx_item_codes_pharmacode").on(table.pharmacode),
+]);
+
+// Supplier Codes (supplier-specific article numbers and pricing - many per item)
+export const supplierCodes = pgTable("supplier_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemId: varchar("item_id").notNull().references(() => items.id, { onDelete: 'cascade' }),
+  
+  // Supplier identification
+  supplierName: varchar("supplier_name").notNull(), // "Polymed", "Galexis", "Voigt", etc.
+  articleCode: varchar("article_code"), // Supplier's internal article number (PMC-Code, Art.Nr)
+  catalogUrl: varchar("catalog_url"), // Direct link to supplier's product page
+  
+  // Pricing
+  basispreis: decimal("basispreis", { precision: 10, scale: 2 }), // Base/wholesale price
+  publikumspreis: decimal("publikumspreis", { precision: 10, scale: 2 }), // Public/retail price
+  currency: varchar("currency").default("CHF"),
+  
+  // Status
+  isPreferred: boolean("is_preferred").default(false), // Mark as preferred supplier
+  isActive: boolean("is_active").default(true), // Supplier still carries this item
+  
+  // Tracking
+  lastPriceUpdate: timestamp("last_price_update"),
+  lastChecked: timestamp("last_checked"),
+  matchConfidence: decimal("match_confidence", { precision: 3, scale: 2 }), // AI matching confidence (0.00-1.00)
+  matchStatus: varchar("match_status").default("pending"), // pending, confirmed, rejected
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_supplier_codes_item").on(table.itemId),
+  index("idx_supplier_codes_supplier").on(table.supplierName),
+  index("idx_supplier_codes_preferred").on(table.isPreferred),
+]);
+
 // Stock Levels
 export const stockLevels = pgTable("stock_levels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1507,6 +1572,23 @@ export const insertItemSchema = createInsertSchema(items).omit({
   updatedAt: true,
 });
 
+export const insertItemCodeSchema = createInsertSchema(itemCodes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSupplierCodeSchema = createInsertSchema(supplierCodes).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertLotSchema = createInsertSchema(lots).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertOrderSchema = createInsertSchema(orders).omit({
   id: true,
   createdAt: true,
@@ -2104,6 +2186,8 @@ export type Hospital = typeof hospitals.$inferSelect;
 export type UserHospitalRole = typeof userHospitalRoles.$inferSelect;
 export type Folder = typeof folders.$inferSelect;
 export type Item = typeof items.$inferSelect;
+export type ItemCode = typeof itemCodes.$inferSelect;
+export type SupplierCode = typeof supplierCodes.$inferSelect;
 export type StockLevel = typeof stockLevels.$inferSelect;
 export type Lot = typeof lots.$inferSelect;
 export type Order = typeof orders.$inferSelect;
@@ -2115,6 +2199,9 @@ export type Unit = typeof units.$inferSelect;
 
 export type InsertFolder = z.infer<typeof insertFolderSchema>;
 export type InsertItem = z.infer<typeof insertItemSchema>;
+export type InsertItemCode = z.infer<typeof insertItemCodeSchema>;
+export type InsertSupplierCode = z.infer<typeof insertSupplierCodeSchema>;
+export type InsertLot = z.infer<typeof insertLotSchema>;
 export type InsertOrder = z.infer<typeof insertOrderSchema>;
 export type InsertActivity = z.infer<typeof insertActivitySchema>;
 export type InsertUserHospitalRole = z.infer<typeof insertUserHospitalRoleSchema>;

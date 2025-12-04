@@ -6,6 +6,8 @@ import {
   units,
   folders,
   items,
+  itemCodes,
+  supplierCodes,
   stockLevels,
   lots,
   orders,
@@ -57,6 +59,11 @@ import {
   type Alert,
   type Vendor,
   type Unit,
+  type ItemCode,
+  type InsertItemCode,
+  type SupplierCode,
+  type InsertSupplierCode,
+  type InsertLot,
   type InsertFolder,
   type InsertItem,
   type InsertActivity,
@@ -163,6 +170,22 @@ export interface IStorage {
   // Lot operations
   getLots(itemId: string): Promise<Lot[]>;
   createLot(lot: Omit<Lot, 'id' | 'createdAt'>): Promise<Lot>;
+  updateLot(id: string, updates: Partial<Lot>): Promise<Lot>;
+  deleteLot(id: string): Promise<void>;
+  
+  // Item Code operations (universal product identifiers)
+  getItemCode(itemId: string): Promise<ItemCode | undefined>;
+  createItemCode(code: InsertItemCode): Promise<ItemCode>;
+  updateItemCode(itemId: string, updates: Partial<ItemCode>): Promise<ItemCode>;
+  deleteItemCode(itemId: string): Promise<void>;
+  
+  // Supplier Code operations (supplier-specific article numbers)
+  getSupplierCodes(itemId: string): Promise<SupplierCode[]>;
+  getSupplierCode(id: string): Promise<SupplierCode | undefined>;
+  createSupplierCode(code: InsertSupplierCode): Promise<SupplierCode>;
+  updateSupplierCode(id: string, updates: Partial<SupplierCode>): Promise<SupplierCode>;
+  deleteSupplierCode(id: string): Promise<void>;
+  setPreferredSupplier(itemId: string, supplierId: string): Promise<void>;
   
   // Order operations
   getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]>;
@@ -696,6 +719,110 @@ export class DatabaseStorage implements IStorage {
   async createLot(lot: Omit<Lot, 'id' | 'createdAt'>): Promise<Lot> {
     const [created] = await db.insert(lots).values(lot).returning();
     return created;
+  }
+
+  async updateLot(id: string, updates: Partial<Lot>): Promise<Lot> {
+    const [updated] = await db
+      .update(lots)
+      .set(updates)
+      .where(eq(lots.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteLot(id: string): Promise<void> {
+    await db.delete(lots).where(eq(lots.id, id));
+  }
+
+  // Item Code operations (universal product identifiers)
+  async getItemCode(itemId: string): Promise<ItemCode | undefined> {
+    const [code] = await db
+      .select()
+      .from(itemCodes)
+      .where(eq(itemCodes.itemId, itemId));
+    return code;
+  }
+
+  async createItemCode(code: InsertItemCode): Promise<ItemCode> {
+    const [created] = await db.insert(itemCodes).values(code).returning();
+    return created;
+  }
+
+  async updateItemCode(itemId: string, updates: Partial<ItemCode>): Promise<ItemCode> {
+    const [existing] = await db
+      .select()
+      .from(itemCodes)
+      .where(eq(itemCodes.itemId, itemId));
+    
+    if (existing) {
+      const [updated] = await db
+        .update(itemCodes)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(itemCodes.itemId, itemId))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(itemCodes)
+        .values({ itemId, ...updates } as InsertItemCode)
+        .returning();
+      return created;
+    }
+  }
+
+  async deleteItemCode(itemId: string): Promise<void> {
+    await db.delete(itemCodes).where(eq(itemCodes.itemId, itemId));
+  }
+
+  // Supplier Code operations (supplier-specific article numbers)
+  async getSupplierCodes(itemId: string): Promise<SupplierCode[]> {
+    return await db
+      .select()
+      .from(supplierCodes)
+      .where(eq(supplierCodes.itemId, itemId))
+      .orderBy(desc(supplierCodes.isPreferred), asc(supplierCodes.supplierName));
+  }
+
+  async getSupplierCode(id: string): Promise<SupplierCode | undefined> {
+    const [code] = await db
+      .select()
+      .from(supplierCodes)
+      .where(eq(supplierCodes.id, id));
+    return code;
+  }
+
+  async createSupplierCode(code: InsertSupplierCode): Promise<SupplierCode> {
+    const [created] = await db.insert(supplierCodes).values(code).returning();
+    return created;
+  }
+
+  async updateSupplierCode(id: string, updates: Partial<SupplierCode>): Promise<SupplierCode> {
+    const [updated] = await db
+      .update(supplierCodes)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(supplierCodes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSupplierCode(id: string): Promise<void> {
+    await db.delete(supplierCodes).where(eq(supplierCodes.id, id));
+  }
+
+  async setPreferredSupplier(itemId: string, supplierId: string): Promise<void> {
+    await db.transaction(async (tx) => {
+      // Clear all preferred flags for this item
+      await tx
+        .update(supplierCodes)
+        .set({ isPreferred: false })
+        .where(eq(supplierCodes.itemId, itemId));
+      
+      // Set the selected supplier as preferred
+      await tx
+        .update(supplierCodes)
+        .set({ isPreferred: true })
+        .where(eq(supplierCodes.id, supplierId));
+    });
   }
 
   async getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]> {
