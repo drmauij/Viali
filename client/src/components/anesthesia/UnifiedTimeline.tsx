@@ -3110,6 +3110,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }]
       });
       
+      // CRITICAL: Also update currentZoomStart/End directly since chart.setOption
+      // may not trigger the 'datazoom' event. This is needed for NOW line positioning.
+      setCurrentZoomStart(viewStart);
+      setCurrentZoomEnd(viewEnd);
+      
       // MARK AS FULLY INITIALIZED - will never re-run for this record
       controller.hasInitialized = true;
       controller.initializedForRecordId = anesthesiaRecordId ?? null;
@@ -3296,7 +3301,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   useEffect(() => {
     // Don't calculate position until actual zoom state is available from chart
     // This prevents using fallback data.startTime/data.endTime which shows wrong position
-    if (currentZoomStart === null || currentZoomEnd === null) {
+    // Check for undefined OR null since state is initialized as undefined
+    if (currentZoomStart === undefined || currentZoomStart === null || 
+        currentZoomEnd === undefined || currentZoomEnd === null) {
       return;
     }
     
