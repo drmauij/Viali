@@ -1071,6 +1071,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // State to control NOW line transitions - use state instead of ref to trigger re-renders
   const [nowLineTransitionsEnabled, setNowLineTransitionsEnabled] = useState<boolean>(false);
   
+  // Ref to track if user has manually adjusted viewport (pan/zoom)
+  // When set, prevents auto-recentering on data changes
+  const userPinnedViewportRef = useRef<boolean>(false);
+  
   // State for tracking snap intervals (in milliseconds)
   // Vitals and ventilation: zoom-dependent (1min, 5min, or 10min based on zoom level)
   // Medications and events: always 1 minute
@@ -3058,6 +3062,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       lastAppliedBoundsRef.current = null;
       historicalRecenterAppliedRef.current = false;
       hasSetInitialZoomRef.current = false;
+      // Also reset user-pinned viewport when switching records
+      userPinnedViewportRef.current = false;
     }
     
     // Only apply for historical records with valid content bounds
@@ -3066,6 +3072,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
     if (!isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
         contentBounds.start <= 0 || contentBounds.end <= 0) {
+      return;
+    }
+    
+    // CRITICAL: Skip auto-recentering if user has manually adjusted viewport
+    // This prevents the view from jumping when adding data in the past
+    if (userPinnedViewportRef.current) {
       return;
     }
     
@@ -3586,6 +3598,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
   // Zoom and pan handlers
   const handleZoomIn = () => {
+    // Mark viewport as user-pinned to prevent auto-recentering
+    userPinnedViewportRef.current = true;
+    
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
@@ -3635,6 +3650,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   const handleZoomOut = () => {
+    // Mark viewport as user-pinned to prevent auto-recentering
+    userPinnedViewportRef.current = true;
+    
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
@@ -3684,6 +3702,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   const handlePanLeft = () => {
+    // Mark viewport as user-pinned to prevent auto-recentering
+    userPinnedViewportRef.current = true;
+    
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
@@ -3723,6 +3744,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   const handlePanRight = () => {
+    // Mark viewport as user-pinned to prevent auto-recentering
+    userPinnedViewportRef.current = true;
+    
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const option = chart.getOption() as any;
@@ -3762,6 +3786,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   const handleResetZoom = () => {
+    // Clear user-pinned viewport flag to allow auto-recentering again
+    userPinnedViewportRef.current = false;
+    
     const chart = chartRef.current?.getEchartsInstance();
     if (chart) {
       const currentTime = now || data.endTime;
