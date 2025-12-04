@@ -551,16 +551,26 @@ function drawLandscapeTimelineChart(
   // Helper to get Y position from value (right axis - SpO2)
   const getYRight = (value: number) => plotY + plotHeight - ((value - minSpo2) / (maxSpo2 - minSpo2)) * plotHeight;
 
-  // Helper to draw caret up (for systolic)
-  const drawCaretUp = (x: number, y: number, size: number, color: [number, number, number]) => {
-    doc.setFillColor(...color);
-    doc.triangle(x, y - size, x - size * 0.7, y + size * 0.5, x + size * 0.7, y + size * 0.5, "F");
+  // Helper to draw arrow up (for diastolic - pointing up from value)
+  const drawArrowUp = (x: number, y: number, size: number, color: [number, number, number]) => {
+    doc.setDrawColor(...color);
+    doc.setLineWidth(0.4);
+    // Vertical line
+    doc.line(x, y + size, x, y - size);
+    // Arrow head (two lines forming a V pointing up)
+    doc.line(x, y - size, x - size * 0.5, y - size * 0.3);
+    doc.line(x, y - size, x + size * 0.5, y - size * 0.3);
   };
 
-  // Helper to draw caret down (for diastolic)
-  const drawCaretDown = (x: number, y: number, size: number, color: [number, number, number]) => {
-    doc.setFillColor(...color);
-    doc.triangle(x, y + size, x - size * 0.7, y - size * 0.5, x + size * 0.7, y - size * 0.5, "F");
+  // Helper to draw arrow down (for systolic - pointing down from value)
+  const drawArrowDown = (x: number, y: number, size: number, color: [number, number, number]) => {
+    doc.setDrawColor(...color);
+    doc.setLineWidth(0.4);
+    // Vertical line
+    doc.line(x, y - size, x, y + size);
+    // Arrow head (two lines forming a V pointing down)
+    doc.line(x, y + size, x - size * 0.5, y + size * 0.3);
+    doc.line(x, y + size, x + size * 0.5, y + size * 0.3);
   };
 
   // Helper to draw heart shape (for HR)
@@ -621,7 +631,7 @@ function drawLandscapeTimelineChart(
   // ========== DRAW BP LINES (black) ==========
   if (sortedBpSys.length > 1) {
     doc.setDrawColor(...bpColor);
-    doc.setLineWidth(0.8);
+    doc.setLineWidth(0.3);
     for (let i = 0; i < sortedBpSys.length - 1; i++) {
       const p1 = sortedBpSys[i];
       const p2 = sortedBpSys[i + 1];
@@ -630,7 +640,7 @@ function drawLandscapeTimelineChart(
   }
   if (sortedBpDia.length > 1) {
     doc.setDrawColor(...bpColor);
-    doc.setLineWidth(0.8);
+    doc.setLineWidth(0.3);
     for (let i = 0; i < sortedBpDia.length - 1; i++) {
       const p1 = sortedBpDia[i];
       const p2 = sortedBpDia[i + 1];
@@ -638,18 +648,18 @@ function drawLandscapeTimelineChart(
     }
   }
 
-  // Draw BP points with carets
+  // Draw BP points with arrows (systolic: down arrow, diastolic: up arrow)
   sortedBpSys.forEach(point => {
-    drawCaretUp(getX(point.time), getYLeft(point.value), 1.5, bpColor);
+    drawArrowDown(getX(point.time), getYLeft(point.value), 1.5, bpColor);
   });
   sortedBpDia.forEach(point => {
-    drawCaretDown(getX(point.time), getYLeft(point.value), 1.5, bpColor);
+    drawArrowUp(getX(point.time), getYLeft(point.value), 1.5, bpColor);
   });
 
   // ========== DRAW HR LINE (red with heart icons) ==========
   if (sortedHr.length > 1) {
     doc.setDrawColor(...hrColor);
-    doc.setLineWidth(0.8);
+    doc.setLineWidth(0.3);
     for (let i = 0; i < sortedHr.length - 1; i++) {
       const p1 = sortedHr[i];
       const p2 = sortedHr[i + 1];
@@ -663,7 +673,7 @@ function drawLandscapeTimelineChart(
   // ========== DRAW SpO2 LINE (blue, using RIGHT axis) ==========
   if (sortedSpo2.length > 1) {
     doc.setDrawColor(...spo2Color);
-    doc.setLineWidth(0.8);
+    doc.setLineWidth(0.3);
     for (let i = 0; i < sortedSpo2.length - 1; i++) {
       const p1 = sortedSpo2[i];
       const p2 = sortedSpo2[i + 1];
@@ -678,7 +688,7 @@ function drawLandscapeTimelineChart(
   // ========== DRAW TEMPERATURE LINE (orange with circles) ==========
   if (sortedTemp.length > 1) {
     doc.setDrawColor(...tempColor);
-    doc.setLineWidth(0.8);
+    doc.setLineWidth(0.3);
     for (let i = 0; i < sortedTemp.length - 1; i++) {
       const p1 = sortedTemp[i];
       const p2 = sortedTemp[i + 1];
@@ -702,13 +712,13 @@ function drawLandscapeTimelineChart(
   doc.text(i18next.t("anesthesia.pdf.hrBpm"), legendX + 6, legendY + 1);
   legendX += doc.getTextWidth(i18next.t("anesthesia.pdf.hrBpm")) + 14;
 
-  // BP Sys legend (caret up)
-  drawCaretUp(legendX + 2, legendY - 1, 1.2, bpColor);
+  // BP Sys legend (arrow down)
+  drawArrowDown(legendX + 2, legendY - 1, 1.2, bpColor);
   doc.text(i18next.t("anesthesia.pdf.bpSys"), legendX + 6, legendY + 1);
   legendX += doc.getTextWidth(i18next.t("anesthesia.pdf.bpSys")) + 14;
 
-  // BP Dia legend (caret down)
-  drawCaretDown(legendX + 2, legendY - 1, 1.2, bpColor);
+  // BP Dia legend (arrow up)
+  drawArrowUp(legendX + 2, legendY - 1, 1.2, bpColor);
   doc.text(i18next.t("anesthesia.pdf.bpDia"), legendX + 6, legendY + 1);
   legendX += doc.getTextWidth(i18next.t("anesthesia.pdf.bpDia")) + 14;
 
