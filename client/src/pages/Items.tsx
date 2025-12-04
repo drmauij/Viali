@@ -1330,38 +1330,63 @@ export default function Items() {
       initialStock: parseInt(formData.initialStock) || 0,
       imageUrl: formData.imageUrl || undefined,
     };
+    
+    // Capture codes data BEFORE mutate (mutation's onSuccess calls resetForm which clears formData)
+    const codesData = {
+      gtin: formData.gtin || null,
+      pharmacode: formData.pharmacode || null,
+      migel: formData.migel || null,
+      atc: formData.atc || null,
+      manufacturer: formData.manufacturer || null,
+    };
+    const hasCodes = formData.gtin || formData.pharmacode || formData.migel || formData.atc || formData.manufacturer;
+    
+    const lotData = formData.lotNumber ? {
+      lotNumber: formData.lotNumber,
+      expiryDate: formData.expiryDate ? new Date(formData.expiryDate).toISOString() : null,
+    } : null;
 
     createItemMutation.mutate(itemData, {
       onSuccess: async (createdItem) => {
         if (!createdItem) return;
         
-        // Save item codes if any were extracted
-        const hasCodes = formData.gtin || formData.pharmacode || formData.migel || formData.atc || formData.manufacturer;
+        // Save item codes if any were extracted (using captured data)
         if (hasCodes) {
           try {
-            await apiRequest("PUT", `/api/items/${createdItem.id}/codes`, {
-              gtin: formData.gtin || null,
-              pharmacode: formData.pharmacode || null,
-              migel: formData.migel || null,
-              atc: formData.atc || null,
-              manufacturer: formData.manufacturer || null,
+            await apiRequest("PUT", `/api/items/${createdItem.id}/codes`, codesData);
+            toast({
+              title: "Product codes saved",
+              description: "GTIN/Pharmacode and other codes have been saved",
             });
-          } catch (error) {
+          } catch (error: any) {
             console.error('Failed to save item codes:', error);
+            toast({
+              title: "Warning: Codes not saved",
+              description: error.message || "Failed to save product codes",
+              variant: "destructive",
+            });
           }
         }
         
-        // Create lot if lot number was extracted
-        if (formData.lotNumber) {
+        // Create lot if lot number was extracted (using captured data)
+        if (lotData) {
           try {
             await apiRequest("POST", `/api/items/${createdItem.id}/lots`, {
               itemId: createdItem.id,
               unitId: activeHospital?.unitId,
-              lotNumber: formData.lotNumber,
-              expiryDate: formData.expiryDate ? new Date(formData.expiryDate).toISOString() : null,
+              ...lotData,
             });
-          } catch (error) {
+            toast({
+              title: "Lot created",
+              description: `LOT: ${lotData.lotNumber}${lotData.expiryDate ? ` (Exp: ${new Date(lotData.expiryDate).toLocaleDateString()})` : ''}`,
+            });
+          } catch (error: any) {
             console.error('Failed to create lot:', error);
+            toast({
+              title: "Warning: Lot not saved",
+              description: error.message || "Failed to create lot record",
+              variant: "destructive",
+            });
           }
         }
       }
