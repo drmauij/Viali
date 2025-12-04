@@ -92,6 +92,9 @@ export function VitalsSwimlane({
   // Refs for edit mode
   const selectedPointRef = useRef(selectedPoint);
   const dragPositionRef = useRef(dragPosition);
+  
+  // Ref to track touch start position and prevent synthesized click from firing
+  const touchStartRef = useRef<{ x: number; y: number; time: number; handled: boolean } | null>(null);
 
   // Keep refs in sync with state
   useEffect(() => { selectedPointRef.current = selectedPoint; }, [selectedPoint]);
@@ -330,45 +333,62 @@ export function VitalsSwimlane({
 
   /**
    * Handle touch start to initiate dragging on touch devices
+   * For non-edit modes, captures touch position to use in touchend for vitals entry
    */
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (activeToolMode !== 'edit') return;
     if (e.touches.length !== 1) return; // Only handle single-touch
 
-    e.preventDefault(); // Prevent scrolling while dragging
     const touch = e.touches[0];
     const rect = e.currentTarget.getBoundingClientRect();
     const x = touch.clientX - rect.left;
     const y = touch.clientY - rect.top;
     
-    const visibleStart = currentZoomStart ?? data.startTime;
-    const visibleEnd = currentZoomEnd ?? data.endTime;
-    const visibleRange = visibleEnd - visibleStart;
+    // Always capture touch start position for later use in touchend
+    touchStartRef.current = { x, y, time: Date.now(), handled: false };
     
-    const xPercent = x / rect.width;
-    const rawClickTime = visibleStart + (xPercent * visibleRange);
+    // Prevent default for all tool modes to stop scrolling and block synthesized click
+    // This is critical for accurate touch position handling
+    if (activeToolMode) {
+      e.preventDefault();
+    }
+    
+    // For edit mode, also handle point selection for dragging
+    if (activeToolMode === 'edit') {
+      const visibleStart = currentZoomStart ?? data.startTime;
+      const visibleEnd = currentZoomEnd ?? data.endTime;
+      const visibleRange = visibleEnd - visibleStart;
+      
+      const xPercent = x / rect.width;
+      const rawClickTime = visibleStart + (xPercent * visibleRange);
 
-    // Try to find a point at this location
-    const pointToSelect = findVitalPointAtClick(rawClickTime, y, rect);
-    if (pointToSelect) {
-      setSelectedPoint({
-        type: pointToSelect.type,
-        id: pointToSelect.id,
-        originalTime: pointToSelect.time,
-        originalValue: pointToSelect.value
-      });
-      setDragPosition({ time: pointToSelect.time, value: pointToSelect.value });
-      setIsDragging(true);
+      // Try to find a point at this location
+      const pointToSelect = findVitalPointAtClick(rawClickTime, y, rect);
+      if (pointToSelect) {
+        setSelectedPoint({
+          type: pointToSelect.type,
+          id: pointToSelect.id,
+          originalTime: pointToSelect.time,
+          originalValue: pointToSelect.value
+        });
+        setDragPosition({ time: pointToSelect.time, value: pointToSelect.value });
+        setIsDragging(true);
+      }
     }
   };
 
   /**
    * Handle touch move for dragging on touch devices
+   * Also prevents scrolling during touch interactions when a tool mode is active
    */
   const handleTouchMove = (e: React.TouchEvent) => {
+    // Prevent scrolling when a tool mode is active (not just during dragging)
+    if (activeToolMode && e.touches.length === 1) {
+      e.preventDefault();
+    }
+    
+    // Only process drag movement in edit mode
     if (!isDragging || !selectedPoint || e.touches.length !== 1) return;
 
-    e.preventDefault(); // Prevent scrolling while dragging
     const touch = e.touches[0];
     const rect = e.currentTarget.getBoundingClientRect();
     const x = touch.clientX - rect.left;
@@ -405,66 +425,253 @@ export function VitalsSwimlane({
 
   /**
    * Handle touch end to finalize drag on touch devices
+   * For non-edit modes, handles vitals entry directly using touch position
    */
   const handleTouchEnd = (e: React.TouchEvent) => {
-    if (!isDragging || !selectedPoint) return;
+    // For edit mode dragging
+    if (isDragging && selectedPoint) {
+      e.preventDefault();
 
+      // Save the dragged point if position changed
+      if (dragPosition && (dragPosition.value !== selectedPoint.originalValue || dragPosition.time !== selectedPoint.originalTime)) {
+        // Update local state immediately for responsive UI + persist to backend
+        if (selectedPoint.type === 'hr') {
+          updateHrPoint(selectedPoint.id, { timestamp: dragPosition.time, value: dragPosition.value });
+          updateVitalPointMutation.mutate({
+            pointId: selectedPoint.id,
+            timestamp: new Date(dragPosition.time).toISOString(),
+            value: dragPosition.value
+          });
+        } else if (selectedPoint.type === 'bp-sys') {
+          // For BP points, only value changes (time fixed) to maintain pairing
+          const bpRecord = bpRecords.find(r => r.id === selectedPoint.id);
+          if (bpRecord) {
+            updateBPPoint(selectedPoint.id, { sys: dragPosition.value });
+            updateBPPointMutation.mutate({
+              pointId: selectedPoint.id,
+              timestamp: new Date(selectedPoint.originalTime).toISOString(),
+              sys: dragPosition.value,
+              dia: bpRecord.dia
+            });
+          }
+        } else if (selectedPoint.type === 'bp-dia') {
+          // For BP points, only value changes (time fixed) to maintain pairing
+          const bpRecord = bpRecords.find(r => r.id === selectedPoint.id);
+          if (bpRecord) {
+            updateBPPoint(selectedPoint.id, { dia: dragPosition.value });
+            updateBPPointMutation.mutate({
+              pointId: selectedPoint.id,
+              timestamp: new Date(selectedPoint.originalTime).toISOString(),
+              sys: bpRecord.sys,
+              dia: dragPosition.value
+            });
+          }
+        } else if (selectedPoint.type === 'spo2') {
+          updateSpo2Point(selectedPoint.id, { timestamp: dragPosition.time, value: dragPosition.value });
+          updateVitalPointMutation.mutate({
+            pointId: selectedPoint.id,
+            timestamp: new Date(dragPosition.time).toISOString(),
+            value: dragPosition.value
+          });
+        }
+      }
+      
+      // Reset drag state
+      setSelectedPoint(null);
+      setDragPosition(null);
+      setIsDragging(false);
+      touchStartRef.current = null;
+      return;
+    }
+    
+    // For non-edit modes: handle vitals entry directly from touch
+    // This replaces the synthesized click event for more accurate positioning
+    if (!touchStartRef.current || touchStartRef.current.handled) {
+      touchStartRef.current = null;
+      return;
+    }
+    
+    // Skip edit mode (already handled above) and no-tool mode (will use click for bulk entry)
+    if (activeToolMode === 'edit' || !activeToolMode) {
+      touchStartRef.current = null;
+      return;
+    }
+    
+    // Prevent default to block the synthesized click event
     e.preventDefault();
-
-    // Save the dragged point if position changed
-    if (dragPosition && (dragPosition.value !== selectedPoint.originalValue || dragPosition.time !== selectedPoint.originalTime)) {
-      // Update local state immediately for responsive UI + persist to backend
-      if (selectedPoint.type === 'hr') {
-        updateHrPoint(selectedPoint.id, { timestamp: dragPosition.time, value: dragPosition.value });
-        updateVitalPointMutation.mutate({
-          pointId: selectedPoint.id,
-          timestamp: new Date(dragPosition.time).toISOString(),
-          value: dragPosition.value
+    
+    // Mark as handled to prevent the synthesized click from also firing
+    touchStartRef.current.handled = true;
+    
+    // Use the touch end position (changedTouches) for more accurate placement
+    const touch = e.changedTouches[0];
+    if (!touch) {
+      touchStartRef.current = null;
+      return;
+    }
+    
+    // Check if already processing
+    if (isProcessingClick) {
+      touchStartRef.current = null;
+      return;
+    }
+    
+    setIsProcessingClick(true);
+    
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    
+    const visibleStart = currentZoomStart ?? data.startTime;
+    const visibleEnd = currentZoomEnd ?? data.endTime;
+    const visibleRange = visibleEnd - visibleStart;
+    
+    const xPercent = x / rect.width;
+    const snappedClickTime = Math.round((visibleStart + (xPercent * visibleRange)) / currentVitalsSnapInterval) * currentVitalsSnapInterval;
+    
+    // Calculate value from touch position
+    const yPercent = y / rect.height;
+    let value: number;
+    
+    if (activeToolMode === 'hr' || activeToolMode === 'bp' || (activeToolMode === 'blend' && (blendSequenceStep === 'sys' || blendSequenceStep === 'dia' || blendSequenceStep === 'hr'))) {
+      const minVal = 0;
+      const maxVal = 240;
+      value = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+    } else if (activeToolMode === 'spo2' || (activeToolMode === 'blend' && blendSequenceStep === 'spo2')) {
+      const minVal = 45;
+      const maxVal = 105;
+      const rawValue = Math.round(maxVal - (yPercent * (maxVal - minVal)));
+      value = Math.min(rawValue, 100);
+    } else {
+      setIsProcessingClick(false);
+      touchStartRef.current = null;
+      return;
+    }
+    
+    const clickInfo = { x: touch.clientX, y: touch.clientY, value, time: snappedClickTime };
+    
+    // Process based on active tool mode (same logic as handleVitalsClick)
+    if (activeToolMode === 'hr') {
+      addVitalPointMutation.mutate({
+        vitalType: 'hr',
+        timestamp: new Date(clickInfo.time).toISOString(),
+        value: clickInfo.value
+      });
+      setLastAction({ type: 'hr', data: [clickInfo.time, clickInfo.value] });
+      setHoverInfo(null);
+      setIsProcessingClick(false);
+    } else if (activeToolMode === 'bp') {
+      if (bpEntryMode === 'sys') {
+        const tempId = `temp-bp-${clickInfo.time}`;
+        addBPPoint({
+          id: tempId,
+          timestamp: clickInfo.time,
+          sys: clickInfo.value,
+          dia: 0,
         });
-      } else if (selectedPoint.type === 'bp-sys') {
-        // For BP points, only value changes (time fixed) to maintain pairing
-        const bpRecord = bpRecords.find(r => r.id === selectedPoint.id);
-        if (bpRecord) {
-          updateBPPoint(selectedPoint.id, { sys: dragPosition.value });
-          updateBPPointMutation.mutate({
-            pointId: selectedPoint.id,
-            timestamp: new Date(selectedPoint.originalTime).toISOString(),
-            sys: dragPosition.value,
-            dia: bpRecord.dia
+        setTempBpPointId(tempId);
+        setPendingSysValue({ time: clickInfo.time, value: clickInfo.value });
+        setBpEntryMode('dia');
+        setHoverInfo(null);
+        setIsProcessingClick(false);
+      } else {
+        if (pendingSysValue && tempBpPointId) {
+          setBpRecords(prev => prev.filter(r => r.id !== tempBpPointId));
+          setTempBpPointId(null);
+          
+          addBPPointMutation.mutate({
+            timestamp: new Date(pendingSysValue.time).toISOString(),
+            sys: pendingSysValue.value,
+            dia: clickInfo.value
           });
         }
-      } else if (selectedPoint.type === 'bp-dia') {
-        // For BP points, only value changes (time fixed) to maintain pairing
-        const bpRecord = bpRecords.find(r => r.id === selectedPoint.id);
-        if (bpRecord) {
-          updateBPPoint(selectedPoint.id, { dia: dragPosition.value });
-          updateBPPointMutation.mutate({
-            pointId: selectedPoint.id,
-            timestamp: new Date(selectedPoint.originalTime).toISOString(),
-            sys: bpRecord.sys,
-            dia: dragPosition.value
+        setPendingSysValue(null);
+        setBpEntryMode('sys');
+        setHoverInfo(null);
+        setIsProcessingClick(false);
+      }
+    } else if (activeToolMode === 'spo2') {
+      addVitalPointMutation.mutate({
+        vitalType: 'spo2',
+        timestamp: new Date(clickInfo.time).toISOString(),
+        value: clickInfo.value
+      });
+      setLastAction({ type: 'spo2', data: [clickInfo.time, clickInfo.value] });
+      setHoverInfo(null);
+      setIsProcessingClick(false);
+    } else if (activeToolMode === 'blend') {
+      if (blendSequenceStep === 'sys') {
+        const tempId = `temp-bp-${clickInfo.time}`;
+        addBPPoint({
+          id: tempId,
+          timestamp: clickInfo.time,
+          sys: clickInfo.value,
+          dia: 0,
+        });
+        setTempBpPointId(tempId);
+        setPendingSysValue({ time: clickInfo.time, value: clickInfo.value });
+        setBlendSequenceStep('dia');
+        setHoverInfo(null);
+        setIsProcessingClick(false);
+      } else if (blendSequenceStep === 'dia') {
+        if (pendingSysValue && tempBpPointId) {
+          setBpRecords(prev => prev.filter(r => r.id !== tempBpPointId));
+          setTempBpPointId(null);
+          
+          addBPPointMutation.mutate({
+            timestamp: new Date(pendingSysValue.time).toISOString(),
+            sys: pendingSysValue.value,
+            dia: clickInfo.value
           });
         }
-      } else if (selectedPoint.type === 'spo2') {
-        updateSpo2Point(selectedPoint.id, { timestamp: dragPosition.time, value: dragPosition.value });
-        updateVitalPointMutation.mutate({
-          pointId: selectedPoint.id,
-          timestamp: new Date(dragPosition.time).toISOString(),
-          value: dragPosition.value
+        setBlendSequenceStep('hr');
+        setHoverInfo(null);
+        setIsProcessingClick(false);
+      } else if (blendSequenceStep === 'hr') {
+        addVitalPointMutation.mutate({
+          vitalType: 'hr',
+          timestamp: new Date(clickInfo.time).toISOString(),
+          value: clickInfo.value
         });
+        setBlendSequenceStep('spo2');
+        setHoverInfo(null);
+        setIsProcessingClick(false);
+      } else if (blendSequenceStep === 'spo2') {
+        addVitalPointMutation.mutate({
+          vitalType: 'spo2',
+          timestamp: new Date(clickInfo.time).toISOString(),
+          value: clickInfo.value
+        });
+        setBlendSequenceStep('sys');
+        setHoverInfo(null);
+        setIsProcessingClick(false);
       }
     }
     
-    // Reset drag state
-    setSelectedPoint(null);
-    setDragPosition(null);
-    setIsDragging(false);
+    // Clear touch start ref
+    touchStartRef.current = null;
   };
 
   /**
    * Handle click to add vital point or edit existing
+   * Note: On touch devices with an active tool mode, vitals entry is handled by handleTouchEnd
+   * This function will still be called for synthesized clicks, but we skip if touch was already handled
    */
   const handleVitalsClick = (e: React.MouseEvent) => {
+    // Skip if touch event was already handled (prevents double entry on touch devices)
+    // This check is for synthesized click events that fire after touch events
+    if (touchStartRef.current?.handled) {
+      touchStartRef.current = null;
+      return;
+    }
+    
+    // Also skip if there's an active tool mode on touch devices - touchend handles it
+    // (touchStartRef will be set from touchstart even if not yet handled)
+    if (isTouchDevice && activeToolMode && activeToolMode !== 'edit' && touchStartRef.current) {
+      // Touch sequence in progress, let touchend handle it
+      return;
+    }
+    
     if (isProcessingClick) {
       return;
     }
@@ -692,6 +899,8 @@ export function VitalsSwimlane({
             setDragPosition(null);
             setIsDragging(false);
           }
+          // Also clear touch ref
+          touchStartRef.current = null;
         }}
         onClick={handleVitalsClick}
         data-testid="vitals-interactive-overlay"
