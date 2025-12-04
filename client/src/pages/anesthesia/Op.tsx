@@ -16,6 +16,7 @@ import { PostOpInfoCard } from "@/components/anesthesia/PostOpInfoCard";
 import { MedicationScheduleCard } from "@/components/anesthesia/MedicationScheduleCard";
 import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
 import { PatientWeightDialog } from "@/components/anesthesia/dialogs/PatientWeightDialog";
+import { DuplicateRecordsDialog } from "@/components/anesthesia/DuplicateRecordsDialog";
 import { useOpData } from "@/hooks/useOpData";
 import { useChecklistState } from "@/hooks/useChecklistState";
 import { usePacuDataFiltering } from "@/hooks/usePacuDataFiltering";
@@ -119,12 +120,21 @@ export default function Op() {
   // Staff role popover state (tracks which combobox is open)
   const [openStaffPopover, setOpenStaffPopover] = useState<string | null>(null);
   const [staffSearchInput, setStaffSearchInput] = useState("");
+  
+  // Duplicate records detection state
+  const [duplicateRecords, setDuplicateRecords] = useState<any[]>([]);
+  const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
+  const [duplicateCheckComplete, setDuplicateCheckComplete] = useState(false);
 
   // Get surgeryId from params
   const surgeryId = params.id;
   
   // Parse recordId from query parameter (for opening specific record when duplicates exist)
-  const recordId = new URLSearchParams(window.location.search).get('recordId') || undefined;
+  const urlRecordId = new URLSearchParams(window.location.search).get('recordId') || undefined;
+  const [selectedRecordId, setSelectedRecordId] = useState<string | undefined>(urlRecordId);
+  
+  // If URL has recordId, duplicate check is not needed
+  const needsDuplicateCheck = !urlRecordId;
 
   // Centralized data fetching
   const {
@@ -179,7 +189,8 @@ export default function Op() {
   } = useOpData({
     surgeryId: surgeryId || "",
     activeHospitalId: activeHospital?.id || "",
-    recordId,
+    recordId: selectedRecordId,
+    waitForRecordId: needsDuplicateCheck,
   });
 
   // Track current room for cleanup
@@ -210,6 +221,91 @@ export default function Op() {
       }
     };
   }, [anesthesiaRecord?.id, joinSurgery, leaveSurgery]);
+
+  // Check for duplicate records when page loads (only if no specific recordId was requested)
+  useEffect(() => {
+    const checkForDuplicates = async () => {
+      // Skip if no surgeryId or a specific recordId was already in URL
+      if (!surgeryId || !needsDuplicateCheck) {
+        setDuplicateCheckComplete(true);
+        return;
+      }
+      
+      try {
+        const response = await apiRequest("GET", `/api/anesthesia/records/surgery/${surgeryId}/all`);
+        if (response.ok) {
+          const records = await response.json();
+          
+          if (records.length > 1) {
+            // Multiple records found - show dialog and wait for user selection
+            setDuplicateRecords(records);
+            setShowDuplicatesDialog(true);
+            // Don't mark complete yet - wait for user selection
+          } else if (records.length === 1) {
+            // Single record - auto-select it and update URL
+            const singleRecordId = records[0].id;
+            setSelectedRecordId(singleRecordId);
+            // Update URL for stable navigation
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('recordId', singleRecordId);
+            window.history.replaceState({}, '', currentUrl.toString());
+            setDuplicateCheckComplete(true);
+          } else {
+            // No records exist yet - let normal flow create one
+            setDuplicateCheckComplete(true);
+          }
+        } else {
+          // API error - proceed with normal flow
+          setDuplicateCheckComplete(true);
+        }
+      } catch (error) {
+        console.error('[Op] Error checking for duplicate records:', error);
+        setDuplicateCheckComplete(true);
+      }
+    };
+    
+    checkForDuplicates();
+  }, [surgeryId, needsDuplicateCheck]);
+
+  // Handle selecting a specific record from duplicate dialog
+  const handleSelectDuplicateRecord = (recordId: string) => {
+    setSelectedRecordId(recordId);
+    setShowDuplicatesDialog(false);
+    setDuplicateCheckComplete(true);
+    // Update URL with recordId for proper navigation
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set('recordId', recordId);
+    window.history.replaceState({}, '', currentUrl.toString());
+  };
+
+  // Handle refreshing duplicate records list
+  const handleRefreshDuplicates = async () => {
+    if (!surgeryId) return;
+    try {
+      const response = await apiRequest("GET", `/api/anesthesia/records/surgery/${surgeryId}/all`);
+      if (response.ok) {
+        const records = await response.json();
+        setDuplicateRecords(records);
+        // If only one record remains, auto-select and close dialog
+        if (records.length === 1) {
+          const singleRecordId = records[0].id;
+          setSelectedRecordId(singleRecordId);
+          setShowDuplicatesDialog(false);
+          setDuplicateCheckComplete(true);
+          // Update URL for stable navigation
+          const currentUrl = new URL(window.location.href);
+          currentUrl.searchParams.set('recordId', singleRecordId);
+          window.history.replaceState({}, '', currentUrl.toString());
+        } else if (records.length === 0) {
+          // All records deleted - close dialog and proceed
+          setShowDuplicatesDialog(false);
+          setDuplicateCheckComplete(true);
+        }
+      }
+    } catch (error) {
+      console.error('[Op] Error refreshing duplicate records:', error);
+    }
+  };
 
   // Helper to get user display name from various possible fields
   const getUserDisplayName = (user: any): string => {
@@ -999,10 +1095,12 @@ export default function Op() {
 
   const patientAge = calculateAge(patient?.birthday);
 
-  // Show loading state while initial data is loading
-  // Wait for anesthesia record first, then wait for timeline data to load
+  // Show loading state while initial data is loading or duplicate check is pending
+  // Wait for duplicate check to complete first, then load record data
+  const isWaitingForDuplicateCheck = needsDuplicateCheck && !duplicateCheckComplete && !showDuplicatesDialog;
   const isLoadingTimeline = anesthesiaRecord?.id && (isVitalsLoading || isMedicationsLoading || isEventsLoading);
-  if (isSurgeryLoading || isPreOpLoading || isPatientLoading || isRecordLoading || isLoadingTimeline) {
+  
+  if (isWaitingForDuplicateCheck || isSurgeryLoading || isPreOpLoading || isPatientLoading || isRecordLoading || isLoadingTimeline) {
     return (
       <Dialog open={isOpen} onOpenChange={handleDialogChange}>
         <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col items-center justify-center [&>button]:hidden">
@@ -1022,6 +1120,16 @@ export default function Op() {
 
   return (
     <>
+    {/* Duplicate Records Dialog - shown if multiple anesthesia records exist for this surgery */}
+    <DuplicateRecordsDialog
+      open={showDuplicatesDialog}
+      onOpenChange={setShowDuplicatesDialog}
+      records={duplicateRecords}
+      surgeryId={surgeryId || ""}
+      onSelectRecord={handleSelectDuplicateRecord}
+      onRefresh={handleRefreshDuplicates}
+    />
+    
     {/* Patient Weight Dialog - shown on load if weight is missing */}
     <PatientWeightDialog
       open={showWeightDialog}
@@ -1029,7 +1137,7 @@ export default function Op() {
       onSave={handleWeightSave}
     />
     
-    <Dialog open={isOpen && !showWeightDialog} onOpenChange={handleDialogChange}>
+    <Dialog open={isOpen && !showWeightDialog && !showDuplicatesDialog} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
         <h2 className="sr-only" id="op-dialog-title">{isPacuMode ? t('anesthesia.op.pacuMonitor') : t('anesthesia.op.intraoperativeMonitoring')} - {t('anesthesia.op.patient')} {surgery.patientId}</h2>
         <p className="sr-only" id="op-dialog-description">{isPacuMode ? 'Post-anesthesia care unit monitoring system' : 'Professional anesthesia monitoring system for tracking vitals, medications, and clinical events during surgery'}</p>

@@ -11,9 +11,10 @@ interface UseOpDataParams {
   surgeryId: string;
   activeHospitalId: string;
   recordId?: string;
+  waitForRecordId?: boolean;
 }
 
-export function useOpData({ surgeryId, activeHospitalId, recordId }: UseOpDataParams) {
+export function useOpData({ surgeryId, activeHospitalId, recordId, waitForRecordId = false }: UseOpDataParams) {
   // Core data queries
   const { data: surgery, isLoading: isSurgeryLoading, error: surgeryError } = useQuery<any>({
     queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
@@ -21,11 +22,16 @@ export function useOpData({ surgeryId, activeHospitalId, recordId }: UseOpDataPa
   });
 
   // Fetch anesthesia record - by recordId if provided, otherwise by surgeryId
+  // If waitForRecordId is true, only fetch when recordId is available (used during duplicate check)
+  const shouldFetchRecord = waitForRecordId 
+    ? !!recordId 
+    : (!!surgeryId || !!recordId);
+    
   const { data: anesthesiaRecord, isLoading: isRecordLoading } = useQuery<any>({
     queryKey: recordId 
       ? [`/api/anesthesia/records/${recordId}`]
       : [`/api/anesthesia/records/surgery/${surgeryId}`],
-    enabled: !!surgeryId || !!recordId,
+    enabled: shouldFetchRecord,
   });
 
   const { data: preOpAssessment, isLoading: isPreOpLoading } = useQuery<any>({
