@@ -61,6 +61,15 @@ interface ChecklistSettings {
   signOut?: Array<{ id: string; label: string }>;
 }
 
+interface InventoryUsageEntry {
+  id: string;
+  itemId: string;
+  itemName?: string;
+  calculatedQty: string | number;
+  overrideQty?: string | number | null;
+  unit?: string | null;
+}
+
 interface ExportData {
   patient: Patient;
   surgery: Surgery;
@@ -74,6 +83,8 @@ interface ExportData {
   positions?: PositionEntry[];
   timeMarkers?: TimeMarker[];
   checklistSettings?: ChecklistSettings | null;
+  inventoryUsage?: InventoryUsageEntry[];
+  chartImage?: string | null;
 }
 
 // Helper to format time from milliseconds to HH:MM (24-hour format)
@@ -1715,9 +1726,24 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
         doc.text(`${i18next.t("anesthesia.pdf.plannedAnesthesia")}:`, 20, yPos);
         yPos += 5;
         doc.setFont("helvetica", "normal");
+        
+        // Map technique keys to translated labels
+        const techniqueLabels: Record<string, string> = {
+          general: i18next.t("anesthesia.pdf.generalAnesthesia"),
+          spinal: i18next.t("anesthesia.pdf.spinalAnesthesia"),
+          epidural: i18next.t("anesthesia.pdf.epiduralAnesthesia"),
+          regional: i18next.t("anesthesia.pdf.regionalAnesthesia"),
+          sedation: i18next.t("anesthesia.pdf.sedation"),
+          combined: i18next.t("anesthesia.pdf.combined"),
+          peripheral: i18next.t("anesthesia.pdf.peripheralRegionalAnesthesia", "Periphere Regionalanästhesie"),
+          mac: i18next.t("anesthesia.pdf.macAnesthesia", "Überwachte Anästhesiepflege (MAC)"),
+          local: i18next.t("anesthesia.pdf.localAnesthesia", "Lokalanästhesie"),
+        };
+        
         Object.entries(techniques).forEach(([key, value]) => {
           if (value === true) {
-            doc.text(`• ${key.replace(/([A-Z])/g, ' $1').trim()}`, 25, yPos);
+            const label = techniqueLabels[key] || key.replace(/([A-Z])/g, ' $1').trim();
+            doc.text(`• ${label}`, 25, yPos);
             yPos += 5;
           }
         });
@@ -1896,6 +1922,65 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
         2: { cellWidth: 35 },
         3: { cellWidth: 25 },
         4: { cellWidth: 35 },
+      },
+    });
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+  }
+
+  // ==================== INVENTORY USAGE (MATERIALS USED) ====================
+  if (data.inventoryUsage && data.inventoryUsage.length > 0) {
+    yPos = checkPageBreak(doc, yPos, 50);
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(i18next.t("anesthesia.pdf.inventoryUsage", "BESTANDSVERBRAUCH"), 20, yPos);
+    yPos += 7;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(i18next.t("anesthesia.pdf.inventoryUsageDesc", "Berechneter Materialverbrauch basierend auf Medikamentenverabreichung"), 20, yPos);
+    yPos += 6;
+
+    // Build map of item names from anesthesiaItems
+    const itemNameMap = new Map<string, { name: string; unit: string | null }>();
+    if (data.anesthesiaItems) {
+      data.anesthesiaItems.forEach(item => {
+        itemNameMap.set(item.id, { name: item.name, unit: item.administrationUnit || null });
+      });
+    }
+
+    const usageData = data.inventoryUsage.map(usage => {
+      const itemInfo = itemNameMap.get(usage.itemId);
+      const itemName = usage.itemName || itemInfo?.name || usage.itemId;
+      const unit = usage.unit || itemInfo?.unit || "";
+      const qty = usage.overrideQty !== null && usage.overrideQty !== undefined 
+        ? usage.overrideQty 
+        : usage.calculatedQty;
+      
+      return [
+        itemName,
+        `${qty} ${unit}`.trim(),
+        usage.overrideQty !== null && usage.overrideQty !== undefined 
+          ? i18next.t("anesthesia.pdf.manualOverride", "Manuell angepasst")
+          : i18next.t("anesthesia.pdf.autoCalculated", "Automatisch berechnet")
+      ];
+    });
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [[
+        i18next.t("anesthesia.pdf.materialItem", "Material / Artikel"),
+        i18next.t("anesthesia.pdf.quantity", "Menge"),
+        i18next.t("anesthesia.pdf.calculationType", "Berechnungsart")
+      ]],
+      body: usageData,
+      theme: "grid",
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [16, 185, 129], textColor: 255 },
+      columnStyles: {
+        0: { cellWidth: 100 },
+        1: { cellWidth: 35, halign: 'center' },
+        2: { cellWidth: 45 },
       },
     });
     yPos = (doc as any).lastAutoTable.finalY + 10;
@@ -2410,18 +2495,43 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
 
-    // Display consent options with checkboxes
-    const consentItems = [
-      { checked: data.preOpAssessment.consentGiven, label: i18next.t("anesthesia.pdf.consentGeneral") },
-      { checked: data.preOpAssessment.consentRegional, label: i18next.t("anesthesia.pdf.consentRegional") },
-      { checked: data.preOpAssessment.consentInstallations, label: i18next.t("anesthesia.pdf.consentInstallations") },
-      { checked: data.preOpAssessment.consentICU, label: i18next.t("anesthesia.pdf.consentICU") }
+    // Display consent options with full descriptions and risks
+    const consentItemsWithDetails = [
+      { 
+        checked: data.preOpAssessment.consentGiven, 
+        label: i18next.t("anesthesia.preOp.generalAnesthesiaConsent"),
+        description: i18next.t("anesthesia.preOp.generalAnesthesiaDescription"),
+        risksLabel: i18next.t("anesthesia.preOp.possibleAdverseEvents"),
+        risks: i18next.t("anesthesia.preOp.generalAnesthesiaRisks")
+      },
+      { 
+        checked: data.preOpAssessment.consentRegional, 
+        label: i18next.t("anesthesia.preOp.regionalAnesthesiaConsent"),
+        description: i18next.t("anesthesia.preOp.regionalAnesthesiaDescription"),
+        risksLabel: i18next.t("anesthesia.preOp.possibleAdverseEvents"),
+        risks: i18next.t("anesthesia.preOp.regionalAnesthesiaRisks")
+      },
+      { 
+        checked: data.preOpAssessment.consentInstallations, 
+        label: i18next.t("anesthesia.preOp.plannedInstallationsConsent"),
+        description: i18next.t("anesthesia.preOp.plannedInstallationsDescription"),
+        risksLabel: i18next.t("anesthesia.preOp.possibleAdverseEvents"),
+        risks: i18next.t("anesthesia.preOp.plannedInstallationsRisks")
+      },
+      { 
+        checked: data.preOpAssessment.consentICU, 
+        label: i18next.t("anesthesia.preOp.postoperativeIcuAdmission"),
+        description: i18next.t("anesthesia.preOp.postoperativeIcuDescription"),
+        risksLabel: i18next.t("anesthesia.preOp.postoperativeIcuPurpose", "Zweck"),
+        risks: ""
+      }
     ];
 
-    consentItems.forEach(item => {
+    consentItemsWithDetails.forEach(item => {
       if (item.checked) {
-        yPos = checkPageBreak(doc, yPos, 10);
-        // Draw checkbox
+        yPos = checkPageBreak(doc, yPos, 35);
+        
+        // Draw checkbox and title
         const boxSize = 3;
         const boxX = 25;
         const boxY = yPos - 2.5;
@@ -2434,15 +2544,69 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
         doc.setFillColor(34, 197, 94);
         doc.rect(boxX + 0.4, boxY + 0.4, boxSize - 0.8, boxSize - 0.8, "F");
         
+        // Title in bold
         doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "bold");
         doc.text(item.label, boxX + boxSize + 3, yPos);
         yPos += 5;
+        
+        // Description text
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        const descLines = doc.splitTextToSize(item.description, 155);
+        descLines.forEach((line: string) => {
+          yPos = checkPageBreak(doc, yPos, 8);
+          doc.text(line, 30, yPos);
+          yPos += 3.5;
+        });
+        
+        // Risks in red
+        if (item.risks) {
+          yPos += 1;
+          doc.setTextColor(220, 38, 38);
+          doc.setFont("helvetica", "bold");
+          doc.text(`${item.risksLabel}: `, 30, yPos);
+          const risksStartX = 30 + doc.getTextWidth(`${item.risksLabel}: `);
+          doc.setFont("helvetica", "normal");
+          const riskLines = doc.splitTextToSize(item.risks, 155);
+          riskLines.forEach((line: string, idx: number) => {
+            if (idx === 0) {
+              doc.text(line, risksStartX, yPos);
+            } else {
+              yPos += 3.5;
+              yPos = checkPageBreak(doc, yPos, 8);
+              doc.text(line, 30, yPos);
+            }
+          });
+          yPos += 4;
+        }
+        
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(9);
+        yPos += 3;
       }
     });
 
     yPos += 2;
 
-    // Full consent text explanation
+    // Additional consent notes
+    if (data.preOpAssessment.consentNotes) {
+      yPos = checkPageBreak(doc, yPos, 30);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${i18next.t("anesthesia.preOp.consentNotes")}:`, 25, yPos);
+      yPos += 5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      const splitNotes = doc.splitTextToSize(data.preOpAssessment.consentNotes, 160);
+      splitNotes.forEach((line: string) => {
+        yPos = checkPageBreak(doc, yPos, 10);
+        doc.text(line, 25, yPos);
+        yPos += 4;
+      });
+      yPos += 3;
+    }
+
+    // Legacy consent text (if any)
     if (data.preOpAssessment.consentText) {
       yPos = checkPageBreak(doc, yPos, 30);
       doc.setFont("helvetica", "bold");
@@ -2905,6 +3069,95 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
           }
           yPos += 18;
         }
+      }
+
+      // Sticker Documentation Photos (Aufkleber-Dokumentation)
+      if (countsSterileData.stickerDocs && countsSterileData.stickerDocs.length > 0) {
+        // Add a new page for photos if needed
+        doc.addPage();
+        yPos = 20;
+        
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.setFillColor(139, 92, 246);
+        doc.rect(20, yPos - 5, 170, 8, "F");
+        doc.setTextColor(255, 255, 255);
+        doc.text(i18next.t("anesthesia.pdf.nurseDoc.stickerDocs", "AUFKLEBER-DOKUMENTATION"), 22, yPos);
+        doc.setTextColor(0, 0, 0);
+        yPos += 12;
+        
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(i18next.t("anesthesia.pdf.nurseDoc.stickerDocsDesc", "Fotos vom Aufkleberblatt für Materialien, Implantate und Medikamente"), 25, yPos);
+        yPos += 8;
+        
+        // Photo layout: 2 photos per row, each about 80mm wide x 60mm tall
+        const photoWidth = 80;
+        const photoHeight = 60;
+        const photoMargin = 5;
+        let photoIndex = 0;
+        
+        countsSterileData.stickerDocs.forEach((stickerDoc: any) => {
+          if (stickerDoc.type === 'photo' && stickerDoc.data) {
+            // Check for page break - need space for photo + caption
+            if (yPos + photoHeight + 15 > 270) {
+              doc.addPage();
+              yPos = 20;
+            }
+            
+            // Calculate X position (alternating left/right)
+            const col = photoIndex % 2;
+            const xPos = col === 0 ? 25 : 25 + photoWidth + photoMargin;
+            
+            try {
+              // Add the photo
+              doc.addImage(stickerDoc.data, 'JPEG', xPos, yPos, photoWidth, photoHeight);
+              
+              // Draw border around photo
+              doc.setDrawColor(150, 150, 150);
+              doc.setLineWidth(0.3);
+              doc.rect(xPos, yPos, photoWidth, photoHeight);
+              
+              // Add caption if filename exists
+              if (stickerDoc.filename) {
+                doc.setFontSize(7);
+                doc.setFont("helvetica", "italic");
+                doc.text(stickerDoc.filename.substring(0, 40), xPos, yPos + photoHeight + 4);
+              }
+              
+              // Add timestamp if available
+              if (stickerDoc.createdAt) {
+                const timestamp = new Date(stickerDoc.createdAt);
+                doc.setFontSize(6);
+                doc.text(formatDateTime24h(timestamp), xPos + photoWidth - 25, yPos + photoHeight + 4);
+              }
+              
+            } catch (error) {
+              // If image fails to load, show placeholder
+              doc.setDrawColor(200, 200, 200);
+              doc.setFillColor(245, 245, 245);
+              doc.rect(xPos, yPos, photoWidth, photoHeight, "FD");
+              doc.setFontSize(8);
+              doc.setTextColor(150, 150, 150);
+              doc.text(i18next.t("anesthesia.pdf.nurseDoc.photoError", "Foto konnte nicht geladen werden"), xPos + 5, yPos + photoHeight / 2);
+              doc.setTextColor(0, 0, 0);
+            }
+            
+            photoIndex++;
+            
+            // Move to next row after every 2 photos
+            if (photoIndex % 2 === 0) {
+              yPos += photoHeight + 12;
+            }
+          }
+        });
+        
+        // If ended on odd photo, advance Y position
+        if (photoIndex % 2 !== 0) {
+          yPos += photoHeight + 12;
+        }
+        
+        yPos += 5;
       }
 
       yPos += 5;

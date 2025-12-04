@@ -17,6 +17,7 @@ interface UsePdfExportProps {
   staffMembers: any[];
   positions: any[];
   anesthesiaSettings: any;
+  inventoryUsage?: any[];
   timelineRef: RefObject<UnifiedTimelineRef>;
   isRecordLoading: boolean;
   isVitalsLoading: boolean;
@@ -141,8 +142,9 @@ export function usePdfExport(props: UsePdfExportProps) {
       if (props.timelineRef.current) {
         try {
           console.log('[PDF-EXPORT] Exporting chart from visible timeline with 4-hour zoom...');
-          chartImage = await props.timelineRef.current.exportForPdf();
-          if (chartImage) {
+          const exportResult = await props.timelineRef.current.exportForPdf();
+          if (exportResult?.image) {
+            chartImage = exportResult.image;
             console.log('[PDF-EXPORT] Chart image exported successfully');
           } else {
             console.warn('[PDF-EXPORT] Timeline chart export returned null');
@@ -179,6 +181,7 @@ export function usePdfExport(props: UsePdfExportProps) {
         positions: props.positions || [],
         timeMarkers: (props.anesthesiaRecord?.timeMarkers as any[]) || [],
         checklistSettings: props.anesthesiaSettings?.checklistItems || null,
+        inventoryUsage: props.inventoryUsage || [],
         chartImage,
       });
 
