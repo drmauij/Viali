@@ -304,8 +304,11 @@ export interface IStorage {
   // Anesthesia Record operations
   getAnesthesiaRecord(surgeryId: string): Promise<AnesthesiaRecord | undefined>;
   getAnesthesiaRecordById(id: string): Promise<AnesthesiaRecord | undefined>;
+  getAllAnesthesiaRecordsForSurgery(surgeryId: string): Promise<AnesthesiaRecord[]>;
+  getAnesthesiaRecordDataCounts(recordId: string): Promise<{ vitals: number; medications: number; events: number }>;
   createAnesthesiaRecord(record: InsertAnesthesiaRecord): Promise<AnesthesiaRecord>;
   updateAnesthesiaRecord(id: string, updates: Partial<AnesthesiaRecord>): Promise<AnesthesiaRecord>;
+  deleteAnesthesiaRecord(id: string): Promise<void>;
   closeAnesthesiaRecord(id: string, closedBy: string): Promise<AnesthesiaRecord>;
   amendAnesthesiaRecord(id: string, updates: Partial<AnesthesiaRecord>, reason: string, userId: string): Promise<AnesthesiaRecord>;
   lockAnesthesiaRecord(id: string, userId: string): Promise<AnesthesiaRecord>;
@@ -1885,6 +1888,52 @@ export class DatabaseStorage implements IStorage {
     return record;
   }
 
+  async getAllAnesthesiaRecordsForSurgery(surgeryId: string): Promise<AnesthesiaRecord[]> {
+    const records = await db
+      .select()
+      .from(anesthesiaRecords)
+      .where(eq(anesthesiaRecords.surgeryId, surgeryId))
+      .orderBy(anesthesiaRecords.createdAt);
+    return records;
+  }
+
+  async getAnesthesiaRecordDataCounts(recordId: string): Promise<{ vitals: number; medications: number; events: number }> {
+    // Count vitals points from clinical snapshot
+    const [snapshot] = await db
+      .select()
+      .from(clinicalSnapshots)
+      .where(eq(clinicalSnapshots.anesthesiaRecordId, recordId));
+    
+    let vitalsCount = 0;
+    if (snapshot?.data) {
+      const data = snapshot.data as Record<string, any>;
+      // Count various vital types
+      if (data.hr) vitalsCount += Array.isArray(data.hr) ? data.hr.length : 1;
+      if (data.bp) vitalsCount += Array.isArray(data.bp) ? data.bp.length : 1;
+      if (data.spo2) vitalsCount += Array.isArray(data.spo2) ? data.spo2.length : 1;
+      if (data.temp) vitalsCount += Array.isArray(data.temp) ? data.temp.length : 1;
+      if (data.etco2) vitalsCount += Array.isArray(data.etco2) ? data.etco2.length : 1;
+    }
+    
+    // Count medications
+    const medications = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(anesthesiaMedications)
+      .where(eq(anesthesiaMedications.anesthesiaRecordId, recordId));
+    
+    // Count events
+    const events = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(anesthesiaEvents)
+      .where(eq(anesthesiaEvents.anesthesiaRecordId, recordId));
+    
+    return {
+      vitals: vitalsCount,
+      medications: Number(medications[0]?.count) || 0,
+      events: Number(events[0]?.count) || 0,
+    };
+  }
+
   async createAnesthesiaRecord(record: InsertAnesthesiaRecord): Promise<AnesthesiaRecord> {
     const [created] = await db.insert(anesthesiaRecords).values(record).returning();
     return created;
@@ -1897,6 +1946,17 @@ export class DatabaseStorage implements IStorage {
       .where(eq(anesthesiaRecords.id, id))
       .returning();
     return updated;
+  }
+
+  async deleteAnesthesiaRecord(id: string): Promise<void> {
+    // Delete related data first (cascade manually since we need explicit control)
+    await db.delete(clinicalSnapshots).where(eq(clinicalSnapshots.anesthesiaRecordId, id));
+    await db.delete(anesthesiaMedications).where(eq(anesthesiaMedications.anesthesiaRecordId, id));
+    await db.delete(anesthesiaEvents).where(eq(anesthesiaEvents.anesthesiaRecordId, id));
+    await db.delete(anesthesiaPositions).where(eq(anesthesiaPositions.anesthesiaRecordId, id));
+    await db.delete(anesthesiaStaff).where(eq(anesthesiaStaff.anesthesiaRecordId, id));
+    // Finally delete the record itself
+    await db.delete(anesthesiaRecords).where(eq(anesthesiaRecords.id, id));
   }
 
   async closeAnesthesiaRecord(id: string, closedBy: string): Promise<AnesthesiaRecord> {

@@ -1009,7 +1009,17 @@ router.post('/api/anesthesia/records', isAuthenticated, requireWriteAccess, asyn
       return res.status(403).json({ message: "Access denied" });
     }
 
+    // GET-OR-CREATE: Check if an anesthesia record already exists for this surgery
+    // This prevents duplicate records when multiple devices open the same surgery simultaneously
+    const existingRecord = await storage.getAnesthesiaRecord(validatedData.surgeryId);
+    if (existingRecord) {
+      // Return the existing record instead of creating a duplicate
+      console.log(`[ANESTHESIA] Returning existing record ${existingRecord.id} for surgery ${validatedData.surgeryId} (preventing duplicate)`);
+      return res.status(200).json(existingRecord);
+    }
+
     const newRecord = await storage.createAnesthesiaRecord(validatedData);
+    console.log(`[ANESTHESIA] Created new record ${newRecord.id} for surgery ${validatedData.surgeryId}`);
     
     res.status(201).json(newRecord);
   } catch (error) {
