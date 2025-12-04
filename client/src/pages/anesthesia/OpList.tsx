@@ -1,12 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
 import SurgerySummaryDialog from "@/components/anesthesia/SurgerySummaryDialog";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
+import { DuplicateRecordsDialog } from "@/components/anesthesia/DuplicateRecordsDialog";
 import { useModule } from "@/contexts/ModuleContext";
+import { apiRequest } from "@/lib/queryClient";
 
 const SURGERY_CONTEXT_KEY = "oplist_surgery_context";
+
+interface AnesthesiaRecordWithCounts {
+  id: string;
+  surgeryId: string;
+  createdAt: string;
+  updatedAt: string;
+  dataCounts: {
+    vitals: number;
+    medications: number;
+    events: number;
+  };
+  totalDataPoints: number;
+}
 
 export default function OpList() {
   const { t } = useTranslation();
@@ -16,6 +31,9 @@ export default function OpList() {
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [editSurgeryOpen, setEditSurgeryOpen] = useState(false);
+  const [duplicateRecords, setDuplicateRecords] = useState<AnesthesiaRecordWithCounts[]>([]);
+  const [duplicatesDialogOpen, setDuplicatesDialogOpen] = useState(false);
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
 
   // Restore Surgery Summary dialog state when returning from Pre-OP/Anesthesia Record
   useEffect(() => {
@@ -56,15 +74,79 @@ export default function OpList() {
     }
   };
 
-  const handleOpenAnesthesia = () => {
-    if (selectedSurgeryId && selectedPatientId) {
-      // Save context before navigating away
+  const navigateToAnesthesiaRecord = useCallback((surgeryIdToUse: string, recordIdToUse?: string) => {
+    if (selectedPatientId) {
       sessionStorage.setItem(SURGERY_CONTEXT_KEY, JSON.stringify({
-        surgeryId: selectedSurgeryId,
+        surgeryId: surgeryIdToUse,
         patientId: selectedPatientId
       }));
-      setSummaryOpen(false);
-      setLocation(`/anesthesia/op/${selectedSurgeryId}`);
+    }
+    setSummaryOpen(false);
+    setDuplicatesDialogOpen(false);
+    // Include recordId in URL if specified (for opening specific record when duplicates exist)
+    const url = recordIdToUse 
+      ? `/anesthesia/op/${surgeryIdToUse}?recordId=${recordIdToUse}`
+      : `/anesthesia/op/${surgeryIdToUse}`;
+    setLocation(url);
+  }, [selectedPatientId, setLocation]);
+
+  const checkForDuplicateRecords = useCallback(async (surgeryId: string): Promise<AnesthesiaRecordWithCounts[]> => {
+    try {
+      const response = await apiRequest("GET", `/api/anesthesia/records/surgery/${surgeryId}/all`);
+      if (response.ok) {
+        return await response.json();
+      }
+      return [];
+    } catch (error) {
+      console.error("Failed to check for duplicate records:", error);
+      return [];
+    }
+  }, []);
+
+  const handleOpenAnesthesia = async () => {
+    if (!selectedSurgeryId || !selectedPatientId) return;
+    
+    setIsCheckingDuplicates(true);
+    
+    try {
+      const records = await checkForDuplicateRecords(selectedSurgeryId);
+      
+      if (records.length > 1) {
+        // Multiple records found - show selection dialog
+        setDuplicateRecords(records);
+        setDuplicatesDialogOpen(true);
+        setSummaryOpen(false);
+      } else {
+        // Single or no record - proceed normally
+        navigateToAnesthesiaRecord(selectedSurgeryId);
+      }
+    } catch (error) {
+      console.error("Error checking for duplicates:", error);
+      // On error, just proceed with normal navigation
+      navigateToAnesthesiaRecord(selectedSurgeryId);
+    } finally {
+      setIsCheckingDuplicates(false);
+    }
+  };
+
+  const handleSelectDuplicateRecord = (recordId: string) => {
+    // Navigate to the selected record with its specific recordId
+    if (selectedSurgeryId) {
+      navigateToAnesthesiaRecord(selectedSurgeryId, recordId);
+    }
+  };
+
+  const handleRefreshDuplicates = async () => {
+    if (!selectedSurgeryId) return;
+    const records = await checkForDuplicateRecords(selectedSurgeryId);
+    setDuplicateRecords(records);
+    
+    // If only one record remains, auto-close dialog and navigate
+    if (records.length <= 1) {
+      setDuplicatesDialogOpen(false);
+      if (records.length === 1) {
+        navigateToAnesthesiaRecord(selectedSurgeryId);
+      }
     }
   };
 
@@ -117,6 +199,18 @@ export default function OpList() {
             setEditSurgeryOpen(false);
             setSummaryOpen(true); // Return to summary when closing edit
           }}
+        />
+      )}
+
+      {/* Duplicate Records Dialog */}
+      {selectedSurgeryId && duplicateRecords.length > 0 && (
+        <DuplicateRecordsDialog
+          open={duplicatesDialogOpen}
+          onOpenChange={setDuplicatesDialogOpen}
+          records={duplicateRecords}
+          surgeryId={selectedSurgeryId}
+          onSelectRecord={handleSelectDuplicateRecord}
+          onRefresh={handleRefreshDuplicates}
         />
       )}
     </div>

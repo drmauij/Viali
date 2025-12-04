@@ -122,6 +122,9 @@ export default function Op() {
 
   // Get surgeryId from params
   const surgeryId = params.id;
+  
+  // Parse recordId from query parameter (for opening specific record when duplicates exist)
+  const recordId = new URLSearchParams(window.location.search).get('recordId') || undefined;
 
   // Centralized data fetching
   const {
@@ -176,6 +179,7 @@ export default function Op() {
   } = useOpData({
     surgeryId: surgeryId || "",
     activeHospitalId: activeHospital?.id || "",
+    recordId,
   });
 
   // Track current room for cleanup

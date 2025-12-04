@@ -10,18 +10,22 @@ import {
 interface UseOpDataParams {
   surgeryId: string;
   activeHospitalId: string;
+  recordId?: string;
 }
 
-export function useOpData({ surgeryId, activeHospitalId }: UseOpDataParams) {
+export function useOpData({ surgeryId, activeHospitalId, recordId }: UseOpDataParams) {
   // Core data queries
   const { data: surgery, isLoading: isSurgeryLoading, error: surgeryError } = useQuery<any>({
     queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
     enabled: !!surgeryId,
   });
 
+  // Fetch anesthesia record - by recordId if provided, otherwise by surgeryId
   const { data: anesthesiaRecord, isLoading: isRecordLoading } = useQuery<any>({
-    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
-    enabled: !!surgeryId,
+    queryKey: recordId 
+      ? [`/api/anesthesia/records/${recordId}`]
+      : [`/api/anesthesia/records/surgery/${surgeryId}`],
+    enabled: !!surgeryId || !!recordId,
   });
 
   const { data: preOpAssessment, isLoading: isPreOpLoading } = useQuery<any>({
