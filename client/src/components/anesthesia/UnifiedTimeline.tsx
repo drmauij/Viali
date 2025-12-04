@@ -3494,8 +3494,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       dataZoom: [{
         type: "inside",
         xAxisIndex: grids.map((_, i) => i),
-        // Preserve current zoom state if available
-        ...(zoomPercent ? { start: zoomPercent.start, end: zoomPercent.end } : {}),
+        // CRITICAL: Do NOT include start/end here - zoom is managed imperatively only
+        // Including zoomPercent here causes viewport jumps when option recomputes
+        // The unified viewport controller and zoom handlers use chart.setOption/dispatchAction
         throttle: 50,
         zoomLock: true,
         orient: 'horizontal',
@@ -3539,7 +3540,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         },
       },
     } as echarts.EChartsOption;
-  }, [data, isDark, activeSwimlanes, now, currentTime, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, medicationDoseData, zoomPercent, pendingSysValue, bpEntryMode, collapsedSwimlanes]);
+  // NOTE: zoomPercent is intentionally NOT a dependency - zoom is managed imperatively only
+  }, [data, isDark, activeSwimlanes, now, currentTime, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, medicationDoseData, pendingSysValue, bpEntryMode, collapsedSwimlanes]);
 
   // Calculate component height
   const VITALS_HEIGHT = 380;
