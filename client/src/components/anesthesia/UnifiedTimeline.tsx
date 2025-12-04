@@ -2994,10 +2994,20 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // This callback just signals that the chart is ready
   };
 
+  // Derive a stable boolean for whether contentBounds is valid
+  // This allows us to trigger the effect when bounds become valid, without re-running on every data change
+  const hasValidContentBounds = useMemo(() => {
+    return contentBounds !== null && 
+           isFinite(contentBounds.start) && 
+           isFinite(contentBounds.end) &&
+           contentBounds.start > 0 && 
+           contentBounds.end > 0;
+  }, [contentBounds]);
+
   // ========== UNIFIED VIEWPORT INITIALIZATION ==========
   // Single effect that handles ALL viewport initialization logic
-  // CRITICAL: NO dependency on contentBounds to prevent WebSocket-triggered recalculations
-  // contentBounds is read via ref at the moment of initialization, not as a dependency
+  // CRITICAL: NO dependency on contentBounds VALUES to prevent WebSocket-triggered recalculations
+  // Instead, we depend on hasValidContentBounds (boolean) to trigger when bounds become valid
   useEffect(() => {
     const controller = viewportControllerRef.current;
     
@@ -3023,10 +3033,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // For locked+PACU records, we need valid content bounds
     // For active records, we just center on NOW
     if (shouldAutoRecenterView) {
-      // Need valid content bounds for historical view
-      if (!contentBounds || !isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
-          contentBounds.start <= 0 || contentBounds.end <= 0) {
-        return; // Wait for valid bounds
+      // Need valid content bounds for historical view - will retrigger when hasValidContentBounds changes
+      if (!hasValidContentBounds || !contentBounds) {
+        return; // Wait for valid bounds - effect will retrigger when hasValidContentBounds becomes true
       }
       // Capture bounds ONCE - this ref won't change with data updates
       if (!controller.capturedContentBounds) {
@@ -3129,11 +3138,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       isCancelled = true;
       if (retryTimeoutId) clearTimeout(retryTimeoutId);
     };
-    // CRITICAL: contentBounds is intentionally NOT in dependencies
-    // We read it via ref to prevent WebSocket updates from triggering viewport changes
-    // isChartReady is included to trigger initialization once chart is ready
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shouldAutoRecenterView, anesthesiaRecordId, data.startTime, data.endTime, now, isChartReady]);
+    // CRITICAL: contentBounds VALUES are intentionally NOT in dependencies
+    // We use hasValidContentBounds (boolean) to trigger when bounds become valid
+    // Once valid, the effect captures bounds once and never re-runs for data changes
+  }, [shouldAutoRecenterView, anesthesiaRecordId, data.startTime, data.endTime, now, isChartReady, hasValidContentBounds]);
 
   // Update dataZoom xAxisIndex when swimlane structure changes
   useEffect(() => {
