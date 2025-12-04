@@ -950,7 +950,7 @@ function drawLandscapeRhythmTimeline(
     doc.rect(startX, plotY, width, barHeight, "F");
 
     // Rhythm label if segment is wide enough
-    if (width > 20) {
+    if (width > 20 && current.rhythm) {
       doc.setFontSize(7);
       doc.setTextColor(255, 255, 255);
       doc.text(current.rhythm, startX + width / 2, plotY + barHeight / 2 + 2, { align: "center" });
@@ -1073,7 +1073,7 @@ function drawMedicationTimeline(
         // Add dose label
         doc.setFontSize(6);
         doc.setTextColor(0, 0, 0);
-        doc.text(med.dose, x + 1, currentY + 4);
+        doc.text(med.dose || '', x + 1, currentY + 4);
       } else if (med.type === "infusion_start") {
         // Draw infusion as horizontal bar
         const endMed = meds.find((m: MedicationAdministration) => m.type === "infusion_stop" && new Date(m.timestamp).getTime() > medTime);
