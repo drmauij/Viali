@@ -159,7 +159,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'FiO2',
-    aliases: ['FiO2', 'FIO2', 'O2', 'Oxygen', 'Sauerstoff'],
+    aliases: ['FiO2', 'FIO2', 'O2', 'Oxygen', 'Sauerstoff', 'O2%', 'O2 %', 'O2 Insp', 'O2Insp', 'Insp O2', 'InspO2', 'Fi O2', 'Inspired O2', 'O2 Inspired'],
     category: 'ventilation',
     unit: '%',
     min: 21,
@@ -167,7 +167,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'EtCO2',
-    aliases: ['EtCO2', 'etCO2', 'ETCO2', 'End-tidal CO2', 'CO2'],
+    aliases: ['EtCO2', 'etCO2', 'ETCO2', 'End-tidal CO2', 'CO2', 'CO2 Exp', 'CO2 exp', 'CO2Exp', 'Exp', 'Et CO2', 'endtidal CO2'],
     category: 'ventilation',
     unit: 'mmHg',
     min: 0,
@@ -269,7 +269,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'ExpCO2',
-    aliases: ['Exp CO2', 'ExpCO2', 'Exp.', 'Expired CO2'],
+    aliases: ['Exp CO2', 'ExpCO2', 'Exp.', 'Expired CO2', 'CO2 Expired'],
     category: 'ventilation',
     unit: 'mmHg',
     min: 0,
@@ -277,7 +277,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'InspO2',
-    aliases: ['Insp O2', 'InspO2', 'FiO2 measured', 'Inspired O2'],
+    aliases: ['Insp O2', 'InspO2', 'FiO2 measured', 'Inspired O2', 'O2 Inspired'],
     category: 'ventilation',
     unit: '%',
     min: 21,
@@ -285,7 +285,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'ExpO2',
-    aliases: ['Exp O2', 'ExpO2', 'FeO2', 'Expired O2'],
+    aliases: ['Exp O2', 'ExpO2', 'FeO2', 'Expired O2', 'O2 Exp', 'O2Exp', 'O2 Expired'],
     category: 'ventilation',
     unit: '%',
     min: 15,
