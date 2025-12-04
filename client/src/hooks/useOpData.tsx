@@ -32,6 +32,8 @@ export function useOpData({ surgeryId, activeHospitalId, recordId, waitForRecord
       ? [`/api/anesthesia/records/${recordId}`]
       : [`/api/anesthesia/records/surgery/${surgeryId}`],
     enabled: shouldFetchRecord,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: preOpAssessment, isLoading: isPreOpLoading } = useQuery<any>({
@@ -54,40 +56,54 @@ export function useOpData({ surgeryId, activeHospitalId, recordId, waitForRecord
     enabled: !!activeHospitalId,
   });
 
-  // Timeline and vitals data
+  // Timeline and vitals data - use refetchOnMount to ensure fresh data on navigation
   const { data: vitalsData = [], isLoading: isVitalsLoading, isError: isVitalsError, status: vitalsStatus } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/vitals/${anesthesiaRecord?.id}`],
     enabled: !!anesthesiaRecord?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: medicationsData = [], isLoading: isMedicationsLoading, isError: isMedicationsError, status: medicationsStatus } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/medications/${anesthesiaRecord?.id}`],
     enabled: !!anesthesiaRecord?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: eventsData = [], isLoading: isEventsLoading, isError: isEventsError, status: eventsStatus } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/events/${anesthesiaRecord?.id}`],
     enabled: !!anesthesiaRecord?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: anesthesiaItems = [], isLoading: isAnesthesiaItemsLoading, isError: isAnesthesiaItemsError, status: anesthesiaItemsStatus } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/items/${activeHospitalId}`],
     enabled: !!activeHospitalId,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: clinicalSnapshot, isLoading: isClinicalSnapshotLoading, isError: isClinicalSnapshotError, status: clinicalSnapshotStatus } = useQuery<any>({
     queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecord?.id}`],
     enabled: !!anesthesiaRecord?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: staffMembers = [], isLoading: isStaffLoading, isError: isStaffError, status: staffStatus } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/staff/${anesthesiaRecord?.id}`],
     enabled: !!anesthesiaRecord?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: positions = [], isLoading: isPositionsLoading, isError: isPositionsError, status: positionsStatus } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/positions/${anesthesiaRecord?.id}`],
     enabled: !!anesthesiaRecord?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   // Documentation hooks
@@ -101,11 +117,15 @@ export function useOpData({ surgeryId, activeHospitalId, recordId, waitForRecord
   const { data: inventoryUsage = [] } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/inventory/${anesthesiaRecord?.id}`],
     enabled: !!anesthesiaRecord?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: inventoryCommits = [] } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/inventory/${anesthesiaRecord?.id}/commits`],
     enabled: !!anesthesiaRecord?.id,
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const { data: inventoryItems = [] } = useQuery<any[]>({
