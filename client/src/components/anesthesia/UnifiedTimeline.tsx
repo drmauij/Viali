@@ -317,6 +317,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // Effective canWrite: user must have write permission AND record must not be locked
   // When record is locked, editing is blocked until explicitly unlocked
   const canWrite = canWriteBase && !isRecordLocked;
+  
+  // Admin check for medication configuration features (sorting, add/edit medication config)
+  const isAdmin = activeHospital?.role === "admin";
 
   // Expose chart image export functions
   useImperativeHandle(ref, () => ({
@@ -6201,7 +6204,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       {lane.label}
                     </span>
                   </button>
-                  {isMedParent && !collapsedSwimlanes.has(lane.id) && (
+                  {isMedParent && !collapsedSwimlanes.has(lane.id) && isAdmin && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -6216,61 +6219,77 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   )}
                 </div>
               ) : swimlaneConfig?.hierarchyLevel === 'group' ? (
-                // For administration group headers, make entire label area clickable to configure medications
-                <button
-                  onClick={() => {
-                    // Find the corresponding admin group by matching lane ID format: admingroup-${group.id}
-                    const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
-                    if (adminGroup) {
-                      setSelectedAdminGroupForConfig(adminGroup);
-                      setEditingItemForConfig(null);
-                      setShowMedicationConfigDialog(true);
-                    }
-                  }}
-                  onMouseMove={(e) => {
-                    if (isTouchDevice) return;
-                    const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
-                    if (adminGroup) {
-                      setAdminGroupHoverInfo({
-                        x: e.clientX,
-                        y: e.clientY,
-                        groupName: adminGroup.name,
-                      });
-                    }
-                  }}
-                  onMouseLeave={() => setAdminGroupHoverInfo(null)}
-                  className="flex items-center gap-1 flex-1 text-left cursor-pointer pointer-events-auto"
-                  data-testid={`button-configure-${lane.id}`}
-                  title="Configure Medications"
-                >
-                  <span className={`${labelClass} text-black dark:text-white`}>
-                    {lane.label}
-                  </span>
-                </button>
-              ) : swimlaneConfig?.hierarchyLevel === 'item' && lane.itemId ? (
-                // For medication item labels, make them clickable to edit
-                <button
-                  onClick={() => {
-                    // Find the medication item using the itemId property from the lane
-                    const medicationItem = anesthesiaItems.find(item => item.id === lane.itemId);
-                    if (medicationItem && medicationItem.administrationGroup) {
-                      // Find the admin group by ID (administrationGroup field stores the UUID)
-                      const adminGroup = administrationGroups.find(g => g.id === medicationItem.administrationGroup);
+                // For administration group headers, make entire label area clickable to configure medications (admin only)
+                isAdmin ? (
+                  <button
+                    onClick={() => {
+                      // Find the corresponding admin group by matching lane ID format: admingroup-${group.id}
+                      const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
                       if (adminGroup) {
                         setSelectedAdminGroupForConfig(adminGroup);
-                        setEditingItemForConfig(medicationItem);
+                        setEditingItemForConfig(null);
                         setShowMedicationConfigDialog(true);
                       }
-                    }
-                  }}
-                  className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 cursor-pointer"
-                  data-testid={`button-edit-medication-${lane.id}`}
-                  title="Edit Medication Configuration"
-                >
-                  <span className={`${labelClass} text-black dark:text-white`}>
-                    {lane.label}
-                  </span>
-                </button>
+                    }}
+                    onMouseMove={(e) => {
+                      if (isTouchDevice) return;
+                      const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
+                      if (adminGroup) {
+                        setAdminGroupHoverInfo({
+                          x: e.clientX,
+                          y: e.clientY,
+                          groupName: adminGroup.name,
+                        });
+                      }
+                    }}
+                    onMouseLeave={() => setAdminGroupHoverInfo(null)}
+                    className="flex items-center gap-1 flex-1 text-left cursor-pointer pointer-events-auto"
+                    data-testid={`button-configure-${lane.id}`}
+                    title="Configure Medications"
+                  >
+                    <span className={`${labelClass} text-black dark:text-white`}>
+                      {lane.label}
+                    </span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1 flex-1">
+                    <span className={`${labelClass} text-black dark:text-white`}>
+                      {lane.label}
+                    </span>
+                  </div>
+                )
+              ) : swimlaneConfig?.hierarchyLevel === 'item' && lane.itemId ? (
+                // For medication item labels, make them clickable to edit (admin only)
+                isAdmin ? (
+                  <button
+                    onClick={() => {
+                      // Find the medication item using the itemId property from the lane
+                      const medicationItem = anesthesiaItems.find(item => item.id === lane.itemId);
+                      if (medicationItem && medicationItem.administrationGroup) {
+                        // Find the admin group by ID (administrationGroup field stores the UUID)
+                        const adminGroup = administrationGroups.find(g => g.id === medicationItem.administrationGroup);
+                        if (adminGroup) {
+                          setSelectedAdminGroupForConfig(adminGroup);
+                          setEditingItemForConfig(medicationItem);
+                          setShowMedicationConfigDialog(true);
+                        }
+                      }
+                    }}
+                    className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 cursor-pointer"
+                    data-testid={`button-edit-medication-${lane.id}`}
+                    title="Edit Medication Configuration"
+                  >
+                    <span className={`${labelClass} text-black dark:text-white`}>
+                      {lane.label}
+                    </span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1 flex-1">
+                    <span className={`${labelClass} text-black dark:text-white`}>
+                      {lane.label}
+                    </span>
+                  </div>
+                )
               ) : (
                 <div className="flex items-center gap-1 flex-1">
                   {isCollapsibleParent && (
@@ -6823,48 +6842,50 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         </div>
       )}
 
-      {/* Interactive overlays for administration groups (RIGHT side chart area only) */}
-      <div className="absolute inset-0 pointer-events-none z-[70]">
-        {!activeToolMode && activeSwimlanes.map((lane) => {
-          if (lane.hierarchyLevel !== 'group') return null;
-          
-          const lanePosition = swimlanePositions.find(l => l.id === lane.id);
-          if (!lanePosition) return null;
-          
-          // Find the corresponding admin group by matching lane ID format: admingroup-${group.id}
-          const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
-          if (!adminGroup) return null;
-          
-          return (
-            <div
-              key={`admin-config-${lane.id}`}
-              className="absolute cursor-pointer pointer-events-auto"
-              style={{
-                left: '200px',
-                right: '10px',
-                top: `${lanePosition.top}px`,
-                height: `${lanePosition.height}px`,
-              }}
-              onMouseMove={(e) => {
-                if (isTouchDevice) return;
-                setAdminGroupHoverInfo({
-                  x: e.clientX,
-                  y: e.clientY,
-                  groupName: adminGroup.name,
-                });
-              }}
-              onMouseLeave={() => setAdminGroupHoverInfo(null)}
-              onClick={() => {
-                // Open medication config dialog with this group pre-selected
-                setSelectedAdminGroupForConfig(adminGroup);
-                setEditingItemForConfig(null); // Clear editing state for adding new
-                setShowMedicationConfigDialog(true);
-              }}
-              data-testid={`interactive-admin-group-${lane.id}`}
-            />
-          );
-        })}
-      </div>
+      {/* Interactive overlays for administration groups (RIGHT side chart area only) - Admin only */}
+      {isAdmin && (
+        <div className="absolute inset-0 pointer-events-none z-[70]">
+          {!activeToolMode && activeSwimlanes.map((lane) => {
+            if (lane.hierarchyLevel !== 'group') return null;
+            
+            const lanePosition = swimlanePositions.find(l => l.id === lane.id);
+            if (!lanePosition) return null;
+            
+            // Find the corresponding admin group by matching lane ID format: admingroup-${group.id}
+            const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
+            if (!adminGroup) return null;
+            
+            return (
+              <div
+                key={`admin-config-${lane.id}`}
+                className="absolute cursor-pointer pointer-events-auto"
+                style={{
+                  left: '200px',
+                  right: '10px',
+                  top: `${lanePosition.top}px`,
+                  height: `${lanePosition.height}px`,
+                }}
+                onMouseMove={(e) => {
+                  if (isTouchDevice) return;
+                  setAdminGroupHoverInfo({
+                    x: e.clientX,
+                    y: e.clientY,
+                    groupName: adminGroup.name,
+                  });
+                }}
+                onMouseLeave={() => setAdminGroupHoverInfo(null)}
+                onClick={() => {
+                  // Open medication config dialog with this group pre-selected
+                  setSelectedAdminGroupForConfig(adminGroup);
+                  setEditingItemForConfig(null); // Clear editing state for adding new
+                  setShowMedicationConfigDialog(true);
+                }}
+                data-testid={`interactive-admin-group-${lane.id}`}
+              />
+            );
+          })}
+        </div>
+      )}
 
       {/* NOW line - Current time indicator (hidden for historical records) */}
       {!isHistoricalRecord && (
