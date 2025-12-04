@@ -31,7 +31,9 @@ export function useTimelineData({
 }: UseTimelineDataProps): ExtendedTimelineData {
   return useMemo((): ExtendedTimelineData => {
     const dataToUse = isPacuMode ? filteredVitalsData : vitalsData;
-    const medsToUse = isPacuMode ? filteredMedicationsData : medicationsData;
+    // Always show all medications - don't filter them in PACU mode
+    // Medications from surgery should remain visible in PACU view
+    const medsToUse = medicationsData;
     
     if (!dataToUse || dataToUse.length === 0) {
       const now = new Date().getTime();
