@@ -6122,19 +6122,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                         setTimeMarkers(updatedMarkers);
                         
                         // Save to database
+                        // NOTE: The backend automatically locks the record when PACU End (P) is set
+                        // so we don't need to call lockRecordMutation here
                         if (anesthesiaRecordId && saveTimeMarkersMutation) {
                           console.log('[TIME_MARKERS] Quick add button - triggering save mutation');
                           saveTimeMarkersMutation.mutate({
                             anesthesiaRecordId,
                             timeMarkers: updatedMarkers,
-                          }, {
-                            onSuccess: () => {
-                              // Auto-lock record when PACU End (P) is set
-                              if (nextMarker.code === 'P') {
-                                console.log('[RECORD_LOCK] Auto-locking record after PACU End set');
-                                lockRecordMutation.mutate(anesthesiaRecordId);
-                              }
-                            }
                           });
                         }
 
