@@ -238,6 +238,71 @@ export const supplierCodes = pgTable("supplier_codes", {
   index("idx_supplier_codes_preferred").on(table.isPreferred),
 ]);
 
+// Supplier Catalogs - Configuration for automated price syncing
+export const supplierCatalogs = pgTable("supplier_catalogs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  
+  // Supplier identification
+  supplierName: varchar("supplier_name").notNull(), // "Galexis", "Voigt", etc.
+  supplierType: varchar("supplier_type").notNull().default("api"), // api, browser, manual
+  
+  // API Configuration (for API-based suppliers like Galexis)
+  apiBaseUrl: varchar("api_base_url"), // e.g., "https://xml.e-galexis.com/V2"
+  customerNumber: varchar("customer_number"), // Galexis customer/client number
+  
+  // Credentials reference (actual password stored in Replit secrets)
+  // Secret key pattern: SUPPLIER_{supplierName}_{hospitalId}_PASSWORD
+  credentialSecretKey: varchar("credential_secret_key"), // Reference to the secret name
+  
+  // Settings
+  isEnabled: boolean("is_enabled").default(true),
+  syncSchedule: varchar("sync_schedule").default("manual"), // manual, daily, weekly
+  lastSyncAt: timestamp("last_sync_at"),
+  lastSyncStatus: varchar("last_sync_status"), // success, failed, partial
+  lastSyncMessage: text("last_sync_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_supplier_catalogs_hospital").on(table.hospitalId),
+  index("idx_supplier_catalogs_supplier").on(table.supplierName),
+]);
+
+// Price Sync Jobs - Track price synchronization jobs
+export const priceSyncJobs = pgTable("price_sync_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  catalogId: varchar("catalog_id").notNull().references(() => supplierCatalogs.id),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  
+  // Job status
+  status: varchar("status").notNull().default("queued"), // queued, processing, completed, failed
+  jobType: varchar("job_type").notNull().default("full_sync"), // full_sync, incremental
+  
+  // Progress tracking
+  totalItems: integer("total_items").default(0),
+  processedItems: integer("processed_items").default(0),
+  matchedItems: integer("matched_items").default(0),
+  updatedItems: integer("updated_items").default(0),
+  progressPercent: integer("progress_percent").default(0),
+  
+  // Timing
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  
+  // Results
+  error: text("error"),
+  summary: text("summary"), // JSON summary of changes
+  
+  // Audit
+  triggeredBy: varchar("triggered_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_price_sync_jobs_catalog").on(table.catalogId),
+  index("idx_price_sync_jobs_hospital").on(table.hospitalId),
+  index("idx_price_sync_jobs_status").on(table.status),
+]);
+
 // Stock Levels
 export const stockLevels = pgTable("stock_levels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1584,6 +1649,22 @@ export const insertSupplierCodeSchema = createInsertSchema(supplierCodes).omit({
   updatedAt: true,
 });
 
+export const insertSupplierCatalogSchema = createInsertSchema(supplierCatalogs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastSyncAt: true,
+  lastSyncStatus: true,
+  lastSyncMessage: true,
+});
+
+export const insertPriceSyncJobSchema = createInsertSchema(priceSyncJobs).omit({
+  id: true,
+  createdAt: true,
+  startedAt: true,
+  completedAt: true,
+});
+
 export const insertLotSchema = createInsertSchema(lots).omit({
   id: true,
   createdAt: true,
@@ -2188,6 +2269,8 @@ export type Folder = typeof folders.$inferSelect;
 export type Item = typeof items.$inferSelect;
 export type ItemCode = typeof itemCodes.$inferSelect;
 export type SupplierCode = typeof supplierCodes.$inferSelect;
+export type SupplierCatalog = typeof supplierCatalogs.$inferSelect;
+export type PriceSyncJob = typeof priceSyncJobs.$inferSelect;
 export type StockLevel = typeof stockLevels.$inferSelect;
 export type Lot = typeof lots.$inferSelect;
 export type Order = typeof orders.$inferSelect;
