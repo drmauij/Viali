@@ -1729,7 +1729,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
         
         // Map technique keys to translated labels
         const techniqueLabels: Record<string, string> = {
-          general: i18next.t("anesthesia.pdf.generalAnesthesia"),
+          general: i18next.t("anesthesia.pdf.consentGeneral"),
           spinal: i18next.t("anesthesia.pdf.spinalAnesthesia"),
           epidural: i18next.t("anesthesia.pdf.epiduralAnesthesia"),
           regional: i18next.t("anesthesia.pdf.regionalAnesthesia"),
@@ -2389,7 +2389,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       
       const techniques = data.preOpAssessment.anesthesiaTechniques as any;
       const techniqueList = [];
-      if (techniques.general) techniqueList.push(i18next.t("anesthesia.pdf.generalAnesthesia"));
+      if (techniques.general) techniqueList.push(i18next.t("anesthesia.pdf.consentGeneral"));
       if (techniques.spinal) techniqueList.push(i18next.t("anesthesia.pdf.spinalAnesthesia"));
       if (techniques.epidural) techniqueList.push(i18next.t("anesthesia.pdf.epiduralAnesthesia"));
       if (techniques.regional) techniqueList.push(i18next.t("anesthesia.pdf.regionalAnesthesia"));
@@ -2499,30 +2499,30 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     const consentItemsWithDetails = [
       { 
         checked: data.preOpAssessment.consentGiven, 
-        label: i18next.t("anesthesia.preOp.generalAnesthesiaConsent"),
-        description: i18next.t("anesthesia.preOp.generalAnesthesiaDescription"),
-        risksLabel: i18next.t("anesthesia.preOp.possibleAdverseEvents"),
-        risks: i18next.t("anesthesia.preOp.generalAnesthesiaRisks")
+        label: i18next.t("anesthesia.patientDetail.generalAnesthesiaConsent"),
+        description: i18next.t("anesthesia.patientDetail.generalAnesthesiaDescription"),
+        risksLabel: i18next.t("anesthesia.patientDetail.possibleAdverseEvents"),
+        risks: i18next.t("anesthesia.patientDetail.generalAnesthesiaRisks")
       },
       { 
         checked: data.preOpAssessment.consentRegional, 
-        label: i18next.t("anesthesia.preOp.regionalAnesthesiaConsent"),
-        description: i18next.t("anesthesia.preOp.regionalAnesthesiaDescription"),
-        risksLabel: i18next.t("anesthesia.preOp.possibleAdverseEvents"),
-        risks: i18next.t("anesthesia.preOp.regionalAnesthesiaRisks")
+        label: i18next.t("anesthesia.patientDetail.regionalAnesthesiaConsent"),
+        description: i18next.t("anesthesia.patientDetail.regionalAnesthesiaDescription"),
+        risksLabel: i18next.t("anesthesia.patientDetail.possibleAdverseEvents"),
+        risks: i18next.t("anesthesia.patientDetail.regionalAnesthesiaRisks")
       },
       { 
         checked: data.preOpAssessment.consentInstallations, 
-        label: i18next.t("anesthesia.preOp.plannedInstallationsConsent"),
-        description: i18next.t("anesthesia.preOp.plannedInstallationsDescription"),
-        risksLabel: i18next.t("anesthesia.preOp.possibleAdverseEvents"),
-        risks: i18next.t("anesthesia.preOp.plannedInstallationsRisks")
+        label: i18next.t("anesthesia.patientDetail.plannedInstallationsConsent"),
+        description: i18next.t("anesthesia.patientDetail.plannedInstallationsDescription"),
+        risksLabel: i18next.t("anesthesia.patientDetail.possibleAdverseEvents"),
+        risks: i18next.t("anesthesia.patientDetail.plannedInstallationsRisks")
       },
       { 
         checked: data.preOpAssessment.consentICU, 
-        label: i18next.t("anesthesia.preOp.postoperativeIcuAdmission"),
-        description: i18next.t("anesthesia.preOp.postoperativeIcuDescription"),
-        risksLabel: i18next.t("anesthesia.preOp.postoperativeIcuPurpose", "Zweck"),
+        label: i18next.t("anesthesia.patientDetail.postoperativeIcuAdmission"),
+        description: i18next.t("anesthesia.patientDetail.postoperativeIcuDescription"),
+        risksLabel: i18next.t("anesthesia.patientDetail.postoperativeIcuPurpose", "Zweck"),
         risks: ""
       }
     ];
@@ -2593,7 +2593,7 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     if (data.preOpAssessment.consentNotes) {
       yPos = checkPageBreak(doc, yPos, 30);
       doc.setFont("helvetica", "bold");
-      doc.text(`${i18next.t("anesthesia.preOp.consentNotes")}:`, 25, yPos);
+      doc.text(`${i18next.t("anesthesia.patientDetail.consentNotes")}:`, 25, yPos);
       yPos += 5;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
