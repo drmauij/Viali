@@ -12,6 +12,15 @@ interface ExtractedItemData {
   barcode?: string;
   unit?: string;
   confidence: number;
+  // Extended product codes
+  gtin?: string;
+  pharmacode?: string;
+  lotNumber?: string;
+  expiryDate?: string;
+  ref?: string;
+  manufacturer?: string;
+  packContent?: string;
+  unitsPerPack?: number;
 }
 
 export async function analyzeItemImage(base64Image: string): Promise<ExtractedItemData> {
@@ -24,7 +33,7 @@ export async function analyzeItemImage(base64Image: string): Promise<ExtractedIt
           content: [
             {
               type: "text",
-              text: `Analyze this pharmaceutical/medical product image and extract the following information in JSON format:
+              text: `Analyze this pharmaceutical/medical product image and extract ALL visible information in JSON format:
 {
   "name": "product name (without concentration or size)",
   "description": "brief description if visible (without size/volume)",
@@ -32,15 +41,30 @@ export async function analyzeItemImage(base64Image: string): Promise<ExtractedIt
   "size": "size/volume of the product (e.g., '100 ml', '500ml', '10mg')",
   "barcode": "barcode number if visible (EAN, UPC, etc.)",
   "unit": "packaging unit type - must be one of: 'Pack', 'Single unit'",
-  "confidence": "confidence score 0-1 for the extraction"
+  "confidence": "confidence score 0-1 for the extraction",
+  
+  "gtin": "GTIN/EAN/UPC code (13-14 digits, often starts with 76 for Swiss products)",
+  "pharmacode": "Swiss Pharmacode (7-digit number, often shown as 'Pharmacode' or 'PH')",
+  "lotNumber": "LOT/Batch number (often labeled 'LOT', 'Ch.-B.', 'BATCH')",
+  "expiryDate": "Expiry date in YYYY-MM-DD format (labeled 'EXP', 'Verfall', 'Verwendbar bis')",
+  "ref": "REF/Article number (manufacturer's reference code)",
+  "manufacturer": "Manufacturer/Company name (e.g., 'B. Braun', '3M', 'Polymed')",
+  "packContent": "Pack content description (e.g., '10x5ml', '50 Stück', '1000ml')",
+  "unitsPerPack": "Number of individual units in the pack (numeric)"
 }
 
+Swiss Medical Product Labels typically contain:
+- GTIN: 13-digit barcode (often starts with 76)
+- Pharmacode: 7-digit Swiss pharmacy code
+- LOT/Ch.-B.: Batch/lot number
+- EXP/Verfall: Expiry date
+- REF: Manufacturer article code
+- Look for DataMatrix/QR codes which may encode (01)GTIN(10)LOT(17)EXPIRY
+
 Important:
-- Extract the product size/volume separately from concentration (e.g., for "NaCl 0.9% 100ml", concentration is "0.9%" and size is "100 ml")
-- For unit: MOST pharmaceutical items should be "Pack" (boxes/packages/blister packs). Use "Single unit" ONLY for clearly individual vials/ampoules of drugs (especially controlled substances)
-- Extract any visible barcodes (EAN-13, UPC, Code128, etc.)
-- Include drug concentration/strength if visible
-- The description should NOT include size/volume information
+- Extract ALL codes visible on packaging including GS1 DataMatrix content if visible
+- Convert expiry dates to YYYY-MM-DD format
+- For unit: MOST pharmaceutical items should be "Pack". Use "Single unit" ONLY for individual vials/ampoules
 - If information is not clearly visible, omit that field
 - Return valid JSON only`
             },
@@ -67,6 +91,15 @@ Important:
       barcode: result.barcode,
       unit: result.unit,
       confidence: Math.max(0, Math.min(1, result.confidence || 0)),
+      // Extended product codes
+      gtin: result.gtin,
+      pharmacode: result.pharmacode,
+      lotNumber: result.lotNumber,
+      expiryDate: result.expiryDate,
+      ref: result.ref,
+      manufacturer: result.manufacturer,
+      packContent: result.packContent,
+      unitsPerPack: result.unitsPerPack ? parseInt(result.unitsPerPack) : undefined,
     };
   } catch (error: any) {
     console.error("Error analyzing image with OpenAI:", error);
