@@ -21,6 +21,8 @@ import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Tra
 import Papa from "papaparse";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import BarcodeScanner from "@/components/BarcodeScanner";
+import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
 
 type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
 
@@ -250,6 +252,7 @@ export default function Items() {
     catalogUrl: "",
     pricePerPack: "",
   });
+  const [codesScanner, setCodesScanner] = useState(false);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -3382,9 +3385,23 @@ export default function Items() {
                   <>
                     {/* Universal Product Codes Section */}
                     <div className="space-y-4">
-                      <div className="flex items-center gap-2">
-                        <i className="fas fa-barcode text-primary"></i>
-                        <h3 className="font-semibold">Universal Codes</h3>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <i className="fas fa-barcode text-primary"></i>
+                          <h3 className="font-semibold">Universal Codes</h3>
+                        </div>
+                        {canWrite && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCodesScanner(true)}
+                            data-testid="button-scan-codes"
+                          >
+                            <i className="fas fa-qrcode mr-2"></i>
+                            Scan
+                          </Button>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
@@ -4276,6 +4293,58 @@ export default function Items() {
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* GS1/DataMatrix Code Scanner for Codes Tab */}
+      <BarcodeScanner
+        isOpen={codesScanner}
+        onClose={() => setCodesScanner(false)}
+        onScan={(code) => {
+          setCodesScanner(false);
+          
+          if (isGS1Code(code)) {
+            const parsed = parseGS1Code(code);
+            
+            setItemCodes(prev => ({
+              ...prev,
+              gtin: parsed.gtin || prev?.gtin,
+              manufacturer: prev?.manufacturer,
+              packContent: prev?.packContent,
+              unitsPerPack: prev?.unitsPerPack,
+            }));
+            
+            toast({
+              title: "Code Scanned",
+              description: `GTIN: ${parsed.gtin || 'N/A'}${parsed.lotNumber ? `, LOT: ${parsed.lotNumber}` : ''}${parsed.expiryDate ? `, EXP: ${parsed.expiryDate}` : ''}`,
+            });
+          } else if (/^\d{13,14}$/.test(code)) {
+            setItemCodes(prev => ({
+              ...prev,
+              gtin: code.padStart(14, '0'),
+            }));
+            toast({
+              title: "Barcode Scanned",
+              description: `GTIN: ${code}`,
+            });
+          } else if (/^\d{7}$/.test(code)) {
+            setItemCodes(prev => ({
+              ...prev,
+              pharmacode: code,
+            }));
+            toast({
+              title: "Pharmacode Scanned",
+              description: `Pharmacode: ${code}`,
+            });
+          } else {
+            toast({
+              title: "Code Scanned",
+              description: `Raw value: ${code}`,
+            });
+          }
+        }}
+        onManualEntry={() => {
+          setCodesScanner(false);
+        }}
+      />
       </div>
     </div>
   );
