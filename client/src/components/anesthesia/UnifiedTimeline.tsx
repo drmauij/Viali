@@ -3068,16 +3068,26 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // Only apply for historical records with valid content bounds
     if (!isHistoricalRecord || !contentBounds) {
+      // Update prev refs even on early return to prevent reset loops
+      prevIsHistoricalRecordRef.current = isHistoricalRecord;
+      prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
       return;
     }
     if (!isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
         contentBounds.start <= 0 || contentBounds.end <= 0) {
+      // Update prev refs even on early return to prevent reset loops
+      prevIsHistoricalRecordRef.current = isHistoricalRecord;
+      prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
       return;
     }
     
     // CRITICAL: Skip auto-recentering if user has manually adjusted viewport
     // This prevents the view from jumping when adding data in the past
     if (userPinnedViewportRef.current) {
+      // IMPORTANT: Still update prev refs so we don't get into a reset loop
+      // Without this, the next render might think it's first render and clear the pin flag
+      prevIsHistoricalRecordRef.current = isHistoricalRecord;
+      prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
       return;
     }
     
