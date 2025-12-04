@@ -3050,60 +3050,41 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     hasSetInitialZoomRef.current = true;
   };
 
-  // Re-center chart when contentBounds changes - ONLY for locked records with PACU End
-  // This handles the case where data arrives after initial mount
-  // Uses a stable hash of content bounds to detect meaningful changes
-  const lastAppliedBoundsRef = useRef<string | null>(null);
-  const recenterAppliedRef = useRef<boolean>(false);
-  // Use null as sentinel value to detect first render
-  const prevShouldAutoRecenterRef = useRef<boolean | null>(null);
+  // Re-center chart ONCE on load - ONLY for locked records with PACU End
+  // This ref tracks if we've already recentered for the current record
+  // Once set, we NEVER recenter again for this record (regardless of data changes)
+  const recenterAppliedForRecordRef = useRef<string | null>(null);
   const prevAnesthesiaRecordIdRef = useRef<string | undefined>(undefined);
   
   useEffect(() => {
-    // Check if shouldAutoRecenterView changed or if the record ID changed
-    // Reset the zoom tracking refs when context changes
-    const recenterStatusChanged = prevShouldAutoRecenterRef.current !== shouldAutoRecenterView;
-    const recordIdChanged = prevAnesthesiaRecordIdRef.current !== anesthesiaRecordId;
-    const isFirstRender = prevShouldAutoRecenterRef.current === null;
-    
-    // Reset refs if context changed OR this is first render with auto-recenter enabled
-    if (recenterStatusChanged || recordIdChanged || (isFirstRender && shouldAutoRecenterView)) {
-      lastAppliedBoundsRef.current = null;
-      recenterAppliedRef.current = false;
+    // If record ID changed, reset the recenter tracking
+    if (prevAnesthesiaRecordIdRef.current !== anesthesiaRecordId) {
+      recenterAppliedForRecordRef.current = null;
       hasSetInitialZoomRef.current = false;
-      // Also reset user-pinned viewport when switching records
       userPinnedViewportRef.current = false;
+      prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
     }
     
     // CRITICAL: Only apply auto-recentering when record is locked AND PACU End is entered
     // In all other cases, this mechanism is completely disabled
-    if (!shouldAutoRecenterView || !contentBounds) {
-      // Update prev refs even on early return to prevent reset loops
-      prevShouldAutoRecenterRef.current = shouldAutoRecenterView;
-      prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
+    if (!shouldAutoRecenterView) {
       return;
     }
-    if (!isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
+    
+    // ONCE ONLY: Skip if we've already recentered for this record ID
+    // This prevents any repeated recentering regardless of data/bounds changes
+    if (recenterAppliedForRecordRef.current === anesthesiaRecordId) {
+      return;
+    }
+    
+    // Need valid content bounds to center on
+    if (!contentBounds || !isFinite(contentBounds.start) || !isFinite(contentBounds.end) ||
         contentBounds.start <= 0 || contentBounds.end <= 0) {
-      // Update prev refs even on early return to prevent reset loops
-      prevShouldAutoRecenterRef.current = shouldAutoRecenterView;
-      prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
       return;
     }
     
-    // Skip auto-recentering if user has manually adjusted viewport
+    // Skip if user has manually adjusted viewport
     if (userPinnedViewportRef.current) {
-      prevShouldAutoRecenterRef.current = shouldAutoRecenterView;
-      prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
-      return;
-    }
-    
-    // Create a hash of current bounds to detect changes
-    const boundsHash = `${contentBounds.start}-${contentBounds.end}`;
-    
-    // Skip if we already successfully applied these exact bounds for this record
-    // This ensures recentering only happens ONCE per record load
-    if (lastAppliedBoundsRef.current === boundsHash && recenterAppliedRef.current) {
       return;
     }
     
@@ -3121,8 +3102,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         return false;
       }
       
-      // Calculate a 5-hour window centered on the content instead of showing full range
-      // This gives comfortable 30-minute tick intervals
+      // Calculate a 5-hour window centered on the content
       const contentSpan = contentBounds.end - contentBounds.start;
       const FIVE_HOURS = 5 * 60 * 60 * 1000;
       const PADDING = 15 * 60 * 1000;
@@ -3168,12 +3148,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }]
       });
       
-      lastAppliedBoundsRef.current = boundsHash;
+      // MARK AS DONE FOR THIS RECORD - will never recenter again
+      recenterAppliedForRecordRef.current = anesthesiaRecordId ?? null;
       hasSetInitialZoomRef.current = true;
-      recenterAppliedRef.current = true;
-      // Update prev refs now that we've successfully applied bounds
-      prevShouldAutoRecenterRef.current = shouldAutoRecenterView;
-      prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
       return true;
     };
     
@@ -3182,7 +3159,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return;
     }
     
-    // If chart not ready, retry once after a short delay (limited retries to avoid spin)
+    // If chart not ready, retry once after a short delay (max 3 retries)
     const scheduleRetry = (delay: number, attempt: number, maxAttempts: number) => {
       if (isCancelled || attempt >= maxAttempts) return;
       
