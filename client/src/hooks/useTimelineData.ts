@@ -87,7 +87,31 @@ export function useTimelineData({
       description: event.description || '',
     }));
 
+    // Collect timestamps from vitals
     const timestamps = dataToUse.map((s: any) => new Date(s.timestamp).getTime());
+    
+    // Also collect timestamps from medications to ensure timeline extends to include all doses
+    // This allows users to scroll to see and edit/delete medications entered beyond the vitals range
+    if (medsToUse && medsToUse.length > 0) {
+      medsToUse.forEach((med: any) => {
+        if (med.timestamp) {
+          timestamps.push(new Date(med.timestamp).getTime());
+        }
+        if (med.endTimestamp) {
+          timestamps.push(new Date(med.endTimestamp).getTime());
+        }
+      });
+    }
+    
+    // Also include event timestamps
+    if (eventsData && eventsData.length > 0) {
+      eventsData.forEach((event: any) => {
+        if (event.timestamp) {
+          timestamps.push(new Date(event.timestamp).getTime());
+        }
+      });
+    }
+    
     const minTime = timestamps.length > 0 ? Math.min(...timestamps) : new Date().getTime() - 6 * 60 * 60 * 1000;
     const maxTime = timestamps.length > 0 ? Math.max(...timestamps) : new Date().getTime() + 6 * 60 * 60 * 1000;
 
