@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UpgradeDialog from "@/components/UpgradeDialog";
-import type { Item, StockLevel, InsertItem, Vendor, Folder } from "@shared/schema";
+import type { Item, StockLevel, InsertItem, Vendor, Folder, Lot } from "@shared/schema";
 import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X } from "lucide-react";
 import Papa from "papaparse";
@@ -253,6 +253,10 @@ export default function Items() {
     pricePerPack: "",
   });
   const [codesScanner, setCodesScanner] = useState(false);
+  const [itemLots, setItemLots] = useState<Lot[]>([]);
+  const [isLoadingLots, setIsLoadingLots] = useState(false);
+  const [lotsScanner, setLotsScanner] = useState(false);
+  const [newLot, setNewLot] = useState({ lotNumber: "", expiryDate: "" });
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -631,15 +635,19 @@ export default function Items() {
     setEditDialogTab("details");
     setItemCodes(null);
     setSupplierCodes([]);
+    setItemLots([]);
     setNewSupplier({ supplierName: "", articleCode: "", catalogUrl: "", pricePerPack: "" });
+    setNewLot({ lotNumber: "", expiryDate: "" });
     setEditDialogOpen(true);
     
-    // Load item codes and supplier codes in background
+    // Load item codes, supplier codes, and lots in background
     setIsLoadingCodes(true);
+    setIsLoadingLots(true);
     try {
-      const [codesRes, suppliersRes] = await Promise.all([
+      const [codesRes, suppliersRes, lotsRes] = await Promise.all([
         fetch(`/api/items/${item.id}/codes`),
-        fetch(`/api/items/${item.id}/suppliers`)
+        fetch(`/api/items/${item.id}/suppliers`),
+        fetch(`/api/items/${item.id}/lots`)
       ]);
       
       if (codesRes.ok) {
@@ -651,10 +659,16 @@ export default function Items() {
         const suppliers = await suppliersRes.json();
         setSupplierCodes(suppliers);
       }
+      
+      if (lotsRes.ok) {
+        const lots = await lotsRes.json();
+        setItemLots(lots);
+      }
     } catch (error) {
       console.error('Failed to load item codes:', error);
     } finally {
       setIsLoadingCodes(false);
+      setIsLoadingLots(false);
     }
   };
 
@@ -3687,6 +3701,156 @@ export default function Items() {
                         </div>
                       )}
                     </div>
+
+                    {/* Lot Management Section */}
+                    <div className="space-y-4 pt-4 border-t">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <i className="fas fa-boxes text-primary"></i>
+                          <h3 className="font-semibold">Lot Tracking</h3>
+                        </div>
+                        {canWrite && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setLotsScanner(true)}
+                            data-testid="button-scan-lot"
+                          >
+                            <i className="fas fa-qrcode mr-2"></i>
+                            Scan Lot
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {isLoadingLots ? (
+                        <div className="flex items-center justify-center py-4">
+                          <i className="fas fa-spinner fa-spin text-muted-foreground"></i>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Existing Lots List */}
+                          {itemLots.length > 0 && (
+                            <div className="space-y-2">
+                              {itemLots.sort((a, b) => {
+                                if (!a.expiryDate && !b.expiryDate) return 0;
+                                if (!a.expiryDate) return 1;
+                                if (!b.expiryDate) return -1;
+                                return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
+                              }).map((lot) => {
+                                const isExpired = lot.expiryDate && new Date(lot.expiryDate) < new Date();
+                                const isExpiringSoon = lot.expiryDate && !isExpired && new Date(lot.expiryDate) < new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+                                
+                                return (
+                                  <div 
+                                    key={lot.id}
+                                    className={`p-3 rounded-lg border ${isExpired ? 'border-destructive bg-destructive/5' : isExpiringSoon ? 'border-yellow-500 bg-yellow-500/5' : 'border-border'}`}
+                                    data-testid={`lot-${lot.id}`}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-mono font-medium">{lot.lotNumber}</span>
+                                          {isExpired && (
+                                            <span className="text-xs bg-destructive text-destructive-foreground px-2 py-0.5 rounded">Expired</span>
+                                          )}
+                                          {isExpiringSoon && !isExpired && (
+                                            <span className="text-xs bg-yellow-500 text-white px-2 py-0.5 rounded">Expiring Soon</span>
+                                          )}
+                                        </div>
+                                        <div className="text-sm text-muted-foreground">
+                                          {lot.expiryDate ? (
+                                            <span>Expires: {new Date(lot.expiryDate).toLocaleDateString()}</span>
+                                          ) : (
+                                            <span>No expiry date</span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {canWrite && (
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={async () => {
+                                            if (!selectedItem || !window.confirm('Delete this lot?')) return;
+                                            try {
+                                              await apiRequest("DELETE", `/api/items/${selectedItem.id}/lots/${lot.id}`, {});
+                                              setItemLots(prev => prev.filter(l => l.id !== lot.id));
+                                              toast({ title: t('common.success'), description: "Lot removed" });
+                                            } catch (error: any) {
+                                              toast({ title: t('common.error'), description: error.message, variant: "destructive" });
+                                            }
+                                          }}
+                                          data-testid={`button-delete-lot-${lot.id}`}
+                                        >
+                                          <Trash2 className="w-4 h-4 text-destructive" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                          
+                          {/* Add New Lot Form */}
+                          {canWrite && (
+                            <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                              <Label className="text-sm font-medium">Add Lot</Label>
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  placeholder="Lot number *"
+                                  value={newLot.lotNumber}
+                                  onChange={(e) => setNewLot(prev => ({ ...prev, lotNumber: e.target.value }))}
+                                  data-testid="input-new-lot-number"
+                                />
+                                <Input
+                                  placeholder="Expiry date"
+                                  type="date"
+                                  value={newLot.expiryDate}
+                                  onChange={(e) => setNewLot(prev => ({ ...prev, expiryDate: e.target.value }))}
+                                  data-testid="input-new-lot-expiry"
+                                />
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                disabled={!newLot.lotNumber}
+                                onClick={async () => {
+                                  if (!selectedItem || !newLot.lotNumber) return;
+                                  try {
+                                    const res = await apiRequest("POST", `/api/items/${selectedItem.id}/lots`, {
+                                      itemId: selectedItem.id,
+                                      unitId: activeHospital?.unitId,
+                                      lotNumber: newLot.lotNumber,
+                                      expiryDate: newLot.expiryDate ? new Date(newLot.expiryDate).toISOString() : null,
+                                    });
+                                    const created = await res.json();
+                                    setItemLots(prev => [...prev, created]);
+                                    setNewLot({ lotNumber: "", expiryDate: "" });
+                                    toast({ title: t('common.success'), description: "Lot added" });
+                                  } catch (error: any) {
+                                    toast({ title: t('common.error'), description: error.message, variant: "destructive" });
+                                  }
+                                }}
+                                data-testid="button-add-lot"
+                              >
+                                <i className="fas fa-plus mr-2"></i>
+                                Add Lot
+                              </Button>
+                            </div>
+                          )}
+
+                          {itemLots.length === 0 && !canWrite && (
+                            <div className="text-center py-4 text-muted-foreground text-sm">
+                              No lots tracked
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </>
                 )}
               </TabsContent>
@@ -4343,6 +4507,58 @@ export default function Items() {
         }}
         onManualEntry={() => {
           setCodesScanner(false);
+        }}
+      />
+      
+      {/* GS1/DataMatrix Scanner for Lot Tracking */}
+      <BarcodeScanner
+        isOpen={lotsScanner}
+        onClose={() => setLotsScanner(false)}
+        onScan={(code) => {
+          setLotsScanner(false);
+          
+          if (isGS1Code(code)) {
+            const parsed = parseGS1Code(code);
+            
+            if (parsed.lotNumber) {
+              const expiryDate = parsed.expiryDate ? (() => {
+                const parts = parsed.expiryDate.match(/(\d{2})\/(\d{2})\/(\d{2})/);
+                if (parts) {
+                  const year = parseInt(parts[3]) > 50 ? `19${parts[3]}` : `20${parts[3]}`;
+                  return `${year}-${parts[1]}-${parts[2]}`;
+                }
+                return "";
+              })() : "";
+              
+              setNewLot({
+                lotNumber: parsed.lotNumber,
+                expiryDate: expiryDate,
+              });
+              
+              toast({
+                title: "Lot Scanned",
+                description: `LOT: ${parsed.lotNumber}${parsed.expiryDate ? `, EXP: ${parsed.expiryDate}` : ''}`,
+              });
+            } else {
+              toast({
+                title: "No Lot Found",
+                description: "The scanned code does not contain lot information",
+                variant: "destructive",
+              });
+            }
+          } else {
+            setNewLot(prev => ({
+              ...prev,
+              lotNumber: code,
+            }));
+            toast({
+              title: "Code Scanned",
+              description: `Value: ${code}`,
+            });
+          }
+        }}
+        onManualEntry={() => {
+          setLotsScanner(false);
         }}
       />
       </div>
