@@ -622,4 +622,185 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
   }
 });
 
+// ============ Price Sync Routes ============
+
+router.get('/api/supplier-catalogs/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hospital = userHospitals.find(h => h.id === hospitalId);
+    if (!hospital) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const catalogs = await storage.getSupplierCatalogs(hospitalId);
+    res.json(catalogs);
+  } catch (error) {
+    console.error("Error fetching supplier catalogs:", error);
+    res.status(500).json({ message: "Failed to fetch supplier catalogs" });
+  }
+});
+
+router.post('/api/supplier-catalogs', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { hospitalId, supplierName, supplierType, apiBaseUrl, customerNumber } = req.body;
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hospital = userHospitals.find(h => h.id === hospitalId);
+    if (!hospital || hospital.role !== 'admin') {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    const existing = await storage.getSupplierCatalogByName(hospitalId, supplierName);
+    if (existing) {
+      return res.status(400).json({ message: "Catalog for this supplier already exists" });
+    }
+    
+    const catalog = await storage.createSupplierCatalog({
+      hospitalId,
+      supplierName,
+      supplierType: supplierType || 'api',
+      apiBaseUrl,
+      customerNumber,
+      isEnabled: true,
+      syncSchedule: 'manual',
+    });
+    
+    res.json(catalog);
+  } catch (error) {
+    console.error("Error creating supplier catalog:", error);
+    res.status(500).json({ message: "Failed to create supplier catalog" });
+  }
+});
+
+router.patch('/api/supplier-catalogs/:catalogId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { catalogId } = req.params;
+    const userId = req.user.id;
+    const updates = req.body;
+    
+    const catalog = await storage.getSupplierCatalog(catalogId);
+    if (!catalog) {
+      return res.status(404).json({ message: "Catalog not found" });
+    }
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hospital = userHospitals.find(h => h.id === catalog.hospitalId);
+    if (!hospital || hospital.role !== 'admin') {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    const updated = await storage.updateSupplierCatalog(catalogId, updates);
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating supplier catalog:", error);
+    res.status(500).json({ message: "Failed to update supplier catalog" });
+  }
+});
+
+router.delete('/api/supplier-catalogs/:catalogId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { catalogId } = req.params;
+    const userId = req.user.id;
+    
+    const catalog = await storage.getSupplierCatalog(catalogId);
+    if (!catalog) {
+      return res.status(404).json({ message: "Catalog not found" });
+    }
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hospital = userHospitals.find(h => h.id === catalog.hospitalId);
+    if (!hospital || hospital.role !== 'admin') {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    await storage.deleteSupplierCatalog(catalogId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting supplier catalog:", error);
+    res.status(500).json({ message: "Failed to delete supplier catalog" });
+  }
+});
+
+router.get('/api/price-sync-jobs/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hospital = userHospitals.find(h => h.id === hospitalId);
+    if (!hospital) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const jobs = await storage.getPriceSyncJobs(hospitalId);
+    res.json(jobs);
+  } catch (error) {
+    console.error("Error fetching price sync jobs:", error);
+    res.status(500).json({ message: "Failed to fetch price sync jobs" });
+  }
+});
+
+router.post('/api/price-sync/trigger', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { catalogId } = req.body;
+    
+    const catalog = await storage.getSupplierCatalog(catalogId);
+    if (!catalog) {
+      return res.status(404).json({ message: "Catalog not found" });
+    }
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hospital = userHospitals.find(h => h.id === catalog.hospitalId);
+    if (!hospital || hospital.role !== 'admin') {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    const existingJob = await storage.getLatestPriceSyncJob(catalogId);
+    if (existingJob && (existingJob.status === 'queued' || existingJob.status === 'processing')) {
+      return res.status(400).json({ 
+        message: "A sync job is already in progress",
+        jobId: existingJob.id 
+      });
+    }
+    
+    const job = await storage.createPriceSyncJob({
+      catalogId,
+      hospitalId: catalog.hospitalId,
+      status: 'queued',
+      jobType: 'full_sync',
+      triggeredBy: userId,
+    });
+    
+    res.json({ 
+      success: true, 
+      jobId: job.id,
+      message: "Price sync job queued successfully" 
+    });
+  } catch (error) {
+    console.error("Error triggering price sync:", error);
+    res.status(500).json({ message: "Failed to trigger price sync" });
+  }
+});
+
+router.get('/api/price-sync-jobs/status/:jobId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { jobId } = req.params;
+    const job = await storage.getPriceSyncJob(jobId);
+    
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+    
+    res.json(job);
+  } catch (error) {
+    console.error("Error fetching job status:", error);
+    res.status(500).json({ message: "Failed to fetch job status" });
+  }
+});
+
 export default router;

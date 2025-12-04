@@ -1,24 +1,25 @@
 import { storage } from './storage';
 import { analyzeBulkItemImages } from './openai';
 import { sendBulkImportCompleteEmail } from './resend';
+import { createGalexisClient, type PriceData } from './services/galexisClient';
+import { supplierCodes } from '@shared/schema';
+import { eq, and } from 'drizzle-orm';
+import { db } from './storage';
 
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
 const STUCK_JOB_CHECK_INTERVAL_MS = 60000; // Check for stuck jobs every minute
 const STUCK_JOB_THRESHOLD_MINUTES = 30; // Jobs stuck for >30 minutes
 
-async function processNextJob() {
-  
+async function processNextImportJob() {
   try {
-    // Get next queued job
     const job = await storage.getNextQueuedJob();
     
     if (!job) {
-      return false; // No jobs to process
+      return false;
     }
 
-    console.log(`[Worker] Processing job ${job.id} with ${job.totalImages} images`);
+    console.log(`[Worker] Processing import job ${job.id} with ${job.totalImages} images`);
 
-    // Update job status to processing
     await storage.updateImportJob(job.id, {
       status: 'processing',
       startedAt: new Date(),
@@ -27,11 +28,9 @@ async function processNextJob() {
     });
 
     try {
-      // Process images with progress tracking
       const extractedItems = await analyzeBulkItemImages(
         job.imagesData as string[], 
         async (currentImage, totalImages, progressPercent) => {
-          // Update progress in database
           await storage.updateImportJob(job.id, {
             currentImage,
             processedImages: currentImage,
@@ -41,7 +40,6 @@ async function processNextJob() {
         }
       );
 
-      // Update job with results
       await storage.updateImportJob(job.id, {
         status: 'completed',
         completedAt: new Date(),
@@ -50,12 +48,11 @@ async function processNextJob() {
         progressPercent: 100,
         extractedItems: extractedItems.length,
         results: extractedItems,
-        imagesData: null, // Clear images to free up space
+        imagesData: null,
       });
 
-      console.log(`[Worker] Completed job ${job.id}, extracted ${extractedItems.length} items`);
+      console.log(`[Worker] Completed import job ${job.id}, extracted ${extractedItems.length} items`);
 
-      // Send email notification
       const user = await storage.getUser(job.userId);
       if (user?.email) {
         const baseUrl = process.env.VITE_PUBLIC_URL || 'http://localhost:5000';
@@ -73,25 +70,182 @@ async function processNextJob() {
           console.log(`[Worker] Sent notification email to ${user.email}`);
         } catch (emailError: any) {
           console.error(`[Worker] Failed to send email notification:`, emailError);
-          // Don't fail the job if email fails
         }
       }
 
-      return true; // Successfully processed a job
+      return true;
     } catch (processingError: any) {
-      console.error(`[Worker] Error processing job ${job.id}:`, processingError);
+      console.error(`[Worker] Error processing import job ${job.id}:`, processingError);
       
-      // Update job status to failed
       await storage.updateImportJob(job.id, {
         status: 'failed',
         completedAt: new Date(),
         error: processingError.message || 'Processing failed',
       });
       
-      return true; // Processed a job (even though it failed)
+      return true;
     }
   } catch (error: any) {
-    console.error('[Worker] Error in processNextJob:', error);
+    console.error('[Worker] Error in processNextImportJob:', error);
+    return false;
+  }
+}
+
+async function processNextPriceSyncJob() {
+  try {
+    const job = await storage.getNextQueuedPriceSyncJob();
+    
+    if (!job) {
+      return false;
+    }
+
+    console.log(`[Worker] Processing price sync job ${job.id}`);
+
+    await storage.updatePriceSyncJob(job.id, {
+      status: 'processing',
+      startedAt: new Date(),
+      progressPercent: 0,
+    });
+
+    try {
+      const catalog = await storage.getSupplierCatalog(job.catalogId);
+      if (!catalog) {
+        throw new Error('Catalog not found');
+      }
+
+      if (catalog.supplierName !== 'Galexis') {
+        throw new Error(`Unsupported supplier: ${catalog.supplierName}. Only Galexis is currently supported.`);
+      }
+
+      const password = process.env.GALEXIS_API_PASSWORD;
+      if (!password || !catalog.customerNumber) {
+        throw new Error('Galexis credentials not configured. Set GALEXIS_API_PASSWORD secret and customerNumber.');
+      }
+
+      const client = createGalexisClient(
+        catalog.customerNumber,
+        password,
+        catalog.apiBaseUrl || undefined
+      );
+
+      console.log(`[Worker] Testing Galexis connection...`);
+      const connectionTest = await client.testConnection();
+      if (!connectionTest.success) {
+        throw new Error(`Galexis connection failed: ${connectionTest.message}`);
+      }
+
+      console.log(`[Worker] Fetching all prices from Galexis...`);
+      const prices = await client.fetchAllPrices((processed, total) => {
+        const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
+        storage.updatePriceSyncJob(job.id, {
+          processedItems: processed,
+          totalItems: total,
+          progressPercent: percent,
+        });
+      });
+
+      console.log(`[Worker] Fetched ${prices.length} prices, matching with inventory items...`);
+
+      await storage.updatePriceSyncJob(job.id, {
+        totalItems: prices.length,
+        progressPercent: 50,
+      });
+
+      const priceMap = new Map<string, PriceData>();
+      for (const price of prices) {
+        if (price.articleCode) {
+          priceMap.set(price.articleCode, price);
+        }
+      }
+
+      const existingSupplierCodes = await db
+        .select()
+        .from(supplierCodes)
+        .where(eq(supplierCodes.supplierName, 'Galexis'));
+
+      let matchedCount = 0;
+      let updatedCount = 0;
+
+      for (const code of existingSupplierCodes) {
+        if (code.articleCode && priceMap.has(code.articleCode)) {
+          matchedCount++;
+          const priceData = priceMap.get(code.articleCode)!;
+          
+          const hasChanges = 
+            code.basispreis !== String(priceData.basispreis) ||
+            code.publikumspreis !== String(priceData.publikumspreis);
+
+          if (hasChanges) {
+            await db
+              .update(supplierCodes)
+              .set({
+                basispreis: String(priceData.basispreis),
+                publikumspreis: String(priceData.publikumspreis),
+                lastPriceUpdate: new Date(),
+                lastChecked: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(supplierCodes.id, code.id));
+            
+            updatedCount++;
+            console.log(`[Worker] Updated price for item ${code.itemId}: ${code.basispreis} -> ${priceData.basispreis}`);
+          } else {
+            await db
+              .update(supplierCodes)
+              .set({
+                lastChecked: new Date(),
+              })
+              .where(eq(supplierCodes.id, code.id));
+          }
+        }
+      }
+
+      const summary = {
+        totalPricesFetched: prices.length,
+        matchedItems: matchedCount,
+        updatedItems: updatedCount,
+        unmatchedItems: existingSupplierCodes.length - matchedCount,
+      };
+
+      await storage.updatePriceSyncJob(job.id, {
+        status: 'completed',
+        completedAt: new Date(),
+        totalItems: prices.length,
+        processedItems: prices.length,
+        matchedItems: matchedCount,
+        updatedItems: updatedCount,
+        progressPercent: 100,
+        summary: JSON.stringify(summary),
+      });
+
+      await storage.updateSupplierCatalog(job.catalogId, {
+        lastSyncAt: new Date(),
+        lastSyncStatus: 'success',
+        lastSyncMessage: `Synced ${matchedCount} items, updated ${updatedCount} prices`,
+      });
+
+      console.log(`[Worker] Completed price sync job ${job.id}: matched ${matchedCount}, updated ${updatedCount}`);
+
+      return true;
+    } catch (processingError: any) {
+      console.error(`[Worker] Error processing price sync job ${job.id}:`, processingError);
+      
+      await storage.updatePriceSyncJob(job.id, {
+        status: 'failed',
+        completedAt: new Date(),
+        error: processingError.message || 'Processing failed',
+      });
+
+      await storage.updateSupplierCatalog(job.catalogId, {
+        lastSyncAt: new Date(),
+        lastSyncStatus: 'failed',
+        lastSyncMessage: processingError.message || 'Sync failed',
+      });
+      
+      return true;
+    }
+  } catch (error: any) {
+    console.error('[Worker] Error in processNextPriceSyncJob:', error);
     return false;
   }
 }
@@ -130,32 +284,29 @@ async function workerLoop() {
   
   while (true) {
     try {
-      // Check for stuck jobs periodically
       if (Date.now() - lastStuckJobCheck >= STUCK_JOB_CHECK_INTERVAL_MS) {
         await checkStuckJobs();
         lastStuckJobCheck = Date.now();
       }
       
-      // Try to process a job
-      const processed = await processNextJob();
-      
-      if (processed) {
-        // If we processed a job, immediately check for another one
-        // This allows us to process multiple jobs back-to-back
+      const processedImport = await processNextImportJob();
+      if (processedImport) {
         continue;
       }
       
-      // No jobs available, wait before polling again
+      const processedPriceSync = await processNextPriceSyncJob();
+      if (processedPriceSync) {
+        continue;
+      }
+      
       await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
     } catch (error: any) {
       console.error('[Worker] Unexpected error in worker loop:', error);
-      // Wait a bit before retrying to avoid rapid error loops
       await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL_MS));
     }
   }
 }
 
-// Handle graceful shutdown
 process.on('SIGTERM', () => {
   console.log('[Worker] Received SIGTERM, shutting down gracefully...');
   process.exit(0);
@@ -166,7 +317,6 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// Start the worker
 workerLoop().catch(error => {
   console.error('[Worker] Fatal error:', error);
   process.exit(1);

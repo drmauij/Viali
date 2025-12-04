@@ -8,6 +8,8 @@ import {
   items,
   itemCodes,
   supplierCodes,
+  supplierCatalogs,
+  priceSyncJobs,
   stockLevels,
   lots,
   orders,
@@ -63,6 +65,8 @@ import {
   type InsertItemCode,
   type SupplierCode,
   type InsertSupplierCode,
+  type SupplierCatalog,
+  type PriceSyncJob,
   type InsertLot,
   type InsertFolder,
   type InsertItem,
@@ -1454,6 +1458,99 @@ export class DatabaseStorage implements IStorage {
       .where(eq(importJobs.id, id))
       .returning();
     return updated;
+  }
+
+  // Supplier Catalog implementations
+  async createSupplierCatalog(catalog: Partial<SupplierCatalog>): Promise<SupplierCatalog> {
+    const [created] = await db.insert(supplierCatalogs).values(catalog as any).returning();
+    return created;
+  }
+
+  async getSupplierCatalogs(hospitalId: string): Promise<SupplierCatalog[]> {
+    return db
+      .select()
+      .from(supplierCatalogs)
+      .where(eq(supplierCatalogs.hospitalId, hospitalId))
+      .orderBy(asc(supplierCatalogs.supplierName));
+  }
+
+  async getSupplierCatalog(id: string): Promise<SupplierCatalog | undefined> {
+    const [catalog] = await db.select().from(supplierCatalogs).where(eq(supplierCatalogs.id, id));
+    return catalog;
+  }
+
+  async getSupplierCatalogByName(hospitalId: string, supplierName: string): Promise<SupplierCatalog | undefined> {
+    const [catalog] = await db
+      .select()
+      .from(supplierCatalogs)
+      .where(and(
+        eq(supplierCatalogs.hospitalId, hospitalId),
+        eq(supplierCatalogs.supplierName, supplierName)
+      ));
+    return catalog;
+  }
+
+  async updateSupplierCatalog(id: string, updates: Partial<SupplierCatalog>): Promise<SupplierCatalog> {
+    const [updated] = await db
+      .update(supplierCatalogs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(supplierCatalogs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSupplierCatalog(id: string): Promise<void> {
+    await db.delete(priceSyncJobs).where(eq(priceSyncJobs.catalogId, id));
+    await db.delete(supplierCatalogs).where(eq(supplierCatalogs.id, id));
+  }
+
+  // Price Sync Job implementations
+  async createPriceSyncJob(job: Partial<PriceSyncJob>): Promise<PriceSyncJob> {
+    const [created] = await db.insert(priceSyncJobs).values(job as any).returning();
+    return created;
+  }
+
+  async getPriceSyncJob(id: string): Promise<PriceSyncJob | undefined> {
+    const [job] = await db.select().from(priceSyncJobs).where(eq(priceSyncJobs.id, id));
+    return job;
+  }
+
+  async getPriceSyncJobs(hospitalId: string, limit: number = 20): Promise<PriceSyncJob[]> {
+    return db
+      .select()
+      .from(priceSyncJobs)
+      .where(eq(priceSyncJobs.hospitalId, hospitalId))
+      .orderBy(desc(priceSyncJobs.createdAt))
+      .limit(limit);
+  }
+
+  async getNextQueuedPriceSyncJob(): Promise<PriceSyncJob | undefined> {
+    const [job] = await db
+      .select()
+      .from(priceSyncJobs)
+      .where(eq(priceSyncJobs.status, 'queued'))
+      .orderBy(asc(priceSyncJobs.createdAt))
+      .limit(1);
+    return job;
+  }
+
+  async updatePriceSyncJob(id: string, updates: Partial<PriceSyncJob>): Promise<PriceSyncJob> {
+    const [updated] = await db
+      .update(priceSyncJobs)
+      .set(updates)
+      .where(eq(priceSyncJobs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getLatestPriceSyncJob(catalogId: string): Promise<PriceSyncJob | undefined> {
+    const [job] = await db
+      .select()
+      .from(priceSyncJobs)
+      .where(eq(priceSyncJobs.catalogId, catalogId))
+      .orderBy(desc(priceSyncJobs.createdAt))
+      .limit(1);
+    return job;
   }
 
   // Checklist implementations
