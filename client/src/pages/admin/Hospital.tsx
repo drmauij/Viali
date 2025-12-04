@@ -35,7 +35,14 @@ export default function Hospital() {
   const { toast } = useToast();
 
   // Internal tab state
-  const [activeTab, setActiveTab] = useState<"units" | "checklists">("units");
+  const [activeTab, setActiveTab] = useState<"units" | "checklists" | "suppliers">("units");
+
+  // Supplier catalog states
+  const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
+  const [supplierForm, setSupplierForm] = useState({
+    supplierName: "Galexis",
+    customerNumber: "",
+  });
 
   // Hospital name states
   const [hospitalDialogOpen, setHospitalDialogOpen] = useState(false);
@@ -81,6 +88,22 @@ export default function Hospital() {
   const { data: templates = [], isLoading: templatesLoading } = useQuery<any[]>({
     queryKey: [`/api/checklists/templates/${activeHospital?.id}`],
     enabled: !!activeHospital?.id && isAdmin,
+  });
+
+  // Fetch supplier catalogs
+  const { data: supplierCatalogs = [], isLoading: catalogsLoading } = useQuery<any[]>({
+    queryKey: ['/api/supplier-catalogs', activeHospital?.id],
+    enabled: !!activeHospital?.id && isAdmin,
+  });
+
+  // Fetch price sync jobs
+  const { data: priceSyncJobs = [], isLoading: jobsLoading, refetch: refetchJobs } = useQuery<any[]>({
+    queryKey: ['/api/price-sync-jobs', activeHospital?.id],
+    enabled: !!activeHospital?.id && isAdmin,
+    refetchInterval: (data) => {
+      const hasActiveJob = data?.some((j: any) => j.status === 'queued' || j.status === 'processing');
+      return hasActiveJob ? 3000 : false;
+    },
   });
 
   // Unit mutations
@@ -180,6 +203,51 @@ export default function Hospital() {
     },
     onError: (error: any) => {
       toast({ title: t("common.error"), description: error.message || t("admin.failedToDeleteTemplate"), variant: "destructive" });
+    },
+  });
+
+  // Supplier catalog mutations
+  const createCatalogMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", `/api/supplier-catalogs`, { ...data, hospitalId: activeHospital?.id });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/supplier-catalogs', activeHospital?.id] });
+      setSupplierDialogOpen(false);
+      setSupplierForm({ supplierName: "Galexis", customerNumber: "" });
+      toast({ title: t("common.success"), description: "Supplier catalog created successfully" });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to create supplier catalog", variant: "destructive" });
+    },
+  });
+
+  const deleteCatalogMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/supplier-catalogs/${id}`);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/supplier-catalogs', activeHospital?.id] });
+      toast({ title: t("common.success"), description: "Supplier catalog deleted" });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to delete supplier catalog", variant: "destructive" });
+    },
+  });
+
+  const triggerSyncMutation = useMutation({
+    mutationFn: async (catalogId: string) => {
+      const response = await apiRequest("POST", `/api/price-sync/trigger`, { catalogId });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/price-sync-jobs', activeHospital?.id] });
+      toast({ title: t("common.success"), description: "Price sync job queued" });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to trigger price sync", variant: "destructive" });
     },
   });
 
