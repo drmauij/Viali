@@ -13,6 +13,7 @@ import {
 import { OpInventory } from "@/components/anesthesia/OpInventory";
 import { PatientInfoHeader } from "@/components/anesthesia/PatientInfoHeader";
 import { PostOpInfoCard } from "@/components/anesthesia/PostOpInfoCard";
+import { StaffTab } from "@/components/anesthesia/StaffTab";
 import { MedicationScheduleCard } from "@/components/anesthesia/MedicationScheduleCard";
 import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
 import { PatientWeightDialog } from "@/components/anesthesia/dialogs/PatientWeightDialog";
@@ -1198,6 +1199,13 @@ export default function Op() {
                     </>
                   )}
 
+                  {/* Staff Tab - Shared across both modules */}
+                  {!isPacuMode && (
+                    <TabsTrigger value="staff" data-testid="tab-staff" className="text-xs sm:text-sm whitespace-nowrap">
+                      {t('surgery.staff.title')}
+                    </TabsTrigger>
+                  )}
+
                   {/* Surgery Module: Inventory before Checklists */}
                   {isSurgeryMode && (
                     <>
@@ -1435,6 +1443,18 @@ export default function Op() {
               activeModule={activeModule}
             />
           </TabsContent>
+
+          {/* Staff Tab - Shared between modules */}
+          {!isPacuMode && (
+            <TabsContent value="staff" className="flex-1 overflow-y-auto px-6 pb-6 mt-0" data-testid="tab-content-staff">
+              <StaffTab
+                anesthesiaRecordId={anesthesiaRecord?.id}
+                hospitalId={activeHospital?.id}
+                anesthesiaUnitId={anesthesiaRecord?.anesthesiaUnitId}
+                readOnly={!!anesthesiaRecord?.isLocked}
+              />
+            </TabsContent>
+          )}
 
           {/* Checklists Tab - Only shown in OP mode */}
           {!isPacuMode && (

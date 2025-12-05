@@ -2071,6 +2071,32 @@
         "countsSterile": "Zählung & Sterilgut"
       }
     },
+    "staff": {
+      "title": "Personal",
+      "surgeon": "Operateur",
+      "surgicalAssistant": "Assistenz",
+      "instrumentNurse": "Instrumentierung",
+      "circulatingNurse": "Zudienung",
+      "anesthesiologist": "Anästhesie",
+      "anesthesiaNurse": "Anä-Pflege",
+      "searchOrEnter": "Suchen oder Namen eingeben...",
+      "addCustom": "\"{{name}}\" hinzufügen",
+      "addAsNew": "Als neuer Eintrag hinzufügen",
+      "systemUsers": "Systembenutzer",
+      "noEntries": "Kein Personal zugewiesen",
+      "linkedUser": "Mit Systembenutzer verknüpft",
+      "editEntry": "Personaleintrag bearbeiten",
+      "name": "Name",
+      "enterName": "Name eingeben...",
+      "deleteConfirmTitle": "Personaleintrag entfernen?",
+      "deleteConfirmDescription": "Möchten Sie {{name}} wirklich aus dieser Rolle entfernen?",
+      "added": "Mitarbeiter erfolgreich hinzugefügt",
+      "addError": "Fehler beim Hinzufügen des Mitarbeiters",
+      "updated": "Mitarbeiter erfolgreich aktualisiert",
+      "updateError": "Fehler beim Aktualisieren des Mitarbeiters",
+      "deleted": "Mitarbeiter erfolgreich entfernt",
+      "deleteError": "Fehler beim Entfernen des Mitarbeiters"
+    },
     "intraop": {
       "staff": "OP-Team",
       "staffRoles": {

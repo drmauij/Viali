@@ -2071,6 +2071,32 @@
         "countsSterile": "Counts & Sterile Goods"
       }
     },
+    "staff": {
+      "title": "Staff",
+      "surgeon": "Surgeon",
+      "surgicalAssistant": "Surgical Assistant",
+      "instrumentNurse": "Scrub Nurse",
+      "circulatingNurse": "Circulating Nurse",
+      "anesthesiologist": "Anesthesiologist",
+      "anesthesiaNurse": "Anesthesia Nurse",
+      "searchOrEnter": "Search or enter name...",
+      "addCustom": "Add \"{{name}}\"",
+      "addAsNew": "Add as new entry",
+      "systemUsers": "System Users",
+      "noEntries": "No staff assigned",
+      "linkedUser": "Linked to system user",
+      "editEntry": "Edit Staff Entry",
+      "name": "Name",
+      "enterName": "Enter name...",
+      "deleteConfirmTitle": "Remove Staff Entry?",
+      "deleteConfirmDescription": "Are you sure you want to remove {{name}} from this role?",
+      "added": "Staff member added successfully",
+      "addError": "Failed to add staff member",
+      "updated": "Staff member updated successfully",
+      "updateError": "Failed to update staff member",
+      "deleted": "Staff member removed successfully",
+      "deleteError": "Failed to remove staff member"
+    },
     "intraop": {
       "staff": "OR Team",
       "staffRoles": {
