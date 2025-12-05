@@ -2,8 +2,8 @@ import { storage } from './storage';
 import { analyzeBulkItemImages } from './openai';
 import { sendBulkImportCompleteEmail } from './resend';
 import { createGalexisClient, type PriceData } from './services/galexisClient';
-import { supplierCodes } from '@shared/schema';
-import { eq, and } from 'drizzle-orm';
+import { supplierCodes, itemCodes, items } from '@shared/schema';
+import { eq, and, isNull, isNotNull } from 'drizzle-orm';
 import { db } from './storage';
 
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
@@ -158,14 +158,43 @@ async function processNextPriceSyncJob() {
         }
       }
 
+      // Get existing Galexis supplier codes for this hospital's items
       const existingSupplierCodes = await db
-        .select()
+        .select({
+          id: supplierCodes.id,
+          itemId: supplierCodes.itemId,
+          articleCode: supplierCodes.articleCode,
+          basispreis: supplierCodes.basispreis,
+          publikumspreis: supplierCodes.publikumspreis,
+        })
         .from(supplierCodes)
-        .where(eq(supplierCodes.supplierName, 'Galexis'));
+        .innerJoin(items, eq(items.id, supplierCodes.itemId))
+        .where(and(
+          eq(supplierCodes.supplierName, 'Galexis'),
+          eq(items.hospitalId, catalog.hospitalId)
+        ));
+
+      // Get all items from this hospital that have item codes (GTIN/pharmacode)
+      // but might not have Galexis supplier codes yet
+      const allHospitalItems = await db
+        .select({
+          itemId: items.id,
+          itemName: items.name,
+          gtin: itemCodes.gtin,
+          pharmacode: itemCodes.pharmacode,
+        })
+        .from(items)
+        .leftJoin(itemCodes, eq(itemCodes.itemId, items.id))
+        .where(eq(items.hospitalId, catalog.hospitalId));
+
+      // Get set of item IDs that already have Galexis codes
+      const itemsWithGalexisCode = new Set(existingSupplierCodes.map(c => c.itemId));
 
       let matchedCount = 0;
       let updatedCount = 0;
+      const unmatchedWithCodes: Array<{ itemId: string; itemName: string; gtin?: string; pharmacode?: string }> = [];
 
+      // Update prices for items with existing supplier codes
       for (const code of existingSupplierCodes) {
         if (code.articleCode && priceMap.has(code.articleCode)) {
           matchedCount++;
@@ -200,12 +229,31 @@ async function processNextPriceSyncJob() {
         }
       }
 
+      // Identify items that have GTIN/pharmacode but no Galexis supplier code
+      for (const item of allHospitalItems) {
+        if (!itemsWithGalexisCode.has(item.itemId) && (item.gtin || item.pharmacode)) {
+          unmatchedWithCodes.push({
+            itemId: item.itemId,
+            itemName: item.itemName,
+            gtin: item.gtin || undefined,
+            pharmacode: item.pharmacode || undefined,
+          });
+        }
+      }
+
       const summary = {
         totalPricesFetched: prices.length,
+        totalItemsInHospital: allHospitalItems.length,
+        itemsWithSupplierCode: existingSupplierCodes.length,
         matchedItems: matchedCount,
         updatedItems: updatedCount,
-        unmatchedItems: existingSupplierCodes.length - matchedCount,
+        unmatchedSupplierCodes: existingSupplierCodes.length - matchedCount,
+        itemsWithoutSupplierCode: allHospitalItems.length - existingSupplierCodes.length,
+        itemsWithGtinNoSupplierCode: unmatchedWithCodes.length,
+        unmatchedItems: unmatchedWithCodes.slice(0, 50), // First 50 for display
       };
+
+      console.log(`[Worker] Summary: ${matchedCount} matched, ${updatedCount} updated, ${unmatchedWithCodes.length} items with GTIN but no supplier code`);
 
       await storage.updatePriceSyncJob(job.id, {
         status: 'completed',

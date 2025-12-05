@@ -965,14 +965,30 @@ export default function Hospital() {
                       </span>
                     </div>
                     {job.status === 'completed' && job.summary && (
-                      <p className="text-muted-foreground mt-1">
+                      <div className="text-muted-foreground mt-1 text-xs space-y-1">
                         {(() => {
                           try {
                             const s = JSON.parse(job.summary);
-                            return `Matched ${s.matchedItems} items, updated ${s.updatedItems} prices`;
-                          } catch { return job.summary; }
+                            return (
+                              <>
+                                <p className="text-green-600 dark:text-green-400 font-medium">
+                                  Matched {s.matchedItems} items, updated {s.updatedItems} prices
+                                </p>
+                                {s.itemsWithGtinNoSupplierCode > 0 && (
+                                  <p className="text-amber-600 dark:text-amber-400">
+                                    {s.itemsWithGtinNoSupplierCode} items have GTIN but no Galexis code
+                                  </p>
+                                )}
+                                {s.itemsWithoutSupplierCode > 0 && (
+                                  <p className="text-muted-foreground">
+                                    {s.totalItemsInHospital} total items, {s.itemsWithSupplierCode} with Galexis codes configured
+                                  </p>
+                                )}
+                              </>
+                            );
+                          } catch { return <p>{job.summary}</p>; }
                         })()}
-                      </p>
+                      </div>
                     )}
                     {job.status === 'failed' && job.error && (
                       <p className="text-red-500 mt-1">{job.error}</p>
