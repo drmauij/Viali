@@ -38,6 +38,8 @@ export const users = pgTable("users", {
   mustChangePassword: boolean("must_change_password").default(false), // Force password change on first login
   resetToken: varchar("reset_token"), // Password reset token
   resetTokenExpiry: timestamp("reset_token_expiry"), // Token expiration time
+  canLogin: boolean("can_login").default(true).notNull(), // Whether user can log into the app
+  staffType: varchar("staff_type", { enum: ["internal", "external"] }).default("internal").notNull(), // Internal (clinic) or external (rented/temp)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
