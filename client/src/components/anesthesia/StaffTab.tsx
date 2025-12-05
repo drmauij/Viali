@@ -64,10 +64,16 @@ export function StaffTab({
     enabled: !!anesthesiaRecordId,
   });
 
-  const { data: unitUsers = [] } = useQuery<any[]>({
-    queryKey: [`/api/admin/users`],
-    enabled: !!hospitalId,
-    select: (data) => data.filter((u: any) => u.hospitalId === hospitalId),
+  const { data: staffOptions = [] } = useQuery<any[]>({
+    queryKey: [`/api/anesthesia/staff-options/${hospitalId}`, { staffRole: openPopover }],
+    queryFn: async () => {
+      const res = await fetch(`/api/anesthesia/staff-options/${hospitalId}?staffRole=${openPopover}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch staff options');
+      return res.json();
+    },
+    enabled: !!hospitalId && !!openPopover,
   });
 
   const createStaff = useCreateStaff(anesthesiaRecordId);
@@ -163,13 +169,13 @@ export function StaffTab({
   };
 
   const filteredUsers = useMemo(() => {
-    if (!searchInput.trim()) return unitUsers;
+    if (!searchInput.trim()) return staffOptions;
     const search = searchInput.toLowerCase();
-    return unitUsers.filter((u) => {
-      const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+    return staffOptions.filter((u) => {
+      const fullName = (u.name || '').toLowerCase();
       return fullName.includes(search) || (u.email || '').toLowerCase().includes(search);
     });
-  }, [unitUsers, searchInput]);
+  }, [staffOptions, searchInput]);
 
   if (isLoading) {
     return (
@@ -245,22 +251,19 @@ export function StaffTab({
                           )}
                           {filteredUsers.length > 0 && (
                             <CommandGroup heading={t('surgery.staff.systemUsers')}>
-                              {filteredUsers.map((u) => {
-                                const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email;
-                                return (
-                                  <CommandItem
-                                    key={u.id}
-                                    onSelect={() => handleAddStaff(role, fullName, u.id)}
-                                    className="cursor-pointer"
-                                  >
-                                    <User className="h-4 w-4 mr-2" />
-                                    <div className="flex flex-col">
-                                      <span>{fullName}</span>
-                                      {u.email && <span className="text-xs text-muted-foreground">{u.email}</span>}
-                                    </div>
-                                  </CommandItem>
-                                );
-                              })}
+                              {filteredUsers.map((u) => (
+                                <CommandItem
+                                  key={u.id}
+                                  onSelect={() => handleAddStaff(role, u.name, u.id)}
+                                  className="cursor-pointer"
+                                >
+                                  <User className="h-4 w-4 mr-2" />
+                                  <div className="flex flex-col">
+                                    <span>{u.name}</span>
+                                    {u.email && <span className="text-xs text-muted-foreground">{u.email}</span>}
+                                  </div>
+                                </CommandItem>
+                              ))}
                             </CommandGroup>
                           )}
                         </CommandList>

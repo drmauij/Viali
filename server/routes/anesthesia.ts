@@ -3656,6 +3656,69 @@ router.get('/api/anesthesia/staff/:recordId', isAuthenticated, async (req: any, 
   }
 });
 
+router.get('/api/anesthesia/staff-options/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { staffRole } = req.query;
+    const userId = req.user.id;
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const allUnits = await storage.getUnits(hospitalId);
+    const surgeryUnit = allUnits.find(u => u.isSurgeryModule);
+    const anesthesiaUnit = allUnits.find(u => u.isAnesthesiaModule);
+    
+    const hospitalUsers = await storage.getHospitalUsers(hospitalId);
+    
+    let filteredUsers: Array<{ id: string; name: string; email: string | null; role: string; unitName: string }> = [];
+    
+    const roleToUnitAndUserRole: Record<string, { unitId: string | undefined; userRoles: string[] }> = {
+      surgeon: { unitId: surgeryUnit?.id, userRoles: ['doctor'] },
+      surgicalAssistant: { unitId: surgeryUnit?.id, userRoles: ['doctor', 'nurse'] },
+      instrumentNurse: { unitId: surgeryUnit?.id, userRoles: ['nurse'] },
+      circulatingNurse: { unitId: surgeryUnit?.id, userRoles: ['nurse'] },
+      anesthesiologist: { unitId: anesthesiaUnit?.id, userRoles: ['doctor'] },
+      anesthesiaNurse: { unitId: anesthesiaUnit?.id, userRoles: ['nurse'] },
+      pacuNurse: { unitId: anesthesiaUnit?.id, userRoles: ['nurse'] },
+    };
+    
+    if (staffRole && roleToUnitAndUserRole[staffRole as string]) {
+      const config = roleToUnitAndUserRole[staffRole as string];
+      if (config.unitId) {
+        filteredUsers = hospitalUsers
+          .filter(hu => hu.unitId === config.unitId && config.userRoles.includes(hu.role))
+          .map(hu => ({
+            id: hu.user.id,
+            name: `${hu.user.firstName || ''} ${hu.user.lastName || ''}`.trim() || hu.user.email || 'Unknown',
+            email: hu.user.email,
+            role: hu.role,
+            unitName: hu.unit?.name || '',
+          }));
+      }
+    } else {
+      filteredUsers = hospitalUsers.map(hu => ({
+        id: hu.user.id,
+        name: `${hu.user.firstName || ''} ${hu.user.lastName || ''}`.trim() || hu.user.email || 'Unknown',
+        email: hu.user.email,
+        role: hu.role,
+        unitName: hu.unit?.name || '',
+      }));
+    }
+    
+    const uniqueUsers = Array.from(new Map(filteredUsers.map(u => [u.id, u])).values());
+    
+    res.json(uniqueUsers);
+  } catch (error) {
+    console.error("Error fetching staff options:", error);
+    res.status(500).json({ message: "Failed to fetch staff options" });
+  }
+});
+
 router.post('/api/anesthesia/staff', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;

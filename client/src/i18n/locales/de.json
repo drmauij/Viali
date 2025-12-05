@@ -2,6 +2,7 @@
   "common": {
     "cancel": "Abbrechen",
     "save": "Speichern",
+    "add": "Hinzufügen",
     "delete": "Löschen",
     "edit": "Bearbeiten",
     "submit": "Absenden",
@@ -1154,6 +1155,7 @@
         "circulatingNurse": "Zudienung",
         "anesthesiologist": "Anästhesist",
         "anesthesiaNurse": "Anästhesiepflege",
+        "pacuNurse": "Aufwachraumkraft",
         "intraOpDoc": "INTRAOPERATIVE DOKUMENTATION",
         "positioning": "Patientenlagerung",
         "supine": "Rückenlage (RL)",

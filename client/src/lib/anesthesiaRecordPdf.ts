@@ -2673,7 +2673,8 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
   }
 
   // ==================== SURGERY NURSE DOCUMENTATION ====================
-  if (data.anesthesiaRecord && (data.anesthesiaRecord.surgeryStaff || data.anesthesiaRecord.intraOpData || data.anesthesiaRecord.countsSterileData)) {
+  const hasStaffMembers = data.staffMembers && data.staffMembers.length > 0;
+  if (data.anesthesiaRecord && (hasStaffMembers || data.anesthesiaRecord.intraOpData || data.anesthesiaRecord.countsSterileData)) {
     doc.addPage();
     yPos = 20;
 
@@ -2684,8 +2685,8 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     yPos += 12;
 
     // ===== OR TEAM STAFF =====
-    const surgeryStaff = data.anesthesiaRecord.surgeryStaff as any;
-    if (surgeryStaff && Object.values(surgeryStaff).some(v => v)) {
+    const staffMembers = data.staffMembers || [];
+    if (staffMembers.length > 0) {
       doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
       doc.setFillColor(59, 130, 246);
@@ -2698,20 +2699,30 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
 
-      const staffRows = [
-        { label: i18next.t("anesthesia.pdf.nurseDoc.surgeon", "Surgeon"), value: surgeryStaff.surgeon },
-        { label: i18next.t("anesthesia.pdf.nurseDoc.surgicalAssistant", "Surgical Assistant"), value: surgeryStaff.surgicalAssistant },
-        { label: i18next.t("anesthesia.pdf.nurseDoc.instrumentNurse", "Instrument Nurse (Scrub)"), value: surgeryStaff.instrumentNurse },
-        { label: i18next.t("anesthesia.pdf.nurseDoc.circulatingNurse", "Circulating Nurse"), value: surgeryStaff.circulatingNurse },
-        { label: i18next.t("anesthesia.pdf.nurseDoc.anesthesiologist", "Anesthesiologist"), value: surgeryStaff.anesthesiologist },
-        { label: i18next.t("anesthesia.pdf.nurseDoc.anesthesiaNurse", "Anesthesia Nurse"), value: surgeryStaff.anesthesiaNurse },
-      ].filter(row => row.value);
+      const roleLabels: Record<string, string> = {
+        surgeon: i18next.t("anesthesia.pdf.nurseDoc.surgeon", "Surgeon"),
+        surgicalAssistant: i18next.t("anesthesia.pdf.nurseDoc.surgicalAssistant", "Surgical Assistant"),
+        instrumentNurse: i18next.t("anesthesia.pdf.nurseDoc.instrumentNurse", "Instrument Nurse (Scrub)"),
+        circulatingNurse: i18next.t("anesthesia.pdf.nurseDoc.circulatingNurse", "Circulating Nurse"),
+        anesthesiologist: i18next.t("anesthesia.pdf.nurseDoc.anesthesiologist", "Anesthesiologist"),
+        anesthesiaNurse: i18next.t("anesthesia.pdf.nurseDoc.anesthesiaNurse", "Anesthesia Nurse"),
+        pacuNurse: i18next.t("anesthesia.pdf.nurseDoc.pacuNurse", "PACU Nurse"),
+      };
 
-      staffRows.forEach(row => {
+      const staffByRole: Record<string, string[]> = {};
+      staffMembers.forEach((staff: StaffMember) => {
+        if (!staffByRole[staff.role]) {
+          staffByRole[staff.role] = [];
+        }
+        staffByRole[staff.role].push(staff.name);
+      });
+
+      Object.entries(staffByRole).forEach(([role, names]) => {
+        const label = roleLabels[role] || role;
         doc.setFont("helvetica", "bold");
-        doc.text(`${row.label}: `, 25, yPos);
+        doc.text(`${label}: `, 25, yPos);
         doc.setFont("helvetica", "normal");
-        doc.text(row.value, 80, yPos);
+        doc.text(names.join(", "), 80, yPos);
         yPos += 5;
       });
       yPos += 5;

@@ -2,6 +2,7 @@
   "common": {
     "cancel": "Cancel",
     "save": "Save",
+    "add": "Add",
     "delete": "Delete",
     "edit": "Edit",
     "submit": "Submit",
@@ -1154,6 +1155,7 @@
         "circulatingNurse": "Circulating Nurse",
         "anesthesiologist": "Anesthesiologist",
         "anesthesiaNurse": "Anesthesia Nurse",
+        "pacuNurse": "PACU Nurse",
         "intraOpDoc": "INTRAOPERATIVE DOCUMENTATION",
         "positioning": "Patient Positioning",
         "supine": "Supine (RL)",
