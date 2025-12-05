@@ -1,20 +1,20 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
-import type { AnesthesiaStaff, InsertAnesthesiaStaff } from '@shared/schema';
+import type { SurgeryStaffEntry, InsertSurgeryStaffEntry } from '@shared/schema';
 
-// Hook to create a staff entry
+export type StaffRole = 'surgeon' | 'surgicalAssistant' | 'instrumentNurse' | 'circulatingNurse' | 'anesthesiologist' | 'anesthesiaNurse';
+
 export function useCreateStaff(anesthesiaRecordId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: InsertAnesthesiaStaff) => {
+    mutationFn: async (data: InsertSurgeryStaffEntry) => {
       return await apiRequest(
         'POST',
         '/api/anesthesia/staff',
         data
       );
     },
-    // No optimistic update - rely on cache invalidation for type safety
     onSettled: () => {
       queryClient.invalidateQueries({
         queryKey: [`/api/anesthesia/staff/${anesthesiaRecordId}`],
@@ -23,15 +23,14 @@ export function useCreateStaff(anesthesiaRecordId: string | undefined) {
   });
 }
 
-// Hook to update a staff entry
 export function useUpdateStaff(anesthesiaRecordId: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (data: {
       id: string;
-      timestamp?: Date;
-      role?: 'doctor' | 'nurse' | 'assistant';
+      role?: StaffRole;
+      userId?: string | null;
       name?: string;
     }) => {
       const { id, ...updates } = data;
@@ -41,7 +40,6 @@ export function useUpdateStaff(anesthesiaRecordId: string | undefined) {
         updates
       );
     },
-    // No optimistic update - rely on cache invalidation for type safety
     onSettled: () => {
       queryClient.invalidateQueries({
         queryKey: [`/api/anesthesia/staff/${anesthesiaRecordId}`],
@@ -50,7 +48,6 @@ export function useUpdateStaff(anesthesiaRecordId: string | undefined) {
   });
 }
 
-// Hook to delete a staff entry
 export function useDeleteStaff(anesthesiaRecordId: string | undefined) {
   const queryClient = useQueryClient();
 
@@ -66,17 +63,16 @@ export function useDeleteStaff(anesthesiaRecordId: string | undefined) {
         queryKey: [`/api/anesthesia/staff/${anesthesiaRecordId}`],
       });
 
-      const previousStaff = queryClient.getQueryData<AnesthesiaStaff[]>([
+      const previousStaff = queryClient.getQueryData<SurgeryStaffEntry[]>([
         `/api/anesthesia/staff/${anesthesiaRecordId}`,
       ]);
 
       if (previousStaff) {
-        // Optimistic delete is safe - just filter out the ID
         const filteredStaff = previousStaff.filter(
           (s) => s.id !== staffId
         );
 
-        queryClient.setQueryData<AnesthesiaStaff[]>(
+        queryClient.setQueryData<SurgeryStaffEntry[]>(
           [`/api/anesthesia/staff/${anesthesiaRecordId}`],
           filteredStaff
         );

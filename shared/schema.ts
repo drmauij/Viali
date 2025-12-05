@@ -1365,21 +1365,29 @@ export const anesthesiaPositions = pgTable("anesthesia_positions", {
   index("idx_anesthesia_positions_timestamp").on(table.timestamp),
 ]);
 
-// Anesthesia Staff (Staff assignments during surgery)
-export const anesthesiaStaff = pgTable("anesthesia_staff", {
+// Surgery Staff (Unified staff assignments shared between anesthesia and surgery modules)
+export const surgeryStaffEntries = pgTable("surgery_staff_entries", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
   
-  timestamp: timestamp("timestamp").notNull(),
-  role: varchar("role", { enum: ["doctor", "nurse", "assistant"] }).notNull(),
-  name: varchar("name").notNull(), // Staff member name
+  role: varchar("role", { enum: [
+    "surgeon",           // Operateur
+    "surgicalAssistant", // Assistenz
+    "instrumentNurse",   // Instrumentierende (scrub nurse)
+    "circulatingNurse",  // Zudienung (circulating nurse)
+    "anesthesiologist",  // Anästhesie
+    "anesthesiaNurse",   // Anä-Pflege
+  ] }).notNull(),
+  
+  userId: varchar("user_id").references(() => users.id), // Nullable - for system users (cost calculation)
+  name: varchar("name").notNull(), // Always required - display name (or custom entry for non-system staff)
   
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
-  index("idx_anesthesia_staff_record").on(table.anesthesiaRecordId),
-  index("idx_anesthesia_staff_timestamp").on(table.timestamp),
-  index("idx_anesthesia_staff_role").on(table.role),
+  index("idx_surgery_staff_entries_record").on(table.anesthesiaRecordId),
+  index("idx_surgery_staff_entries_role").on(table.role),
+  index("idx_surgery_staff_entries_user").on(table.userId),
 ]);
 
 // Inventory Usage (Auto-computed from medication records)
@@ -2119,10 +2127,7 @@ export const insertAnesthesiaPositionSchema = createInsertSchema(anesthesiaPosit
   createdAt: true,
 });
 
-export const insertAnesthesiaStaffSchema = createInsertSchema(anesthesiaStaff, {
-  // Coerce timestamp to handle both Date objects and ISO strings
-  timestamp: z.coerce.date(),
-}).omit({
+export const insertSurgeryStaffEntrySchema = createInsertSchema(surgeryStaffEntries).omit({
   id: true,
   createdAt: true,
 });
@@ -2330,8 +2335,8 @@ export type AnesthesiaEvent = typeof anesthesiaEvents.$inferSelect;
 export type InsertAnesthesiaEvent = z.infer<typeof insertAnesthesiaEventSchema>;
 export type AnesthesiaPosition = typeof anesthesiaPositions.$inferSelect;
 export type InsertAnesthesiaPosition = z.infer<typeof insertAnesthesiaPositionSchema>;
-export type AnesthesiaStaff = typeof anesthesiaStaff.$inferSelect;
-export type InsertAnesthesiaStaff = z.infer<typeof insertAnesthesiaStaffSchema>;
+export type SurgeryStaffEntry = typeof surgeryStaffEntries.$inferSelect;
+export type InsertSurgeryStaffEntry = z.infer<typeof insertSurgeryStaffEntrySchema>;
 export type AnesthesiaInstallation = typeof anesthesiaInstallations.$inferSelect;
 export type InsertAnesthesiaInstallation = z.infer<typeof insertAnesthesiaInstallationSchema>;
 export type AnesthesiaTechniqueDetail = typeof anesthesiaTechniqueDetails.$inferSelect;

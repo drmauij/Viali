@@ -36,7 +36,7 @@ import {
   anesthesiaMedications,
   anesthesiaEvents,
   anesthesiaPositions,
-  anesthesiaStaff,
+  surgeryStaffEntries,
   anesthesiaInstallations,
   anesthesiaTechniqueDetails,
   anesthesiaAirwayManagement,
@@ -109,8 +109,8 @@ import {
   type InsertAnesthesiaEvent,
   type AnesthesiaPosition,
   type InsertAnesthesiaPosition,
-  type AnesthesiaStaff,
-  type InsertAnesthesiaStaff,
+  type SurgeryStaffEntry,
+  type InsertSurgeryStaffEntry,
   type AnesthesiaInstallation,
   type InsertAnesthesiaInstallation,
   type AnesthesiaTechniqueDetail,
@@ -439,11 +439,11 @@ export interface IStorage {
   updateAnesthesiaPosition(id: string, position: Partial<InsertAnesthesiaPosition>, userId: string): Promise<AnesthesiaPosition>;
   deleteAnesthesiaPosition(id: string, userId: string): Promise<void>;
   
-  // Anesthesia Staff operations
-  getAnesthesiaStaff(anesthesiaRecordId: string): Promise<AnesthesiaStaff[]>;
-  createAnesthesiaStaff(staff: InsertAnesthesiaStaff): Promise<AnesthesiaStaff>;
-  updateAnesthesiaStaff(id: string, staff: Partial<InsertAnesthesiaStaff>, userId: string): Promise<AnesthesiaStaff>;
-  deleteAnesthesiaStaff(id: string, userId: string): Promise<void>;
+  // Surgery Staff operations (unified for both anesthesia and surgery modules)
+  getSurgeryStaff(anesthesiaRecordId: string): Promise<SurgeryStaffEntry[]>;
+  createSurgeryStaff(staff: InsertSurgeryStaffEntry): Promise<SurgeryStaffEntry>;
+  updateSurgeryStaff(id: string, staff: Partial<InsertSurgeryStaffEntry>, userId: string): Promise<SurgeryStaffEntry>;
+  deleteSurgeryStaff(id: string, userId: string): Promise<void>;
   
   // Anesthesia Installation operations
   getAnesthesiaInstallations(anesthesiaRecordId: string): Promise<AnesthesiaInstallation[]>;
@@ -2210,7 +2210,7 @@ export class DatabaseStorage implements IStorage {
     await db.delete(anesthesiaMedications).where(eq(anesthesiaMedications.anesthesiaRecordId, id));
     await db.delete(anesthesiaEvents).where(eq(anesthesiaEvents.anesthesiaRecordId, id));
     await db.delete(anesthesiaPositions).where(eq(anesthesiaPositions.anesthesiaRecordId, id));
-    await db.delete(anesthesiaStaff).where(eq(anesthesiaStaff.anesthesiaRecordId, id));
+    await db.delete(surgeryStaffEntries).where(eq(surgeryStaffEntries.anesthesiaRecordId, id));
     // Finally delete the record itself
     await db.delete(anesthesiaRecords).where(eq(anesthesiaRecords.id, id));
   }
@@ -3648,27 +3648,27 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  // Anesthesia Staff operations
-  async getAnesthesiaStaff(anesthesiaRecordId: string): Promise<AnesthesiaStaff[]> {
+  // Surgery Staff operations (unified staff for both anesthesia and surgery modules)
+  async getSurgeryStaff(anesthesiaRecordId: string): Promise<SurgeryStaffEntry[]> {
     const staff = await db
       .select()
-      .from(anesthesiaStaff)
-      .where(eq(anesthesiaStaff.anesthesiaRecordId, anesthesiaRecordId))
-      .orderBy(asc(anesthesiaStaff.timestamp));
+      .from(surgeryStaffEntries)
+      .where(eq(surgeryStaffEntries.anesthesiaRecordId, anesthesiaRecordId))
+      .orderBy(asc(surgeryStaffEntries.role), asc(surgeryStaffEntries.createdAt));
     return staff;
   }
 
-  async createAnesthesiaStaff(staff: InsertAnesthesiaStaff): Promise<AnesthesiaStaff> {
-    const [created] = await db.insert(anesthesiaStaff).values(staff).returning();
+  async createSurgeryStaff(staff: InsertSurgeryStaffEntry): Promise<SurgeryStaffEntry> {
+    const [created] = await db.insert(surgeryStaffEntries).values(staff).returning();
     return created;
   }
 
-  async updateAnesthesiaStaff(id: string, staff: Partial<InsertAnesthesiaStaff>, userId: string): Promise<AnesthesiaStaff> {
+  async updateSurgeryStaff(id: string, staff: Partial<InsertSurgeryStaffEntry>, userId: string): Promise<SurgeryStaffEntry> {
     // Get current staff for audit log
     const [currentStaff] = await db
       .select()
-      .from(anesthesiaStaff)
-      .where(eq(anesthesiaStaff.id, id));
+      .from(surgeryStaffEntries)
+      .where(eq(surgeryStaffEntries.id, id));
 
     // Guard: Throw error if staff doesn't exist
     if (!currentStaff) {
@@ -3677,14 +3677,14 @@ export class DatabaseStorage implements IStorage {
 
     // Update the staff
     const [updated] = await db
-      .update(anesthesiaStaff)
+      .update(surgeryStaffEntries)
       .set(staff)
-      .where(eq(anesthesiaStaff.id, id))
+      .where(eq(surgeryStaffEntries.id, id))
       .returning();
 
     // Create audit log entry
     await this.createAuditLog({
-      recordType: 'anesthesia_staff',
+      recordType: 'surgery_staff',
       recordId: id,
       action: 'update',
       userId,
@@ -3695,12 +3695,12 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async deleteAnesthesiaStaff(id: string, userId: string): Promise<void> {
+  async deleteSurgeryStaff(id: string, userId: string): Promise<void> {
     // Get current staff for audit log
     const [currentStaff] = await db
       .select()
-      .from(anesthesiaStaff)
-      .where(eq(anesthesiaStaff.id, id));
+      .from(surgeryStaffEntries)
+      .where(eq(surgeryStaffEntries.id, id));
 
     // Guard: Throw error if staff doesn't exist
     if (!currentStaff) {
@@ -3708,11 +3708,11 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Delete the staff
-    await db.delete(anesthesiaStaff).where(eq(anesthesiaStaff.id, id));
+    await db.delete(surgeryStaffEntries).where(eq(surgeryStaffEntries.id, id));
 
     // Create audit log entry
     await this.createAuditLog({
-      recordType: 'anesthesia_staff',
+      recordType: 'surgery_staff',
       recordId: id,
       action: 'delete',
       userId,

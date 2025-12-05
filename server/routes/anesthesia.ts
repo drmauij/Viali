@@ -29,7 +29,8 @@ import {
   insertAnesthesiaMedicationSchema,
   insertAnesthesiaEventSchema,
   insertAnesthesiaPositionSchema,
-  insertAnesthesiaStaffSchema,
+  insertSurgeryStaffEntrySchema,
+  surgeryStaffEntries,
   insertAnesthesiaInstallationSchema,
   insertAnesthesiaTechniqueDetailSchema,
   insertAnesthesiaAirwayManagementSchema,
@@ -54,7 +55,6 @@ import {
   anesthesiaMedications,
   anesthesiaEvents,
   anesthesiaPositions,
-  anesthesiaStaff,
   preOpAssessments,
   anesthesiaAirwayManagement
 } from "@shared/schema";
@@ -3647,7 +3647,7 @@ router.get('/api/anesthesia/staff/:recordId', isAuthenticated, async (req: any, 
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const staff = await storage.getAnesthesiaStaff(recordId);
+    const staff = await storage.getSurgeryStaff(recordId);
     
     res.json(staff);
   } catch (error) {
@@ -3660,7 +3660,7 @@ router.post('/api/anesthesia/staff', isAuthenticated, requireWriteAccess, async 
   try {
     const userId = req.user.id;
 
-    const validatedData = insertAnesthesiaStaffSchema.parse(req.body);
+    const validatedData = insertSurgeryStaffEntrySchema.parse(req.body);
 
     const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
     if (!record) {
@@ -3679,7 +3679,7 @@ router.post('/api/anesthesia/staff', isAuthenticated, requireWriteAccess, async 
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const newStaff = await storage.createAnesthesiaStaff({
+    const newStaff = await storage.createSurgeryStaff({
       ...validatedData,
       createdBy: userId,
     });
@@ -3709,8 +3709,11 @@ router.patch('/api/anesthesia/staff/:id', isAuthenticated, requireWriteAccess, a
     const userId = req.user.id;
 
     const updateSchema = z.object({
-      timestamp: z.coerce.date().optional(),
-      role: z.enum(["doctor", "nurse", "assistant"]).optional(),
+      role: z.enum([
+        "surgeon", "surgicalAssistant", "instrumentNurse", 
+        "circulatingNurse", "anesthesiologist", "anesthesiaNurse"
+      ]).optional(),
+      userId: z.string().nullable().optional(),
       name: z.string().optional(),
     });
     
@@ -3720,7 +3723,7 @@ router.patch('/api/anesthesia/staff/:id', isAuthenticated, requireWriteAccess, a
       return res.status(400).json({ message: "No valid fields to update" });
     }
 
-    const [staff] = await db.select().from(anesthesiaStaff).where(eq(anesthesiaStaff.id, id));
+    const [staff] = await db.select().from(surgeryStaffEntries).where(eq(surgeryStaffEntries.id, id));
     if (!staff) {
       return res.status(404).json({ message: "Staff not found" });
     }
@@ -3742,7 +3745,7 @@ router.patch('/api/anesthesia/staff/:id', isAuthenticated, requireWriteAccess, a
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const updated = await storage.updateAnesthesiaStaff(id, validatedUpdates, userId);
+    const updated = await storage.updateSurgeryStaff(id, validatedUpdates, userId);
     
     broadcastAnesthesiaUpdate({
       recordId: staff.anesthesiaRecordId,
@@ -3768,7 +3771,7 @@ router.delete('/api/anesthesia/staff/:id', isAuthenticated, requireWriteAccess, 
     const { id } = req.params;
     const userId = req.user.id;
 
-    const [staff] = await db.select().from(anesthesiaStaff).where(eq(anesthesiaStaff.id, id));
+    const [staff] = await db.select().from(surgeryStaffEntries).where(eq(surgeryStaffEntries.id, id));
     if (!staff) {
       return res.status(404).json({ message: "Staff not found" });
     }
@@ -3790,7 +3793,7 @@ router.delete('/api/anesthesia/staff/:id', isAuthenticated, requireWriteAccess, 
       return res.status(403).json({ message: "Access denied" });
     }
 
-    await storage.deleteAnesthesiaStaff(id, userId);
+    await storage.deleteSurgeryStaff(id, userId);
     
     broadcastAnesthesiaUpdate({
       recordId: staff.anesthesiaRecordId,

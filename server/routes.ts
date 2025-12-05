@@ -38,7 +38,7 @@ import {
   insertAnesthesiaMedicationSchema,
   insertAnesthesiaEventSchema,
   insertAnesthesiaPositionSchema,
-  insertAnesthesiaStaffSchema,
+  insertSurgeryStaffEntrySchema,
   insertAnesthesiaInstallationSchema,
   insertAnesthesiaTechniqueDetailSchema,
   insertAnesthesiaAirwayManagementSchema,
@@ -73,7 +73,7 @@ import {
   anesthesiaMedications,
   anesthesiaEvents,
   anesthesiaPositions,
-  anesthesiaStaff,
+  surgeryStaffEntries,
   preOpAssessments,
   anesthesiaAirwayManagement
 } from "@shared/schema";
