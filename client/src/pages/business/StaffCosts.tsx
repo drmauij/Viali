@@ -72,15 +72,19 @@ import {
   Cell,
 } from "recharts";
 
+interface RoleInfo {
+  role: string;
+  unitId: string | null;
+  unitName: string | null;
+  unitType: string | null;
+}
+
 interface StaffMember {
   id: string;
   firstName: string | null;
   lastName: string | null;
   email: string | null;
-  role: string;
-  unitId: string;
-  unitName: string | null;
-  unitType: string | null;
+  roles: RoleInfo[];
   staffType: "internal" | "external";
   hourlyRate: number | null;
   canLogin: boolean;
@@ -248,7 +252,9 @@ function getDisplayName(staff: StaffMember): string {
   
   if (!fullName) return staff.email || 'Unknown';
   
-  if (staff.role === 'doctor') {
+  // Check if any of the user's roles is 'doctor'
+  const isDoctor = staff.roles?.some(r => r.role === 'doctor');
+  if (isDoctor) {
     return `Dr. ${fullName}`;
   }
   
@@ -384,12 +390,14 @@ export default function StaffCosts() {
 
   const handleEditStaff = (staff: StaffMember) => {
     setEditingStaff(staff);
+    // Use the first role for editing (user may have multiple roles)
+    const primaryRole = staff.roles?.[0];
     setFormData({
       firstName: staff.firstName || '',
       lastName: staff.lastName || '',
       email: staff.email || '',
-      role: staff.role,
-      unitId: staff.unitId,
+      role: primaryRole?.role || 'nurse',
+      unitId: primaryRole?.unitId || '',
       hourlyRate: staff.hourlyRate?.toString() || '',
       staffType: staff.staffType,
     });
@@ -428,16 +436,21 @@ export default function StaffCosts() {
   const filteredStaff = useMemo(() => {
     return staffList.filter(staff => {
       const name = getDisplayName(staff).toLowerCase();
-      const roleLabel = getRoleLabel(staff.role, staff.unitType).toLowerCase();
+      // Get all role labels for this staff member
+      const roleLabels = staff.roles?.map(r => getRoleLabel(r.role, r.unitType).toLowerCase()) || [];
       const matchesSearch = name.includes(searchQuery.toLowerCase()) ||
-                            roleLabel.includes(searchQuery.toLowerCase());
-      const matchesRole = roleFilter === "all" || staff.role === roleFilter;
+                            roleLabels.some(label => label.includes(searchQuery.toLowerCase()));
+      // Check if any of the user's roles matches the filter
+      const matchesRole = roleFilter === "all" || staff.roles?.some(r => r.role === roleFilter);
       return matchesSearch && matchesRole;
     });
   }, [staffList, searchQuery, roleFilter]);
 
   const uniqueRoles = useMemo(() => {
-    const roles = new Set(staffList.map(s => s.role));
+    const roles = new Set<string>();
+    staffList.forEach(s => {
+      s.roles?.forEach(r => roles.add(r.role));
+    });
     return Array.from(roles);
   }, [staffList]);
 
@@ -605,9 +618,17 @@ export default function StaffCosts() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="outline" className={getRoleBadgeStyle(staff.role, staff.unitType)}>
-                              {getRoleLabel(staff.role, staff.unitType)}
-                            </Badge>
+                            <div className="flex flex-wrap gap-1">
+                              {staff.roles?.map((role, idx) => (
+                                <Badge 
+                                  key={`${staff.id}-${role.role}-${role.unitId || idx}`}
+                                  variant="outline" 
+                                  className={getRoleBadgeStyle(role.role, role.unitType)}
+                                >
+                                  {getRoleLabel(role.role, role.unitType)}
+                                </Badge>
+                              ))}
+                            </div>
                           </TableCell>
                           <TableCell className="text-right font-medium">
                             {staff.hourlyRate ? `€${staff.hourlyRate}/h` : '-'}

@@ -40,24 +40,51 @@ router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager
     // Get all users associated with this hospital, excluding admin roles
     const hospitalUsers = await storage.getHospitalUsers(hospitalId);
     
-    // Filter out admin-only users and format response
-    const staffList = hospitalUsers
-      .filter(u => u.role !== 'admin') // Exclude admin roles
-      .map(u => ({
-        id: u.user.id,
-        firstName: u.user.firstName,
-        lastName: u.user.lastName,
-        email: u.user.email,
+    // Group by user ID to deduplicate (one entry per user, not per role)
+    // Hourly rate is per user, not per role
+    const userMap = new Map<string, {
+      id: string;
+      firstName: string | null;
+      lastName: string | null;
+      email: string | null;
+      roles: Array<{ role: string; unitId: string | null; unitName: string | null; unitType: string | null }>;
+      staffType: string;
+      hourlyRate: number | null;
+      canLogin: boolean;
+      createdAt: Date | null;
+    }>();
+    
+    for (const u of hospitalUsers) {
+      if (u.role === 'admin') continue; // Skip admin roles
+      
+      const existing = userMap.get(u.user.id);
+      const roleInfo = {
         role: u.role,
         unitId: u.unitId,
-        unitName: u.unit?.name,
-        unitType: u.unit?.type,
-        staffType: (u.user as any).staffType || 'internal',
-        hourlyRate: (u.user as any).hourlyRate ? parseFloat((u.user as any).hourlyRate) : null,
-        canLogin: (u.user as any).canLogin ?? true,
-        createdAt: u.user.createdAt,
-      }));
+        unitName: u.unit?.name || null,
+        unitType: u.unit?.type || null,
+      };
+      
+      if (existing) {
+        // Add role to existing user
+        existing.roles.push(roleInfo);
+      } else {
+        // Create new user entry
+        userMap.set(u.user.id, {
+          id: u.user.id,
+          firstName: u.user.firstName,
+          lastName: u.user.lastName,
+          email: u.user.email,
+          roles: [roleInfo],
+          staffType: (u.user as any).staffType || 'internal',
+          hourlyRate: (u.user as any).hourlyRate ? parseFloat((u.user as any).hourlyRate) : null,
+          canLogin: (u.user as any).canLogin ?? true,
+          createdAt: u.user.createdAt,
+        });
+      }
+    }
     
+    const staffList = Array.from(userMap.values());
     res.json(staffList);
   } catch (error) {
     console.error("Error fetching staff:", error);
