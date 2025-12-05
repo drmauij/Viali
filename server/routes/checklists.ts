@@ -13,6 +13,7 @@ import {
   requireWriteAccess,
   verifyUserHospitalUnitAccess
 } from "../utils";
+import { broadcastChecklistUpdate } from "../socket";
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -254,6 +255,16 @@ router.post('/api/checklists/complete', isAuthenticated, requireWriteAccess, asy
     });
     
     const completion = await storage.completeChecklist(validated);
+    
+    // Broadcast checklist update to all connected clients
+    broadcastChecklistUpdate({
+      hospitalId: template.hospitalId,
+      section: 'checklists',
+      data: { completionId: completion.id, templateId: template.id },
+      timestamp: Date.now(),
+      userId,
+    });
+    
     res.status(201).json(completion);
   } catch (error: any) {
     console.error("Error completing checklist:", error);

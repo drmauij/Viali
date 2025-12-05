@@ -109,7 +109,7 @@ export default function Op() {
   
   // Active tab state - default based on module
   const getDefaultTab = () => {
-    if (isSurgeryMode) return "intraop";
+    if (isSurgeryMode) return "staff";
     if (isPacuMode) return "pacu";
     return "vitals";
   };

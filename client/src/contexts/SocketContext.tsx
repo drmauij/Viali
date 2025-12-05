@@ -33,6 +33,14 @@ interface AnesthesiaUpdatePayload {
   clientSessionId?: string;
 }
 
+interface ChecklistUpdatePayload {
+  hospitalId: string;
+  section: 'checklists';
+  data: unknown;
+  timestamp: number;
+  userId?: string;
+}
+
 type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'stale';
 
 interface SocketContextValue {
@@ -370,6 +378,42 @@ export function SocketProvider({ children }: SocketProviderProps) {
           });
         }
       }
+    });
+
+    // Listen for hospital-level checklist updates
+    socketInstance.on('checklist-update', (payload: ChecklistUpdatePayload) => {
+      console.log('[Socket] Received checklist update for hospital:', payload.hospitalId);
+      
+      // Invalidate all checklist-related queries for this hospital
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          if (!Array.isArray(key) || typeof key[0] !== 'string') return false;
+          
+          // Match checklist queries for this hospital
+          return key[0].includes('/api/checklists') && 
+            (key[0].includes(payload.hospitalId) || key.includes(payload.hospitalId));
+        },
+        refetchType: 'active',
+      });
+      
+      // Also invalidate the pending count
+      queryClient.invalidateQueries({
+        queryKey: [`/api/checklists/count/${payload.hospitalId}`],
+        refetchType: 'active',
+      });
+      
+      // And the pending checklists list
+      queryClient.invalidateQueries({
+        queryKey: [`/api/checklists/pending/${payload.hospitalId}`],
+        refetchType: 'active',
+      });
+      
+      // And history
+      queryClient.invalidateQueries({
+        queryKey: [`/api/checklists/history/${payload.hospitalId}`],
+        refetchType: 'active',
+      });
     });
 
     setSocket(socketInstance);

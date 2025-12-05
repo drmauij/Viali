@@ -130,6 +130,26 @@ export function broadcastAnesthesiaUpdate(payload: AnesthesiaUpdatePayload): voi
   console.log(`[Socket.IO] Broadcast to ${room}: ${payload.section}`);
 }
 
+export interface HospitalChecklistUpdatePayload {
+  hospitalId: string;
+  section: 'checklists';
+  data: unknown;
+  timestamp: number;
+  userId?: string;
+}
+
+export function broadcastChecklistUpdate(payload: HospitalChecklistUpdatePayload): void {
+  if (!io) {
+    console.warn('[Socket.IO] Server not initialized, cannot broadcast checklist update');
+    return;
+  }
+  
+  // Broadcast to all connected clients - they will filter by hospitalId on the frontend
+  io.emit('checklist-update', payload);
+  
+  console.log(`[Socket.IO] Broadcast checklist update for hospital: ${payload.hospitalId}`);
+}
+
 export function getSocketIO(): SocketIOServer | null {
   return io;
 }
