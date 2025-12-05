@@ -2079,6 +2079,7 @@
       "circulatingNurse": "Zudienung",
       "anesthesiologist": "Anästhesie",
       "anesthesiaNurse": "Anä-Pflege",
+      "pacuNurse": "AWR-Pflege",
       "searchOrEnter": "Suchen oder Namen eingeben...",
       "addCustom": "\"{{name}}\" hinzufügen",
       "addAsNew": "Als neuer Eintrag hinzufügen",

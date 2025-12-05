@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, X, User, UserCog, Stethoscope, Syringe, HeartPulse, Users, ChevronDown, Edit2, Trash2 } from 'lucide-react';
+import { Plus, X, User, UserCog, Stethoscope, Syringe, HeartPulse, Users, ChevronDown, Edit2, Trash2, BedDouble } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useCreateStaff, useUpdateStaff, useDeleteStaff, type StaffRole } from '@/hooks/useStaffQuery';
@@ -30,6 +30,7 @@ const ROLE_CONFIG: Record<StaffRole, { icon: typeof User; labelKey: string; colo
   circulatingNurse: { icon: HeartPulse, labelKey: 'surgery.staff.circulatingNurse', colorClass: 'bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200' },
   anesthesiologist: { icon: Stethoscope, labelKey: 'surgery.staff.anesthesiologist', colorClass: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' },
   anesthesiaNurse: { icon: User, labelKey: 'surgery.staff.anesthesiaNurse', colorClass: 'bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200' },
+  pacuNurse: { icon: BedDouble, labelKey: 'surgery.staff.pacuNurse', colorClass: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' },
 };
 
 const ROLE_ORDER: StaffRole[] = [
@@ -39,6 +40,7 @@ const ROLE_ORDER: StaffRole[] = [
   'circulatingNurse',
   'anesthesiologist',
   'anesthesiaNurse',
+  'pacuNurse',
 ];
 
 export function StaffTab({
@@ -80,6 +82,7 @@ export function StaffTab({
       circulatingNurse: [],
       anesthesiologist: [],
       anesthesiaNurse: [],
+      pacuNurse: [],
     };
 
     staffEntries.forEach((entry) => {

@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { SurgeryStaffEntry, InsertSurgeryStaffEntry } from '@shared/schema';
 
-export type StaffRole = 'surgeon' | 'surgicalAssistant' | 'instrumentNurse' | 'circulatingNurse' | 'anesthesiologist' | 'anesthesiaNurse';
+export type StaffRole = 'surgeon' | 'surgicalAssistant' | 'instrumentNurse' | 'circulatingNurse' | 'anesthesiologist' | 'anesthesiaNurse' | 'pacuNurse';
 
 export function useCreateStaff(anesthesiaRecordId: string | undefined) {
   const queryClient = useQueryClient();
