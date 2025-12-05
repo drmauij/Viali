@@ -235,7 +235,8 @@ function getRoleLabel(role: string, unitType: string | null): string {
     return 'Nurse';
   }
   if (role === 'manager') return 'Manager';
-  return role;
+  // Capitalize first letter of unknown roles
+  return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
 function getRoleBadgeStyle(role: string, unitType: string | null) {
