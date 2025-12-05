@@ -560,6 +560,7 @@
     "confirmPasswordPlaceholder": "Neues Passwort erneut eingeben",
     "passwordResetSuccess": "Passwort erfolgreich zurückgesetzt",
     "passwordResetError": "Passwort konnte nicht zurückgesetzt werden",
+    "generatePassword": "Sicheres Passwort generieren",
     "removeFromHospital": "Aus Krankenhaus entfernen",
     "deleteUserPermanently": "Benutzer dauerhaft löschen",
     "removeUserConfirm": "Möchten Sie diesen Benutzer wirklich aus dem Krankenhaus entfernen?",

@@ -560,6 +560,7 @@
     "confirmPasswordPlaceholder": "Re-enter new password",
     "passwordResetSuccess": "Password reset successfully",
     "passwordResetError": "Failed to reset password",
+    "generatePassword": "Generate secure password",
     "removeFromHospital": "Remove from hospital",
     "deleteUserPermanently": "Delete user permanently",
     "removeUserConfirm": "Are you sure you want to remove this user from the hospital?",

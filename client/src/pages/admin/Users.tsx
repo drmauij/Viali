@@ -10,8 +10,33 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Key } from "lucide-react";
+import { Key, Wand2 } from "lucide-react";
 import type { Unit, UserHospitalRole, User } from "@shared/schema";
+
+// Generate a secure random password
+function generateSecurePassword(length: number = 12): string {
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const numbers = '0123456789';
+  const symbols = '!@#$%&*';
+  
+  const allChars = lowercase + uppercase + numbers + symbols;
+  
+  // Ensure at least one of each type
+  let password = '';
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  password += numbers[Math.floor(Math.random() * numbers.length)];
+  password += symbols[Math.floor(Math.random() * symbols.length)];
+  
+  // Fill the rest randomly
+  for (let i = password.length; i < length; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)];
+  }
+  
+  // Shuffle the password
+  return password.split('').sort(() => Math.random() - 0.5).join('');
+}
 
 interface HospitalUser extends UserHospitalRole {
   user: User;
@@ -513,14 +538,27 @@ export default function Users() {
             </div>
             <div>
               <Label htmlFor="user-password">{t("admin.password")} *</Label>
-              <Input
-                id="user-password"
-                type="password"
-                value={userForm.password}
-                onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                placeholder={t("admin.passwordPlaceholder")}
-                data-testid="input-user-password"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="user-password"
+                  type="text"
+                  value={userForm.password}
+                  onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
+                  placeholder={t("admin.passwordPlaceholder")}
+                  data-testid="input-user-password"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setUserForm({ ...userForm, password: generateSecurePassword() })}
+                  title={t("admin.generatePassword")}
+                  data-testid="button-generate-password"
+                >
+                  <Wand2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -780,20 +818,37 @@ export default function Users() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="new-password">{t("admin.newPassword")} *</Label>
-              <Input
-                id="new-password"
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder={t("admin.passwordPlaceholder")}
-                data-testid="input-new-password"
-              />
+              <div className="flex gap-2">
+                <Input
+                  id="new-password"
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={t("admin.passwordPlaceholder")}
+                  data-testid="input-new-password"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => {
+                    const generated = generateSecurePassword();
+                    setNewPassword(generated);
+                    setConfirmPassword(generated);
+                  }}
+                  title={t("admin.generatePassword")}
+                  data-testid="button-generate-new-password"
+                >
+                  <Wand2 className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             <div>
               <Label htmlFor="confirm-password">{t("admin.confirmPassword")} *</Label>
               <Input
                 id="confirm-password"
-                type="password"
+                type="text"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder={t("admin.confirmPasswordPlaceholder")}
