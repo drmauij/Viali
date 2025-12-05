@@ -1377,6 +1377,7 @@ export const surgeryStaffEntries = pgTable("surgery_staff_entries", {
     "circulatingNurse",  // Zudienung (circulating nurse)
     "anesthesiologist",  // Anästhesie
     "anesthesiaNurse",   // Anä-Pflege
+    "pacuNurse",         // AWR-Pflege (PACU nurse)
   ] }).notNull(),
   
   userId: varchar("user_id").references(() => users.id), // Nullable - for system users (cost calculation)

@@ -1088,9 +1088,12 @@ export default function Op() {
             <div className="flex items-center gap-2 sm:gap-4 mb-4">
               <div className="flex-1 overflow-x-auto">
                 <TabsList className="inline-flex w-auto min-w-full">
-                  {/* Surgery Module Specific Tabs */}
+                  {/* Surgery Module Specific Tabs - Staff first */}
                   {isSurgeryMode && (
                     <>
+                      <TabsTrigger value="staff" data-testid="tab-staff" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('surgery.staff.title')}
+                      </TabsTrigger>
                       <TabsTrigger value="intraop" data-testid="tab-intraop" className="text-xs sm:text-sm whitespace-nowrap">
                         {t('surgery.opDetail.tabs.intraop')}
                       </TabsTrigger>
@@ -1116,14 +1119,11 @@ export default function Op() {
                           {t('anesthesia.op.anesthesia')}
                         </TabsTrigger>
                       )}
+                      {/* Staff Tab - In anesthesia module after main tabs */}
+                      <TabsTrigger value="staff" data-testid="tab-staff" className="text-xs sm:text-sm whitespace-nowrap">
+                        {t('surgery.staff.title')}
+                      </TabsTrigger>
                     </>
-                  )}
-
-                  {/* Staff Tab - Shared across both modules */}
-                  {!isPacuMode && (
-                    <TabsTrigger value="staff" data-testid="tab-staff" className="text-xs sm:text-sm whitespace-nowrap">
-                      {t('surgery.staff.title')}
-                    </TabsTrigger>
                   )}
 
                   {/* Surgery Module: Inventory before Checklists */}
@@ -1364,17 +1364,15 @@ export default function Op() {
             />
           </TabsContent>
 
-          {/* Staff Tab - Shared between modules */}
-          {!isPacuMode && (
-            <TabsContent value="staff" className="flex-1 overflow-y-auto px-6 pb-6 mt-0" data-testid="tab-content-staff">
-              <StaffTab
-                anesthesiaRecordId={anesthesiaRecord?.id}
-                hospitalId={activeHospital?.id}
-                anesthesiaUnitId={anesthesiaRecord?.anesthesiaUnitId}
-                readOnly={!!anesthesiaRecord?.isLocked}
-              />
-            </TabsContent>
-          )}
+          {/* Staff Tab - Shared between modules (visible in all modes including PACU) */}
+          <TabsContent value="staff" className="flex-1 overflow-y-auto px-6 pb-6 mt-0" data-testid="tab-content-staff">
+            <StaffTab
+              anesthesiaRecordId={anesthesiaRecord?.id}
+              hospitalId={activeHospital?.id}
+              anesthesiaUnitId={anesthesiaRecord?.anesthesiaUnitId}
+              readOnly={!!anesthesiaRecord?.isLocked}
+            />
+          </TabsContent>
 
           {/* Checklists Tab - Only shown in OP mode */}
           {!isPacuMode && (
