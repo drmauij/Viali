@@ -42,6 +42,7 @@ export default function Hospital() {
   const [supplierForm, setSupplierForm] = useState({
     supplierName: "Galexis",
     customerNumber: "",
+    apiPassword: "",
   });
 
   // Hospital name states
@@ -225,7 +226,7 @@ export default function Hospital() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/supplier-catalogs', activeHospital?.id] });
       setSupplierDialogOpen(false);
-      setSupplierForm({ supplierName: "Galexis", customerNumber: "" });
+      setSupplierForm({ supplierName: "Galexis", customerNumber: "", apiPassword: "" });
       toast({ title: t("common.success"), description: "Supplier catalog created successfully" });
     },
     onError: (error: any) => {
@@ -867,6 +868,17 @@ export default function Hospital() {
                         <p className="text-sm text-muted-foreground mt-1">
                           Customer #: {catalog.customerNumber || 'Not configured'}
                         </p>
+                        <p className="text-sm text-muted-foreground">
+                          Password: {catalog.apiPasswordEncrypted ? (
+                            <span className="text-green-600 dark:text-green-400">
+                              <i className="fas fa-check-circle mr-1"></i>Configured
+                            </span>
+                          ) : (
+                            <span className="text-red-600 dark:text-red-400">
+                              <i className="fas fa-times-circle mr-1"></i>Not set
+                            </span>
+                          )}
+                        </p>
                         {catalog.lastSyncAt && (
                           <p className="text-xs text-muted-foreground mt-1">
                             Last sync: {new Date(catalog.lastSyncAt).toLocaleString()} - {catalog.lastSyncMessage || catalog.lastSyncStatus}
@@ -1007,10 +1019,19 @@ export default function Hospital() {
                 This is the customer number provided by Galexis for API access
               </p>
             </div>
-            <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-              <p className="text-sm text-amber-800 dark:text-amber-200">
-                <i className="fas fa-key mr-2"></i>
-                The API password must be set as GALEXIS_API_PASSWORD in environment secrets.
+            <div>
+              <Label htmlFor="api-password">API Password *</Label>
+              <Input
+                id="api-password"
+                type="password"
+                value={supplierForm.apiPassword}
+                onChange={(e) => setSupplierForm({ ...supplierForm, apiPassword: e.target.value })}
+                placeholder="Enter Galexis API password"
+                data-testid="input-api-password"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                <i className="fas fa-lock mr-1"></i>
+                Stored securely with encryption. Cannot be viewed after saving.
               </p>
             </div>
             <div className="flex gap-2 justify-end">
@@ -1021,6 +1042,10 @@ export default function Hospital() {
                 onClick={() => {
                   if (!supplierForm.customerNumber.trim()) {
                     toast({ title: t("common.error"), description: "Customer number is required", variant: "destructive" });
+                    return;
+                  }
+                  if (!supplierForm.apiPassword.trim()) {
+                    toast({ title: t("common.error"), description: "API password is required", variant: "destructive" });
                     return;
                   }
                   createCatalogMutation.mutate(supplierForm);
