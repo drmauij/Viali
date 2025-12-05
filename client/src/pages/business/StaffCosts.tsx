@@ -223,7 +223,7 @@ function ChartCard({ title, description, helpText, children }: ChartCardProps) {
   );
 }
 
-function getRoleLabel(role: string, unitType: string | null): string {
+function getRoleLabel(role: string, unitType: string | null, unitName?: string | null): string {
   if (role === 'doctor') {
     if (unitType === 'anesthesia') return 'Anesthesiologist';
     if (unitType === 'surgery') return 'Surgeon';
@@ -231,30 +231,43 @@ function getRoleLabel(role: string, unitType: string | null): string {
   }
   if (role === 'nurse') {
     if (unitType === 'anesthesia') return 'Anesthesia Nurse';
-    if (unitType === 'surgery') return 'Surgery Nurse';
+    if (unitType === 'surgery') return 'OR Nurse';
     return 'Nurse';
   }
   if (role === 'manager') return 'Manager';
-  // Capitalize first letter of unknown roles
-  return role.charAt(0).toUpperCase() + role.slice(1);
+  // For other roles like 'guest', capitalize and show with unit
+  const capitalizedRole = role.charAt(0).toUpperCase() + role.slice(1);
+  if (unitName) {
+    return `${capitalizedRole} @ ${unitName}`;
+  }
+  return capitalizedRole;
 }
 
 function getRoleBadgeStyle(role: string, unitType: string | null) {
-  const label = getRoleLabel(role, unitType);
-  switch (label) {
-    case "Surgeon":
-      return "border-red-500/50 text-red-600 dark:text-red-400";
-    case "Anesthesiologist":
-      return "border-blue-500/50 text-blue-600 dark:text-blue-400";
-    case "Surgery Nurse":
-      return "border-green-500/50 text-green-600 dark:text-green-400";
-    case "Anesthesia Nurse":
-      return "border-orange-500/50 text-orange-600 dark:text-orange-400";
-    case "Manager":
-      return "border-purple-500/50 text-purple-600 dark:text-purple-400";
-    default:
-      return "border-gray-500/50 text-gray-600 dark:text-gray-400";
+  // Check role and unitType directly for consistent styling
+  if (role === 'doctor' && unitType === 'surgery') {
+    return "border-red-500/50 text-red-600 dark:text-red-400"; // Surgeon
   }
+  if (role === 'doctor' && unitType === 'anesthesia') {
+    return "border-blue-500/50 text-blue-600 dark:text-blue-400"; // Anesthesiologist
+  }
+  if (role === 'doctor') {
+    return "border-blue-500/50 text-blue-600 dark:text-blue-400"; // Doctor (default)
+  }
+  if (role === 'nurse' && unitType === 'surgery') {
+    return "border-green-500/50 text-green-600 dark:text-green-400"; // OR Nurse
+  }
+  if (role === 'nurse' && unitType === 'anesthesia') {
+    return "border-orange-500/50 text-orange-600 dark:text-orange-400"; // Anesthesia Nurse
+  }
+  if (role === 'nurse') {
+    return "border-teal-500/50 text-teal-600 dark:text-teal-400"; // Nurse (default)
+  }
+  if (role === 'manager') {
+    return "border-purple-500/50 text-purple-600 dark:text-purple-400"; // Manager
+  }
+  // Guest and other roles
+  return "border-gray-500/50 text-gray-600 dark:text-gray-400";
 }
 
 function getDisplayName(staff: StaffMember): string {
@@ -539,7 +552,7 @@ export default function StaffCosts() {
     return staffList.filter(staff => {
       const name = getDisplayName(staff).toLowerCase();
       // Get all role labels for this staff member
-      const roleLabels = staff.roles?.map(r => getRoleLabel(r.role, r.unitType).toLowerCase()) || [];
+      const roleLabels = staff.roles?.map(r => getRoleLabel(r.role, r.unitType, r.unitName).toLowerCase()) || [];
       const matchesSearch = name.includes(searchQuery.toLowerCase()) ||
                             roleLabels.some(label => label.includes(searchQuery.toLowerCase()));
       // Check if any of the user's roles matches the filter
@@ -726,7 +739,7 @@ export default function StaffCosts() {
                                   variant="outline" 
                                   className={getRoleBadgeStyle(role.role, role.unitType)}
                                 >
-                                  {getRoleLabel(role.role, role.unitType)}
+                                  {getRoleLabel(role.role, role.unitType, role.unitName)}
                                 </Badge>
                               ))}
                             </div>
