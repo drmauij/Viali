@@ -1,6 +1,6 @@
 {
-  "id": "8ae38019-c3b9-4013-8af1-ce4041f5fbb7",
-  "prevId": "a6744460-a430-426d-9edc-cb546e73d21f",
+  "id": "f410c780-401e-4106-be37-9b6e2c017a0b",
+  "prevId": "8ae38019-c3b9-4013-8af1-ce4041f5fbb7",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -7510,6 +7510,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'internal'"
+        },
+        "hourly_rate": {
+          "name": "hourly_rate",
+          "type": "numeric(10, 2)",
+          "primaryKey": false,
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",

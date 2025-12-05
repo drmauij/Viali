@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "hourly_rate" numeric(10, 2);
