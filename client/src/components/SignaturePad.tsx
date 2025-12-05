@@ -51,6 +51,25 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     }
   }, [isOpen]);
 
+  const getCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0 };
+
+    const rect = canvas.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    
+    // Calculate the scale ratio between canvas internal size and displayed size
+    // The canvas is scaled 2x for retina, so we need to account for that
+    const scaleX = canvas.offsetWidth / canvas.width * 2;
+    const scaleY = canvas.offsetHeight / canvas.height * 2;
+    
+    const x = (clientX - rect.left) / scaleX;
+    const y = (clientY - rect.top) / scaleY;
+    
+    return { x, y };
+  };
+
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault(); // Prevent scrolling
     const canvas = canvasRef.current;
@@ -62,9 +81,7 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     setIsDrawing(true);
     setHasSignature(true);
 
-    const rect = canvas.getBoundingClientRect();
-    const x = ('touches' in e ? e.touches[0].clientX : e.clientX) - rect.left;
-    const y = ('touches' in e ? e.touches[0].clientY : e.clientY) - rect.top;
+    const { x, y } = getCoordinates(e);
 
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -80,9 +97,7 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const x = ('touches' in e ? e.touches[0].clientX : e.clientX) - rect.left;
-    const y = ('touches' in e ? e.touches[0].clientY : e.clientY) - rect.top;
+    const { x, y } = getCoordinates(e);
 
     ctx.lineTo(x, y);
     ctx.stroke();
