@@ -93,13 +93,13 @@ export default function Hospital() {
 
   // Fetch supplier catalogs
   const { data: supplierCatalogs = [], isLoading: catalogsLoading } = useQuery<any[]>({
-    queryKey: ['/api/supplier-catalogs', activeHospital?.id],
+    queryKey: [`/api/supplier-catalogs/${activeHospital?.id}`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
   // Fetch price sync jobs
   const { data: priceSyncJobs = [], isLoading: jobsLoading, refetch: refetchJobs } = useQuery<any[]>({
-    queryKey: ['/api/price-sync-jobs', activeHospital?.id],
+    queryKey: [`/api/price-sync-jobs/${activeHospital?.id}`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
@@ -224,7 +224,7 @@ export default function Hospital() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/supplier-catalogs', activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: [`/api/supplier-catalogs/${activeHospital?.id}`] });
       setSupplierDialogOpen(false);
       setSupplierForm({ supplierName: "Galexis", customerNumber: "", apiPassword: "" });
       toast({ title: t("common.success"), description: "Supplier catalog created successfully" });
@@ -240,7 +240,7 @@ export default function Hospital() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/supplier-catalogs', activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: [`/api/supplier-catalogs/${activeHospital?.id}`] });
       toast({ title: t("common.success"), description: "Supplier catalog deleted" });
     },
     onError: (error: any) => {
@@ -254,7 +254,7 @@ export default function Hospital() {
       return await response.json();
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['/api/price-sync-jobs', activeHospital?.id] });
+      await queryClient.invalidateQueries({ queryKey: [`/api/price-sync-jobs/${activeHospital?.id}`] });
       await refetchJobs();
       toast({ title: t("common.success"), description: "Price sync job queued" });
     },
