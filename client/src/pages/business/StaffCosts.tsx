@@ -57,6 +57,9 @@ import {
   Building2,
   Activity,
   Loader2,
+  Shield,
+  Plus,
+  X,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -73,6 +76,14 @@ import {
 } from "recharts";
 
 interface RoleInfo {
+  role: string;
+  unitId: string | null;
+  unitName: string | null;
+  unitType: string | null;
+}
+
+interface RoleAssignment {
+  id: string;
   role: string;
   unitId: string | null;
   unitName: string | null;
@@ -272,7 +283,9 @@ export default function StaffCosts() {
   
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isRolesDialogOpen, setIsRolesDialogOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
+  const [managingRolesStaff, setManagingRolesStaff] = useState<StaffMember | null>(null);
   
   const [formData, setFormData] = useState({
     firstName: '',
@@ -283,6 +296,11 @@ export default function StaffCosts() {
     hourlyRate: '',
     staffType: 'internal' as 'internal' | 'external',
   });
+  
+  const [newRoleData, setNewRoleData] = useState({
+    role: 'nurse',
+    unitId: '',
+  });
 
   const { data: staffList = [], isLoading } = useQuery<StaffMember[]>({
     queryKey: [`/api/business/${activeHospital?.id}/staff`],
@@ -292,6 +310,16 @@ export default function StaffCosts() {
   const { data: hospitalUnits = [] } = useQuery<UnitOption[]>({
     queryKey: [`/api/business/${activeHospital?.id}/units`],
     enabled: !!activeHospital?.id,
+  });
+
+  const { data: userRoles = [], isLoading: isLoadingRoles } = useQuery<RoleAssignment[]>({
+    queryKey: ['/api/business', activeHospital?.id, 'staff', managingRolesStaff?.id, 'roles'],
+    queryFn: async () => {
+      const res = await fetch(`/api/business/${activeHospital?.id}/staff/${managingRolesStaff?.id}/roles`);
+      if (!res.ok) throw new Error('Failed to fetch roles');
+      return res.json();
+    },
+    enabled: !!activeHospital?.id && !!managingRolesStaff?.id && isRolesDialogOpen,
   });
 
   const createStaffMutation = useMutation({
@@ -371,6 +399,49 @@ export default function StaffCosts() {
     },
   });
 
+  const addRoleMutation = useMutation({
+    mutationFn: async ({ userId, role, unitId }: { userId: string; role: string; unitId: string }) => {
+      return apiRequest('POST', `/api/business/${activeHospital?.id}/staff/${userId}/roles`, { role, unitId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/business', activeHospital?.id, 'staff', managingRolesStaff?.id, 'roles'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/business/${activeHospital?.id}/staff`] });
+      setNewRoleData({ role: 'nurse', unitId: '' });
+      toast({
+        title: t('common.success'),
+        description: t('business.staff.roleAddSuccess'),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('business.staff.roleAddError'),
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const deleteRoleMutation = useMutation({
+    mutationFn: async ({ userId, roleId }: { userId: string; roleId: string }) => {
+      return apiRequest('DELETE', `/api/business/${activeHospital?.id}/staff/${userId}/roles/${roleId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/business', activeHospital?.id, 'staff', managingRolesStaff?.id, 'roles'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/business/${activeHospital?.id}/staff`] });
+      toast({
+        title: t('common.success'),
+        description: t('business.staff.roleDeleteSuccess'),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('business.staff.roleDeleteError'),
+        variant: 'destructive',
+      });
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       firstName: '',
@@ -426,6 +497,36 @@ export default function StaffCosts() {
       return;
     }
     updateStaffMutation.mutate({ userId: editingStaff.id, ...formData });
+  };
+
+  const handleManageRoles = (staff: StaffMember) => {
+    setManagingRolesStaff(staff);
+    setNewRoleData({ role: 'nurse', unitId: '' });
+    setIsRolesDialogOpen(true);
+  };
+
+  const handleAddRole = () => {
+    if (!managingRolesStaff || !newRoleData.unitId) {
+      toast({
+        title: t('common.error'),
+        description: t('business.staff.requiredFields'),
+        variant: 'destructive',
+      });
+      return;
+    }
+    addRoleMutation.mutate({
+      userId: managingRolesStaff.id,
+      role: newRoleData.role,
+      unitId: newRoleData.unitId,
+    });
+  };
+
+  const handleDeleteRole = (roleId: string) => {
+    if (!managingRolesStaff) return;
+    deleteRoleMutation.mutate({
+      userId: managingRolesStaff.id,
+      roleId,
+    });
   };
 
   const handleToggleStaffType = (staff: StaffMember) => {
@@ -655,14 +756,36 @@ export default function StaffCosts() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEditStaff(staff)}
-                                data-testid={`button-edit-staff-${staff.id}`}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleManageRoles(staff)}
+                                    data-testid={`button-manage-roles-${staff.id}`}
+                                  >
+                                    <Shield className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{t('business.staff.manageRoles')}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleEditStaff(staff)}
+                                    data-testid={`button-edit-staff-${staff.id}`}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{t('common.edit')}</p>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           </TableCell>
                         </TableRow>
@@ -941,7 +1064,7 @@ export default function StaffCosts() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Staff Dialog */}
+      {/* Edit Staff Dialog - User-level fields only */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -981,34 +1104,6 @@ export default function StaffCosts() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-role">{t('business.staff.role')} *</Label>
-                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                  <SelectTrigger data-testid="select-edit-role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="doctor">{t('business.staff.roleDoctor')}</SelectItem>
-                    <SelectItem value="nurse">{t('business.staff.roleNurse')}</SelectItem>
-                    <SelectItem value="manager">{t('business.staff.roleManager')}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-unit">{t('business.staff.unit')} *</Label>
-                <Select value={formData.unitId} onValueChange={(value) => setFormData({ ...formData, unitId: value })}>
-                  <SelectTrigger data-testid="select-edit-unit">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {hospitalUnits.map((unit) => (
-                      <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
                 <Label htmlFor="edit-hourlyRate">{t('business.staff.hourlyRate')} (€)</Label>
                 <Input
                   id="edit-hourlyRate"
@@ -1037,6 +1132,9 @@ export default function StaffCosts() {
                 </Select>
               </div>
             </div>
+            <p className="text-sm text-muted-foreground">
+              {t('business.staff.editRolesHint')}
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
@@ -1045,6 +1143,115 @@ export default function StaffCosts() {
             <Button onClick={handleSubmitEdit} disabled={updateStaffMutation.isPending}>
               {updateStaffMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Roles Dialog */}
+      <Dialog open={isRolesDialogOpen} onOpenChange={(open) => {
+        setIsRolesDialogOpen(open);
+        if (!open) setManagingRolesStaff(null);
+      }}>
+        <DialogContent className="sm:max-w-[550px]">
+          <DialogHeader>
+            <DialogTitle>{t('business.staff.manageRoles')}</DialogTitle>
+            <DialogDescription>
+              {managingRolesStaff && getDisplayName(managingRolesStaff)} - {t('business.staff.manageRolesDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Current Roles List */}
+            <div className="space-y-2">
+              <Label>{t('business.staff.currentRoles')}</Label>
+              {isLoadingRoles ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : userRoles.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">{t('business.staff.noRoles')}</p>
+              ) : (
+                <div className="space-y-2">
+                  {userRoles.map((roleAssignment) => (
+                    <div 
+                      key={roleAssignment.id} 
+                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
+                      data-testid={`role-item-${roleAssignment.id}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant="outline" 
+                          className={getRoleBadgeStyle(roleAssignment.role, roleAssignment.unitType)}
+                        >
+                          {getRoleLabel(roleAssignment.role, roleAssignment.unitType)}
+                        </Badge>
+                        <span className="text-sm text-muted-foreground">
+                          {t('common.in')} {roleAssignment.unitName || t('business.staff.unknownUnit')}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteRole(roleAssignment.id)}
+                        disabled={deleteRoleMutation.isPending || userRoles.length <= 1}
+                        data-testid={`button-delete-role-${roleAssignment.id}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Add New Role */}
+            <div className="space-y-2 pt-4 border-t">
+              <Label>{t('business.staff.addNewRole')}</Label>
+              <div className="flex gap-2">
+                <Select 
+                  value={newRoleData.role} 
+                  onValueChange={(value) => setNewRoleData({ ...newRoleData, role: value })}
+                >
+                  <SelectTrigger className="w-[140px]" data-testid="select-new-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="doctor">{t('business.staff.roleDoctor')}</SelectItem>
+                    <SelectItem value="nurse">{t('business.staff.roleNurse')}</SelectItem>
+                    <SelectItem value="manager">{t('business.staff.roleManager')}</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select 
+                  value={newRoleData.unitId} 
+                  onValueChange={(value) => setNewRoleData({ ...newRoleData, unitId: value })}
+                >
+                  <SelectTrigger className="flex-1" data-testid="select-new-unit">
+                    <SelectValue placeholder={t('business.staff.selectUnit')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hospitalUnits.map((unit) => (
+                      <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button 
+                  onClick={handleAddRole}
+                  disabled={!newRoleData.unitId || addRoleMutation.isPending}
+                  data-testid="button-add-role"
+                >
+                  {addRoleMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsRolesDialogOpen(false)}>
+              {t('common.close')}
             </Button>
           </DialogFooter>
         </DialogContent>
