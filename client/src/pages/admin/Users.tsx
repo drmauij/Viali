@@ -10,7 +10,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Key, Wand2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink } from "lucide-react";
 import type { Unit, UserHospitalRole, User } from "@shared/schema";
 
 // Generate a secure random password
@@ -242,6 +243,25 @@ export default function Users() {
     },
     onError: (error: any) => {
       toast({ title: t("common.error"), description: error.message || t("admin.passwordResetError"), variant: "destructive" });
+    },
+  });
+
+  // Update user access settings mutation
+  const updateUserAccessMutation = useMutation({
+    mutationFn: async ({ userId, canLogin, staffType }: { userId: string; canLogin?: boolean; staffType?: string }) => {
+      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/access`, {
+        canLogin,
+        staffType,
+        hospitalId: activeHospital?.id,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+      toast({ title: t("common.success"), description: t("admin.userAccessUpdated") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateAccess"), variant: "destructive" });
     },
   });
 
@@ -680,6 +700,74 @@ export default function Users() {
                   <Key className="h-4 w-4 mr-2" />
                   {t("auth.changePassword")}
                 </Button>
+              </div>
+
+              {/* Access Settings */}
+              <div className="border-t pt-4">
+                <Label className="text-base font-semibold mb-3 block">{t("admin.accessSettings")}</Label>
+                <div className="space-y-4">
+                  {/* Can Login Toggle */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {editingUserDetails?.canLogin !== false ? (
+                        <UserCheck className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <UserX className="h-4 w-4 text-destructive" />
+                      )}
+                      <Label htmlFor="can-login" className="text-sm font-normal">
+                        {t("admin.canLogin")}
+                      </Label>
+                    </div>
+                    <Switch
+                      id="can-login"
+                      checked={editingUserDetails?.canLogin !== false}
+                      onCheckedChange={(checked) => {
+                        if (editingUserDetails) {
+                          updateUserAccessMutation.mutate({
+                            userId: editingUserDetails.id,
+                            canLogin: checked,
+                          });
+                        }
+                      }}
+                      disabled={updateUserAccessMutation.isPending}
+                      data-testid="switch-can-login"
+                    />
+                  </div>
+                  
+                  {/* Staff Type Dropdown */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {editingUserDetails?.staffType === 'external' ? (
+                        <ExternalLink className="h-4 w-4 text-orange-600" />
+                      ) : (
+                        <Building2 className="h-4 w-4 text-blue-600" />
+                      )}
+                      <Label htmlFor="staff-type" className="text-sm font-normal">
+                        {t("admin.staffType")}
+                      </Label>
+                    </div>
+                    <Select
+                      value={editingUserDetails?.staffType || 'internal'}
+                      onValueChange={(value) => {
+                        if (editingUserDetails) {
+                          updateUserAccessMutation.mutate({
+                            userId: editingUserDetails.id,
+                            staffType: value,
+                          });
+                        }
+                      }}
+                      disabled={updateUserAccessMutation.isPending}
+                    >
+                      <SelectTrigger className="w-36" data-testid="select-staff-type">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="internal">{t("admin.staffTypeInternal")}</SelectItem>
+                        <SelectItem value="external">{t("admin.staffTypeExternal")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
 
               {/* Role/Unit Pairs */}

@@ -583,12 +583,12 @@ router.patch('/api/admin/users/:userId/access', isAuthenticated, requireWriteAcc
     }
 
     // Build update object
-    const updateData: { canLogin?: boolean; staffType?: string } = {};
+    const updateData: { canLogin?: boolean; staffType?: 'internal' | 'external' } = {};
     if (canLogin !== undefined) {
       updateData.canLogin = canLogin;
     }
     if (staffType !== undefined) {
-      updateData.staffType = staffType;
+      updateData.staffType = staffType as 'internal' | 'external';
     }
 
     // Update user
