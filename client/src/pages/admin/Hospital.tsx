@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
@@ -100,11 +100,21 @@ export default function Hospital() {
   const { data: priceSyncJobs = [], isLoading: jobsLoading, refetch: refetchJobs } = useQuery<any[]>({
     queryKey: ['/api/price-sync-jobs', activeHospital?.id],
     enabled: !!activeHospital?.id && isAdmin,
-    refetchInterval: (data) => {
-      const hasActiveJob = data?.some((j: any) => j.status === 'queued' || j.status === 'processing');
-      return hasActiveJob ? 3000 : false;
-    },
   });
+
+  // Determine if we need to poll for job updates
+  const hasActiveJob = Array.isArray(priceSyncJobs) && priceSyncJobs.some((j: any) => j.status === 'queued' || j.status === 'processing');
+
+  // Poll for job updates when there's an active job
+  useEffect(() => {
+    if (!hasActiveJob) return;
+    
+    const interval = setInterval(() => {
+      refetchJobs();
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [hasActiveJob, refetchJobs]);
 
   // Unit mutations
   const createUnitMutation = useMutation({
@@ -242,8 +252,9 @@ export default function Hospital() {
       const response = await apiRequest("POST", `/api/price-sync/trigger`, { catalogId });
       return await response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/price-sync-jobs', activeHospital?.id] });
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['/api/price-sync-jobs', activeHospital?.id] });
+      await refetchJobs();
       toast({ title: t("common.success"), description: "Price sync job queued" });
     },
     onError: (error: any) => {
@@ -625,6 +636,18 @@ export default function Hospital() {
           <i className="fas fa-clipboard-check mr-2"></i>
           {t("admin.checklists")}
         </button>
+        <button
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === "suppliers"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+          onClick={() => setActiveTab("suppliers")}
+          data-testid="tab-suppliers"
+        >
+          <i className="fas fa-truck mr-2"></i>
+          Suppliers
+        </button>
       </div>
 
       {/* Units Tab Content */}
@@ -773,6 +796,244 @@ export default function Hospital() {
           )}
         </div>
       )}
+
+      {/* Suppliers Tab Content */}
+      {activeTab === "suppliers" && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-foreground">Supplier Price Sync</h2>
+            <Button 
+              onClick={() => setSupplierDialogOpen(true)} 
+              size="sm" 
+              data-testid="button-add-supplier"
+            >
+              <i className="fas fa-plus mr-2"></i>
+              Add Supplier
+            </Button>
+          </div>
+
+          {/* Info Card */}
+          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <i className="fas fa-info-circle text-blue-500 mt-0.5"></i>
+              <div>
+                <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                  Automatic Price Updates
+                </h3>
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Connect your supplier account to automatically sync current prices for your inventory items.
+                  Currently supports Galexis XML API with customer-specific discounted pricing.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {catalogsLoading ? (
+            <div className="text-center py-8">
+              <i className="fas fa-spinner fa-spin text-2xl text-primary"></i>
+            </div>
+          ) : supplierCatalogs.length === 0 ? (
+            <div className="bg-card border border-border rounded-lg p-8 text-center">
+              <i className="fas fa-truck text-4xl text-muted-foreground mb-4"></i>
+              <h3 className="text-lg font-semibold text-foreground mb-2">No Suppliers Configured</h3>
+              <p className="text-muted-foreground mb-4">
+                Add a supplier to enable automatic price syncing
+              </p>
+              <Button onClick={() => setSupplierDialogOpen(true)} size="sm">
+                <i className="fas fa-plus mr-2"></i>
+                Add Supplier
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {supplierCatalogs.map((catalog: any) => {
+                const latestJob = priceSyncJobs.find((j: any) => j.catalogId === catalog.id);
+                const isJobActive = latestJob && (latestJob.status === 'queued' || latestJob.status === 'processing');
+                
+                return (
+                  <div key={catalog.id} className="bg-card border border-border rounded-lg p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-foreground">{catalog.supplierName}</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${
+                            catalog.isEnabled 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                          }`}>
+                            {catalog.isEnabled ? 'Active' : 'Disabled'}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Customer #: {catalog.customerNumber || 'Not configured'}
+                        </p>
+                        {catalog.lastSyncAt && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Last sync: {new Date(catalog.lastSyncAt).toLocaleString()} - {catalog.lastSyncMessage || catalog.lastSyncStatus}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => triggerSyncMutation.mutate(catalog.id)}
+                          disabled={isJobActive || triggerSyncMutation.isPending}
+                          data-testid={`button-sync-${catalog.id}`}
+                        >
+                          {isJobActive ? (
+                            <>
+                              <i className="fas fa-spinner fa-spin mr-2"></i>
+                              {latestJob.progressPercent || 0}%
+                            </>
+                          ) : (
+                            <>
+                              <i className="fas fa-sync mr-2"></i>
+                              Sync Prices
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm('Delete this supplier configuration?')) {
+                              deleteCatalogMutation.mutate(catalog.id);
+                            }
+                          }}
+                          data-testid={`button-delete-supplier-${catalog.id}`}
+                        >
+                          <i className="fas fa-trash text-destructive"></i>
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    {/* Show latest job status if active */}
+                    {isJobActive && (
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <div className="flex items-center gap-2 text-sm">
+                          <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                            <div 
+                              className="bg-primary h-full transition-all duration-300"
+                              style={{ width: `${latestJob.progressPercent || 0}%` }}
+                            />
+                          </div>
+                          <span className="text-muted-foreground whitespace-nowrap">
+                            {latestJob.status === 'queued' ? 'Waiting...' : 
+                             latestJob.processedItems ? `${latestJob.processedItems}/${latestJob.totalItems || '?'} items` : 'Processing...'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Recent Sync Jobs */}
+          {priceSyncJobs.length > 0 && (
+            <div className="mt-6">
+              <h3 className="text-md font-semibold text-foreground mb-3">Recent Sync Jobs</h3>
+              <div className="space-y-2">
+                {priceSyncJobs.slice(0, 5).map((job: any) => (
+                  <div key={job.id} className="bg-muted/50 rounded-lg p-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${
+                          job.status === 'completed' ? 'bg-green-500' :
+                          job.status === 'failed' ? 'bg-red-500' :
+                          job.status === 'processing' ? 'bg-yellow-500 animate-pulse' :
+                          'bg-gray-400'
+                        }`} />
+                        <span className="font-medium capitalize">{job.status}</span>
+                      </div>
+                      <span className="text-muted-foreground">
+                        {new Date(job.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    {job.status === 'completed' && job.summary && (
+                      <p className="text-muted-foreground mt-1">
+                        {(() => {
+                          try {
+                            const s = JSON.parse(job.summary);
+                            return `Matched ${s.matchedItems} items, updated ${s.updatedItems} prices`;
+                          } catch { return job.summary; }
+                        })()}
+                      </p>
+                    )}
+                    {job.status === 'failed' && job.error && (
+                      <p className="text-red-500 mt-1">{job.error}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Supplier Dialog */}
+      <Dialog open={supplierDialogOpen} onOpenChange={setSupplierDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Supplier</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="supplier-name">Supplier</Label>
+              <Select
+                value={supplierForm.supplierName}
+                onValueChange={(value) => setSupplierForm({ ...supplierForm, supplierName: value })}
+              >
+                <SelectTrigger data-testid="select-supplier-name">
+                  <SelectValue placeholder="Select supplier" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Galexis">Galexis</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="customer-number">Customer Number *</Label>
+              <Input
+                id="customer-number"
+                value={supplierForm.customerNumber}
+                onChange={(e) => setSupplierForm({ ...supplierForm, customerNumber: e.target.value })}
+                placeholder="Your Galexis customer number"
+                data-testid="input-customer-number"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                This is the customer number provided by Galexis for API access
+              </p>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+              <p className="text-sm text-amber-800 dark:text-amber-200">
+                <i className="fas fa-key mr-2"></i>
+                The API password must be set as GALEXIS_API_PASSWORD in environment secrets.
+              </p>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setSupplierDialogOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!supplierForm.customerNumber.trim()) {
+                    toast({ title: t("common.error"), description: "Customer number is required", variant: "destructive" });
+                    return;
+                  }
+                  createCatalogMutation.mutate(supplierForm);
+                }}
+                disabled={createCatalogMutation.isPending}
+                data-testid="button-save-supplier"
+              >
+                Add Supplier
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Unit Dialog */}
       <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen}>
