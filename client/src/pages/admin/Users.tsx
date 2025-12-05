@@ -598,14 +598,14 @@ export default function Users() {
 
       {/* Edit User Dialog */}
       <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-          <DialogHeader className="shrink-0">
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden p-0">
+          <DialogHeader className="shrink-0 px-6 pt-6 pb-2">
             <DialogTitle>{t("admin.editUser")}</DialogTitle>
             <DialogDescription>
               {editingUserDetails?.email}
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="flex-1 min-h-0 -mx-6 px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
+          <div className="flex-1 overflow-y-auto px-6 pb-2" style={{ maxHeight: 'calc(85vh - 160px)' }}>
             <div className="space-y-4 py-1">
               {/* Name fields */}
               <div className="grid grid-cols-2 gap-2">
@@ -719,8 +719,8 @@ export default function Users() {
                 </div>
               </div>
             </div>
-          </ScrollArea>
-          <div className="flex gap-2 justify-end border-t pt-4 shrink-0">
+          </div>
+          <div className="flex gap-2 justify-end border-t pt-4 px-6 pb-6 shrink-0 bg-background">
             <Button variant="outline" onClick={() => setEditUserDialogOpen(false)}>
               {t("common.cancel")}
             </Button>
