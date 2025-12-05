@@ -16,6 +16,7 @@
     "confirm": "Bestätigen",
     "yes": "Ja",
     "no": "Nein",
+    "in": "in",
     "optional": "Optional",
     "birthday": "Geburtsdatum",
     "viewOnlyMode": "Nur-Lese-Modus",
@@ -2504,7 +2505,18 @@
       "date": "Datum",
       "patient": "Patient",
       "surgery": "Operation",
-      "totalCol": "Gesamt"
+      "totalCol": "Gesamt",
+      "manageRoles": "Rollen verwalten",
+      "manageRolesDesc": "Rollen- und Abteilungszuweisungen verwalten",
+      "currentRoles": "Aktuelle Rollen",
+      "addNewRole": "Neue Rolle hinzufügen",
+      "noRoles": "Keine Rollen zugewiesen",
+      "unknownUnit": "Unbekannte Abteilung",
+      "roleAddSuccess": "Rolle erfolgreich hinzugefügt",
+      "roleAddError": "Fehler beim Hinzufügen der Rolle",
+      "roleDeleteSuccess": "Rolle erfolgreich entfernt",
+      "roleDeleteError": "Fehler beim Entfernen der Rolle",
+      "editRolesHint": "Verwenden Sie die Schaltfläche 'Rollen verwalten', um Rollenzuweisungen hinzuzufügen oder zu entfernen"
     },
     "time": {
       "title": "Zeitanalyse",

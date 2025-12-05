@@ -16,6 +16,7 @@
     "confirm": "Confirm",
     "yes": "Yes",
     "no": "No",
+    "in": "in",
     "optional": "Optional",
     "birthday": "Birthday",
     "viewOnlyMode": "View Only Mode",
@@ -2489,7 +2490,18 @@
       "date": "Date",
       "patient": "Patient",
       "surgery": "Surgery",
-      "totalCol": "Total"
+      "totalCol": "Total",
+      "manageRoles": "Manage Roles",
+      "manageRolesDesc": "Manage role and unit assignments",
+      "currentRoles": "Current Roles",
+      "addNewRole": "Add New Role",
+      "noRoles": "No roles assigned",
+      "unknownUnit": "Unknown Unit",
+      "roleAddSuccess": "Role added successfully",
+      "roleAddError": "Failed to add role",
+      "roleDeleteSuccess": "Role removed successfully",
+      "roleDeleteError": "Failed to remove role",
+      "editRolesHint": "Use 'Manage Roles' button to add or remove role assignments"
     },
     "time": {
       "title": "Time Analytics",
