@@ -700,104 +700,79 @@ export default function StaffCosts() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t('business.staff.name')}</TableHead>
+                        <TableHead>{t('business.costs.role')}</TableHead>
                         <TableHead className="text-right">{t('business.staff.hourlyRate')}</TableHead>
-                        <TableHead className="text-center">{t('business.staff.staffTypeLabel')}</TableHead>
-                        <TableHead className="text-center">{t('business.staff.appUser')}</TableHead>
+                        <TableHead>{t('business.staff.staffTypeLabel')}</TableHead>
                         <TableHead className="text-right">{t('business.staff.actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredStaff.map((staff) => (
-                        <>
-                          <TableRow key={staff.id} data-testid={`row-staff-${staff.id}`} className="border-b-0">
-                            <TableCell className="font-medium pb-1">
-                              <div>
-                                {getDisplayName(staff)}
-                                {staff.email && (
-                                  <div className="text-xs text-muted-foreground">{staff.email}</div>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-right font-medium pb-1">
-                              {staff.hourlyRate ? `€${staff.hourlyRate}/h` : '-'}
-                            </TableCell>
-                            <TableCell className="text-center pb-1">
-                              <div className="flex items-center justify-center gap-2">
-                                <span className={`text-xs ${staff.staffType === 'internal' ? 'text-green-600' : 'text-muted-foreground'}`}>
-                                  {t('business.staff.internal')}
-                                </span>
-                                <Switch
-                                  checked={staff.staffType === 'external'}
-                                  onCheckedChange={() => handleToggleStaffType(staff)}
-                                  data-testid={`switch-staff-type-${staff.id}`}
-                                />
-                                <span className={`text-xs ${staff.staffType === 'external' ? 'text-purple-600' : 'text-muted-foreground'}`}>
-                                  {t('business.staff.external')}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center pb-1">
-                              <Badge variant={staff.canLogin ? "default" : "secondary"}>
-                                {staff.canLogin ? t('common.yes') : t('common.no')}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right pb-1">
-                              <div className="flex justify-end gap-1">
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleManageRoles(staff)}
-                                      data-testid={`button-manage-roles-${staff.id}`}
-                                    >
-                                      <Shield className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>{t('business.staff.manageRoles')}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() => handleEditStaff(staff)}
-                                      data-testid={`button-edit-staff-${staff.id}`}
-                                    >
-                                      <Edit2 className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>{t('common.edit')}</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                          {/* Roles row spanning all columns */}
-                          <TableRow key={`${staff.id}-roles`} className="hover:bg-transparent">
-                            <TableCell colSpan={5} className="pt-0 pb-3">
-                              <div className="flex flex-wrap gap-1.5">
-                                {staff.roles?.map((role, idx) => (
-                                  <div 
-                                    key={`${staff.id}-${role.role}-${role.unitId || idx}`}
-                                    className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1"
+                        <TableRow key={staff.id} data-testid={`row-staff-${staff.id}`}>
+                          <TableCell className="font-medium">
+                            <div>
+                              {getDisplayName(staff)}
+                              {staff.email && (
+                                <div className="text-xs text-muted-foreground">{staff.email}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {staff.roles?.map((role, idx) => (
+                                <Badge 
+                                  key={`${staff.id}-${role.role}-${role.unitId || idx}`}
+                                  variant="outline" 
+                                  className={getRoleBadgeStyle(role.role, role.unitType)}
+                                >
+                                  {getRoleLabel(role.role, role.unitType)}
+                                </Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {staff.hourlyRate ? `€${staff.hourlyRate}/h` : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <span className={staff.staffType === 'internal' ? 'text-green-600 dark:text-green-400' : 'text-purple-600 dark:text-purple-400'}>
+                              {staff.staffType === 'internal' ? t('business.staff.internal') : t('business.staff.external')}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleManageRoles(staff)}
+                                    data-testid={`button-manage-roles-${staff.id}`}
                                   >
-                                    <span className="text-xs font-medium text-primary">
-                                      {getRoleLabel(role.role, role.unitType)}
-                                    </span>
-                                    <span className="text-xs text-primary/60 mx-1.5">@</span>
-                                    <span className="text-xs text-primary/80">
-                                      {role.unitName || t('business.staff.unknownUnit')}
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        </>
+                                    <Shield className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{t('business.staff.manageRoles')}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleEditStaff(staff)}
+                                    data-testid={`button-edit-staff-${staff.id}`}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{t('common.edit')}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </TableCell>
+                        </TableRow>
                       ))}
                     </TableBody>
                   </Table>
