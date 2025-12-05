@@ -598,14 +598,14 @@ export default function Users() {
 
       {/* Edit User Dialog */}
       <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
           <DialogHeader className="shrink-0">
             <DialogTitle>{t("admin.editUser")}</DialogTitle>
             <DialogDescription>
               {editingUserDetails?.email}
             </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="flex-1 -mx-6 px-6">
+          <ScrollArea className="flex-1 min-h-0 -mx-6 px-6" style={{ maxHeight: 'calc(90vh - 180px)' }}>
             <div className="space-y-4 py-1">
               {/* Name fields */}
               <div className="grid grid-cols-2 gap-2">
