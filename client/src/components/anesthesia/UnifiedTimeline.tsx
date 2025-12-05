@@ -34,7 +34,6 @@ import { EventDialog } from "./dialogs/EventDialog";
 import { HeartRhythmDialog } from "./dialogs/HeartRhythmDialog";
 import { BISDialog } from "./dialogs/BISDialog";
 import { TOFDialog } from "./dialogs/TOFDialog";
-import { StaffDialog } from "./dialogs/StaffDialog";
 import { PositionDialog } from "./dialogs/PositionDialog";
 import { MedicationDoseDialog } from "./dialogs/MedicationDoseDialog";
 import { MedicationEditDialog } from "./dialogs/MedicationEditDialog";
@@ -129,7 +128,6 @@ import { MedicationsSwimlane } from "./swimlanes/MedicationsSwimlane";
 import { VentilationSwimlane, generateVentilationSeries } from "./swimlanes/VentilationSwimlane";
 import { OutputSwimlane } from "./swimlanes/OutputSwimlane";
 import { PositionSwimlane } from "./swimlanes/PositionSwimlane";
-import { StaffSwimlane } from "./swimlanes/StaffSwimlane";
 import { HeartRhythmSwimlane } from "./swimlanes/HeartRhythmSwimlane";
 import { BISSwimlane } from "./swimlanes/BISSwimlane";
 import { TOFSwimlane } from "./swimlanes/TOFSwimlane";
@@ -1286,17 +1284,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // NEW: Fetch clinical snapshot with React Query (single source of truth)
   const { data: clinicalSnapshot } = useClinicalSnapshot(anesthesiaRecordId);
   
-  // Fetch positions, staff, and events from separate tables
+  // Fetch positions and events from separate tables
   // Use staleTime: 0 and refetchOnMount to ensure fresh data on navigation
   const { data: apiPositions = [] } = useQuery<any[]>({
     queryKey: [`/api/anesthesia/positions/${anesthesiaRecordId}`],
-    enabled: !!anesthesiaRecordId,
-    staleTime: 0,
-    refetchOnMount: "always",
-  });
-  
-  const { data: apiStaff = [] } = useQuery<any[]>({
-    queryKey: [`/api/anesthesia/staff/${anesthesiaRecordId}`],
     enabled: !!anesthesiaRecordId,
     staleTime: 0,
     refetchOnMount: "always",
@@ -1735,38 +1726,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
   }, [apiPositions, setPositionData]);
 
-  // NEW: Sync staff data from API
-  useEffect(() => {
-    if (apiStaff.length > 0) {
-      console.log('[STAFF-SYNC] Loading staff from API:', apiStaff.length, 'entries');
-      
-      // Group staff entries by role, preserving IDs for CRUD operations
-      const staffByRole: { 
-        doctor: Array<{id: string; timestamp: number; name: string}>;
-        nurse: Array<{id: string; timestamp: number; name: string}>;
-        assistant: Array<{id: string; timestamp: number; name: string}>;
-      } = {
-        doctor: [],
-        nurse: [],
-        assistant: [],
-      };
-      
-      apiStaff.forEach((staff: any) => {
-        const entry = {
-          id: staff.id,
-          timestamp: new Date(staff.timestamp).getTime(),
-          name: staff.name,
-        };
-        staffByRole[staff.role as 'doctor' | 'nurse' | 'assistant'].push(entry);
-      });
-      
-      setStaffData(staffByRole);
-    } else {
-      // Clear stale state when switching to record with no data
-      setStaffData({ doctor: [], nurse: [], assistant: [] });
-    }
-  }, [apiStaff, setStaffData]);
-
   // NEW: Sync event comments from API
   useEffect(() => {
     console.log('[EVENTS-SYNC] apiEvents changed:', apiEvents?.length || 0, 'entries', apiEvents);
@@ -1804,11 +1763,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const [showTOFDialog, setShowTOFDialog] = useState(false);
   const [pendingTOF, setPendingTOF] = useState<{ time: number } | null>(null);
   const [editingTOF, setEditingTOF] = useState<{ id: string; time: number; value: string; percentage?: number; index: number } | null>(null);
-
-  // UI state for staff dialogs and interactions
-  const [showStaffDialog, setShowStaffDialog] = useState(false);
-  const [pendingStaff, setPendingStaff] = useState<{ time: number; role: 'doctor' | 'nurse' | 'assistant' } | null>(null);
-  const [editingStaff, setEditingStaff] = useState<{ id: string; time: number; name: string; role: 'doctor' | 'nurse' | 'assistant'; index: number } | null>(null);
 
   // UI state for position dialogs and interactions
   const [showPositionDialog, setShowPositionDialog] = useState(false);
@@ -2444,7 +2398,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     { id: "herzrhythmus", label: t("anesthesia.timeline.heartRhythm"), height: 48, colorLight: "rgba(252, 231, 243, 0.8)", colorDark: "hsl(330, 50%, 20%)" },
     // Administration group lanes will be inserted dynamically here
     { id: "position", label: t("anesthesia.timeline.position"), height: 48, colorLight: "rgba(226, 232, 240, 0.8)", colorDark: "hsl(215, 20%, 25%)" },
-    { id: "staff", label: t("anesthesia.timeline.staff"), height: 48, colorLight: "rgba(241, 245, 249, 0.8)", colorDark: "hsl(220, 25%, 25%)" },
     { id: "ventilation", label: t("anesthesia.timeline.ventilation"), height: 48, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
     { id: "output", label: t("anesthesia.timeline.output"), height: 48, colorLight: "rgba(254, 226, 226, 0.8)", colorDark: "hsl(0, 60%, 25%)" },
     { id: "others", label: t("anesthesia.timeline.others"), height: 48, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
@@ -2546,20 +2499,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             label: `  ${paramName}`,
             height: 38,
             ...outputColor,
-          });
-        });
-      }
-
-      // Insert staff children after Staff parent (if not collapsed)
-      if (lane.id === "staff" && !collapsedSwimlanes.has("staff")) {
-        const staffColor = { colorLight: "rgba(241, 245, 249, 0.8)", colorDark: "hsl(220, 25%, 25%)" };
-        const staffRoles = ["Doctor", "Nurse", "Assistant"];
-        staffRoles.forEach((roleName, index) => {
-          lanes.push({
-            id: `staff-${roleName.toLowerCase()}`,
-            label: `  ${roleName}`,
-            height: 38,
-            ...staffColor,
           });
         });
       }
@@ -3394,8 +3333,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       // Determine if grid lines should be shown for this swimlane
       const hideGridLines = lane && (
         lane.id === "medikamente" ||    // Parent Medications swimlane
-        lane.hierarchyLevel === 'group' || // Medication group headers
-        lane.id === "staff"                // Parent Staff swimlane
+        lane.hierarchyLevel === 'group' // Medication group headers
       );
       
       return {
@@ -5995,15 +5933,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           const isMedParent = lane.id === "medikamente";
           const isVentParent = lane.id === "ventilation";
           const isOutputParent = lane.id === "output";
-          const isStaffParent = lane.id === "staff";
           const isOthersParent = lane.id === "others";
           const isVentChild = lane.id.startsWith("ventilation-");
           const isOutputChild = lane.id.startsWith("output-");
-          const isStaffChild = lane.id.startsWith("staff-");
           const isOthersChild = lane.id === "bis" || lane.id === "tof";
           
           // Only the main parent swimlanes are collapsible
-          const isCollapsibleParent = isMedParent || isVentParent || isOutputParent || isStaffParent || isOthersParent;
+          const isCollapsibleParent = isMedParent || isVentParent || isOutputParent || isOthersParent;
           
           // Determine styling based on hierarchyLevel field
           let labelClass = "";
@@ -6016,7 +5952,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           } else if (swimlaneConfig?.hierarchyLevel === 'entry') {
             // Entry lane (e.g., Vent. Params) - bold, smaller text
             labelClass = "text-xs font-semibold";
-          } else if (swimlaneConfig?.hierarchyLevel === 'item' || isVentChild || isOutputChild || isStaffChild || isOthersChild) {
+          } else if (swimlaneConfig?.hierarchyLevel === 'item' || isVentChild || isOutputChild || isOthersChild) {
             // Level 3: Individual items (non-collapsible, not bold, smaller)
             labelClass = "text-xs";
           } else {
@@ -6556,30 +6492,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }}
       />
 
-      {/* StaffSwimlane Component - Interactive layers and rendering for staff assignments */}
-      <StaffSwimlane
-        swimlanePositions={swimlanePositions}
-        isTouchDevice={isTouchDevice}
-        userName={(() => {
-          const userFirstName = (user as any)?.firstName || "";
-          const userLastName = (user as any)?.lastName || "";
-          return userFirstName && userLastName ? `${userFirstName} ${userLastName}` : userFirstName || userLastName || "";
-        })()}
-        onStaffDialogOpen={(pending) => {
-          setPendingStaff(pending);
-          setEditingStaff(null);
-          setShowStaffDialog(true);
-        }}
-        onStaffEditDialogOpen={(editing) => {
-          setEditingStaff(editing);
-          setPendingStaff(null);
-          setShowStaffDialog(true);
-        }}
-      />
-
       {/* Interactive overlays for collapsible parent swimlanes */}
       {swimlanePositions.map((lane) => {
-        const isCollapsibleParent = lane.id === "medikamente" || lane.id === "ventilation" || lane.id === "output" || lane.id === "staff" || lane.id === "others";
+        const isCollapsibleParent = lane.id === "medikamente" || lane.id === "ventilation" || lane.id === "output" || lane.id === "others";
         if (!isCollapsibleParent) return null;
         
         return (
@@ -8493,28 +8408,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }}
         onTOFDeleted={() => {
           setEditingTOF(null);
-        }}
-        readOnly={!canWrite}
-      />
-
-      {/* Staff Entry Dialog */}
-      <StaffDialog
-        open={showStaffDialog}
-        onOpenChange={setShowStaffDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
-        hospitalId={activeHospital?.id || null}
-        anesthesiaUnitId={activeHospital?.unitId || null}
-        editingStaff={editingStaff}
-        pendingStaff={pendingStaff}
-        onStaffCreated={() => {
-          setPendingStaff(null);
-          setEditingStaff(null);
-        }}
-        onStaffUpdated={() => {
-          setEditingStaff(null);
-        }}
-        onStaffDeleted={() => {
-          setEditingStaff(null);
         }}
         readOnly={!canWrite}
       />
