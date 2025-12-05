@@ -1148,73 +1148,70 @@ export default function StaffCosts() {
         </DialogContent>
       </Dialog>
 
-      {/* Manage Roles Dialog */}
+      {/* Manage Roles Dialog - matching admin Users & Roles style */}
       <Dialog open={isRolesDialogOpen} onOpenChange={(open) => {
         setIsRolesDialogOpen(open);
         if (!open) setManagingRolesStaff(null);
       }}>
-        <DialogContent className="sm:max-w-[550px]">
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>{t('business.staff.manageRoles')}</DialogTitle>
             <DialogDescription>
-              {managingRolesStaff && getDisplayName(managingRolesStaff)} - {t('business.staff.manageRolesDesc')}
+              {managingRolesStaff?.email || (managingRolesStaff && getDisplayName(managingRolesStaff))}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {/* Current Roles List */}
-            <div className="space-y-2">
-              <Label>{t('business.staff.currentRoles')}</Label>
-              {isLoadingRoles ? (
-                <div className="flex items-center justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : userRoles.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-2">{t('business.staff.noRoles')}</p>
-              ) : (
-                <div className="space-y-2">
-                  {userRoles.map((roleAssignment) => (
+            {/* Role & Unit Assignments */}
+            <div className="border-t pt-4">
+              <Label className="text-base font-semibold">{t('business.staff.roleUnitAssignments')}</Label>
+              <div className="space-y-2 mt-3">
+                {isLoadingRoles ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : userRoles.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">{t('business.staff.noRoles')}</p>
+                ) : (
+                  userRoles.map((roleAssignment) => (
                     <div 
                       key={roleAssignment.id} 
-                      className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
+                      className="flex items-center justify-between bg-muted p-2 rounded-md"
                       data-testid={`role-item-${roleAssignment.id}`}
                     >
-                      <div className="flex items-center gap-2">
-                        <Badge 
-                          variant="outline" 
-                          className={getRoleBadgeStyle(roleAssignment.role, roleAssignment.unitType)}
-                        >
+                      <div className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
+                        <span className="text-xs font-medium text-primary">
                           {getRoleLabel(roleAssignment.role, roleAssignment.unitType)}
-                        </Badge>
-                        <span className="text-sm text-muted-foreground">
-                          {t('common.in')} {roleAssignment.unitName || t('business.staff.unknownUnit')}
+                        </span>
+                        <span className="text-xs text-primary/60 mx-1.5">@</span>
+                        <span className="text-xs text-primary/80">
+                          {roleAssignment.unitName || t('business.staff.unknownUnit')}
                         </span>
                       </div>
                       <Button
                         variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        size="sm"
                         onClick={() => handleDeleteRole(roleAssignment.id)}
                         disabled={deleteRoleMutation.isPending || userRoles.length <= 1}
                         data-testid={`button-delete-role-${roleAssignment.id}`}
                       >
-                        <X className="h-4 w-4" />
+                        <i className="fas fa-times text-destructive"></i>
                       </Button>
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </div>
 
             {/* Add New Role */}
-            <div className="space-y-2 pt-4 border-t">
-              <Label>{t('business.staff.addNewRole')}</Label>
-              <div className="flex gap-2">
+            <div className="border-t pt-4">
+              <Label className="text-sm font-medium mb-2 block">{t('business.staff.addNewRole')}</Label>
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Select 
                   value={newRoleData.role} 
                   onValueChange={(value) => setNewRoleData({ ...newRoleData, role: value })}
                 >
-                  <SelectTrigger className="w-[140px]" data-testid="select-new-role">
-                    <SelectValue />
+                  <SelectTrigger className="flex-1" data-testid="select-new-role">
+                    <SelectValue placeholder={t('business.staff.selectRole')} />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="doctor">{t('business.staff.roleDoctor')}</SelectItem>
@@ -1239,19 +1236,24 @@ export default function StaffCosts() {
                   onClick={handleAddRole}
                   disabled={!newRoleData.unitId || addRoleMutation.isPending}
                   data-testid="button-add-role"
+                  className="shrink-0"
                 >
                   {addRoleMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   ) : (
-                    <Plus className="h-4 w-4" />
+                    <i className="fas fa-plus mr-2"></i>
                   )}
+                  {t('common.add')}
                 </Button>
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsRolesDialogOpen(false)}>
-              {t('common.close')}
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={() => setIsRolesDialogOpen(false)}>
+              {t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
