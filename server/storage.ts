@@ -136,6 +136,7 @@ import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte, or, ilike, isNull } from "drizzle-orm";
 import { calculateInventoryForMedication, calculateRateControlledAmpules } from "./services/inventoryCalculations";
+import { encryptCredential, decryptCredential } from "./utils/encryption";
 
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
@@ -1461,22 +1462,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Supplier Catalog implementations
-  async createSupplierCatalog(catalog: Partial<SupplierCatalog>): Promise<SupplierCatalog> {
-    const [created] = await db.insert(supplierCatalogs).values(catalog as any).returning();
-    return created;
+  async createSupplierCatalog(catalog: Partial<SupplierCatalog> & { apiPassword?: string }): Promise<SupplierCatalog> {
+    // Encrypt password if provided
+    const { apiPassword, ...rest } = catalog;
+    const toInsert = {
+      ...rest,
+      apiPasswordEncrypted: apiPassword ? encryptCredential(apiPassword) : null,
+    };
+    const [created] = await db.insert(supplierCatalogs).values(toInsert as any).returning();
+    // Don't return the encrypted password to the frontend
+    return { ...created, apiPasswordEncrypted: created.apiPasswordEncrypted ? '***' : null };
   }
 
   async getSupplierCatalogs(hospitalId: string): Promise<SupplierCatalog[]> {
-    return db
+    const catalogs = await db
       .select()
       .from(supplierCatalogs)
       .where(eq(supplierCatalogs.hospitalId, hospitalId))
       .orderBy(asc(supplierCatalogs.supplierName));
+    // Mask encrypted passwords - return '***' if password exists, null otherwise
+    return catalogs.map(c => ({ ...c, apiPasswordEncrypted: c.apiPasswordEncrypted ? '***' : null }));
   }
 
   async getSupplierCatalog(id: string): Promise<SupplierCatalog | undefined> {
     const [catalog] = await db.select().from(supplierCatalogs).where(eq(supplierCatalogs.id, id));
-    return catalog;
+    if (!catalog) return undefined;
+    // Mask encrypted password for frontend
+    return { ...catalog, apiPasswordEncrypted: catalog.apiPasswordEncrypted ? '***' : null };
+  }
+
+  // Internal method for worker - returns decrypted password
+  async getSupplierCatalogWithCredentials(id: string): Promise<(SupplierCatalog & { apiPassword: string | null }) | undefined> {
+    const [catalog] = await db.select().from(supplierCatalogs).where(eq(supplierCatalogs.id, id));
+    if (!catalog) return undefined;
+    const apiPassword = catalog.apiPasswordEncrypted ? decryptCredential(catalog.apiPasswordEncrypted) : null;
+    return { ...catalog, apiPassword };
   }
 
   async getSupplierCatalogByName(hospitalId: string, supplierName: string): Promise<SupplierCatalog | undefined> {
@@ -1487,16 +1507,28 @@ export class DatabaseStorage implements IStorage {
         eq(supplierCatalogs.hospitalId, hospitalId),
         eq(supplierCatalogs.supplierName, supplierName)
       ));
-    return catalog;
+    if (!catalog) return undefined;
+    // Mask encrypted password for frontend
+    return { ...catalog, apiPasswordEncrypted: catalog.apiPasswordEncrypted ? '***' : null };
   }
 
-  async updateSupplierCatalog(id: string, updates: Partial<SupplierCatalog>): Promise<SupplierCatalog> {
+  async updateSupplierCatalog(id: string, updates: Partial<SupplierCatalog> & { apiPassword?: string }): Promise<SupplierCatalog> {
+    // Encrypt password if provided
+    const { apiPassword, ...rest } = updates as any;
+    const toUpdate: any = { ...rest, updatedAt: new Date() };
+    
+    // Only update password if explicitly provided
+    if (apiPassword !== undefined) {
+      toUpdate.apiPasswordEncrypted = apiPassword ? encryptCredential(apiPassword) : null;
+    }
+    
     const [updated] = await db
       .update(supplierCatalogs)
-      .set({ ...updates, updatedAt: new Date() })
+      .set(toUpdate)
       .where(eq(supplierCatalogs.id, id))
       .returning();
-    return updated;
+    // Don't return the encrypted password to the frontend
+    return { ...updated, apiPasswordEncrypted: updated.apiPasswordEncrypted ? '***' : null };
   }
 
   async deleteSupplierCatalog(id: string): Promise<void> {

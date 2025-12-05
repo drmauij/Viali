@@ -108,7 +108,8 @@ async function processNextPriceSyncJob() {
     });
 
     try {
-      const catalog = await storage.getSupplierCatalog(job.catalogId);
+      // Get catalog with decrypted credentials (internal use only)
+      const catalog = await storage.getSupplierCatalogWithCredentials(job.catalogId);
       if (!catalog) {
         throw new Error('Catalog not found');
       }
@@ -117,14 +118,13 @@ async function processNextPriceSyncJob() {
         throw new Error(`Unsupported supplier: ${catalog.supplierName}. Only Galexis is currently supported.`);
       }
 
-      const password = process.env.GALEXIS_API_PASSWORD;
-      if (!password || !catalog.customerNumber) {
-        throw new Error('Galexis credentials not configured. Set GALEXIS_API_PASSWORD secret and customerNumber.');
+      if (!catalog.apiPassword || !catalog.customerNumber) {
+        throw new Error('Galexis credentials not configured. Please enter API password and customer number in Supplier settings.');
       }
 
       const client = createGalexisClient(
         catalog.customerNumber,
-        password,
+        catalog.apiPassword,
         catalog.apiBaseUrl || undefined
       );
 
