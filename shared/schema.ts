@@ -251,9 +251,9 @@ export const supplierCatalogs = pgTable("supplier_catalogs", {
   apiBaseUrl: varchar("api_base_url"), // e.g., "https://xml.e-galexis.com/V2"
   customerNumber: varchar("customer_number"), // Galexis customer/client number
   
-  // Credentials reference (actual password stored in Replit secrets)
-  // Secret key pattern: SUPPLIER_{supplierName}_{hospitalId}_PASSWORD
-  credentialSecretKey: varchar("credential_secret_key"), // Reference to the secret name
+  // Encrypted credentials (stored in database, encrypted with ENCRYPTION_SECRET)
+  // Uses AES-256-CBC encryption - password is encrypted before storing
+  apiPasswordEncrypted: text("api_password_encrypted"),
   
   // Settings
   isEnabled: boolean("is_enabled").default(true),

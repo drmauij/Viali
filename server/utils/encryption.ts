@@ -48,3 +48,42 @@ export function decryptPatientData(text: string): string {
     return text;
   }
 }
+
+// Generic credential encryption (same algorithm, separate functions for clarity)
+export function encryptCredential(plaintext: string): string {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+  let encrypted = cipher.update(plaintext, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  return iv.toString("hex") + ":" + encrypted;
+}
+
+export function decryptCredential(encryptedText: string): string | null {
+  if (!encryptedText || !encryptedText.includes(":")) {
+    return null;
+  }
+  
+  const parts = encryptedText.split(":");
+  
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    console.warn("Invalid encrypted credential format");
+    return null;
+  }
+  
+  if (parts[0].length !== 32) {
+    console.warn(`Invalid IV length for credential: ${parts[0].length}, expected 32`);
+    return null;
+  }
+  
+  try {
+    const iv = Buffer.from(parts[0], "hex");
+    const encrypted = parts[1];
+    const decipher = crypto.createDecipheriv("aes-256-cbc", ENCRYPTION_KEY, iv);
+    let decrypted = decipher.update(encrypted, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch (error) {
+    console.error("Failed to decrypt credential:", error);
+    return null;
+  }
+}
