@@ -47,7 +47,7 @@ router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager
       firstName: string | null;
       lastName: string | null;
       email: string | null;
-      roles: Array<{ role: string; unitId: string | null; unitName: string | null; unitType: string | null }>;
+      roles: Array<{ role: string; unitId: string | null; unitName: string | null; unitType: string | null; isAnesthesiaModule: boolean; isSurgeryModule: boolean }>;
       staffType: string;
       hourlyRate: number | null;
       canLogin: boolean;
@@ -63,6 +63,8 @@ router.get('/api/business/:hospitalId/staff', isAuthenticated, isBusinessManager
         unitId: u.unitId,
         unitName: u.unit?.name || null,
         unitType: u.unit?.type || null,
+        isAnesthesiaModule: u.unit?.isAnesthesiaModule || false,
+        isSurgeryModule: u.unit?.isSurgeryModule || false,
       };
       
       if (existing) {
@@ -360,6 +362,8 @@ router.get('/api/business/:hospitalId/staff/:userId/roles', isAuthenticated, isB
       unitId: r.unitId,
       unitName: r.unit?.name || null,
       unitType: r.unit?.type || null,
+      isAnesthesiaModule: r.unit?.isAnesthesiaModule || false,
+      isSurgeryModule: r.unit?.isSurgeryModule || false,
     }));
     
     res.json(rolesList);

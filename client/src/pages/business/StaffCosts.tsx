@@ -80,6 +80,8 @@ interface RoleInfo {
   unitId: string | null;
   unitName: string | null;
   unitType: string | null;
+  isAnesthesiaModule: boolean;
+  isSurgeryModule: boolean;
 }
 
 interface RoleAssignment {
@@ -88,6 +90,8 @@ interface RoleAssignment {
   unitId: string | null;
   unitName: string | null;
   unitType: string | null;
+  isAnesthesiaModule: boolean;
+  isSurgeryModule: boolean;
 }
 
 interface StaffMember {
@@ -223,15 +227,17 @@ function ChartCard({ title, description, helpText, children }: ChartCardProps) {
   );
 }
 
-function getRoleLabel(role: string, unitType: string | null, unitName?: string | null): string {
+function getRoleLabel(role: string, roleInfo: RoleInfo): string {
+  const { isAnesthesiaModule, isSurgeryModule, unitName } = roleInfo;
+  
   if (role === 'doctor') {
-    if (unitType === 'anesthesia') return 'Anesthesiologist';
-    if (unitType === 'surgery') return 'Surgeon';
+    if (isAnesthesiaModule) return 'Anesthesiologist';
+    if (isSurgeryModule) return 'Surgeon';
     return 'Doctor';
   }
   if (role === 'nurse') {
-    if (unitType === 'anesthesia') return 'Anesthesia Nurse';
-    if (unitType === 'surgery') return 'OR Nurse';
+    if (isAnesthesiaModule) return 'Anesthesia Nurse';
+    if (isSurgeryModule) return 'OR Nurse';
     return 'Nurse';
   }
   if (role === 'manager') return 'Manager';
@@ -243,21 +249,23 @@ function getRoleLabel(role: string, unitType: string | null, unitName?: string |
   return capitalizedRole;
 }
 
-function getRoleBadgeStyle(role: string, unitType: string | null) {
-  // Check role and unitType directly for consistent styling
-  if (role === 'doctor' && unitType === 'surgery') {
+function getRoleBadgeStyle(role: string, roleInfo: RoleInfo) {
+  const { isAnesthesiaModule, isSurgeryModule } = roleInfo;
+  
+  // Check role and module flags for consistent styling
+  if (role === 'doctor' && isSurgeryModule) {
     return "border-red-500/50 text-red-600 dark:text-red-400"; // Surgeon
   }
-  if (role === 'doctor' && unitType === 'anesthesia') {
+  if (role === 'doctor' && isAnesthesiaModule) {
     return "border-blue-500/50 text-blue-600 dark:text-blue-400"; // Anesthesiologist
   }
   if (role === 'doctor') {
     return "border-blue-500/50 text-blue-600 dark:text-blue-400"; // Doctor (default)
   }
-  if (role === 'nurse' && unitType === 'surgery') {
+  if (role === 'nurse' && isSurgeryModule) {
     return "border-green-500/50 text-green-600 dark:text-green-400"; // OR Nurse
   }
-  if (role === 'nurse' && unitType === 'anesthesia') {
+  if (role === 'nurse' && isAnesthesiaModule) {
     return "border-orange-500/50 text-orange-600 dark:text-orange-400"; // Anesthesia Nurse
   }
   if (role === 'nurse') {
@@ -552,7 +560,7 @@ export default function StaffCosts() {
     return staffList.filter(staff => {
       const name = getDisplayName(staff).toLowerCase();
       // Get all role labels for this staff member
-      const roleLabels = staff.roles?.map(r => getRoleLabel(r.role, r.unitType, r.unitName).toLowerCase()) || [];
+      const roleLabels = staff.roles?.map(r => getRoleLabel(r.role, r).toLowerCase()) || [];
       const matchesSearch = name.includes(searchQuery.toLowerCase()) ||
                             roleLabels.some(label => label.includes(searchQuery.toLowerCase()));
       // Check if any of the user's roles matches the filter
@@ -737,9 +745,9 @@ export default function StaffCosts() {
                                 <Badge 
                                   key={`${staff.id}-${role.role}-${role.unitId || idx}`}
                                   variant="outline" 
-                                  className={getRoleBadgeStyle(role.role, role.unitType)}
+                                  className={getRoleBadgeStyle(role.role, role)}
                                 >
-                                  {getRoleLabel(role.role, role.unitType, role.unitName)}
+                                  {getRoleLabel(role.role, role)}
                                 </Badge>
                               ))}
                             </div>
@@ -1176,15 +1184,12 @@ export default function StaffCosts() {
                       className="flex items-center justify-between bg-muted p-2 rounded-md"
                       data-testid={`role-item-${roleAssignment.id}`}
                     >
-                      <div className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
-                        <span className="text-xs font-medium text-primary">
-                          {getRoleLabel(roleAssignment.role, roleAssignment.unitType)}
-                        </span>
-                        <span className="text-xs text-primary/60 mx-1.5">@</span>
-                        <span className="text-xs text-primary/80">
-                          {roleAssignment.unitName || t('business.staff.unknownUnit')}
-                        </span>
-                      </div>
+                      <Badge 
+                        variant="outline" 
+                        className={getRoleBadgeStyle(roleAssignment.role, roleAssignment)}
+                      >
+                        {getRoleLabel(roleAssignment.role, roleAssignment)}
+                      </Badge>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1192,7 +1197,7 @@ export default function StaffCosts() {
                         disabled={deleteRoleMutation.isPending || userRoles.length <= 1}
                         data-testid={`button-delete-role-${roleAssignment.id}`}
                       >
-                        <i className="fas fa-times text-destructive"></i>
+                        <X className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   ))
