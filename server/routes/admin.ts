@@ -421,6 +421,79 @@ router.delete('/api/admin/users/:roleId', isAuthenticated, requireWriteAccess, a
   }
 });
 
+router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmin, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { userId, unitId, role } = req.body;
+    
+    if (!userId || !unitId || !role) {
+      return res.status(400).json({ message: "userId, unitId, and role are required" });
+    }
+
+    const existingUser = await storage.getUser(userId);
+    if (!existingUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const units = await storage.getUnits(hospitalId);
+    const unitBelongsToHospital = units.some(u => u.id === unitId);
+    if (!unitBelongsToHospital) {
+      return res.status(400).json({ message: "Selected unit does not belong to this hospital" });
+    }
+
+    const userHospitals = await storage.getUserHospitals(userId);
+    const alreadyInHospital = userHospitals.some(h => h.id === hospitalId);
+    if (alreadyInHospital) {
+      return res.status(400).json({ message: "User is already a member of this hospital" });
+    }
+
+    await storage.createUserHospitalRole({
+      userId,
+      hospitalId,
+      unitId,
+      role,
+    });
+
+    const hospital = await storage.getHospital(hospitalId);
+    const adminUser = req.user;
+    const adminName = `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || adminUser.email || 'An administrator';
+    
+    const loginUrl = process.env.PRODUCTION_URL 
+      || (process.env.REPLIT_DOMAINS?.split(',')?.[0] 
+        ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}/` 
+        : 'https://use.viali.app/');
+    
+    try {
+      const { sendHospitalAddedNotification } = await import('../resend');
+      console.log('[Add Existing User] Sending notification to:', existingUser.email);
+      const result = await sendHospitalAddedNotification(
+        existingUser.email!,
+        existingUser.firstName || 'User',
+        hospital?.name || 'a hospital',
+        adminName,
+        loginUrl
+      );
+      if (result.success) {
+        console.log('[Add Existing User] Notification email sent successfully');
+      } else {
+        console.error('[Add Existing User] Failed to send notification:', result.error);
+      }
+    } catch (emailError) {
+      console.error('[Add Existing User] Exception sending notification:', emailError);
+    }
+
+    const { passwordHash: _, ...sanitizedUser } = existingUser;
+    res.status(201).json({ 
+      ...sanitizedUser, 
+      addedToHospital: true,
+      hospitalName: hospital?.name 
+    });
+  } catch (error) {
+    console.error("Error adding existing user:", error);
+    res.status(500).json({ message: "Failed to add user to hospital" });
+  }
+});
+
 router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
@@ -432,7 +505,16 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
 
     const existingUser = await storage.searchUserByEmail(email);
     if (existingUser) {
-      return res.status(400).json({ message: "User with this email already exists" });
+      const userHospitals = await storage.getUserHospitals(existingUser.id);
+      const alreadyInHospital = userHospitals.some(h => h.id === hospitalId);
+      
+      const { passwordHash: _, ...sanitizedUser } = existingUser;
+      return res.status(409).json({ 
+        code: "USER_EXISTS",
+        message: "User with this email already exists",
+        existingUser: sanitizedUser,
+        alreadyInHospital
+      });
     }
 
     const newUser = await storage.createUserWithPassword(email, password, firstName, lastName);

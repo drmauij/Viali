@@ -78,6 +78,11 @@ export default function Users() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  // Existing user confirmation states
+  const [existingUserDialogOpen, setExistingUserDialogOpen] = useState(false);
+  const [existingUserInfo, setExistingUserInfo] = useState<User | null>(null);
+  const [existingUserAlreadyInHospital, setExistingUserAlreadyInHospital] = useState(false);
+
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
 
@@ -159,7 +164,11 @@ export default function Users() {
   const createUserMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/users/create`, data);
-      return await response.json();
+      const result = await response.json();
+      if (!response.ok) {
+        throw { ...result, status: response.status };
+      }
+      return result;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
@@ -168,7 +177,36 @@ export default function Users() {
       toast({ title: t("common.success"), description: t("admin.userCreatedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToCreateUser"), variant: "destructive" });
+      if (error.status === 409 && error.code === "USER_EXISTS") {
+        setExistingUserInfo(error.existingUser);
+        setExistingUserAlreadyInHospital(error.alreadyInHospital);
+        setExistingUserDialogOpen(true);
+      } else {
+        toast({ title: t("common.error"), description: error.message || t("admin.failedToCreateUser"), variant: "destructive" });
+      }
+    },
+  });
+
+  const addExistingUserMutation = useMutation({
+    mutationFn: async (data: { userId: string; unitId: string; role: string }) => {
+      const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/users/add-existing`, data);
+      const result = await response.json();
+      if (!response.ok) {
+        throw { ...result, status: response.status };
+      }
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      setExistingUserDialogOpen(false);
+      setUserDialogOpen(false);
+      setExistingUserInfo(null);
+      resetUserForm();
+      toast({ title: t("common.success"), description: t("admin.existingUserAdded") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToAddExistingUser"), variant: "destructive" });
     },
   });
 
@@ -999,6 +1037,73 @@ export default function Users() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Existing User Confirmation Dialog */}
+      <Dialog open={existingUserDialogOpen} onOpenChange={(open) => {
+        setExistingUserDialogOpen(open);
+        if (!open) {
+          setExistingUserInfo(null);
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("admin.existingUserFound")}</DialogTitle>
+            <DialogDescription>
+              {existingUserAlreadyInHospital 
+                ? t("admin.userAlreadyInHospital")
+                : t("admin.existingUserDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          {existingUserInfo && (
+            <div className="space-y-4">
+              <div className="bg-muted p-4 rounded-lg">
+                <p className="font-medium">{existingUserInfo.firstName} {existingUserInfo.lastName}</p>
+                <p className="text-sm text-muted-foreground">{existingUserInfo.email}</p>
+              </div>
+              
+              {existingUserAlreadyInHospital ? (
+                <p className="text-sm text-muted-foreground">
+                  {t("admin.userAlreadyMemberMessage")}
+                </p>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {t("admin.addExistingUserMessage")}
+                </p>
+              )}
+              
+              <div className="flex gap-2 justify-end">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    setExistingUserDialogOpen(false);
+                    setExistingUserInfo(null);
+                  }}
+                  data-testid="button-cancel-existing-user"
+                >
+                  {t("common.cancel")}
+                </Button>
+                {!existingUserAlreadyInHospital && (
+                  <Button
+                    onClick={() => {
+                      if (existingUserInfo) {
+                        addExistingUserMutation.mutate({
+                          userId: existingUserInfo.id,
+                          unitId: userForm.unitId,
+                          role: userForm.role,
+                        });
+                      }
+                    }}
+                    disabled={addExistingUserMutation.isPending}
+                    data-testid="button-add-existing-user"
+                  >
+                    {addExistingUserMutation.isPending ? t("common.adding") : t("admin.addToHospital")}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

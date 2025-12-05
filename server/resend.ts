@@ -135,6 +135,81 @@ export async function sendPasswordResetEmail(
   }
 }
 
+export async function sendHospitalAddedNotification(
+  toEmail: string,
+  firstName: string,
+  hospitalName: string,
+  addedByName: string,
+  loginUrl: string
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    console.log('[Email] Sending hospital added notification from:', fromEmail, 'to:', toEmail);
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #10b981; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .button { display: inline-block; padding: 12px 24px; background-color: #10b981; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .highlight { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>You've Been Added to a New Hospital</h1>
+            </div>
+            <div class="content">
+              <p>Hello ${firstName},</p>
+              <p>Good news! You have been added to a new hospital in the Viali inventory management system.</p>
+              
+              <div class="highlight">
+                <p><strong>Hospital:</strong> ${hospitalName}</p>
+                <p><strong>Added by:</strong> ${addedByName}</p>
+              </div>
+              
+              <p>You can now access this hospital using your existing credentials. Simply log in and switch to the new hospital from your hospital selector.</p>
+              
+              <p style="text-align: center;">
+                <a href="${loginUrl}" class="button">Go to Viali</a>
+              </p>
+              
+              <p>If you have any questions, please contact your hospital administrator.</p>
+            </div>
+            <div class="footer">
+              <p>Viali Hospital Inventory Management System</p>
+              <p>This is an automated email, please do not reply.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject: `You've been added to ${hospitalName} - Viali`,
+      html,
+    });
+
+    if (error) {
+      console.error('Failed to send hospital added notification:', error);
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error sending hospital added notification:', error);
+    return { success: false, error };
+  }
+}
+
 export async function sendBulkImportCompleteEmail(
   toEmail: string,
   userName: string,
