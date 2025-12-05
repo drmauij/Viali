@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
@@ -16,59 +16,80 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [hasSignature, setHasSignature] = useState(false);
+  const ratioRef = useRef<number>(1);
 
-  const initializeCanvas = () => {
+  const setupCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     
+    // Get the device pixel ratio for high-DPI screens
+    const ratio = Math.max(window.devicePixelRatio || 1, 1);
+    ratioRef.current = ratio;
+    
+    // Get the display size from CSS
+    const rect = canvas.getBoundingClientRect();
+    
+    // Set the canvas internal size to match display size * pixel ratio
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    
+    // Scale the context so drawing operations use CSS pixels
+    ctx.scale(ratio, ratio);
+    
     // Fill canvas with white background for print-ready signatures
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, rect.width, rect.height);
     
     // Use black stroke for signature (print-ready format)
     ctx.strokeStyle = '#000000';
     ctx.lineWidth = 2;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-  };
+  }, []);
 
   useEffect(() => {
-    if (isOpen && canvasRef.current) {
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        // Set canvas size
-        canvas.width = canvas.offsetWidth * 2;
-        canvas.height = canvas.offsetHeight * 2;
-        ctx.scale(2, 2);
-        
-        // Initialize canvas with white background and black stroke
-        initializeCanvas();
-      }
+    if (isOpen) {
+      // Small delay to ensure the dialog is fully rendered and sized
+      const timer = setTimeout(() => {
+        setupCanvas();
+      }, 50);
+      return () => clearTimeout(timer);
     }
-  }, [isOpen]);
+  }, [isOpen, setupCanvas]);
 
-  const getCoordinates = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+  const getCoordinates = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
 
+    // Get the canvas bounding rect - this gives us the position and size in CSS pixels
     const rect = canvas.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     
-    // Calculate the scale ratio between canvas internal size and displayed size
-    // The canvas is scaled 2x for retina, so we need to account for that
-    const scaleX = canvas.offsetWidth / canvas.width * 2;
-    const scaleY = canvas.offsetHeight / canvas.height * 2;
+    // Get client coordinates (relative to viewport)
+    let clientX: number, clientY: number;
     
-    const x = (clientX - rect.left) / scaleX;
-    const y = (clientY - rect.top) / scaleY;
+    if ('touches' in e && e.touches.length > 0) {
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else if ('changedTouches' in e && e.changedTouches.length > 0) {
+      clientX = e.changedTouches[0].clientX;
+      clientY = e.changedTouches[0].clientY;
+    } else if ('clientX' in e) {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    } else {
+      return { x: 0, y: 0 };
+    }
+    
+    // Convert to coordinates relative to the canvas element in CSS pixels
+    // This works because ctx.scale(ratio, ratio) was applied, so we draw in CSS pixel space
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     
     return { x, y };
-  };
+  }, []);
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
     e.preventDefault(); // Prevent scrolling
@@ -114,10 +135,21 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // Get the display size
+    const rect = canvas.getBoundingClientRect();
     
-    // Re-initialize canvas with white background and black stroke for next signature
-    initializeCanvas();
+    // Clear and reset
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    
+    // Fill with white background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    
+    // Reset stroke style
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     
     setHasSignature(false);
   };
@@ -153,7 +185,8 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
             <div>
               <canvas
                 ref={canvasRef}
-                className="w-full h-48 border-2 border-dashed border-border rounded-lg bg-white cursor-crosshair touch-none"
+                className="w-full h-56 sm:h-48 border-2 border-dashed border-border rounded-lg bg-white cursor-crosshair touch-none"
+                style={{ touchAction: 'none' }}
                 onMouseDown={startDrawing}
                 onMouseMove={draw}
                 onMouseUp={stopDrawing}
@@ -161,6 +194,7 @@ export default function SignaturePad({ isOpen, onClose, onSave, title = "Your Si
                 onTouchStart={startDrawing}
                 onTouchMove={draw}
                 onTouchEnd={stopDrawing}
+                onTouchCancel={stopDrawing}
                 data-testid="signature-canvas"
               />
               <p className="text-sm text-muted-foreground mt-2 text-center">
