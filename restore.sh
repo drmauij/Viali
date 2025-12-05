@@ -21,16 +21,25 @@ cd $APP_DIR
 echo -e "${YELLOW}Loading database credentials from ecosystem.config.cjs...${NC}"
 eval $(node -e "
 const c = require('$APP_DIR/ecosystem.config.cjs');
-const env = c.apps[0].env;
-['PGHOST', 'PGUSER', 'PGPASSWORD', 'PGDATABASE', 'DATABASE_URL'].forEach(key => {
-  if (env[key]) console.log('export ' + key + '=\"' + env[key] + '\"');
-});
+const dbUrl = c.apps[0].env.DATABASE_URL;
+if (!dbUrl) {
+  console.error('DATABASE_URL not found in ecosystem.config.cjs');
+  process.exit(1);
+}
+// Parse: postgresql://user:password@host:port/database
+const match = dbUrl.match(/postgresql:\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
+if (match) {
+  console.log('export PGUSER=\"' + match[1] + '\"');
+  console.log('export PGPASSWORD=\"' + match[2] + '\"');
+  console.log('export PGHOST=\"' + match[3] + '\"');
+  console.log('export PGPORT=\"' + match[4] + '\"');
+  console.log('export PGDATABASE=\"' + match[5].split('?')[0] + '\"');
+}
 ")
 
 # Verify database credentials are loaded
 if [ -z "$PGHOST" ] || [ -z "$PGUSER" ] || [ -z "$PGDATABASE" ]; then
-    echo -e "${RED}Error: Database credentials not found in ecosystem.config.cjs${NC}"
-    echo "Make sure PGHOST, PGUSER, and PGDATABASE are defined in your PM2 config."
+    echo -e "${RED}Error: Could not parse DATABASE_URL from ecosystem.config.cjs${NC}"
     exit 1
 fi
 echo -e "${GREEN}Database credentials loaded successfully.${NC}"
