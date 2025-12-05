@@ -498,9 +498,52 @@ export default function Users() {
             <div key={user.user.id} className="bg-card border border-border rounded-lg p-4" data-testid={`user-${user.user.id}`}>
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <h3 className="font-semibold text-foreground">
-                    {user.user.firstName} {user.user.lastName}
-                  </h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-foreground">
+                      {user.user.firstName} {user.user.lastName}
+                    </h3>
+                    {/* Quick status badges */}
+                    <button
+                      onClick={() => updateUserAccessMutation.mutate({
+                        userId: user.user.id,
+                        canLogin: user.user.canLogin === false,
+                      })}
+                      disabled={updateUserAccessMutation.isPending}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                        user.user.canLogin !== false
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400'
+                          : 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400'
+                      }`}
+                      title={user.user.canLogin !== false ? t("admin.clickToDisableLogin") : t("admin.clickToEnableLogin")}
+                      data-testid={`badge-can-login-${user.user.id}`}
+                    >
+                      {user.user.canLogin !== false ? (
+                        <><UserCheck className="h-3 w-3" />{t("admin.canLoginEnabled")}</>
+                      ) : (
+                        <><UserX className="h-3 w-3" />{t("admin.canLoginDisabled")}</>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => updateUserAccessMutation.mutate({
+                        userId: user.user.id,
+                        staffType: user.user.staffType === 'external' ? 'internal' : 'external',
+                      })}
+                      disabled={updateUserAccessMutation.isPending}
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                        user.user.staffType === 'external'
+                          ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400'
+                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400'
+                      }`}
+                      title={user.user.staffType === 'external' ? t("admin.clickToSetInternal") : t("admin.clickToSetExternal")}
+                      data-testid={`badge-staff-type-${user.user.id}`}
+                    >
+                      {user.user.staffType === 'external' ? (
+                        <><ExternalLink className="h-3 w-3" />{t("admin.staffTypeExternal")}</>
+                      ) : (
+                        <><Building2 className="h-3 w-3" />{t("admin.staffTypeInternal")}</>
+                      )}
+                    </button>
+                  </div>
                   <p className="text-sm text-muted-foreground">{user.user.email}</p>
                   <div className="flex flex-wrap gap-2 mt-2">
                     {user.roles.map((roleInfo, idx) => (
