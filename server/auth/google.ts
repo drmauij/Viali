@@ -119,6 +119,12 @@ export async function setupAuth(app: Express) {
     }, async (accessToken, refreshToken, profile, done) => {
       try {
         const user = await upsertUser(profile);
+        
+        // Check if user is allowed to login
+        if (user.canLogin === false) {
+          return done(null, false, { message: "Your account is not enabled for app access." });
+        }
+        
         // Store minimal user info in session
         done(null, {
           id: user.id,

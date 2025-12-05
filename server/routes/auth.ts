@@ -77,6 +77,11 @@ router.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ message: "Invalid email or password" });
     }
 
+    // Check if user is allowed to login
+    if (user.canLogin === false) {
+      return res.status(403).json({ message: "Your account is not enabled for app access. Please contact an administrator." });
+    }
+
     req.login({
       id: user.id,
       email: user.email,
