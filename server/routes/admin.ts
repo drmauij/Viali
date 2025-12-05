@@ -545,6 +545,62 @@ router.post('/api/admin/users/:userId/reset-password', isAuthenticated, requireW
   }
 });
 
+// Update user access settings (canLogin and staffType)
+router.patch('/api/admin/users/:userId/access', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const { canLogin, staffType, hospitalId } = req.body;
+    
+    // Validate hospitalId is provided
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID is required" });
+    }
+    
+    // Validate staffType if provided
+    if (staffType !== undefined && !['internal', 'external'].includes(staffType)) {
+      return res.status(400).json({ message: "Staff type must be 'internal' or 'external'" });
+    }
+
+    // Check admin access
+    const currentUserId = req.user.id;
+    const hospitals = await storage.getUserHospitals(currentUserId);
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    // Check target user exists
+    const targetUser = await storage.getUser(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Check target user belongs to the hospital
+    const targetUserHospitals = await storage.getUserHospitals(userId);
+    const userBelongsToHospital = targetUserHospitals.some(h => h.id === hospitalId);
+    if (!userBelongsToHospital) {
+      return res.status(403).json({ message: "User does not belong to this hospital" });
+    }
+
+    // Build update object
+    const updateData: { canLogin?: boolean; staffType?: string } = {};
+    if (canLogin !== undefined) {
+      updateData.canLogin = canLogin;
+    }
+    if (staffType !== undefined) {
+      updateData.staffType = staffType;
+    }
+
+    // Update user
+    await db.update(users).set(updateData).where(eq(users.id, userId));
+
+    res.json({ success: true, canLogin: canLogin ?? targetUser.canLogin, staffType: staffType ?? targetUser.staffType });
+  } catch (error) {
+    console.error("Error updating user access settings:", error);
+    res.status(500).json({ message: "Failed to update user access settings" });
+  }
+});
+
 router.delete('/api/admin/users/:userId/delete', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { userId } = req.params;
