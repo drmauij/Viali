@@ -186,23 +186,28 @@ router.patch('/api/business/:hospitalId/staff/:userId', isAuthenticated, isBusin
       return res.status(404).json({ message: "Staff member not found in this hospital" });
     }
     
-    // Prevent editing admin users
-    if (hospitalRole.role === 'admin') {
-      return res.status(403).json({ message: "Cannot edit admin users from business dashboard" });
-    }
+    const isAdminUser = hospitalRole.role === 'admin';
     
     // Prevent changing to admin role
     if (role === 'admin') {
       return res.status(403).json({ message: "Cannot assign admin role from business dashboard" });
     }
     
-    // Build user update object
+    // Build user update object - hourlyRate and staffType can always be edited
     const userUpdates: any = {};
-    if (firstName !== undefined) userUpdates.firstName = firstName;
-    if (lastName !== undefined) userUpdates.lastName = lastName;
-    if (email !== undefined) userUpdates.email = email;
-    if (hourlyRate !== undefined) userUpdates.hourlyRate = hourlyRate ? String(hourlyRate) : null;
-    if (staffType !== undefined) userUpdates.staffType = staffType;
+    
+    // For admin users, only allow editing hourlyRate and staffType
+    if (isAdminUser) {
+      if (hourlyRate !== undefined) userUpdates.hourlyRate = hourlyRate ? String(hourlyRate) : null;
+      if (staffType !== undefined) userUpdates.staffType = staffType;
+    } else {
+      // For non-admin users, allow editing name and other fields too
+      if (firstName !== undefined) userUpdates.firstName = firstName;
+      if (lastName !== undefined) userUpdates.lastName = lastName;
+      // Email is read-only, don't update it
+      if (hourlyRate !== undefined) userUpdates.hourlyRate = hourlyRate ? String(hourlyRate) : null;
+      if (staffType !== undefined) userUpdates.staffType = staffType;
+    }
     
     // Update user if there are changes
     if (Object.keys(userUpdates).length > 0) {
@@ -213,8 +218,8 @@ router.patch('/api/business/:hospitalId/staff/:userId', isAuthenticated, isBusin
         .where(eq(users.id, userId));
     }
     
-    // Update role/unit if provided
-    if (role !== undefined || unitId !== undefined) {
+    // Update role/unit if provided (but not for admin users)
+    if (!isAdminUser && (role !== undefined || unitId !== undefined)) {
       // Verify unit belongs to hospital if unitId is provided
       if (unitId) {
         const [unit] = await db

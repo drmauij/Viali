@@ -1104,7 +1104,9 @@ export default function StaffCosts() {
                 id="edit-email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                readOnly
+                disabled
+                className="bg-muted cursor-not-allowed"
                 data-testid="input-edit-email"
               />
             </div>
