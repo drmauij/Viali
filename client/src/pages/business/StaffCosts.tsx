@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 import {
   Card,
   CardContent,
@@ -22,12 +25,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useToast } from "@/hooks/use-toast";
 import {
   Users,
   DollarSign,
@@ -43,6 +56,7 @@ import {
   Calendar,
   Building2,
   Activity,
+  Loader2,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -56,22 +70,31 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
 } from "recharts";
 
-const mockStaffList = [
-  { id: 1, name: "Dr. Anna Weber", role: "Surgeon", hourlyRate: 180, isAppUser: true, email: "a.weber@clinic.de", status: "active", surgeries: 42, hoursThisMonth: 142, costThisMonth: 25560 },
-  { id: 2, name: "Dr. Thomas Müller", role: "Surgeon", hourlyRate: 175, isAppUser: true, email: "t.mueller@clinic.de", status: "active", surgeries: 38, hoursThisMonth: 128, costThisMonth: 22400 },
-  { id: 3, name: "Dr. Klaus Schmidt", role: "Anesthesiologist", hourlyRate: 160, isAppUser: true, email: "k.schmidt@clinic.de", status: "active", surgeries: 56, hoursThisMonth: 156, costThisMonth: 24960 },
-  { id: 4, name: "Maria Hoffmann", role: "Surgery Nurse", hourlyRate: 55, isAppUser: true, email: "m.hoffmann@clinic.de", status: "active", surgeries: 78, hoursThisMonth: 186, costThisMonth: 10230 },
-  { id: 5, name: "Laura Fischer", role: "Surgery Nurse", hourlyRate: 52, isAppUser: false, email: null, status: "active", surgeries: 65, hoursThisMonth: 178, costThisMonth: 9256 },
-  { id: 6, name: "Peter Bauer", role: "Anesthesia Nurse", hourlyRate: 58, isAppUser: true, email: "p.bauer@clinic.de", status: "active", surgeries: 52, hoursThisMonth: 165, costThisMonth: 9570 },
-  { id: 7, name: "Sandra Klein", role: "Surgical Assistant", hourlyRate: 45, isAppUser: false, email: null, status: "active", surgeries: 82, hoursThisMonth: 192, costThisMonth: 8640 },
-  { id: 8, name: "Michael Braun", role: "Anesthesiologist", hourlyRate: 155, isAppUser: true, email: "m.braun@clinic.de", status: "inactive", surgeries: 28, hoursThisMonth: 112, costThisMonth: 17360 },
-  { id: 9, name: "Dr. Eva Schulz", role: "Surgeon", hourlyRate: 185, isAppUser: true, email: "e.schulz@clinic.de", status: "active", surgeries: 35, hoursThisMonth: 118, costThisMonth: 21830 },
-  { id: 10, name: "Hans Weber", role: "Surgical Assistant", hourlyRate: 42, isAppUser: false, email: null, status: "active", surgeries: 95, hoursThisMonth: 198, costThisMonth: 8316 },
-];
+interface StaffMember {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+  role: string;
+  unitId: string;
+  unitName: string | null;
+  unitType: string | null;
+  staffType: "internal" | "external";
+  hourlyRate: number | null;
+  canLogin: boolean;
+  createdAt: string | null;
+}
+
+interface UnitOption {
+  id: string;
+  name: string;
+  type: string | null;
+  isAnesthesiaModule: boolean;
+  isSurgeryModule: boolean;
+  isBusinessModule: boolean;
+}
 
 const mockCostByRole = [
   { name: "Surgeons", value: 69790, color: "#ef4444" },
@@ -185,8 +208,24 @@ function ChartCard({ title, description, helpText, children }: ChartCardProps) {
   );
 }
 
-function getRoleBadgeStyle(role: string) {
-  switch (role) {
+function getRoleLabel(role: string, unitType: string | null): string {
+  if (role === 'doctor') {
+    if (unitType === 'anesthesia') return 'Anesthesiologist';
+    if (unitType === 'surgery') return 'Surgeon';
+    return 'Doctor';
+  }
+  if (role === 'nurse') {
+    if (unitType === 'anesthesia') return 'Anesthesia Nurse';
+    if (unitType === 'surgery') return 'Surgery Nurse';
+    return 'Nurse';
+  }
+  if (role === 'manager') return 'Manager';
+  return role;
+}
+
+function getRoleBadgeStyle(role: string, unitType: string | null) {
+  const label = getRoleLabel(role, unitType);
+  switch (label) {
     case "Surgeon":
       return "border-red-500/50 text-red-600 dark:text-red-400";
     case "Anesthesiologist":
@@ -195,33 +234,225 @@ function getRoleBadgeStyle(role: string) {
       return "border-green-500/50 text-green-600 dark:text-green-400";
     case "Anesthesia Nurse":
       return "border-orange-500/50 text-orange-600 dark:text-orange-400";
-    case "Surgical Assistant":
+    case "Manager":
       return "border-purple-500/50 text-purple-600 dark:text-purple-400";
     default:
       return "border-gray-500/50 text-gray-600 dark:text-gray-400";
   }
 }
 
+function getDisplayName(staff: StaffMember): string {
+  const firstName = staff.firstName || '';
+  const lastName = staff.lastName || '';
+  const fullName = `${firstName} ${lastName}`.trim();
+  
+  if (!fullName) return staff.email || 'Unknown';
+  
+  if (staff.role === 'doctor') {
+    return `Dr. ${fullName}`;
+  }
+  
+  return fullName;
+}
+
 export default function StaffCosts() {
   const { t } = useTranslation();
+  const { toast } = useToast();
+  const activeHospital = useActiveHospital();
   const [period, setPeriod] = useState("month");
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("staff");
-
-  const totalStaffCost = mockStaffList.reduce((sum, s) => sum + s.costThisMonth, 0);
-  const totalHours = mockStaffList.reduce((sum, s) => sum + s.hoursThisMonth, 0);
-  const activeStaff = mockStaffList.filter(s => s.status === "active").length;
-  const appUsers = mockStaffList.filter(s => s.isAppUser).length;
-
-  const filteredStaff = mockStaffList.filter(staff => {
-    const matchesSearch = staff.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          staff.role.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter === "all" || staff.role === roleFilter;
-    return matchesSearch && matchesRole;
+  
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<StaffMember | null>(null);
+  
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    role: 'nurse',
+    unitId: '',
+    hourlyRate: '',
+    staffType: 'internal' as 'internal' | 'external',
   });
 
-  const uniqueRoles = Array.from(new Set(mockStaffList.map(s => s.role)));
+  const { data: staffList = [], isLoading } = useQuery<StaffMember[]>({
+    queryKey: [`/api/business/${activeHospital?.id}/staff`],
+    enabled: !!activeHospital?.id,
+  });
+
+  const { data: hospitalUnits = [] } = useQuery<UnitOption[]>({
+    queryKey: [`/api/business/${activeHospital?.id}/units`],
+    enabled: !!activeHospital?.id,
+  });
+
+  const createStaffMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      return apiRequest('POST', `/api/business/${activeHospital?.id}/staff`, {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email || undefined,
+        role: data.role,
+        unitId: data.unitId,
+        hourlyRate: data.hourlyRate ? parseFloat(data.hourlyRate) : undefined,
+        staffType: data.staffType,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/business/${activeHospital?.id}/staff`] });
+      setIsAddDialogOpen(false);
+      resetForm();
+      toast({
+        title: t('common.success'),
+        description: t('business.staff.createSuccess'),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('business.staff.createError'),
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const updateStaffMutation = useMutation({
+    mutationFn: async (data: { userId: string } & typeof formData) => {
+      return apiRequest('PATCH', `/api/business/${activeHospital?.id}/staff/${data.userId}`, {
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email || undefined,
+        role: data.role,
+        unitId: data.unitId,
+        hourlyRate: data.hourlyRate ? parseFloat(data.hourlyRate) : null,
+        staffType: data.staffType,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/business/${activeHospital?.id}/staff`] });
+      setIsEditDialogOpen(false);
+      setEditingStaff(null);
+      resetForm();
+      toast({
+        title: t('common.success'),
+        description: t('business.staff.updateSuccess'),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('business.staff.updateError'),
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const updateStaffTypeMutation = useMutation({
+    mutationFn: async ({ userId, staffType }: { userId: string; staffType: 'internal' | 'external' }) => {
+      return apiRequest('PATCH', `/api/business/${activeHospital?.id}/staff/${userId}/type`, { staffType });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/business/${activeHospital?.id}/staff`] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('business.staff.updateError'),
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const resetForm = () => {
+    setFormData({
+      firstName: '',
+      lastName: '',
+      email: '',
+      role: 'nurse',
+      unitId: '',
+      hourlyRate: '',
+      staffType: 'internal',
+    });
+  };
+
+  const handleAddStaff = () => {
+    resetForm();
+    setIsAddDialogOpen(true);
+  };
+
+  const handleEditStaff = (staff: StaffMember) => {
+    setEditingStaff(staff);
+    setFormData({
+      firstName: staff.firstName || '',
+      lastName: staff.lastName || '',
+      email: staff.email || '',
+      role: staff.role,
+      unitId: staff.unitId,
+      hourlyRate: staff.hourlyRate?.toString() || '',
+      staffType: staff.staffType,
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSubmitCreate = () => {
+    if (!formData.firstName || !formData.lastName || !formData.unitId) {
+      toast({
+        title: t('common.error'),
+        description: t('business.staff.requiredFields'),
+        variant: 'destructive',
+      });
+      return;
+    }
+    createStaffMutation.mutate(formData);
+  };
+
+  const handleSubmitEdit = () => {
+    if (!editingStaff || !formData.firstName || !formData.lastName) {
+      toast({
+        title: t('common.error'),
+        description: t('business.staff.requiredFields'),
+        variant: 'destructive',
+      });
+      return;
+    }
+    updateStaffMutation.mutate({ userId: editingStaff.id, ...formData });
+  };
+
+  const handleToggleStaffType = (staff: StaffMember) => {
+    const newType = staff.staffType === 'internal' ? 'external' : 'internal';
+    updateStaffTypeMutation.mutate({ userId: staff.id, staffType: newType });
+  };
+
+  const filteredStaff = useMemo(() => {
+    return staffList.filter(staff => {
+      const name = getDisplayName(staff).toLowerCase();
+      const roleLabel = getRoleLabel(staff.role, staff.unitType).toLowerCase();
+      const matchesSearch = name.includes(searchQuery.toLowerCase()) ||
+                            roleLabel.includes(searchQuery.toLowerCase());
+      const matchesRole = roleFilter === "all" || staff.role === roleFilter;
+      return matchesSearch && matchesRole;
+    });
+  }, [staffList, searchQuery, roleFilter]);
+
+  const uniqueRoles = useMemo(() => {
+    const roles = new Set(staffList.map(s => s.role));
+    return Array.from(roles);
+  }, [staffList]);
+
+  const totalStaff = staffList.length;
+  const appUsers = staffList.filter(s => s.canLogin).length;
+  const internalStaff = staffList.filter(s => s.staffType === 'internal').length;
+  const externalStaff = staffList.filter(s => s.staffType === 'external').length;
+
+  if (!activeHospital?.id) {
+    return (
+      <div className="p-4 md:p-6 flex items-center justify-center">
+        <p className="text-muted-foreground">{t('common.selectHospital')}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24">
@@ -249,29 +480,11 @@ export default function StaffCosts() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <SummaryCard
-          title={t('business.staff.totalStaffCost')}
-          value={`€${totalStaffCost.toLocaleString()}`}
-          subtitle={t('business.staff.thisMonth')}
-          trend={3.8}
-          helpText={t('business.help.totalStaffCost')}
-          icon={<DollarSign className="h-4 w-4" />}
-        />
-        <SummaryCard
-          title={t('business.staff.totalHours')}
-          value={`${totalHours.toLocaleString()}h`}
-          subtitle={t('business.staff.allStaff')}
-          trend={5.2}
-          helpText={t('business.help.totalHours')}
-          icon={<Clock className="h-4 w-4" />}
-          iconBg="bg-blue-500/10 text-blue-500"
-        />
-        <SummaryCard
-          title={t('business.staff.activeStaff')}
-          value={activeStaff.toString()}
-          subtitle={`${mockStaffList.length} ${t('business.staff.total')}`}
-          helpText={t('business.help.activeStaff')}
+          title={t('business.staff.totalStaff')}
+          value={totalStaff.toString()}
+          subtitle={`${internalStaff} ${t('business.staff.internal')}, ${externalStaff} ${t('business.staff.external')}`}
+          helpText={t('business.help.totalStaff')}
           icon={<Users className="h-4 w-4" />}
-          iconBg="bg-green-500/10 text-green-500"
         />
         <SummaryCard
           title={t('business.staff.appUsers')}
@@ -279,6 +492,22 @@ export default function StaffCosts() {
           subtitle={t('business.staff.linkedToApp')}
           helpText={t('business.help.appUsers')}
           icon={<UserCheck className="h-4 w-4" />}
+          iconBg="bg-blue-500/10 text-blue-500"
+        />
+        <SummaryCard
+          title={t('business.staff.internalStaff')}
+          value={internalStaff.toString()}
+          subtitle={t('business.staff.clinicEmployees')}
+          helpText={t('business.help.internalStaff')}
+          icon={<Building2 className="h-4 w-4" />}
+          iconBg="bg-green-500/10 text-green-500"
+        />
+        <SummaryCard
+          title={t('business.staff.externalStaff')}
+          value={externalStaff.toString()}
+          subtitle={t('business.staff.rentedTemp')}
+          helpText={t('business.help.externalStaff')}
+          icon={<Clock className="h-4 w-4" />}
           iconBg="bg-purple-500/10 text-purple-500"
         />
       </div>
@@ -329,7 +558,7 @@ export default function StaffCosts() {
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button data-testid="button-add-staff">
+                  <Button onClick={handleAddStaff} data-testid="button-add-staff">
                     <UserPlus className="h-4 w-4 mr-2" />
                     {t('business.staff.addStaff')}
                   </Button>
@@ -338,62 +567,89 @@ export default function StaffCosts() {
               <CardDescription>{t('business.staff.manageStaffDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('business.staff.name')}</TableHead>
-                      <TableHead>{t('business.staff.role')}</TableHead>
-                      <TableHead className="text-right">{t('business.staff.hourlyRate')}</TableHead>
-                      <TableHead className="text-center">{t('business.staff.appUser')}</TableHead>
-                      <TableHead className="text-right">{t('business.staff.hoursThisMonth')}</TableHead>
-                      <TableHead className="text-right">{t('business.staff.costThisMonth')}</TableHead>
-                      <TableHead>{t('business.staff.status')}</TableHead>
-                      <TableHead className="text-right">{t('business.staff.actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredStaff.map((staff) => (
-                      <TableRow key={staff.id} data-testid={`row-staff-${staff.id}`}>
-                        <TableCell className="font-medium">
-                          <div>
-                            {staff.name}
-                            {staff.email && (
-                              <div className="text-xs text-muted-foreground">{staff.email}</div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={getRoleBadgeStyle(staff.role)}>
-                            {staff.role}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right font-medium">€{staff.hourlyRate}/h</TableCell>
-                        <TableCell className="text-center">
-                          <Switch checked={staff.isAppUser} disabled />
-                        </TableCell>
-                        <TableCell className="text-right">{staff.hoursThisMonth}h</TableCell>
-                        <TableCell className="text-right font-medium">€{staff.costThisMonth.toLocaleString()}</TableCell>
-                        <TableCell>
-                          <Badge variant={staff.status === "active" ? "default" : "secondary"}>
-                            {staff.status === "active" ? t('business.staff.active') : t('business.staff.inactive')}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-1">
-                            <Button variant="ghost" size="icon" data-testid={`button-edit-staff-${staff.id}`}>
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="text-destructive" data-testid={`button-delete-staff-${staff.id}`}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : filteredStaff.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <Users className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                  <p className="text-muted-foreground">{t('business.staff.noStaffFound')}</p>
+                  <Button variant="outline" className="mt-4" onClick={handleAddStaff}>
+                    <UserPlus className="h-4 w-4 mr-2" />
+                    {t('business.staff.addFirstStaff')}
+                  </Button>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('business.staff.name')}</TableHead>
+                        <TableHead>{t('business.staff.role')}</TableHead>
+                        <TableHead className="text-right">{t('business.staff.hourlyRate')}</TableHead>
+                        <TableHead className="text-center">{t('business.staff.staffTypeLabel')}</TableHead>
+                        <TableHead className="text-center">{t('business.staff.appUser')}</TableHead>
+                        <TableHead className="text-right">{t('business.staff.actions')}</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredStaff.map((staff) => (
+                        <TableRow key={staff.id} data-testid={`row-staff-${staff.id}`}>
+                          <TableCell className="font-medium">
+                            <div>
+                              {getDisplayName(staff)}
+                              {staff.email && (
+                                <div className="text-xs text-muted-foreground">{staff.email}</div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={getRoleBadgeStyle(staff.role, staff.unitType)}>
+                              {getRoleLabel(staff.role, staff.unitType)}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            {staff.hourlyRate ? `€${staff.hourlyRate}/h` : '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <span className={`text-xs ${staff.staffType === 'internal' ? 'text-green-600' : 'text-muted-foreground'}`}>
+                                {t('business.staff.internal')}
+                              </span>
+                              <Switch
+                                checked={staff.staffType === 'external'}
+                                onCheckedChange={() => handleToggleStaffType(staff)}
+                                data-testid={`switch-staff-type-${staff.id}`}
+                              />
+                              <span className={`text-xs ${staff.staffType === 'external' ? 'text-purple-600' : 'text-muted-foreground'}`}>
+                                {t('business.staff.external')}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Badge variant={staff.canLogin ? "default" : "secondary"}>
+                              {staff.canLogin ? t('common.yes') : t('common.no')}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditStaff(staff)}
+                                data-testid={`button-edit-staff-${staff.id}`}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -512,10 +768,10 @@ export default function StaffCosts() {
           <Card>
             <CardHeader>
               <div className="flex items-center">
-                <CardTitle className="text-lg">{t('business.staff.staffCostPerSurgery')}</CardTitle>
-                <HelpTooltip content={t('business.help.staffCostPerSurgery')} />
+                <CardTitle className="text-lg">{t('business.staff.surgeryStaffCosts')}</CardTitle>
+                <HelpTooltip content={t('business.help.surgeryStaffCosts')} />
               </div>
-              <CardDescription>{t('business.staff.staffCostPerSurgeryDesc')}</CardDescription>
+              <CardDescription>{t('business.staff.surgeryStaffCostsDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
@@ -523,25 +779,23 @@ export default function StaffCosts() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t('business.staff.date')}</TableHead>
-                      <TableHead>{t('business.staff.patient')}</TableHead>
                       <TableHead>{t('business.staff.surgery')}</TableHead>
                       <TableHead className="text-right">{t('business.staff.surgeons')}</TableHead>
                       <TableHead className="text-right">{t('business.staff.anesthesia')}</TableHead>
                       <TableHead className="text-right">{t('business.staff.nurses')}</TableHead>
                       <TableHead className="text-right">{t('business.staff.assistants')}</TableHead>
-                      <TableHead className="text-right">{t('business.staff.totalCol')}</TableHead>
+                      <TableHead className="text-right">{t('business.staff.totalCost')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {mockSurgeryStaffCosts.map((row) => (
-                      <TableRow key={row.id} data-testid={`row-surgery-${row.id}`}>
-                        <TableCell className="text-muted-foreground">{row.date}</TableCell>
-                        <TableCell>{row.patient}</TableCell>
+                      <TableRow key={row.id}>
+                        <TableCell>{row.date}</TableCell>
                         <TableCell className="font-medium">{row.surgery}</TableCell>
-                        <TableCell className="text-right text-red-600 dark:text-red-400">€{row.surgeons.toLocaleString()}</TableCell>
-                        <TableCell className="text-right text-blue-600 dark:text-blue-400">€{row.anesthesia.toLocaleString()}</TableCell>
-                        <TableCell className="text-right text-green-600 dark:text-green-400">€{row.nurses.toLocaleString()}</TableCell>
-                        <TableCell className="text-right text-purple-600 dark:text-purple-400">€{row.assistants.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">€{row.surgeons.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">€{row.anesthesia.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">€{row.nurses.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">€{row.assistants.toLocaleString()}</TableCell>
                         <TableCell className="text-right font-bold">€{row.total.toLocaleString()}</TableCell>
                       </TableRow>
                     ))}
@@ -552,6 +806,228 @@ export default function StaffCosts() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Add Staff Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{t('business.staff.addStaff')}</DialogTitle>
+            <DialogDescription>{t('business.staff.addStaffDesc')}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName">{t('business.staff.firstName')} *</Label>
+                <Input
+                  id="firstName"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  placeholder={t('business.staff.firstNamePlaceholder')}
+                  data-testid="input-staff-firstname"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName">{t('business.staff.lastName')} *</Label>
+                <Input
+                  id="lastName"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  placeholder={t('business.staff.lastNamePlaceholder')}
+                  data-testid="input-staff-lastname"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email">{t('business.staff.email')} ({t('common.optional')})</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder={t('business.staff.emailPlaceholder')}
+                data-testid="input-staff-email"
+              />
+              <p className="text-xs text-muted-foreground">{t('business.staff.emailHint')}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="role">{t('business.staff.role')} *</Label>
+                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                  <SelectTrigger data-testid="select-staff-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="doctor">{t('business.staff.roleDoctor')}</SelectItem>
+                    <SelectItem value="nurse">{t('business.staff.roleNurse')}</SelectItem>
+                    <SelectItem value="manager">{t('business.staff.roleManager')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="unit">{t('business.staff.unit')} *</Label>
+                <Select value={formData.unitId} onValueChange={(value) => setFormData({ ...formData, unitId: value })}>
+                  <SelectTrigger data-testid="select-staff-unit">
+                    <SelectValue placeholder={t('business.staff.selectUnit')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hospitalUnits.map((unit) => (
+                      <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="hourlyRate">{t('business.staff.hourlyRate')} (€)</Label>
+                <Input
+                  id="hourlyRate"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.hourlyRate}
+                  onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value })}
+                  placeholder="0.00"
+                  data-testid="input-staff-hourlyrate"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('business.staff.staffTypeLabel')}</Label>
+                <Select
+                  value={formData.staffType}
+                  onValueChange={(value: 'internal' | 'external') => setFormData({ ...formData, staffType: value })}
+                >
+                  <SelectTrigger data-testid="select-staff-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="internal">{t('business.staff.internal')}</SelectItem>
+                    <SelectItem value="external">{t('business.staff.external')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleSubmitCreate} disabled={createStaffMutation.isPending}>
+              {createStaffMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t('common.add')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Staff Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>{t('business.staff.editStaff')}</DialogTitle>
+            <DialogDescription>{t('business.staff.editStaffDesc')}</DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-firstName">{t('business.staff.firstName')} *</Label>
+                <Input
+                  id="edit-firstName"
+                  value={formData.firstName}
+                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  data-testid="input-edit-firstname"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-lastName">{t('business.staff.lastName')} *</Label>
+                <Input
+                  id="edit-lastName"
+                  value={formData.lastName}
+                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  data-testid="input-edit-lastname"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-email">{t('business.staff.email')}</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                data-testid="input-edit-email"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-role">{t('business.staff.role')} *</Label>
+                <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                  <SelectTrigger data-testid="select-edit-role">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="doctor">{t('business.staff.roleDoctor')}</SelectItem>
+                    <SelectItem value="nurse">{t('business.staff.roleNurse')}</SelectItem>
+                    <SelectItem value="manager">{t('business.staff.roleManager')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-unit">{t('business.staff.unit')} *</Label>
+                <Select value={formData.unitId} onValueChange={(value) => setFormData({ ...formData, unitId: value })}>
+                  <SelectTrigger data-testid="select-edit-unit">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {hospitalUnits.map((unit) => (
+                      <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-hourlyRate">{t('business.staff.hourlyRate')} (€)</Label>
+                <Input
+                  id="edit-hourlyRate"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.hourlyRate}
+                  onChange={(e) => setFormData({ ...formData, hourlyRate: e.target.value })}
+                  placeholder="0.00"
+                  data-testid="input-edit-hourlyrate"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('business.staff.staffTypeLabel')}</Label>
+                <Select
+                  value={formData.staffType}
+                  onValueChange={(value: 'internal' | 'external') => setFormData({ ...formData, staffType: value })}
+                >
+                  <SelectTrigger data-testid="select-edit-stafftype">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="internal">{t('business.staff.internal')}</SelectItem>
+                    <SelectItem value="external">{t('business.staff.external')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button onClick={handleSubmitEdit} disabled={updateStaffMutation.isPending}>
+              {updateStaffMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
