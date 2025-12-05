@@ -4,6 +4,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { 
   HelpCircle, 
@@ -14,7 +16,12 @@ import {
   Pill,
   Scissors,
   Activity,
-  Users
+  Users,
+  Search,
+  Calendar,
+  FileText,
+  BarChart3,
+  List
 } from "lucide-react";
 import {
   LineChart,
@@ -88,6 +95,130 @@ const mockCostPerSurgeryTrend = [
   { month: "Apr", orthopedic: 695, general: 238, plastic: 525, other: 388 },
   { month: "May", orthopedic: 670, general: 250, plastic: 515, other: 375 },
   { month: "Jun", orthopedic: 680, general: 245, plastic: 520, other: 380 },
+];
+
+// Mock surgery list data for the new tab
+const mockSurgeryList = [
+  { 
+    id: 1, 
+    date: "2024-12-05", 
+    surgeryName: "Knee Arthroscopy", 
+    patientFirstName: "Hans", 
+    patientLastName: "Müller", 
+    patientBirthday: "1965-03-15",
+    staffCost: 1250,
+    materialDrugsCost: 680,
+    totalCost: 1930,
+    amountPaid: 1930
+  },
+  { 
+    id: 2, 
+    date: "2024-12-05", 
+    surgeryName: "Rhinoplasty", 
+    patientFirstName: "Anna", 
+    patientLastName: "Schmidt", 
+    patientBirthday: "1988-07-22",
+    staffCost: 1680,
+    materialDrugsCost: 520,
+    totalCost: 2200,
+    amountPaid: 2200
+  },
+  { 
+    id: 3, 
+    date: "2024-12-04", 
+    surgeryName: "Appendectomy", 
+    patientFirstName: "Peter", 
+    patientLastName: "Weber", 
+    patientBirthday: "1972-11-08",
+    staffCost: 890,
+    materialDrugsCost: 245,
+    totalCost: 1135,
+    amountPaid: 1135
+  },
+  { 
+    id: 4, 
+    date: "2024-12-04", 
+    surgeryName: "Hip Replacement", 
+    patientFirstName: "Maria", 
+    patientLastName: "Fischer", 
+    patientBirthday: "1955-01-30",
+    staffCost: 2450,
+    materialDrugsCost: 1850,
+    totalCost: 4300,
+    amountPaid: 3500
+  },
+  { 
+    id: 5, 
+    date: "2024-12-03", 
+    surgeryName: "Carpal Tunnel Release", 
+    patientFirstName: "Klaus", 
+    patientLastName: "Bauer", 
+    patientBirthday: "1980-05-12",
+    staffCost: 580,
+    materialDrugsCost: 120,
+    totalCost: 700,
+    amountPaid: 700
+  },
+  { 
+    id: 6, 
+    date: "2024-12-03", 
+    surgeryName: "Breast Augmentation", 
+    patientFirstName: "Laura", 
+    patientLastName: "Klein", 
+    patientBirthday: "1992-09-18",
+    staffCost: 1890,
+    materialDrugsCost: 2100,
+    totalCost: 3990,
+    amountPaid: 3990
+  },
+  { 
+    id: 7, 
+    date: "2024-12-02", 
+    surgeryName: "Cholecystectomy", 
+    patientFirstName: "Thomas", 
+    patientLastName: "Hoffmann", 
+    patientBirthday: "1968-04-25",
+    staffCost: 1120,
+    materialDrugsCost: 380,
+    totalCost: 1500,
+    amountPaid: 1200
+  },
+  { 
+    id: 8, 
+    date: "2024-12-02", 
+    surgeryName: "ACL Reconstruction", 
+    patientFirstName: "Sandra", 
+    patientLastName: "Braun", 
+    patientBirthday: "1995-12-03",
+    staffCost: 1780,
+    materialDrugsCost: 920,
+    totalCost: 2700,
+    amountPaid: 2700
+  },
+  { 
+    id: 9, 
+    date: "2024-12-01", 
+    surgeryName: "Hernia Repair", 
+    patientFirstName: "Michael", 
+    patientLastName: "Schneider", 
+    patientBirthday: "1975-08-14",
+    staffCost: 750,
+    materialDrugsCost: 290,
+    totalCost: 1040,
+    amountPaid: 1040
+  },
+  { 
+    id: 10, 
+    date: "2024-12-01", 
+    surgeryName: "Liposuction", 
+    patientFirstName: "Julia", 
+    patientLastName: "Wolf", 
+    patientBirthday: "1985-06-27",
+    staffCost: 1450,
+    materialDrugsCost: 680,
+    totalCost: 2130,
+    amountPaid: 2130
+  },
 ];
 
 interface HelpTooltipProps {
@@ -177,8 +308,32 @@ export default function CostAnalytics() {
   const { t } = useTranslation();
   const [period, setPeriod] = useState("month");
   const [surgeryTypeFilter, setSurgeryTypeFilter] = useState("all");
+  const [activeSubTab, setActiveSubTab] = useState("overview");
+  const [surgerySearch, setSurgerySearch] = useState("");
 
   const totalCosts = mockCostByCategory.reduce((sum, cat) => sum + cat.value, 0);
+
+  // Filter surgeries based on search
+  const filteredSurgeries = mockSurgeryList.filter(surgery => {
+    const searchLower = surgerySearch.toLowerCase();
+    return (
+      surgery.surgeryName.toLowerCase().includes(searchLower) ||
+      surgery.patientFirstName.toLowerCase().includes(searchLower) ||
+      surgery.patientLastName.toLowerCase().includes(searchLower)
+    );
+  });
+
+  // Format date for display
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  // Format birthday for display
+  const formatBirthday = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24">
@@ -206,107 +361,154 @@ export default function CostAnalytics() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <SummaryCard
-          title={t('business.costs.totalSpending')}
-          value={`€${totalCosts.toLocaleString()}`}
-          subtitle={t('business.costs.thisMonth')}
-          trend={2.4}
-          helpText={t('business.help.totalSpending')}
-          icon={<DollarSign className="h-4 w-4" />}
-        />
-        <SummaryCard
-          title={t('business.costs.staffCosts')}
-          value="€158,000"
-          subtitle={`${((158000/totalCosts)*100).toFixed(1)}% ${t('business.costs.ofTotal')}`}
-          trend={3.8}
-          helpText={t('business.help.staffCosts')}
-          icon={<Users className="h-4 w-4" />}
-          iconBg="bg-purple-500/10 text-purple-500"
-        />
-        <SummaryCard
-          title={t('business.costs.medicationCosts')}
-          value="€94,000"
-          subtitle={`${((94000/totalCosts)*100).toFixed(1)}% ${t('business.costs.ofTotal')}`}
-          trend={-1.2}
-          helpText={t('business.help.medicationCosts')}
-          icon={<Pill className="h-4 w-4" />}
-          iconBg="bg-green-500/10 text-green-500"
-        />
-        <SummaryCard
-          title={t('business.costs.suppliesCosts')}
-          value="€138,000"
-          subtitle={`${((138000/totalCosts)*100).toFixed(1)}% ${t('business.costs.ofTotal')}`}
-          trend={3.2}
-          helpText={t('business.help.suppliesCosts')}
-          icon={<Package className="h-4 w-4" />}
-          iconBg="bg-blue-500/10 text-blue-500"
-        />
-        <SummaryCard
-          title={t('business.costs.avgCostPerSurgery')}
-          value="€890"
-          subtitle={t('business.costs.inclLabor')}
-          trend={-1.8}
-          helpText={t('business.help.avgCostPerSurgeryInclLabor')}
-          icon={<Scissors className="h-4 w-4" />}
-          iconBg="bg-orange-500/10 text-orange-500"
-        />
-      </div>
+      {/* Subtabs for Overview and Surgery List */}
+      <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
+        <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsTrigger value="overview" className="flex items-center gap-2" data-testid="tab-costs-overview">
+            <BarChart3 className="h-4 w-4" />
+            {t('business.costs.overview')}
+          </TabsTrigger>
+          <TabsTrigger value="surgeries" className="flex items-center gap-2" data-testid="tab-costs-surgeries">
+            <List className="h-4 w-4" />
+            {t('business.costs.surgeryList')}
+          </TabsTrigger>
+        </TabsList>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <ChartCard
-          title={t('business.costs.costByCategory')}
-          description={t('business.costs.costByCategoryDesc')}
-          helpText={t('business.help.costByCategory')}
-        >
-          <div className="h-[280px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={mockCostByCategory}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={90}
-                  paddingAngle={2}
-                  dataKey="value"
-                >
-                  {mockCostByCategory.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <RechartsTooltip 
-                  formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '8px'
-                  }}
-                />
-                <Legend 
-                  formatter={(value, entry: any) => (
-                    <span className="text-xs">{value}: €{entry.payload.value.toLocaleString()}</span>
-                  )}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+        {/* Overview Tab Content */}
+        <TabsContent value="overview" className="space-y-6 mt-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <SummaryCard
+              title={t('business.costs.totalSpending')}
+              value={`€${totalCosts.toLocaleString()}`}
+              subtitle={t('business.costs.thisMonth')}
+              trend={2.4}
+              helpText={t('business.help.totalSpending')}
+              icon={<DollarSign className="h-4 w-4" />}
+            />
+            <SummaryCard
+              title={t('business.costs.staffCosts')}
+              value="€158,000"
+              subtitle={`${((158000/totalCosts)*100).toFixed(1)}% ${t('business.costs.ofTotal')}`}
+              trend={3.8}
+              helpText={t('business.help.staffCosts')}
+              icon={<Users className="h-4 w-4" />}
+              iconBg="bg-purple-500/10 text-purple-500"
+            />
+            <SummaryCard
+              title={t('business.costs.medicationCosts')}
+              value="€94,000"
+              subtitle={`${((94000/totalCosts)*100).toFixed(1)}% ${t('business.costs.ofTotal')}`}
+              trend={-1.2}
+              helpText={t('business.help.medicationCosts')}
+              icon={<Pill className="h-4 w-4" />}
+              iconBg="bg-green-500/10 text-green-500"
+            />
+            <SummaryCard
+              title={t('business.costs.suppliesCosts')}
+              value="€138,000"
+              subtitle={`${((138000/totalCosts)*100).toFixed(1)}% ${t('business.costs.ofTotal')}`}
+              trend={3.2}
+              helpText={t('business.help.suppliesCosts')}
+              icon={<Package className="h-4 w-4" />}
+              iconBg="bg-blue-500/10 text-blue-500"
+            />
+            <SummaryCard
+              title={t('business.costs.avgCostPerSurgery')}
+              value="€890"
+              subtitle={t('business.costs.inclLabor')}
+              trend={-1.8}
+              helpText={t('business.help.avgCostPerSurgeryInclLabor')}
+              icon={<Scissors className="h-4 w-4" />}
+              iconBg="bg-orange-500/10 text-orange-500"
+            />
           </div>
-        </ChartCard>
 
-        <div className="lg:col-span-2">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <ChartCard
+              title={t('business.costs.costByCategory')}
+              description={t('business.costs.costByCategoryDesc')}
+              helpText={t('business.help.costByCategory')}
+            >
+              <div className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={mockCostByCategory}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={90}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {mockCostByCategory.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip 
+                      formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                    />
+                    <Legend 
+                      formatter={(value, entry: any) => (
+                        <span className="text-xs">{value}: €{entry.payload.value.toLocaleString()}</span>
+                      )}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </ChartCard>
+
+            <div className="lg:col-span-2">
+              <ChartCard
+                title={t('business.costs.monthlyBreakdown')}
+                description={t('business.costs.monthlyBreakdownDesc')}
+                helpText={t('business.help.monthlyBreakdown')}
+              >
+                <div className="h-[280px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={mockMonthlyCosts}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis dataKey="month" className="text-xs" />
+                      <YAxis className="text-xs" tickFormatter={(value) => `€${(value/1000).toFixed(0)}k`} />
+                      <RechartsTooltip 
+                        formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
+                        contentStyle={{ 
+                          backgroundColor: 'hsl(var(--background))',
+                          border: '1px solid hsl(var(--border))',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Legend />
+                      <Area type="monotone" dataKey="staff" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} name={t('business.costs.staffLabel')} />
+                      <Area type="monotone" dataKey="supplies" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} name={t('business.costs.supplies')} />
+                      <Area type="monotone" dataKey="medications" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.6} name={t('business.costs.medications')} />
+                      <Area type="monotone" dataKey="equipment" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name={t('business.costs.equipment')} />
+                      <Area type="monotone" dataKey="other" stackId="1" stroke="#6b7280" fill="#6b7280" fillOpacity={0.6} name={t('business.costs.other')} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </ChartCard>
+            </div>
+          </div>
+
           <ChartCard
-            title={t('business.costs.monthlyBreakdown')}
-            description={t('business.costs.monthlyBreakdownDesc')}
-            helpText={t('business.help.monthlyBreakdown')}
+            title={t('business.costs.costPerSurgeryType')}
+            description={t('business.costs.costPerSurgeryTypeDesc')}
+            helpText={t('business.help.costPerSurgeryType')}
           >
-            <div className="h-[280px]">
+            <div className="h-[300px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={mockMonthlyCosts}>
+                <LineChart data={mockCostPerSurgeryTrend}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="month" className="text-xs" />
-                  <YAxis className="text-xs" tickFormatter={(value) => `€${(value/1000).toFixed(0)}k`} />
+                  <YAxis className="text-xs" tickFormatter={(value) => `€${value}`} />
                   <RechartsTooltip 
-                    formatter={(value: number) => [`€${value.toLocaleString()}`, '']}
+                    formatter={(value: number) => [`€${value}`, '']}
                     contentStyle={{ 
                       backgroundColor: 'hsl(var(--background))',
                       border: '1px solid hsl(var(--border))',
@@ -314,211 +516,313 @@ export default function CostAnalytics() {
                     }}
                   />
                   <Legend />
-                  <Area type="monotone" dataKey="staff" stackId="1" stroke="#8b5cf6" fill="#8b5cf6" fillOpacity={0.6} name={t('business.costs.staffLabel')} />
-                  <Area type="monotone" dataKey="supplies" stackId="1" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.6} name={t('business.costs.supplies')} />
-                  <Area type="monotone" dataKey="medications" stackId="1" stroke="#10b981" fill="#10b981" fillOpacity={0.6} name={t('business.costs.medications')} />
-                  <Area type="monotone" dataKey="equipment" stackId="1" stroke="#f59e0b" fill="#f59e0b" fillOpacity={0.6} name={t('business.costs.equipment')} />
-                  <Area type="monotone" dataKey="other" stackId="1" stroke="#6b7280" fill="#6b7280" fillOpacity={0.6} name={t('business.costs.other')} />
-                </AreaChart>
+                  <Line type="monotone" dataKey="orthopedic" stroke="#3b82f6" strokeWidth={2} name={t('business.surgeryTypes.orthopedic')} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="general" stroke="#10b981" strokeWidth={2} name={t('business.surgeryTypes.general')} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="plastic" stroke="#8b5cf6" strokeWidth={2} name={t('business.surgeryTypes.plastic')} dot={{ r: 3 }} />
+                  <Line type="monotone" dataKey="other" stroke="#6b7280" strokeWidth={2} name={t('business.surgeryTypes.other')} dot={{ r: 3 }} />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </ChartCard>
-        </div>
-      </div>
 
-      <ChartCard
-        title={t('business.costs.costPerSurgeryType')}
-        description={t('business.costs.costPerSurgeryTypeDesc')}
-        helpText={t('business.help.costPerSurgeryType')}
-      >
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={mockCostPerSurgeryTrend}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis dataKey="month" className="text-xs" />
-              <YAxis className="text-xs" tickFormatter={(value) => `€${value}`} />
-              <RechartsTooltip 
-                formatter={(value: number) => [`€${value}`, '']}
-                contentStyle={{ 
-                  backgroundColor: 'hsl(var(--background))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px'
-                }}
-              />
-              <Legend />
-              <Line type="monotone" dataKey="orthopedic" stroke="#3b82f6" strokeWidth={2} name={t('business.surgeryTypes.orthopedic')} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="general" stroke="#10b981" strokeWidth={2} name={t('business.surgeryTypes.general')} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="plastic" stroke="#8b5cf6" strokeWidth={2} name={t('business.surgeryTypes.plastic')} dot={{ r: 3 }} />
-              <Line type="monotone" dataKey="other" stroke="#6b7280" strokeWidth={2} name={t('business.surgeryTypes.other')} dot={{ r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </ChartCard>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <CardTitle className="text-lg">{t('business.costs.costBySurgeryType')}</CardTitle>
+                  <HelpTooltip content={t('business.help.costBySurgeryType')} />
+                </div>
+              </div>
+              <CardDescription>{t('business.costs.costBySurgeryTypeDescWithLabor')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('business.costs.surgeryType')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.avgMaterialCost')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.avgLaborCost')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.avgTotalCost')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.surgeryCount')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.totalCost')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.trend')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mockCostBySurgeryType.map((row) => (
+                      <TableRow key={row.type}>
+                        <TableCell className="font-medium">{row.type}</TableCell>
+                        <TableCell className="text-right">€{row.avgMaterialCost.toLocaleString()}</TableCell>
+                        <TableCell className="text-right text-purple-600 dark:text-purple-400">€{row.avgLaborCost.toLocaleString()}</TableCell>
+                        <TableCell className="text-right font-semibold">€{row.avgTotalCost.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">{row.count}</TableCell>
+                        <TableCell className="text-right font-medium">€{row.totalCost.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end">
+                            {row.trend > 0 ? (
+                              <TrendingUp className="h-4 w-4 text-red-500 mr-1" />
+                            ) : row.trend < 0 ? (
+                              <TrendingDown className="h-4 w-4 text-green-500 mr-1" />
+                            ) : null}
+                            <span className={row.trend > 0 ? "text-red-500" : row.trend < 0 ? "text-green-500" : ""}>
+                              {row.trend > 0 ? "+" : ""}{row.trend}%
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <CardTitle className="text-lg">{t('business.costs.costBySurgeryType')}</CardTitle>
-              <HelpTooltip content={t('business.help.costBySurgeryType')} />
-            </div>
-          </div>
-          <CardDescription>{t('business.costs.costBySurgeryTypeDescWithLabor')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('business.costs.surgeryType')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.avgMaterialCost')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.avgLaborCost')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.avgTotalCost')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.surgeryCount')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.totalCost')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.trend')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockCostBySurgeryType.map((row) => (
-                  <TableRow key={row.type}>
-                    <TableCell className="font-medium">{row.type}</TableCell>
-                    <TableCell className="text-right">€{row.avgMaterialCost.toLocaleString()}</TableCell>
-                    <TableCell className="text-right text-purple-600 dark:text-purple-400">€{row.avgLaborCost.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-semibold">€{row.avgTotalCost.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">{row.count}</TableCell>
-                    <TableCell className="text-right font-medium">€{row.totalCost.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end">
-                        {row.trend > 0 ? (
-                          <TrendingUp className="h-4 w-4 text-red-500 mr-1" />
-                        ) : row.trend < 0 ? (
-                          <TrendingDown className="h-4 w-4 text-green-500 mr-1" />
-                        ) : null}
-                        <span className={row.trend > 0 ? "text-red-500" : row.trend < 0 ? "text-green-500" : ""}>
-                          {row.trend > 0 ? "+" : ""}{row.trend}%
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center">
+                <CardTitle className="text-lg">{t('business.costs.staffCostBreakdown')}</CardTitle>
+                <HelpTooltip content={t('business.help.staffCostBreakdown')} />
+              </div>
+              <CardDescription>{t('business.costs.staffCostBreakdownDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('business.costs.staffMember')}</TableHead>
+                      <TableHead>{t('business.costs.role')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.hourlyRate')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.hoursWorked')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.totalCost')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.trend')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mockStaffCostBreakdown.map((staff) => (
+                      <TableRow key={staff.id}>
+                        <TableCell className="font-medium">{staff.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className={
+                            staff.role === "Surgeon" ? "border-red-500/50 text-red-600 dark:text-red-400" :
+                            staff.role === "Anesthesiologist" ? "border-blue-500/50 text-blue-600 dark:text-blue-400" :
+                            staff.role === "Surgery Nurse" ? "border-green-500/50 text-green-600 dark:text-green-400" :
+                            staff.role === "Anesthesia Nurse" ? "border-orange-500/50 text-orange-600 dark:text-orange-400" :
+                            "border-purple-500/50 text-purple-600 dark:text-purple-400"
+                          }>{staff.role}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">€{staff.hourlyRate}/h</TableCell>
+                        <TableCell className="text-right">{staff.hoursWorked}h</TableCell>
+                        <TableCell className="text-right font-medium">€{staff.totalCost.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end">
+                            {staff.trend > 0 ? (
+                              <TrendingUp className="h-4 w-4 text-red-500 mr-1" />
+                            ) : staff.trend < 0 ? (
+                              <TrendingDown className="h-4 w-4 text-green-500 mr-1" />
+                            ) : (
+                              <Activity className="h-4 w-4 text-muted-foreground mr-1" />
+                            )}
+                            <span className={staff.trend > 0 ? "text-red-500" : staff.trend < 0 ? "text-green-500" : "text-muted-foreground"}>
+                              {staff.trend > 0 ? "+" : ""}{staff.trend}%
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center">
-            <CardTitle className="text-lg">{t('business.costs.staffCostBreakdown')}</CardTitle>
-            <HelpTooltip content={t('business.help.staffCostBreakdown')} />
-          </div>
-          <CardDescription>{t('business.costs.staffCostBreakdownDesc')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('business.costs.staffMember')}</TableHead>
-                  <TableHead>{t('business.costs.role')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.hourlyRate')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.hoursWorked')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.totalCost')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.trend')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockStaffCostBreakdown.map((staff) => (
-                  <TableRow key={staff.id}>
-                    <TableCell className="font-medium">{staff.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={
-                        staff.role === "Surgeon" ? "border-red-500/50 text-red-600 dark:text-red-400" :
-                        staff.role === "Anesthesiologist" ? "border-blue-500/50 text-blue-600 dark:text-blue-400" :
-                        staff.role === "Surgery Nurse" ? "border-green-500/50 text-green-600 dark:text-green-400" :
-                        staff.role === "Anesthesia Nurse" ? "border-orange-500/50 text-orange-600 dark:text-orange-400" :
-                        "border-purple-500/50 text-purple-600 dark:text-purple-400"
-                      }>{staff.role}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">€{staff.hourlyRate}/h</TableCell>
-                    <TableCell className="text-right">{staff.hoursWorked}h</TableCell>
-                    <TableCell className="text-right font-medium">€{staff.totalCost.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end">
-                        {staff.trend > 0 ? (
-                          <TrendingUp className="h-4 w-4 text-red-500 mr-1" />
-                        ) : staff.trend < 0 ? (
-                          <TrendingDown className="h-4 w-4 text-green-500 mr-1" />
-                        ) : (
-                          <Activity className="h-4 w-4 text-muted-foreground mr-1" />
-                        )}
-                        <span className={staff.trend > 0 ? "text-red-500" : staff.trend < 0 ? "text-green-500" : "text-muted-foreground"}>
-                          {staff.trend > 0 ? "+" : ""}{staff.trend}%
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <div className="flex items-center">
+                <CardTitle className="text-lg">{t('business.costs.topItems')}</CardTitle>
+                <HelpTooltip content={t('business.help.topItems')} />
+              </div>
+              <CardDescription>{t('business.costs.topItemsDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('business.costs.itemName')}</TableHead>
+                      <TableHead>{t('business.costs.category')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.unitCost')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.usage')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.totalCost')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.trend')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {mockTopItems.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{item.category}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">€{item.unitCost}</TableCell>
+                        <TableCell className="text-right">{item.usage}</TableCell>
+                        <TableCell className="text-right font-medium">€{item.totalCost.toLocaleString()}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end">
+                            {item.trend > 0 ? (
+                              <TrendingUp className="h-4 w-4 text-red-500 mr-1" />
+                            ) : item.trend < 0 ? (
+                              <TrendingDown className="h-4 w-4 text-green-500 mr-1" />
+                            ) : (
+                              <Activity className="h-4 w-4 text-muted-foreground mr-1" />
+                            )}
+                            <span className={item.trend > 0 ? "text-red-500" : item.trend < 0 ? "text-green-500" : "text-muted-foreground"}>
+                              {item.trend > 0 ? "+" : ""}{item.trend}%
+                            </span>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center">
-            <CardTitle className="text-lg">{t('business.costs.topItems')}</CardTitle>
-            <HelpTooltip content={t('business.help.topItems')} />
-          </div>
-          <CardDescription>{t('business.costs.topItemsDesc')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('business.costs.itemName')}</TableHead>
-                  <TableHead>{t('business.costs.category')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.unitCost')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.usage')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.totalCost')}</TableHead>
-                  <TableHead className="text-right">{t('business.costs.trend')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockTopItems.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{item.category}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">€{item.unitCost}</TableCell>
-                    <TableCell className="text-right">{item.usage}</TableCell>
-                    <TableCell className="text-right font-medium">€{item.totalCost.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end">
-                        {item.trend > 0 ? (
-                          <TrendingUp className="h-4 w-4 text-red-500 mr-1" />
-                        ) : item.trend < 0 ? (
-                          <TrendingDown className="h-4 w-4 text-green-500 mr-1" />
-                        ) : (
-                          <Activity className="h-4 w-4 text-muted-foreground mr-1" />
-                        )}
-                        <span className={item.trend > 0 ? "text-red-500" : item.trend < 0 ? "text-green-500" : "text-muted-foreground"}>
-                          {item.trend > 0 ? "+" : ""}{item.trend}%
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+        {/* Surgery List Tab Content */}
+        <TabsContent value="surgeries" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    {t('business.costs.surgeryListTitle')}
+                  </CardTitle>
+                  <CardDescription>{t('business.costs.surgeryListDesc')}</CardDescription>
+                </div>
+                <div className="relative w-full md:w-[300px]">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder={t('business.costs.searchSurgeries')}
+                    value={surgerySearch}
+                    onChange={(e) => setSurgerySearch(e.target.value)}
+                    className="pl-9"
+                    data-testid="input-search-surgeries"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('business.costs.surgeryDate')}</TableHead>
+                      <TableHead>{t('business.costs.surgeryMade')}</TableHead>
+                      <TableHead>{t('business.costs.patientData')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.staffCostsCol')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.materialDrugsCosts')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.totalCostCol')}</TableHead>
+                      <TableHead className="text-right">{t('business.costs.amountPaid')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredSurgeries.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                          {t('business.costs.noSurgeriesFound')}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredSurgeries.map((surgery) => (
+                        <TableRow key={surgery.id} data-testid={`row-surgery-${surgery.id}`}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-medium">{formatDate(surgery.date)}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">{surgery.surgeryName}</span>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <span className="font-medium">{surgery.patientLastName}, {surgery.patientFirstName}</span>
+                              <div className="text-xs text-muted-foreground">
+                                {t('business.costs.born')}: {formatBirthday(surgery.patientBirthday)}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="text-purple-600 dark:text-purple-400">€{surgery.staffCost.toLocaleString()}</span>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <span className="text-blue-600 dark:text-blue-400">€{surgery.materialDrugsCost.toLocaleString()}</span>
+                          </TableCell>
+                          <TableCell className="text-right font-semibold">
+                            €{surgery.totalCost.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex flex-col items-end">
+                              <span className={surgery.amountPaid >= surgery.totalCost ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"}>
+                                €{surgery.amountPaid.toLocaleString()}
+                              </span>
+                              {surgery.amountPaid < surgery.totalCost && (
+                                <span className="text-xs text-muted-foreground">
+                                  ({t('business.costs.open')}: €{(surgery.totalCost - surgery.amountPaid).toLocaleString()})
+                                </span>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              
+              {/* Summary row */}
+              {filteredSurgeries.length > 0 && (
+                <div className="mt-4 pt-4 border-t">
+                  <div className="flex flex-wrap gap-4 justify-end text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{t('business.costs.totalSurgeries')}:</span>
+                      <Badge variant="secondary">{filteredSurgeries.length}</Badge>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{t('business.costs.totalStaffCosts')}:</span>
+                      <span className="text-purple-600 dark:text-purple-400 font-medium">
+                        €{filteredSurgeries.reduce((sum, s) => sum + s.staffCost, 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{t('business.costs.totalMaterialDrugs')}:</span>
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">
+                        €{filteredSurgeries.reduce((sum, s) => sum + s.materialDrugsCost, 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{t('business.costs.grandTotal')}:</span>
+                      <span className="font-bold">
+                        €{filteredSurgeries.reduce((sum, s) => sum + s.totalCost, 0).toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{t('business.costs.totalPaid')}:</span>
+                      <span className="text-green-600 dark:text-green-400 font-medium">
+                        €{filteredSurgeries.reduce((sum, s) => sum + s.amountPaid, 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
