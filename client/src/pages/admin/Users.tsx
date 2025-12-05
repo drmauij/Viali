@@ -4,11 +4,13 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Key } from "lucide-react";
 import type { Unit, UserHospitalRole, User } from "@shared/schema";
 
 interface HospitalUser extends UserHospitalRole {
@@ -43,6 +45,12 @@ export default function Users() {
   });
   const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; unitId: string }>>([]);
   const [newPair, setNewPair] = useState({ role: "", unitId: "" });
+  
+  // Change password states
+  const [changePasswordDialogOpen, setChangePasswordDialogOpen] = useState(false);
+  const [changePasswordUser, setChangePasswordUser] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
@@ -191,6 +199,27 @@ export default function Users() {
     },
   });
 
+  // Change password mutation (admin reset)
+  const changePasswordMutation = useMutation({
+    mutationFn: async ({ userId, newPassword }: { userId: string; newPassword: string }) => {
+      const response = await apiRequest("POST", `/api/admin/users/${userId}/reset-password`, {
+        newPassword,
+        hospitalId: activeHospital?.id,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      setChangePasswordDialogOpen(false);
+      setChangePasswordUser(null);
+      setNewPassword("");
+      setConfirmPassword("");
+      toast({ title: t("common.success"), description: t("admin.passwordResetSuccess") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.passwordResetError"), variant: "destructive" });
+    },
+  });
+
   const resetUserForm = () => {
     setUserForm({ email: "", password: "", firstName: "", lastName: "", unitId: "", role: "" });
   };
@@ -237,6 +266,37 @@ export default function Users() {
     if (window.confirm(t("admin.deleteUserConfirm", { firstName: user.user.firstName, lastName: user.user.lastName }))) {
       deleteUserMutation.mutate(user.user.id);
     }
+  };
+
+  const handleOpenChangePassword = (user: User) => {
+    setChangePasswordUser(user);
+    setNewPassword("");
+    setConfirmPassword("");
+    setChangePasswordDialogOpen(true);
+  };
+
+  const handleChangePassword = () => {
+    if (!changePasswordUser) return;
+    
+    if (!newPassword || !confirmPassword) {
+      toast({ title: t("common.error"), description: t("admin.allFieldsRequired"), variant: "destructive" });
+      return;
+    }
+    
+    if (newPassword !== confirmPassword) {
+      toast({ title: t("common.error"), description: t("auth.passwordMismatch"), variant: "destructive" });
+      return;
+    }
+    
+    if (newPassword.length < 6) {
+      toast({ title: t("common.error"), description: t("auth.passwordTooShort"), variant: "destructive" });
+      return;
+    }
+    
+    changePasswordMutation.mutate({
+      userId: changePasswordUser.id,
+      newPassword,
+    });
   };
 
   const handleSaveUser = () => {
@@ -538,121 +598,139 @@ export default function Users() {
 
       {/* Edit User Dialog */}
       <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle>{t("admin.editUser")}</DialogTitle>
+            <DialogDescription>
+              {editingUserDetails?.email}
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            {/* Name fields */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label htmlFor="edit-first-name">{t("admin.firstName")} *</Label>
-                <Input
-                  id="edit-first-name"
-                  value={userForm.firstName}
-                  onChange={(e) => setUserForm({ ...userForm, firstName: e.target.value })}
-                  placeholder={t("admin.firstNamePlaceholder")}
-                  data-testid="input-edit-first-name"
-                />
+          <ScrollArea className="flex-1 -mx-6 px-6">
+            <div className="space-y-4 py-1">
+              {/* Name fields */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="edit-first-name">{t("admin.firstName")} *</Label>
+                  <Input
+                    id="edit-first-name"
+                    value={userForm.firstName}
+                    onChange={(e) => setUserForm({ ...userForm, firstName: e.target.value })}
+                    placeholder={t("admin.firstNamePlaceholder")}
+                    data-testid="input-edit-first-name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="edit-last-name">{t("admin.lastName")} *</Label>
+                  <Input
+                    id="edit-last-name"
+                    value={userForm.lastName}
+                    onChange={(e) => setUserForm({ ...userForm, lastName: e.target.value })}
+                    placeholder={t("admin.lastNamePlaceholder")}
+                    data-testid="input-edit-last-name"
+                  />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="edit-last-name">{t("admin.lastName")} *</Label>
-                <Input
-                  id="edit-last-name"
-                  value={userForm.lastName}
-                  onChange={(e) => setUserForm({ ...userForm, lastName: e.target.value })}
-                  placeholder={t("admin.lastNamePlaceholder")}
-                  data-testid="input-edit-last-name"
-                />
-              </div>
-            </div>
 
-            {/* Role/Unit Pairs */}
-            <div className="border-t pt-4">
-              <Label className="text-base font-semibold">{t("admin.roleLocationPairs")}</Label>
-              <div className="space-y-2 mt-3">
-                {roleLocationPairs.map((pair) => {
-                  const unit = units.find(l => l.id === pair.unitId);
-                  return (
-                    <div key={pair.id} className="flex items-center justify-between bg-muted p-2 rounded-md">
-                      <div className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
-                        <span className="text-xs font-medium text-primary">{getRoleName(pair.role)}</span>
-                        <span className="text-xs text-primary/60 mx-1.5">@</span>
-                        <span className="text-xs text-primary/80">{unit?.name}</span>
-                      </div>
-                      {pair.id && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveRoleLocation(pair.id!)}
-                          data-testid={`button-remove-pair-${pair.id}`}
-                        >
-                          <i className="fas fa-times text-destructive"></i>
-                        </Button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Add New Pair */}
-            <div className="border-t pt-4">
-              <Label className="text-sm font-medium mb-2 block">{t("admin.addRoleLocation")}</Label>
-              <div className="flex gap-2">
-                <Select
-                  value={newPair.role}
-                  onValueChange={(value) => setNewPair({ ...newPair, role: value })}
-                >
-                  <SelectTrigger className="flex-1" data-testid="select-new-role">
-                    <SelectValue placeholder={t("admin.selectRole")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">{t("admin.roleAdmin")}</SelectItem>
-                    <SelectItem value="manager">{t("admin.roleManager")}</SelectItem>
-                    <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
-                    <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
-                    <SelectItem value="guest">{t("admin.roleGuest")}</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={newPair.unitId}
-                  onValueChange={(value) => setNewPair({ ...newPair, unitId: value })}
-                >
-                  <SelectTrigger className="flex-1" data-testid="select-new-units">
-                    <SelectValue placeholder={t("admin.selectLocation")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {units.map((units) => (
-                      <SelectItem key={units.id} value={units.id}>
-                        {units.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              {/* Change Password Button */}
+              <div className="border-t pt-4">
                 <Button
-                  onClick={handleAddRoleLocation}
-                  disabled={createUserRoleMutation.isPending}
-                  data-testid="button-add-pair"
+                  variant="outline"
+                  onClick={() => editingUserDetails && handleOpenChangePassword(editingUserDetails)}
+                  className="w-full sm:w-auto"
+                  data-testid="button-open-change-password"
                 >
-                  <i className="fas fa-plus mr-2"></i>
-                  {t("admin.add")}
+                  <Key className="h-4 w-4 mr-2" />
+                  {t("auth.changePassword")}
                 </Button>
               </div>
-            </div>
 
-            <div className="flex gap-2 justify-end border-t pt-4">
-              <Button variant="outline" onClick={() => setEditUserDialogOpen(false)}>
-                {t("common.cancel")}
-              </Button>
-              <Button
-                onClick={handleSaveUserDetails}
-                disabled={updateUserDetailsMutation.isPending}
-                data-testid="button-save-user-details"
-              >
-                {t("common.save")}
-              </Button>
+              {/* Role/Unit Pairs */}
+              <div className="border-t pt-4">
+                <Label className="text-base font-semibold">{t("admin.roleLocationPairs")}</Label>
+                <div className="space-y-2 mt-3">
+                  {roleLocationPairs.map((pair) => {
+                    const unit = units.find(l => l.id === pair.unitId);
+                    return (
+                      <div key={pair.id} className="flex items-center justify-between bg-muted p-2 rounded-md">
+                        <div className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
+                          <span className="text-xs font-medium text-primary">{getRoleName(pair.role)}</span>
+                          <span className="text-xs text-primary/60 mx-1.5">@</span>
+                          <span className="text-xs text-primary/80">{unit?.name}</span>
+                        </div>
+                        {pair.id && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemoveRoleLocation(pair.id!)}
+                            data-testid={`button-remove-pair-${pair.id}`}
+                          >
+                            <i className="fas fa-times text-destructive"></i>
+                          </Button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Add New Pair */}
+              <div className="border-t pt-4">
+                <Label className="text-sm font-medium mb-2 block">{t("admin.addRoleLocation")}</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Select
+                    value={newPair.role}
+                    onValueChange={(value) => setNewPair({ ...newPair, role: value })}
+                  >
+                    <SelectTrigger className="flex-1" data-testid="select-new-role">
+                      <SelectValue placeholder={t("admin.selectRole")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">{t("admin.roleAdmin")}</SelectItem>
+                      <SelectItem value="manager">{t("admin.roleManager")}</SelectItem>
+                      <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
+                      <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
+                      <SelectItem value="guest">{t("admin.roleGuest")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={newPair.unitId}
+                    onValueChange={(value) => setNewPair({ ...newPair, unitId: value })}
+                  >
+                    <SelectTrigger className="flex-1" data-testid="select-new-units">
+                      <SelectValue placeholder={t("admin.selectLocation")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {units.map((units) => (
+                        <SelectItem key={units.id} value={units.id}>
+                          {units.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    onClick={handleAddRoleLocation}
+                    disabled={createUserRoleMutation.isPending}
+                    data-testid="button-add-pair"
+                    className="shrink-0"
+                  >
+                    <i className="fas fa-plus mr-2"></i>
+                    {t("admin.add")}
+                  </Button>
+                </div>
+              </div>
             </div>
+          </ScrollArea>
+          <div className="flex gap-2 justify-end border-t pt-4 shrink-0">
+            <Button variant="outline" onClick={() => setEditUserDialogOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={handleSaveUserDetails}
+              disabled={updateUserDetailsMutation.isPending}
+              data-testid="button-save-user-details"
+            >
+              {t("common.save")}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -684,6 +762,54 @@ export default function Users() {
                 data-testid="button-save-hospital"
               >
                 {t("common.edit")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Password Dialog */}
+      <Dialog open={changePasswordDialogOpen} onOpenChange={setChangePasswordDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("auth.changePassword")}</DialogTitle>
+            <DialogDescription>
+              {changePasswordUser?.firstName} {changePasswordUser?.lastName} ({changePasswordUser?.email})
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="new-password">{t("admin.newPassword")} *</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={t("admin.passwordPlaceholder")}
+                data-testid="input-new-password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="confirm-password">{t("admin.confirmPassword")} *</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={t("admin.confirmPasswordPlaceholder")}
+                data-testid="input-confirm-password"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setChangePasswordDialogOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={handleChangePassword}
+                disabled={changePasswordMutation.isPending}
+                data-testid="button-save-password"
+              >
+                {t("common.save")}
               </Button>
             </div>
           </div>

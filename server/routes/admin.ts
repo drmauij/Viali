@@ -504,6 +504,47 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
   }
 });
 
+router.post('/api/admin/users/:userId/reset-password', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const { newPassword, hospitalId } = req.body;
+    
+    if (!newPassword) {
+      return res.status(400).json({ message: "New password is required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    const currentUserId = req.user.id;
+    const hospitals = await storage.getUserHospitals(currentUserId);
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const targetUser = await storage.getUser(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const targetUserHospitals = await storage.getUserHospitals(userId);
+    const userBelongsToHospital = targetUserHospitals.some(h => h.id === hospitalId);
+    if (!userBelongsToHospital) {
+      return res.status(403).json({ message: "User does not belong to this hospital" });
+    }
+
+    await storage.updateUserPassword(userId, newPassword);
+    await db.update(users).set({ mustChangePassword: true }).where(eq(users.id, userId));
+
+    res.json({ success: true, message: "Password reset successfully" });
+  } catch (error) {
+    console.error("Error resetting user password:", error);
+    res.status(500).json({ message: "Failed to reset password" });
+  }
+});
+
 router.delete('/api/admin/users/:userId/delete', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { userId } = req.params;
