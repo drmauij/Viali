@@ -118,7 +118,7 @@ export default function Op() {
   // Weight dialog state
   const [showWeightDialog, setShowWeightDialog] = useState(false);
   
-  // Staff role popover state (tracks which combobox is open)
+  // Staff popover state for performedBy field
   const [openStaffPopover, setOpenStaffPopover] = useState<string | null>(null);
   const [staffSearchInput, setStaffSearchInput] = useState("");
   
@@ -321,48 +321,7 @@ export default function Op() {
     return "";
   };
   
-  // Create filtered list of staff options with display names (legacy fallback)
-  const staffOptions = useMemo(() => {
-    if (!hospitalUsers) return [];
-    return hospitalUsers
-      .map((user: any) => ({
-        id: user.id,
-        label: getUserDisplayName(user)
-      }))
-      .filter((opt: { id: string; label: string }) => opt.label.trim().length > 0);
-  }, [hospitalUsers]);
-
-  // Fetch filtered user lists for OR Team dropdowns based on module and role
-  const { data: anesthesiaDoctors = [] } = useQuery<{ id: string; name: string }[]>({
-    queryKey: [`/api/hospitals/${activeHospital?.id}/users-by-module`, 'anesthesia', 'doctor'],
-    queryFn: async () => {
-      const res = await fetch(`/api/hospitals/${activeHospital?.id}/users-by-module?module=anesthesia&role=doctor`, { credentials: 'include' });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!activeHospital?.id && isSurgeryMode,
-  });
-
-  const { data: anesthesiaNurses = [] } = useQuery<{ id: string; name: string }[]>({
-    queryKey: [`/api/hospitals/${activeHospital?.id}/users-by-module`, 'anesthesia', 'nurse'],
-    queryFn: async () => {
-      const res = await fetch(`/api/hospitals/${activeHospital?.id}/users-by-module?module=anesthesia&role=nurse`, { credentials: 'include' });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!activeHospital?.id && isSurgeryMode,
-  });
-
-  const { data: surgeryDoctors = [] } = useQuery<{ id: string; name: string }[]>({
-    queryKey: [`/api/hospitals/${activeHospital?.id}/users-by-module`, 'surgery', 'doctor'],
-    queryFn: async () => {
-      const res = await fetch(`/api/hospitals/${activeHospital?.id}/users-by-module?module=surgery&role=doctor`, { credentials: 'include' });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!activeHospital?.id && isSurgeryMode,
-  });
-
+  // Fetch surgery nurses for performedBy disinfection field
   const { data: surgeryNurses = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: [`/api/hospitals/${activeHospital?.id}/users-by-module`, 'surgery', 'nurse'],
     queryFn: async () => {
@@ -372,16 +331,6 @@ export default function Op() {
     },
     enabled: !!activeHospital?.id && isSurgeryMode,
   });
-
-  // Map role keys to filtered user lists
-  const staffOptionsByRole: Record<string, { id: string; label: string }[]> = useMemo(() => ({
-    anesthesiologist: anesthesiaDoctors.map(u => ({ id: u.id, label: u.name })),
-    anesthesiaNurse: anesthesiaNurses.map(u => ({ id: u.id, label: u.name })),
-    surgeon: surgeryDoctors.map(u => ({ id: u.id, label: u.name })),
-    surgicalAssistant: surgeryDoctors.map(u => ({ id: u.id, label: u.name })),
-    instrumentNurse: surgeryNurses.map(u => ({ id: u.id, label: u.name })),
-    circulatingNurse: surgeryNurses.map(u => ({ id: u.id, label: u.name })),
-  }), [anesthesiaDoctors, anesthesiaNurses, surgeryDoctors, surgeryNurses]);
 
   // Auto-create anesthesia record if it doesn't exist (404 only)
   useEffect(() => {
@@ -795,24 +744,6 @@ export default function Op() {
     queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
   });
 
-  // Surgery Staff state (OR team documentation)
-  const [surgeryStaff, setSurgeryStaff] = useState<{
-    instrumentNurse?: string;
-    circulatingNurse?: string;
-    surgeon?: string;
-    surgicalAssistant?: string;
-    anesthesiologist?: string;
-    anesthesiaNurse?: string;
-  }>({});
-
-  // Auto-save mutation for Surgery Staff data
-  const surgeryStaffAutoSave = useAutoSaveMutation({
-    mutationFn: async (data: typeof surgeryStaff) => {
-      if (!anesthesiaRecord?.id) throw new Error("No anesthesia record");
-      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecord.id}/surgery-staff`, data);
-    },
-    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
-  });
 
   // Intraoperative Data state (Surgery module)
   const [intraOpData, setIntraOpData] = useState<{
@@ -921,17 +852,6 @@ export default function Op() {
     const postOpDataValue = (anesthesiaRecord as any).postOpData || (anesthesiaRecord as any).post_op_data;
     if (postOpDataValue) {
       setPostOpData(postOpDataValue);
-    }
-  }, [anesthesiaRecord]);
-
-  // Initialize Surgery Staff data from anesthesia record
-  useEffect(() => {
-    if (!anesthesiaRecord) return;
-    
-    // Handle both camelCase (from Drizzle) and snake_case (if transformed)
-    const surgeryStaffValue = (anesthesiaRecord as any).surgeryStaff || (anesthesiaRecord as any).surgery_staff;
-    if (surgeryStaffValue) {
-      setSurgeryStaff(surgeryStaffValue);
     }
   }, [anesthesiaRecord]);
 
@@ -1819,148 +1739,6 @@ export default function Op() {
             <>
               {/* Intraoperative Tab */}
               <TabsContent value="intraop" className="flex-1 overflow-y-auto px-6 pb-6 space-y-4 mt-0" data-testid="tab-content-intraop">
-                {/* Staff Card */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="h-5 w-5" />
-                      {t('surgery.intraop.staff')}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {[
-                        { key: 'instrumentNurse', label: t('surgery.intraop.staffRoles.instrumentNurse') },
-                        { key: 'circulatingNurse', label: t('surgery.intraop.staffRoles.circulatingNurse') },
-                        { key: 'surgeon', label: t('surgery.intraop.staffRoles.surgeon') },
-                        { key: 'surgicalAssistant', label: t('surgery.intraop.staffRoles.surgicalAssistant') },
-                        { key: 'anesthesiologist', label: t('surgery.intraop.staffRoles.anesthesiologist') },
-                        { key: 'anesthesiaNurse', label: t('surgery.intraop.staffRoles.anesthesiaNurse') },
-                      ].map((role) => {
-                        const currentValue = surgeryStaff[role.key as keyof typeof surgeryStaff] || "";
-                        // Get role-specific user list, fallback to empty array
-                        const roleOptions = staffOptionsByRole[role.key] || [];
-                        const showAddCustom = staffSearchInput.trim() && 
-                          !roleOptions.some((opt: { label: string }) => 
-                            opt.label.toLowerCase() === staffSearchInput.trim().toLowerCase()
-                          );
-                        
-                        const handleSelectStaff = (value: string) => {
-                          const updated = { ...surgeryStaff, [role.key]: value };
-                          setSurgeryStaff(updated);
-                          surgeryStaffAutoSave.mutate(updated);
-                          setOpenStaffPopover(null);
-                          setStaffSearchInput("");
-                        };
-                        
-                        return (
-                          <div key={role.key} className="space-y-2">
-                            <Label htmlFor={`staff-${role.key}`}>{role.label}</Label>
-                            <Popover 
-                              open={openStaffPopover === role.key} 
-                              onOpenChange={(open) => {
-                                setOpenStaffPopover(open ? role.key : null);
-                                if (!open) setStaffSearchInput("");
-                              }}
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  role="combobox"
-                                  aria-expanded={openStaffPopover === role.key}
-                                  className="w-full justify-between font-normal"
-                                  disabled={!anesthesiaRecord?.id}
-                                  data-testid={`combobox-staff-${role.key}`}
-                                >
-                                  {currentValue || t('surgery.intraop.selectStaff')}
-                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-[250px] p-0" align="start">
-                                <Command shouldFilter={true}>
-                                  <CommandInput 
-                                    placeholder={t('surgery.intraop.typeOrSelect')} 
-                                    value={staffSearchInput}
-                                    onValueChange={setStaffSearchInput}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter' && staffSearchInput.trim()) {
-                                        e.preventDefault();
-                                        handleSelectStaff(staffSearchInput.trim());
-                                      }
-                                    }}
-                                  />
-                                  <CommandList>
-                                    <CommandEmpty>
-                                      {staffSearchInput.trim() ? (
-                                        <button
-                                          className="w-full px-2 py-3 text-left text-sm hover:bg-accent rounded cursor-pointer flex items-center gap-2"
-                                          onClick={() => handleSelectStaff(staffSearchInput.trim())}
-                                          data-testid={`add-custom-staff-${role.key}`}
-                                        >
-                                          <Plus className="h-4 w-4" />
-                                          {t('surgery.intraop.useCustomName', { name: staffSearchInput.trim() })}
-                                        </button>
-                                      ) : (
-                                        <span className="text-sm text-muted-foreground">{t('surgery.intraop.noStaffFound')}</span>
-                                      )}
-                                    </CommandEmpty>
-                                    <CommandGroup>
-                                      {currentValue && !staffSearchInput.trim() && (
-                                        <CommandItem
-                                          value="__clear__"
-                                          onSelect={() => {
-                                            const updated = { ...surgeryStaff, [role.key]: "" };
-                                            setSurgeryStaff(updated);
-                                            surgeryStaffAutoSave.mutate(updated);
-                                            setOpenStaffPopover(null);
-                                            setStaffSearchInput("");
-                                          }}
-                                          className="text-destructive"
-                                          data-testid={`clear-staff-${role.key}`}
-                                        >
-                                          <X className="mr-2 h-4 w-4" />
-                                          {t('surgery.intraop.clearSelection')}
-                                        </CommandItem>
-                                      )}
-                                      {showAddCustom && staffSearchInput.trim() && (
-                                        <CommandItem
-                                          value={`__custom__${staffSearchInput.trim()}`}
-                                          onSelect={() => handleSelectStaff(staffSearchInput.trim())}
-                                          className="text-primary"
-                                          data-testid={`add-custom-staff-${role.key}`}
-                                        >
-                                          <Plus className="mr-2 h-4 w-4" />
-                                          {t('surgery.intraop.useCustomName', { name: staffSearchInput.trim() })}
-                                        </CommandItem>
-                                      )}
-                                      {roleOptions.map((opt: { id: string; label: string }) => (
-                                        <CommandItem
-                                          key={opt.id}
-                                          value={opt.label}
-                                          onSelect={() => handleSelectStaff(opt.label)}
-                                          data-testid={`staff-option-${role.key}-${opt.id}`}
-                                        >
-                                          <Check
-                                            className={cn(
-                                              "mr-2 h-4 w-4",
-                                              currentValue === opt.label ? "opacity-100" : "opacity-0"
-                                            )}
-                                          />
-                                          {opt.label}
-                                        </CommandItem>
-                                      ))}
-                                    </CommandGroup>
-                                  </CommandList>
-                                </Command>
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-
                 <Card>
                   <CardHeader>
                     <CardTitle>{t('surgery.intraop.positioning')}</CardTitle>
