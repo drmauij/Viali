@@ -331,4 +331,246 @@ router.get('/api/business/roles', isAuthenticated, async (req, res) => {
   res.json(roles);
 });
 
+// ============= ROLE MANAGEMENT ENDPOINTS =============
+
+// Get all roles for a specific user in a hospital
+router.get('/api/business/:hospitalId/staff/:userId/roles', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId, userId } = req.params;
+    
+    // Get all roles for this user in this hospital
+    const userRoles = await db
+      .select({
+        id: userHospitalRoles.id,
+        role: userHospitalRoles.role,
+        unitId: userHospitalRoles.unitId,
+        unit: units,
+      })
+      .from(userHospitalRoles)
+      .leftJoin(units, eq(userHospitalRoles.unitId, units.id))
+      .where(and(
+        eq(userHospitalRoles.userId, userId),
+        eq(userHospitalRoles.hospitalId, hospitalId),
+        ne(userHospitalRoles.role, 'admin') // Exclude admin roles
+      ));
+    
+    const rolesList = userRoles.map(r => ({
+      id: r.id,
+      role: r.role,
+      unitId: r.unitId,
+      unitName: r.unit?.name || null,
+      unitType: r.unit?.type || null,
+    }));
+    
+    res.json(rolesList);
+  } catch (error) {
+    console.error("Error fetching user roles:", error);
+    res.status(500).json({ message: "Failed to fetch user roles" });
+  }
+});
+
+// Add a new role for a user in a hospital
+router.post('/api/business/:hospitalId/staff/:userId/roles', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId, userId } = req.params;
+    const { role, unitId } = req.body;
+    
+    // Validate role
+    if (!role || role === 'admin') {
+      return res.status(400).json({ message: "Valid non-admin role is required" });
+    }
+    
+    if (!['doctor', 'nurse', 'manager'].includes(role)) {
+      return res.status(400).json({ message: "Invalid role. Must be 'doctor', 'nurse', or 'manager'" });
+    }
+    
+    if (!unitId) {
+      return res.status(400).json({ message: "Unit is required" });
+    }
+    
+    // Verify unit belongs to this hospital
+    const [unit] = await db
+      .select()
+      .from(units)
+      .where(and(eq(units.id, unitId), eq(units.hospitalId, hospitalId)));
+    
+    if (!unit) {
+      return res.status(400).json({ message: "Invalid unit for this hospital" });
+    }
+    
+    // Check if user already has this exact role+unit combination
+    const [existingRole] = await db
+      .select()
+      .from(userHospitalRoles)
+      .where(and(
+        eq(userHospitalRoles.userId, userId),
+        eq(userHospitalRoles.hospitalId, hospitalId),
+        eq(userHospitalRoles.unitId, unitId),
+        eq(userHospitalRoles.role, role)
+      ));
+    
+    if (existingRole) {
+      return res.status(400).json({ message: "User already has this role in this unit" });
+    }
+    
+    // Create new role assignment
+    const [newRole] = await db
+      .insert(userHospitalRoles)
+      .values({
+        userId,
+        hospitalId,
+        unitId,
+        role,
+      })
+      .returning();
+    
+    res.status(201).json({
+      id: newRole.id,
+      role: newRole.role,
+      unitId: newRole.unitId,
+      unitName: unit.name,
+      unitType: unit.type,
+    });
+  } catch (error) {
+    console.error("Error adding user role:", error);
+    res.status(500).json({ message: "Failed to add role" });
+  }
+});
+
+// Update an existing role assignment
+router.patch('/api/business/:hospitalId/staff/:userId/roles/:roleId', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId, userId, roleId } = req.params;
+    const { role, unitId } = req.body;
+    
+    // Get the existing role assignment
+    const [existingRole] = await db
+      .select()
+      .from(userHospitalRoles)
+      .where(and(
+        eq(userHospitalRoles.id, roleId),
+        eq(userHospitalRoles.userId, userId),
+        eq(userHospitalRoles.hospitalId, hospitalId)
+      ));
+    
+    if (!existingRole) {
+      return res.status(404).json({ message: "Role assignment not found" });
+    }
+    
+    // Cannot modify admin roles
+    if (existingRole.role === 'admin') {
+      return res.status(403).json({ message: "Cannot modify admin role from business dashboard" });
+    }
+    
+    // Cannot change to admin role
+    if (role === 'admin') {
+      return res.status(403).json({ message: "Cannot assign admin role from business dashboard" });
+    }
+    
+    // Validate new role if provided
+    if (role && !['doctor', 'nurse', 'manager'].includes(role)) {
+      return res.status(400).json({ message: "Invalid role. Must be 'doctor', 'nurse', or 'manager'" });
+    }
+    
+    // Verify unit belongs to hospital if provided
+    let unit = null;
+    if (unitId) {
+      const [foundUnit] = await db
+        .select()
+        .from(units)
+        .where(and(eq(units.id, unitId), eq(units.hospitalId, hospitalId)));
+      
+      if (!foundUnit) {
+        return res.status(400).json({ message: "Invalid unit for this hospital" });
+      }
+      unit = foundUnit;
+    }
+    
+    // Build update object
+    const updates: any = {};
+    if (role) updates.role = role;
+    if (unitId) updates.unitId = unitId;
+    
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "No updates provided" });
+    }
+    
+    // Update the role assignment
+    const [updatedRole] = await db
+      .update(userHospitalRoles)
+      .set(updates)
+      .where(eq(userHospitalRoles.id, roleId))
+      .returning();
+    
+    // Get unit info if not already fetched
+    if (!unit && updatedRole.unitId) {
+      const [unitInfo] = await db
+        .select()
+        .from(units)
+        .where(eq(units.id, updatedRole.unitId));
+      unit = unitInfo;
+    }
+    
+    res.json({
+      id: updatedRole.id,
+      role: updatedRole.role,
+      unitId: updatedRole.unitId,
+      unitName: unit?.name || null,
+      unitType: unit?.type || null,
+    });
+  } catch (error) {
+    console.error("Error updating user role:", error);
+    res.status(500).json({ message: "Failed to update role" });
+  }
+});
+
+// Delete a role assignment
+router.delete('/api/business/:hospitalId/staff/:userId/roles/:roleId', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId, userId, roleId } = req.params;
+    
+    // Get the existing role assignment
+    const [existingRole] = await db
+      .select()
+      .from(userHospitalRoles)
+      .where(and(
+        eq(userHospitalRoles.id, roleId),
+        eq(userHospitalRoles.userId, userId),
+        eq(userHospitalRoles.hospitalId, hospitalId)
+      ));
+    
+    if (!existingRole) {
+      return res.status(404).json({ message: "Role assignment not found" });
+    }
+    
+    // Cannot delete admin roles
+    if (existingRole.role === 'admin') {
+      return res.status(403).json({ message: "Cannot delete admin role from business dashboard" });
+    }
+    
+    // Check if this is the user's only role in this hospital
+    const userRolesCount = await db
+      .select({ count: userHospitalRoles.id })
+      .from(userHospitalRoles)
+      .where(and(
+        eq(userHospitalRoles.userId, userId),
+        eq(userHospitalRoles.hospitalId, hospitalId)
+      ));
+    
+    if (userRolesCount.length <= 1) {
+      return res.status(400).json({ message: "Cannot delete the user's only role. Remove the user instead." });
+    }
+    
+    // Delete the role assignment
+    await db
+      .delete(userHospitalRoles)
+      .where(eq(userHospitalRoles.id, roleId));
+    
+    res.json({ success: true, message: "Role deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting user role:", error);
+    res.status(500).json({ message: "Failed to delete role" });
+  }
+});
+
 export default router;
