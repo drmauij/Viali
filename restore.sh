@@ -17,6 +17,24 @@ echo -e "${RED}========================================${NC}"
 
 cd $APP_DIR
 
+# Load database credentials from ecosystem.config.cjs
+echo -e "${YELLOW}Loading database credentials from ecosystem.config.cjs...${NC}"
+eval $(node -e "
+const c = require('$APP_DIR/ecosystem.config.cjs');
+const env = c.apps[0].env;
+['PGHOST', 'PGUSER', 'PGPASSWORD', 'PGDATABASE', 'DATABASE_URL'].forEach(key => {
+  if (env[key]) console.log('export ' + key + '=\"' + env[key] + '\"');
+});
+")
+
+# Verify database credentials are loaded
+if [ -z "$PGHOST" ] || [ -z "$PGUSER" ] || [ -z "$PGDATABASE" ]; then
+    echo -e "${RED}Error: Database credentials not found in ecosystem.config.cjs${NC}"
+    echo "Make sure PGHOST, PGUSER, and PGDATABASE are defined in your PM2 config."
+    exit 1
+fi
+echo -e "${GREEN}Database credentials loaded successfully.${NC}"
+
 # Check if backup files exist
 if [ ! -f "$BACKUP_DIR/last_backup.txt" ] || [ ! -f "$BACKUP_DIR/last_commit.txt" ]; then
     echo -e "${RED}Error: No backup information found.${NC}"
