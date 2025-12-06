@@ -436,42 +436,39 @@ export function StaffTab({
       <Dialog open={!!createStaffChoice} onOpenChange={(open) => !open && setCreateStaffChoice(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('surgery.staff.createStaffChoice', { defaultValue: 'Add Staff Member' })}</DialogTitle>
+            <DialogTitle>{t('surgery.staff.createStaffChoice')}</DialogTitle>
             <DialogDescription>
-              {t('surgery.staff.createStaffChoiceDesc', { 
-                name: createStaffChoice?.name, 
-                defaultValue: `"${createStaffChoice?.name}" is not in the system. How would you like to add them?` 
-              })}
+              {t('surgery.staff.createStaffChoiceDesc', { name: createStaffChoice?.name })}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 py-4">
             <Button
               variant="outline"
-              className="h-auto py-4 justify-start"
+              className="h-auto py-4 px-4 justify-start w-full"
               onClick={handleCreateAsStaffUser}
               disabled={createQuickStaffUser.isPending}
               data-testid="button-create-as-staff-user"
             >
-              <UserPlus className="h-5 w-5 mr-3 text-primary" />
-              <div className="text-left">
-                <div className="font-medium">{t('surgery.staff.createAsStaffUser', { defaultValue: 'Create as Staff User' })}</div>
-                <div className="text-xs text-muted-foreground">
-                  {t('surgery.staff.createAsStaffUserDesc', { defaultValue: 'Create a user account (no login access). Available in all dropdowns.' })}
+              <UserPlus className="h-5 w-5 mr-3 flex-shrink-0 text-primary" />
+              <div className="text-left min-w-0 flex-1">
+                <div className="font-medium">{t('surgery.staff.createAsStaffUser')}</div>
+                <div className="text-xs text-muted-foreground whitespace-normal">
+                  {t('surgery.staff.createAsStaffUserDesc')}
                 </div>
               </div>
             </Button>
             <Button
               variant="outline"
-              className="h-auto py-4 justify-start"
+              className="h-auto py-4 px-4 justify-start w-full"
               onClick={handleCreateAsText}
               disabled={createQuickStaffUser.isPending}
               data-testid="button-create-as-text"
             >
-              <FileText className="h-5 w-5 mr-3 text-muted-foreground" />
-              <div className="text-left">
-                <div className="font-medium">{t('surgery.staff.createAsText', { defaultValue: 'Add as Text Only' })}</div>
-                <div className="text-xs text-muted-foreground">
-                  {t('surgery.staff.createAsTextDesc', { defaultValue: 'Just add the name as text (not linked to a user account).' })}
+              <FileText className="h-5 w-5 mr-3 flex-shrink-0 text-muted-foreground" />
+              <div className="text-left min-w-0 flex-1">
+                <div className="font-medium">{t('surgery.staff.createAsText')}</div>
+                <div className="text-xs text-muted-foreground whitespace-normal">
+                  {t('surgery.staff.createAsTextDesc')}
                 </div>
               </div>
             </Button>
