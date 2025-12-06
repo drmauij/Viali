@@ -2146,6 +2146,7 @@
       "deleteConfirmTitle": "Remove Staff Entry?",
       "deleteConfirmDescription": "Are you sure you want to remove {{name}} from this role?",
       "added": "Staff member added successfully",
+      "createdAsUser": "Staff member created and added to system",
       "addError": "Failed to add staff member",
       "updated": "Staff member updated successfully",
       "updateError": "Failed to update staff member",
