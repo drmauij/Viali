@@ -11,7 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
-import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink } from "lucide-react";
+import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail } from "lucide-react";
 import type { Unit, UserHospitalRole, User } from "@shared/schema";
 
 // Generate a secure random password
@@ -303,6 +303,32 @@ export default function Users() {
     },
   });
 
+  // Update user email mutation
+  const updateUserEmailMutation = useMutation({
+    mutationFn: async ({ userId, email }: { userId: string; email: string }) => {
+      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/email`, {
+        email,
+        hospitalId: activeHospital?.id,
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw { ...result, status: response.status };
+      }
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+      toast({ title: t("common.success"), description: t("admin.emailUpdatedSuccess") });
+    },
+    onError: (error: any) => {
+      if (error.code === "EMAIL_EXISTS") {
+        toast({ title: t("common.error"), description: t("admin.emailAlreadyExists"), variant: "destructive" });
+      } else {
+        toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateEmail"), variant: "destructive" });
+      }
+    },
+  });
+
   const resetUserForm = () => {
     setUserForm({ email: "", password: "", firstName: "", lastName: "", unitId: "", role: "" });
   };
@@ -312,6 +338,8 @@ export default function Users() {
     setUserDialogOpen(true);
   };
 
+  const [editEmail, setEditEmail] = useState("");
+
   const handleEditUser = (user: GroupedHospitalUser) => {
     const userPairs = user.roles?.map((r: any) => ({ 
       id: r.roleId, 
@@ -320,6 +348,7 @@ export default function Users() {
     })) || [];
     
     setEditingUserDetails(user.user);
+    setEditEmail(user.user.email || "");
     setUserForm({
       ...userForm,
       firstName: user.user.firstName || "",
@@ -402,16 +431,44 @@ export default function Users() {
       return;
     }
 
-    await updateUserDetailsMutation.mutateAsync({
-      userId: editingUserDetails.id,
-      data: {
-        firstName: userForm.firstName,
-        lastName: userForm.lastName,
+    if (!editEmail.trim()) {
+      toast({ title: t("common.error"), description: t("admin.emailRequired"), variant: "destructive" });
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editEmail.trim())) {
+      toast({ title: t("common.error"), description: t("admin.invalidEmailFormat"), variant: "destructive" });
+      return;
+    }
+
+    try {
+      await updateUserDetailsMutation.mutateAsync({
+        userId: editingUserDetails.id,
+        data: {
+          firstName: userForm.firstName,
+          lastName: userForm.lastName,
+        }
+      });
+    } catch (error) {
+      return;
+    }
+
+    const emailChanged = editEmail.trim().toLowerCase() !== (editingUserDetails.email || "").toLowerCase();
+    if (emailChanged) {
+      try {
+        await updateUserEmailMutation.mutateAsync({
+          userId: editingUserDetails.id,
+          email: editEmail.trim(),
+        });
+      } catch (error) {
+        return;
       }
-    });
+    }
 
     setEditUserDialogOpen(false);
     setEditingUserDetails(null);
+    setEditEmail("");
     setRoleLocationPairs([]);
   };
 
@@ -741,11 +798,27 @@ export default function Users() {
           <DialogHeader className="shrink-0 px-6 pt-6 pb-2">
             <DialogTitle>{t("admin.editUser")}</DialogTitle>
             <DialogDescription>
-              {editingUserDetails?.email}
+              {t("admin.editUserDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto px-6 pb-2" style={{ maxHeight: 'calc(85vh - 160px)' }}>
             <div className="space-y-4 py-1">
+              {/* Email field */}
+              <div>
+                <Label htmlFor="edit-email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  {t("admin.email")} *
+                </Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  placeholder={t("admin.emailPlaceholder")}
+                  data-testid="input-edit-email"
+                />
+                <p className="text-xs text-muted-foreground mt-1">{t("admin.emailChangeHint")}</p>
+              </div>
               {/* Name fields */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -933,7 +1006,7 @@ export default function Users() {
             </Button>
             <Button
               onClick={handleSaveUserDetails}
-              disabled={updateUserDetailsMutation.isPending}
+              disabled={updateUserDetailsMutation.isPending || updateUserEmailMutation.isPending}
               data-testid="button-save-user-details"
             >
               {t("common.save")}

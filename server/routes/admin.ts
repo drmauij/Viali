@@ -571,6 +571,10 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
       return res.status(400).json({ message: "First name and last name are required" });
     }
 
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID is required" });
+    }
+
     const currentUserId = req.user.id;
     const hospitals = await storage.getUserHospitals(currentUserId);
     const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
@@ -578,11 +582,79 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
       return res.status(403).json({ message: "Admin access required" });
     }
 
+    const targetUser = await storage.getUser(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const targetUserHospitals = await storage.getUserHospitals(userId);
+    const userBelongsToHospital = targetUserHospitals.some(h => h.id === hospitalId);
+    if (!userBelongsToHospital) {
+      return res.status(403).json({ message: "User does not belong to this hospital" });
+    }
+
     await storage.updateUser(userId, { firstName, lastName });
     res.json({ success: true });
   } catch (error) {
     console.error("Error updating user details:", error);
     res.status(500).json({ message: "Failed to update user details" });
+  }
+});
+
+router.patch('/api/admin/users/:userId/email', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const { email, hospitalId } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID is required" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    const currentUserId = req.user.id;
+    const hospitals = await storage.getUserHospitals(currentUserId);
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const targetUser = await storage.getUser(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const targetUserHospitals = await storage.getUserHospitals(userId);
+    const userBelongsToHospital = targetUserHospitals.some(h => h.id === hospitalId);
+    if (!userBelongsToHospital) {
+      return res.status(403).json({ message: "User does not belong to this hospital" });
+    }
+
+    if (targetUser.email === email) {
+      return res.json({ success: true, email });
+    }
+
+    const existingUser = await storage.searchUserByEmail(email);
+    if (existingUser && existingUser.id !== userId) {
+      return res.status(409).json({ 
+        message: "A user with this email already exists",
+        code: "EMAIL_EXISTS"
+      });
+    }
+
+    await db.update(users).set({ email }).where(eq(users.id, userId));
+
+    res.json({ success: true, email });
+  } catch (error) {
+    console.error("Error updating user email:", error);
+    res.status(500).json({ message: "Failed to update user email" });
   }
 });
 
