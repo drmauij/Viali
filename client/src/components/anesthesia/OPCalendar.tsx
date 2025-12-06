@@ -5,7 +5,8 @@ import moment from "moment";
 import "moment/locale/en-gb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, FileSpreadsheet, Users, PanelLeftClose, PanelLeft } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, FileSpreadsheet, Users, PanelLeftClose, PanelLeft, X } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
@@ -137,6 +138,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     const saved = sessionStorage.getItem('oplist_staff_panel_open');
     return saved ? saved === 'true' : true;
   });
+  const [mobileStaffSheetOpen, setMobileStaffSheetOpen] = useState(false);
   const [activeDragStaff, setActiveDragStaff] = useState<any>(null);
   
   // Save staff panel state
@@ -646,16 +648,57 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
             <span className="hidden sm:inline">Excel</span>
           </Button>
+          {/* Desktop: Toggle button for sidebar */}
           <Button
             variant={staffPanelOpen ? "default" : "outline"}
             size="sm"
             onClick={() => setStaffPanelOpen(!staffPanelOpen)}
             data-testid="button-toggle-staff-panel"
-            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
+            className="hidden md:flex h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
           >
             {staffPanelOpen ? <PanelLeftClose className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" /> : <PanelLeft className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />}
             <span className="hidden sm:inline">Staff</span>
           </Button>
+          {/* Mobile: Sheet trigger button */}
+          {activeHospital && (
+            <Sheet open={mobileStaffSheetOpen} onOpenChange={setMobileStaffSheetOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-staff-panel-mobile"
+                  className="md:hidden h-8 px-2 text-xs"
+                >
+                  <Users className="h-3 w-3" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="h-[70vh] rounded-t-xl">
+                <SheetHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <SheetTitle className="flex items-center gap-2">
+                      <Users className="h-5 w-5" />
+                      Staff Pool
+                    </SheetTitle>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setMobileStaffSheetOpen(false)}
+                      data-testid="button-close-staff-sheet"
+                      className="h-8 w-8 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </SheetHeader>
+                <div className="overflow-y-auto h-[calc(100%-3rem)]">
+                  <StaffPoolPanel 
+                    selectedDate={selectedDate} 
+                    hospitalId={activeHospital.id} 
+                  />
+                </div>
+              </SheetContent>
+            </Sheet>
+          )}
         </div>
       </div>
 
