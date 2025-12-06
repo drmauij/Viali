@@ -1,10 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { 
   ChevronDown, 
   ChevronUp, 
@@ -16,7 +18,8 @@ import {
   HeartPulse, 
   Users, 
   BedDouble,
-  GripVertical
+  GripVertical,
+  Filter
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
@@ -43,6 +46,7 @@ export interface StaffPoolEntry {
   role: StaffRole;
   userId?: string | null;
   assignedSurgeryIds: string[];
+  assignedRooms: Array<{ roomId: string; roomName: string }>;
   isBooked: boolean;
 }
 
@@ -59,6 +63,7 @@ export const ROLE_CONFIG: Record<StaffRole, { icon: typeof User; labelKey: strin
 function DraggableStaffChip({ staff, onRemove }: { staff: StaffPoolEntry; onRemove: (id: string) => void }) {
   const config = ROLE_CONFIG[staff.role as StaffRole];
   const Icon = config?.icon || User;
+  const hasRoomAssignments = staff.assignedRooms && staff.assignedRooms.length > 0;
   
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `staff-${staff.id}`,
@@ -94,7 +99,21 @@ function DraggableStaffChip({ staff, onRemove }: { staff: StaffPoolEntry; onRemo
       <span className={staff.isBooked ? 'line-through' : 'font-medium'}>
         {staff.name}
       </span>
-      {staff.isBooked && (
+      {hasRoomAssignments && (
+        <div className="flex gap-0.5">
+          {staff.assignedRooms.map((room) => (
+            <span 
+              key={room.roomId}
+              className="text-[9px] px-1 py-0.5 rounded bg-primary/20 text-primary font-semibold"
+              title={room.roomName}
+              data-testid={`room-badge-${staff.id}-${room.roomId}`}
+            >
+              {room.roomName}
+            </span>
+          ))}
+        </div>
+      )}
+      {staff.isBooked && !hasRoomAssignments && (
         <span className="text-[10px]">({staff.assignedSurgeryIds.length})</span>
       )}
       {!staff.isBooked && (
@@ -113,10 +132,21 @@ function DraggableStaffChip({ staff, onRemove }: { staff: StaffPoolEntry; onRemo
   );
 }
 
+const STAFF_FILTER_KEY = 'oplist_staff_filter_unassigned';
+
 export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onToggle }: PlannedStaffBoxProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  const [showUnassignedOnly, setShowUnassignedOnly] = useState(() => {
+    const saved = sessionStorage.getItem(STAFF_FILTER_KEY);
+    return saved === 'true';
+  });
+  
+  useEffect(() => {
+    sessionStorage.setItem(STAFF_FILTER_KEY, String(showUnassignedOnly));
+  }, [showUnassignedOnly]);
   
   const dateString = useMemo(() => {
     const d = new Date(selectedDate);
@@ -167,6 +197,10 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
   const availableCount = staffPool.filter(s => !s.isBooked).length;
   const bookedCount = staffPool.filter(s => s.isBooked).length;
   
+  const filteredStaffPool = showUnassignedOnly 
+    ? staffPool.filter(s => !s.isBooked) 
+    : staffPool;
+  
   return (
     <Collapsible open={isOpen} onOpenChange={onToggle} className="mx-4 mt-2">
       <CollapsibleTrigger asChild>
@@ -203,13 +237,37 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
       
       <CollapsibleContent>
         <div className="p-3 border border-t-0 rounded-b-lg bg-background">
+          {bookedCount > 0 && (
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b">
+              <Filter className="h-3 w-3 text-muted-foreground" />
+              <Label 
+                htmlFor="unassigned-filter" 
+                className="text-xs text-muted-foreground cursor-pointer"
+              >
+                {t('staffPool.showUnassignedOnly', 'Show unassigned only')}
+              </Label>
+              <Switch
+                id="unassigned-filter"
+                checked={showUnassignedOnly}
+                onCheckedChange={setShowUnassignedOnly}
+                className="scale-75"
+                data-testid="switch-unassigned-filter"
+              />
+            </div>
+          )}
           {isLoading ? (
             <div className="flex items-center justify-center py-4">
               <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div>
             </div>
+          ) : filteredStaffPool.length === 0 ? (
+            <p className="text-xs text-muted-foreground py-2 text-center">
+              {showUnassignedOnly 
+                ? t('staffPool.noUnassignedStaff', 'All staff are assigned to rooms')
+                : t('staffPool.noStaff', 'No staff in pool')}
+            </p>
           ) : (
             <div className="flex flex-wrap gap-2">
-              {staffPool.map((staff) => (
+              {filteredStaffPool.map((staff) => (
                 <DraggableStaffChip 
                   key={staff.id} 
                   staff={staff} 
@@ -218,9 +276,9 @@ export default function PlannedStaffBox({ selectedDate, hospitalId, isOpen, onTo
               ))}
             </div>
           )}
-          {!isLoading && availableCount > 0 && (
+          {!isLoading && availableCount > 0 && !showUnassignedOnly && (
             <p className="text-xs text-muted-foreground mt-2">
-              {t('staffPool.dragHint', 'Drag staff onto surgeries to assign')}
+              {t('staffPool.dragHint', 'Drag staff onto room headers to assign')}
             </p>
           )}
         </div>

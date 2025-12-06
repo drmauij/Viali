@@ -118,6 +118,32 @@ export default function SurgerySummaryDialog({
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   })() : null;
 
+  // Fetch room staff assignments for this surgery's room
+  interface RoomStaffAssignment {
+    id: string;
+    surgeryRoomId: string;
+    dailyStaffPoolId: string;
+    date: string;
+    staffName: string;
+    staffRole: string;
+  }
+  
+  const { data: roomStaff = [] } = useQuery<RoomStaffAssignment[]>({
+    queryKey: ['/api/room-staff', surgery?.surgeryRoomId, surgeryDateString],
+    queryFn: async () => {
+      if (!surgery?.surgeryRoomId || !surgeryDateString) return [];
+      const res = await fetch(`/api/room-staff/${surgery.surgeryRoomId}/${surgeryDateString}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        if (res.status === 404) return [];
+        throw new Error('Failed to fetch room staff');
+      }
+      return res.json();
+    },
+    enabled: !!surgery?.surgeryRoomId && !!surgeryDateString && open,
+  });
+
   // Unassign staff mutation
   const unassignStaffMutation = useMutation({
     mutationFn: async (plannedStaffId: string) => {
@@ -289,7 +315,7 @@ export default function SurgerySummaryDialog({
           </div>
 
           {/* Assigned Staff */}
-          {assignedStaff.length > 0 && (
+          {(assignedStaff.length > 0 || roomStaff.length > 0) && (
             <div className="bg-muted/30 p-4 rounded-lg">
               <div className="flex items-center gap-2 mb-2">
                 <Users className="h-4 w-4 text-muted-foreground" />
@@ -318,6 +344,25 @@ export default function SurgerySummaryDialog({
                       >
                         <X className="h-3 w-3" />
                       </button>
+                    </div>
+                  );
+                })}
+                {roomStaff.map((staff) => {
+                  const config = ROLE_CONFIG[staff.staffRole as keyof typeof ROLE_CONFIG];
+                  const Icon = config?.icon || User;
+                  return (
+                    <div
+                      key={`room-${staff.id}`}
+                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${config?.bgClass || 'bg-gray-100 dark:bg-gray-800'} border`}
+                      data-testid={`room-staff-chip-${staff.id}`}
+                    >
+                      <Icon className={`h-3 w-3 ${config?.colorClass}`} />
+                      <span className="font-medium">{staff.staffName}</span>
+                      {room?.name && (
+                        <span className="text-[10px] px-1 py-0.5 bg-primary/10 text-primary rounded">
+                          {room.name}
+                        </span>
+                      )}
                     </div>
                   );
                 })}

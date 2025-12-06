@@ -7,7 +7,7 @@ import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSe
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, FileSpreadsheet, Users, User } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, FileSpreadsheet, Users, User, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
@@ -81,21 +81,83 @@ interface OPCalendarProps {
   onEventClick?: (surgeryId: string, patientId: string) => void;
 }
 
-function DroppableEventContent({ surgeryId, children }: { surgeryId: string; children: React.ReactNode }) {
+interface RoomStaffAssignment {
+  id: string;
+  surgeryRoomId: string;
+  dailyStaffPoolId: string;
+  date: string;
+  staffName: string;
+  staffRole: string;
+}
+
+function DroppableRoomHeader({ 
+  resource, 
+  label, 
+  roomStaff,
+  onRemoveStaff
+}: { 
+  resource: CalendarResource; 
+  label: string;
+  roomStaff: RoomStaffAssignment[];
+  onRemoveStaff: (assignmentId: string) => void;
+}) {
   const { isOver, setNodeRef } = useDroppable({
-    id: `surgery-${surgeryId}`,
+    id: `room-${resource.id}`,
     data: {
-      type: 'surgery',
-      surgeryId,
+      type: 'room',
+      roomId: resource.id,
+      roomName: resource.title,
     },
   });
+  
+  const assignedStaff = roomStaff.filter(s => s.surgeryRoomId === resource.id);
   
   return (
     <div 
       ref={setNodeRef} 
-      className={`h-full w-full ${isOver ? 'ring-2 ring-primary ring-inset bg-primary/10 rounded' : ''}`}
+      className={`h-full w-full transition-colors ${
+        isOver 
+          ? 'bg-primary/20 ring-2 ring-primary ring-inset rounded' 
+          : 'hover:bg-muted/30'
+      }`}
+      data-testid={`room-header-${resource.id}`}
     >
-      {children}
+      <div className="font-semibold text-sm p-2 pb-1">{label}</div>
+      <div className={`min-h-[28px] px-2 pb-1 border-t border-border/30 ${assignedStaff.length > 0 ? 'bg-muted/20' : ''}`}>
+        {assignedStaff.length > 0 ? (
+          <div className="flex flex-wrap gap-1 pt-1">
+            {assignedStaff.map((staff) => {
+              const config = ROLE_CONFIG[staff.staffRole as keyof typeof ROLE_CONFIG];
+              const Icon = config?.icon || User;
+              return (
+                <span 
+                  key={staff.id}
+                  className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full ${config?.bgClass || 'bg-gray-100'} ${config?.colorClass || ''} group`}
+                  title={`${staff.staffName} - Click to remove`}
+                  data-testid={`room-staff-chip-${staff.id}`}
+                >
+                  <Icon className="h-2.5 w-2.5" />
+                  <span className="max-w-[60px] truncate">{staff.staffName.split(' ')[0]}</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveStaff(staff.id);
+                    }}
+                    className="ml-0.5 p-0.5 rounded-full hover:bg-destructive/20 text-current hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                    data-testid={`button-remove-room-staff-${staff.id}`}
+                  >
+                    <X className="h-2.5 w-2.5" />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-[10px] text-muted-foreground pt-1 italic">
+            Drop staff here
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -226,6 +288,19 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     enabled: !!activeHospital?.id && patientIds.length > 0,
   });
 
+  // Fetch room staff assignments for the selected date
+  const { data: roomStaff = [] } = useQuery<RoomStaffAssignment[]>({
+    queryKey: ['/api/room-staff/all', activeHospital?.id, dateString],
+    queryFn: async () => {
+      const res = await fetch(`/api/room-staff/all/${activeHospital?.id}/${dateString}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch room staff');
+      return res.json();
+    },
+    enabled: !!activeHospital?.id,
+  });
+
   // Transform surgeries into calendar events
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     return surgeries.map((surgery: any) => {
@@ -268,32 +343,65 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     }));
   }, [surgeryRooms]);
 
-  // Assign staff to surgery mutation
-  const assignStaffMutation = useMutation({
-    mutationFn: async ({ surgeryId, dailyStaffPoolId }: { surgeryId: string; dailyStaffPoolId: string }) => {
-      const res = await apiRequest('POST', '/api/planned-staff', {
-        surgeryId,
+  // Helper to invalidate all room staff related queries
+  const invalidateRoomStaffQueries = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['/api/room-staff/all', activeHospital?.id, dateString] });
+    queryClient.invalidateQueries({ queryKey: ['/api/room-staff'] });
+    queryClient.invalidateQueries({ queryKey: ['/api/staff-pool', activeHospital?.id, dateString] });
+  }, [activeHospital?.id, dateString]);
+
+  // Assign staff to room mutation
+  const assignRoomStaffMutation = useMutation({
+    mutationFn: async ({ surgeryRoomId, dailyStaffPoolId, date }: { surgeryRoomId: string; dailyStaffPoolId: string; date: string }) => {
+      const res = await apiRequest('POST', '/api/room-staff', {
+        surgeryRoomId,
         dailyStaffPoolId,
+        date,
       });
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/staff-pool', activeHospital?.id, dateString] });
-      queryClient.invalidateQueries({ queryKey: ['/api/planned-staff'] });
+      invalidateRoomStaffQueries();
       toast({
-        title: "Staff Assigned",
-        description: "Staff member has been assigned to the surgery.",
+        title: "Staff Assigned to Room",
+        description: "Staff member has been assigned to the operating room.",
       });
     },
     onError: (error: any) => {
-      const message = error?.message || 'Failed to assign staff';
+      const message = error?.message || 'Failed to assign staff to room';
       toast({
         title: "Assignment Failed",
-        description: message.includes('already assigned') ? 'This staff is already assigned to this surgery.' : message,
+        description: message.includes('already assigned') ? 'This staff is already assigned to this room.' : message,
         variant: "destructive",
       });
     },
   });
+
+  // Remove staff from room mutation
+  const removeRoomStaffMutation = useMutation({
+    mutationFn: async (assignmentId: string) => {
+      await apiRequest('DELETE', `/api/room-staff/${assignmentId}`);
+    },
+    onSuccess: () => {
+      invalidateRoomStaffQueries();
+      toast({
+        title: "Staff Removed",
+        description: "Staff member has been removed from the room.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Removal Failed",
+        description: "Failed to remove staff from room.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle removing staff from a room
+  const handleRemoveRoomStaff = useCallback((assignmentId: string) => {
+    removeRoomStaffMutation.mutate(assignmentId);
+  }, [removeRoomStaffMutation]);
 
   // Handle staff drag start
   const handleDragStart = (event: any) => {
@@ -303,7 +411,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     }
   };
 
-  // Handle staff drag end - drop on surgery to assign
+  // Handle staff drag end - drop on room to assign
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveDragStaff(null);
     
@@ -314,14 +422,15 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     const activeData = active.data.current;
     const overData = over.data.current;
     
-    // Check if we're dropping staff onto a surgery
-    if (activeData?.type === 'staff' && overData?.type === 'surgery') {
+    // Check if we're dropping staff onto a room
+    if (activeData?.type === 'staff' && overData?.type === 'room') {
       const staffPoolId = activeData.staff.id;
-      const surgeryId = overData.surgeryId;
+      const roomId = overData.roomId;
       
-      assignStaffMutation.mutate({
-        surgeryId,
+      assignRoomStaffMutation.mutate({
+        surgeryRoomId: roomId,
         dailyStaffPoolId: staffPoolId,
+        date: dateString,
       });
     }
   };
@@ -447,23 +556,21 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     return { style };
   }, []);
 
-  // Simplified event component with droppable wrapper for staff assignment
+  // Simplified event component for calendar display
   const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {
     return (
-      <DroppableEventContent surgeryId={event.surgeryId}>
-        <div className="flex flex-col h-full p-1" data-testid={`event-${event.surgeryId}`}>
-          <div className={`font-bold text-xs ${event.isCancelled ? 'line-through' : ''}`}>
-            {event.plannedSurgery}
-          </div>
-          <div className={`text-xs ${event.isCancelled ? 'line-through' : ''}`}>
-            {event.patientName}
-            {event.patientBirthday && ` ${event.patientBirthday}`}
-          </div>
-          {event.isCancelled && (
-            <div className="text-xs font-semibold mt-0.5">CANCELLED</div>
-          )}
+      <div className="flex flex-col h-full p-1" data-testid={`event-${event.surgeryId}`}>
+        <div className={`font-bold text-xs ${event.isCancelled ? 'line-through' : ''}`}>
+          {event.plannedSurgery}
         </div>
-      </DroppableEventContent>
+        <div className={`text-xs ${event.isCancelled ? 'line-through' : ''}`}>
+          {event.patientName}
+          {event.patientBirthday && ` ${event.patientBirthday}`}
+        </div>
+        {event.isCancelled && (
+          <div className="text-xs font-semibold mt-0.5">CANCELLED</div>
+        )}
+      </div>
     );
   }, []);
 
@@ -791,6 +898,14 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
                   dateHeader: MonthDateHeader,
                 },
                 dateCellWrapper: DateCellWrapper,
+                resourceHeader: ({ resource, label }: { resource: CalendarResource; label: React.ReactNode }) => (
+                  <DroppableRoomHeader 
+                    resource={resource} 
+                    label={String(label)} 
+                    roomStaff={roomStaff}
+                    onRemoveStaff={handleRemoveRoomStaff}
+                  />
+                ),
               }}
               selectable
               resizable
