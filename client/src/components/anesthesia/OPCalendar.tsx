@@ -786,7 +786,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
               formats={formats}
               components={{
                 event: EventComponent,
-                eventWrapper: DroppableEventWrapper,
                 toolbar: () => null,
                 month: {
                   dateHeader: MonthDateHeader,
