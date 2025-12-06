@@ -58,7 +58,9 @@ import {
   anesthesiaEvents,
   anesthesiaPositions,
   preOpAssessments,
-  anesthesiaAirwayManagement
+  anesthesiaAirwayManagement,
+  dailyStaffPool,
+  plannedSurgeryStaff,
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
@@ -4804,6 +4806,313 @@ router.get('/api/anesthesia/billing/:recordId', isAuthenticated, async (req: any
   } catch (error) {
     console.error("Error generating billing report:", error);
     res.status(500).json({ message: "Failed to generate billing report" });
+  }
+});
+
+// =====================================
+// Daily Staff Pool Endpoints
+// =====================================
+
+// Get staff pool for a specific date
+router.get('/api/staff-pool/:hospitalId/:date', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId, date } = req.params;
+    const userId = req.user.id;
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const staffPool = await db
+      .select({
+        id: dailyStaffPool.id,
+        hospitalId: dailyStaffPool.hospitalId,
+        date: dailyStaffPool.date,
+        userId: dailyStaffPool.userId,
+        name: dailyStaffPool.name,
+        role: dailyStaffPool.role,
+        createdBy: dailyStaffPool.createdBy,
+        createdAt: dailyStaffPool.createdAt,
+      })
+      .from(dailyStaffPool)
+      .where(
+        and(
+          eq(dailyStaffPool.hospitalId, hospitalId),
+          eq(dailyStaffPool.date, date)
+        )
+      );
+
+    // Get planned assignments for each staff pool member
+    const poolWithAssignments = await Promise.all(
+      staffPool.map(async (staff) => {
+        const assignments = await db
+          .select({
+            surgeryId: plannedSurgeryStaff.surgeryId,
+          })
+          .from(plannedSurgeryStaff)
+          .where(eq(plannedSurgeryStaff.dailyStaffPoolId, staff.id));
+        
+        return {
+          ...staff,
+          assignedSurgeryIds: assignments.map(a => a.surgeryId),
+          isBooked: assignments.length > 0,
+        };
+      })
+    );
+
+    res.json(poolWithAssignments);
+  } catch (error) {
+    console.error("Error fetching staff pool:", error);
+    res.status(500).json({ message: "Failed to fetch staff pool" });
+  }
+});
+
+// Add staff to daily pool
+router.post('/api/staff-pool', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, date, userId: staffUserId, name, role } = req.body;
+    const userId = req.user.id;
+
+    if (!hospitalId || !date || !name || !role) {
+      return res.status(400).json({ message: "hospitalId, date, name, and role are required" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const [newEntry] = await db
+      .insert(dailyStaffPool)
+      .values({
+        hospitalId,
+        date,
+        userId: staffUserId || null,
+        name,
+        role,
+        createdBy: userId,
+      })
+      .returning();
+
+    res.status(201).json({ ...newEntry, assignedSurgeryIds: [], isBooked: false });
+  } catch (error) {
+    console.error("Error adding staff to pool:", error);
+    res.status(500).json({ message: "Failed to add staff to pool" });
+  }
+});
+
+// Remove staff from daily pool
+router.delete('/api/staff-pool/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const [entry] = await db
+      .select()
+      .from(dailyStaffPool)
+      .where(eq(dailyStaffPool.id, id));
+
+    if (!entry) {
+      return res.status(404).json({ message: "Staff pool entry not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === entry.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Delete cascade will handle planned_surgery_staff entries
+    await db.delete(dailyStaffPool).where(eq(dailyStaffPool.id, id));
+
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error removing staff from pool:", error);
+    res.status(500).json({ message: "Failed to remove staff from pool" });
+  }
+});
+
+// =====================================
+// Planned Surgery Staff Endpoints
+// =====================================
+
+// Get planned staff for a specific surgery
+router.get('/api/planned-staff/:surgeryId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { surgeryId } = req.params;
+    const userId = req.user.id;
+
+    const surgery = await storage.getSurgery(surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const planned = await db
+      .select({
+        id: plannedSurgeryStaff.id,
+        surgeryId: plannedSurgeryStaff.surgeryId,
+        dailyStaffPoolId: plannedSurgeryStaff.dailyStaffPoolId,
+        role: plannedSurgeryStaff.role,
+        name: plannedSurgeryStaff.name,
+        userId: plannedSurgeryStaff.userId,
+        createdAt: plannedSurgeryStaff.createdAt,
+      })
+      .from(plannedSurgeryStaff)
+      .where(eq(plannedSurgeryStaff.surgeryId, surgeryId));
+
+    res.json(planned);
+  } catch (error) {
+    console.error("Error fetching planned staff:", error);
+    res.status(500).json({ message: "Failed to fetch planned staff" });
+  }
+});
+
+// Assign staff from pool to a surgery
+router.post('/api/planned-staff', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { surgeryId, dailyStaffPoolId } = req.body;
+    const userId = req.user.id;
+
+    if (!surgeryId || !dailyStaffPoolId) {
+      return res.status(400).json({ message: "surgeryId and dailyStaffPoolId are required" });
+    }
+
+    const surgery = await storage.getSurgery(surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Get the staff pool entry
+    const [staffPoolEntry] = await db
+      .select()
+      .from(dailyStaffPool)
+      .where(eq(dailyStaffPool.id, dailyStaffPoolId));
+
+    if (!staffPoolEntry) {
+      return res.status(404).json({ message: "Staff pool entry not found" });
+    }
+
+    // Check if already assigned
+    const [existing] = await db
+      .select()
+      .from(plannedSurgeryStaff)
+      .where(
+        and(
+          eq(plannedSurgeryStaff.surgeryId, surgeryId),
+          eq(plannedSurgeryStaff.dailyStaffPoolId, dailyStaffPoolId)
+        )
+      );
+
+    if (existing) {
+      return res.status(409).json({ message: "Staff already assigned to this surgery" });
+    }
+
+    const [newAssignment] = await db
+      .insert(plannedSurgeryStaff)
+      .values({
+        surgeryId,
+        dailyStaffPoolId,
+        role: staffPoolEntry.role,
+        name: staffPoolEntry.name,
+        userId: staffPoolEntry.userId,
+        createdBy: userId,
+      })
+      .returning();
+
+    res.status(201).json(newAssignment);
+  } catch (error) {
+    console.error("Error assigning staff to surgery:", error);
+    res.status(500).json({ message: "Failed to assign staff to surgery" });
+  }
+});
+
+// Unassign staff from a surgery
+router.delete('/api/planned-staff/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const [assignment] = await db
+      .select()
+      .from(plannedSurgeryStaff)
+      .where(eq(plannedSurgeryStaff.id, id));
+
+    if (!assignment) {
+      return res.status(404).json({ message: "Assignment not found" });
+    }
+
+    const surgery = await storage.getSurgery(assignment.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    await db.delete(plannedSurgeryStaff).where(eq(plannedSurgeryStaff.id, id));
+
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error removing staff assignment:", error);
+    res.status(500).json({ message: "Failed to remove staff assignment" });
+  }
+});
+
+// Unassign staff by surgery ID and pool ID (for drag-back)
+router.delete('/api/planned-staff/by-pool/:surgeryId/:dailyStaffPoolId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { surgeryId, dailyStaffPoolId } = req.params;
+    const userId = req.user.id;
+
+    const surgery = await storage.getSurgery(surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    await db
+      .delete(plannedSurgeryStaff)
+      .where(
+        and(
+          eq(plannedSurgeryStaff.surgeryId, surgeryId),
+          eq(plannedSurgeryStaff.dailyStaffPoolId, dailyStaffPoolId)
+        )
+      );
+
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error removing staff assignment:", error);
+    res.status(500).json({ message: "Failed to remove staff assignment" });
   }
 });
 

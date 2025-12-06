@@ -11,6 +11,7 @@ import {
   boolean,
   primaryKey,
   unique,
+  date,
 } from "drizzle-orm/pg-core";
 import { relations } from 'drizzle-orm';
 import { createInsertSchema } from "drizzle-zod";
@@ -1394,6 +1395,59 @@ export const surgeryStaffEntries = pgTable("surgery_staff_entries", {
   index("idx_surgery_staff_entries_user").on(table.userId),
 ]);
 
+// Daily Staff Pool (Staff available for scheduling on a specific day)
+export const dailyStaffPool = pgTable("daily_staff_pool", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  date: date("date").notNull(), // The day this staff member is available
+  
+  userId: varchar("user_id").references(() => users.id), // Nullable - for system users
+  name: varchar("name").notNull(), // Display name (or custom entry for non-system staff)
+  role: varchar("role", { enum: [
+    "surgeon",
+    "surgicalAssistant", 
+    "instrumentNurse",
+    "circulatingNurse",
+    "anesthesiologist",
+    "anesthesiaNurse",
+    "pacuNurse",
+  ] }).notNull(),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_daily_staff_pool_hospital").on(table.hospitalId),
+  index("idx_daily_staff_pool_date").on(table.date),
+  index("idx_daily_staff_pool_user").on(table.userId),
+]);
+
+// Planned Surgery Staff (Staff assigned to a specific surgery before the anesthesia record is created)
+export const plannedSurgeryStaff = pgTable("planned_surgery_staff", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  surgeryId: varchar("surgery_id").notNull().references(() => surgeries.id, { onDelete: 'cascade' }),
+  dailyStaffPoolId: varchar("daily_staff_pool_id").notNull().references(() => dailyStaffPool.id, { onDelete: 'cascade' }),
+  
+  // Denormalized for quick display
+  role: varchar("role", { enum: [
+    "surgeon",
+    "surgicalAssistant", 
+    "instrumentNurse",
+    "circulatingNurse",
+    "anesthesiologist",
+    "anesthesiaNurse",
+    "pacuNurse",
+  ] }).notNull(),
+  name: varchar("name").notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_planned_surgery_staff_surgery").on(table.surgeryId),
+  index("idx_planned_surgery_staff_pool").on(table.dailyStaffPoolId),
+  unique("idx_planned_surgery_staff_unique").on(table.surgeryId, table.dailyStaffPoolId),
+]);
+
 // Inventory Usage (Auto-computed from medication records)
 export const inventoryUsage = pgTable("inventory_usage", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2269,6 +2323,16 @@ export const insertNoteSchema = createInsertSchema(notes).omit({
   updatedAt: true,
 });
 
+export const insertDailyStaffPoolSchema = createInsertSchema(dailyStaffPool).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPlannedSurgeryStaffSchema = createInsertSchema(plannedSurgeryStaff).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -2355,6 +2419,10 @@ export type AnesthesiaNeuraxialBlock = typeof anesthesiaNeuraxialBlocks.$inferSe
 export type InsertAnesthesiaNeuraxialBlock = z.infer<typeof insertAnesthesiaNeuraxialBlockSchema>;
 export type AnesthesiaPeripheralBlock = typeof anesthesiaPeripheralBlocks.$inferSelect;
 export type InsertAnesthesiaPeripheralBlock = z.infer<typeof insertAnesthesiaPeripheralBlockSchema>;
+export type DailyStaffPool = typeof dailyStaffPool.$inferSelect;
+export type InsertDailyStaffPool = z.infer<typeof insertDailyStaffPoolSchema>;
+export type PlannedSurgeryStaff = typeof plannedSurgeryStaff.$inferSelect;
+export type InsertPlannedSurgeryStaff = z.infer<typeof insertPlannedSurgeryStaffSchema>;
 export type InventoryUsage = typeof inventoryUsage.$inferSelect;
 export type InsertInventoryUsage = z.infer<typeof insertInventoryUsageSchema>;
 export type InventoryCommit = typeof inventoryCommits.$inferSelect;
