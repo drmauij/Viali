@@ -141,13 +141,13 @@ export default function Users() {
     return Array.from(grouped.values());
   }, [rawUsers]);
 
-  // Filter users into app users and staff members
+  // Filter users into app users and staff members based on canLogin
   const appUsers = useMemo(() => {
-    return users.filter(u => !u.user.isStaffOnly);
+    return users.filter(u => u.user.canLogin);
   }, [users]);
 
   const staffMembers = useMemo(() => {
-    return users.filter(u => u.user.isStaffOnly);
+    return users.filter(u => !u.user.canLogin);
   }, [users]);
 
   // User mutations
@@ -364,7 +364,6 @@ export default function Users() {
         lastName: data.lastName,
         unitId: data.unitId,
         role: data.role,
-        isStaffOnly: true,
         canLogin: false,
       });
       const result = await response.json();
@@ -384,12 +383,11 @@ export default function Users() {
     },
   });
 
-  // Convert user between app user and staff member
+  // Convert user between app user and staff member (toggle canLogin)
   const convertUserTypeMutation = useMutation({
-    mutationFn: async ({ userId, isStaffOnly }: { userId: string; isStaffOnly: boolean }) => {
+    mutationFn: async ({ userId, canLogin }: { userId: string; canLogin: boolean }) => {
       const response = await apiRequest("PATCH", `/api/admin/users/${userId}/access`, {
-        isStaffOnly,
-        canLogin: !isStaffOnly,
+        canLogin,
         hospitalId: activeHospital?.id,
       });
       return await response.json();
@@ -398,7 +396,7 @@ export default function Users() {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
       toast({ 
         title: t("common.success"), 
-        description: variables.isStaffOnly ? t("admin.convertedToStaffMember") : t("admin.convertedToAppUser") 
+        description: variables.canLogin ? t("admin.convertedToAppUser") : t("admin.convertedToStaffMember") 
       });
     },
     onError: (error: any) => {
@@ -429,15 +427,15 @@ export default function Users() {
   };
 
   const handleConvertUser = (user: GroupedHospitalUser) => {
-    const newIsStaffOnly = !user.user.isStaffOnly;
-    const confirmMessage = newIsStaffOnly 
-      ? t("admin.confirmConvertToStaffMember", { name: `${user.user.firstName} ${user.user.lastName}` })
-      : t("admin.confirmConvertToAppUser", { name: `${user.user.firstName} ${user.user.lastName}` });
+    const newCanLogin = !user.user.canLogin;
+    const confirmMessage = newCanLogin 
+      ? t("admin.confirmConvertToAppUser", { name: `${user.user.firstName} ${user.user.lastName}` })
+      : t("admin.confirmConvertToStaffMember", { name: `${user.user.firstName} ${user.user.lastName}` });
     
     if (window.confirm(confirmMessage)) {
       convertUserTypeMutation.mutate({
         userId: user.user.id,
-        isStaffOnly: newIsStaffOnly,
+        canLogin: newCanLogin,
       });
     }
   };
