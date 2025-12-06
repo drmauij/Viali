@@ -53,6 +53,59 @@ Viali implements a hybrid authentication strategy (Google OAuth and local email/
 ### Database Schema
 The database schema includes entities for Users, Hospitals, UserHospitalRoles, Items (with barcode support, min/max thresholds, controlled flags), StockLevels, Lots, Orders, Activities (audit trails), and Alerts. It utilizes UUID primary keys, timestamp tracking, separate lot tracking, and JSONB fields with Zod validation. Schema changes are managed via Drizzle ORM, with an automated workflow for migration generation and execution on server startup.
 
+### Database Migrations (CRITICAL - Always Review & Make Idempotent)
+**IMPORTANT**: Drizzle generates non-idempotent migrations by default. Before deploying ANY migration (including Drizzle-generated ones), always review and convert to idempotent patterns to prevent deployment failures.
+
+**Always check and fix new migrations in `migrations/` folder before pushing to production.**
+
+#### Idempotent Migration Patterns (Use These):
+
+```sql
+-- For adding columns (Drizzle generates: ALTER TABLE "x" ADD COLUMN "y" type;)
+-- Convert to:
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'table_name' AND column_name = 'column_name'
+  ) THEN
+    ALTER TABLE "table_name" ADD COLUMN "column_name" type;
+  END IF;
+END $$;
+
+-- For creating tables:
+CREATE TABLE IF NOT EXISTS "table_name" (...);
+
+-- For adding constraints:
+DO $$ BEGIN
+  ALTER TABLE "table_name" ADD CONSTRAINT "constraint_name" ...;
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;
+
+-- For creating indexes:
+CREATE INDEX IF NOT EXISTS "index_name" ON "table_name" (...);
+
+-- For renaming columns:
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'table_name' AND column_name = 'old_name'
+  ) THEN
+    ALTER TABLE "table_name" RENAME COLUMN "old_name" TO "new_name";
+  END IF;
+END $$;
+
+-- For dropping tables/columns (be careful!):
+DROP TABLE IF EXISTS "table_name" CASCADE;
+ALTER TABLE "table_name" DROP COLUMN IF EXISTS "column_name";
+```
+
+#### Migration Checklist Before Deployment:
+1. Run `npm run db:generate` to create new migrations
+2. Open each new `.sql` file in `migrations/` folder
+3. Convert all statements to idempotent patterns above
+4. Ensure the migration is tracked in `migrations/meta/_journal.json`
+5. Test migration locally before deploying to production
+
 ### System Design Choices
 Core design decisions include:
 - **Controlled Substances Management**: Workflows for administration logging, verification, electronic signature, and PDF reports.
