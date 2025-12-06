@@ -1165,7 +1165,7 @@ export default function Items() {
     }
   };
 
-  const handleUpdateItem = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleUpdateItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
     const itemData = {
@@ -1183,6 +1183,20 @@ export default function Items() {
       controlled: editFormData.controlled,
       imageUrl: editFormData.imageUrl || null,
     };
+
+    // Also save codes if they exist
+    if (selectedItem && itemCodes) {
+      try {
+        await apiRequest("PUT", `/api/items/${selectedItem.id}/codes`, itemCodes);
+      } catch (error: any) {
+        console.error("Failed to save codes:", error);
+        toast({
+          title: t('common.error'),
+          description: "Failed to save product codes",
+          variant: "destructive",
+        });
+      }
+    }
 
     updateItemMutation.mutate({
       itemData,
@@ -3304,20 +3318,26 @@ export default function Items() {
 
       {/* Edit Item Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('items.editItem')}</DialogTitle>
-            <DialogDescription>{t('items.updateItemDetails')}</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleUpdateItem} className="space-y-4">
-            <Tabs defaultValue="details" value={editDialogTab} onValueChange={setEditDialogTab} className="w-full">
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
+          {/* Sticky Header */}
+          <div className="sticky top-0 bg-background z-10 px-6 pt-6 pb-4 border-b">
+            <DialogHeader>
+              <DialogTitle>{t('items.editItem')}</DialogTitle>
+              <DialogDescription>{t('items.updateItemDetails')}</DialogDescription>
+            </DialogHeader>
+            <Tabs value={editDialogTab} onValueChange={setEditDialogTab} className="w-full mt-4">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="details" data-testid="tab-item-details">{t('items.itemDetails')}</TabsTrigger>
                 <TabsTrigger value="codes" data-testid="tab-item-codes">Codes</TabsTrigger>
                 <TabsTrigger value="photo" data-testid="tab-item-photo">{t('items.itemPhoto')}</TabsTrigger>
               </TabsList>
-              
-              <TabsContent value="details" className="space-y-4 mt-4">
+            </Tabs>
+          </div>
+          
+          {/* Scrollable Content */}
+          <form onSubmit={handleUpdateItem} className="flex-1 overflow-y-auto px-6 py-4">
+            <Tabs value={editDialogTab} className="w-full">
+              <TabsContent value="details" className="space-y-4 mt-0">
                 {!canWrite && (
                   <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
                     <i className="fas fa-eye mr-2"></i>
@@ -4127,39 +4147,51 @@ export default function Items() {
                 )}
               </TabsContent>
             </Tabs>
-
-            {editDialogTab === "details" && (
-              <div className="flex gap-2 justify-between pt-4">
-                {canWrite ? (
+          </form>
+          
+          {/* Sticky Footer - visible on all tabs */}
+          <div className="sticky bottom-0 bg-background z-10 px-6 py-4 border-t">
+            <div className="flex gap-2 justify-between">
+              {canWrite ? (
+                <Button 
+                  type="button" 
+                  variant="destructive" 
+                  onClick={() => {
+                    if (selectedItem && window.confirm(t('items.deleteConfirm'))) {
+                      deleteItemMutation.mutate(selectedItem.id);
+                    }
+                  }}
+                  disabled={deleteItemMutation.isPending}
+                  data-testid="button-delete-item"
+                >
+                  {deleteItemMutation.isPending ? t('common.loading') : t('common.delete')}
+                </Button>
+              ) : (
+                <div></div>
+              )}
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                  {canWrite ? t('common.cancel') : t('common.close')}
+                </Button>
+                {canWrite && (
                   <Button 
                     type="button" 
-                    variant="destructive" 
-                    onClick={() => {
-                      if (selectedItem && window.confirm(t('items.deleteConfirm'))) {
-                        deleteItemMutation.mutate(selectedItem.id);
+                    disabled={updateItemMutation.isPending} 
+                    data-testid="button-update-item"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      const form = document.querySelector('form[class*="flex-1"]') as HTMLFormElement;
+                      if (form) {
+                        form.requestSubmit();
                       }
                     }}
-                    disabled={deleteItemMutation.isPending}
-                    data-testid="button-delete-item"
                   >
-                    {deleteItemMutation.isPending ? t('common.loading') : t('common.delete')}
+                    {updateItemMutation.isPending ? t('common.loading') : t('common.save')}
                   </Button>
-                ) : (
-                  <div></div>
                 )}
-                <div className="flex gap-2">
-                  <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
-                    {canWrite ? t('common.cancel') : t('common.close')}
-                  </Button>
-                  {canWrite && (
-                    <Button type="submit" disabled={updateItemMutation.isPending} data-testid="button-update-item">
-                      {updateItemMutation.isPending ? t('common.loading') : t('common.save')}
-                    </Button>
-                  )}
-                </div>
               </div>
-            )}
-          </form>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
