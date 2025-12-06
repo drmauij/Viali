@@ -5,9 +5,9 @@ import moment from "moment";
 import "moment/locale/en-gb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, FileSpreadsheet, Users, PanelLeftClose, PanelLeft, X } from "lucide-react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, FileSpreadsheet, Users, ChevronDown, ChevronUp, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
@@ -15,8 +15,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
 import ExcelImportDialog from "./ExcelImportDialog";
 import TimelineWeekView from "./TimelineWeekView";
-import StaffPoolPanel from "./StaffPoolPanel";
-import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from "@dnd-kit/core";
+import PlanStaffDialog from "./PlanStaffDialog";
+import PlannedStaffBox from "./PlannedStaffBox";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
@@ -80,25 +80,6 @@ interface OPCalendarProps {
   onEventClick?: (surgeryId: string, patientId: string) => void;
 }
 
-function DroppableEventWrapper({ event, children }: { event: CalendarEvent; children: React.ReactNode }) {
-  const { isOver, setNodeRef } = useDroppable({
-    id: `surgery-${event.surgeryId}`,
-  });
-  
-  return (
-    <div 
-      ref={setNodeRef}
-      className={`relative transition-all duration-150 ${isOver ? 'ring-2 ring-primary ring-offset-1 scale-[1.02] z-10' : ''}`}
-      style={{ height: '100%' }}
-    >
-      {children}
-      {isOver && (
-        <div className="absolute inset-0 bg-primary/20 rounded pointer-events-none" />
-      )}
-    </div>
-  );
-}
-
 export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   // Restore calendar view and date from sessionStorage
   const [currentView, setCurrentView] = useState<ViewType>(() => {
@@ -133,90 +114,25 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   // Excel import dialog state
   const [excelImportOpen, setExcelImportOpen] = useState(false);
   
-  // Staff pool panel state
-  const [staffPanelOpen, setStaffPanelOpen] = useState(() => {
-    const saved = sessionStorage.getItem('oplist_staff_panel_open');
+  // Plan Staff dialog state
+  const [planStaffDialogOpen, setPlanStaffDialogOpen] = useState(false);
+  
+  // Planned staff box collapsed state
+  const [staffBoxOpen, setStaffBoxOpen] = useState(() => {
+    const saved = sessionStorage.getItem('oplist_staff_box_open');
     return saved ? saved === 'true' : true;
   });
-  const [mobileStaffSheetOpen, setMobileStaffSheetOpen] = useState(false);
-  const [activeDragStaff, setActiveDragStaff] = useState<any>(null);
   
-  // Save staff panel state
+  // Save staff box state
   useEffect(() => {
-    sessionStorage.setItem('oplist_staff_panel_open', String(staffPanelOpen));
-  }, [staffPanelOpen]);
-  
-  // DnD sensors for staff drag-drop
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
-  );
+    sessionStorage.setItem('oplist_staff_box_open', String(staffBoxOpen));
+  }, [staffBoxOpen]);
   
   // Date string for staff pool queries
   const dateString = useMemo(() => {
     const d = new Date(selectedDate);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }, [selectedDate]);
-  
-  // Mutation for assigning staff to surgery
-  const assignStaffMutation = useMutation({
-    mutationFn: async ({ surgeryId, dailyStaffPoolId }: { surgeryId: string; dailyStaffPoolId: string }) => {
-      const res = await apiRequest('POST', '/api/planned-staff', {
-        surgeryId,
-        dailyStaffPoolId,
-      });
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/staff-pool', activeHospital?.id, dateString] });
-      queryClient.invalidateQueries({ queryKey: ['/api/planned-staff'] });
-      toast({
-        title: "Staff Assigned",
-        description: "Staff member has been assigned to the surgery.",
-      });
-    },
-    onError: (error: any) => {
-      const message = error?.message || "Failed to assign staff to surgery";
-      toast({
-        title: "Assignment Failed",
-        description: message.includes("already assigned") ? "This staff member is already assigned to this surgery." : message,
-        variant: "destructive",
-      });
-    },
-  });
-  
-  // Handle DnD end event
-  const handleDragEnd = useCallback((event: DragEndEvent) => {
-    setActiveDragStaff(null);
-    
-    const { active, over } = event;
-    
-    if (!over) return;
-    
-    const activeData = active.data.current;
-    const overId = String(over.id);
-    
-    // Check if dropping staff on a surgery
-    if (activeData?.type === 'staff' && overId.startsWith('surgery-')) {
-      const surgeryId = overId.replace('surgery-', '');
-      const staffPoolId = activeData.staff.id;
-      
-      assignStaffMutation.mutate({
-        surgeryId,
-        dailyStaffPoolId: staffPoolId,
-      });
-    }
-  }, [assignStaffMutation]);
-  
-  const handleDragStart = useCallback((event: any) => {
-    const activeData = event.active.data.current;
-    if (activeData?.type === 'staff') {
-      setActiveDragStaff(activeData.staff);
-    }
-  }, []);
 
   // Fetch surgery rooms for the active hospital
   const { data: surgeryRooms = [], isLoading } = useQuery<any[]>({
@@ -459,15 +375,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     );
   }, []);
 
-  // Event wrapper component for the entire event block (makes entire event a drop target)
-  const EventWrapper = useCallback(({ event, children }: { event: CalendarEvent; children: React.ReactNode }) => {
-    return (
-      <DroppableEventWrapper event={event}>
-        {children}
-      </DroppableEventWrapper>
-    );
-  }, []);
-
   // Custom month date cell component - show indicator dots instead of event details
   const MonthDateHeader = useCallback(({ date, drilldownView }: { date: Date; drilldownView?: string }) => {
     const dayEvents = calendarEvents.filter(event => {
@@ -648,45 +555,17 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
             <span className="hidden sm:inline">Excel</span>
           </Button>
-          {/* Desktop: Toggle button for sidebar */}
-          <Button
-            variant={staffPanelOpen ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStaffPanelOpen(!staffPanelOpen)}
-            data-testid="button-toggle-staff-panel"
-            className="hidden md:flex h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
-          >
-            {staffPanelOpen ? <PanelLeftClose className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" /> : <PanelLeft className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />}
-            <span className="hidden sm:inline">Staff</span>
-          </Button>
-          {/* Mobile: Sheet trigger button */}
           {activeHospital && (
-            <Sheet open={mobileStaffSheetOpen} onOpenChange={setMobileStaffSheetOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  data-testid="button-staff-panel-mobile"
-                  className="md:hidden h-8 px-2 text-xs"
-                >
-                  <Users className="h-3 w-3" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="h-[50vh] rounded-t-xl px-3 pb-4">
-                <SheetHeader className="pb-2">
-                  <SheetTitle className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    Staff Pool
-                  </SheetTitle>
-                </SheetHeader>
-                <div className="overflow-y-auto h-[calc(100%-3rem)]">
-                  <StaffPoolPanel 
-                    selectedDate={selectedDate} 
-                    hospitalId={activeHospital.id} 
-                  />
-                </div>
-              </SheetContent>
-            </Sheet>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPlanStaffDialogOpen(true)}
+              data-testid="button-plan-staff"
+              className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
+            >
+              <Users className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Plan Staff</span>
+            </Button>
           )}
         </div>
       </div>
@@ -728,22 +607,20 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         </div>
       )}
 
-      {/* Calendar with Staff Panel */}
+      {/* Planned Staff Box */}
+      {surgeryRooms.length > 0 && activeHospital && (
+        <PlannedStaffBox
+          selectedDate={selectedDate}
+          hospitalId={activeHospital.id}
+          isOpen={staffBoxOpen}
+          onToggle={() => setStaffBoxOpen(!staffBoxOpen)}
+        />
+      )}
+
+      {/* Calendar */}
       {surgeryRooms.length > 0 && (
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="flex-1 min-h-0 flex gap-4 px-4 pb-4">
-            {/* Staff Pool Panel - collapsible sidebar */}
-            {staffPanelOpen && activeHospital && (
-              <div className="w-64 flex-shrink-0 hidden md:block">
-                <StaffPoolPanel 
-                  selectedDate={selectedDate} 
-                  hospitalId={activeHospital.id} 
-                />
-              </div>
-            )}
-            
-            {/* Calendar area */}
-            <div className="flex-1 min-h-0 calendar-container">
+        <div className="flex-1 min-h-0 px-4 pb-4">
+          <div className="h-full calendar-container">
           {currentView === "week" ? (
             <TimelineWeekView
               surgeryRooms={surgeryRooms}
@@ -811,7 +688,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
               formats={formats}
               components={{
                 event: EventComponent,
-                eventWrapper: EventWrapper,
                 toolbar: () => null,
                 month: {
                   dateHeader: MonthDateHeader,
@@ -829,9 +705,18 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
               data-testid="calendar-main"
             />
           )}
-            </div>
           </div>
-        </DndContext>
+        </div>
+      )}
+
+      {/* Plan Staff Dialog */}
+      {activeHospital && (
+        <PlanStaffDialog
+          open={planStaffDialogOpen}
+          onOpenChange={setPlanStaffDialogOpen}
+          selectedDate={selectedDate}
+          hospitalId={activeHospital.id}
+        />
       )}
 
       {/* Quick Create Surgery Dialog */}

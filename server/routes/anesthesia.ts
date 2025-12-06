@@ -3724,6 +3724,55 @@ router.get('/api/anesthesia/staff-options/:hospitalId', isAuthenticated, async (
   }
 });
 
+router.get('/api/anesthesia/all-staff-options/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const allUnits = await storage.getUnits(hospitalId);
+    const surgeryUnit = allUnits.find(u => u.isSurgeryModule);
+    const anesthesiaUnit = allUnits.find(u => u.isAnesthesiaModule);
+    
+    const hospitalUsers = await storage.getHospitalUsers(hospitalId);
+    
+    const staffUsers = hospitalUsers
+      .filter(hu => {
+        const isInSurgeryUnit = surgeryUnit && hu.unitId === surgeryUnit.id;
+        const isInAnesthesiaUnit = anesthesiaUnit && hu.unitId === anesthesiaUnit.id;
+        return isInSurgeryUnit || isInAnesthesiaUnit;
+      })
+      .map(hu => {
+        let staffRole = 'anesthesiaNurse';
+        if (surgeryUnit && hu.unitId === surgeryUnit.id) {
+          staffRole = hu.role === 'doctor' ? 'surgeon' : 'instrumentNurse';
+        } else if (anesthesiaUnit && hu.unitId === anesthesiaUnit.id) {
+          staffRole = hu.role === 'doctor' ? 'anesthesiologist' : 'anesthesiaNurse';
+        }
+        
+        return {
+          id: hu.user.id,
+          name: `${hu.user.firstName || ''} ${hu.user.lastName || ''}`.trim() || hu.user.email || 'Unknown',
+          email: hu.user.email,
+          staffRole,
+        };
+      });
+    
+    const uniqueUsers = Array.from(new Map(staffUsers.map(u => [u.id, u])).values());
+    
+    res.json(uniqueUsers);
+  } catch (error) {
+    console.error("Error fetching all staff options:", error);
+    res.status(500).json({ message: "Failed to fetch staff options" });
+  }
+});
+
 router.post('/api/anesthesia/staff-user/:hospitalId', isAuthenticated, requireAdminRole, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
