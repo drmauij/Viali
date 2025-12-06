@@ -97,16 +97,18 @@ function DraggableStaffChip({ staff, onRemove }: { staff: StaffPoolEntry; onRemo
       {staff.isBooked && (
         <span className="text-[10px]">({staff.assignedSurgeryIds.length})</span>
       )}
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onRemove(staff.id);
-        }}
-        className="ml-0.5 p-0.5 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
-        data-testid={`button-remove-planned-staff-${staff.id}`}
-      >
-        <X className="h-3 w-3" />
-      </button>
+      {!staff.isBooked && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove(staff.id);
+          }}
+          className="ml-0.5 p-0.5 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
+          data-testid={`button-remove-planned-staff-${staff.id}`}
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
     </div>
   );
 }
