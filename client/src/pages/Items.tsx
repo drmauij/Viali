@@ -1673,6 +1673,42 @@ export default function Items() {
             autoMapping[header] = 'minUnits';
           } else if (lowerHeader === 'maxunits' || lowerHeader === 'max units') {
             autoMapping[header] = 'maxUnits';
+          } else if (lowerHeader === 'imageurl' || lowerHeader === 'image url' || lowerHeader === 'image') {
+            autoMapping[header] = 'imageUrl';
+          } else if (lowerHeader === 'barcodes') {
+            autoMapping[header] = 'barcodes';
+          }
+          // Item codes fields for catalog transfer
+          else if (lowerHeader === 'gtin' || lowerHeader === 'ean' || lowerHeader === 'gtin/ean') {
+            autoMapping[header] = 'gtin';
+          } else if (lowerHeader === 'pharmacode') {
+            autoMapping[header] = 'pharmacode';
+          } else if (lowerHeader === 'swissmedicnr' || lowerHeader === 'swissmedic' || lowerHeader === 'swissmedic nr') {
+            autoMapping[header] = 'swissmedicNr';
+          } else if (lowerHeader === 'migel' || lowerHeader === 'migel nr') {
+            autoMapping[header] = 'migel';
+          } else if (lowerHeader === 'atc' || lowerHeader === 'atc code') {
+            autoMapping[header] = 'atc';
+          } else if (lowerHeader === 'manufacturer' || lowerHeader === 'hersteller') {
+            autoMapping[header] = 'manufacturer';
+          } else if (lowerHeader === 'manufacturerref' || lowerHeader === 'manufacturer ref' || lowerHeader === 'ref' || lowerHeader === 'artikelnr') {
+            autoMapping[header] = 'manufacturerRef';
+          } else if (lowerHeader === 'packcontent' || lowerHeader === 'pack content') {
+            autoMapping[header] = 'packContent';
+          } else if (lowerHeader === 'unitsperpack' || lowerHeader === 'units per pack') {
+            autoMapping[header] = 'unitsPerPack';
+          } else if (lowerHeader === 'contentperunit' || lowerHeader === 'content per unit') {
+            autoMapping[header] = 'contentPerUnit';
+          } else if (lowerHeader === 'abgabekategorie' || lowerHeader === 'abgabe' || lowerHeader === 'dispensation category') {
+            autoMapping[header] = 'abgabekategorie';
+          }
+          // Supplier fields
+          else if (lowerHeader === 'preferredsupplier' || lowerHeader === 'preferred supplier' || lowerHeader === 'supplier') {
+            autoMapping[header] = 'preferredSupplier';
+          } else if (lowerHeader === 'supplierarticlecode' || lowerHeader === 'supplier article code' || lowerHeader === 'article code') {
+            autoMapping[header] = 'supplierArticleCode';
+          } else if (lowerHeader === 'supplierprice' || lowerHeader === 'supplier price' || lowerHeader === 'price') {
+            autoMapping[header] = 'supplierPrice';
           }
         });
         setCsvMapping(autoMapping);
@@ -1775,6 +1811,44 @@ export default function Items() {
           case 'trackExactQuantity':
             const trackVal = String(value).toLowerCase();
             item[targetField] = trackVal === 'true' || trackVal === 'yes' || trackVal === '1';
+            break;
+          // Image URL
+          case 'imageUrl':
+            item.imageUrl = value ? String(value) : undefined;
+            break;
+          // Barcodes (semicolon-separated)
+          case 'barcodes':
+            if (value) {
+              item.barcodes = String(value).split(';').map(b => b.trim()).filter(b => b);
+            }
+            break;
+          // Item codes for catalog transfer
+          case 'gtin':
+          case 'pharmacode':
+          case 'swissmedicNr':
+          case 'migel':
+          case 'atc':
+          case 'manufacturer':
+          case 'manufacturerRef':
+          case 'packContent':
+          case 'contentPerUnit':
+          case 'abgabekategorie':
+            if (!item.itemCodes) item.itemCodes = {};
+            item.itemCodes[targetField] = value ? String(value) : undefined;
+            break;
+          case 'unitsPerPack':
+            if (!item.itemCodes) item.itemCodes = {};
+            const upVal = value ? parseInt(value) : undefined;
+            if (upVal !== undefined && !isNaN(upVal)) {
+              item.itemCodes.unitsPerPack = upVal;
+            }
+            break;
+          // Supplier fields
+          case 'preferredSupplier':
+          case 'supplierArticleCode':
+          case 'supplierPrice':
+            if (!item.supplierInfo) item.supplierInfo = {};
+            item.supplierInfo[targetField] = value ? String(value) : undefined;
             break;
         }
       });
@@ -4369,7 +4443,7 @@ export default function Items() {
               <div className="space-y-3">
                 <div className="text-sm font-medium">Map CSV Columns to Item Fields</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {['name', 'description', 'unit', 'initialStock', 'minThreshold', 'maxThreshold', 'packSize', 'critical', 'controlled'].map(field => (
+                  {['name', 'description', 'unit', 'initialStock', 'minThreshold', 'maxThreshold', 'packSize', 'critical', 'controlled', 'imageUrl', 'barcodes'].map(field => (
                     <div key={field}>
                       <Label className="text-xs">
                         {field === 'name' && '* '}
@@ -4440,6 +4514,118 @@ export default function Items() {
                                 if (newMapping[k] === key) delete newMapping[k];
                               });
                               // Add new mapping if not 'skip'
+                              if (value !== 'skip') {
+                                newMapping[value] = key;
+                              }
+                              setCsvMapping(newMapping);
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs" data-testid={`select-mapping-${key}`}>
+                              <SelectValue placeholder="Skip field" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="skip">-- Skip this field --</SelectItem>
+                              {csvHeaders.map(header => (
+                                <SelectItem key={header} value={header}>{header}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              {/* Item Codes Configuration */}
+              <Accordion type="single" collapsible className="border rounded-lg">
+                <AccordionItem value="itemCodes" className="border-0">
+                  <AccordionTrigger className="px-4 hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Item Codes (Optional)</span>
+                      <span className="text-xs text-muted-foreground">
+                        {Object.values(csvMapping).filter(v => ['gtin', 'pharmacode', 'swissmedicNr', 'migel', 'atc', 'manufacturer', 'manufacturerRef', 'packContent', 'unitsPerPack', 'contentPerUnit', 'abgabekategorie'].includes(v)).length > 0 
+                          ? `${Object.values(csvMapping).filter(v => ['gtin', 'pharmacode', 'swissmedicNr', 'migel', 'atc', 'manufacturer', 'manufacturerRef', 'packContent', 'unitsPerPack', 'contentPerUnit', 'abgabekategorie'].includes(v)).length} fields mapped`
+                          : 'For catalog transfer'}
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                      {[
+                        { key: 'gtin', label: 'GTIN/EAN' },
+                        { key: 'pharmacode', label: 'Pharmacode' },
+                        { key: 'swissmedicNr', label: 'Swissmedic Nr' },
+                        { key: 'migel', label: 'MiGeL' },
+                        { key: 'atc', label: 'ATC Code' },
+                        { key: 'manufacturer', label: 'Manufacturer' },
+                        { key: 'manufacturerRef', label: 'Manufacturer Ref' },
+                        { key: 'packContent', label: 'Pack Content' },
+                        { key: 'unitsPerPack', label: 'Units Per Pack' },
+                        { key: 'contentPerUnit', label: 'Content Per Unit' },
+                        { key: 'abgabekategorie', label: 'Abgabekategorie' },
+                      ].map(({ key, label}) => (
+                        <div key={key}>
+                          <Label className="text-xs">{label}</Label>
+                          <Select
+                            value={Object.entries(csvMapping).find(([_, target]) => target === key)?.[0] || 'skip'}
+                            onValueChange={(value) => {
+                              const newMapping = { ...csvMapping };
+                              Object.keys(newMapping).forEach(k => {
+                                if (newMapping[k] === key) delete newMapping[k];
+                              });
+                              if (value !== 'skip') {
+                                newMapping[value] = key;
+                              }
+                              setCsvMapping(newMapping);
+                            }}
+                          >
+                            <SelectTrigger className="h-8 text-xs" data-testid={`select-mapping-${key}`}>
+                              <SelectValue placeholder="Skip field" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="skip">-- Skip this field --</SelectItem>
+                              {csvHeaders.map(header => (
+                                <SelectItem key={header} value={header}>{header}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              {/* Supplier Configuration */}
+              <Accordion type="single" collapsible className="border rounded-lg">
+                <AccordionItem value="supplier" className="border-0">
+                  <AccordionTrigger className="px-4 hover:no-underline">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Supplier Info (Optional)</span>
+                      <span className="text-xs text-muted-foreground">
+                        {Object.values(csvMapping).filter(v => ['preferredSupplier', 'supplierArticleCode', 'supplierPrice'].includes(v)).length > 0 
+                          ? `${Object.values(csvMapping).filter(v => ['preferredSupplier', 'supplierArticleCode', 'supplierPrice'].includes(v)).length} fields mapped`
+                          : 'For catalog transfer'}
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                      {[
+                        { key: 'preferredSupplier', label: 'Preferred Supplier' },
+                        { key: 'supplierArticleCode', label: 'Supplier Article Code' },
+                        { key: 'supplierPrice', label: 'Supplier Price' },
+                      ].map(({ key, label}) => (
+                        <div key={key}>
+                          <Label className="text-xs">{label}</Label>
+                          <Select
+                            value={Object.entries(csvMapping).find(([_, target]) => target === key)?.[0] || 'skip'}
+                            onValueChange={(value) => {
+                              const newMapping = { ...csvMapping };
+                              Object.keys(newMapping).forEach(k => {
+                                if (newMapping[k] === key) delete newMapping[k];
+                              });
                               if (value !== 'skip') {
                                 newMapping[value] = key;
                               }

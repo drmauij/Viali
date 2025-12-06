@@ -517,6 +517,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           unitId,
           name: bulkItem.name,
           barcode: bulkItem.barcode ?? null,
+          barcodes: bulkItem.barcodes && bulkItem.barcodes.length > 0 ? bulkItem.barcodes : [],
           description: bulkItem.description ?? "",
           unit: bulkItem.unit ?? "pack",
           packSize: bulkItem.packSize ?? 1,
@@ -530,6 +531,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           controlled: bulkItem.controlled ?? false,
           trackExactQuantity: bulkItem.trackExactQuantity ?? false,
           currentUnits: bulkItem.currentUnits ?? 0,
+          imageUrl: bulkItem.imageUrl ?? null,
           folderId,
           vendorId,
         };
@@ -563,6 +565,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
             ? Math.ceil(stockToSet / (bulkItem.packSize || 1))
             : stockToSet;
           await storage.updateStockLevel(item.id, unitId, stockLevel);
+        }
+        
+        // Create item codes if provided (from CSV catalog import)
+        if (bulkItem.itemCodes && typeof bulkItem.itemCodes === 'object') {
+          const codes = bulkItem.itemCodes;
+          const hasAnyCode = codes.gtin || codes.pharmacode || codes.swissmedicNr || 
+                             codes.migel || codes.atc || codes.manufacturer || 
+                             codes.manufacturerRef || codes.packContent || 
+                             codes.unitsPerPack || codes.contentPerUnit || codes.abgabekategorie;
+          
+          if (hasAnyCode) {
+            try {
+              await storage.createItemCode({
+                itemId: item.id,
+                gtin: codes.gtin || null,
+                pharmacode: codes.pharmacode || null,
+                swissmedicNr: codes.swissmedicNr || null,
+                migel: codes.migel || null,
+                atc: codes.atc || null,
+                manufacturer: codes.manufacturer || null,
+                manufacturerRef: codes.manufacturerRef || null,
+                packContent: codes.packContent || null,
+                unitsPerPack: codes.unitsPerPack || null,
+                contentPerUnit: codes.contentPerUnit || null,
+                abgabekategorie: codes.abgabekategorie || null,
+              });
+            } catch (codeError) {
+              console.warn(`[BULK] Failed to create item codes for item ${item.id}:`, codeError);
+            }
+          }
+        }
+        
+        // Create supplier code if provided (from CSV catalog import)
+        if (bulkItem.supplierInfo && typeof bulkItem.supplierInfo === 'object') {
+          const supplier = bulkItem.supplierInfo;
+          // Create supplier code if we have a supplier name OR if we have article code/price
+          const hasSupplierData = supplier.preferredSupplier || supplier.supplierArticleCode || supplier.supplierPrice;
+          if (hasSupplierData) {
+            try {
+              await storage.createSupplierCode({
+                itemId: item.id,
+                supplierName: supplier.preferredSupplier || 'Unknown Supplier',
+                articleCode: supplier.supplierArticleCode || null,
+                basispreis: supplier.supplierPrice || null,
+                isPreferred: !!supplier.preferredSupplier,
+              });
+            } catch (supplierError) {
+              console.warn(`[BULK] Failed to create supplier code for item ${item.id}:`, supplierError);
+            }
+          }
         }
         
         createdItems.push(item);
