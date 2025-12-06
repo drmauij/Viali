@@ -1448,6 +1448,35 @@ export const plannedSurgeryStaff = pgTable("planned_surgery_staff", {
   unique("idx_planned_surgery_staff_unique").on(table.surgeryId, table.dailyStaffPoolId),
 ]);
 
+// Daily Room Staff (Staff assigned to a surgery room for a specific day - replaces surgery-level assignments)
+export const dailyRoomStaff = pgTable("daily_room_staff", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dailyStaffPoolId: varchar("daily_staff_pool_id").notNull().references(() => dailyStaffPool.id, { onDelete: 'cascade' }),
+  surgeryRoomId: varchar("surgery_room_id").notNull().references(() => surgeryRooms.id, { onDelete: 'cascade' }),
+  date: date("date").notNull(),
+  
+  // Denormalized for quick display
+  role: varchar("role", { enum: [
+    "surgeon",
+    "surgicalAssistant", 
+    "instrumentNurse",
+    "circulatingNurse",
+    "anesthesiologist",
+    "anesthesiaNurse",
+    "pacuNurse",
+  ] }).notNull(),
+  name: varchar("name").notNull(),
+  userId: varchar("user_id").references(() => users.id),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_daily_room_staff_pool").on(table.dailyStaffPoolId),
+  index("idx_daily_room_staff_room").on(table.surgeryRoomId),
+  index("idx_daily_room_staff_date").on(table.date),
+  unique("idx_daily_room_staff_unique").on(table.dailyStaffPoolId, table.surgeryRoomId, table.date),
+]);
+
 // Inventory Usage (Auto-computed from medication records)
 export const inventoryUsage = pgTable("inventory_usage", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2333,6 +2362,11 @@ export const insertPlannedSurgeryStaffSchema = createInsertSchema(plannedSurgery
   createdAt: true,
 });
 
+export const insertDailyRoomStaffSchema = createInsertSchema(dailyRoomStaff).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -2423,6 +2457,8 @@ export type DailyStaffPool = typeof dailyStaffPool.$inferSelect;
 export type InsertDailyStaffPool = z.infer<typeof insertDailyStaffPoolSchema>;
 export type PlannedSurgeryStaff = typeof plannedSurgeryStaff.$inferSelect;
 export type InsertPlannedSurgeryStaff = z.infer<typeof insertPlannedSurgeryStaffSchema>;
+export type DailyRoomStaff = typeof dailyRoomStaff.$inferSelect;
+export type InsertDailyRoomStaff = z.infer<typeof insertDailyRoomStaffSchema>;
 export type InventoryUsage = typeof inventoryUsage.$inferSelect;
 export type InsertInventoryUsage = z.infer<typeof insertInventoryUsageSchema>;
 export type InventoryCommit = typeof inventoryCommits.$inferSelect;
