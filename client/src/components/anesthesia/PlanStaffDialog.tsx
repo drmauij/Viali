@@ -110,7 +110,14 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
   }, [currentStaffPool]);
   
   const sortedStaffOptions = useMemo(() => {
-    return [...staffOptions].sort((a, b) => a.name.localeCompare(b.name));
+    // Deduplicate by user ID - keep first instance only
+    const seen = new Set<string>();
+    const unique = staffOptions.filter(s => {
+      if (seen.has(s.id)) return false;
+      seen.add(s.id);
+      return true;
+    });
+    return unique.sort((a, b) => a.name.localeCompare(b.name));
   }, [staffOptions]);
   
   const filteredStaffOptions = useMemo(() => {
