@@ -3,10 +3,11 @@ import { Calendar, momentLocalizer, View, SlotInfo, CalendarProps, EventProps, E
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import moment from "moment";
 import "moment/locale/en-gb";
+import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from "@dnd-kit/core";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, FileSpreadsheet, Users, ChevronDown, ChevronUp, X } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, FileSpreadsheet, Users, User } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
@@ -16,7 +17,7 @@ import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
 import ExcelImportDialog from "./ExcelImportDialog";
 import TimelineWeekView from "./TimelineWeekView";
 import PlanStaffDialog from "./PlanStaffDialog";
-import PlannedStaffBox from "./PlannedStaffBox";
+import PlannedStaffBox, { StaffPoolEntry, ROLE_CONFIG } from "./PlannedStaffBox";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 
@@ -80,6 +81,25 @@ interface OPCalendarProps {
   onEventClick?: (surgeryId: string, patientId: string) => void;
 }
 
+function DroppableEventContent({ surgeryId, children }: { surgeryId: string; children: React.ReactNode }) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: `surgery-${surgeryId}`,
+    data: {
+      type: 'surgery',
+      surgeryId,
+    },
+  });
+  
+  return (
+    <div 
+      ref={setNodeRef} 
+      className={`h-full w-full ${isOver ? 'ring-2 ring-primary ring-inset bg-primary/10 rounded' : ''}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   // Restore calendar view and date from sessionStorage
   const [currentView, setCurrentView] = useState<ViewType>(() => {
@@ -93,6 +113,18 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const activeHospital = useActiveHospital();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  
+  // Drag and drop sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
+  
+  // Active drag state for overlay
+  const [activeDragStaff, setActiveDragStaff] = useState<StaffPoolEntry | null>(null);
 
   // Save calendar view and date to sessionStorage whenever they change
   useEffect(() => {
@@ -236,6 +268,64 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     }));
   }, [surgeryRooms]);
 
+  // Assign staff to surgery mutation
+  const assignStaffMutation = useMutation({
+    mutationFn: async ({ surgeryId, dailyStaffPoolId }: { surgeryId: string; dailyStaffPoolId: string }) => {
+      const res = await apiRequest('POST', '/api/planned-staff', {
+        surgeryId,
+        dailyStaffPoolId,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/staff-pool', activeHospital?.id, dateString] });
+      queryClient.invalidateQueries({ queryKey: ['/api/planned-staff'] });
+      toast({
+        title: "Staff Assigned",
+        description: "Staff member has been assigned to the surgery.",
+      });
+    },
+    onError: (error: any) => {
+      const message = error?.message || 'Failed to assign staff';
+      toast({
+        title: "Assignment Failed",
+        description: message.includes('already assigned') ? 'This staff is already assigned to this surgery.' : message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle staff drag start
+  const handleDragStart = (event: any) => {
+    const { active } = event;
+    if (active.data.current?.type === 'staff') {
+      setActiveDragStaff(active.data.current.staff);
+    }
+  };
+
+  // Handle staff drag end - drop on surgery to assign
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragStaff(null);
+    
+    const { active, over } = event;
+    
+    if (!over) return;
+    
+    const activeData = active.data.current;
+    const overData = over.data.current;
+    
+    // Check if we're dropping staff onto a surgery
+    if (activeData?.type === 'staff' && overData?.type === 'surgery') {
+      const staffPoolId = activeData.staff.id;
+      const surgeryId = overData.surgeryId;
+      
+      assignStaffMutation.mutate({
+        surgeryId,
+        dailyStaffPoolId: staffPoolId,
+      });
+    }
+  };
+
   // Handle event drop (drag and drop)
   const handleEventDrop = useCallback(async ({ event, start, end, resourceId }: any) => {
     const surgeryId = event.surgeryId;
@@ -357,21 +447,23 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     return { style };
   }, []);
 
-  // Simplified event component - just surgery and patient info
+  // Simplified event component with droppable wrapper for staff assignment
   const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {
     return (
-      <div className="flex flex-col h-full p-1" data-testid={`event-${event.surgeryId}`}>
-        <div className={`font-bold text-xs ${event.isCancelled ? 'line-through' : ''}`}>
-          {event.plannedSurgery}
+      <DroppableEventContent surgeryId={event.surgeryId}>
+        <div className="flex flex-col h-full p-1" data-testid={`event-${event.surgeryId}`}>
+          <div className={`font-bold text-xs ${event.isCancelled ? 'line-through' : ''}`}>
+            {event.plannedSurgery}
+          </div>
+          <div className={`text-xs ${event.isCancelled ? 'line-through' : ''}`}>
+            {event.patientName}
+            {event.patientBirthday && ` ${event.patientBirthday}`}
+          </div>
+          {event.isCancelled && (
+            <div className="text-xs font-semibold mt-0.5">CANCELLED</div>
+          )}
         </div>
-        <div className={`text-xs ${event.isCancelled ? 'line-through' : ''}`}>
-          {event.patientName}
-          {event.patientBirthday && ` ${event.patientBirthday}`}
-        </div>
-        {event.isCancelled && (
-          <div className="text-xs font-semibold mt-0.5">CANCELLED</div>
-        )}
-      </div>
+      </DroppableEventContent>
     );
   }, []);
 
@@ -464,7 +556,13 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   };
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <DndContext
+      sensors={sensors}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <>
+      <div className="flex flex-col min-h-screen">
       {/* Header with view switcher and navigation */}
       <div className="flex flex-wrap items-center gap-3 p-3 sm:p-4 bg-background border-b">
         {/* Navigation buttons */}
@@ -688,6 +786,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
               formats={formats}
               components={{
                 event: EventComponent,
+                eventWrapper: DroppableEventWrapper,
                 toolbar: () => null,
                 month: {
                   dateHeader: MonthDateHeader,
@@ -745,6 +844,22 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         />
       )}
 
-    </div>
+      </div>
+      
+      {/* Drag Overlay - shows visual feedback during drag */}
+      <DragOverlay>
+        {activeDragStaff && (
+          <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium shadow-lg ${ROLE_CONFIG[activeDragStaff.role as keyof typeof ROLE_CONFIG]?.bgClass || 'bg-gray-100'} border-2 border-primary`}>
+            {(() => {
+              const config = ROLE_CONFIG[activeDragStaff.role as keyof typeof ROLE_CONFIG];
+              const Icon = config?.icon || User;
+              return <Icon className={`h-4 w-4 ${config?.colorClass}`} />;
+            })()}
+            <span>{activeDragStaff.name}</span>
+          </div>
+        )}
+      </DragOverlay>
+      </>
+    </DndContext>
   );
 }
