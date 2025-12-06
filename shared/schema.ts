@@ -39,6 +39,7 @@ export const users = pgTable("users", {
   resetToken: varchar("reset_token"), // Password reset token
   resetTokenExpiry: timestamp("reset_token_expiry"), // Token expiration time
   canLogin: boolean("can_login").default(true).notNull(), // Whether user can log into the app
+  isStaffOnly: boolean("is_staff_only").default(false).notNull(), // Staff-only members (no app access, auto-generated credentials)
   staffType: varchar("staff_type", { enum: ["internal", "external"] }).default("internal").notNull(), // Internal (clinic) or external (rented/temp)
   hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }), // Hourly pay rate for cost calculations
   createdAt: timestamp("created_at").defaultNow(),
