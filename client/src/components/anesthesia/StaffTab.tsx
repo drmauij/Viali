@@ -10,18 +10,19 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, X, User, UserCog, Stethoscope, Syringe, HeartPulse, Users, ChevronDown, Edit2, Trash2, BedDouble, UserPlus, FileText } from 'lucide-react';
+import { Plus, X, User, UserCog, Stethoscope, Syringe, HeartPulse, Users, ChevronDown, Edit2, Trash2, BedDouble, UserPlus, FileText, ClipboardCopy, CalendarClock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveHospital } from '@/hooks/useActiveHospital';
 import { useCreateStaff, useUpdateStaff, useDeleteStaff, type StaffRole } from '@/hooks/useStaffQuery';
 import { apiRequest } from '@/lib/queryClient';
-import type { SurgeryStaffEntry } from '@shared/schema';
+import type { SurgeryStaffEntry, PlannedSurgeryStaff } from '@shared/schema';
 
 interface StaffTabProps {
   anesthesiaRecordId: string | undefined;
   hospitalId: string | undefined;
   anesthesiaUnitId: string | undefined;
+  surgeryId?: string | undefined;
   readOnly?: boolean;
 }
 
@@ -54,6 +55,7 @@ export function StaffTab({
   anesthesiaRecordId,
   hospitalId,
   anesthesiaUnitId,
+  surgeryId,
   readOnly = false,
 }: StaffTabProps) {
   const { t } = useTranslation();
@@ -73,6 +75,16 @@ export function StaffTab({
   const { data: staffEntries = [], isLoading } = useQuery<SurgeryStaffEntry[]>({
     queryKey: [`/api/anesthesia/staff/${anesthesiaRecordId}`],
     enabled: !!anesthesiaRecordId,
+  });
+
+  const { data: plannedStaff = [] } = useQuery<PlannedSurgeryStaff[]>({
+    queryKey: ['/api/planned-staff', surgeryId],
+    queryFn: async () => {
+      const res = await fetch(`/api/planned-staff/${surgeryId}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch planned staff');
+      return res.json();
+    },
+    enabled: !!surgeryId,
   });
 
   const { data: staffOptions = [] } = useQuery<any[]>({
@@ -125,6 +137,69 @@ export function StaffTab({
 
     return grouped;
   }, [staffEntries]);
+
+  const plannedByRole = useMemo(() => {
+    const grouped: Record<StaffRole, PlannedSurgeryStaff[]> = {
+      surgeon: [],
+      surgicalAssistant: [],
+      instrumentNurse: [],
+      circulatingNurse: [],
+      anesthesiologist: [],
+      anesthesiaNurse: [],
+      pacuNurse: [],
+    };
+
+    plannedStaff.forEach((entry) => {
+      if (grouped[entry.role as StaffRole]) {
+        grouped[entry.role as StaffRole].push(entry);
+      }
+    });
+
+    return grouped;
+  }, [plannedStaff]);
+
+  const copyPlannedStaffMutation = useMutation({
+    mutationFn: async () => {
+      const results = await Promise.allSettled(
+        plannedStaff.map(entry =>
+          apiRequest('POST', `/api/anesthesia/staff`, {
+            anesthesiaRecordId,
+            role: entry.role,
+            name: entry.name,
+            userId: entry.userId,
+            createdBy: user?.id || null,
+          })
+        )
+      );
+      
+      const successful = results.filter(r => r.status === 'fulfilled').length;
+      const failed = results.filter(r => r.status === 'rejected').length;
+      
+      return { successful, failed, total: plannedStaff.length };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/staff/${anesthesiaRecordId}`] });
+      
+      if (data.failed === 0) {
+        toast({ title: t('common.success'), description: t('staffPool.copiedToRecord', 'Planned staff copied to record') });
+      } else if (data.successful > 0) {
+        toast({ 
+          title: t('common.warning', 'Warning'), 
+          description: t('staffPool.partialCopy', `${data.successful} of ${data.total} staff copied. ${data.failed} may already exist.`),
+          variant: 'default',
+        });
+      } else {
+        toast({ 
+          title: t('common.error'), 
+          description: t('staffPool.copyError', 'Failed to copy planned staff - they may already exist in the record'), 
+          variant: 'destructive' 
+        });
+      }
+    },
+    onError: () => {
+      toast({ title: t('common.error'), description: t('staffPool.copyError', 'Failed to copy planned staff'), variant: 'destructive' });
+    },
+  });
 
   const handleAddStaff = async (role: StaffRole, name: string, userId?: string | null) => {
     if (!anesthesiaRecordId || !name.trim()) return;
@@ -255,6 +330,52 @@ export function StaffTab({
 
   return (
     <div className="space-y-4">
+      {plannedStaff.length > 0 && (
+        <Card className="border-l-4 border-l-amber-500 bg-amber-50/50 dark:bg-amber-950/20" data-testid="card-planned-staff">
+          <CardHeader className="py-3 px-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <CalendarClock className="h-4 w-4 text-amber-600" />
+                {t('staffPool.plannedStaff', 'Planned Staff')}
+                <Badge variant="secondary" className="text-xs">{plannedStaff.length}</Badge>
+              </CardTitle>
+              {!readOnly && anesthesiaRecordId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyPlannedStaffMutation.mutate()}
+                  disabled={copyPlannedStaffMutation.isPending}
+                  data-testid="button-copy-planned-staff"
+                >
+                  <ClipboardCopy className="h-4 w-4 mr-1" />
+                  {t('staffPool.copyToActual', 'Copy to Record')}
+                </Button>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent className="py-2 px-4">
+            <div className="flex flex-wrap gap-2">
+              {plannedStaff.map((entry) => {
+                const config = ROLE_CONFIG[entry.role as StaffRole];
+                const Icon = config?.icon || User;
+                return (
+                  <Badge
+                    key={entry.id}
+                    variant="secondary"
+                    className={`${config?.colorClass || 'bg-gray-100 text-gray-800'} flex items-center gap-1`}
+                    data-testid={`badge-planned-staff-${entry.id}`}
+                  >
+                    <Icon className="h-3 w-3" />
+                    <span>{entry.name}</span>
+                    <span className="text-xs opacity-60">({t(config?.labelKey || entry.role)})</span>
+                  </Badge>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {ROLE_ORDER.map((role) => {
         const config = ROLE_CONFIG[role];
         const Icon = config.icon;

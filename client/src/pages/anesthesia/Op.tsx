@@ -1370,6 +1370,7 @@ export default function Op() {
               anesthesiaRecordId={anesthesiaRecord?.id}
               hospitalId={activeHospital?.id}
               anesthesiaUnitId={anesthesiaRecord?.anesthesiaUnitId}
+              surgeryId={surgeryId}
               readOnly={!!anesthesiaRecord?.isLocked}
             />
           </TabsContent>
