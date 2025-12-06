@@ -168,3 +168,19 @@ Core design decisions include:
 **AI Services:**
 - OpenAI Vision API
 - OpenAI GPT-4
+
+## Planned Features (For Later Implementation)
+
+### Exoscale Object Storage Integration
+**Status**: Deferred (current base64 storage in PostgreSQL is sufficient for signatures + 1-2 photos per surgery)
+
+**When to implement**: When adding patient document scanning, pre-surgery evaluation photos, or when database backup times slow down.
+
+**Implementation tasks**:
+1. Install AWS S3 SDK for Exoscale SOS compatibility (`@aws-sdk/client-s3`)
+2. Create Exoscale storage service (`server/services/exoscaleStorage.ts`) with upload/download/delete methods
+3. Add API routes for file operations (upload, retrieve, delete)
+4. Update pre-surgery evaluation to use Exoscale storage for patient photos
+5. Configure environment variables: `EXOSCALE_API_KEY`, `EXOSCALE_API_SECRET`, `EXOSCALE_BUCKET`, `EXOSCALE_ZONE`
+
+**Why Exoscale over Replit storage**: Swiss data residency, lower latency (same infrastructure as deployment), healthcare compliance, cost control.
