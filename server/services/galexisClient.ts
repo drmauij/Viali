@@ -60,7 +60,7 @@ export interface PriceData {
   conditionType?: string;
 }
 
-const DEFAULT_BASE_URL = 'https://pos.e-galexis.com/posV2';
+const DEFAULT_BASE_URL = 'https://pos.e-galexis.com/POS';
 
 export class GalexisClient {
   private customerNumber: string;
@@ -114,11 +114,11 @@ export class GalexisClient {
       
       console.log('[Galexis] Fetching customer conditions...');
       
-      const response = await fetch(`${this.baseUrl}/customerSpecificConditions`, {
+      const response = await fetch(`${this.baseUrl}/`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/xml',
-          'Accept': 'application/xml',
+          'Content-Type': 'text/xml; charset=utf-8',
+          'Accept': 'text/xml',
         },
         body: requestXml,
       });
