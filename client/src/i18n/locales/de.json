@@ -632,7 +632,19 @@
     "recurrencyRequired": "Wiederholung ist erforderlich",
     "locationRequired": "Standort ist erforderlich",
     "atLeastOneItem": "Mindestens ein Checklistenelement ist erforderlich",
-    "itemRequired": "Elementtext ist erforderlich"
+    "itemRequired": "Elementtext ist erforderlich",
+    "appUsers": "App-Benutzer",
+    "staffMembers": "Mitarbeiter",
+    "createStaffMember": "Mitarbeiter erstellen",
+    "editStaffMember": "Mitarbeiter bearbeiten",
+    "convertToAppUser": "In App-Benutzer umwandeln",
+    "convertToStaffMember": "In Mitarbeiter umwandeln",
+    "staffMemberCreated": "Mitarbeiter erfolgreich erstellt",
+    "convertedToAppUser": "Benutzer in App-Benutzer umgewandelt",
+    "convertedToStaffMember": "Benutzer in Mitarbeiter umgewandelt",
+    "noStaffMembers": "Keine Mitarbeiter",
+    "noStaffMembersMessage": "Erstellen Sie Mitarbeiter nur für Nachverfolgungszwecke.",
+    "staffMemberDescription": "Mitarbeiter dienen nur der Nachverfolgung und können sich nicht in die App einloggen."
   },
   "scan": {
     "title": "Scannen",

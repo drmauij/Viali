@@ -632,7 +632,19 @@
     "recurrencyRequired": "Recurrency is required",
     "locationRequired": "Location is required",
     "atLeastOneItem": "At least one checklist item is required",
-    "itemRequired": "Item text is required"
+    "itemRequired": "Item text is required",
+    "appUsers": "App Users",
+    "staffMembers": "Staff Members",
+    "createStaffMember": "Create Staff Member",
+    "editStaffMember": "Edit Staff Member",
+    "convertToAppUser": "Convert to App User",
+    "convertToStaffMember": "Convert to Staff Member",
+    "staffMemberCreated": "Staff member created successfully",
+    "convertedToAppUser": "User converted to app user",
+    "convertedToStaffMember": "User converted to staff member",
+    "noStaffMembers": "No Staff Members",
+    "noStaffMembersMessage": "Create staff members for tracking purposes only.",
+    "staffMemberDescription": "Staff members are for tracking only and cannot log into the app."
   },
   "scan": {
     "title": "Scan",
