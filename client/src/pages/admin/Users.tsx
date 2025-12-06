@@ -11,7 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
-import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail, Users as UsersIcon, UserCog, ArrowRightLeft } from "lucide-react";
 import type { Unit, UserHospitalRole, User } from "@shared/schema";
 
 // Generate a secure random password
@@ -83,6 +84,18 @@ export default function Users() {
   const [existingUserInfo, setExistingUserInfo] = useState<User | null>(null);
   const [existingUserAlreadyInHospital, setExistingUserAlreadyInHospital] = useState(false);
 
+  // Tab state for user types
+  const [activeTab, setActiveTab] = useState<"appUsers" | "staffMembers">("appUsers");
+
+  // Staff member dialog states
+  const [staffMemberDialogOpen, setStaffMemberDialogOpen] = useState(false);
+  const [staffMemberForm, setStaffMemberForm] = useState({
+    firstName: "",
+    lastName: "",
+    unitId: "",
+    role: "",
+  });
+
   // Check if user is admin
   const isAdmin = activeHospital?.role === "admin";
 
@@ -127,6 +140,15 @@ export default function Users() {
     
     return Array.from(grouped.values());
   }, [rawUsers]);
+
+  // Filter users into app users and staff members
+  const appUsers = useMemo(() => {
+    return users.filter(u => !u.user.isStaffOnly);
+  }, [users]);
+
+  const staffMembers = useMemo(() => {
+    return users.filter(u => u.user.isStaffOnly);
+  }, [users]);
 
   // User mutations
   const createUserRoleMutation = useMutation({
@@ -329,6 +351,61 @@ export default function Users() {
     },
   });
 
+  // Create staff member mutation (auto-generated credentials, no login access)
+  const createStaffMemberMutation = useMutation({
+    mutationFn: async (data: { firstName: string; lastName: string; unitId: string; role: string }) => {
+      const dummyEmail = `staff_${crypto.randomUUID()}@internal.local`;
+      const dummyPassword = generateSecurePassword(16);
+      
+      const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/users/create`, {
+        email: dummyEmail,
+        password: dummyPassword,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        unitId: data.unitId,
+        role: data.role,
+        isStaffOnly: true,
+        canLogin: false,
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        throw { ...result, status: response.status };
+      }
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+      setStaffMemberDialogOpen(false);
+      setStaffMemberForm({ firstName: "", lastName: "", unitId: "", role: "" });
+      toast({ title: t("common.success"), description: t("admin.staffMemberCreated") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToCreateUser"), variant: "destructive" });
+    },
+  });
+
+  // Convert user between app user and staff member
+  const convertUserTypeMutation = useMutation({
+    mutationFn: async ({ userId, isStaffOnly }: { userId: string; isStaffOnly: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/access`, {
+        isStaffOnly,
+        canLogin: !isStaffOnly,
+        hospitalId: activeHospital?.id,
+      });
+      return await response.json();
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+      toast({ 
+        title: t("common.success"), 
+        description: variables.isStaffOnly ? t("admin.convertedToStaffMember") : t("admin.convertedToAppUser") 
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateAccess"), variant: "destructive" });
+    },
+  });
+
   const resetUserForm = () => {
     setUserForm({ email: "", password: "", firstName: "", lastName: "", unitId: "", role: "" });
   };
@@ -336,6 +413,33 @@ export default function Users() {
   const handleCreateUser = () => {
     resetUserForm();
     setUserDialogOpen(true);
+  };
+
+  const handleCreateStaffMember = () => {
+    setStaffMemberForm({ firstName: "", lastName: "", unitId: "", role: "" });
+    setStaffMemberDialogOpen(true);
+  };
+
+  const handleSaveStaffMember = () => {
+    if (!staffMemberForm.firstName || !staffMemberForm.lastName || !staffMemberForm.unitId || !staffMemberForm.role) {
+      toast({ title: t("common.error"), description: t("admin.allFieldsRequired"), variant: "destructive" });
+      return;
+    }
+    createStaffMemberMutation.mutate(staffMemberForm);
+  };
+
+  const handleConvertUser = (user: GroupedHospitalUser) => {
+    const newIsStaffOnly = !user.user.isStaffOnly;
+    const confirmMessage = newIsStaffOnly 
+      ? t("admin.confirmConvertToStaffMember", { name: `${user.user.firstName} ${user.user.lastName}` })
+      : t("admin.confirmConvertToAppUser", { name: `${user.user.firstName} ${user.user.lastName}` });
+    
+    if (window.confirm(confirmMessage)) {
+      convertUserTypeMutation.mutate({
+        userId: user.user.id,
+        isStaffOnly: newIsStaffOnly,
+      });
+    }
   };
 
   const [editEmail, setEditEmail] = useState("");
@@ -563,117 +667,178 @@ export default function Users() {
     );
   }
 
+  const renderUserCard = (user: GroupedHospitalUser, isStaffMember: boolean) => (
+    <div key={user.user.id} className="bg-card border border-border rounded-lg p-4" data-testid={`user-${user.user.id}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-semibold text-foreground">
+              {user.user.firstName} {user.user.lastName}
+            </h3>
+            {!isStaffMember && (
+              <>
+                <button
+                  onClick={() => updateUserAccessMutation.mutate({
+                    userId: user.user.id,
+                    canLogin: user.user.canLogin === false,
+                  })}
+                  disabled={updateUserAccessMutation.isPending}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                    user.user.canLogin !== false
+                      ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400'
+                  }`}
+                  title={user.user.canLogin !== false ? t("admin.clickToDisableLogin") : t("admin.clickToEnableLogin")}
+                  data-testid={`badge-can-login-${user.user.id}`}
+                >
+                  {user.user.canLogin !== false ? (
+                    <><UserCheck className="h-3 w-3" />{t("admin.canLoginEnabled")}</>
+                  ) : (
+                    <><UserX className="h-3 w-3" />{t("admin.canLoginDisabled")}</>
+                  )}
+                </button>
+              </>
+            )}
+            <button
+              onClick={() => updateUserAccessMutation.mutate({
+                userId: user.user.id,
+                staffType: user.user.staffType === 'external' ? 'internal' : 'external',
+              })}
+              disabled={updateUserAccessMutation.isPending}
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+                user.user.staffType === 'external'
+                  ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400'
+                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400'
+              }`}
+              title={user.user.staffType === 'external' ? t("admin.clickToSetInternal") : t("admin.clickToSetExternal")}
+              data-testid={`badge-staff-type-${user.user.id}`}
+            >
+              {user.user.staffType === 'external' ? (
+                <><ExternalLink className="h-3 w-3" />{t("admin.staffTypeExternal")}</>
+              ) : (
+                <><Building2 className="h-3 w-3" />{t("admin.staffTypeInternal")}</>
+              )}
+            </button>
+          </div>
+          {!isStaffMember && (
+            <p className="text-sm text-muted-foreground">{user.user.email}</p>
+          )}
+          <div className="flex flex-wrap gap-2 mt-2">
+            {user.roles.map((roleInfo, idx) => (
+              <div key={idx} className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
+                <span className="text-xs font-medium text-primary">{getRoleName(roleInfo.role)}</span>
+                <span className="text-xs text-primary/60 mx-1.5">@</span>
+                <span className="text-xs text-primary/80">{roleInfo.units?.name || 'N/A'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleConvertUser(user)}
+            data-testid={`button-convert-user-${user.user.id}`}
+            title={isStaffMember ? t("admin.convertToAppUser") : t("admin.convertToStaffMember")}
+          >
+            <ArrowRightLeft className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleEditUser(user)}
+            data-testid={`button-edit-user-${user.user.id}`}
+            title={t("admin.editUser")}
+          >
+            <i className="fas fa-user-edit"></i>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleDeleteUser(user)}
+            data-testid={`button-delete-user-${user.user.id}`}
+            title={t("admin.deleteUser")}
+          >
+            <i className="fas fa-trash text-destructive"></i>
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="p-4 space-y-4">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-foreground">{t("admin.usersAndRoles")}</h1>
-        <Button onClick={handleCreateUser} size="sm" data-testid="button-create-user">
-          <i className="fas fa-user-plus mr-2"></i>
-          {t("admin.createNewUser")}
-        </Button>
       </div>
 
       {usersLoading ? (
         <div className="text-center py-8">
           <i className="fas fa-spinner fa-spin text-2xl text-primary"></i>
         </div>
-      ) : users.length === 0 ? (
-        <div className="bg-card border border-border rounded-lg p-8 text-center">
-          <i className="fas fa-users text-4xl text-muted-foreground mb-4"></i>
-          <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noUsers")}</h3>
-          <p className="text-muted-foreground mb-4">{t("admin.noUsersMessage")}</p>
-          <Button onClick={handleCreateUser} size="sm">
-            <i className="fas fa-user-plus mr-2"></i>
-            {t("admin.createNewUser")}
-          </Button>
-        </div>
       ) : (
-        <div className="space-y-2">
-          {users.map((user) => (
-            <div key={user.user.id} className="bg-card border border-border rounded-lg p-4" data-testid={`user-${user.user.id}`}>
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-foreground">
-                      {user.user.firstName} {user.user.lastName}
-                    </h3>
-                    {/* Quick status badges */}
-                    <button
-                      onClick={() => updateUserAccessMutation.mutate({
-                        userId: user.user.id,
-                        canLogin: user.user.canLogin === false,
-                      })}
-                      disabled={updateUserAccessMutation.isPending}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                        user.user.canLogin !== false
-                          ? 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400'
-                          : 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400'
-                      }`}
-                      title={user.user.canLogin !== false ? t("admin.clickToDisableLogin") : t("admin.clickToEnableLogin")}
-                      data-testid={`badge-can-login-${user.user.id}`}
-                    >
-                      {user.user.canLogin !== false ? (
-                        <><UserCheck className="h-3 w-3" />{t("admin.canLoginEnabled")}</>
-                      ) : (
-                        <><UserX className="h-3 w-3" />{t("admin.canLoginDisabled")}</>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => updateUserAccessMutation.mutate({
-                        userId: user.user.id,
-                        staffType: user.user.staffType === 'external' ? 'internal' : 'external',
-                      })}
-                      disabled={updateUserAccessMutation.isPending}
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
-                        user.user.staffType === 'external'
-                          ? 'bg-orange-100 text-orange-700 hover:bg-orange-200 dark:bg-orange-900/30 dark:text-orange-400'
-                          : 'bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-900/30 dark:text-blue-400'
-                      }`}
-                      title={user.user.staffType === 'external' ? t("admin.clickToSetInternal") : t("admin.clickToSetExternal")}
-                      data-testid={`badge-staff-type-${user.user.id}`}
-                    >
-                      {user.user.staffType === 'external' ? (
-                        <><ExternalLink className="h-3 w-3" />{t("admin.staffTypeExternal")}</>
-                      ) : (
-                        <><Building2 className="h-3 w-3" />{t("admin.staffTypeInternal")}</>
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{user.user.email}</p>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {user.roles.map((roleInfo, idx) => (
-                      <div key={idx} className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
-                        <span className="text-xs font-medium text-primary">{getRoleName(roleInfo.role)}</span>
-                        <span className="text-xs text-primary/60 mx-1.5">@</span>
-                        <span className="text-xs text-primary/80">{roleInfo.units?.name || 'N/A'}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleEditUser(user)}
-                    data-testid={`button-edit-user-${user.user.id}`}
-                    title={t("admin.editUser")}
-                  >
-                    <i className="fas fa-user-edit"></i>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDeleteUser(user)}
-                    data-testid={`button-delete-user-${user.user.id}`}
-                    title={t("admin.deleteUser")}
-                  >
-                    <i className="fas fa-trash text-destructive"></i>
-                  </Button>
-                </div>
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "appUsers" | "staffMembers")} className="w-full">
+          <div className="flex justify-between items-center mb-4">
+            <TabsList>
+              <TabsTrigger value="appUsers" className="flex items-center gap-2" data-testid="tab-app-users">
+                <UsersIcon className="h-4 w-4" />
+                {t("admin.appUsers")} ({appUsers.length})
+              </TabsTrigger>
+              <TabsTrigger value="staffMembers" className="flex items-center gap-2" data-testid="tab-staff-members">
+                <UserCog className="h-4 w-4" />
+                {t("admin.staffMembers")} ({staffMembers.length})
+              </TabsTrigger>
+            </TabsList>
+            {activeTab === "appUsers" ? (
+              <Button onClick={handleCreateUser} size="sm" data-testid="button-create-user">
+                <i className="fas fa-user-plus mr-2"></i>
+                {t("admin.createNewUser")}
+              </Button>
+            ) : (
+              <Button onClick={handleCreateStaffMember} size="sm" data-testid="button-create-staff-member">
+                <UserCog className="mr-2 h-4 w-4" />
+                {t("admin.createStaffMember")}
+              </Button>
+            )}
+          </div>
+
+          <TabsContent value="appUsers">
+            {appUsers.length === 0 ? (
+              <div className="bg-card border border-border rounded-lg p-8 text-center">
+                <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noUsers")}</h3>
+                <p className="text-muted-foreground mb-4">{t("admin.noUsersMessage")}</p>
+                <Button onClick={handleCreateUser} size="sm">
+                  <i className="fas fa-user-plus mr-2"></i>
+                  {t("admin.createNewUser")}
+                </Button>
               </div>
-            </div>
-          ))}
-        </div>
+            ) : (
+              <div className="space-y-2">
+                {appUsers.map((user) => renderUserCard(user, false))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="staffMembers">
+            <p className="text-sm text-muted-foreground mb-4">{t("admin.staffMemberDescription")}</p>
+            {staffMembers.length === 0 ? (
+              <div className="bg-card border border-border rounded-lg p-8 text-center">
+                <UserCog className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noStaffMembers")}</h3>
+                <p className="text-muted-foreground mb-4">{t("admin.noStaffMembersMessage")}</p>
+                <Button onClick={handleCreateStaffMember} size="sm">
+                  <UserCog className="mr-2 h-4 w-4" />
+                  {t("admin.createStaffMember")}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {staffMembers.map((user) => renderUserCard(user, true))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
 
       {/* Create User Dialog */}
@@ -784,6 +949,87 @@ export default function Users() {
                 onClick={handleSaveUser}
                 disabled={createUserMutation.isPending}
                 data-testid="button-save-user"
+              >
+                {t("common.save")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Staff Member Dialog */}
+      <Dialog open={staffMemberDialogOpen} onOpenChange={setStaffMemberDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("admin.createStaffMember")}</DialogTitle>
+            <DialogDescription>
+              {t("admin.staffMemberDescription")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label htmlFor="staff-first-name">{t("admin.firstName")} *</Label>
+                <Input
+                  id="staff-first-name"
+                  value={staffMemberForm.firstName}
+                  onChange={(e) => setStaffMemberForm({ ...staffMemberForm, firstName: e.target.value })}
+                  placeholder={t("admin.firstNamePlaceholder")}
+                  data-testid="input-staff-first-name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="staff-last-name">{t("admin.lastName")} *</Label>
+                <Input
+                  id="staff-last-name"
+                  value={staffMemberForm.lastName}
+                  onChange={(e) => setStaffMemberForm({ ...staffMemberForm, lastName: e.target.value })}
+                  placeholder={t("admin.lastNamePlaceholder")}
+                  data-testid="input-staff-last-name"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="staff-units">{t("admin.units")} *</Label>
+              <Select
+                value={staffMemberForm.unitId}
+                onValueChange={(value) => setStaffMemberForm({ ...staffMemberForm, unitId: value })}
+              >
+                <SelectTrigger data-testid="select-staff-units">
+                  <SelectValue placeholder={t("admin.selectLocation")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {units.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id}>
+                      {unit.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="staff-role">{t("admin.role")} *</Label>
+              <Select
+                value={staffMemberForm.role}
+                onValueChange={(value) => setStaffMemberForm({ ...staffMemberForm, role: value })}
+              >
+                <SelectTrigger data-testid="select-staff-role">
+                  <SelectValue placeholder={t("admin.selectRole")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
+                  <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setStaffMemberDialogOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={handleSaveStaffMember}
+                disabled={createStaffMemberMutation.isPending}
+                data-testid="button-save-staff-member"
               >
                 {t("common.save")}
               </Button>

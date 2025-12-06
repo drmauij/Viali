@@ -644,7 +644,9 @@
     "convertedToStaffMember": "User converted to staff member",
     "noStaffMembers": "No Staff Members",
     "noStaffMembersMessage": "Create staff members for tracking purposes only.",
-    "staffMemberDescription": "Staff members are for tracking only and cannot log into the app."
+    "staffMemberDescription": "Staff members are for tracking only and cannot log into the app.",
+    "confirmConvertToStaffMember": "Convert {{name}} to a staff member? They will no longer be able to log into the app.",
+    "confirmConvertToAppUser": "Convert {{name}} to an app user? They will be able to log into the app."
   },
   "scan": {
     "title": "Scan",

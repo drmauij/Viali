@@ -644,7 +644,9 @@
     "convertedToStaffMember": "Benutzer in Mitarbeiter umgewandelt",
     "noStaffMembers": "Keine Mitarbeiter",
     "noStaffMembersMessage": "Erstellen Sie Mitarbeiter nur für Nachverfolgungszwecke.",
-    "staffMemberDescription": "Mitarbeiter dienen nur der Nachverfolgung und können sich nicht in die App einloggen."
+    "staffMemberDescription": "Mitarbeiter dienen nur der Nachverfolgung und können sich nicht in die App einloggen.",
+    "confirmConvertToStaffMember": "{{name}} in einen Mitarbeiter umwandeln? Sie können sich dann nicht mehr in die App einloggen.",
+    "confirmConvertToAppUser": "{{name}} in einen App-Benutzer umwandeln? Sie können sich dann in die App einloggen."
   },
   "scan": {
     "title": "Scannen",

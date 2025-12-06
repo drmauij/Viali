@@ -497,7 +497,7 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
 router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { email, password, firstName, lastName, unitId, role } = req.body;
+    const { email, password, firstName, lastName, unitId, role, isStaffOnly, canLogin } = req.body;
     
     if (!email || !password || !firstName || !lastName || !unitId || !role) {
       return res.status(400).json({ message: "All fields are required" });
@@ -519,7 +519,15 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
 
     const newUser = await storage.createUserWithPassword(email, password, firstName, lastName);
 
-    await db.update(users).set({ mustChangePassword: true }).where(eq(users.id, newUser.id));
+    // Set isStaffOnly and canLogin if provided (for staff member creation)
+    const updateData: any = { mustChangePassword: true };
+    if (isStaffOnly !== undefined) {
+      updateData.isStaffOnly = isStaffOnly;
+    }
+    if (canLogin !== undefined) {
+      updateData.canLogin = canLogin;
+    }
+    await db.update(users).set(updateData).where(eq(users.id, newUser.id));
 
     await storage.createUserHospitalRole({
       userId: newUser.id,
@@ -699,11 +707,11 @@ router.post('/api/admin/users/:userId/reset-password', isAuthenticated, requireW
   }
 });
 
-// Update user access settings (canLogin and staffType)
+// Update user access settings (canLogin, staffType, isStaffOnly)
 router.patch('/api/admin/users/:userId/access', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { userId } = req.params;
-    const { canLogin, staffType, hospitalId } = req.body;
+    const { canLogin, staffType, isStaffOnly, hospitalId } = req.body;
     
     // Validate hospitalId is provided
     if (!hospitalId) {
@@ -737,18 +745,26 @@ router.patch('/api/admin/users/:userId/access', isAuthenticated, requireWriteAcc
     }
 
     // Build update object
-    const updateData: { canLogin?: boolean; staffType?: 'internal' | 'external' } = {};
+    const updateData: { canLogin?: boolean; staffType?: 'internal' | 'external'; isStaffOnly?: boolean } = {};
     if (canLogin !== undefined) {
       updateData.canLogin = canLogin;
     }
     if (staffType !== undefined) {
       updateData.staffType = staffType as 'internal' | 'external';
     }
+    if (isStaffOnly !== undefined) {
+      updateData.isStaffOnly = isStaffOnly;
+    }
 
     // Update user
     await db.update(users).set(updateData).where(eq(users.id, userId));
 
-    res.json({ success: true, canLogin: canLogin ?? targetUser.canLogin, staffType: staffType ?? targetUser.staffType });
+    res.json({ 
+      success: true, 
+      canLogin: canLogin ?? targetUser.canLogin, 
+      staffType: staffType ?? targetUser.staffType,
+      isStaffOnly: isStaffOnly ?? targetUser.isStaffOnly
+    });
   } catch (error) {
     console.error("Error updating user access settings:", error);
     res.status(500).json({ message: "Failed to update user access settings" });
