@@ -261,6 +261,8 @@ router.get('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req,
         firstName: u.user.firstName,
         lastName: u.user.lastName,
         profileImageUrl: u.user.profileImageUrl,
+        canLogin: u.user.canLogin,
+        staffType: u.user.staffType,
         createdAt: u.user.createdAt,
         updatedAt: u.user.updatedAt,
       }
