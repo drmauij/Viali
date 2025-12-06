@@ -48,6 +48,8 @@ import {
   updateCountsSterileDataSchema,
   items,
   units,
+  users,
+  userHospitalRoles,
   medicationConfigs,
   anesthesiaRecords,
   vitalsSnapshots,
@@ -65,6 +67,7 @@ import {
   getUserRole,
   requireWriteAccess,
 } from "../utils";
+import { requireAdminRole } from "./middleware";
 import { broadcastAnesthesiaUpdate } from "../socket";
 import {
   analyzeMonitorImage,
@@ -3716,6 +3719,91 @@ router.get('/api/anesthesia/staff-options/:hospitalId', isAuthenticated, async (
   } catch (error) {
     console.error("Error fetching staff options:", error);
     res.status(500).json({ message: "Failed to fetch staff options" });
+  }
+});
+
+router.post('/api/anesthesia/staff-user/:hospitalId', isAuthenticated, requireAdminRole, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { name, staffRole } = req.body;
+
+    if (!name || typeof name !== 'string' || !name.trim()) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+
+    if (!staffRole) {
+      return res.status(400).json({ message: "Staff role is required" });
+    }
+
+    const nameParts = name.trim().split(' ');
+    const firstName = nameParts[0] || name.trim();
+    const lastName = nameParts.slice(1).join(' ') || '';
+
+    const { nanoid } = await import('nanoid');
+    const newUserId = nanoid();
+    const uniqueSuffix = nanoid(8);
+    const dummyEmail = `${firstName.toLowerCase().replace(/[^a-z0-9]/g, '')}.${lastName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'staff'}.${uniqueSuffix}@staff.local`;
+
+    const existingUser = await storage.searchUserByEmail(dummyEmail);
+    if (existingUser) {
+      return res.status(409).json({ message: "A user with this email already exists. Please try again." });
+    }
+
+    const roleToUnitAndUserRole: Record<string, { unitType: 'surgery' | 'anesthesia'; userRole: string }> = {
+      surgeon: { unitType: 'surgery', userRole: 'doctor' },
+      surgicalAssistant: { unitType: 'surgery', userRole: 'nurse' },
+      instrumentNurse: { unitType: 'surgery', userRole: 'nurse' },
+      circulatingNurse: { unitType: 'surgery', userRole: 'nurse' },
+      anesthesiologist: { unitType: 'anesthesia', userRole: 'doctor' },
+      anesthesiaNurse: { unitType: 'anesthesia', userRole: 'nurse' },
+      pacuNurse: { unitType: 'anesthesia', userRole: 'nurse' },
+    };
+
+    const roleConfig = roleToUnitAndUserRole[staffRole];
+    if (!roleConfig) {
+      return res.status(400).json({ message: "Invalid staff role" });
+    }
+
+    const allUnits = await storage.getUnits(hospitalId);
+    const targetUnit = allUnits.find(u => 
+      roleConfig.unitType === 'surgery' ? u.isSurgeryModule : u.isAnesthesiaModule
+    );
+
+    if (!targetUnit) {
+      return res.status(400).json({ message: `No ${roleConfig.unitType} unit found for this hospital` });
+    }
+
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        id: newUserId,
+        email: dummyEmail,
+        firstName,
+        lastName: lastName || null,
+        canLogin: false,
+        staffType: 'internal',
+      })
+      .returning();
+
+    await db
+      .insert(userHospitalRoles)
+      .values({
+        userId: newUser.id,
+        hospitalId,
+        unitId: targetUnit.id,
+        role: roleConfig.userRole,
+      });
+
+    res.status(201).json({
+      id: newUser.id,
+      name: `${newUser.firstName || ''} ${newUser.lastName || ''}`.trim(),
+      email: newUser.email,
+      role: roleConfig.userRole,
+      unitId: targetUnit.id,
+    });
+  } catch (error) {
+    console.error("Error creating quick staff user:", error);
+    res.status(500).json({ message: "Failed to create staff user" });
   }
 });
 
