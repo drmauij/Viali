@@ -16,6 +16,8 @@ import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
 import ExcelImportDialog from "./ExcelImportDialog";
 import TimelineWeekView from "./TimelineWeekView";
 import StaffPoolPanel from "./StaffPoolPanel";
+import MobileStaffStrip from "./MobileStaffStrip";
+import StaffAssignmentSheet from "./StaffAssignmentSheet";
 import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from "@dnd-kit/core";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
@@ -140,6 +142,9 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   });
   const [mobileStaffSheetOpen, setMobileStaffSheetOpen] = useState(false);
   const [activeDragStaff, setActiveDragStaff] = useState<any>(null);
+  
+  const [staffAssignmentOpen, setStaffAssignmentOpen] = useState(false);
+  const [selectedSurgeryForAssignment, setSelectedSurgeryForAssignment] = useState<CalendarEvent | null>(null);
   
   // Save staff panel state
   useEffect(() => {
@@ -672,23 +677,12 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
                   <Users className="h-3 w-3" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="bottom" className="h-[70vh] rounded-t-xl">
+              <SheetContent side="bottom" className="h-[50vh] rounded-t-xl px-3 pb-4">
                 <SheetHeader className="pb-2">
-                  <div className="flex items-center justify-between">
-                    <SheetTitle className="flex items-center gap-2">
-                      <Users className="h-5 w-5" />
-                      Staff Pool
-                    </SheetTitle>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={() => setMobileStaffSheetOpen(false)}
-                      data-testid="button-close-staff-sheet"
-                      className="h-8 w-8 p-0"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
+                  <SheetTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Staff Pool
+                  </SheetTitle>
                 </SheetHeader>
                 <div className="overflow-y-auto h-[calc(100%-3rem)]">
                   <StaffPoolPanel 
@@ -737,6 +731,20 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Mobile Staff Strip - visible on mobile only */}
+      {surgeryRooms.length > 0 && activeHospital && (
+        <MobileStaffStrip
+          selectedDate={selectedDate}
+          hospitalId={activeHospital.id}
+          onStaffSelect={(staff) => {
+            toast({
+              title: "Tap a surgery to assign",
+              description: `Select a surgery to assign ${staff.displayName}`,
+            });
+          }}
+        />
       )}
 
       {/* Calendar with Staff Panel */}
@@ -868,6 +876,23 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           onOpenChange={setExcelImportOpen}
           hospitalId={activeHospital.id}
           surgeryRooms={surgeryRooms}
+        />
+      )}
+
+      {/* Staff Assignment Sheet - mobile tap-to-assign */}
+      {selectedSurgeryForAssignment && activeHospital && (
+        <StaffAssignmentSheet
+          open={staffAssignmentOpen}
+          onOpenChange={(open) => {
+            setStaffAssignmentOpen(open);
+            if (!open) setSelectedSurgeryForAssignment(null);
+          }}
+          surgeryId={selectedSurgeryForAssignment.surgeryId}
+          surgeryTitle={selectedSurgeryForAssignment.plannedSurgery}
+          patientName={selectedSurgeryForAssignment.patientName}
+          surgeryTime={moment(selectedSurgeryForAssignment.start).format('HH:mm')}
+          hospitalId={activeHospital.id}
+          selectedDate={selectedDate}
         />
       )}
     </div>

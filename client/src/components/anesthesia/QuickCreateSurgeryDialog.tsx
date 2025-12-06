@@ -306,7 +306,7 @@ export default function QuickCreateSurgeryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" data-testid="dialog-quick-create-surgery">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[85vh] overflow-y-auto p-4 sm:p-6" data-testid="dialog-quick-create-surgery">
         <DialogHeader>
           <DialogTitle>{t('anesthesia.quickSchedule.title')}</DialogTitle>
         </DialogHeader>
