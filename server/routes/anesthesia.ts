@@ -61,6 +61,9 @@ import {
   anesthesiaAirwayManagement,
   dailyStaffPool,
   plannedSurgeryStaff,
+  dailyRoomStaff,
+  surgeryRooms,
+  insertDailyRoomStaffSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
@@ -4894,20 +4897,32 @@ router.get('/api/staff-pool/:hospitalId/:date', isAuthenticated, async (req: any
         )
       );
 
-    // Get planned assignments for each staff pool member
+    // Get planned assignments and room assignments for each staff pool member
     const poolWithAssignments = await Promise.all(
       staffPool.map(async (staff) => {
-        const assignments = await db
+        // Get surgery assignments (legacy)
+        const surgeryAssignments = await db
           .select({
             surgeryId: plannedSurgeryStaff.surgeryId,
           })
           .from(plannedSurgeryStaff)
           .where(eq(plannedSurgeryStaff.dailyStaffPoolId, staff.id));
         
+        // Get room assignments (new)
+        const roomAssignments = await db
+          .select({
+            roomId: dailyRoomStaff.surgeryRoomId,
+            roomName: surgeryRooms.name,
+          })
+          .from(dailyRoomStaff)
+          .innerJoin(surgeryRooms, eq(dailyRoomStaff.surgeryRoomId, surgeryRooms.id))
+          .where(eq(dailyRoomStaff.dailyStaffPoolId, staff.id));
+        
         return {
           ...staff,
-          assignedSurgeryIds: assignments.map(a => a.surgeryId),
-          isBooked: assignments.length > 0,
+          assignedSurgeryIds: surgeryAssignments.map(a => a.surgeryId),
+          assignedRooms: roomAssignments.map(r => ({ roomId: r.roomId, roomName: r.roomName })),
+          isBooked: surgeryAssignments.length > 0 || roomAssignments.length > 0,
         };
       })
     );
@@ -5162,6 +5177,257 @@ router.delete('/api/planned-staff/by-pool/:surgeryId/:dailyStaffPoolId', isAuthe
   } catch (error) {
     console.error("Error removing staff assignment:", error);
     res.status(500).json({ message: "Failed to remove staff assignment" });
+  }
+});
+
+// =====================================
+// Daily Room Staff Endpoints (Room-based staff assignments)
+// =====================================
+
+// Get all room staff assignments for a hospital on a specific date
+router.get('/api/room-staff/all/:hospitalId/:date', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId, date } = req.params;
+    const userId = req.user.id;
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Get all room staff assignments for this hospital on this date
+    const roomStaffAssignments = await db
+      .select({
+        id: dailyRoomStaff.id,
+        dailyStaffPoolId: dailyRoomStaff.dailyStaffPoolId,
+        surgeryRoomId: dailyRoomStaff.surgeryRoomId,
+        date: dailyRoomStaff.date,
+        role: dailyRoomStaff.role,
+        name: dailyRoomStaff.name,
+        userId: dailyRoomStaff.userId,
+        createdBy: dailyRoomStaff.createdBy,
+        createdAt: dailyRoomStaff.createdAt,
+        roomName: surgeryRooms.name,
+      })
+      .from(dailyRoomStaff)
+      .innerJoin(surgeryRooms, eq(dailyRoomStaff.surgeryRoomId, surgeryRooms.id))
+      .where(
+        and(
+          eq(surgeryRooms.hospitalId, hospitalId),
+          eq(dailyRoomStaff.date, date)
+        )
+      );
+
+    res.json(roomStaffAssignments);
+  } catch (error) {
+    console.error("Error fetching room staff assignments:", error);
+    res.status(500).json({ message: "Failed to fetch room staff assignments" });
+  }
+});
+
+// Get staff assigned to a specific room for a date
+router.get('/api/room-staff/:roomId/:date', isAuthenticated, async (req: any, res) => {
+  try {
+    const { roomId, date } = req.params;
+    const userId = req.user.id;
+
+    // Get the room to verify hospital access
+    const [room] = await db
+      .select()
+      .from(surgeryRooms)
+      .where(eq(surgeryRooms.id, roomId));
+
+    if (!room) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === room.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const roomStaff = await db
+      .select({
+        id: dailyRoomStaff.id,
+        dailyStaffPoolId: dailyRoomStaff.dailyStaffPoolId,
+        surgeryRoomId: dailyRoomStaff.surgeryRoomId,
+        date: dailyRoomStaff.date,
+        role: dailyRoomStaff.role,
+        name: dailyRoomStaff.name,
+        userId: dailyRoomStaff.userId,
+        createdBy: dailyRoomStaff.createdBy,
+        createdAt: dailyRoomStaff.createdAt,
+      })
+      .from(dailyRoomStaff)
+      .where(
+        and(
+          eq(dailyRoomStaff.surgeryRoomId, roomId),
+          eq(dailyRoomStaff.date, date)
+        )
+      );
+
+    res.json(roomStaff);
+  } catch (error) {
+    console.error("Error fetching room staff:", error);
+    res.status(500).json({ message: "Failed to fetch room staff" });
+  }
+});
+
+// Assign staff from pool to a room for a specific date
+router.post('/api/room-staff', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { surgeryRoomId, dailyStaffPoolId, date } = req.body;
+    const userId = req.user.id;
+
+    if (!surgeryRoomId || !dailyStaffPoolId || !date) {
+      return res.status(400).json({ message: "surgeryRoomId, dailyStaffPoolId, and date are required" });
+    }
+
+    // Get the room to verify hospital access
+    const [room] = await db
+      .select()
+      .from(surgeryRooms)
+      .where(eq(surgeryRooms.id, surgeryRoomId));
+
+    if (!room) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === room.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Get the staff pool entry
+    const [staffPoolEntry] = await db
+      .select()
+      .from(dailyStaffPool)
+      .where(eq(dailyStaffPool.id, dailyStaffPoolId));
+
+    if (!staffPoolEntry) {
+      return res.status(404).json({ message: "Staff pool entry not found" });
+    }
+
+    // Check if already assigned to this room on this date
+    const [existing] = await db
+      .select()
+      .from(dailyRoomStaff)
+      .where(
+        and(
+          eq(dailyRoomStaff.surgeryRoomId, surgeryRoomId),
+          eq(dailyRoomStaff.dailyStaffPoolId, dailyStaffPoolId),
+          eq(dailyRoomStaff.date, date)
+        )
+      );
+
+    if (existing) {
+      return res.status(409).json({ message: "Staff already assigned to this room on this date" });
+    }
+
+    const [newAssignment] = await db
+      .insert(dailyRoomStaff)
+      .values({
+        surgeryRoomId,
+        dailyStaffPoolId,
+        date,
+        role: staffPoolEntry.role,
+        name: staffPoolEntry.name,
+        userId: staffPoolEntry.userId,
+        createdBy: userId,
+      })
+      .returning();
+
+    res.status(201).json({ ...newAssignment, roomName: room.name });
+  } catch (error) {
+    console.error("Error assigning staff to room:", error);
+    res.status(500).json({ message: "Failed to assign staff to room" });
+  }
+});
+
+// Unassign staff from a room by assignment ID
+router.delete('/api/room-staff/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const [assignment] = await db
+      .select()
+      .from(dailyRoomStaff)
+      .where(eq(dailyRoomStaff.id, id));
+
+    if (!assignment) {
+      return res.status(404).json({ message: "Assignment not found" });
+    }
+
+    // Get the room to verify hospital access
+    const [room] = await db
+      .select()
+      .from(surgeryRooms)
+      .where(eq(surgeryRooms.id, assignment.surgeryRoomId));
+
+    if (!room) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === room.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    await db.delete(dailyRoomStaff).where(eq(dailyRoomStaff.id, id));
+
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error removing room staff assignment:", error);
+    res.status(500).json({ message: "Failed to remove room staff assignment" });
+  }
+});
+
+// Unassign staff from a room by pool ID and room ID (for drag-back)
+router.delete('/api/room-staff/by-pool/:roomId/:dailyStaffPoolId/:date', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { roomId, dailyStaffPoolId, date } = req.params;
+    const userId = req.user.id;
+
+    // Get the room to verify hospital access
+    const [room] = await db
+      .select()
+      .from(surgeryRooms)
+      .where(eq(surgeryRooms.id, roomId));
+
+    if (!room) {
+      return res.status(404).json({ message: "Room not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === room.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    await db
+      .delete(dailyRoomStaff)
+      .where(
+        and(
+          eq(dailyRoomStaff.surgeryRoomId, roomId),
+          eq(dailyRoomStaff.dailyStaffPoolId, dailyStaffPoolId),
+          eq(dailyRoomStaff.date, date)
+        )
+      );
+
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error removing room staff assignment:", error);
+    res.status(500).json({ message: "Failed to remove room staff assignment" });
   }
 });
 
