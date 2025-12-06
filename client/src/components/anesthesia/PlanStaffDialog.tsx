@@ -242,8 +242,14 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
   
   const selectedCount = selectedIds.size;
   
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      handleClose();
+    }
+  };
+  
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
