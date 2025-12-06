@@ -804,4 +804,35 @@ router.get('/api/price-sync-jobs/status/:jobId', isAuthenticated, async (req: an
   }
 });
 
+router.get('/api/items/:hospitalId/export-catalog', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { unitId } = req.query;
+    const userId = req.user.id;
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some(h => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const items = await storage.getItems(hospitalId, unitId);
+    
+    const itemsWithCodes = await Promise.all(items.map(async (item) => {
+      const codes = await storage.getItemCode(item.id);
+      const suppliers = await storage.getSupplierCodes(item.id);
+      return {
+        ...item,
+        codes: codes || null,
+        suppliers: suppliers || []
+      };
+    }));
+    
+    res.json(itemsWithCodes);
+  } catch (error) {
+    console.error("Error exporting catalog:", error);
+    res.status(500).json({ message: "Failed to export catalog" });
+  }
+});
+
 export default router;

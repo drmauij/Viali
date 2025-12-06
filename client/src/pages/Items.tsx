@@ -1836,8 +1836,8 @@ export default function Items() {
     link.click();
   };
 
-  const downloadItemsCatalog = () => {
-    if (!activeHospital?.name || items.length === 0) {
+  const downloadItemsCatalog = async () => {
+    if (!activeHospital?.id || !activeHospital?.name || items.length === 0) {
       toast({
         title: "No Data",
         description: "No items available to export",
@@ -1847,67 +1847,106 @@ export default function Items() {
     }
 
     try {
-      // Build folder name lookup
+      toast({
+        title: "Exporting...",
+        description: "Fetching complete item data with codes",
+      });
+
+      const response = await fetch(`/api/items/${activeHospital.id}/export-catalog?unitId=${activeHospital.unitId}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch catalog data");
+      }
+      const itemsWithCodes = await response.json();
+
       const folderMap = new Map<string, Folder>();
       folders.forEach(folder => folderMap.set(folder.id, folder));
 
-      // Build vendor name lookup
       const vendorMap = new Map<string, string>();
       vendors.forEach(vendor => vendorMap.set(vendor.id, vendor.name));
 
-      // CSV headers
       const headers = [
         'Name',
-        'Barcode',
         'Description',
         'Unit',
-        'MinUnits',
-        'MaxUnits',
-        'CurrentUnits',
-        'ReorderPoint',
+        'PackSize',
+        'MinThreshold',
+        'MaxThreshold',
+        'DefaultOrderQty',
         'TrackExactQuantity',
+        'Critical',
         'Controlled',
+        'CurrentUnits',
         'FolderName',
-        'VendorName'
+        'VendorName',
+        'ImageUrl',
+        'Barcodes',
+        'GTIN',
+        'Pharmacode',
+        'SwissmedicNr',
+        'MiGeL',
+        'ATC',
+        'Manufacturer',
+        'ManufacturerRef',
+        'PackContent',
+        'UnitsPerPack',
+        'ContentPerUnit',
+        'Abgabekategorie',
+        'PreferredSupplier',
+        'SupplierArticleCode',
+        'SupplierPrice'
       ];
 
-      // Build CSV rows from existing data
-      const rows = items.map(item => {
+      const rows = itemsWithCodes.map((item: any) => {
         const folderName = item.folderId ? (folderMap.get(item.folderId)?.name || '') : '';
         const vendorName = item.vendorId ? (vendorMap.get(item.vendorId) || '') : '';
+        const codes = item.codes || {};
+        const preferredSupplier = item.suppliers?.find((s: any) => s.isPreferred) || item.suppliers?.[0] || {};
         
         return [
           item.name || '',
-          item.barcode || '',
           item.description || '',
           item.unit || 'Pack',
+          item.packSize || 1,
           item.minThreshold || 0,
           item.maxThreshold || 0,
-          item.currentUnits || 0,
-          item.reorderPoint || 0,
+          item.defaultOrderQty || 0,
           item.trackExactQuantity ? 'true' : 'false',
+          item.critical ? 'true' : 'false',
           item.controlled ? 'true' : 'false',
+          item.currentUnits || 0,
           folderName,
-          vendorName
+          vendorName,
+          item.imageUrl || '',
+          (item.barcodes || []).join(';'),
+          codes.gtin || '',
+          codes.pharmacode || '',
+          codes.swissmedicNr || '',
+          codes.migel || '',
+          codes.atc || '',
+          codes.manufacturer || '',
+          codes.manufacturerRef || '',
+          codes.packContent || '',
+          codes.unitsPerPack || '',
+          codes.contentPerUnit || '',
+          codes.abgabekategorie || '',
+          preferredSupplier.supplierName || '',
+          preferredSupplier.articleCode || '',
+          preferredSupplier.basispreis || preferredSupplier.publikumspreis || ''
         ];
       });
 
-      // Combine headers and rows
       const csvData = [headers, ...rows];
       
-      // Convert to CSV string with proper escaping
       const csvContent = csvData.map(row => 
         row.map(cell => {
           const cellStr = String(cell);
-          // Escape quotes and wrap in quotes if contains comma, quote, or newline
-          if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+          if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes(';')) {
             return `"${cellStr.replace(/"/g, '""')}"`;
           }
           return cellStr;
         }).join(',')
       ).join('\n');
 
-      // Download the CSV file
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
@@ -1916,7 +1955,7 @@ export default function Items() {
 
       toast({
         title: "Export Complete",
-        description: `Exported ${items.length} items successfully`,
+        description: `Exported ${itemsWithCodes.length} items with codes successfully`,
       });
     } catch (error: any) {
       toast({
