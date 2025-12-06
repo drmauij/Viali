@@ -3318,9 +3318,9 @@ export default function Items() {
 
       {/* Edit Item Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0">
-          {/* Sticky Header */}
-          <div className="sticky top-0 bg-background z-10 px-6 pt-6 pb-4 border-b">
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          {/* Fixed Header */}
+          <div className="flex-shrink-0 bg-background z-10 px-6 pt-6 pb-4 border-b">
             <DialogHeader>
               <DialogTitle>{t('items.editItem')}</DialogTitle>
               <DialogDescription>{t('items.updateItemDetails')}</DialogDescription>
@@ -3335,7 +3335,7 @@ export default function Items() {
           </div>
           
           {/* Scrollable Content */}
-          <form onSubmit={handleUpdateItem} className="flex-1 overflow-y-auto px-6 py-4">
+          <form onSubmit={handleUpdateItem} className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
             <Tabs value={editDialogTab} className="w-full">
               <TabsContent value="details" className="space-y-4 mt-0">
                 {!canWrite && (
@@ -4149,8 +4149,8 @@ export default function Items() {
             </Tabs>
           </form>
           
-          {/* Sticky Footer - visible on all tabs */}
-          <div className="sticky bottom-0 bg-background z-10 px-6 py-4 border-t">
+          {/* Fixed Footer - visible on all tabs */}
+          <div className="flex-shrink-0 bg-background z-10 px-6 py-4 border-t">
             <div className="flex gap-2 justify-between">
               {canWrite ? (
                 <Button 
