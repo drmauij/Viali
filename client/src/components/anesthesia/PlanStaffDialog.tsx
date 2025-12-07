@@ -48,6 +48,7 @@ interface StaffOption {
   name: string;
   email?: string;
   staffRole?: StaffRole;
+  baseRole?: 'doctor' | 'nurse';
 }
 
 const ROLE_CONFIG: Record<StaffRole, { icon: typeof User; labelKey: string; colorClass: string }> = {
@@ -294,8 +295,10 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
               filteredStaffOptions.map((staff) => {
                 const isAlreadyPlanned = alreadyPlannedUserIds.has(staff.id);
                 const isSelected = selectedIds.has(staff.id);
-                const roleConfig = staff.staffRole ? ROLE_CONFIG[staff.staffRole] : null;
-                const Icon = roleConfig?.icon || User;
+                const Icon = staff.baseRole === 'doctor' ? Stethoscope : Syringe;
+                const colorClass = staff.baseRole === 'doctor' 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-purple-600 dark:text-purple-400';
                 
                 return (
                   <div
@@ -315,7 +318,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                       disabled={isAlreadyPlanned}
                       className="pointer-events-none"
                     />
-                    <Icon className={`h-4 w-4 flex-shrink-0 ${roleConfig?.colorClass || 'text-muted-foreground'}`} />
+                    <Icon className={`h-4 w-4 flex-shrink-0 ${colorClass}`} />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{staff.name}</div>
                       {staff.email && (
