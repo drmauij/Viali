@@ -212,12 +212,23 @@ export default function Op() {
     return pMarker?.time != null;
   }, [anesthesiaRecord?.timeMarkers]);
 
-  // Toggle between OP and PACU modes
+  // Toggle between OP and PACU modes while preserving all query parameters
   const handleModeToggle = () => {
     if (!surgeryId) return;
     const newMode = isPacuMode ? 'op' : 'pacu';
-    const recordIdParam = selectedRecordId ? `?recordId=${selectedRecordId}` : '';
-    setLocation(`/anesthesia/${newMode}/${surgeryId}${recordIdParam}`);
+    
+    const currentUrl = new URL(window.location.href);
+    const searchParams = currentUrl.searchParams;
+    
+    if (selectedRecordId && !searchParams.has('recordId')) {
+      searchParams.set('recordId', selectedRecordId);
+    }
+    
+    const queryString = searchParams.toString();
+    const hash = currentUrl.hash;
+    const fullPath = `/anesthesia/${newMode}/${surgeryId}${queryString ? `?${queryString}` : ''}${hash}`;
+    
+    setLocation(fullPath);
   };
 
   // Track current room for cleanup

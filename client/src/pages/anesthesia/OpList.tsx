@@ -135,20 +135,14 @@ export default function OpList() {
         setDuplicateRecords(records);
         setDuplicatesDialogOpen(true);
         setSummaryOpen(false);
+      } else if (records.length === 1) {
+        // Single record - use it directly and include recordId
+        const record = records[0];
+        const usePacuMode = shouldUsePacuMode(record.timeMarkers);
+        navigateToAnesthesiaRecord(selectedSurgeryId, record.id, usePacuMode);
       } else {
-        // Single or no record - check markers to determine mode
-        // Fetch the single record to check time markers
-        let usePacuMode = false;
-        try {
-          const response = await apiRequest("GET", `/api/anesthesia/records/surgery/${selectedSurgeryId}`);
-          if (response.ok) {
-            const record = await response.json();
-            usePacuMode = shouldUsePacuMode(record.timeMarkers);
-          }
-        } catch (e) {
-          // If fetch fails, default to OP mode
-        }
-        navigateToAnesthesiaRecord(selectedSurgeryId, undefined, usePacuMode);
+        // No records exist yet - let Op.tsx create one
+        navigateToAnesthesiaRecord(selectedSurgeryId);
       }
     } catch (error) {
       console.error("Error checking for duplicates:", error);
@@ -186,9 +180,10 @@ export default function OpList() {
     if (records.length <= 1) {
       setDuplicatesDialogOpen(false);
       if (records.length === 1) {
-        // Check markers for the remaining record
-        const usePacuMode = shouldUsePacuMode(records[0].timeMarkers);
-        navigateToAnesthesiaRecord(selectedSurgeryId, undefined, usePacuMode);
+        // Check markers for the remaining record and include recordId
+        const record = records[0];
+        const usePacuMode = shouldUsePacuMode(record.timeMarkers);
+        navigateToAnesthesiaRecord(selectedSurgeryId, record.id, usePacuMode);
       }
     }
   };

@@ -32,22 +32,32 @@ export default function AnesthesiaRecordButton({ surgeryId, className }: Anesthe
   });
 
   const getTargetUrl = () => {
-    if (!anesthesiaRecord?.timeMarkers) {
-      return `/anesthesia/cases/${surgeryId}/op`;
+    const mode = (() => {
+      if (!anesthesiaRecord?.timeMarkers) {
+        return 'op';
+      }
+
+      const markers = anesthesiaRecord.timeMarkers;
+      const x2Marker = markers.find(m => m.code === 'X2');
+      const pMarker = markers.find(m => m.code === 'P');
+
+      const hasX2 = x2Marker?.time != null;
+      const hasP = pMarker?.time != null;
+
+      if (hasX2 && !hasP) {
+        return 'pacu';
+      }
+
+      return 'op';
+    })();
+
+    const basePath = `/anesthesia/cases/${surgeryId}/${mode}`;
+    
+    if (anesthesiaRecord?.id) {
+      return `${basePath}?recordId=${anesthesiaRecord.id}`;
     }
-
-    const markers = anesthesiaRecord.timeMarkers;
-    const x2Marker = markers.find(m => m.code === 'X2');
-    const pMarker = markers.find(m => m.code === 'P');
-
-    const hasX2 = x2Marker?.time != null;
-    const hasP = pMarker?.time != null;
-
-    if (hasX2 && !hasP) {
-      return `/anesthesia/cases/${surgeryId}/pacu`;
-    }
-
-    return `/anesthesia/cases/${surgeryId}/op`;
+    
+    return basePath;
   };
 
   return (
