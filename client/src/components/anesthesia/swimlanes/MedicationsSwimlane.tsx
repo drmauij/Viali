@@ -35,6 +35,7 @@ type UnifiedInfusionProps = {
   visibleStart: number;
   visibleEnd: number;
   segments?: Array<{ startTime: number; rate: string; rateUnit?: string }>; // For rendering rate change markers
+  administrationUnit?: string | null; // Unit for start dose display (e.g., ml, mg)
 };
 
 const UnifiedInfusion = ({
@@ -57,6 +58,7 @@ const UnifiedInfusion = ({
   visibleStart,
   visibleEnd,
   segments,
+  administrationUnit,
 }: UnifiedInfusionProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
@@ -65,8 +67,10 @@ const UnifiedInfusion = ({
   const lineYOffset = swimlaneHeight - 2;
   const visibleRange = visibleEnd - visibleStart;
   
-  // Build display text with optional note in parentheses
-  const displayText = startNote ? `${startDose} (${startNote})` : startDose;
+  // Build display text with unit and optional note in parentheses
+  const unit = administrationUnit || '';
+  const doseWithUnit = unit ? `${startDose} ${unit}` : startDose;
+  const displayText = startNote ? `${doseWithUnit} (${startNote})` : doseWithUnit;
   
   // Calculate actual start position (before clipping)
   const actualStartPercent = ((startTime - visibleStart) / visibleRange) * 100;
@@ -200,7 +204,7 @@ const UnifiedInfusion = ({
                 transform: 'translateY(-50%)'
               }}
             >
-              {segment.rate}
+              {segment.rateUnit ? `${segment.rate} ${segment.rateUnit}` : segment.rate}
             </span>
             <div
               className="mt-auto"
@@ -268,6 +272,7 @@ type BolusPillProps = {
   testId: string;
   formatTime: (time: number) => string;
   isTouchDevice: boolean;
+  administrationUnit?: string | null;
 };
 
 const BolusPill = ({
@@ -284,12 +289,15 @@ const BolusPill = ({
   testId,
   formatTime,
   isTouchDevice,
+  administrationUnit,
 }: BolusPillProps) => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
-  // Build display text with optional note in parentheses
-  const displayText = note ? `${dose} (${note})` : dose;
+  // Build display text with unit and optional note in parentheses
+  const unit = administrationUnit || '';
+  const doseWithUnit = unit ? `${dose} ${unit}` : dose;
+  const displayText = note ? `${doseWithUnit} (${note})` : doseWithUnit;
 
   return (
     <>
@@ -600,6 +608,7 @@ export function MedicationsSwimlane({
               testId={`bolus-pill-${lane.id}-${index}`}
               formatTime={formatTime}
               isTouchDevice={isTouchDevice}
+              administrationUnit={lane.administrationUnit}
               onClick={() => {
                 onMedicationEditDialogOpen({
                   swimlaneId: lane.id,
@@ -663,6 +672,7 @@ export function MedicationsSwimlane({
               visibleStart={visibleStart}
               visibleEnd={visibleEnd}
               segments={session.segments}
+              administrationUnit={lane.administrationUnit}
               onClick={() => {
                 // If session is running (no endTime), open the simplified RateManageDialog
                 // If session is stopped (has endTime), allow resuming or show appropriate dialog
@@ -801,6 +811,7 @@ export function MedicationsSwimlane({
               isTouchDevice={isTouchDevice}
               visibleStart={visibleStart}
               visibleEnd={visibleEnd}
+              administrationUnit={lane.administrationUnit}
               onClick={() => {
                 // If infusion is stopped (has endTime), check if it's the last session before allowing resume
                 // If infusion is running (no endTime), show stop dialog
