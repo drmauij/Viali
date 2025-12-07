@@ -279,7 +279,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
           />
         </div>
         
-        <ScrollArea className="flex-1 min-h-0 max-h-[40vh] border rounded-md">
+        <ScrollArea className="flex-1 min-h-[150px] max-h-[50vh] border rounded-md overflow-y-auto">
           <div className="p-2 space-y-1">
             {loadingOptions ? (
               <div className="flex items-center justify-center py-8">
