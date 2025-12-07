@@ -1449,6 +1449,7 @@
       "preOp": "Pre-OP",
       "op": "OP",
       "pacu": "PACU",
+      "anesthesiaRecord": "Anesthesia Record",
       "surgeryDocumentation": "Surgery Documentation",
       "collapseAll": "Collapse All",
       "expandAll": "Expand All",

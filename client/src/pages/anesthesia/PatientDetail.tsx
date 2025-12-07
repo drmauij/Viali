@@ -1770,7 +1770,7 @@ export default function PatientDetail() {
                     </Button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-3 gap-3 pt-2">
+                  <div className="grid grid-cols-2 gap-3 pt-2">
                     <Button
                       variant="outline"
                       className="h-auto py-4 flex-col gap-2"
@@ -1793,21 +1793,10 @@ export default function PatientDetail() {
                       variant="outline"
                       className="h-auto py-4 flex-col gap-2"
                       onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/op`)}
-                      data-testid={`button-op-${surgery.id}`}
+                      data-testid={`button-anesthesia-record-${surgery.id}`}
                     >
                       <Activity className="h-10 w-10 text-primary" />
-                      <span className="text-sm font-medium">{t('anesthesia.patientDetail.op')}</span>
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      className="h-auto py-4 flex-col gap-2"
-                      onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/pacu`)}
-                      disabled={!(surgery as any).timeMarkers?.find((m: any) => m.code === 'A2' && m.time !== null)}
-                      data-testid={`button-pacu-${surgery.id}`}
-                    >
-                      <BedDouble className={`h-10 w-10 ${(surgery as any).timeMarkers?.find((m: any) => m.code === 'A2' && m.time !== null) ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <span className="text-sm font-medium">{t('anesthesia.patientDetail.pacu')}</span>
+                      <span className="text-sm font-medium">{t('anesthesia.patientDetail.anesthesiaRecord')}</span>
                     </Button>
                   </div>
                 )}
