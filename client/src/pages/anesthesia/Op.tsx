@@ -84,7 +84,9 @@ import {
   MessageSquareText,
   BedDouble,
   Camera,
-  Image
+  Image,
+  ToggleLeft,
+  ToggleRight
 } from "lucide-react";
 
 export default function Op() {
@@ -193,6 +195,30 @@ export default function Op() {
     recordId: selectedRecordId,
     waitForRecordId: needsDuplicateCheck,
   });
+
+  // Check if X2 marker is set (enables mode toggle)
+  const hasX2Marker = useMemo(() => {
+    if (!anesthesiaRecord?.timeMarkers) return false;
+    const markers = anesthesiaRecord.timeMarkers as any[];
+    const x2Marker = markers.find((m: any) => m.code === 'X2');
+    return x2Marker?.time != null;
+  }, [anesthesiaRecord?.timeMarkers]);
+
+  // Check if P marker is set (PACU end - record complete)
+  const hasPMarker = useMemo(() => {
+    if (!anesthesiaRecord?.timeMarkers) return false;
+    const markers = anesthesiaRecord.timeMarkers as any[];
+    const pMarker = markers.find((m: any) => m.code === 'P');
+    return pMarker?.time != null;
+  }, [anesthesiaRecord?.timeMarkers]);
+
+  // Toggle between OP and PACU modes
+  const handleModeToggle = () => {
+    if (!surgeryId) return;
+    const newMode = isPacuMode ? 'op' : 'pacu';
+    const recordIdParam = selectedRecordId ? `?recordId=${selectedRecordId}` : '';
+    setLocation(`/anesthesia/${newMode}/${surgeryId}${recordIdParam}`);
+  };
 
   // Track current room for cleanup
   const currentRoomIdRef = useRef<string | null>(null);
@@ -1178,6 +1204,28 @@ export default function Op() {
                   )}
                 </TabsList>
               </div>
+              {/* Mode Toggle - Only visible in anesthesia module when X2 is set */}
+              {!isSurgeryMode && hasX2Marker && !hasPMarker && (
+                <Button 
+                  variant={isPacuMode ? "default" : "outline"}
+                  size="sm"
+                  className="flex items-center gap-1 sm:gap-2 shrink-0"
+                  data-testid="button-toggle-mode"
+                  onClick={handleModeToggle}
+                >
+                  {isPacuMode ? (
+                    <>
+                      <ToggleRight className="h-4 w-4" />
+                      <span className="hidden sm:inline">PACU</span>
+                    </>
+                  ) : (
+                    <>
+                      <ToggleLeft className="h-4 w-4" />
+                      <span className="hidden sm:inline">OP</span>
+                    </>
+                  )}
+                </Button>
+              )}
               {!isSurgeryMode && (
                 <Button 
                   variant="outline" 
