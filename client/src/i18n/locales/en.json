@@ -823,7 +823,7 @@
       "title": "Post-Anesthesia Care Unit",
       "subtitle": "Patients in recovery",
       "search": "Search patients, bed, or procedure...",
-      "noPatientsInPacu": "No patients currently in PACU",
+      "noPatientsInPacu": "No patients in this category",
       "bedNumber": "Bed",
       "admissionTime": "Admission",
       "procedure": "Procedure",
@@ -835,7 +835,10 @@
       "critical": "Critical",
       "age": "Age",
       "anesthesiaEnd": "Anesthesia End:",
-      "timeInPacu": "Time in PACU:"
+      "timeInPacu": "Time in PACU:",
+      "tabTransferring": "Transferring",
+      "tabInRecovery": "In Recovery",
+      "tabDischarged": "Discharged"
     },
     "op": {
       "title": "OP Monitoring",

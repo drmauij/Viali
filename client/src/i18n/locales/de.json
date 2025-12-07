@@ -823,7 +823,7 @@
       "title": "Aufwachraum",
       "subtitle": "Patienten in Erholung",
       "search": "Patienten, Bett oder Eingriff suchen...",
-      "noPatientsInPacu": "Derzeit keine Patienten im Aufwachraum",
+      "noPatientsInPacu": "Keine Patienten in dieser Kategorie",
       "bedNumber": "Bett",
       "admissionTime": "Aufnahme",
       "procedure": "Eingriff",
@@ -835,7 +835,10 @@
       "critical": "Kritisch",
       "age": "Alter",
       "anesthesiaEnd": "Anästhesie-Ende:",
-      "timeInPacu": "Zeit im Aufwachraum:"
+      "timeInPacu": "Zeit im Aufwachraum:",
+      "tabTransferring": "Übernahme",
+      "tabInRecovery": "In Behandlung",
+      "tabDischarged": "Entlassen"
     },
     "op": {
       "title": "OP-Überwachung",

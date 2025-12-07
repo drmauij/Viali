@@ -110,7 +110,7 @@ export default function PreOpList() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "planned" | "draft" | "standby" | "completed">("all");
+  const [activeTab, setActiveTab] = useState<"planned" | "draft" | "standby" | "completed">("planned");
   const [standByFilter, setStandByFilter] = useState<"all" | "consent_required" | "signature_missing">("all");
 
   // Get active hospital
@@ -149,9 +149,7 @@ export default function PreOpList() {
     completed: filteredAssessments.filter((item) => item.status === 'completed' && !item.assessment?.standBy),
   };
 
-  const displayedAssessments = activeTab === 'all' 
-    ? filteredAssessments 
-    : groupedByStatus[activeTab];
+  const displayedAssessments = groupedByStatus[activeTab];
 
   const getStandByReasonLabel = (reason: string) => {
     switch (reason) {
@@ -233,10 +231,7 @@ export default function PreOpList() {
       {/* Status Tabs */}
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="mb-6">
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-5 md:w-full">
-            <TabsTrigger value="all" data-testid="tab-all" className="whitespace-nowrap">
-              {t('anesthesia.preop.tabAll')} ({filteredAssessments.length})
-            </TabsTrigger>
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-4 md:w-full">
             <TabsTrigger value="planned" data-testid="tab-planned" className="whitespace-nowrap">
               <CalendarPlus className="h-4 w-4 mr-1 hidden sm:inline-block" />
               {t('anesthesia.preop.tabPlanned')} ({groupedByStatus.planned.length})

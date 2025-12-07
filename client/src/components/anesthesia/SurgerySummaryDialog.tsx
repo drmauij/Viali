@@ -2,16 +2,14 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, ClipboardList, Activity, ChevronRight, UserRoundCog, Download, Loader2, Users, X, User } from "lucide-react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import type { Module } from "@/contexts/ModuleContext";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
-import { ROLE_CONFIG } from "./PlannedStaffBox";
 
 interface SurgerySummaryDialogProps {
   open: boolean;
@@ -36,7 +34,6 @@ export default function SurgerySummaryDialog({
 }: SurgerySummaryDialogProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
   const activeHospital = useActiveHospital();
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
@@ -88,86 +85,6 @@ export default function SurgerySummaryDialog({
     preOpAssessment.anesthesiaOther != null ||
     preOpAssessment.informedConsentSignature != null
   );
-
-  // Fetch assigned staff for this surgery
-  interface AssignedStaff {
-    id: string;
-    name: string;
-    role: string;
-    userId?: string | null;
-  }
-  
-  const { data: assignedStaff = [] } = useQuery<AssignedStaff[]>({
-    queryKey: ['/api/planned-staff', surgeryId],
-    queryFn: async () => {
-      const res = await fetch(`/api/planned-staff/${surgeryId}`, {
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        if (res.status === 404) return [];
-        throw new Error('Failed to fetch assigned staff');
-      }
-      return res.json();
-    },
-    enabled: !!surgeryId && open,
-  });
-
-  // Compute dateString from surgery for cache invalidation
-  const surgeryDateString = surgery?.plannedDate ? (() => {
-    const d = new Date(surgery.plannedDate);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  })() : null;
-
-  // Fetch room staff assignments for this surgery's room
-  interface RoomStaffAssignment {
-    id: string;
-    surgeryRoomId: string;
-    dailyStaffPoolId: string;
-    date: string;
-    staffName: string;
-    staffRole: string;
-  }
-  
-  const { data: roomStaff = [] } = useQuery<RoomStaffAssignment[]>({
-    queryKey: ['/api/room-staff', surgery?.surgeryRoomId, surgeryDateString],
-    queryFn: async () => {
-      if (!surgery?.surgeryRoomId || !surgeryDateString) return [];
-      const res = await fetch(`/api/room-staff/${surgery.surgeryRoomId}/${surgeryDateString}`, {
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        if (res.status === 404) return [];
-        throw new Error('Failed to fetch room staff');
-      }
-      return res.json();
-    },
-    enabled: !!surgery?.surgeryRoomId && !!surgeryDateString && open,
-  });
-
-  // Unassign staff mutation
-  const unassignStaffMutation = useMutation({
-    mutationFn: async (plannedStaffId: string) => {
-      await apiRequest('DELETE', `/api/planned-staff/${plannedStaffId}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/planned-staff', surgeryId] });
-      queryClient.invalidateQueries({ queryKey: ['/api/planned-staff'] });
-      if (activeHospital?.id && surgeryDateString) {
-        queryClient.invalidateQueries({ queryKey: ['/api/staff-pool', activeHospital.id, surgeryDateString] });
-      }
-      toast({
-        title: t('common.success'),
-        description: t('staffPool.unassigned', 'Staff unassigned from surgery'),
-      });
-    },
-    onError: () => {
-      toast({
-        title: t('common.error'),
-        description: t('staffPool.unassignError', 'Failed to unassign staff'),
-        variant: 'destructive',
-      });
-    },
-  });
 
   if (!surgery || !patient) {
     return null;
@@ -313,62 +230,6 @@ export default function SurgerySummaryDialog({
               </div>
             )}
           </div>
-
-          {/* Assigned Staff */}
-          {(assignedStaff.length > 0 || roomStaff.length > 0) && (
-            <div className="bg-muted/30 p-4 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-medium">{t('staffPool.assignedStaff', 'Assigned Staff')}</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {assignedStaff.map((staff) => {
-                  const config = ROLE_CONFIG[staff.role as keyof typeof ROLE_CONFIG];
-                  const Icon = config?.icon || User;
-                  return (
-                    <div
-                      key={staff.id}
-                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${config?.bgClass || 'bg-gray-100 dark:bg-gray-800'} border`}
-                      data-testid={`assigned-staff-chip-${staff.id}`}
-                    >
-                      <Icon className={`h-3 w-3 ${config?.colorClass}`} />
-                      <span className="font-medium">{staff.name}</span>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          unassignStaffMutation.mutate(staff.id);
-                        }}
-                        disabled={unassignStaffMutation.isPending}
-                        className="ml-0.5 p-0.5 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
-                        data-testid={`button-unassign-staff-${staff.id}`}
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  );
-                })}
-                {roomStaff.map((staff) => {
-                  const config = ROLE_CONFIG[staff.staffRole as keyof typeof ROLE_CONFIG];
-                  const Icon = config?.icon || User;
-                  return (
-                    <div
-                      key={`room-${staff.id}`}
-                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${config?.bgClass || 'bg-gray-100 dark:bg-gray-800'} border`}
-                      data-testid={`room-staff-chip-${staff.id}`}
-                    >
-                      <Icon className={`h-3 w-3 ${config?.colorClass}`} />
-                      <span className="font-medium">{staff.staffName}</span>
-                      {room?.name && (
-                        <span className="text-[10px] px-1 py-0.5 bg-primary/10 text-primary rounded">
-                          {room.name}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
 
           {/* Action Cards */}
           <div className="space-y-3">

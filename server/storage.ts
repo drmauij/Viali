@@ -355,6 +355,8 @@ export interface IStorage {
     procedure: string;
     anesthesiaPresenceEndTime: number;
     postOpDestination: string | null;
+    status: 'transferring' | 'in_recovery' | 'discharged';
+    statusTimestamp: number;
   }>>;
   
   // Pre-Op Assessment operations
@@ -2366,6 +2368,8 @@ export class DatabaseStorage implements IStorage {
     procedure: string;
     anesthesiaPresenceEndTime: number;
     postOpDestination: string | null;
+    status: 'transferring' | 'in_recovery' | 'discharged';
+    statusTimestamp: number;
   }>> {
     const results = await db
       .select({
@@ -2378,43 +2382,58 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(patients, eq(surgeries.patientId, patients.id))
       .where(and(
         eq(surgeries.hospitalId, hospitalId),
-        sql`${anesthesiaRecords.timeMarkers} @> '[{"code": "A2"}]'::jsonb`
+        sql`(${anesthesiaRecords.timeMarkers} @> '[{"code": "X2"}]'::jsonb 
+            OR ${anesthesiaRecords.timeMarkers} @> '[{"code": "A2"}]'::jsonb 
+            OR ${anesthesiaRecords.timeMarkers} @> '[{"code": "P"}]'::jsonb)`
       ))
       .orderBy(desc(anesthesiaRecords.updatedAt));
 
     return results
       .map(row => {
         const timeMarkers = row.anesthesiaRecord.timeMarkers as any[] || [];
-        const a2Marker = timeMarkers.find((m: any) => m.code === 'A2');
         
-        // Validate and normalize A2 marker time value
-        if (!a2Marker || a2Marker.time == null) {
-          return null;
-        }
-
-        // Handle numeric timestamps, numeric strings, and ISO date strings
-        let timeValue: number;
-        if (typeof a2Marker.time === 'number') {
-          timeValue = a2Marker.time;
-        } else if (typeof a2Marker.time === 'string') {
-          // Try parsing as numeric string first (e.g., "1699991234000")
-          const numericValue = Number(a2Marker.time);
-          if (!isNaN(numericValue) && numericValue > 0) {
-            timeValue = numericValue;
+        const parseMarkerTime = (marker: any): number | null => {
+          if (!marker || marker.time == null) return null;
+          let timeValue: number;
+          if (typeof marker.time === 'number') {
+            timeValue = marker.time;
+          } else if (typeof marker.time === 'string') {
+            const numericValue = Number(marker.time);
+            if (!isNaN(numericValue) && numericValue > 0) {
+              timeValue = numericValue;
+            } else {
+              timeValue = new Date(marker.time).getTime();
+            }
           } else {
-            // Try parsing as ISO date string
-            timeValue = new Date(a2Marker.time).getTime();
+            return null;
           }
+          return isNaN(timeValue) || timeValue <= 0 ? null : timeValue;
+        };
+        
+        const x2Marker = timeMarkers.find((m: any) => m.code === 'X2');
+        const a2Marker = timeMarkers.find((m: any) => m.code === 'A2');
+        const pMarker = timeMarkers.find((m: any) => m.code === 'P');
+        
+        const x2Time = parseMarkerTime(x2Marker);
+        const a2Time = parseMarkerTime(a2Marker);
+        const pTime = parseMarkerTime(pMarker);
+        
+        let status: 'transferring' | 'in_recovery' | 'discharged';
+        let statusTimestamp: number;
+        
+        if (pTime) {
+          status = 'discharged';
+          statusTimestamp = pTime;
+        } else if (a2Time) {
+          status = 'in_recovery';
+          statusTimestamp = a2Time;
+        } else if (x2Time) {
+          status = 'transferring';
+          statusTimestamp = x2Time;
         } else {
           return null;
         }
 
-        // Ensure valid timestamp
-        if (isNaN(timeValue) || timeValue <= 0) {
-          return null;
-        }
-
-        // Calculate age, handle null birthday gracefully
         let age = 0;
         if (row.patient.birthday) {
           const birthDate = new Date(row.patient.birthday);
@@ -2430,11 +2449,13 @@ export class DatabaseStorage implements IStorage {
           surgeryId: row.surgery.id,
           patientId: row.patient.id,
           patientName: `${row.patient.firstName} ${row.patient.surname}`,
-          patientNumber: row.patient.patientNumber || '',  // Ensure non-null for frontend
+          patientNumber: row.patient.patientNumber || '',
           age,
           procedure: row.surgery.plannedSurgery,
-          anesthesiaPresenceEndTime: timeValue,
+          anesthesiaPresenceEndTime: a2Time || x2Time || statusTimestamp,
           postOpDestination: postOpData?.postOpDestination || null,
+          status,
+          statusTimestamp,
         };
       })
       .filter((item): item is NonNullable<typeof item> => item !== null);

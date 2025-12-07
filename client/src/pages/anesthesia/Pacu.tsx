@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, BedDouble, Clock } from "lucide-react";
+import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
@@ -18,11 +19,14 @@ type PacuPatient = {
   procedure: string;
   anesthesiaPresenceEndTime: number;
   postOpDestination: string | null;
+  status: 'transferring' | 'in_recovery' | 'discharged';
+  statusTimestamp: number;
 };
 
 export default function Pacu() {
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<'transferring' | 'in_recovery' | 'discharged'>('in_recovery');
   const activeHospital = useActiveHospital();
   const [, setLocation] = useLocation();
 
@@ -33,10 +37,17 @@ export default function Pacu() {
 
   const filteredPatients = pacuPatients.filter(
     (patient) =>
-      patient.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      patient.status === activeTab &&
+      (patient.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       patient.patientNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.procedure.toLowerCase().includes(searchQuery.toLowerCase())
+      patient.procedure.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  const counts = {
+    transferring: pacuPatients.filter(p => p.status === 'transferring').length,
+    in_recovery: pacuPatients.filter(p => p.status === 'in_recovery').length,
+    discharged: pacuPatients.filter(p => p.status === 'discharged').length,
+  };
 
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString('en-GB', {
@@ -77,6 +88,26 @@ export default function Pacu() {
         <h1 className="text-2xl font-bold mb-2">{t('anesthesia.pacu.title')}</h1>
         <p className="text-muted-foreground">{t('anesthesia.pacu.subtitle')}</p>
       </div>
+
+      {/* Status Tabs */}
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)} className="mb-6">
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-3 md:w-full">
+            <TabsTrigger value="transferring" data-testid="tab-transferring" className="whitespace-nowrap">
+              <ArrowRight className="h-4 w-4 mr-1 hidden sm:inline-block" />
+              {t('anesthesia.pacu.tabTransferring')} ({counts.transferring})
+            </TabsTrigger>
+            <TabsTrigger value="in_recovery" data-testid="tab-in-recovery" className="whitespace-nowrap">
+              <Activity className="h-4 w-4 mr-1 hidden sm:inline-block" />
+              {t('anesthesia.pacu.tabInRecovery')} ({counts.in_recovery})
+            </TabsTrigger>
+            <TabsTrigger value="discharged" data-testid="tab-discharged" className="whitespace-nowrap">
+              <LogOut className="h-4 w-4 mr-1 hidden sm:inline-block" />
+              {t('anesthesia.pacu.tabDischarged')} ({counts.discharged})
+            </TabsTrigger>
+          </TabsList>
+        </div>
+      </Tabs>
 
       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
