@@ -733,6 +733,20 @@ export default function Op() {
     paracetamolTime?: MedicationTime;
     nsarTime?: MedicationTime;
     novalginTime?: MedicationTime;
+    ponvProphylaxis?: {
+      ondansetron?: boolean;
+      droperidol?: boolean;
+      haloperidol?: boolean;
+      dexamethasone?: boolean;
+    };
+    ambulatoryCare?: {
+      osasObservation?: boolean;
+      escortRequired?: boolean;
+      postBlockMotorCheck?: boolean;
+      extendedObservation?: boolean;
+      noOralAnticoagulants24h?: boolean;
+      notes?: string;
+    };
   }>({});
 
   // Auto-save mutation for Post-Op data
@@ -1487,24 +1501,6 @@ export default function Op() {
                   />
                 </div>
 
-                {/* Complications */}
-                <div className="space-y-2">
-                  <Label htmlFor="complications">{t('anesthesia.op.complications')}</Label>
-                  <Textarea
-                    id="complications"
-                    rows={3}
-                    placeholder="Document any complications..."
-                    value={postOpData.complications || ""}
-                    onChange={(e) => {
-                      const updated = { ...postOpData, complications: e.target.value };
-                      setPostOpData(updated);
-                      postOpAutoSave.mutate(updated);
-                    }}
-                    disabled={!anesthesiaRecord?.id}
-                    data-testid="textarea-postop-complications"
-                  />
-                </div>
-
                 {/* Medication Timing Fields */}
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium">Medication Timing</h4>
@@ -1556,7 +1552,7 @@ export default function Op() {
                             disabled={!anesthesiaRecord?.id}
                             data-testid="radio-paracetamol-custom"
                           />
-                          <span className="text-sm">{t('anesthesia.op.at')}</span>
+                          <span className="text-sm">{t('anesthesia.op.startingFrom')}</span>
                         </label>
                         <Input
                           type="text"
@@ -1629,7 +1625,7 @@ export default function Op() {
                             disabled={!anesthesiaRecord?.id}
                             data-testid="radio-nsar-custom"
                           />
-                          <span className="text-sm">{t('anesthesia.op.at')}</span>
+                          <span className="text-sm">{t('anesthesia.op.startingFrom')}</span>
                         </label>
                         <Input
                           type="text"
@@ -1702,7 +1698,7 @@ export default function Op() {
                             disabled={!anesthesiaRecord?.id}
                             data-testid="radio-novalgin-custom"
                           />
-                          <span className="text-sm">{t('anesthesia.op.at')}</span>
+                          <span className="text-sm">{t('anesthesia.op.startingFrom')}</span>
                         </label>
                         <Input
                           type="text"
@@ -1727,6 +1723,115 @@ export default function Op() {
                       </div>
                     </div>
                   </div>
+                </div>
+
+                {/* PONV Prophylaxis */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium">{t('anesthesia.op.ponvProphylaxis')}</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { id: 'ondansetron', label: t('anesthesia.op.ondansetron') },
+                      { id: 'droperidol', label: t('anesthesia.op.droperidol') },
+                      { id: 'haloperidol', label: t('anesthesia.op.haloperidol') },
+                      { id: 'dexamethasone', label: t('anesthesia.op.dexamethasone') },
+                    ].map((med) => (
+                      <div key={med.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`ponv-${med.id}`}
+                          checked={postOpData.ponvProphylaxis?.[med.id as keyof typeof postOpData.ponvProphylaxis] ?? false}
+                          onCheckedChange={(checked) => {
+                            const updated = {
+                              ...postOpData,
+                              ponvProphylaxis: {
+                                ...postOpData.ponvProphylaxis,
+                                [med.id]: checked === true
+                              }
+                            };
+                            setPostOpData(updated);
+                            postOpAutoSave.mutate(updated);
+                          }}
+                          disabled={!anesthesiaRecord?.id}
+                          data-testid={`checkbox-ponv-${med.id}`}
+                        />
+                        <Label htmlFor={`ponv-${med.id}`} className="text-sm">{med.label}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Ambulatory Care Instructions */}
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium">{t('anesthesia.op.ambulatoryCareInstructions')}</h4>
+                  <div className="space-y-3">
+                    {[
+                      { id: 'osasObservation', label: t('anesthesia.op.osasObservation') },
+                      { id: 'escortRequired', label: t('anesthesia.op.escortRequired') },
+                      { id: 'postBlockMotorCheck', label: t('anesthesia.op.postBlockMotorCheck') },
+                      { id: 'extendedObservation', label: t('anesthesia.op.extendedObservation') },
+                      { id: 'noOralAnticoagulants24h', label: t('anesthesia.op.noOralAnticoagulants24h') },
+                    ].map((item) => (
+                      <div key={item.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`ambulatory-${item.id}`}
+                          checked={postOpData.ambulatoryCare?.[item.id as keyof typeof postOpData.ambulatoryCare] ?? false}
+                          onCheckedChange={(checked) => {
+                            const updated = {
+                              ...postOpData,
+                              ambulatoryCare: {
+                                ...postOpData.ambulatoryCare,
+                                [item.id]: checked === true
+                              }
+                            };
+                            setPostOpData(updated);
+                            postOpAutoSave.mutate(updated);
+                          }}
+                          disabled={!anesthesiaRecord?.id}
+                          data-testid={`checkbox-ambulatory-${item.id}`}
+                        />
+                        <Label htmlFor={`ambulatory-${item.id}`} className="text-sm">{item.label}</Label>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="ambulatory-notes">{t('anesthesia.op.ambulatoryCareNotes')}</Label>
+                    <Textarea
+                      id="ambulatory-notes"
+                      rows={2}
+                      placeholder=""
+                      value={postOpData.ambulatoryCare?.notes || ""}
+                      onChange={(e) => {
+                        const updated = {
+                          ...postOpData,
+                          ambulatoryCare: {
+                            ...postOpData.ambulatoryCare,
+                            notes: e.target.value
+                          }
+                        };
+                        setPostOpData(updated);
+                        postOpAutoSave.mutate(updated);
+                      }}
+                      disabled={!anesthesiaRecord?.id}
+                      data-testid="textarea-ambulatory-notes"
+                    />
+                  </div>
+                </div>
+
+                {/* Intraoperative Complications - moved to end */}
+                <div className="space-y-2">
+                  <Label htmlFor="complications">{t('anesthesia.op.intraoperativeComplications')}</Label>
+                  <Textarea
+                    id="complications"
+                    rows={3}
+                    placeholder=""
+                    value={postOpData.complications || ""}
+                    onChange={(e) => {
+                      const updated = { ...postOpData, complications: e.target.value };
+                      setPostOpData(updated);
+                      postOpAutoSave.mutate(updated);
+                    }}
+                    disabled={!anesthesiaRecord?.id}
+                    data-testid="textarea-postop-complications"
+                  />
                 </div>
               </CardContent>
             </Card>
