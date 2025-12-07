@@ -9,6 +9,7 @@ interface PendingFreeFlowDose {
   swimlaneId: string;
   time: number;
   label: string;
+  administrationUnit?: string | null;
 }
 
 interface FreeFlowDoseDialogProps {
@@ -77,22 +78,31 @@ export function FreeFlowDoseDialog({
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="freeflow-dose">Dose</Label>
-            <Input
-              id="freeflow-dose"
-              type="number"
-              inputMode="decimal"
-              data-testid="input-freeflow-dose"
-              value={freeFlowDoseInput}
-              onChange={(e) => setFreeFlowDoseInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSave();
-                }
-              }}
-              placeholder="e.g., 100"
-              autoFocus
-            />
+            <Label htmlFor="freeflow-dose">
+              Dose{pendingFreeFlowDose?.administrationUnit ? ` (${pendingFreeFlowDose.administrationUnit})` : ''}
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="freeflow-dose"
+                type="number"
+                inputMode="decimal"
+                data-testid="input-freeflow-dose"
+                value={freeFlowDoseInput}
+                onChange={(e) => setFreeFlowDoseInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSave();
+                  }
+                }}
+                placeholder="e.g., 100"
+                autoFocus
+              />
+              {pendingFreeFlowDose?.administrationUnit && (
+                <span className="text-sm text-muted-foreground min-w-fit">
+                  {pendingFreeFlowDose.administrationUnit}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <DialogFooterWithTime

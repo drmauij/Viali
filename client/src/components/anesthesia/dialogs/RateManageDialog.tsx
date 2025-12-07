@@ -12,6 +12,7 @@ interface ManagingRate {
   index: number;
   label: string;
   rateOptions?: string[];
+  rateUnit?: string | null;
 }
 
 interface RateManageDialogProps {
@@ -159,9 +160,11 @@ export function RateManageDialog({
               >
                 <Plus className="w-4 h-4" />
               </Button>
-              <span className="text-sm text-muted-foreground min-w-[80px]">
-                µg/kg/min
-              </span>
+              {managingRate?.rateUnit && (
+                <span className="text-sm text-muted-foreground min-w-[80px]">
+                  {managingRate.rateUnit}
+                </span>
+              )}
             </div>
             <Button
               onClick={handleSaveRate}

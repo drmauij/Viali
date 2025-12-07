@@ -19,6 +19,7 @@ interface SwimlaneConfig {
   id: string;
   label: string;
   defaultDose?: string | null;
+  administrationUnit?: string | null;
 }
 
 interface MedicationEditDialogProps {
@@ -147,7 +148,7 @@ export function MedicationEditDialog({
                     data-testid={`button-dose-preset-${dose}`}
                     disabled={readOnly}
                   >
-                    {dose}
+                    {dose}{swimlane?.administrationUnit ? ` ${swimlane.administrationUnit}` : ''}
                   </Button>
                 ))}
               </div>
@@ -166,22 +167,31 @@ export function MedicationEditDialog({
           
           {/* Dose Input */}
           <div className="grid gap-2">
-            <Label htmlFor="dose-edit-value">Dose</Label>
-            <Input
-              ref={inputRef}
-              id="dose-edit-value"
-              data-testid="input-dose-edit-value"
-              value={medicationEditInput}
-              onChange={(e) => setMedicationEditInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !readOnly) {
-                  handleSave();
-                }
-              }}
-              placeholder="e.g., 5, 100, 2"
-              autoFocus
-              disabled={readOnly}
-            />
+            <Label htmlFor="dose-edit-value">
+              Dose{swimlane?.administrationUnit ? ` (${swimlane.administrationUnit})` : ''}
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                ref={inputRef}
+                id="dose-edit-value"
+                data-testid="input-dose-edit-value"
+                value={medicationEditInput}
+                onChange={(e) => setMedicationEditInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !readOnly) {
+                    handleSave();
+                  }
+                }}
+                placeholder="e.g., 5, 100, 2"
+                autoFocus
+                disabled={readOnly}
+              />
+              {swimlane?.administrationUnit && (
+                <span className="text-sm text-muted-foreground min-w-fit">
+                  {swimlane.administrationUnit}
+                </span>
+              )}
+            </div>
           </div>
           
           {/* Note Input */}
