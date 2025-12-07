@@ -100,7 +100,7 @@ export function RateSelectionDialog({
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-background px-2 text-muted-foreground">
-                {t('pdfExport.orEnterCustom')}
+                {t('anesthesia.pdf.orEnterCustom')}
               </span>
             </div>
           </div>

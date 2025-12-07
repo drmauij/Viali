@@ -220,7 +220,7 @@ export function MedicationDoseDialog({
           
           <div className="grid gap-2">
             <Label htmlFor="dose-value">
-              {pendingMedicationDose?.defaultDose?.includes('-') ? t('pdfExport.orEnterCustom') : t('pdfExport.dose')}
+              {pendingMedicationDose?.defaultDose?.includes('-') ? t('anesthesia.pdf.orEnterCustom') : t('anesthesia.pdf.dose')}
             </Label>
             <div className="flex items-center gap-2">
               <Input
