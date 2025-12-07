@@ -8,6 +8,7 @@ import { useMutation } from "@tanstack/react-query";
 import { saveMedication } from "@/services/timelinePersistence";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { useTranslation } from "react-i18next";
 
 interface PendingMedicationDose {
   swimlaneId: string;
@@ -49,6 +50,7 @@ export function MedicationDoseDialog({
   const [medicationDoseInput, setMedicationDoseInput] = useState("");
   const [noteInput, setNoteInput] = useState("");
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   // Mutation for saving medication doses
   const saveMedicationMutation = useMutation({
@@ -218,7 +220,7 @@ export function MedicationDoseDialog({
           
           <div className="grid gap-2">
             <Label htmlFor="dose-value">
-              Dose{pendingMedicationDose?.administrationUnit ? ` (${pendingMedicationDose.administrationUnit})` : ''} {pendingMedicationDose?.defaultDose?.includes('-') ? '- or enter custom' : ''}
+              {pendingMedicationDose?.defaultDose?.includes('-') ? t('pdfExport.orEnterCustom') : t('pdfExport.dose')}
             </Label>
             <div className="flex items-center gap-2">
               <Input

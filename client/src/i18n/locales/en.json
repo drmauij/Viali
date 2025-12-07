@@ -1054,6 +1054,7 @@
       "medicationAdministration": "MEDICATION ADMINISTRATION",
       "medication": "Medication",
       "dose": "Dose",
+      "orEnterCustom": "Or enter custom",
       "route": "Route",
       "bolus": "Bolus",
       "infusion": "Infusion",

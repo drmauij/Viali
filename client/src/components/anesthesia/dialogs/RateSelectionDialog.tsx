@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface PendingRateSelection {
   swimlaneId: string;
@@ -30,6 +31,7 @@ export function RateSelectionDialog({
 }: RateSelectionDialogProps) {
   const [customRateInput, setCustomRateInput] = useState("");
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   // Reset input when dialog closes
   useEffect(() => {
@@ -98,7 +100,7 @@ export function RateSelectionDialog({
             </div>
             <div className="relative flex justify-center text-xs uppercase">
               <span className="bg-background px-2 text-muted-foreground">
-                Or enter custom
+                {t('pdfExport.orEnterCustom')}
               </span>
             </div>
           </div>

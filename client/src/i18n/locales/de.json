@@ -1054,6 +1054,7 @@
       "medicationAdministration": "MEDIKAMENTENVERABREICHUNG",
       "medication": "Medikament",
       "dose": "Dosis",
+      "orEnterCustom": "Oder manuell eingeben",
       "route": "Verabreichungsweg",
       "bolus": "Bolus",
       "infusion": "Infusion",
