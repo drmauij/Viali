@@ -14,6 +14,7 @@ interface EditingInfusionStart {
   note?: string;
   medicationName: string;
   isFreeFlow: boolean;
+  administrationUnit?: string | null;
 }
 
 interface InfusionStartEditDialogProps {
@@ -114,21 +115,30 @@ export function InfusionStartEditDialog({
         <div className="grid gap-4 py-4">
           {/* Dose Input */}
           <div className="grid gap-2">
-            <Label htmlFor="infusion-dose-edit-value">Starting Dose</Label>
-            <Input
-              ref={inputRef}
-              id="infusion-dose-edit-value"
-              data-testid="input-infusion-dose-edit-value"
-              value={doseInput}
-              onChange={(e) => setDoseInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSave();
-                }
-              }}
-              placeholder="e.g., 5, 100, 500"
-              autoFocus
-            />
+            <Label htmlFor="infusion-dose-edit-value">
+              Starting Dose{editingInfusionStart?.administrationUnit ? ` (${editingInfusionStart.administrationUnit})` : ''}
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                ref={inputRef}
+                id="infusion-dose-edit-value"
+                data-testid="input-infusion-dose-edit-value"
+                value={doseInput}
+                onChange={(e) => setDoseInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSave();
+                  }
+                }}
+                placeholder="e.g., 5, 100, 500"
+                autoFocus
+              />
+              {editingInfusionStart?.administrationUnit && (
+                <span className="text-sm text-muted-foreground whitespace-nowrap">
+                  {editingInfusionStart.administrationUnit}
+                </span>
+              )}
+            </div>
           </div>
           
           {/* Note Input */}

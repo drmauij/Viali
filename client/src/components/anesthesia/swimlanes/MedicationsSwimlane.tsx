@@ -392,14 +392,14 @@ export interface MedicationsSwimlaneProps {
   onMedicationEditDialogOpen: (editing: { swimlaneId: string; time: number; dose: string; note?: string; index: number; id: string }) => void;
   onInstantMedicationSave: (swimlaneId: string, time: number, dose: string, itemId: string) => Promise<void>;
   onInfusionDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
-  onFreeFlowDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
+  onFreeFlowDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string; administrationUnit?: string | null }) => void;
   onFreeFlowSheetOpen: (session: FreeFlowSession & { clickMode?: 'label' | 'segment' }, doseInput: string, timeInput: number) => void;
   onFreeFlowStopDialogOpen: (session: FreeFlowSession, clickTime: number) => void;
   onFreeFlowRestartDialogOpen: (previousSession: FreeFlowSession, clickTime: number) => void;
   onRateStopDialogOpen: (session: RateInfusionSession, clickTime: number) => void;
   onRateRestartDialogOpen: (previousSession: RateInfusionSession, clickTime: number) => void;
   onRateSheetOpen: (session: { swimlaneId: string; label: string; clickMode: 'label' | 'segment'; rateUnit: string; defaultDose?: string }, rateInput: string, timeInput: number, quantityInput?: string) => void;
-  onRateManageDialogOpen: (managing: { swimlaneId: string; time: number; value: string; index: number; label: string; rateOptions?: string[] }, time: number, input: string) => void;
+  onRateManageDialogOpen: (managing: { swimlaneId: string; time: number; value: string; index: number; label: string; rateOptions?: string[]; rateUnit?: string }, time: number, input: string) => void;
   onRateSelectionDialogOpen: (pending: { swimlaneId: string; time: number; label: string; rateOptions: string[] }) => void;
 }
 
@@ -491,6 +491,7 @@ export function MedicationsSwimlane({
     dose: string;
     medicationName: string;
     isFreeFlow: boolean;
+    administrationUnit?: string | null;
   } | null>(null);
   const [showInfusionEditDialog, setShowInfusionEditDialog] = useState(false);
 
@@ -683,6 +684,7 @@ export function MedicationsSwimlane({
                       index: 0,
                       label: `${lane.label.trim()} (${rateUnit})`, // Include rate unit in label
                       rateOptions,
+                      rateUnit, // Pass the rate unit for display in dialog
                       sessionId: session.id, // Add session ID for mutations
                       itemId: lane.itemId, // Add item ID for creating new records
                       isRunning: true, // Session is running (no endTime)
@@ -704,6 +706,7 @@ export function MedicationsSwimlane({
                   note: session.startNote || undefined,
                   medicationName: lane.label.trim(),
                   isFreeFlow: false,
+                  administrationUnit: lane.administrationUnit,
                 });
                 setShowInfusionEditDialog(true);
               }}
@@ -830,6 +833,7 @@ export function MedicationsSwimlane({
                   note: session.note || undefined,
                   medicationName: lane.label.trim(),
                   isFreeFlow: true,
+                  administrationUnit: lane.administrationUnit,
                 });
                 setShowInfusionEditDialog(true);
               }}
@@ -1176,6 +1180,7 @@ export function MedicationsSwimlane({
                           swimlaneId: lane.id,
                           time,
                           label: lane.label.trim(),
+                          administrationUnit: lane.administrationUnit,
                         });
                       }
                     }
@@ -1213,6 +1218,7 @@ export function MedicationsSwimlane({
                               index: 0,
                               label: `${lane.label.trim()} (${rateUnit})`,
                               rateOptions,
+                              rateUnit, // Pass the rate unit for display in dialog
                               sessionId: clickedSession.id,
                               itemId: lane.itemId,
                               isRunning: true,
@@ -1263,6 +1269,7 @@ export function MedicationsSwimlane({
                               index: 0,
                               label: `${lane.label.trim()} (${rateUnit})`,
                               rateOptions: undefined,
+                              rateUnit, // Pass the rate unit for display in dialog
                               sessionId: clickedSession.id,
                               itemId: lane.itemId,
                               isRunning: true,

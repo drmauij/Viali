@@ -1857,7 +1857,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   
   // State for free-flow dose entry dialog (first click, no default dose)
   const [showFreeFlowDoseDialog, setShowFreeFlowDoseDialog] = useState(false);
-  const [pendingFreeFlowDose, setPendingFreeFlowDose] = useState<{ swimlaneId: string; time: number; label: string } | null>(null);
+  const [pendingFreeFlowDose, setPendingFreeFlowDose] = useState<{ swimlaneId: string; time: number; label: string; administrationUnit?: string | null } | null>(null);
   const [freeFlowDoseInput, setFreeFlowDoseInput] = useState("");
   
   // State for free-flow stop/start-new dialog (scenario 2: running infusion clicked)
@@ -1949,6 +1949,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     index: number;
     label: string;
     rateOptions?: string[]; // from defaultDose if available
+    rateUnit?: string; // unit for rate display (e.g., ml/h, µg/kg/min)
     sessionId?: string; // medication record ID for the running session
     itemId?: string; // item ID for creating new records
     isRunning?: boolean; // whether the infusion is currently running
