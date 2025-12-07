@@ -49,6 +49,7 @@ interface StaffPoolPanelProps {
 
 interface StaffPoolEntry extends DailyStaffPool {
   assignedSurgeryIds: string[];
+  assignedRooms: Array<{ roomId: string; roomName: string }>;
   isBooked: boolean;
 }
 
@@ -117,6 +118,7 @@ function DraggableStaffItem({ staff, onRemove, readOnly = false }: DraggableStaf
   const { t } = useTranslation();
   const config = ROLE_CONFIG[staff.role as StaffRole];
   const Icon = config?.icon || User;
+  const hasRoomAssignments = staff.assignedRooms && staff.assignedRooms.length > 0;
   
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `staff-${staff.id}`,
@@ -171,7 +173,7 @@ function DraggableStaffItem({ staff, onRemove, readOnly = false }: DraggableStaf
         </span>
       )}
       
-      {!readOnly && (
+      {!readOnly && !hasRoomAssignments && (
         <button
           onClick={(e) => {
             e.stopPropagation();
