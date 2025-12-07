@@ -64,6 +64,7 @@ function DraggableStaffChip({ staff, onRemove }: { staff: StaffPoolEntry; onRemo
   const config = ROLE_CONFIG[staff.role as StaffRole];
   const Icon = config?.icon || User;
   const hasRoomAssignments = staff.assignedRooms && staff.assignedRooms.length > 0;
+  const hasSurgeryAssignments = staff.assignedSurgeryIds && staff.assignedSurgeryIds.length > 0;
   
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `staff-${staff.id}`,
@@ -71,13 +72,12 @@ function DraggableStaffChip({ staff, onRemove }: { staff: StaffPoolEntry; onRemo
       type: 'staff',
       staff,
     },
-    disabled: staff.isBooked,
   });
   
   const style = {
     transform: CSS.Translate.toString(transform),
     opacity: isDragging ? 0.5 : 1,
-    cursor: staff.isBooked ? 'not-allowed' : 'grab',
+    cursor: 'grab',
   };
   
   return (
@@ -85,18 +85,15 @@ function DraggableStaffChip({ staff, onRemove }: { staff: StaffPoolEntry; onRemo
       ref={setNodeRef}
       style={style}
       className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs ${
-        staff.isBooked 
-          ? 'bg-muted text-muted-foreground border border-dashed' 
-          : `${config?.bgClass || 'bg-gray-100 dark:bg-gray-800'} border`
-      } ${isDragging ? 'ring-2 ring-primary shadow-lg' : ''} ${!staff.isBooked ? 'touch-none' : ''}`}
+        config?.bgClass || 'bg-gray-100 dark:bg-gray-800'
+      } border ${isDragging ? 'ring-2 ring-primary shadow-lg' : ''} touch-none`}
       data-testid={`planned-staff-chip-${staff.id}`}
-      {...(staff.isBooked ? {} : { ...attributes, ...listeners })}
+      {...attributes}
+      {...listeners}
     >
-      {!staff.isBooked && (
-        <GripVertical className="h-3 w-3 text-muted-foreground" />
-      )}
-      <Icon className={`h-3 w-3 ${staff.isBooked ? 'text-muted-foreground' : config?.colorClass}`} />
-      <span className={staff.isBooked ? 'line-through' : 'font-medium'}>
+      <GripVertical className="h-3 w-3 text-muted-foreground" />
+      <Icon className={`h-3 w-3 ${config?.colorClass}`} />
+      <span className="font-medium">
         {staff.name}
       </span>
       {hasRoomAssignments && (
@@ -113,21 +110,19 @@ function DraggableStaffChip({ staff, onRemove }: { staff: StaffPoolEntry; onRemo
           ))}
         </div>
       )}
-      {staff.isBooked && !hasRoomAssignments && (
+      {hasSurgeryAssignments && !hasRoomAssignments && (
         <span className="text-[10px]">({staff.assignedSurgeryIds.length})</span>
       )}
-      {!staff.isBooked && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove(staff.id);
-          }}
-          className="ml-0.5 p-0.5 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
-          data-testid={`button-remove-planned-staff-${staff.id}`}
-        >
-          <X className="h-3 w-3" />
-        </button>
-      )}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(staff.id);
+        }}
+        className="ml-0.5 p-0.5 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
+        data-testid={`button-remove-planned-staff-${staff.id}`}
+      >
+        <X className="h-3 w-3" />
+      </button>
     </div>
   );
 }
