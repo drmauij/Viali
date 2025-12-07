@@ -14,6 +14,7 @@ interface PendingMedicationDose {
   time: number;
   label: string;
   defaultDose?: string | null;
+  administrationUnit?: string | null;
   itemId: string;
 }
 
@@ -121,9 +122,10 @@ export function MedicationDoseDialog({
       // Manually update local state so the dose appears immediately
       onLocalStateUpdate?.(swimlaneId, time, doseValue, noteInput.trim() || null);
       
+      const unit = pendingMedicationDose.administrationUnit || '';
       toast({
         title: "Dose saved",
-        description: `${label}: ${doseValue}${noteInput.trim() ? ` (${noteInput.trim()})` : ''}`,
+        description: `${label}: ${doseValue}${unit ? ` ${unit}` : ''}${noteInput.trim() ? ` (${noteInput.trim()})` : ''}`,
       });
 
       onMedicationDoseCreated?.();
@@ -162,9 +164,10 @@ export function MedicationDoseDialog({
       
       onLocalStateUpdate?.(swimlaneId, time, trimmedValue);
       
+      const unit = pendingMedicationDose.administrationUnit || '';
       toast({
         title: "Dose saved",
-        description: `${label}: ${trimmedValue}`,
+        description: `${label}: ${trimmedValue}${unit ? ` ${unit}` : ''}`,
       });
 
       onMedicationDoseCreated?.();
@@ -206,7 +209,7 @@ export function MedicationDoseDialog({
                     data-testid={`button-quick-select-${value.trim()}`}
                     className="min-w-[60px]"
                   >
-                    {value.trim()}
+                    {value.trim()}{pendingMedicationDose.administrationUnit ? ` ${pendingMedicationDose.administrationUnit}` : ''}
                   </Button>
                 ))}
               </div>
@@ -214,21 +217,31 @@ export function MedicationDoseDialog({
           )}
           
           <div className="grid gap-2">
-            <Label htmlFor="dose-value">Dose {pendingMedicationDose?.defaultDose?.includes('-') ? '(or enter custom)' : ''}</Label>
-            <Input
-              id="dose-value"
-              data-testid="input-dose-value"
-              value={medicationDoseInput}
-              onChange={(e) => setMedicationDoseInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !readOnly) {
-                  handleSave();
-                }
-              }}
-              placeholder="e.g., 5, 100, 2"
-              autoFocus
-              disabled={readOnly}
-            />
+            <Label htmlFor="dose-value">
+              Dose{pendingMedicationDose?.administrationUnit ? ` (${pendingMedicationDose.administrationUnit})` : ''} {pendingMedicationDose?.defaultDose?.includes('-') ? '- or enter custom' : ''}
+            </Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="dose-value"
+                data-testid="input-dose-value"
+                value={medicationDoseInput}
+                onChange={(e) => setMedicationDoseInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !readOnly) {
+                    handleSave();
+                  }
+                }}
+                placeholder="e.g., 5, 100, 2"
+                autoFocus
+                disabled={readOnly}
+                className="flex-1"
+              />
+              {pendingMedicationDose?.administrationUnit && (
+                <span className="text-sm text-muted-foreground font-medium min-w-fit">
+                  {pendingMedicationDose.administrationUnit}
+                </span>
+              )}
+            </div>
           </div>
           
           {/* Note Input */}

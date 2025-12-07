@@ -50,6 +50,7 @@ export type SwimlaneConfig = {
   colorDark: string;
   rateUnit?: string | null;
   defaultDose?: string | null;
+  administrationUnit?: string | null;
   itemId?: string;
   hierarchyLevel?: 'parent' | 'group' | 'item';
 };

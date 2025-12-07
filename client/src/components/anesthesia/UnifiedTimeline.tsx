@@ -227,6 +227,7 @@ type SwimlaneConfig = {
   // rateUnit determines item type: null = bolus, "free" = free-flow infusion, other = rate-controlled pump
   rateUnit?: string | null;
   defaultDose?: string | null; // Default dose value (e.g., "12" or "25-35-50" for ranges)
+  administrationUnit?: string | null; // Unit for doses (e.g., "mg", "μg", "ml")
   itemId?: string; // Reference to the original item
   hierarchyLevel?: 'parent' | 'group' | 'item'; // For three-level hierarchy styling
 };
@@ -2461,6 +2462,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 ...medGroupColor,
                 rateUnit: item.rateUnit ?? null,
                 defaultDose: item.defaultDose ?? null,
+                administrationUnit: item.administrationUnit ?? null,
                 itemId: item.id,
                 hierarchyLevel: 'item',
               });
