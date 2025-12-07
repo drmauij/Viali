@@ -1912,6 +1912,20 @@ export const updatePostOpDataSchema = z.object({
   paracetamolTime: medicationTimeSchema.optional().nullable(),
   nsarTime: medicationTimeSchema.optional().nullable(),
   novalginTime: medicationTimeSchema.optional().nullable(),
+  ponvProphylaxis: z.object({
+    ondansetron: z.boolean().optional(),
+    droperidol: z.boolean().optional(),
+    haloperidol: z.boolean().optional(),
+    dexamethasone: z.boolean().optional(),
+  }).optional().nullable(),
+  ambulatoryCare: z.object({
+    osasObservation: z.boolean().optional(),
+    escortRequired: z.boolean().optional(),
+    postBlockMotorCheck: z.boolean().optional(),
+    extendedObservation: z.boolean().optional(),
+    noOralAnticoagulants24h: z.boolean().optional(),
+    notes: z.string().optional(),
+  }).optional().nullable(),
 });
 
 // Surgery Staff validation schema (OR team documentation)
