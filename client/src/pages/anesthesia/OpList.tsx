@@ -10,17 +10,34 @@ import { apiRequest } from "@/lib/queryClient";
 
 const SURGERY_CONTEXT_KEY = "oplist_surgery_context";
 
+interface TimeMarker {
+  id: string;
+  code: string;
+  label: string;
+  time: number | null;
+}
+
 interface AnesthesiaRecordWithCounts {
   id: string;
   surgeryId: string;
   createdAt: string;
   updatedAt: string;
+  timeMarkers?: TimeMarker[];
   dataCounts: {
     vitals: number;
     medications: number;
     events: number;
   };
   totalDataPoints: number;
+}
+
+function shouldUsePacuMode(timeMarkers?: TimeMarker[]): boolean {
+  if (!timeMarkers) return false;
+  const x2Marker = timeMarkers.find(m => m.code === 'X2');
+  const pMarker = timeMarkers.find(m => m.code === 'P');
+  const hasX2 = x2Marker?.time != null;
+  const hasP = pMarker?.time != null;
+  return hasX2 && !hasP;
 }
 
 export default function OpList() {
@@ -74,7 +91,7 @@ export default function OpList() {
     }
   };
 
-  const navigateToAnesthesiaRecord = useCallback((surgeryIdToUse: string, recordIdToUse?: string) => {
+  const navigateToAnesthesiaRecord = useCallback((surgeryIdToUse: string, recordIdToUse?: string, usePacuMode?: boolean) => {
     if (selectedPatientId) {
       sessionStorage.setItem(SURGERY_CONTEXT_KEY, JSON.stringify({
         surgeryId: surgeryIdToUse,
@@ -83,10 +100,12 @@ export default function OpList() {
     }
     setSummaryOpen(false);
     setDuplicatesDialogOpen(false);
+    // Use PACU path if X2 marker is set but P is not
+    const modePath = usePacuMode ? 'pacu' : 'op';
     // Include recordId in URL if specified (for opening specific record when duplicates exist)
     const url = recordIdToUse 
-      ? `/anesthesia/op/${surgeryIdToUse}?recordId=${recordIdToUse}`
-      : `/anesthesia/op/${surgeryIdToUse}`;
+      ? `/anesthesia/${modePath}/${surgeryIdToUse}?recordId=${recordIdToUse}`
+      : `/anesthesia/${modePath}/${surgeryIdToUse}`;
     setLocation(url);
   }, [selectedPatientId, setLocation]);
 
@@ -117,8 +136,19 @@ export default function OpList() {
         setDuplicatesDialogOpen(true);
         setSummaryOpen(false);
       } else {
-        // Single or no record - proceed normally
-        navigateToAnesthesiaRecord(selectedSurgeryId);
+        // Single or no record - check markers to determine mode
+        // Fetch the single record to check time markers
+        let usePacuMode = false;
+        try {
+          const response = await apiRequest("GET", `/api/anesthesia/records/surgery/${selectedSurgeryId}`);
+          if (response.ok) {
+            const record = await response.json();
+            usePacuMode = shouldUsePacuMode(record.timeMarkers);
+          }
+        } catch (e) {
+          // If fetch fails, default to OP mode
+        }
+        navigateToAnesthesiaRecord(selectedSurgeryId, undefined, usePacuMode);
       }
     } catch (error) {
       console.error("Error checking for duplicates:", error);
@@ -129,10 +159,21 @@ export default function OpList() {
     }
   };
 
-  const handleSelectDuplicateRecord = (recordId: string) => {
+  const handleSelectDuplicateRecord = async (recordId: string) => {
     // Navigate to the selected record with its specific recordId
     if (selectedSurgeryId) {
-      navigateToAnesthesiaRecord(selectedSurgeryId, recordId);
+      // Fetch the specific record to check time markers
+      let usePacuMode = false;
+      try {
+        const response = await apiRequest("GET", `/api/anesthesia/records/${recordId}`);
+        if (response.ok) {
+          const record = await response.json();
+          usePacuMode = shouldUsePacuMode(record.timeMarkers);
+        }
+      } catch (e) {
+        // If fetch fails, default to OP mode
+      }
+      navigateToAnesthesiaRecord(selectedSurgeryId, recordId, usePacuMode);
     }
   };
 
@@ -145,7 +186,9 @@ export default function OpList() {
     if (records.length <= 1) {
       setDuplicatesDialogOpen(false);
       if (records.length === 1) {
-        navigateToAnesthesiaRecord(selectedSurgeryId);
+        // Check markers for the remaining record
+        const usePacuMode = shouldUsePacuMode(records[0].timeMarkers);
+        navigateToAnesthesiaRecord(selectedSurgeryId, undefined, usePacuMode);
       }
     }
   };

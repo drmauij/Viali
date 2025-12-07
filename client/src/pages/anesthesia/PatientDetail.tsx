@@ -29,6 +29,7 @@ import { formatDate, formatDateTimeForInput } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import SignaturePad from "@/components/SignaturePad";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
+import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButton";
 
 type Patient = {
   id: string;
@@ -1789,15 +1790,7 @@ export default function PatientDetail() {
                       <span className="text-sm font-medium">{t('anesthesia.patientDetail.preOp')}</span>
                     </Button>
                     
-                    <Button
-                      variant="outline"
-                      className="h-auto py-4 flex-col gap-2"
-                      onClick={() => setLocation(`/anesthesia/cases/${surgery.id}/op`)}
-                      data-testid={`button-anesthesia-record-${surgery.id}`}
-                    >
-                      <Activity className="h-10 w-10 text-primary" />
-                      <span className="text-sm font-medium">{t('anesthesia.patientDetail.anesthesiaRecord')}</span>
-                    </Button>
+                    <AnesthesiaRecordButton surgeryId={surgery.id} />
                   </div>
                 )}
               </CardContent>
