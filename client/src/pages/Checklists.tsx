@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ClipboardCheck, Clock, AlertCircle, FileSignature } from "lucide-react";
+import { ClipboardCheck, Clock, AlertCircle, FileSignature, X } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -36,10 +36,12 @@ export default function Checklists() {
   const canWrite = useCanWrite();
   const { toast } = useToast();
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [showDismissModal, setShowDismissModal] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<PendingChecklist | null>(null);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [signature, setSignature] = useState("");
   const [comment, setComment] = useState("");
+  const [dismissReason, setDismissReason] = useState("");
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
 
   const { data: pendingChecklists = [], isLoading: isLoadingPending } = useQuery<PendingChecklist[]>({
@@ -95,10 +97,63 @@ export default function Checklists() {
     },
   });
 
+  const dismissMutation = useMutation({
+    mutationFn: async (data: { 
+      templateId: string; 
+      dueDate: Date;
+      reason?: string;
+    }) => {
+      if (!activeHospital?.id || !activeHospital?.unitId || !user?.id) {
+        throw new Error("Missing required information");
+      }
+      
+      const response = await apiRequest("POST", `/api/checklists/dismiss`, {
+        templateId: data.templateId,
+        dueDate: new Date(data.dueDate).toISOString(),
+        reason: data.reason,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/count/${activeHospital?.id}`] });
+      toast({
+        title: t("common.success"),
+        description: t("checklists.dismissSuccess"),
+      });
+      setShowDismissModal(false);
+      setSelectedTemplate(null);
+      setDismissReason("");
+    },
+    onError: () => {
+      toast({
+        title: t("common.error"),
+        description: t("checklists.dismissError"),
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleCompleteChecklist = (checklist: PendingChecklist) => {
     setSelectedTemplate(checklist);
     setCheckedItems(new Set()); // Reset checked items
     setShowCompletionModal(true);
+  };
+
+  const handleDismissChecklist = (checklist: PendingChecklist) => {
+    setSelectedTemplate(checklist);
+    setDismissReason("");
+    setShowDismissModal(true);
+  };
+
+  const handleSubmitDismissal = () => {
+    if (!selectedTemplate) return;
+
+    dismissMutation.mutate({
+      templateId: selectedTemplate.id,
+      dueDate: selectedTemplate.nextDueDate,
+      reason: dismissReason.trim() || undefined,
+    });
   };
 
   const toggleItemCheck = (index: number) => {
@@ -265,13 +320,24 @@ export default function Checklists() {
                       <div className="text-sm text-muted-foreground" data-testid={`text-items-${checklist.id}`}>
                         {Array.isArray(checklist.items) ? checklist.items.length : 0} {t("checklists.items")}
                       </div>
-                      <Button 
-                        onClick={() => handleCompleteChecklist(checklist)}
-                        disabled={!canWrite}
-                        data-testid={`button-complete-${checklist.id}`}
-                      >
-                        {t("checklists.complete")}
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline"
+                          onClick={() => handleDismissChecklist(checklist)}
+                          disabled={!canWrite}
+                          data-testid={`button-skip-${checklist.id}`}
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          {t("checklists.skip")}
+                        </Button>
+                        <Button 
+                          onClick={() => handleCompleteChecklist(checklist)}
+                          disabled={!canWrite}
+                          data-testid={`button-complete-${checklist.id}`}
+                        >
+                          {t("checklists.complete")}
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -481,6 +547,75 @@ export default function Checklists() {
               data-testid="button-submit"
             >
               {completeMutation.isPending ? t("checklists.completing") : t("checklists.submitCompletion")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dismiss Modal */}
+      <Dialog 
+        open={showDismissModal} 
+        onOpenChange={(open) => {
+          setShowDismissModal(open);
+          if (!open) {
+            setSelectedTemplate(null);
+            setDismissReason("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md" data-testid="dialog-dismiss-checklist">
+          <DialogHeader>
+            <DialogTitle data-testid="text-dismiss-modal-title">
+              {t("checklists.skipChecklist")}
+            </DialogTitle>
+            <DialogDescription data-testid="text-dismiss-modal-description">
+              {t("checklists.skipDescription")}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            <div className="p-3 bg-muted rounded-lg">
+              <p className="font-medium" data-testid="text-dismiss-template-name">{selectedTemplate?.name}</p>
+              <p className="text-sm text-muted-foreground" data-testid="text-dismiss-due-date">
+                {t("checklists.dueDate")}: {selectedTemplate?.nextDueDate && formatShortDate(selectedTemplate.nextDueDate)}
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="dismiss-reason" className="mb-2 block" data-testid="label-dismiss-reason">
+                {t("checklists.skipReason")} ({t("checklists.optional")})
+              </Label>
+              <Textarea
+                id="dismiss-reason"
+                value={dismissReason}
+                onChange={(e) => setDismissReason(e.target.value)}
+                placeholder={t("checklists.skipReasonPlaceholder")}
+                className="min-h-20"
+                data-testid="input-dismiss-reason"
+              />
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-6 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDismissModal(false);
+                setSelectedTemplate(null);
+                setDismissReason("");
+              }}
+              disabled={dismissMutation.isPending}
+              data-testid="button-dismiss-cancel"
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={handleSubmitDismissal}
+              disabled={dismissMutation.isPending}
+              className="flex-1"
+              data-testid="button-dismiss-confirm"
+            >
+              {dismissMutation.isPending ? t("checklists.skipping") : t("checklists.confirmSkip")}
             </Button>
           </div>
         </DialogContent>

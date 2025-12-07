@@ -505,6 +505,24 @@ export const checklistCompletions = pgTable("checklist_completions", {
   index("idx_checklist_completions_due_date").on(table.dueDate),
 ]);
 
+// Checklist Dismissals (record of skipped/dismissed checklists)
+export const checklistDismissals = pgTable("checklist_dismissals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull().references(() => checklistTemplates.id),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
+  dismissedBy: varchar("dismissed_by").notNull().references(() => users.id),
+  dismissedAt: timestamp("dismissed_at").defaultNow(),
+  dueDate: timestamp("due_date").notNull(), // which recurrency period this dismissal covers
+  reason: text("reason"), // optional reason for dismissal (e.g., "Weekend", "Holiday", "Not needed")
+}, (table) => [
+  index("idx_checklist_dismissals_template").on(table.templateId),
+  index("idx_checklist_dismissals_hospital").on(table.hospitalId),
+  index("idx_checklist_dismissals_unit").on(table.unitId),
+  index("idx_checklist_dismissals_dismissed_at").on(table.dismissedAt),
+  index("idx_checklist_dismissals_due_date").on(table.dueDate),
+]);
+
 // Medication Configurations (anesthesia-specific medication data)
 export const medicationConfigs = pgTable("medication_configs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1804,6 +1822,11 @@ export const insertChecklistCompletionSchema = createInsertSchema(checklistCompl
   completedAt: true,
 });
 
+export const insertChecklistDismissalSchema = createInsertSchema(checklistDismissals).omit({
+  id: true,
+  dismissedAt: true,
+});
+
 export const insertMedicationConfigSchema = createInsertSchema(medicationConfigs).omit({
   id: true,
   createdAt: true,
@@ -2403,6 +2426,8 @@ export type ChecklistTemplate = typeof checklistTemplates.$inferSelect;
 export type InsertChecklistTemplate = z.infer<typeof insertChecklistTemplateSchema>;
 export type ChecklistCompletion = typeof checklistCompletions.$inferSelect;
 export type InsertChecklistCompletion = z.infer<typeof insertChecklistCompletionSchema>;
+export type ChecklistDismissal = typeof checklistDismissals.$inferSelect;
+export type InsertChecklistDismissal = z.infer<typeof insertChecklistDismissalSchema>;
 export type MedicationConfig = typeof medicationConfigs.$inferSelect;
 export type InsertMedicationConfig = z.infer<typeof insertMedicationConfigSchema>;
 export type MedicationGroup = typeof medicationGroups.$inferSelect;

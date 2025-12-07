@@ -20,6 +20,7 @@ import {
   importJobs,
   checklistTemplates,
   checklistCompletions,
+  checklistDismissals,
   medicationConfigs,
   medicationGroups,
   administrationGroups,
@@ -78,6 +79,8 @@ import {
   type InsertChecklistTemplate,
   type ChecklistCompletion,
   type InsertChecklistCompletion,
+  type ChecklistDismissal,
+  type InsertChecklistDismissal,
   type MedicationConfig,
   type InsertMedicationConfig,
   type MedicationGroup,
@@ -259,6 +262,7 @@ export interface IStorage {
   deleteChecklistTemplate(id: string): Promise<void>;
   getPendingChecklists(hospitalId: string, unitId: string, role?: string): Promise<(ChecklistTemplate & { lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]>;
   completeChecklist(completion: InsertChecklistCompletion): Promise<ChecklistCompletion>;
+  dismissChecklist(dismissal: InsertChecklistDismissal): Promise<ChecklistDismissal>;
   getChecklistCompletions(hospitalId: string, unitId?: string, templateId?: string, limit?: number): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[]>;
   getChecklistCompletion(id: string): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User }) | undefined>;
   getPendingChecklistCount(hospitalId: string, unitId: string, role?: string): Promise<number>;
@@ -1620,8 +1624,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteChecklistTemplate(id: string): Promise<void> {
-    // Delete all associated checklist completions first (cascade delete)
+    // Delete all associated checklist completions and dismissals first (cascade delete)
     await db.delete(checklistCompletions).where(eq(checklistCompletions.templateId, id));
+    await db.delete(checklistDismissals).where(eq(checklistDismissals.templateId, id));
     // Then delete the template
     await db.delete(checklistTemplates).where(eq(checklistTemplates.id, id));
   }
@@ -1657,8 +1662,33 @@ export class DatabaseStorage implements IStorage {
         .orderBy(desc(checklistCompletions.dueDate))
         .limit(1);
 
+      const dismissals = await db
+        .select()
+        .from(checklistDismissals)
+        .where(and(
+          eq(checklistDismissals.templateId, template.id),
+          eq(checklistDismissals.hospitalId, hospitalId),
+          eq(checklistDismissals.unitId, unitId)
+        ))
+        .orderBy(desc(checklistDismissals.dueDate))
+        .limit(1);
+
       const lastCompletion = completions[0];
-      const nextDueDate = this.calculateNextDueDate(template.startDate, template.recurrency, lastCompletion?.dueDate);
+      const lastDismissal = dismissals[0];
+      
+      // Use the latest due date from either completion or dismissal
+      let lastHandledDueDate: Date | undefined;
+      if (lastCompletion && lastDismissal) {
+        lastHandledDueDate = new Date(lastCompletion.dueDate) > new Date(lastDismissal.dueDate) 
+          ? lastCompletion.dueDate 
+          : lastDismissal.dueDate;
+      } else if (lastCompletion) {
+        lastHandledDueDate = lastCompletion.dueDate;
+      } else if (lastDismissal) {
+        lastHandledDueDate = lastDismissal.dueDate;
+      }
+      
+      const nextDueDate = this.calculateNextDueDate(template.startDate, template.recurrency, lastHandledDueDate);
       const isOverdue = nextDueDate <= now;
 
       if (isOverdue || nextDueDate <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)) {
@@ -1703,6 +1733,11 @@ export class DatabaseStorage implements IStorage {
 
   async completeChecklist(completion: InsertChecklistCompletion): Promise<ChecklistCompletion> {
     const [created] = await db.insert(checklistCompletions).values(completion).returning();
+    return created;
+  }
+
+  async dismissChecklist(dismissal: InsertChecklistDismissal): Promise<ChecklistDismissal> {
+    const [created] = await db.insert(checklistDismissals).values(dismissal).returning();
     return created;
   }
 

@@ -5,6 +5,7 @@ import { isAuthenticated } from "../auth/google";
 import { 
   insertChecklistTemplateSchema, 
   insertChecklistCompletionSchema,
+  insertChecklistDismissalSchema,
   units as locations 
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
@@ -272,6 +273,56 @@ router.post('/api/checklists/complete', isAuthenticated, requireWriteAccess, asy
       return res.status(400).json({ message: "Invalid completion data", errors: error.errors });
     }
     res.status(500).json({ message: "Failed to complete checklist" });
+  }
+});
+
+router.post('/api/checklists/dismiss', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const dismissalData = req.body;
+    
+    if (!dismissalData.templateId) {
+      return res.status(400).json({ message: "Template ID is required" });
+    }
+    
+    const template = await storage.getChecklistTemplate(dismissalData.templateId);
+    if (!template) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+    
+    const access = await verifyUserHospitalUnitAccess(userId, template.hospitalId, template.unitId);
+    if (!access.hasAccess) {
+      return res.status(403).json({ message: "Access denied to this unit" });
+    }
+    
+    const validated = insertChecklistDismissalSchema.extend({
+      dueDate: z.coerce.date(),
+    }).parse({
+      ...dismissalData,
+      dismissedBy: userId,
+      hospitalId: template.hospitalId,
+      unitId: template.unitId,
+      dismissedAt: new Date(),
+    });
+    
+    const dismissal = await storage.dismissChecklist(validated);
+    
+    // Broadcast checklist update to all connected clients
+    broadcastChecklistUpdate({
+      hospitalId: template.hospitalId,
+      section: 'checklists',
+      data: { dismissalId: dismissal.id, templateId: template.id },
+      timestamp: Date.now(),
+      userId,
+    });
+    
+    res.status(201).json(dismissal);
+  } catch (error: any) {
+    console.error("Error dismissing checklist:", error);
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ message: "Invalid dismissal data", errors: error.errors });
+    }
+    res.status(500).json({ message: "Failed to dismiss checklist" });
   }
 });
 
