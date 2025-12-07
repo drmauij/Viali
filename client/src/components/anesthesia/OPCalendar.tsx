@@ -86,8 +86,8 @@ interface RoomStaffAssignment {
   surgeryRoomId: string;
   dailyStaffPoolId: string;
   date: string;
-  staffName: string;
-  staffRole: string;
+  name: string;
+  role: string;
 }
 
 function DroppableRoomHeader({ 
@@ -127,17 +127,17 @@ function DroppableRoomHeader({
         {assignedStaff.length > 0 ? (
           <div className="flex flex-wrap gap-1 pt-1">
             {assignedStaff.map((staff) => {
-              const config = ROLE_CONFIG[staff.staffRole as keyof typeof ROLE_CONFIG];
+              const config = ROLE_CONFIG[staff.role as keyof typeof ROLE_CONFIG];
               const Icon = config?.icon || User;
               return (
                 <span 
                   key={staff.id}
                   className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full ${config?.bgClass || 'bg-gray-100'} ${config?.colorClass || ''} group`}
-                  title={`${staff.staffName} - Click to remove`}
+                  title={`${staff.name} - Click to remove`}
                   data-testid={`room-staff-chip-${staff.id}`}
                 >
                   <Icon className="h-2.5 w-2.5" />
-                  <span className="max-w-[60px] truncate">{staff.staffName.split(' ')[0]}</span>
+                  <span className="max-w-[60px] truncate">{staff.name.split(' ')[0]}</span>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
