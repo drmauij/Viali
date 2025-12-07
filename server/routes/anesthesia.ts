@@ -3749,7 +3749,8 @@ router.get('/api/anesthesia/all-staff-options/:hospitalId', isAuthenticated, asy
       .filter(hu => {
         const isInSurgeryUnit = surgeryUnit && hu.unitId === surgeryUnit.id;
         const isInAnesthesiaUnit = anesthesiaUnit && hu.unitId === anesthesiaUnit.id;
-        return isInSurgeryUnit || isInAnesthesiaUnit;
+        const isDoctorOrNurse = hu.role === 'doctor' || hu.role === 'nurse';
+        return (isInSurgeryUnit || isInAnesthesiaUnit) && isDoctorOrNurse;
       })
       .map(hu => {
         let staffRole = 'anesthesiaNurse';
@@ -3764,6 +3765,7 @@ router.get('/api/anesthesia/all-staff-options/:hospitalId', isAuthenticated, asy
           name: `${hu.user.firstName || ''} ${hu.user.lastName || ''}`.trim() || hu.user.email || 'Unknown',
           email: hu.user.email,
           staffRole,
+          baseRole: hu.role as 'doctor' | 'nurse',
         };
       });
     
