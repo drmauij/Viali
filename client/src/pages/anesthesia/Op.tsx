@@ -1763,17 +1763,17 @@ export default function Op() {
                 <div className="space-y-4">
                   <h4 className="text-sm font-medium">{t('anesthesia.op.ambulatoryCareInstructions')}</h4>
                   <div className="space-y-3">
-                    {[
-                      { id: 'osasObservation', label: t('anesthesia.op.osasObservation') },
-                      { id: 'escortRequired', label: t('anesthesia.op.escortRequired') },
-                      { id: 'postBlockMotorCheck', label: t('anesthesia.op.postBlockMotorCheck') },
-                      { id: 'extendedObservation', label: t('anesthesia.op.extendedObservation') },
-                      { id: 'noOralAnticoagulants24h', label: t('anesthesia.op.noOralAnticoagulants24h') },
-                    ].map((item) => (
+                    {([
+                      { id: 'osasObservation' as const, label: t('anesthesia.op.osasObservation') },
+                      { id: 'escortRequired' as const, label: t('anesthesia.op.escortRequired') },
+                      { id: 'postBlockMotorCheck' as const, label: t('anesthesia.op.postBlockMotorCheck') },
+                      { id: 'extendedObservation' as const, label: t('anesthesia.op.extendedObservation') },
+                      { id: 'noOralAnticoagulants24h' as const, label: t('anesthesia.op.noOralAnticoagulants24h') },
+                    ] as const).map((item) => (
                       <div key={item.id} className="flex items-center space-x-2">
                         <Checkbox
                           id={`ambulatory-${item.id}`}
-                          checked={postOpData.ambulatoryCare?.[item.id as keyof typeof postOpData.ambulatoryCare] ?? false}
+                          checked={postOpData.ambulatoryCare?.[item.id] === true}
                           onCheckedChange={(checked) => {
                             const updated = {
                               ...postOpData,
