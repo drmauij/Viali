@@ -35,6 +35,11 @@ export function IntraoperativeMedicationsCard({ medications, items }: Intraopera
     return item?.controlled || false;
   };
 
+  const getItemUnit = (itemId: string) => {
+    const item = items.find(i => i.id === itemId) as any;
+    return item?.administrationUnit || '';
+  };
+
   const getLastAdministrationByItem = () => {
     const medicationMap = new Map<string, { 
       itemId: string;
@@ -56,12 +61,15 @@ export function IntraoperativeMedicationsCard({ medications, items }: Intraopera
       if (med.type === 'bolus' && med.dose) {
         const doseValue = parseFloat(med.dose);
         if (!isNaN(doseValue)) {
+          // Get unit from medication record first, fall back to item configuration
+          const unit = med.unit || getItemUnit(med.itemId);
+          
           if (existing) {
             medicationMap.set(itemName, {
               itemId: med.itemId,
               lastTime: Math.max(existing.lastTime, timestamp),
               cumulativeDose: existing.cumulativeDose + doseValue,
-              unit: med.unit || existing.unit,
+              unit: unit || existing.unit,
               type: 'bolus',
               isControlled
             });
@@ -70,7 +78,7 @@ export function IntraoperativeMedicationsCard({ medications, items }: Intraopera
               itemId: med.itemId,
               lastTime: timestamp,
               cumulativeDose: doseValue,
-              unit: med.unit || '',
+              unit: unit,
               type: 'bolus',
               isControlled
             });
