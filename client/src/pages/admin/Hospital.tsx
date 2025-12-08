@@ -396,6 +396,19 @@ export default function Hospital() {
     setTemplateDialogOpen(true);
   };
 
+  const handleDuplicateTemplate = (template: any) => {
+    setEditingTemplate(null); // Clear editing template so it creates a new one
+    setTemplateForm({
+      name: `${template.name} (${t("common.copy")})`,
+      recurrency: template.recurrency,
+      items: (template.items || []).map((item: any) => typeof item === 'string' ? item : (item.description || "")),
+      unitId: template.unitId || "",
+      role: template.role || "",
+      startDate: new Date().toISOString().split('T')[0], // Reset start date to today
+    });
+    setTemplateDialogOpen(true);
+  };
+
   const handleSaveTemplate = () => {
     if (!templateForm.name.trim()) {
       toast({ title: t("common.error"), description: t("admin.templateNameRequired"), variant: "destructive" });
@@ -776,6 +789,14 @@ export default function Hospital() {
                         data-testid={`button-edit-template-${template.id}`}
                       >
                         <i className="fas fa-edit"></i>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDuplicateTemplate(template)}
+                        data-testid={`button-duplicate-template-${template.id}`}
+                      >
+                        <i className="fas fa-copy"></i>
                       </Button>
                       <Button
                         variant="outline"
