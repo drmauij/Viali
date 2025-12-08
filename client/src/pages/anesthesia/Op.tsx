@@ -134,8 +134,20 @@ export default function Op() {
   const surgeryId = params.id;
   
   // Parse recordId from query parameter (for opening specific record when duplicates exist)
-  const urlRecordId = new URLSearchParams(window.location.search).get('recordId') || undefined;
+  // Re-read on every render to catch URL changes
+  const urlRecordId = useMemo(() => {
+    return new URLSearchParams(window.location.search).get('recordId') || undefined;
+  }, [location]);
+  
   const [selectedRecordId, setSelectedRecordId] = useState<string | undefined>(urlRecordId);
+  
+  // Sync selectedRecordId with URL changes
+  useEffect(() => {
+    if (urlRecordId && urlRecordId !== selectedRecordId) {
+      setSelectedRecordId(urlRecordId);
+      setDuplicateCheckComplete(true); // URL has recordId, so skip duplicate check
+    }
+  }, [urlRecordId]);
   
   // If URL has recordId, duplicate check is not needed
   const needsDuplicateCheck = !urlRecordId;
@@ -265,6 +277,13 @@ export default function Op() {
     };
   }, [anesthesiaRecord?.id, joinSurgery, leaveSurgery]);
 
+  // Reset duplicate check state when surgeryId changes
+  useEffect(() => {
+    setDuplicateCheckComplete(false);
+    setShowDuplicatesDialog(false);
+    setDuplicateRecords([]);
+  }, [surgeryId]);
+
   // Check for duplicate records when page loads (only if no specific recordId was requested)
   useEffect(() => {
     const checkForDuplicates = async () => {
@@ -274,10 +293,13 @@ export default function Op() {
         return;
       }
       
+      console.log('[Op] Starting duplicate check for surgery:', surgeryId);
+      
       try {
         const response = await apiRequest("GET", `/api/anesthesia/records/surgery/${surgeryId}/all`);
         if (response.ok) {
           const records = await response.json();
+          console.log('[Op] Duplicate check found', records.length, 'record(s)');
           
           if (records.length > 1) {
             // Multiple records found - show dialog and wait for user selection
@@ -299,6 +321,7 @@ export default function Op() {
           }
         } else {
           // API error - proceed with normal flow
+          console.error('[Op] API error in duplicate check, proceeding');
           setDuplicateCheckComplete(true);
         }
       } catch (error) {
