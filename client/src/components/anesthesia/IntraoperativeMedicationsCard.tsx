@@ -19,7 +19,7 @@ interface MedicationRecord {
 
 interface IntraoperativeMedicationsCardProps {
   medications: MedicationRecord[];
-  items: Array<{ id: string; name: string }>;
+  items: Array<{ id: string; name: string; controlled?: boolean }>;
 }
 
 export function IntraoperativeMedicationsCard({ medications, items }: IntraoperativeMedicationsCardProps) {
@@ -30,27 +30,64 @@ export function IntraoperativeMedicationsCard({ medications, items }: Intraopera
     return item?.name || 'Unknown';
   };
 
+  const isItemControlled = (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    return item?.controlled || false;
+  };
+
   const getLastAdministrationByItem = () => {
-    const medicationMap = new Map<string, { lastTime: number; dose: string; type: string }>();
+    const medicationMap = new Map<string, { 
+      itemId: string;
+      lastTime: number; 
+      cumulativeDose: number; 
+      unit: string; 
+      type: string;
+      isControlled: boolean;
+    }>();
 
     medications.forEach(med => {
       const itemName = getItemName(med.itemId);
       const timestamp = new Date(med.timestamp).getTime();
+      const isControlled = isItemControlled(med.itemId);
       
       const existing = medicationMap.get(itemName);
-      if (!existing || timestamp > existing.lastTime) {
-        let doseInfo = '';
-        if (med.type === 'bolus' && med.dose) {
-          doseInfo = `${med.dose}${med.unit ? ' ' + med.unit : ''}`;
-        } else if (med.type === 'infusion_start' && med.rate) {
-          doseInfo = `${med.rate}`;
+      
+      // Calculate cumulative dose for bolus administrations
+      if (med.type === 'bolus' && med.dose) {
+        const doseValue = parseFloat(med.dose);
+        if (!isNaN(doseValue)) {
+          if (existing) {
+            medicationMap.set(itemName, {
+              itemId: med.itemId,
+              lastTime: Math.max(existing.lastTime, timestamp),
+              cumulativeDose: existing.cumulativeDose + doseValue,
+              unit: med.unit || existing.unit,
+              type: 'bolus',
+              isControlled
+            });
+          } else {
+            medicationMap.set(itemName, {
+              itemId: med.itemId,
+              lastTime: timestamp,
+              cumulativeDose: doseValue,
+              unit: med.unit || '',
+              type: 'bolus',
+              isControlled
+            });
+          }
         }
-        
-        medicationMap.set(itemName, {
-          lastTime: timestamp,
-          dose: doseInfo,
-          type: med.type
-        });
+      } else if (med.type === 'infusion_start') {
+        // For infusions, just track the last start time
+        if (!existing || timestamp > existing.lastTime) {
+          medicationMap.set(itemName, {
+            itemId: med.itemId,
+            lastTime: timestamp,
+            cumulativeDose: 0,
+            unit: '',
+            type: 'infusion_start',
+            isControlled
+          });
+        }
       }
     });
 
@@ -58,10 +95,18 @@ export function IntraoperativeMedicationsCard({ medications, items }: Intraopera
       .map(([name, data]) => ({
         name,
         lastTime: data.lastTime,
-        dose: data.dose,
-        type: data.type
+        cumulativeDose: data.cumulativeDose,
+        unit: data.unit,
+        type: data.type,
+        isControlled: data.isControlled
       }))
-      .sort((a, b) => b.lastTime - a.lastTime);
+      .sort((a, b) => {
+        // Sort by controlled first, then by last administration time
+        if (a.isControlled !== b.isControlled) {
+          return a.isControlled ? -1 : 1;
+        }
+        return b.lastTime - a.lastTime;
+      });
   };
 
   const formatTime = (timestamp: number) => {
@@ -117,14 +162,21 @@ export function IntraoperativeMedicationsCard({ medications, items }: Intraopera
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-medium text-sm truncate">{med.name}</span>
+                    {med.isControlled && (
+                      <Badge variant="destructive" className="text-xs">
+                        BTM
+                      </Badge>
+                    )}
                     {med.type === 'infusion_start' && (
                       <Badge variant="outline" className="text-xs">
                         Infusion
                       </Badge>
                     )}
                   </div>
-                  {med.dose && (
-                    <p className="text-xs text-muted-foreground">{med.dose}</p>
+                  {med.type === 'bolus' && med.cumulativeDose > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      Total: {med.cumulativeDose}{med.unit ? ' ' + med.unit : ''}
+                    </p>
                   )}
                 </div>
                 <div className="flex flex-col items-end gap-1 shrink-0">
