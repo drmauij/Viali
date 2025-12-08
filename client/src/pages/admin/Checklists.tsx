@@ -501,7 +501,7 @@ export default function Checklists() {
                 disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}
                 data-testid="button-save-template"
               >
-                {editingTemplate ? t("common.edit") : t("common.save")}
+                {t("common.save")}
               </Button>
             </div>
           </div>
