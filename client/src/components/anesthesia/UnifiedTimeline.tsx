@@ -6373,18 +6373,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       </span>
                     </div>
                   )}
-                  {/* Cumulative dose pill badge */}
-                  {cumulativeDoses[lane.id] && cumulativeDoses[lane.id].total > 0 && (
-                    <span 
-                      className="ml-1 px-1.5 py-0.5 text-[10px] font-medium bg-emerald-600 text-white rounded-full whitespace-nowrap shrink-0"
-                      data-testid={`badge-cumulative-dose-${lane.id}`}
-                      title={`Total administered: ${cumulativeDoses[lane.id].total % 1 === 0 ? cumulativeDoses[lane.id].total : cumulativeDoses[lane.id].total.toFixed(1)} ${cumulativeDoses[lane.id].unit}`}
-                    >
-                      {cumulativeDoses[lane.id].total % 1 === 0 
-                        ? cumulativeDoses[lane.id].total 
-                        : cumulativeDoses[lane.id].total.toFixed(1)} {cumulativeDoses[lane.id].unit}
-                    </span>
-                  )}
                 </>
               ) : (
                 <div className="flex items-center gap-1 flex-1">
@@ -6407,6 +6395,48 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   </span>
                 </div>
               )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Fixed right-side panel for cumulative dose badges */}
+      <div 
+        className="absolute right-0 z-30 pointer-events-none"
+        style={{ 
+          top: `${VITALS_TOP_POS + VITALS_HEIGHT}px`,
+          width: '70px',
+          height: `${swimlanePositions.length > 0 ? swimlanePositions[swimlanePositions.length - 1].top + swimlanePositions[swimlanePositions.length - 1].height - (VITALS_TOP_POS + VITALS_HEIGHT) : 0}px`
+        }}
+      >
+        {swimlanePositions.map((lane) => {
+          const swimlaneConfig = activeSwimlanes.find(s => s.id === lane.id);
+          const isItem = swimlaneConfig?.hierarchyLevel === 'item' && lane.itemId;
+          const cumulativeDose = cumulativeDoses[lane.id];
+          
+          if (!isItem || !cumulativeDose || cumulativeDose.total <= 0) return null;
+          
+          // Calculate position relative to the right panel's top
+          const topOffset = lane.top - (VITALS_TOP_POS + VITALS_HEIGHT);
+          
+          return (
+            <div
+              key={`cumulative-${lane.id}`}
+              className="absolute right-1 flex items-center justify-end"
+              style={{
+                top: `${topOffset}px`,
+                height: `${lane.height}px`,
+              }}
+            >
+              <span 
+                className="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-600 text-white rounded-full whitespace-nowrap shadow-sm"
+                data-testid={`badge-cumulative-dose-${lane.id}`}
+                title={`Total administered: ${cumulativeDose.total % 1 === 0 ? cumulativeDose.total : cumulativeDose.total.toFixed(1)} ${cumulativeDose.unit}`}
+              >
+                {cumulativeDose.total % 1 === 0 
+                  ? cumulativeDose.total 
+                  : cumulativeDose.total.toFixed(1)} {cumulativeDose.unit}
+              </span>
             </div>
           );
         })}
