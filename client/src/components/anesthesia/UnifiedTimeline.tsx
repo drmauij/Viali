@@ -7940,6 +7940,62 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            {/* Calculated Durations */}
+            {(() => {
+              const o1Marker = timeMarkers.find(m => m.code === 'O1');
+              const o2Marker = timeMarkers.find(m => m.code === 'O2');
+              const x1Marker = timeMarkers.find(m => m.code === 'X1');
+              const x2Marker = timeMarkers.find(m => m.code === 'X2');
+              
+              const formatDuration = (startTime: number, endTime: number): string => {
+                const durationMs = endTime - startTime;
+                if (durationMs < 0) return 'Invalid (end before start)';
+                
+                const hours = Math.floor(durationMs / (1000 * 60 * 60));
+                const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
+                
+                if (hours > 0) {
+                  return `${hours}h ${minutes}min`;
+                } else {
+                  return `${minutes}min`;
+                }
+              };
+              
+              const surgeryDuration = o1Marker?.time && o2Marker?.time 
+                ? formatDuration(o1Marker.time, o2Marker.time)
+                : null;
+              
+              const anesthesiaDuration = x1Marker?.time && x2Marker?.time
+                ? formatDuration(x1Marker.time, x2Marker.time)
+                : null;
+              
+              if (!surgeryDuration && !anesthesiaDuration) return null;
+              
+              return (
+                <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                  <div className="text-sm font-medium mb-2 text-foreground/70">Calculated Durations</div>
+                  <div className="grid gap-2">
+                    {surgeryDuration && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-foreground/70">Surgery time (O1 → O2):</span>
+                        <Badge variant="secondary" className="font-mono" data-testid="calculated-surgery-time">
+                          {surgeryDuration}
+                        </Badge>
+                      </div>
+                    )}
+                    {anesthesiaDuration && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-foreground/70">Anesthesia time (X1 → X2):</span>
+                        <Badge variant="secondary" className="font-mono" data-testid="calculated-anesthesia-time">
+                          {anesthesiaDuration}
+                        </Badge>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+            
             {timeMarkers.map((marker, index) => (
               <div key={marker.id} className="grid grid-cols-[auto_1fr_auto] gap-3 items-center">
                 <div
