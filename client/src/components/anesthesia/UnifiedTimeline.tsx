@@ -3209,43 +3209,49 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
   // Update zoom state when zoom changes
   useEffect(() => {
+    if (!isChartReady) return;
+    
     const updateZoomState = () => {
       // Get fresh chart instance on every call to ensure it's ready
       const chart = chartRef.current?.getEchartsInstance();
       if (!chart) return;
       
-      const option = chart.getOption() as any;
-      if (!option) return;
-      const dataZoom = option.dataZoom?.[0];
-      if (!dataZoom) return;
-      
-      const start = dataZoom.start ?? 0;
-      const end = dataZoom.end ?? 100;
-      let fullRange = data.endTime - data.startTime;
-      
-      // SAFEGUARD: Use minimum window if range is collapsed
-      const MIN_RANGE = 10 * 60 * 1000; // 10 minutes minimum window
-      if (fullRange <= 0) {
-        console.warn('[ZOOM] Data range is zero or negative, using minimum 10-minute window', {
-          startTime: new Date(data.startTime).toISOString(),
-          endTime: new Date(data.endTime).toISOString(),
-          originalRange: fullRange
-        });
-        fullRange = MIN_RANGE;
+      try {
+        const option = chart.getOption() as any;
+        if (!option) return;
+        const dataZoom = option.dataZoom?.[0];
+        if (!dataZoom) return;
+        
+        const start = dataZoom.start ?? 0;
+        const end = dataZoom.end ?? 100;
+        let fullRange = data.endTime - data.startTime;
+        
+        // SAFEGUARD: Use minimum window if range is collapsed
+        const MIN_RANGE = 10 * 60 * 1000; // 10 minutes minimum window
+        if (fullRange <= 0) {
+          console.warn('[ZOOM] Data range is zero or negative, using minimum 10-minute window', {
+            startTime: new Date(data.startTime).toISOString(),
+            endTime: new Date(data.endTime).toISOString(),
+            originalRange: fullRange
+          });
+          fullRange = MIN_RANGE;
+        }
+        
+        const visibleStart = data.startTime + (start / 100) * fullRange;
+        const visibleEnd = data.startTime + (end / 100) * fullRange;
+        
+        // Update zoom state for interactive layer
+        setCurrentZoomStart(visibleStart);
+        setCurrentZoomEnd(visibleEnd);
+        
+        // FIXED SNAP INTERVAL: Always use 1 minute regardless of zoom level
+        // This allows precise data entry at any zoom level
+        const vitalsSnapInterval = 1 * 60 * 1000; // 1 minute
+        
+        setCurrentVitalsSnapInterval(vitalsSnapInterval);
+      } catch (error) {
+        console.warn('[ZOOM] Error updating zoom state:', error);
       }
-      
-      const visibleStart = data.startTime + (start / 100) * fullRange;
-      const visibleEnd = data.startTime + (end / 100) * fullRange;
-      
-      // Update zoom state for interactive layer
-      setCurrentZoomStart(visibleStart);
-      setCurrentZoomEnd(visibleEnd);
-      
-      // FIXED SNAP INTERVAL: Always use 1 minute regardless of zoom level
-      // This allows precise data entry at any zoom level
-      const vitalsSnapInterval = 1 * 60 * 1000; // 1 minute
-      
-      setCurrentVitalsSnapInterval(vitalsSnapInterval);
     };
 
     // Update immediately
@@ -3258,12 +3264,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
 
     return () => {
-      const chart = chartRef.current?.getEchartsInstance();
-      if (chart) {
-        chart.off('datazoom', updateZoomState);
+      try {
+        const chart = chartRef.current?.getEchartsInstance();
+        if (chart) {
+          chart.off('datazoom', updateZoomState);
+        }
+      } catch (error) {
+        console.warn('[ZOOM] Error cleaning up datazoom handler:', error);
       }
     };
-  }, [chartRef, data.startTime, data.endTime]);
+  }, [chartRef, data.startTime, data.endTime, isChartReady]);
 
   // Update NOW line position when zoom/pan/time changes
   useEffect(() => {
@@ -3527,6 +3537,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
   // Zoom and pan handlers
   const handleZoomIn = () => {
+    if (!isChartReady) return;
+    
     // Mark viewport as user-pinned to prevent auto-recentering
     userPinnedViewportRef.current = true;
     
@@ -3579,6 +3591,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   const handleZoomOut = () => {
+    if (!isChartReady) return;
+    
     // Mark viewport as user-pinned to prevent auto-recentering
     userPinnedViewportRef.current = true;
     
@@ -3631,6 +3645,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   const handlePanLeft = () => {
+    if (!isChartReady) return;
+    
     // Mark viewport as user-pinned to prevent auto-recentering
     userPinnedViewportRef.current = true;
     
@@ -3673,6 +3689,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   const handlePanRight = () => {
+    if (!isChartReady) return;
+    
     // Mark viewport as user-pinned to prevent auto-recentering
     userPinnedViewportRef.current = true;
     
@@ -3715,6 +3733,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   const handleResetZoom = () => {
+    if (!isChartReady) return;
+    
     // Clear user-pinned viewport flag to allow auto-recentering again
     userPinnedViewportRef.current = false;
     
