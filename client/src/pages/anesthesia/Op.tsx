@@ -1605,13 +1605,22 @@ export default function Op() {
                         <span className="text-sm">{t('anesthesia.op.contraindicated')}</span>
                       </label>
                       <div className="flex items-center space-x-2">
-                        <label className="flex items-center space-x-2">
+                        <label className="flex items-center space-x-2 cursor-pointer">
                           <input
                             type="radio"
                             name="paracetamol"
                             value="custom"
                             checked={postOpData.paracetamolTime !== "Immediately" && postOpData.paracetamolTime !== "Contraindicated" && !!postOpData.paracetamolTime}
-                            onChange={() => {}}
+                            onChange={() => {
+                              const inputEl = document.querySelector('[data-testid="input-paracetamol-time"]') as HTMLInputElement;
+                              if (inputEl) {
+                                inputEl.focus();
+                                if (!postOpData.paracetamolTime || postOpData.paracetamolTime === "Immediately" || postOpData.paracetamolTime === "Contraindicated") {
+                                  const updated = { ...postOpData, paracetamolTime: "" };
+                                  setPostOpData(updated);
+                                }
+                              }
+                            }}
                             disabled={!anesthesiaRecord?.id}
                             data-testid="radio-paracetamol-custom"
                           />
@@ -1621,17 +1630,36 @@ export default function Op() {
                           type="text"
                           className="w-32"
                           placeholder={t('anesthesia.op.hhMM')}
-                          pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
                           value={postOpData.paracetamolTime !== "Immediately" && postOpData.paracetamolTime !== "Contraindicated" ? (postOpData.paracetamolTime || "") : ""}
                           onChange={(e) => {
                             const value = e.target.value;
-                            const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
-                            if (value === "" || timeRegex.test(value)) {
-                              const updated = { ...postOpData, paracetamolTime: value };
-                              setPostOpData(updated);
+                            setPostOpData({ ...postOpData, paracetamolTime: value });
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim();
+                            let formatted = value;
+                            
+                            if (value && value !== "Immediately" && value !== "Contraindicated") {
+                              const digitsOnly = value.replace(/\D/g, '');
+                              
+                              if (digitsOnly.length === 1 || digitsOnly.length === 2) {
+                                const hours = parseInt(digitsOnly, 10);
+                                if (hours >= 0 && hours <= 23) {
+                                  formatted = `${hours.toString().padStart(2, '0')}:00`;
+                                }
+                              } else if (digitsOnly.length === 3 || digitsOnly.length === 4) {
+                                const hours = parseInt(digitsOnly.slice(0, -2), 10);
+                                const minutes = parseInt(digitsOnly.slice(-2), 10);
+                                if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+                                  formatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                                }
+                              }
+                            }
+                            
+                            const updated = { ...postOpData, paracetamolTime: formatted };
+                            setPostOpData(updated);
+                            if (formatted) {
                               postOpAutoSave.mutate(updated);
-                            } else {
-                              setPostOpData({ ...postOpData, paracetamolTime: value });
                             }
                           }}
                           disabled={!anesthesiaRecord?.id}
@@ -1678,13 +1706,22 @@ export default function Op() {
                         <span className="text-sm">{t('anesthesia.op.contraindicated')}</span>
                       </label>
                       <div className="flex items-center space-x-2">
-                        <label className="flex items-center space-x-2">
+                        <label className="flex items-center space-x-2 cursor-pointer">
                           <input
                             type="radio"
                             name="nsar"
                             value="custom"
                             checked={postOpData.nsarTime !== "Immediately" && postOpData.nsarTime !== "Contraindicated" && !!postOpData.nsarTime}
-                            onChange={() => {}}
+                            onChange={() => {
+                              const inputEl = document.querySelector('[data-testid="input-nsar-time"]') as HTMLInputElement;
+                              if (inputEl) {
+                                inputEl.focus();
+                                if (!postOpData.nsarTime || postOpData.nsarTime === "Immediately" || postOpData.nsarTime === "Contraindicated") {
+                                  const updated = { ...postOpData, nsarTime: "" };
+                                  setPostOpData(updated);
+                                }
+                              }
+                            }}
                             disabled={!anesthesiaRecord?.id}
                             data-testid="radio-nsar-custom"
                           />
@@ -1694,17 +1731,36 @@ export default function Op() {
                           type="text"
                           className="w-32"
                           placeholder={t('anesthesia.op.hhMM')}
-                          pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
                           value={postOpData.nsarTime !== "Immediately" && postOpData.nsarTime !== "Contraindicated" ? (postOpData.nsarTime || "") : ""}
                           onChange={(e) => {
                             const value = e.target.value;
-                            const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
-                            if (value === "" || timeRegex.test(value)) {
-                              const updated = { ...postOpData, nsarTime: value };
-                              setPostOpData(updated);
+                            setPostOpData({ ...postOpData, nsarTime: value });
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim();
+                            let formatted = value;
+                            
+                            if (value && value !== "Immediately" && value !== "Contraindicated") {
+                              const digitsOnly = value.replace(/\D/g, '');
+                              
+                              if (digitsOnly.length === 1 || digitsOnly.length === 2) {
+                                const hours = parseInt(digitsOnly, 10);
+                                if (hours >= 0 && hours <= 23) {
+                                  formatted = `${hours.toString().padStart(2, '0')}:00`;
+                                }
+                              } else if (digitsOnly.length === 3 || digitsOnly.length === 4) {
+                                const hours = parseInt(digitsOnly.slice(0, -2), 10);
+                                const minutes = parseInt(digitsOnly.slice(-2), 10);
+                                if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+                                  formatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                                }
+                              }
+                            }
+                            
+                            const updated = { ...postOpData, nsarTime: formatted };
+                            setPostOpData(updated);
+                            if (formatted) {
                               postOpAutoSave.mutate(updated);
-                            } else {
-                              setPostOpData({ ...postOpData, nsarTime: value });
                             }
                           }}
                           disabled={!anesthesiaRecord?.id}
@@ -1751,13 +1807,22 @@ export default function Op() {
                         <span className="text-sm">{t('anesthesia.op.contraindicated')}</span>
                       </label>
                       <div className="flex items-center space-x-2">
-                        <label className="flex items-center space-x-2">
+                        <label className="flex items-center space-x-2 cursor-pointer">
                           <input
                             type="radio"
                             name="novalgin"
                             value="custom"
                             checked={postOpData.novalginTime !== "Immediately" && postOpData.novalginTime !== "Contraindicated" && !!postOpData.novalginTime}
-                            onChange={() => {}}
+                            onChange={() => {
+                              const inputEl = document.querySelector('[data-testid="input-novalgin-time"]') as HTMLInputElement;
+                              if (inputEl) {
+                                inputEl.focus();
+                                if (!postOpData.novalginTime || postOpData.novalginTime === "Immediately" || postOpData.novalginTime === "Contraindicated") {
+                                  const updated = { ...postOpData, novalginTime: "" };
+                                  setPostOpData(updated);
+                                }
+                              }
+                            }}
                             disabled={!anesthesiaRecord?.id}
                             data-testid="radio-novalgin-custom"
                           />
@@ -1767,17 +1832,36 @@ export default function Op() {
                           type="text"
                           className="w-32"
                           placeholder={t('anesthesia.op.hhMM')}
-                          pattern="^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$"
                           value={postOpData.novalginTime !== "Immediately" && postOpData.novalginTime !== "Contraindicated" ? (postOpData.novalginTime || "") : ""}
                           onChange={(e) => {
                             const value = e.target.value;
-                            const timeRegex = /^(0[0-9]|1[0-9]|2[0-3]):[0-5][0-9]$/;
-                            if (value === "" || timeRegex.test(value)) {
-                              const updated = { ...postOpData, novalginTime: value };
-                              setPostOpData(updated);
+                            setPostOpData({ ...postOpData, novalginTime: value });
+                          }}
+                          onBlur={(e) => {
+                            const value = e.target.value.trim();
+                            let formatted = value;
+                            
+                            if (value && value !== "Immediately" && value !== "Contraindicated") {
+                              const digitsOnly = value.replace(/\D/g, '');
+                              
+                              if (digitsOnly.length === 1 || digitsOnly.length === 2) {
+                                const hours = parseInt(digitsOnly, 10);
+                                if (hours >= 0 && hours <= 23) {
+                                  formatted = `${hours.toString().padStart(2, '0')}:00`;
+                                }
+                              } else if (digitsOnly.length === 3 || digitsOnly.length === 4) {
+                                const hours = parseInt(digitsOnly.slice(0, -2), 10);
+                                const minutes = parseInt(digitsOnly.slice(-2), 10);
+                                if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+                                  formatted = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+                                }
+                              }
+                            }
+                            
+                            const updated = { ...postOpData, novalginTime: formatted };
+                            setPostOpData(updated);
+                            if (formatted) {
                               postOpAutoSave.mutate(updated);
-                            } else {
-                              setPostOpData({ ...postOpData, novalginTime: value });
                             }
                           }}
                           disabled={!anesthesiaRecord?.id}
