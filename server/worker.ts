@@ -2,9 +2,12 @@ import { storage } from './storage';
 import { analyzeBulkItemImages } from './openai';
 import { sendBulkImportCompleteEmail } from './resend';
 import { createGalexisClient, type PriceData } from './services/galexisClient';
-import { supplierCodes, itemCodes, items } from '@shared/schema';
+import { createPolymedClient, type PolymedPriceData } from './services/polymedClient';
+import { batchMatchItems, type ItemToMatch } from './services/polymedMatching';
+import { supplierCodes, itemCodes, items, supplierCatalogs } from '@shared/schema';
 import { eq, and, isNull, isNotNull } from 'drizzle-orm';
 import { db } from './storage';
+import { decryptCredential } from './utils/encryption';
 
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
 const STUCK_JOB_CHECK_INTERVAL_MS = 60000; // Check for stuck jobs every minute
@@ -114,8 +117,13 @@ async function processNextPriceSyncJob() {
         throw new Error('Catalog not found');
       }
 
-      if (catalog.supplierName !== 'Galexis') {
-        throw new Error(`Unsupported supplier: ${catalog.supplierName}. Only Galexis is currently supported.`);
+      // Route to the appropriate sync handler based on supplier
+      if (catalog.supplierName === 'Polymed' || catalog.supplierType === 'browser') {
+        return await processPolymedSync(job, catalog);
+      } else if (catalog.supplierName === 'Galexis') {
+        // Continue with Galexis sync below
+      } else {
+        throw new Error(`Unsupported supplier: ${catalog.supplierName}. Supported: Galexis (API), Polymed (browser).`);
       }
 
       if (!catalog.apiPassword || !catalog.customerNumber) {
@@ -295,6 +303,247 @@ async function processNextPriceSyncJob() {
   } catch (error: any) {
     console.error('[Worker] Error in processNextPriceSyncJob:', error);
     return false;
+  }
+}
+
+async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
+  console.log(`[Worker] Starting Polymed browser sync for catalog ${catalog.id}`);
+  
+  try {
+    // Validate credentials
+    if (!catalog.browserUsername || !catalog.apiPassword) {
+      throw new Error('Polymed credentials not configured. Please enter username and password in Supplier settings.');
+    }
+
+    const password = catalog.apiPassword;
+    const loginUrl = catalog.browserLoginUrl || 'https://shop.polymed.ch/de';
+
+    // Create Polymed client
+    const client = createPolymedClient(catalog.browserUsername, password, loginUrl);
+    
+    // Try to restore session if available
+    if (catalog.browserSessionEncrypted) {
+      console.log('[Worker] Attempting to restore Polymed session...');
+      const sessionRestored = await client.restoreSession(catalog.browserSessionEncrypted);
+      
+      if (!sessionRestored) {
+        console.log('[Worker] Session expired, performing fresh login...');
+        const loginResult = await client.login();
+        
+        if (!loginResult.success) {
+          throw new Error(`Polymed login failed: ${loginResult.message}`);
+        }
+        
+        // Save the new session
+        if (loginResult.session) {
+          await db
+            .update(supplierCatalogs)
+            .set({
+              browserSessionEncrypted: loginResult.session,
+              browserLastLogin: new Date(),
+            })
+            .where(eq(supplierCatalogs.id, catalog.id));
+        }
+      }
+    } else {
+      console.log('[Worker] No existing session, performing login...');
+      const loginResult = await client.login();
+      
+      if (!loginResult.success) {
+        throw new Error(`Polymed login failed: ${loginResult.message}`);
+      }
+      
+      // Save session
+      if (loginResult.session) {
+        await db
+          .update(supplierCatalogs)
+          .set({
+            browserSessionEncrypted: loginResult.session,
+            browserLastLogin: new Date(),
+          })
+          .where(eq(supplierCatalogs.id, catalog.id));
+      }
+    }
+
+    console.log('[Worker] Polymed login successful, fetching hospital items...');
+
+    // Get all items from this hospital with their codes
+    const allHospitalItems = await db
+      .select({
+        itemId: items.id,
+        itemName: items.name,
+        description: items.description,
+        gtin: itemCodes.gtin,
+        pharmacode: itemCodes.pharmacode,
+        manufacturer: itemCodes.manufacturer,
+      })
+      .from(items)
+      .leftJoin(itemCodes, eq(itemCodes.itemId, items.id))
+      .where(eq(items.hospitalId, catalog.hospitalId));
+
+    const totalItems = allHospitalItems.length;
+    console.log(`[Worker] Found ${totalItems} items in hospital to sync`);
+
+    await storage.updatePriceSyncJob(job.id, {
+      totalItems,
+      progressPercent: 10,
+    });
+
+    // Prepare items for matching
+    const itemsToMatch: ItemToMatch[] = allHospitalItems.map(item => ({
+      id: item.itemId,
+      name: item.itemName,
+      description: item.description,
+      pharmacode: item.pharmacode,
+      gtin: item.gtin,
+      manufacturer: item.manufacturer,
+    }));
+
+    // Search function wrapper for batch matching
+    const searchFunction = async (query: string): Promise<PolymedPriceData[]> => {
+      const result = await client.searchByCode(query);
+      return result.products;
+    };
+
+    // Batch match items with progress updates
+    console.log('[Worker] Starting batch matching...');
+    const matchResults = await batchMatchItems(
+      itemsToMatch,
+      searchFunction,
+      (current, total, itemName) => {
+        const percent = Math.round((current / total) * 80) + 10; // 10-90%
+        storage.updatePriceSyncJob(job.id, {
+          processedItems: current,
+          progressPercent: percent,
+        });
+        if (current % 10 === 0) {
+          console.log(`[Worker] Processed ${current}/${total} items`);
+        }
+      }
+    );
+
+    // Close browser
+    await client.close();
+
+    // Process match results and update database
+    let matchedCount = 0;
+    let updatedCount = 0;
+
+    for (const result of matchResults) {
+      if (result.matchedProduct && result.confidence >= 0.6) {
+        matchedCount++;
+        
+        // Check if supplier code already exists
+        const existingCode = await db.query.supplierCodes.findFirst({
+          where: and(
+            eq(supplierCodes.itemId, result.itemId),
+            eq(supplierCodes.supplierName, 'Polymed')
+          ),
+        });
+
+        const priceValue = String(result.matchedProduct.price);
+
+        if (existingCode) {
+          // Update existing supplier code
+          if (existingCode.basispreis !== priceValue) {
+            await db
+              .update(supplierCodes)
+              .set({
+                basispreis: priceValue,
+                publikumspreis: priceValue,
+                articleCode: result.matchedProduct.articleCode || existingCode.articleCode,
+                catalogUrl: result.matchedProduct.catalogUrl,
+                matchConfidence: String(result.confidence),
+                matchStatus: result.confidence >= 0.9 ? 'confirmed' : 'pending',
+                lastPriceUpdate: new Date(),
+                lastChecked: new Date(),
+                updatedAt: new Date(),
+              })
+              .where(eq(supplierCodes.id, existingCode.id));
+            
+            updatedCount++;
+          } else {
+            await db
+              .update(supplierCodes)
+              .set({
+                lastChecked: new Date(),
+              })
+              .where(eq(supplierCodes.id, existingCode.id));
+          }
+        } else {
+          // Create new supplier code
+          await db.insert(supplierCodes).values({
+            itemId: result.itemId,
+            supplierName: 'Polymed',
+            articleCode: result.matchedProduct.articleCode || '',
+            catalogUrl: result.matchedProduct.catalogUrl,
+            basispreis: priceValue,
+            publikumspreis: priceValue,
+            currency: 'CHF',
+            matchConfidence: String(result.confidence),
+            matchStatus: result.confidence >= 0.9 ? 'confirmed' : 'pending',
+            lastPriceUpdate: new Date(),
+            lastChecked: new Date(),
+          });
+          
+          updatedCount++;
+        }
+      }
+    }
+
+    const summary = {
+      totalItemsSearched: totalItems,
+      matchedItems: matchedCount,
+      updatedItems: updatedCount,
+      unmatchedItems: totalItems - matchedCount,
+      matchResults: matchResults
+        .filter(r => r.confidence >= 0.6)
+        .slice(0, 20)
+        .map(r => ({
+          itemId: r.itemId,
+          confidence: r.confidence,
+          reason: r.matchReason,
+          strategy: r.searchStrategy,
+        })),
+    };
+
+    console.log(`[Worker] Polymed sync complete: ${matchedCount} matched, ${updatedCount} updated`);
+
+    await storage.updatePriceSyncJob(job.id, {
+      status: 'completed',
+      completedAt: new Date(),
+      totalItems,
+      processedItems: totalItems,
+      matchedItems: matchedCount,
+      updatedItems: updatedCount,
+      progressPercent: 100,
+      summary: JSON.stringify(summary),
+    });
+
+    await storage.updateSupplierCatalog(job.catalogId, {
+      lastSyncAt: new Date(),
+      lastSyncStatus: 'success',
+      lastSyncMessage: `Synced ${matchedCount} items, updated ${updatedCount} prices via browser`,
+    });
+
+    return true;
+
+  } catch (error: any) {
+    console.error(`[Worker] Polymed sync error:`, error);
+    
+    await storage.updatePriceSyncJob(job.id, {
+      status: 'failed',
+      completedAt: new Date(),
+      error: error.message || 'Polymed sync failed',
+    });
+
+    await storage.updateSupplierCatalog(job.catalogId, {
+      lastSyncAt: new Date(),
+      lastSyncStatus: 'failed',
+      lastSyncMessage: error.message || 'Sync failed',
+    });
+
+    return true;
   }
 }
 
