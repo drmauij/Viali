@@ -646,7 +646,16 @@ router.get('/api/supplier-catalogs/:hospitalId', isAuthenticated, async (req: an
 router.post('/api/supplier-catalogs', isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.id;
-    const { hospitalId, supplierName, supplierType, apiBaseUrl, customerNumber, apiPassword } = req.body;
+    const { 
+      hospitalId, 
+      supplierName, 
+      supplierType, 
+      apiBaseUrl, 
+      customerNumber, 
+      apiPassword,
+      browserLoginUrl,
+      browserUsername
+    } = req.body;
     
     const userHospitals = await storage.getUserHospitals(userId);
     const hospital = userHospitals.find(h => h.id === hospitalId);
@@ -666,6 +675,8 @@ router.post('/api/supplier-catalogs', isAuthenticated, async (req: any, res) => 
       apiBaseUrl,
       customerNumber,
       apiPassword,
+      browserLoginUrl,
+      browserUsername,
       isEnabled: true,
       syncSchedule: 'manual',
     });
