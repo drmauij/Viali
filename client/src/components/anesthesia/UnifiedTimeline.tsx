@@ -2923,7 +2923,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
     chart.on('datazoom', handleDataZoom);
     return () => {
-      chart.off('datazoom', handleDataZoom);
+      const currentChart = chartRef.current?.getEchartsInstance();
+      if (currentChart) {
+        currentChart.off('datazoom', handleDataZoom);
+      }
     };
   }, []);
 
@@ -3180,7 +3183,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
     chart.on('click', handleChartClick);
     return () => {
-      chart.off('click', handleChartClick);
+      const currentChart = chartRef.current?.getEchartsInstance();
+      if (currentChart) {
+        currentChart.off('click', handleChartClick);
+      }
     };
   }, [chartRef, activeToolMode, hrDataPoints, bpDataPoints, spo2DataPoints, clinicalSnapshot, currentTime, canWrite]);
 
