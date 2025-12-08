@@ -1324,6 +1324,7 @@
       "timeOutBeforeIncision": "Time Out (Before Incision)",
       "signOutBeforePatientLeavesOR": "Sign Out (Before Patient Leaves OR)",
       "addChecklistItem": "Add checklist item...",
+      "enterName": "Enter name",
       "configureMedicationInfusion": "Configure Medication/Infusion",
       "configuration": "Configuration",
       "itemName": "Item Name",

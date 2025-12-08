@@ -1324,6 +1324,7 @@
       "timeOutBeforeIncision": "Time Out (Vor Hautschnitt)",
       "signOutBeforePatientLeavesOR": "Sign Out (Bevor Patient den OP verlässt)",
       "addChecklistItem": "Checklistenpunkt hinzufügen...",
+      "enterName": "Name eingeben",
       "configureMedicationInfusion": "Medikament/Infusion konfigurieren",
       "configuration": "Konfiguration",
       "itemName": "Artikelname",
