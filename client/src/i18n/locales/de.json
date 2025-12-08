@@ -890,6 +890,8 @@
       "postOperativeNotes": "Postoperative Notizen",
       "complications": "Komplikationen",
       "medicationSchedule": "Medikamentenplan",
+      "intraoperativeMedications": "Intraoperative Medikamente",
+      "noMedicationsAdministered": "Keine Medikamente während der Operation verabreicht",
       "paracetamol": "Paracetamol",
       "nsar": "NSAR",
       "novalgin": "Novalgin",
