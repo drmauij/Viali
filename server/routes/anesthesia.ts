@@ -920,13 +920,18 @@ router.delete('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcce
     const anesthesiaRecord = await storage.getAnesthesiaRecord(id).catch(() => null);
     
     if (anesthesiaRecord) {
-      await db.delete(anesthesiaEvents).where(eq(anesthesiaEvents.anesthesiaRecordId, anesthesiaRecord.id));
-      await db.delete(anesthesiaMedications).where(eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecord.id));
-      await db.delete(vitalsSnapshots).where(eq(vitalsSnapshots.anesthesiaRecordId, anesthesiaRecord.id));
-      await db.delete(anesthesiaRecords).where(eq(anesthesiaRecords.id, anesthesiaRecord.id));
+      return res.status(400).json({ 
+        message: "Cannot delete surgery with existing anesthesia record. Please delete the anesthesia record first." 
+      });
     }
 
-    await db.delete(preOpAssessments).where(eq(preOpAssessments.surgeryId, id));
+    const preOpAssessment = await db.select().from(preOpAssessments).where(eq(preOpAssessments.surgeryId, id)).limit(1);
+    
+    if (preOpAssessment.length > 0) {
+      return res.status(400).json({ 
+        message: "Cannot delete surgery with existing pre-operative assessment. Please delete the assessment first." 
+      });
+    }
 
     await storage.deleteSurgery(id);
     
