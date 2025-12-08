@@ -14,7 +14,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { formatDateLong } from "@/lib/dateUtils";
-import type { Location } from "@shared/schema";
 
 export default function Checklists() {
   const { t } = useTranslation();
@@ -43,8 +42,8 @@ export default function Checklists() {
   const isAdmin = activeHospital?.role === "admin";
 
   // Fetch units
-  const { data: units = [] } = useQuery<Location[]>({
-    queryKey: [`/api/admin/${hospitalId}/units`],
+  const { data: units = [] } = useQuery<any[]>({
+    queryKey: [`/api/admin/${activeHospital?.id}/units`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
