@@ -554,7 +554,7 @@ export default function Checklists() {
                 disabled={updateHospitalMutation.isPending}
                 data-testid="button-save-hospital"
               >
-                {t("common.edit")}
+                {t("common.save")}
               </Button>
             </div>
           </div>
