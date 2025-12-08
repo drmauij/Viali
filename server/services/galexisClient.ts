@@ -60,7 +60,7 @@ export interface PriceData {
   conditionType?: string;
 }
 
-const DEFAULT_BASE_URL = 'https://pos.e-galexis.com/POS';
+const DEFAULT_BASE_URL = 'https://pos.app.e-galexis.com/POS/';
 
 export class GalexisClient {
   private customerNumber: string;
