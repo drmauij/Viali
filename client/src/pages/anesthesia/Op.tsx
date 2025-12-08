@@ -217,6 +217,10 @@ export default function Op() {
     if (!surgeryId) return;
     const newMode = isPacuMode ? 'op' : 'pacu';
     
+    // Switch to appropriate default tab for the new mode
+    const newDefaultTab = newMode === 'pacu' ? 'pacu' : 'vitals';
+    setActiveTab(newDefaultTab);
+    
     const currentUrl = new URL(window.location.href);
     const searchParams = currentUrl.searchParams;
     
@@ -226,7 +230,7 @@ export default function Op() {
     
     const queryString = searchParams.toString();
     const hash = currentUrl.hash;
-    const fullPath = `/anesthesia/${newMode}/${surgeryId}${queryString ? `?${queryString}` : ''}${hash}`;
+    const fullPath = `/anesthesia/cases/${surgeryId}/${newMode}${queryString ? `?${queryString}` : ''}${hash}`;
     
     setLocation(fullPath);
   };
