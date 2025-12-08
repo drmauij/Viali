@@ -256,22 +256,26 @@ export function AnesthesiaTimeline({
         onEvents={{
           // Sync ECharts zoom/pan to vis-timeline
           dataZoom: () => {
-            // After a dataZoom event, query the chart instance for the current axis range
-            if (!chartRef.current) return;
-            const chartInstance = chartRef.current.getEchartsInstance();
-            if (!chartInstance) return;
-            
-            // Get the current option which has the updated xAxis min/max
-            const currentOption = chartInstance.getOption();
-            if (!currentOption || !currentOption.xAxis || !currentOption.xAxis[0]) return;
-            
-            const xAxis = currentOption.xAxis[0];
-            const newStart = xAxis.min;
-            const newEnd = xAxis.max;
-            
-            // Only update if the range actually changed
-            if (newStart && newEnd && newStart !== range.start) {
-              setRange({ start: newStart, end: newEnd });
+            try {
+              // After a dataZoom event, query the chart instance for the current axis range
+              if (!chartRef.current) return;
+              const chartInstance = chartRef.current.getEchartsInstance();
+              if (!chartInstance) return;
+              
+              // Get the current option which has the updated xAxis min/max
+              const currentOption = chartInstance.getOption();
+              if (!currentOption || !currentOption.xAxis || !currentOption.xAxis[0]) return;
+              
+              const xAxis = currentOption.xAxis[0];
+              const newStart = xAxis.min;
+              const newEnd = xAxis.max;
+              
+              // Only update if the range actually changed
+              if (newStart && newEnd && newStart !== range.start) {
+                setRange({ start: newStart, end: newEnd });
+              }
+            } catch (error) {
+              console.warn('[AnesthesiaTimeline] Error in dataZoom handler:', error);
             }
           },
           restore: () => {

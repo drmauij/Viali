@@ -310,6 +310,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const { t } = useTranslation();
   const canWriteBase = useCanWrite();
   
+  // Reset chart ready state when anesthesia record changes to prevent stale instance access
+  useEffect(() => {
+    setIsChartReady(false);
+  }, [anesthesiaRecordId]);
+  
   // Extract lock status from anesthesia record
   const isRecordLocked = anesthesiaRecord?.isLocked ?? false;
   
@@ -3098,28 +3103,36 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
   // Update dataZoom xAxisIndex when swimlane structure changes
   useEffect(() => {
+    if (!isChartReady) return;
+    
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
 
-    // Update dataZoom to include all current x-axes without resetting zoom state
-    const numGrids = activeSwimlanes.length + 1; // +1 for vitals grid
-    const currentOption = chart.getOption() as any;
-    if (!currentOption) return;
-    const currentDataZoom = currentOption.dataZoom?.[0];
-    
-    chart.setOption({
-      dataZoom: [{
-        xAxisIndex: Array.from({ length: numGrids }, (_, i) => i),
-        // Preserve current zoom state
-        start: currentDataZoom?.start,
-        end: currentDataZoom?.end,
-      }]
-    });
-  }, [activeSwimlanes]);
+    try {
+      // Update dataZoom to include all current x-axes without resetting zoom state
+      const numGrids = activeSwimlanes.length + 1; // +1 for vitals grid
+      const currentOption = chart.getOption() as any;
+      if (!currentOption) return;
+      const currentDataZoom = currentOption.dataZoom?.[0];
+      
+      chart.setOption({
+        dataZoom: [{
+          xAxisIndex: Array.from({ length: numGrids }, (_, i) => i),
+          // Preserve current zoom state
+          start: currentDataZoom?.start,
+          end: currentDataZoom?.end,
+        }]
+      });
+    } catch (error) {
+      console.warn('[TIMELINE] Error updating dataZoom:', error);
+    }
+  }, [activeSwimlanes, isChartReady]);
 
 
   // Add click handler for editing data points and manual entry
   useEffect(() => {
+    if (!isChartReady) return;
+    
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
 
@@ -3183,12 +3196,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
     chart.on('click', handleChartClick);
     return () => {
-      const currentChart = chartRef.current?.getEchartsInstance();
-      if (currentChart) {
-        currentChart.off('click', handleChartClick);
+      try {
+        const currentChart = chartRef.current?.getEchartsInstance();
+        if (currentChart) {
+          currentChart.off('click', handleChartClick);
+        }
+      } catch (error) {
+        console.warn('[TIMELINE] Error cleaning up click handler:', error);
       }
     };
-  }, [chartRef, activeToolMode, hrDataPoints, bpDataPoints, spo2DataPoints, clinicalSnapshot, currentTime, canWrite]);
+  }, [chartRef, activeToolMode, hrDataPoints, bpDataPoints, spo2DataPoints, clinicalSnapshot, currentTime, canWrite, isChartReady]);
 
   // Update zoom state when zoom changes
   useEffect(() => {
@@ -6264,6 +6281,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       {/* ECharts timeline */}
       <div className="absolute inset-0 z-20 pointer-events-none">
         <ReactECharts
+          key={anesthesiaRecordId || 'timeline'}
           ref={chartRef}
           option={option}
           style={{ height: "100%", width: "100%", pointerEvents: "none" }}
