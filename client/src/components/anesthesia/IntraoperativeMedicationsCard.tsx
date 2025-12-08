@@ -20,9 +20,10 @@ interface MedicationRecord {
 interface IntraoperativeMedicationsCardProps {
   medications: MedicationRecord[];
   items: Array<{ id: string; name: string; controlled?: boolean }>;
+  patientWeight?: number | null;
 }
 
-export function IntraoperativeMedicationsCard({ medications, items }: IntraoperativeMedicationsCardProps) {
+export function IntraoperativeMedicationsCard({ medications, items, patientWeight }: IntraoperativeMedicationsCardProps) {
   const { t } = useTranslation();
 
   const getItemName = (itemId: string) => {
@@ -40,6 +41,74 @@ export function IntraoperativeMedicationsCard({ medications, items }: Intraopera
     return item?.administrationUnit || '';
   };
 
+  const getItemRateUnit = (itemId: string) => {
+    const item = items.find(i => i.id === itemId) as any;
+    return item?.rateUnit || '';
+  };
+
+  // Calculate cumulative dose for an infusion based on rate and duration
+  const calculateInfusionDose = (
+    rate: string | null | undefined, 
+    rateUnit: string,
+    startTime: Date, 
+    endTime: Date | null,
+    patientWeight?: number | null
+  ): { value: number; unit: string } | null => {
+    if (!rate) return null;
+    
+    const rateValue = parseFloat(rate);
+    if (isNaN(rateValue) || rateValue === 0) return null;
+    
+    const normalizedRateUnit = rateUnit.toLowerCase().trim();
+    
+    // Calculate duration in hours
+    const endTimestamp = endTime ? endTime.getTime() : Date.now();
+    const durationMs = endTimestamp - startTime.getTime();
+    const durationHours = durationMs / (1000 * 60 * 60);
+    
+    // Handle weight-based rates (e.g., μg/kg/min, mg/kg/h)
+    if (normalizedRateUnit.includes('kg') && patientWeight) {
+      if (normalizedRateUnit.includes('min')) {
+        // Rate is per minute, convert to hourly
+        const totalDose = rateValue * patientWeight * durationHours * 60;
+        // Extract dose unit (μg, mg, etc.)
+        const doseUnit = normalizedRateUnit.split('/')[0];
+        return { value: Math.round(totalDose * 100) / 100, unit: doseUnit };
+      } else if (normalizedRateUnit.includes('h')) {
+        // Rate is per hour
+        const totalDose = rateValue * patientWeight * durationHours;
+        const doseUnit = normalizedRateUnit.split('/')[0];
+        return { value: Math.round(totalDose * 100) / 100, unit: doseUnit };
+      }
+    }
+    
+    // Handle absolute rates (e.g., ml/h, mg/h, μg/min)
+    if (normalizedRateUnit.includes('ml')) {
+      if (normalizedRateUnit.includes('h')) {
+        // ml/h
+        const totalVolume = rateValue * durationHours;
+        return { value: Math.round(totalVolume * 10) / 10, unit: 'ml' };
+      } else if (normalizedRateUnit.includes('min')) {
+        // ml/min
+        const totalVolume = rateValue * durationHours * 60;
+        return { value: Math.round(totalVolume * 10) / 10, unit: 'ml' };
+      }
+    }
+    
+    // Handle other dose rates (mg/h, μg/min without weight)
+    if (normalizedRateUnit.includes('min')) {
+      const totalDose = rateValue * durationHours * 60;
+      const doseUnit = normalizedRateUnit.split('/')[0];
+      return { value: Math.round(totalDose * 100) / 100, unit: doseUnit };
+    } else if (normalizedRateUnit.includes('h')) {
+      const totalDose = rateValue * durationHours;
+      const doseUnit = normalizedRateUnit.split('/')[0];
+      return { value: Math.round(totalDose * 100) / 100, unit: doseUnit };
+    }
+    
+    return null;
+  };
+
   const getLastAdministrationByItem = () => {
     const medicationMap = new Map<string, { 
       itemId: string;
@@ -48,6 +117,8 @@ export function IntraoperativeMedicationsCard({ medications, items }: Intraopera
       unit: string; 
       type: string;
       isControlled: boolean;
+      infusionRate?: string;
+      infusionEndTime?: number | null;
     }>();
 
     medications.forEach(med => {
@@ -85,15 +156,27 @@ export function IntraoperativeMedicationsCard({ medications, items }: Intraopera
           }
         }
       } else if (med.type === 'infusion_start') {
-        // For infusions, just track the last start time
+        // For infusions, calculate cumulative dose based on rate and duration
+        const rateUnit = getItemRateUnit(med.itemId);
+        const endTime = med.endTimestamp ? new Date(med.endTimestamp) : null;
+        const infusionDose = calculateInfusionDose(
+          med.rate, 
+          rateUnit, 
+          new Date(med.timestamp), 
+          endTime,
+          patientWeight
+        );
+        
         if (!existing || timestamp > existing.lastTime) {
           medicationMap.set(itemName, {
             itemId: med.itemId,
             lastTime: timestamp,
-            cumulativeDose: 0,
-            unit: '',
+            cumulativeDose: infusionDose?.value || 0,
+            unit: infusionDose?.unit || '',
             type: 'infusion_start',
-            isControlled
+            isControlled,
+            infusionRate: med.rate || undefined,
+            infusionEndTime: endTime ? endTime.getTime() : null
           });
         }
       }
@@ -106,7 +189,9 @@ export function IntraoperativeMedicationsCard({ medications, items }: Intraopera
         cumulativeDose: data.cumulativeDose,
         unit: data.unit,
         type: data.type,
-        isControlled: data.isControlled
+        isControlled: data.isControlled,
+        infusionRate: data.infusionRate,
+        infusionEndTime: data.infusionEndTime
       }))
       .sort((a, b) => {
         // Sort by controlled first, then by last administration time
@@ -177,13 +262,17 @@ export function IntraoperativeMedicationsCard({ medications, items }: Intraopera
                     )}
                     {med.type === 'infusion_start' && (
                       <Badge variant="outline" className="text-xs">
-                        Infusion
+                        {med.infusionEndTime ? 'Infusion (stopped)' : 'Infusion (running)'}
                       </Badge>
                     )}
                   </div>
-                  {med.type === 'bolus' && med.cumulativeDose > 0 && (
+                  {/* Show cumulative dose for both bolus and infusions */}
+                  {med.cumulativeDose > 0 && (
                     <p className="text-xs text-muted-foreground">
                       Total: {med.cumulativeDose}{med.unit ? ' ' + med.unit : ''}
+                      {med.type === 'infusion_start' && med.infusionRate && (
+                        <span className="ml-1">({med.infusionRate})</span>
+                      )}
                     </p>
                   )}
                 </div>

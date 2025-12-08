@@ -1312,7 +1312,8 @@ export default function Op() {
               <MedicationScheduleCard postOpData={postOpData} />
               <IntraoperativeMedicationsCard 
                 medications={medicationsData || []} 
-                items={inventoryItems || []} 
+                items={inventoryItems || []}
+                patientWeight={patientWeight}
               />
             </TabsContent>
           )}
