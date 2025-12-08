@@ -259,6 +259,12 @@ export const supplierCatalogs = pgTable("supplier_catalogs", {
   // Uses AES-256-CBC encryption - password is encrypted before storing
   apiPasswordEncrypted: text("api_password_encrypted"),
   
+  // Browser Configuration (for browser-based suppliers like Polymed)
+  browserLoginUrl: varchar("browser_login_url"), // e.g., "https://shop.polymed.ch/de"
+  browserUsername: varchar("browser_username"), // Login username/email
+  browserSessionEncrypted: text("browser_session_encrypted"), // Encrypted cookie/session data (JSON)
+  browserLastLogin: timestamp("browser_last_login"), // When session was last refreshed
+  
   // Settings
   isEnabled: boolean("is_enabled").default(true),
   syncSchedule: varchar("sync_schedule").default("manual"), // manual, daily, weekly
