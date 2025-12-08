@@ -1,5 +1,6 @@
 {
   "common": {
+    "name": "Name",
     "cancel": "Abbrechen",
     "save": "Speichern",
     "add": "Hinzufügen",
