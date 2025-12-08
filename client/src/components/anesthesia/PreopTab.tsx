@@ -54,6 +54,7 @@ const preOpFormSchema = z.object({
   postOpICU: z.boolean().optional(),
   anesthesiaOther: z.string().optional(),
   installationsOther: z.string().optional(),
+  surgicalApproval: z.string().optional(),
   standBy: z.boolean().optional(),
   standByReason: z.string().optional(),
   standByReasonNote: z.string().optional(),
@@ -113,6 +114,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
       postOpICU: false,
       anesthesiaOther: "",
       installationsOther: "",
+      surgicalApproval: "",
       standBy: false,
       standByReason: "",
       standByReasonNote: "",
@@ -131,8 +133,8 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
       form.reset({
         height: assessment.height || "",
         weight: assessment.weight || "",
-        allergies: assessment.allergies || [],
-        allergiesOther: assessment.allergiesOther || "",
+        allergies: [],
+        allergiesOther: "",
         cave: assessment.cave || "",
         asa: assessment.asa || "",
         specialNotes: assessment.specialNotes || "",
@@ -158,6 +160,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         postOpICU: assessment.postOpICU || false,
         anesthesiaOther: assessment.anesthesiaOther || "",
         installationsOther: assessment.installationsOther || "",
+        surgicalApproval: assessment.surgicalApproval || "",
         standBy: assessment.standBy || false,
         standByReason: assessment.standByReason || "",
         standByReasonNote: assessment.standByReasonNote || "",
@@ -174,6 +177,12 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<PreOpFormData>) => {
+      // Auto-complete logic: only 'approved' or 'not-approved' mark as completed
+      // Stand-by, empty, or any other value stays as draft
+      const surgicalApproval = data.surgicalApproval || '';
+      const isApproved = surgicalApproval === 'approved' || surgicalApproval === 'not-approved';
+      const status = isApproved ? 'completed' : 'draft';
+      
       const response = await apiRequest("POST", '/api/anesthesia/preop', {
         surgeryId,
         height: data.height,
@@ -205,6 +214,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         postOpICU: data.postOpICU,
         anesthesiaOther: data.anesthesiaOther,
         installationsOther: data.installationsOther,
+        surgicalApproval: data.surgicalApproval,
         standBy: data.standBy,
         standByReason: data.standByReason,
         standByReasonNote: data.standByReasonNote,
@@ -215,7 +225,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         consentText: data.consentText,
         patientSignature: data.patientSignature,
         consentDate: data.consentDate,
-        status: (data.doctorSignature && data.patientSignature) ? "completed" : "draft",
+        status,
       });
       
       return response.json();
@@ -230,6 +240,13 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
   const updateMutation = useMutation({
     mutationFn: async (data: Partial<PreOpFormData>) => {
       if (!assessment?.id) throw new Error("No assessment ID");
+      
+      // Auto-complete logic: only 'approved' or 'not-approved' mark as completed
+      // Use existing assessment value if form value is undefined
+      // Stand-by, empty, or any other value stays as draft
+      const surgicalApproval = data.surgicalApproval !== undefined ? data.surgicalApproval : (assessment.surgicalApproval || '');
+      const isApproved = surgicalApproval === 'approved' || surgicalApproval === 'not-approved';
+      const status = isApproved ? 'completed' : 'draft';
       
       const response = await apiRequest("PATCH", `/api/anesthesia/preop/${assessment.id}`, {
         height: data.height,
@@ -261,6 +278,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         postOpICU: data.postOpICU,
         anesthesiaOther: data.anesthesiaOther,
         installationsOther: data.installationsOther,
+        surgicalApproval: data.surgicalApproval,
         standBy: data.standBy,
         standByReason: data.standByReason,
         standByReasonNote: data.standByReasonNote,
@@ -271,7 +289,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         consentText: data.consentText,
         patientSignature: data.patientSignature,
         consentDate: data.consentDate,
-        status: (data.doctorSignature && data.patientSignature) ? "completed" : "draft",
+        status,
       });
       
       return response.json();
@@ -338,38 +356,6 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
     }
   };
 
-  const handleComplete = async () => {
-    const formData = form.getValues();
-    
-    if (!formData.doctorSignature || !formData.patientSignature) {
-      toast({ 
-        title: "Signatures Required", 
-        description: "Both doctor and patient signatures are required to complete the assessment",
-        variant: "destructive" 
-      });
-      return;
-    }
-
-    setIsSaving(true);
-    
-    try {
-      if (!assessment?.id) {
-        await createMutation.mutateAsync(formData);
-      } else {
-        await updateMutation.mutateAsync(formData);
-      }
-      toast({ 
-        title: "Completed", 
-        description: "Pre-op assessment completed and signed",
-        variant: "default"
-      });
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to complete assessment", variant: "destructive" });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -421,25 +407,15 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
             </Badge>
           )}
           {!isCompleted && canWrite && (
-            <>
-              <Button
-                variant="outline"
-                onClick={handleManualSave}
-                disabled={isSaving}
-                data-testid="button-save-draft"
-              >
-                <Save className="h-4 w-4 mr-2" />
-                Save Draft
-              </Button>
-              <Button
-                onClick={handleComplete}
-                disabled={isSaving || !form.watch("doctorSignature") || !form.watch("patientSignature")}
-                data-testid="button-complete-preop"
-              >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
-                Complete & Sign
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              onClick={handleManualSave}
+              disabled={isSaving}
+              data-testid="button-save"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save
+            </Button>
           )}
         </div>
       </div>
@@ -807,6 +783,32 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   rows={3}
                   data-testid="textarea-installations" 
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Assessment Completion</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="surgicalApproval">Status</Label>
+                <Select
+                  value={form.watch("surgicalApproval") || ""}
+                  onValueChange={(value) => form.setValue("surgicalApproval", value)}
+                  disabled={isReadOnly}
+                >
+                  <SelectTrigger data-testid="select-surgical-approval">
+                    <SelectValue placeholder="Select completion status..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Not yet assessed</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="not-approved">Not Approved</SelectItem>
+                    <SelectItem value="stand-by">Stand-by</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
