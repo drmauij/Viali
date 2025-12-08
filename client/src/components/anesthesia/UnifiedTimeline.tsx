@@ -2537,20 +2537,77 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   }, [activeSwimlanes]);
 
   // Calculate cumulative doses for each medication swimlane
-  // Combines bolus doses, free-flow infusion doses, and rate-infusion start doses
+  // Combines bolus doses, free-flow infusion doses, and rate-controlled infusion doses
   const cumulativeDoses = useMemo(() => {
     const doses: Record<string, { total: number; unit: string }> = {};
     
-    // Helper to parse dose value and extract numeric part
-    const parseDose = (doseStr: string): number => {
-      if (!doseStr) return 0;
+    // Helper to parse dose/rate value and extract numeric part
+    const parseNumericValue = (valueStr: string): number => {
+      if (!valueStr) return 0;
       // Remove units and parse number (handles "10mg", "10 mg", "10.5", etc.)
-      const match = doseStr.match(/^([\d.,]+)/);
+      const match = valueStr.match(/^([\d.,]+)/);
       if (match) {
         // Handle European number format (comma as decimal)
         return parseFloat(match[1].replace(',', '.')) || 0;
       }
       return 0;
+    };
+    
+    // Helper to calculate dose from rate-controlled infusion segment
+    // Returns dose in the base unit (e.g., ml, mg, µg)
+    const calculateSegmentDose = (
+      rate: string,
+      rateUnit: string,
+      durationMs: number,
+      weight?: number
+    ): { dose: number; baseUnit: string } => {
+      const rateValue = parseNumericValue(rate);
+      if (rateValue <= 0 || durationMs <= 0) return { dose: 0, baseUnit: '' };
+      
+      const durationMinutes = durationMs / (1000 * 60);
+      const durationHours = durationMs / (1000 * 60 * 60);
+      
+      // Normalize rate unit to lowercase for matching
+      const unitLower = (rateUnit || '').toLowerCase().trim();
+      
+      let dose = 0;
+      let baseUnit = '';
+      
+      // Rate units: ml/h, mg/h, µg/h, µg/min, mg/min, µg/kg/min, mg/kg/h, ml/kg/h, etc.
+      if (unitLower.includes('/h') || unitLower.includes('/hr')) {
+        // Per hour rates
+        if (unitLower.includes('/kg/')) {
+          // Weight-based per hour (e.g., mg/kg/h, µg/kg/h, ml/kg/h)
+          if (!weight || weight <= 0) return { dose: 0, baseUnit: '' };
+          dose = rateValue * weight * durationHours;
+        } else {
+          // Simple per hour (e.g., ml/h, mg/h, µg/h)
+          dose = rateValue * durationHours;
+        }
+        // Extract base unit (everything before /h or /kg/h)
+        baseUnit = unitLower.replace(/\/kg\/h.*$/, '').replace(/\/h.*$/, '').trim();
+      } else if (unitLower.includes('/min')) {
+        // Per minute rates
+        if (unitLower.includes('/kg/')) {
+          // Weight-based per minute (e.g., µg/kg/min, mg/kg/min)
+          if (!weight || weight <= 0) return { dose: 0, baseUnit: '' };
+          dose = rateValue * weight * durationMinutes;
+        } else {
+          // Simple per minute (e.g., µg/min, mg/min, ml/min)
+          dose = rateValue * durationMinutes;
+        }
+        // Extract base unit
+        baseUnit = unitLower.replace(/\/kg\/min.*$/, '').replace(/\/min.*$/, '').trim();
+      } else {
+        // Unknown rate format, try to parse as simple rate per hour
+        dose = rateValue * durationHours;
+        baseUnit = unitLower.replace(/\/.*$/, '').trim();
+      }
+      
+      // Normalize unit symbols
+      if (baseUnit === 'μg' || baseUnit === 'ug' || baseUnit === 'mcg') baseUnit = 'µg';
+      
+      return { dose, baseUnit };
     };
     
     // Process bolus doses from medicationDoseData
@@ -2565,7 +2622,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       points.forEach((point) => {
         // MedicationDosePoint is [timestamp, dose, id, note]
         if (Array.isArray(point) && point.length >= 2) {
-          totalDose += parseDose(point[1] as string);
+          totalDose += parseNumericValue(point[1] as string);
         }
       });
       
@@ -2586,7 +2643,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       
       sessions.forEach((session) => {
         if (session.dose) {
-          const doseValue = parseDose(session.dose);
+          const doseValue = parseNumericValue(session.dose);
           if (doseValue > 0) {
             if (!doses[swimlaneId]) {
               doses[swimlaneId] = { total: 0, unit };
@@ -2597,7 +2654,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       });
     });
     
-    // Process rate-controlled infusion start doses
+    // Process rate-controlled infusion doses - calculate based on rate × duration
     Object.entries(rateInfusionSessions).forEach(([swimlaneId, sessions]) => {
       if (!Array.isArray(sessions)) return;
       
@@ -2605,20 +2662,63 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       const unit = swimlaneConfig?.administrationUnit || '';
       
       sessions.forEach((session) => {
-        if (session.startDose) {
-          const doseValue = parseDose(session.startDose);
-          if (doseValue > 0) {
-            if (!doses[swimlaneId]) {
-              doses[swimlaneId] = { total: 0, unit };
-            }
-            doses[swimlaneId].total += doseValue;
+        if (!session.segments || !Array.isArray(session.segments)) return;
+        
+        const sessionStartTime = session.startTime || (session.segments[0]?.startTime);
+        const sessionEndTime = session.endTime || (session.state === 'running' ? currentTime : null);
+        
+        if (!sessionStartTime) return;
+        
+        let sessionTotalDose = 0;
+        let derivedUnit = unit;
+        
+        // Calculate dose for each segment
+        session.segments.forEach((segment, index) => {
+          const segmentStart = segment.startTime;
+          
+          // Determine segment end time:
+          // - If there's a next segment, use its start time
+          // - Otherwise, use session end time or current time (if running)
+          let segmentEnd: number;
+          if (index < session.segments.length - 1) {
+            segmentEnd = session.segments[index + 1].startTime;
+          } else if (sessionEndTime) {
+            segmentEnd = sessionEndTime;
+          } else if (session.state === 'running') {
+            segmentEnd = currentTime;
+          } else {
+            return; // Can't determine end time
           }
+          
+          const durationMs = segmentEnd - segmentStart;
+          if (durationMs <= 0) return;
+          
+          const { dose, baseUnit } = calculateSegmentDose(
+            segment.rate,
+            segment.rateUnit,
+            durationMs,
+            patientWeight
+          );
+          
+          if (dose > 0) {
+            sessionTotalDose += dose;
+            if (baseUnit && !derivedUnit) {
+              derivedUnit = baseUnit;
+            }
+          }
+        });
+        
+        if (sessionTotalDose > 0) {
+          if (!doses[swimlaneId]) {
+            doses[swimlaneId] = { total: 0, unit: derivedUnit || unit };
+          }
+          doses[swimlaneId].total += sessionTotalDose;
         }
       });
     });
     
     return doses;
-  }, [medicationDoseData, freeFlowSessions, rateInfusionSessions, activeSwimlanes]);
+  }, [medicationDoseData, freeFlowSessions, rateInfusionSessions, activeSwimlanes, currentTime, patientWeight]);
 
   // Compute unique timestamps from ventilation parameter data for the entry lane markers
   const ventilationEntryTimestamps = useMemo(() => {
