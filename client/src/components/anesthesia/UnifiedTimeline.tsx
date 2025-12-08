@@ -2891,49 +2891,59 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
   // Listen for dataZoom changes to sync with sticky header
   useEffect(() => {
+    if (!isChartReady) return;
+    
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
 
     const handleDataZoom = (params: any) => {
-      const option = chart.getOption() as any;
-      if (!option) return;
-      const dataZoom = option.dataZoom?.[0];
-      
-      if (dataZoom) {
-        const start = dataZoom.start ?? 0;
-        const end = dataZoom.end ?? 100;
-        let fullRange = data.endTime - data.startTime;
+      try {
+        const option = chart.getOption() as any;
+        if (!option) return;
+        const dataZoom = option.dataZoom?.[0];
         
-        // SAFEGUARD: Use minimum window if range is collapsed
-        const MIN_RANGE = 10 * 60 * 1000; // 10 minutes minimum window
-        if (fullRange <= 0) {
-          console.warn('[ZOOM-EVENT] Data range is zero or negative, using minimum 10-minute window', {
-            startTime: new Date(data.startTime).toISOString(),
-            endTime: new Date(data.endTime).toISOString(),
-            originalRange: fullRange
-          });
-          fullRange = MIN_RANGE;
+        if (dataZoom) {
+          const start = dataZoom.start ?? 0;
+          const end = dataZoom.end ?? 100;
+          let fullRange = data.endTime - data.startTime;
+          
+          // SAFEGUARD: Use minimum window if range is collapsed
+          const MIN_RANGE = 10 * 60 * 1000; // 10 minutes minimum window
+          if (fullRange <= 0) {
+            console.warn('[ZOOM-EVENT] Data range is zero or negative, using minimum 10-minute window', {
+              startTime: new Date(data.startTime).toISOString(),
+              endTime: new Date(data.endTime).toISOString(),
+              originalRange: fullRange
+            });
+            fullRange = MIN_RANGE;
+          }
+          
+          const visibleStart = data.startTime + (start / 100) * fullRange;
+          const visibleEnd = data.startTime + (end / 100) * fullRange;
+          
+          setCurrentZoomStart(visibleStart);
+          setCurrentZoomEnd(visibleEnd);
+          
+          // Track zoom percentages
+          setZoomPercent({ start, end });
         }
-        
-        const visibleStart = data.startTime + (start / 100) * fullRange;
-        const visibleEnd = data.startTime + (end / 100) * fullRange;
-        
-        setCurrentZoomStart(visibleStart);
-        setCurrentZoomEnd(visibleEnd);
-        
-        // Track zoom percentages
-        setZoomPercent({ start, end });
+      } catch (e) {
+        // Chart may be disposed during navigation
       }
     };
 
     chart.on('datazoom', handleDataZoom);
     return () => {
-      const currentChart = chartRef.current?.getEchartsInstance();
-      if (currentChart) {
-        currentChart.off('datazoom', handleDataZoom);
+      try {
+        const currentChart = chartRef.current?.getEchartsInstance();
+        if (currentChart) {
+          currentChart.off('datazoom', handleDataZoom);
+        }
+      } catch (e) {
+        // Chart may already be disposed
       }
     };
-  }, []);
+  }, [isChartReady, data.startTime, data.endTime]);
 
   // Track initial zoom state (used by unified controller)
   const hasSetInitialZoomRef = useRef(false);
@@ -3319,8 +3329,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // Use centralized chart layout constants
     const { VITALS_TOP, VITALS_HEIGHT, SWIMLANE_START, GRID_LEFT, GRID_RIGHT } = CHART_LAYOUT;
 
+    // Validate data range - use safe defaults if data is invalid
+    // This prevents coordinateSystem errors when chart renders before data is loaded
+    const safeStartTime = isFinite(data.startTime) && data.startTime > 0 ? data.startTime : Date.now() - 60 * 60 * 1000;
+    const safeEndTime = isFinite(data.endTime) && data.endTime > safeStartTime ? data.endTime : safeStartTime + 60 * 60 * 1000;
+
     // Calculate initial zoom and editable zones based on "now"
-    const currentTime = now || data.endTime; // Use provided "now" or fall back to endTime
+    const currentTime = now || safeEndTime; // Use provided "now" or fall back to endTime
     
     // Initial view: 60-minute window (1 hour) from -30min to +30min around NOW
     const initialStartTime = currentTime - THIRTY_MINUTES;
@@ -3375,8 +3390,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return {
         type: "time" as const,
         gridIndex,
-        min: data.startTime,
-        max: data.endTime,
+        min: safeStartTime,
+        max: safeEndTime,
         boundaryGap: false,
         axisLabel: {
           show: false, // Hide labels - they're shown in the sticky header
