@@ -2536,6 +2536,90 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     activeSwimlaneRef.current = activeSwimlanes;
   }, [activeSwimlanes]);
 
+  // Calculate cumulative doses for each medication swimlane
+  // Combines bolus doses, free-flow infusion doses, and rate-infusion start doses
+  const cumulativeDoses = useMemo(() => {
+    const doses: Record<string, { total: number; unit: string }> = {};
+    
+    // Helper to parse dose value and extract numeric part
+    const parseDose = (doseStr: string): number => {
+      if (!doseStr) return 0;
+      // Remove units and parse number (handles "10mg", "10 mg", "10.5", etc.)
+      const match = doseStr.match(/^([\d.,]+)/);
+      if (match) {
+        // Handle European number format (comma as decimal)
+        return parseFloat(match[1].replace(',', '.')) || 0;
+      }
+      return 0;
+    };
+    
+    // Process bolus doses from medicationDoseData
+    Object.entries(medicationDoseData).forEach(([swimlaneId, points]) => {
+      if (!Array.isArray(points)) return;
+      
+      // Find the swimlane config to get the unit
+      const swimlaneConfig = activeSwimlanes.find(s => s.id === swimlaneId);
+      const unit = swimlaneConfig?.administrationUnit || '';
+      
+      let totalDose = 0;
+      points.forEach((point) => {
+        // MedicationDosePoint is [timestamp, dose, id, note]
+        if (Array.isArray(point) && point.length >= 2) {
+          totalDose += parseDose(point[1] as string);
+        }
+      });
+      
+      if (totalDose > 0) {
+        if (!doses[swimlaneId]) {
+          doses[swimlaneId] = { total: 0, unit };
+        }
+        doses[swimlaneId].total += totalDose;
+      }
+    });
+    
+    // Process free-flow infusion doses
+    Object.entries(freeFlowSessions).forEach(([swimlaneId, sessions]) => {
+      if (!Array.isArray(sessions)) return;
+      
+      const swimlaneConfig = activeSwimlanes.find(s => s.id === swimlaneId);
+      const unit = swimlaneConfig?.administrationUnit || '';
+      
+      sessions.forEach((session) => {
+        if (session.dose) {
+          const doseValue = parseDose(session.dose);
+          if (doseValue > 0) {
+            if (!doses[swimlaneId]) {
+              doses[swimlaneId] = { total: 0, unit };
+            }
+            doses[swimlaneId].total += doseValue;
+          }
+        }
+      });
+    });
+    
+    // Process rate-controlled infusion start doses
+    Object.entries(rateInfusionSessions).forEach(([swimlaneId, sessions]) => {
+      if (!Array.isArray(sessions)) return;
+      
+      const swimlaneConfig = activeSwimlanes.find(s => s.id === swimlaneId);
+      const unit = swimlaneConfig?.administrationUnit || '';
+      
+      sessions.forEach((session) => {
+        if (session.startDose) {
+          const doseValue = parseDose(session.startDose);
+          if (doseValue > 0) {
+            if (!doses[swimlaneId]) {
+              doses[swimlaneId] = { total: 0, unit };
+            }
+            doses[swimlaneId].total += doseValue;
+          }
+        }
+      });
+    });
+    
+    return doses;
+  }, [medicationDoseData, freeFlowSessions, rateInfusionSessions, activeSwimlanes]);
+
   // Compute unique timestamps from ventilation parameter data for the entry lane markers
   const ventilationEntryTimestamps = useMemo(() => {
     const timestampSet = new Set<number>();
@@ -6257,36 +6341,51 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 )
               ) : swimlaneConfig?.hierarchyLevel === 'item' && lane.itemId ? (
                 // For medication item labels, make them clickable to edit (admin only)
-                isAdmin ? (
-                  <button
-                    onClick={() => {
-                      // Find the medication item using the itemId property from the lane
-                      const medicationItem = anesthesiaItems.find(item => item.id === lane.itemId);
-                      if (medicationItem && medicationItem.administrationGroup) {
-                        // Find the admin group by ID (administrationGroup field stores the UUID)
-                        const adminGroup = administrationGroups.find(g => g.id === medicationItem.administrationGroup);
-                        if (adminGroup) {
-                          setSelectedAdminGroupForConfig(adminGroup);
-                          setEditingItemForConfig(medicationItem);
-                          setShowMedicationConfigDialog(true);
+                // Also show cumulative dose badge on the right side
+                <>
+                  {isAdmin ? (
+                    <button
+                      onClick={() => {
+                        // Find the medication item using the itemId property from the lane
+                        const medicationItem = anesthesiaItems.find(item => item.id === lane.itemId);
+                        if (medicationItem && medicationItem.administrationGroup) {
+                          // Find the admin group by ID (administrationGroup field stores the UUID)
+                          const adminGroup = administrationGroups.find(g => g.id === medicationItem.administrationGroup);
+                          if (adminGroup) {
+                            setSelectedAdminGroupForConfig(adminGroup);
+                            setEditingItemForConfig(medicationItem);
+                            setShowMedicationConfigDialog(true);
+                          }
                         }
-                      }
-                    }}
-                    className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 cursor-pointer"
-                    data-testid={`button-edit-medication-${lane.id}`}
-                    title="Edit Medication Configuration"
-                  >
-                    <span className={`${labelClass} text-black dark:text-white`}>
-                      {lane.label}
+                      }}
+                      className="flex items-center gap-1 flex-1 text-left hover:bg-background/10 transition-colors rounded px-1 -mx-1 cursor-pointer min-w-0"
+                      data-testid={`button-edit-medication-${lane.id}`}
+                      title="Edit Medication Configuration"
+                    >
+                      <span className={`${labelClass} text-black dark:text-white truncate`}>
+                        {lane.label}
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-1 flex-1 min-w-0">
+                      <span className={`${labelClass} text-black dark:text-white truncate`}>
+                        {lane.label}
+                      </span>
+                    </div>
+                  )}
+                  {/* Cumulative dose pill badge */}
+                  {cumulativeDoses[lane.id] && cumulativeDoses[lane.id].total > 0 && (
+                    <span 
+                      className="ml-1 px-1.5 py-0.5 text-[10px] font-medium bg-emerald-600 text-white rounded-full whitespace-nowrap shrink-0"
+                      data-testid={`badge-cumulative-dose-${lane.id}`}
+                      title={`Total administered: ${cumulativeDoses[lane.id].total % 1 === 0 ? cumulativeDoses[lane.id].total : cumulativeDoses[lane.id].total.toFixed(1)} ${cumulativeDoses[lane.id].unit}`}
+                    >
+                      {cumulativeDoses[lane.id].total % 1 === 0 
+                        ? cumulativeDoses[lane.id].total 
+                        : cumulativeDoses[lane.id].total.toFixed(1)} {cumulativeDoses[lane.id].unit}
                     </span>
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-1 flex-1">
-                    <span className={`${labelClass} text-black dark:text-white`}>
-                      {lane.label}
-                    </span>
-                  </div>
-                )
+                  )}
+                </>
               ) : (
                 <div className="flex items-center gap-1 flex-1">
                   {isCollapsibleParent && (
