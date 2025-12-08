@@ -13,6 +13,7 @@ export type AnesthesiaDataSection =
   | 'vitals'
   | 'medications'
   | 'ventilation'
+  | 'ventilationParams'
   | 'events'
   | 'positions'
   | 'staff'
@@ -25,7 +26,8 @@ export type AnesthesiaDataSection =
   | 'inventoryUsage'
   | 'output'
   | 'rhythm'
-  | 'tof';
+  | 'tof'
+  | 'timeMarkers';
 
 export interface AnesthesiaUpdatePayload {
   recordId: string;

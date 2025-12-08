@@ -2797,7 +2797,7 @@ router.post('/api/anesthesia/ventilation/bulk', isAuthenticated, requireWriteAcc
     
     broadcastAnesthesiaUpdate({
       recordId: validatedData.anesthesiaRecordId,
-      section: 'ventilation',
+      section: 'ventilationParams',
       data: updatedSnapshot,
       timestamp: Date.now(),
       userId,
@@ -2853,7 +2853,7 @@ router.put('/api/anesthesia/ventilation/bulk', isAuthenticated, requireWriteAcce
     
     broadcastAnesthesiaUpdate({
       recordId: anesthesiaRecordId,
-      section: 'ventilation',
+      section: 'ventilationParams',
       data: updatedSnapshot,
       timestamp: Date.now(),
       userId,
@@ -2902,7 +2902,7 @@ router.delete('/api/anesthesia/ventilation/bulk', isAuthenticated, requireWriteA
     
     broadcastAnesthesiaUpdate({
       recordId: anesthesiaRecordId as string,
-      section: 'ventilation',
+      section: 'ventilationParams',
       data: updatedSnapshot,
       timestamp: Date.now(),
       userId,
