@@ -908,6 +908,7 @@
       "dexamethasone": "Dexamethason",
       "given": "Verabreicht",
       "ambulatoryCareInstructions": "Ambulante Pflegeanweisungen",
+      "repeatAntibioticAfter4h": "Antibiotikum nach 4 Stunden nach letzter Gabe wiederholen",
       "osasObservation": "OSAS: Min. 4h Beobachtung nach letztem Opioid",
       "escortRequired": "Begleitperson für Entlassung erforderlich",
       "postBlockMotorCheck": "Motorik-Kontrolle nach Blockade erforderlich",

@@ -908,6 +908,7 @@
       "dexamethasone": "Dexamethasone",
       "given": "Given",
       "ambulatoryCareInstructions": "Ambulatory Care Instructions",
+      "repeatAntibioticAfter4h": "Repeat antibiotic after 4 hours after last shot",
       "osasObservation": "OSAS: Min. 4h observation after last opioid",
       "escortRequired": "Escort required for discharge",
       "postBlockMotorCheck": "Post-block motor function check required",

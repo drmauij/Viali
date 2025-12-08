@@ -1916,6 +1916,7 @@ export default function Op() {
                   <h4 className="text-sm font-medium">{t('anesthesia.op.ambulatoryCareInstructions')}</h4>
                   <div className="space-y-3">
                     {([
+                      { id: 'repeatAntibioticAfter4h' as const, label: t('anesthesia.op.repeatAntibioticAfter4h') },
                       { id: 'osasObservation' as const, label: t('anesthesia.op.osasObservation') },
                       { id: 'escortRequired' as const, label: t('anesthesia.op.escortRequired') },
                       { id: 'postBlockMotorCheck' as const, label: t('anesthesia.op.postBlockMotorCheck') },
