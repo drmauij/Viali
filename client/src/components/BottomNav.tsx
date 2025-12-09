@@ -148,10 +148,14 @@ export default function BottomNav() {
     }
     
     if (activeModule === "business") {
-      return [
+      const businessItems: NavItem[] = [
         { id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" },
-        { id: "business-staff", icon: "fas fa-users", label: t('bottomNav.business.staff'), path: "/business/staff" },
       ];
+      // Only show Staff tab for admin and manager roles (not for staff role due to sensitive hourly rate data)
+      if (activeHospital?.role === 'admin' || activeHospital?.role === 'manager') {
+        businessItems.push({ id: "business-staff", icon: "fas fa-users", label: t('bottomNav.business.staff'), path: "/business/staff" });
+      }
+      return businessItems;
     }
     
     // Inventory module nav items

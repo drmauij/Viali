@@ -9,7 +9,30 @@ import { nanoid } from "nanoid";
 
 const router = Router();
 
-// Middleware to check business module access (manager role in business unit)
+// Middleware to check business module access (admin, manager, or staff role)
+async function isBusinessAccess(req: any, res: Response, next: any) {
+  try {
+    const userId = req.user.id;
+    const { hospitalId } = req.params;
+    
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => 
+      h.id === hospitalId && 
+      (h.role === 'admin' || h.role === 'manager' || h.role === 'staff')
+    );
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Business access required" });
+    }
+    
+    next();
+  } catch (error) {
+    console.error("Error checking business access:", error);
+    res.status(500).json({ message: "Failed to verify access" });
+  }
+}
+
+// Middleware to check business manager access (admin or manager role only - for sensitive staff data)
 async function isBusinessManager(req: any, res: Response, next: any) {
   try {
     const userId = req.user.id;
@@ -311,7 +334,7 @@ router.patch('/api/business/:hospitalId/staff/:userId/type', isAuthenticated, is
 });
 
 // Get available units for staff assignment (non-admin units)
-router.get('/api/business/:hospitalId/units', isAuthenticated, isBusinessManager, async (req, res) => {
+router.get('/api/business/:hospitalId/units', isAuthenticated, isBusinessAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
@@ -333,6 +356,7 @@ router.get('/api/business/roles', isAuthenticated, async (req, res) => {
     { id: 'doctor', label: 'Doctor', description: 'Surgeon or Anesthesiologist' },
     { id: 'nurse', label: 'Nurse', description: 'Surgery or Anesthesia Nurse' },
     { id: 'manager', label: 'Manager', description: 'Business or Department Manager' },
+    { id: 'staff', label: 'Staff', description: 'Business unit staff with limited access' },
   ];
   
   res.json(roles);
