@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, UserRoundCog } from "lucide-react";
+import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, UserRoundCog, UserCog } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
@@ -19,6 +19,7 @@ interface SurgerySummaryDialogProps {
   onOpenPreOp: () => void;
   onOpenAnesthesia: () => void;
   onOpenSurgeryDocumentation?: () => void;
+  onEditPatient?: () => void;
   activeModule?: Module;
 }
 
@@ -30,6 +31,7 @@ export default function SurgerySummaryDialog({
   onOpenPreOp,
   onOpenAnesthesia,
   onOpenSurgeryDocumentation,
+  onEditPatient,
   activeModule,
 }: SurgerySummaryDialogProps) {
   const { t } = useTranslation();
@@ -172,26 +174,41 @@ export default function SurgerySummaryDialog({
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {/* Patient Info with Allergies */}
           <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.name')}</div>
-                <div className="font-medium">{patientName}</div>
-              </div>
-              <div>
-                <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.birthday')}</div>
-                <div className="font-medium">{patientBirthday}</div>
-              </div>
-              {patient.patientNumber && (
+            <div className="flex items-start justify-between">
+              <div className="grid grid-cols-2 gap-3 flex-1">
                 <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.patientId')}</div>
-                  <div className="font-medium">{patient.patientNumber}</div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.name')}</div>
+                  <div className="font-medium">{patientName}</div>
                 </div>
-              )}
-              {patient.sex && (
                 <div>
-                  <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.sex')}</div>
-                  <div className="font-medium">{patient.sex}</div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.birthday')}</div>
+                  <div className="font-medium">{patientBirthday}</div>
                 </div>
+                {patient.patientNumber && (
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.patientId')}</div>
+                    <div className="font-medium">{patient.patientNumber}</div>
+                  </div>
+                )}
+                {patient.sex && (
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.sex')}</div>
+                    <div className="font-medium">{patient.sex}</div>
+                  </div>
+                )}
+              </div>
+              {/* Admin-only Edit Patient Button */}
+              {activeHospital?.role === 'admin' && onEditPatient && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onEditPatient}
+                  className="shrink-0 ml-2"
+                  data-testid="button-edit-patient"
+                >
+                  <UserCog className="h-4 w-4 mr-1" />
+                  {t('anesthesia.surgerySummary.editPatient')}
+                </Button>
               )}
             </div>
             

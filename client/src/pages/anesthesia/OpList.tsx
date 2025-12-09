@@ -216,6 +216,20 @@ export default function OpList() {
     }
   };
 
+  const handleEditPatient = () => {
+    if (selectedPatientId) {
+      // Save context before navigating away
+      sessionStorage.setItem(SURGERY_CONTEXT_KEY, JSON.stringify({
+        surgeryId: selectedSurgeryId,
+        patientId: selectedPatientId
+      }));
+      setSummaryOpen(false);
+      // Navigate to patient detail page with openEdit param to trigger edit dialog
+      const basePath = activeModule === 'surgery' ? '/surgery' : '/anesthesia';
+      setLocation(`${basePath}/patients/${selectedPatientId}?openEdit=true`);
+    }
+  };
+
   return (
     <div className="container mx-auto px-0 py-6 pb-24">
       {/* Header */}
@@ -320,6 +334,7 @@ export default function OpList() {
           onOpenPreOp={handleOpenPreOp}
           onOpenAnesthesia={handleOpenAnesthesia}
           onOpenSurgeryDocumentation={handleOpenSurgeryDocumentation}
+          onEditPatient={handleEditPatient}
           activeModule={activeModule}
         />
       )}

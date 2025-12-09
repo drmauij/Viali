@@ -192,6 +192,41 @@ export default function PatientDetail() {
       window.history.replaceState({}, '', newUrl);
     }
   }, [patient]);
+
+  // Check for openEdit query parameter and auto-open edit patient dialog
+  useEffect(() => {
+    if (!patient) return;
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const openEdit = urlParams.get('openEdit');
+    
+    if (openEdit === 'true') {
+      // Initialize edit form with patient data
+      setEditForm({
+        surname: patient.surname || "",
+        firstName: patient.firstName || "",
+        birthday: patient.birthday ? new Date(patient.birthday).toISOString().split('T')[0] : "",
+        sex: (patient.sex as "M" | "F" | "O") || "M",
+        email: patient.email || "",
+        phone: patient.phone || "",
+        address: patient.address || "",
+        emergencyContact: patient.emergencyContact || "",
+        insuranceProvider: patient.insuranceProvider || "",
+        insuranceNumber: patient.insuranceNumber || "",
+        allergies: patient.allergies || [],
+        otherAllergies: patient.otherAllergies || "",
+        internalNotes: patient.internalNotes || "",
+      });
+      setIsEditDialogOpen(true);
+      
+      // Clean up URL by removing openEdit parameter
+      const url = new URL(window.location.href);
+      url.searchParams.delete('openEdit');
+      const newUrl = url.searchParams.toString() ? `${url.pathname}?${url.searchParams.toString()}` : url.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [patient]);
+
   const [newCase, setNewCase] = useState({
     plannedSurgery: "",
     surgeon: "",
