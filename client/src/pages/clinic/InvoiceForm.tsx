@@ -74,9 +74,9 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
   const dateLocale = i18n.language === 'de' ? de : enUS;
 
   const { data: patients = [] } = useQuery<Patient[]>({
-    queryKey: ['/api/anesthesia', hospitalId, 'patients'],
+    queryKey: ['/api/patients', hospitalId],
     queryFn: async () => {
-      const res = await fetch(`/api/anesthesia/${hospitalId}/patients`, {
+      const res = await fetch(`/api/patients?hospitalId=${hospitalId}`, {
         credentials: 'include'
       });
       if (!res.ok) return [];
