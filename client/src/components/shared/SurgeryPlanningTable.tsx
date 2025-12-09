@@ -16,8 +16,11 @@ import {
   Calendar,
   ChevronDown,
   ChevronUp,
-  Loader2
+  Loader2,
+  Download
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
   Table,
   TableBody,
@@ -420,6 +423,119 @@ export function SurgeryPlanningTable({
     );
   };
   
+  // Generate PDF for a day's surgeries
+  const generateDayPdf = (dateKey: string, daySurgeries: Surgery[]) => {
+    const doc = new jsPDF({ orientation: 'landscape' });
+    const staff = staffPoolByDate[dateKey] || [];
+    
+    // Format date for display
+    const displayDate = new Date(dateKey + 'T12:00:00').toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit', 
+      year: 'numeric'
+    });
+    
+    // Header
+    doc.setFontSize(16);
+    doc.text(`OP-TAG ${displayDate}`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(activeHospital?.name || '', 14, 22);
+    
+    // Staff labels for PDF
+    const staffLabels: Record<string, string> = {
+      surgeon: 'Chirurg',
+      surgicalAssistant: 'Assistenz',
+      instrumentNurse: 'OTA',
+      circulatingNurse: 'Springer',
+      anesthesiologist: 'ANÄ',
+      anesthesiaNurse: 'Anä-Pflege',
+      pacuNurse: 'IMC/AWR',
+    };
+    
+    // Format staff for Leihpersonal column
+    const formatStaffColumn = (): string => {
+      if (staff.length === 0) return '-';
+      
+      const byRole = new Map<string, string[]>();
+      staff.forEach((s) => {
+        const names = byRole.get(s.role) || [];
+        names.push(s.name);
+        byRole.set(s.role, names);
+      });
+      
+      const parts: string[] = [];
+      byRole.forEach((names, role) => {
+        const label = staffLabels[role] || role;
+        parts.push(`• ${label}: ${names.join(', ')}`);
+      });
+      
+      return parts.join('\n');
+    };
+    
+    const staffColumnText = formatStaffColumn();
+    
+    // Table data
+    const tableData = daySurgeries.map((surgery) => {
+      const patient = patientMap.get(surgery.patientId);
+      const patientName = patient ? `${patient.surname}, ${patient.firstName}` : '-';
+      const patientBirthday = patient?.birthday 
+        ? `(${format(new Date(patient.birthday), 'dd.MM.yyyy')})`
+        : '';
+      
+      // Format Datum column with details
+      const admissionTime = surgery.admissionTime 
+        ? format(new Date(surgery.admissionTime), 'HH:mm')
+        : '-';
+      const startTime = surgery.plannedDate 
+        ? format(new Date(surgery.plannedDate), 'HH:mm')
+        : '-';
+      
+      const datumText = [
+        displayDate,
+        `• Eintritt: ${admissionTime} Uhr`,
+        `• Schnitt: ${startTime}`
+      ].join('\n');
+      
+      return [
+        datumText,
+        surgery.surgeon || '-',
+        `${patientName}\n${patientBirthday}`,
+        surgery.plannedSurgery || '-',
+        staffColumnText,
+        surgery.notes || '-'
+      ];
+    });
+    
+    autoTable(doc, {
+      startY: 28,
+      head: [['Datum', 'Operator', 'Patient', 'Eingriff', 'Leihpersonal', 'Note']],
+      body: tableData,
+      theme: 'grid',
+      styles: { 
+        fontSize: 8, 
+        cellPadding: 2,
+        overflow: 'linebreak',
+        valign: 'top'
+      },
+      headStyles: {
+        fillColor: [66, 66, 66],
+        fontSize: 9,
+        fontStyle: 'bold'
+      },
+      columnStyles: {
+        0: { cellWidth: 35 },
+        1: { cellWidth: 25 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 60 },
+        4: { cellWidth: 55 },
+        5: { cellWidth: 50 }
+      }
+    });
+    
+    // Save the PDF
+    doc.save(`OP-Tag_${dateKey}.pdf`);
+  };
+  
   const updateMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Surgery> }) => {
       return await apiRequest("PATCH", `/api/anesthesia/surgeries/${id}`, updates);
@@ -676,19 +792,34 @@ export function SurgeryPlanningTable({
               {/* Day header row */}
               <TableRow className="bg-muted/60 hover:bg-muted/60">
                 <TableCell colSpan={totalColumns} className="py-2 font-semibold text-sm">
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span>
-                      {new Date(dateKey + 'T12:00:00').toLocaleDateString(undefined, { 
-                        weekday: 'long', 
-                        year: 'numeric', 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}
-                      <span className="ml-2 text-muted-foreground font-normal">
-                        ({daySurgeries.length} {daySurgeries.length === 1 ? t('surgeryPlanning.surgery', 'surgery') : t('surgeryPlanning.surgeries', 'surgeries')})
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span>
+                        {new Date(dateKey + 'T12:00:00').toLocaleDateString(undefined, { 
+                          weekday: 'long', 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                        <span className="ml-2 text-muted-foreground font-normal">
+                          ({daySurgeries.length} {daySurgeries.length === 1 ? t('surgeryPlanning.surgery', 'surgery') : t('surgeryPlanning.surgeries', 'surgeries')})
+                        </span>
                       </span>
-                    </span>
-                    {renderStaffPills(dateKey)}
+                      {renderStaffPills(dateKey)}
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        generateDayPdf(dateKey, daySurgeries);
+                      }}
+                      title={t('surgeryPlanning.downloadDayPdf', 'Download day plan as PDF')}
+                      data-testid={`button-download-pdf-${dateKey}`}
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
                   </div>
                 </TableCell>
               </TableRow>
