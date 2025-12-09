@@ -312,7 +312,7 @@ export function SurgeryPlanningTable({
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
   
-  const [sortState, setSortState] = useState<SortState>({ field: "plannedDate", direction: "desc" });
+  const [sortState, setSortState] = useState<SortState>({ field: "plannedDate", direction: "asc" });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set());
   
