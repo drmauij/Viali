@@ -20,6 +20,7 @@ import Scan from "@/pages/Scan";
 import Items from "@/pages/Items";
 import Orders from "@/pages/Orders";
 import Alerts from "@/pages/Alerts";
+import SupplierMatches from "@/pages/SupplierMatches";
 import ControlledLog from "@/pages/ControlledLog";
 import Checklists from "@/pages/Checklists";
 import AdminHospital from "@/pages/admin/Hospital";
@@ -142,6 +143,7 @@ function Router() {
             <Route path="/inventory/alerts" component={Alerts} />
             <Route path="/inventory/controlled" component={ControlledLog} />
             <Route path="/inventory/checklists" component={Checklists} />
+            <Route path="/inventory/matches" component={SupplierMatches} />
             {/* Anesthesia Module - requires anesthesia unit access */}
             <Route path="/anesthesia">{() => <ProtectedRoute requireAnesthesia><Patients /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/patients">{() => <ProtectedRoute requireAnesthesia><Patients /></ProtectedRoute>}</Route>

@@ -194,6 +194,7 @@ export interface IStorage {
   updateSupplierCode(id: string, updates: Partial<SupplierCode>): Promise<SupplierCode>;
   deleteSupplierCode(id: string): Promise<void>;
   setPreferredSupplier(itemId: string, supplierId: string): Promise<void>;
+  getPendingSupplierMatches(hospitalId: string): Promise<(SupplierCode & { item: Item })[]>;
   
   // Order operations
   getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]>;
@@ -834,6 +835,28 @@ export class DatabaseStorage implements IStorage {
         .set({ isPreferred: true })
         .where(eq(supplierCodes.id, supplierId));
     });
+  }
+
+  async getPendingSupplierMatches(hospitalId: string): Promise<(SupplierCode & { item: Item })[]> {
+    const matches = await db
+      .select({
+        supplierCode: supplierCodes,
+        item: items
+      })
+      .from(supplierCodes)
+      .innerJoin(items, eq(supplierCodes.itemId, items.id))
+      .where(
+        and(
+          eq(items.hospitalId, hospitalId),
+          eq(supplierCodes.matchStatus, 'pending')
+        )
+      )
+      .orderBy(desc(supplierCodes.matchConfidence), asc(items.name));
+    
+    return matches.map(m => ({
+      ...m.supplierCode,
+      item: m.item
+    }));
   }
 
   async getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]> {

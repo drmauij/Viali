@@ -84,7 +84,35 @@
       "costs": "Kosten",
       "time": "Zeit",
       "staff": "Personal"
-    }
+    },
+    "matches": "Zuordnungen"
+  },
+  "supplierMatches": {
+    "title": "Lieferanten-Zuordnungen",
+    "noHospitalSelected": "Kein Krankenhaus ausgewählt",
+    "selectHospitalFirst": "Bitte wählen Sie ein Krankenhaus, um Lieferanten-Zuordnungen anzuzeigen",
+    "allReviewed": "Alle Zuordnungen überprüft",
+    "noMatchesDescription": "Keine ausstehenden Lieferanten-Zuordnungen. Führen Sie eine Preissynchronisierung durch, um neue Zuordnungen zu finden.",
+    "pendingReview": "zu überprüfen",
+    "directMatches": "Direkte Zuordnungen",
+    "suggestedMatches": "Vorgeschlagene Zuordnungen",
+    "noDirectMatches": "Keine direkten Zuordnungen gefunden",
+    "noSuggestedMatches": "Keine vorgeschlagenen Zuordnungen gefunden",
+    "highConfidence": "Hohe Übereinstimmung",
+    "mediumConfidence": "Mittel",
+    "lowConfidence": "Niedrig",
+    "options": "Optionen",
+    "retail": "Publikumspreis",
+    "viewCatalog": "Katalog ansehen",
+    "accept": "Akzeptieren",
+    "reject": "Ablehnen",
+    "select": "Auswählen",
+    "matchConfirmed": "Zuordnung erfolgreich bestätigt",
+    "matchRejected": "Zuordnung abgelehnt",
+    "matchSelected": "Zuordnung ausgewählt und bestätigt",
+    "confirmFailed": "Zuordnung konnte nicht bestätigt werden",
+    "rejectFailed": "Zuordnung konnte nicht abgelehnt werden",
+    "selectFailed": "Zuordnung konnte nicht ausgewählt werden"
   },
   "modules": {
     "title": "Modul auswählen",

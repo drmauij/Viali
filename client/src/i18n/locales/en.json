@@ -84,7 +84,35 @@
       "costs": "Costs",
       "time": "Time",
       "staff": "Staff"
-    }
+    },
+    "matches": "Matches"
+  },
+  "supplierMatches": {
+    "title": "Supplier Matches",
+    "noHospitalSelected": "No hospital selected",
+    "selectHospitalFirst": "Please select a hospital to view supplier matches",
+    "allReviewed": "All matches reviewed",
+    "noMatchesDescription": "No pending supplier matches to review. Run a price sync to find new matches.",
+    "pendingReview": "pending review",
+    "directMatches": "Direct Matches",
+    "suggestedMatches": "Suggested Matches",
+    "noDirectMatches": "No direct matches found",
+    "noSuggestedMatches": "No suggested matches found",
+    "highConfidence": "High confidence",
+    "mediumConfidence": "Medium",
+    "lowConfidence": "Low",
+    "options": "options",
+    "retail": "retail",
+    "viewCatalog": "View catalog",
+    "accept": "Accept",
+    "reject": "Reject",
+    "select": "Select",
+    "matchConfirmed": "Match confirmed successfully",
+    "matchRejected": "Match rejected",
+    "matchSelected": "Match selected and confirmed",
+    "confirmFailed": "Failed to confirm match",
+    "rejectFailed": "Failed to reject match",
+    "selectFailed": "Failed to select match"
   },
   "modules": {
     "title": "Select Module",

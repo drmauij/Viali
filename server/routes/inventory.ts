@@ -815,6 +815,137 @@ router.get('/api/price-sync-jobs/status/:jobId', isAuthenticated, async (req: an
   }
 });
 
+// Supplier Matches endpoints
+router.get('/api/supplier-matches/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some(h => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const pendingMatches = await storage.getPendingSupplierMatches(hospitalId);
+    
+    // Group matches: direct (high confidence single match) vs suggested (multiple or lower confidence)
+    const itemMatchGroups = new Map<string, typeof pendingMatches>();
+    
+    for (const match of pendingMatches) {
+      const itemId = match.itemId;
+      if (!itemMatchGroups.has(itemId)) {
+        itemMatchGroups.set(itemId, []);
+      }
+      itemMatchGroups.get(itemId)!.push(match);
+    }
+    
+    const directMatches: typeof pendingMatches = [];
+    const suggestedMatches: { item: { id: string; name: string; description: string | null }; matches: typeof pendingMatches }[] = [];
+    
+    for (const [itemId, matches] of Array.from(itemMatchGroups.entries())) {
+      if (matches.length === 1) {
+        const conf = parseFloat(matches[0].matchConfidence || '0');
+        if (conf >= 0.9) {
+          directMatches.push(matches[0]);
+        } else {
+          suggestedMatches.push({ 
+            item: { id: matches[0].item.id, name: matches[0].item.name, description: matches[0].item.description },
+            matches 
+          });
+        }
+      } else {
+        suggestedMatches.push({ 
+          item: { id: matches[0].item.id, name: matches[0].item.name, description: matches[0].item.description },
+          matches 
+        });
+      }
+    }
+    
+    res.json({ directMatches, suggestedMatches });
+  } catch (error) {
+    console.error("Error fetching supplier matches:", error);
+    res.status(500).json({ message: "Failed to fetch supplier matches" });
+  }
+});
+
+router.post('/api/supplier-codes/:id/confirm', isAuthenticated, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    
+    const code = await storage.getSupplierCode(id);
+    if (!code) {
+      return res.status(404).json({ message: "Supplier code not found" });
+    }
+    
+    const updated = await storage.updateSupplierCode(id, { 
+      matchStatus: 'confirmed',
+      isActive: true
+    });
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("Error confirming match:", error);
+    res.status(500).json({ message: "Failed to confirm match" });
+  }
+});
+
+router.post('/api/supplier-codes/:id/reject', isAuthenticated, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    
+    const code = await storage.getSupplierCode(id);
+    if (!code) {
+      return res.status(404).json({ message: "Supplier code not found" });
+    }
+    
+    const updated = await storage.updateSupplierCode(id, { 
+      matchStatus: 'rejected',
+      isActive: false
+    });
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("Error rejecting match:", error);
+    res.status(500).json({ message: "Failed to reject match" });
+  }
+});
+
+router.post('/api/supplier-codes/:id/select', isAuthenticated, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { itemId } = req.body;
+    
+    const code = await storage.getSupplierCode(id);
+    if (!code) {
+      return res.status(404).json({ message: "Supplier code not found" });
+    }
+    
+    // Confirm this match and reject others for the same item
+    const allMatchesForItem = await storage.getSupplierCodes(itemId);
+    for (const match of allMatchesForItem) {
+      if (match.id === id) {
+        await storage.updateSupplierCode(match.id, { 
+          matchStatus: 'confirmed',
+          isActive: true,
+          isPreferred: true
+        });
+      } else if (match.matchStatus === 'pending') {
+        await storage.updateSupplierCode(match.id, { 
+          matchStatus: 'rejected',
+          isActive: false
+        });
+      }
+    }
+    
+    const updated = await storage.getSupplierCode(id);
+    res.json(updated);
+  } catch (error) {
+    console.error("Error selecting match:", error);
+    res.status(500).json({ message: "Failed to select match" });
+  }
+});
+
 router.get('/api/items/:hospitalId/export-catalog', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
