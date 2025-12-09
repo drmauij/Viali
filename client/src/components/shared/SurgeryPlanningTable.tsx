@@ -38,6 +38,7 @@ import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
+import { ROLE_CONFIG } from "@/components/anesthesia/PlannedStaffBox";
 import type { Surgery, Patient, DailyStaffPool } from "@shared/schema";
 
 export type ModuleContext = "anesthesia" | "surgery" | "business" | "marketing";
@@ -392,40 +393,31 @@ export function SurgeryPlanningTable({
     enabled: !!activeHospital?.id && uniqueDates.length > 0,
   });
   
-  // Role labels for compact display
-  const roleLabels: Record<string, string> = {
-    surgeon: t('staffRoles.surgeon', 'Surg'),
-    surgicalAssistant: t('staffRoles.surgicalAssistant', 'Asst'),
-    instrumentNurse: t('staffRoles.instrumentNurse', 'Instr'),
-    circulatingNurse: t('staffRoles.circulatingNurse', 'Circ'),
-    anesthesiologist: t('staffRoles.anesthesiologist', 'Anest'),
-    anesthesiaNurse: t('staffRoles.anesthesiaNurse', 'AnNrs'),
-    pacuNurse: t('staffRoles.pacuNurse', 'PACU'),
-  };
-  
-  // Format staff for a given date (compact display)
-  const formatStaffForDate = (dateKey: string): string | null => {
+  // Render staff pills for a given date
+  const renderStaffPills = (dateKey: string) => {
     const staff = staffPoolByDate[dateKey];
     if (!staff || staff.length === 0) return null;
     
-    // Group by role and list names
-    const byRole = new Map<string, string[]>();
-    staff.forEach((s) => {
-      const names = byRole.get(s.role) || [];
-      // Extract first name or abbreviated name
-      const shortName = s.name.split(' ')[0] || s.name;
-      names.push(shortName);
-      byRole.set(s.role, names);
-    });
-    
-    // Format as "Role: Name1, Name2; Role2: Name3"
-    const parts: string[] = [];
-    byRole.forEach((names, role) => {
-      const label = roleLabels[role] || role;
-      parts.push(`${label}: ${names.join(', ')}`);
-    });
-    
-    return parts.join(' · ');
+    return (
+      <div className="flex flex-wrap gap-1">
+        {staff.map((s) => {
+          const config = ROLE_CONFIG[s.role as keyof typeof ROLE_CONFIG];
+          const Icon = config?.icon;
+          const shortName = s.name.split(' ')[0] || s.name;
+          
+          return (
+            <span
+              key={s.id}
+              className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full ${config?.bgClass || 'bg-gray-100 dark:bg-gray-800'} ${config?.colorClass || ''}`}
+              title={s.name}
+            >
+              {Icon && <Icon className="h-2.5 w-2.5" />}
+              <span className="max-w-[60px] truncate">{shortName}</span>
+            </span>
+          );
+        })}
+      </div>
+    );
   };
   
   const updateMutation = useMutation({
@@ -696,11 +688,7 @@ export function SurgeryPlanningTable({
                         ({daySurgeries.length} {daySurgeries.length === 1 ? t('surgeryPlanning.surgery', 'surgery') : t('surgeryPlanning.surgeries', 'surgeries')})
                       </span>
                     </span>
-                    {formatStaffForDate(dateKey) && (
-                      <span className="text-xs text-muted-foreground font-normal">
-                        {formatStaffForDate(dateKey)}
-                      </span>
-                    )}
+                    {renderStaffPills(dateKey)}
                   </div>
                 </TableCell>
               </TableRow>
