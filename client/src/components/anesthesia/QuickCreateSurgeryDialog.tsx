@@ -72,6 +72,7 @@ export default function QuickCreateSurgeryDialog({
   const [plannedSurgery, setPlannedSurgery] = useState("");
   const [surgeonId, setSurgeonId] = useState("");
   const [notes, setNotes] = useState("");
+  const [implantDetails, setImplantDetails] = useState("");
   
   // New patient form state
   const [newPatientFirstName, setNewPatientFirstName] = useState("");
@@ -235,6 +236,7 @@ export default function QuickCreateSurgeryDialog({
     setPlannedSurgery("");
     setSurgeonId("");
     setNotes("");
+    setImplantDetails("");
     setShowNewPatientForm(false);
     setNewPatientFirstName("");
     setNewPatientSurname("");
@@ -314,6 +316,7 @@ export default function QuickCreateSurgeryDialog({
       surgeonId: surgeonId || undefined,
       notes: notes.trim() || undefined,
       admissionTime: admissionTimeISO,
+      implantDetails: implantDetails.trim() || undefined,
       status: "planned",
     });
   };
@@ -593,6 +596,19 @@ export default function QuickCreateSurgeryDialog({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               data-testid="textarea-notes"
+              rows={3}
+            />
+          </div>
+
+          {/* Implant Details */}
+          <div className="space-y-2">
+            <Label htmlFor="implant-details">{t('anesthesia.quickSchedule.implantDetails', 'Implant Details')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
+            <Textarea
+              id="implant-details"
+              placeholder={t('anesthesia.quickSchedule.implantDetailsPlaceholder', 'e.g., Hip prosthesis model XYZ, Serial #12345')}
+              value={implantDetails}
+              onChange={(e) => setImplantDetails(e.target.value)}
+              data-testid="textarea-implant-details"
               rows={3}
             />
           </div>

@@ -33,6 +33,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [surgeryRoomId, setSurgeryRoomId] = useState("");
   const [surgeonId, setSurgeonId] = useState("");
   const [notes, setNotes] = useState("");
+  const [implantDetails, setImplantDetails] = useState("");
 
   // Fetch surgery details
   const { data: surgery, isLoading } = useQuery<any>({
@@ -87,6 +88,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setSurgeryRoomId(surgery.surgeryRoomId || "");
       setSurgeonId(surgery.surgeonId || "");
       setNotes(surgery.notes || "");
+      setImplantDetails(surgery.implantDetails || "");
       
       if (surgery.admissionTime) {
         const admissionDateObj = new Date(surgery.admissionTime);
@@ -128,6 +130,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         surgeonId: surgeonId || null,
         notes: notes || null,
         admissionTime: admissionTimeISO,
+        implantDetails: implantDetails || null,
       });
       return response.json();
     },
@@ -370,6 +373,20 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   onChange={(e) => setNotes(e.target.value)}
                   disabled={!canWrite}
                   data-testid="textarea-edit-notes"
+                  rows={3}
+                />
+              </div>
+
+              {/* Implant Details */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-implant-details">{t('anesthesia.editSurgery.implantDetails', 'Implant Details')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.optional', 'opt.')})</span></Label>
+                <Textarea
+                  id="edit-implant-details"
+                  placeholder={t('anesthesia.editSurgery.implantDetailsPlaceholder', 'e.g., Hip prosthesis model XYZ, Serial #12345')}
+                  value={implantDetails}
+                  onChange={(e) => setImplantDetails(e.target.value)}
+                  disabled={!canWrite}
+                  data-testid="textarea-edit-implant-details"
                   rows={3}
                 />
               </div>
