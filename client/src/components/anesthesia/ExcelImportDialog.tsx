@@ -268,7 +268,7 @@ export default function ExcelImportDialog({
       const patientId = columns[0]?.trim() || '';
       const lastName = columns[1]?.trim() || '';
       const firstName = columns[2]?.trim() || '';
-      const dob = parseDateDDMMYYYY(columns[3]) || '';
+      const dob = parseDateDDMMYYYY(columns[3]) || '1900-01-01';
       const surgeryDate = parseDateDDMMYYYY(columns[4]) || '';
       const admissionTime = parseTimeHHMM(columns[5]) || null;
       const startTime = parseTimeHHMM(columns[6]) || parseTimeHHMM(columns[5]) || '';
@@ -290,7 +290,6 @@ export default function ExcelImportDialog({
       const errors: string[] = [];
       if (!lastName) errors.push(t('anesthesia.excelImport.missingLastName'));
       if (!firstName) errors.push(t('anesthesia.excelImport.missingFirstName'));
-      if (!dob) errors.push(t('anesthesia.excelImport.invalidDOB'));
       if (!surgeryDate) errors.push(t('anesthesia.excelImport.invalidSurgeryDate'));
 
       const existingPatient = dob ? findExistingPatient(firstName, lastName, dob) : null;
