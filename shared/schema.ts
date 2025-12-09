@@ -681,6 +681,29 @@ export const surgeries = pgTable("surgeries", {
   surgeonId: varchar("surgeon_id").references(() => users.id), // Foreign key to users table for proper linking
   notes: text("notes"),
   
+  // Scheduling
+  admissionTime: timestamp("admission_time"), // Patient arrival time (Eintritt)
+  
+  // Business/Billing
+  price: decimal("price", { precision: 10, scale: 2 }), // Surgery price
+  quoteSentDate: date("quote_sent_date"), // Offerte verschickt
+  invoiceSentDate: date("invoice_sent_date"), // Rechnung verschickt
+  paymentStatus: varchar("payment_status", { enum: ["pending", "partial", "paid", "overdue", "cancelled"] }), // Payment state
+  paymentDate: date("payment_date"), // Rechnung bezahlt
+  paymentMethod: varchar("payment_method"), // MFG / PLIM etc.
+  paymentNotes: text("payment_notes"), // Additional payment info
+  
+  // Contracts/Administrative
+  treatmentContractSentDate: date("treatment_contract_sent_date"), // Behandlungsvertrag verschickt
+  treatmentContractReceivedDate: date("treatment_contract_received_date"), // Behandlungsvertrag erhalten
+  anesthesiaConsentSent: boolean("anesthesia_consent_sent").default(false), // Anästhesie-Aufklärung gesendet
+  
+  // Implants/Equipment
+  implantOrderDate: date("implant_order_date"), // Implantate bestellt
+  implantReceivedDate: date("implant_received_date"), // Implantate erhalten
+  implantVendor: varchar("implant_vendor"), // Motiva, Albin Group, Polytech, etc.
+  implantDetails: text("implant_details"), // Free text for specifics
+  
   // Actual execution
   actualStartTime: timestamp("actual_start_time"),
   actualEndTime: timestamp("actual_end_time"),
@@ -697,6 +720,7 @@ export const surgeries = pgTable("surgeries", {
   index("idx_surgeries_surgeon").on(table.surgeonId),
   index("idx_surgeries_status").on(table.status),
   index("idx_surgeries_planned_date").on(table.plannedDate),
+  index("idx_surgeries_payment_status").on(table.paymentStatus),
 ]);
 
 // Anesthesia Records - Main perioperative anesthesia data
@@ -1878,6 +1902,7 @@ export const insertSurgerySchema = createInsertSchema(surgeries, {
   plannedDate: z.coerce.date(), // Coerce string to Date
   actualEndTime: z.coerce.date().optional(), // Coerce string to Date
   actualStartTime: z.coerce.date().optional(), // Coerce string to Date
+  admissionTime: z.coerce.date().optional(), // Coerce string to Date
 }).omit({
   id: true,
   createdAt: true,
