@@ -43,11 +43,21 @@ type ParsedRow = {
   firstName: string;
   dob: string;
   surgeryDate: string;
+  admissionTime: string | null;
   startTime: string;
   duration: number;
   procedure: string;
   notes: string;
+  price: string | null;
+  quoteSentDate: string | null;
+  invoiceSentDate: string | null;
+  treatmentContractSentDate: string | null;
+  treatmentContractReceivedDate: string | null;
+  paymentNotes: string | null;
+  implantStatus: string | null;
+  implantDetails: string | null;
   surgeon: string;
+  anesthesiaType: string | null;
   matchedSurgeon: Surgeon | null;
   existingPatient: Patient | null;
   valid: boolean;
@@ -184,6 +194,22 @@ export default function ExcelImportDialog({
     return 120;
   };
 
+  const parsePrice = (priceStr: string): string | null => {
+    if (!priceStr || !priceStr.trim()) return null;
+    
+    const cleaned = priceStr.trim()
+      .replace(/CHF\s*/i, '')
+      .replace(/'/g, '')
+      .replace(/\./g, '')
+      .replace(',', '.')
+      .trim();
+    
+    const num = parseFloat(cleaned);
+    if (isNaN(num)) return null;
+    
+    return num.toFixed(2);
+  };
+
   const findExistingPatient = (firstName: string, lastName: string, dob: string): Patient | null => {
     const normalizedFirst = firstName.toLowerCase().trim();
     const normalizedLast = lastName.toLowerCase().trim();
@@ -209,18 +235,28 @@ export default function ExcelImportDialog({
       
       const columns = line.split('\t');
       
-      if (columns.length < 9) {
+      if (columns.length < 5) {
         parsed.push({
           patientId: columns[0] || '',
           lastName: columns[1] || '',
           firstName: columns[2] || '',
           dob: '',
           surgeryDate: '',
+          admissionTime: null,
           startTime: '',
           duration: 120,
           procedure: '',
           notes: '',
+          price: null,
+          quoteSentDate: null,
+          invoiceSentDate: null,
+          treatmentContractSentDate: null,
+          treatmentContractReceivedDate: null,
+          paymentNotes: null,
+          implantStatus: null,
+          implantDetails: null,
           surgeon: '',
+          anesthesiaType: null,
           matchedSurgeon: null,
           existingPatient: null,
           valid: false,
@@ -234,19 +270,28 @@ export default function ExcelImportDialog({
       const firstName = columns[2]?.trim() || '';
       const dob = parseDateDDMMYYYY(columns[3]) || '';
       const surgeryDate = parseDateDDMMYYYY(columns[4]) || '';
+      const admissionTime = parseTimeHHMM(columns[5]) || null;
       const startTime = parseTimeHHMM(columns[6]) || parseTimeHHMM(columns[5]) || '';
       const duration = parseDuration(columns[7] || '');
       const procedure = columns[8]?.trim() || '';
       const notes = columns[9]?.trim() || '';
-      const surgeon = columns.length > 18 ? (columns[18]?.trim() || '') : '';
+      
+      const price = parsePrice(columns[10] || '');
+      const quoteSentDate = parseDateDDMMYYYY(columns[11]) || null;
+      const invoiceSentDate = parseDateDDMMYYYY(columns[12]) || null;
+      const treatmentContractSentDate = parseDateDDMMYYYY(columns[13]) || null;
+      const treatmentContractReceivedDate = parseDateDDMMYYYY(columns[14]) || null;
+      const paymentNotes = columns[15]?.trim() || null;
+      const implantStatus = columns[16]?.trim() || null;
+      const implantDetails = columns[17]?.trim() || null;
+      const surgeon = columns[18]?.trim() || '';
+      const anesthesiaType = columns[19]?.trim() || null;
 
       const errors: string[] = [];
       if (!lastName) errors.push(t('anesthesia.excelImport.missingLastName'));
       if (!firstName) errors.push(t('anesthesia.excelImport.missingFirstName'));
       if (!dob) errors.push(t('anesthesia.excelImport.invalidDOB'));
       if (!surgeryDate) errors.push(t('anesthesia.excelImport.invalidSurgeryDate'));
-      if (!startTime) errors.push(t('anesthesia.excelImport.invalidStartTime'));
-      if (!procedure) errors.push(t('anesthesia.excelImport.missingProcedure'));
 
       const existingPatient = dob ? findExistingPatient(firstName, lastName, dob) : null;
       const matchedSurgeon = matchSurgeon(surgeon);
@@ -257,11 +302,21 @@ export default function ExcelImportDialog({
         firstName,
         dob,
         surgeryDate,
+        admissionTime,
         startTime,
         duration,
         procedure,
         notes,
+        price,
+        quoteSentDate,
+        invoiceSentDate,
+        treatmentContractSentDate,
+        treatmentContractReceivedDate,
+        paymentNotes,
+        implantStatus,
+        implantDetails,
         surgeon,
+        anesthesiaType,
         matchedSurgeon,
         existingPatient,
         valid: errors.length === 0,
@@ -330,14 +385,19 @@ export default function ExcelImportDialog({
           patientId = newPatient.id;
         }
 
-        const plannedDateStr = `${row.surgeryDate}T${row.startTime}:00`;
+        const effectiveStartTime = row.startTime || '08:00';
+        const plannedDateStr = `${row.surgeryDate}T${effectiveStartTime}:00`;
         
-        const [startHour, startMinute] = row.startTime.split(':').map(Number);
+        const [startHour, startMinute] = effectiveStartTime.split(':').map(Number);
         const totalMinutes = startHour * 60 + startMinute + row.duration;
         const endHour = Math.floor(totalMinutes / 60) % 24;
         const endMin = totalMinutes % 60;
         const endTimeStr = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}:00`;
         const endDateStr = `${row.surgeryDate}T${endTimeStr}`;
+
+        const admissionTimeStr = row.admissionTime 
+          ? `${row.surgeryDate}T${row.admissionTime}:00`
+          : undefined;
 
         await createSurgeryMutation.mutateAsync({
           hospitalId,
@@ -345,11 +405,19 @@ export default function ExcelImportDialog({
           surgeryRoomId: defaultRoomId,
           plannedDate: plannedDateStr,
           actualEndTime: endDateStr,
-          plannedSurgery: row.procedure,
+          plannedSurgery: row.procedure || 'TBD',
           surgeon: row.matchedSurgeon?.name || row.surgeon || undefined,
           surgeonId: row.matchedSurgeon?.id || undefined,
           notes: row.notes || undefined,
           status: "planned",
+          admissionTime: admissionTimeStr,
+          price: row.price || undefined,
+          quoteSentDate: row.quoteSentDate || undefined,
+          invoiceSentDate: row.invoiceSentDate || undefined,
+          treatmentContractSentDate: row.treatmentContractSentDate || undefined,
+          treatmentContractReceivedDate: row.treatmentContractReceivedDate || undefined,
+          paymentNotes: row.paymentNotes || undefined,
+          implantDetails: row.implantDetails || row.implantStatus || undefined,
         });
 
         successCount++;
