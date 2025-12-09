@@ -47,7 +47,8 @@ export type ColumnGroup =
   | "scheduling" 
   | "business" 
   | "contracts" 
-  | "implants";
+  | "implants"
+  | "paidStatus";
 
 interface SurgeryPlanningTableProps {
   moduleContext: ModuleContext;
@@ -75,8 +76,8 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
 };
 
 const DEFAULT_COLUMN_GROUPS: Record<ModuleContext, ColumnGroup[]> = {
-  anesthesia: ["clinical", "scheduling", "contracts", "implants"],
-  surgery: ["clinical", "scheduling", "implants"],
+  anesthesia: ["clinical", "scheduling", "paidStatus", "implants"],
+  surgery: ["clinical", "scheduling", "paidStatus", "implants"],
   business: ["clinical", "scheduling", "business"],
   marketing: ["clinical", "business"],
 };
@@ -459,6 +460,7 @@ export function SurgeryPlanningTable({
   const showBusiness = columnGroups.includes("business");
   const showContracts = columnGroups.includes("contracts");
   const showImplants = columnGroups.includes("implants");
+  const showPaidStatus = columnGroups.includes("paidStatus");
   const hideRoomAndAdmission = moduleContext === "business";
   
   if (surgeriesLoading) {
@@ -530,6 +532,13 @@ export function SurgeryPlanningTable({
                 )}
                 <TableHead>{t("surgeryPlanning.columns.status")}</TableHead>
               </>
+            )}
+            
+            {showPaidStatus && (
+              <TableHead className="text-center">
+                <CreditCard className="h-4 w-4 inline mr-1" />
+                {t("surgeryPlanning.columns.paid", "Paid")}
+              </TableHead>
             )}
             
             {showBusiness && (
@@ -640,6 +649,16 @@ export function SurgeryPlanningTable({
                         </Badge>
                       </TableCell>
                     </>
+                  )}
+                  
+                  {showPaidStatus && (
+                    <TableCell className="text-center">
+                      {surgery.paymentDate ? (
+                        <Check className="h-5 w-5 text-green-600 dark:text-green-400 mx-auto" />
+                      ) : (
+                        <X className="h-5 w-5 text-muted-foreground mx-auto" />
+                      )}
+                    </TableCell>
                   )}
                   
                   {showBusiness && (
