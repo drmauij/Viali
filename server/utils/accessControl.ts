@@ -1,10 +1,10 @@
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 
-export const ROLE_HIERARCHY = ['admin', 'doctor', 'nurse', 'guest'] as const;
+export const ROLE_HIERARCHY = ['admin', 'manager', 'doctor', 'nurse', 'guest'] as const;
 export type UserRole = typeof ROLE_HIERARCHY[number];
 
-export const WRITE_ROLES: UserRole[] = ['admin', 'doctor', 'nurse'];
+export const WRITE_ROLES: UserRole[] = ['admin', 'manager', 'doctor', 'nurse'];
 export const READ_ONLY_ROLES: UserRole[] = ['guest'];
 
 // Helper to get hospitalId from various resource types
