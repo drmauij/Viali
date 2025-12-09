@@ -150,8 +150,6 @@ export default function BottomNav() {
     if (activeModule === "business") {
       return [
         { id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" },
-        { id: "business-costs", icon: "fas fa-coins", label: t('bottomNav.business.costs'), path: "/business/costs" },
-        { id: "business-time", icon: "fas fa-clock", label: t('bottomNav.business.time'), path: "/business/time" },
         { id: "business-staff", icon: "fas fa-users", label: t('bottomNav.business.staff'), path: "/business/staff" },
       ];
     }
