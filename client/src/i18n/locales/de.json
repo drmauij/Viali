@@ -2415,23 +2415,6 @@
       "pdfGenerated": "PDF erstellt",
       "pdfGeneratedDescription": "Rechnungs-PDF wurde heruntergeladen",
       "pdfError": "PDF konnte nicht erstellt werden"
-    },
-    "settings": {
-      "title": "Firmendaten",
-      "adminOnly": "Nur Administratoren können Firmendaten bearbeiten",
-      "companyData": "Firmendaten",
-      "companyDataDescription": "Firmendaten für Rechnungen",
-      "companyName": "Firmenname",
-      "street": "Strasse",
-      "postalCode": "PLZ",
-      "city": "Ort",
-      "phone": "Telefon",
-      "fax": "Fax",
-      "email": "E-Mail",
-      "logoUrl": "Logo-URL",
-      "saved": "Einstellungen gespeichert",
-      "savedDescription": "Firmendaten wurden aktualisiert",
-      "saveError": "Einstellungen konnten nicht gespeichert werden"
     }
   },
   "business": {

@@ -2416,23 +2416,6 @@
       "pdfGenerated": "PDF Generated",
       "pdfGeneratedDescription": "Invoice PDF has been downloaded",
       "pdfError": "Failed to generate PDF"
-    },
-    "settings": {
-      "title": "Company Settings",
-      "adminOnly": "Only administrators can edit company settings",
-      "companyData": "Company Data",
-      "companyDataDescription": "Company details for invoices",
-      "companyName": "Company Name",
-      "street": "Street",
-      "postalCode": "Postal Code",
-      "city": "City",
-      "phone": "Phone",
-      "fax": "Fax",
-      "email": "Email",
-      "logoUrl": "Logo URL",
-      "saved": "Settings saved",
-      "savedDescription": "Company data has been updated",
-      "saveError": "Failed to save settings"
     }
   },
   "business": {
