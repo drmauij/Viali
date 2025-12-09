@@ -43,6 +43,8 @@ import BusinessDashboard from "@/pages/business/Dashboard";
 import CostAnalytics from "@/pages/business/CostAnalytics";
 import TimeAnalytics from "@/pages/business/TimeAnalytics";
 import StaffCosts from "@/pages/business/StaffCosts";
+import SimplifiedDashboard from "@/pages/business/SimplifiedDashboard";
+import SimplifiedStaff from "@/pages/business/SimplifiedStaff";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
 import "@/i18n/config";
 
@@ -171,10 +173,12 @@ function Router() {
             <Route path="/admin">{() => <ProtectedRoute requireAdmin><AdminHospital /></ProtectedRoute>}</Route>
             <Route path="/admin/users">{() => <ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>}</Route>
             {/* Business Module - requires business unit access */}
-            <Route path="/business">{() => <ProtectedRoute requireBusiness><BusinessDashboard /></ProtectedRoute>}</Route>
+            <Route path="/business">{() => <ProtectedRoute requireBusiness><SimplifiedDashboard /></ProtectedRoute>}</Route>
+            <Route path="/business/staff">{() => <ProtectedRoute requireBusiness><SimplifiedStaff /></ProtectedRoute>}</Route>
             <Route path="/business/costs">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
             <Route path="/business/time">{() => <ProtectedRoute requireBusiness><TimeAnalytics /></ProtectedRoute>}</Route>
-            <Route path="/business/staff">{() => <ProtectedRoute requireBusiness><StaffCosts /></ProtectedRoute>}</Route>
+            <Route path="/business/staff-full">{() => <ProtectedRoute requireBusiness><StaffCosts /></ProtectedRoute>}</Route>
+            <Route path="/business/dashboard-full">{() => <ProtectedRoute requireBusiness><BusinessDashboard /></ProtectedRoute>}</Route>
             <Route path="/signup" component={Signup} />
             {/* Demo/Testing Routes */}
             <Route path="/demo/editable-values" component={EditableValuesDemo} />
