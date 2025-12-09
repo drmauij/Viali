@@ -77,7 +77,7 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
 const DEFAULT_COLUMN_GROUPS: Record<ModuleContext, ColumnGroup[]> = {
   anesthesia: ["clinical", "scheduling", "contracts", "implants"],
   surgery: ["clinical", "scheduling", "implants"],
-  business: ["clinical", "scheduling", "business"],
+  business: ["clinical", "scheduling", "business", "contracts"],
   marketing: ["clinical", "business"],
 };
 
