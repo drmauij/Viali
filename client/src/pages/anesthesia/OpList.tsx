@@ -47,11 +47,24 @@ function shouldUsePacuMode(timeMarkers?: TimeMarker[]): boolean {
 
 type ViewMode = "calendar" | "table";
 
+// Calculate date range for table view (past 30 days to next 60 days for comprehensive view)
+function getDefaultDateRange() {
+  const now = new Date();
+  const start = new Date(now);
+  start.setDate(start.getDate() - 30);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(now);
+  end.setDate(end.getDate() + 60);
+  end.setHours(23, 59, 59, 999);
+  return { start, end };
+}
+
 export default function OpList() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const { activeModule } = useModule();
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
+  const [tableViewDates] = useState(() => getDefaultDateRange());
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -260,6 +273,9 @@ export default function OpList() {
             <SurgeryPlanningTable
               moduleContext="anesthesia"
               onSurgeryClick={handleTableSurgeryClick}
+              dateFrom={tableViewDates.start}
+              dateTo={tableViewDates.end}
+              showFilters={true}
             />
           </div>
         )}

@@ -260,6 +260,11 @@ export function SurgeryPlanningTable({
   
   const { data: surgeries = [], isLoading: surgeriesLoading } = useQuery<Surgery[]>({
     queryKey: ["/api/anesthesia/surgeries", queryParams],
+    queryFn: async () => {
+      const response = await fetch(`/api/anesthesia/surgeries?${queryParams}`);
+      if (!response.ok) throw new Error('Failed to fetch surgeries');
+      return response.json();
+    },
     enabled: !!activeHospital?.id,
   });
   

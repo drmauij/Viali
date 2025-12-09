@@ -75,7 +75,7 @@ const formats = {
     `${moment(start).format('DD/MM/YYYY')} - ${moment(end).format('DD/MM/YYYY')}`,
 };
 
-type ViewType = "day" | "week" | "month" | "agenda";
+type ViewType = "day" | "week" | "month";
 
 interface OPCalendarProps {
   onEventClick?: (surgeryId: string, patientId: string) => void;
@@ -741,16 +741,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             <span className="hidden sm:inline">Month</span>
           </Button>
           <Button
-            variant={currentView === "agenda" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setCurrentView("agenda")}
-            data-testid="button-view-agenda"
-            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
-          >
-            <i className="fas fa-list text-xs sm:text-sm sm:mr-1"></i>
-            <span className="hidden sm:inline">Agenda</span>
-          </Button>
-          <Button
             variant="outline"
             size="sm"
             onClick={() => setExcelImportOpen(true)}
@@ -760,7 +750,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
             <span className="hidden sm:inline">Excel</span>
           </Button>
-          {activeHospital && (
+          {activeHospital && currentView === "day" && (
             <Button
               variant="outline"
               size="sm"
@@ -812,8 +802,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         </div>
       )}
 
-      {/* Planned Staff Box */}
-      {surgeryRooms.length > 0 && activeHospital && (
+      {/* Planned Staff Box - only show in day view */}
+      {surgeryRooms.length > 0 && activeHospital && currentView === "day" && (
         <PlannedStaffBox
           selectedDate={selectedDate}
           hospitalId={activeHospital.id}
