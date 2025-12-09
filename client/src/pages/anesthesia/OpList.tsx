@@ -1,9 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
+import { format } from "date-fns";
 import { Calendar, TableProperties } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
 import SurgerySummaryDialog from "@/components/anesthesia/SurgerySummaryDialog";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
@@ -64,7 +68,7 @@ export default function OpList() {
   const [, setLocation] = useLocation();
   const { activeModule } = useModule();
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
-  const [tableViewDates] = useState(() => getDefaultDateRange());
+  const [tableViewDates, setTableViewDates] = useState(() => getDefaultDateRange());
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -269,7 +273,86 @@ export default function OpList() {
         {viewMode === "calendar" ? (
           <OPCalendar onEventClick={handleEventClick} />
         ) : (
-          <div className="px-4">
+          <div className="px-4 space-y-4">
+            <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{t('common.from')}:</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn("w-[140px] justify-start text-left font-normal")}
+                      data-testid="button-date-from"
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {format(tableViewDates.start, "dd.MM.yyyy")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={tableViewDates.start}
+                      onSelect={(date) => {
+                        if (date) {
+                          const newStart = new Date(date);
+                          newStart.setHours(0, 0, 0, 0);
+                          setTableViewDates(prev => {
+                            if (newStart > prev.end) {
+                              const newEnd = new Date(newStart);
+                              newEnd.setDate(newEnd.getDate() + 30);
+                              newEnd.setHours(23, 59, 59, 999);
+                              return { start: newStart, end: newEnd };
+                            }
+                            return { ...prev, start: newStart };
+                          });
+                        }
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">{t('common.to')}:</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn("w-[140px] justify-start text-left font-normal")}
+                      data-testid="button-date-to"
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {format(tableViewDates.end, "dd.MM.yyyy")}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={tableViewDates.end}
+                      disabled={(date) => date < tableViewDates.start}
+                      onSelect={(date) => {
+                        if (date) {
+                          const newEnd = new Date(date);
+                          newEnd.setHours(23, 59, 59, 999);
+                          setTableViewDates(prev => ({ ...prev, end: newEnd }));
+                        }
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setTableViewDates(getDefaultDateRange())}
+                data-testid="button-reset-dates"
+              >
+                {t('common.reset')}
+              </Button>
+            </div>
             <SurgeryPlanningTable
               moduleContext="anesthesia"
               onSurgeryClick={handleTableSurgeryClick}
