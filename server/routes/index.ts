@@ -5,6 +5,7 @@ import adminRouter from "./admin";
 import checklistsRouter from "./checklists";
 import anesthesiaRouter from "./anesthesia";
 import businessRouter from "./business";
+import clinicRouter from "./clinic";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -13,7 +14,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(checklistsRouter);
   app.use(anesthesiaRouter);
   app.use(businessRouter);
-  
-  // Future domain routers will be added here:
-  // app.use(ordersRouter);
+  app.use(clinicRouter);
 }

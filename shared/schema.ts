@@ -55,6 +55,15 @@ export const hospitals = pgTable("hospitals", {
   googleAuthEnabled: boolean("google_auth_enabled").default(true),
   localAuthEnabled: boolean("local_auth_enabled").default(true),
   licenseType: varchar("license_type", { enum: ["free", "basic"] }).default("free").notNull(),
+  // Invoice company data
+  companyName: varchar("company_name"),
+  companyStreet: varchar("company_street"),
+  companyPostalCode: varchar("company_postal_code"),
+  companyCity: varchar("company_city"),
+  companyPhone: varchar("company_phone"),
+  companyFax: varchar("company_fax"),
+  companyEmail: varchar("company_email"),
+  companyLogoUrl: varchar("company_logo_url"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
