@@ -77,7 +77,7 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
 const DEFAULT_COLUMN_GROUPS: Record<ModuleContext, ColumnGroup[]> = {
   anesthesia: ["clinical", "scheduling", "contracts", "implants"],
   surgery: ["clinical", "scheduling", "implants"],
-  business: ["clinical", "scheduling", "business", "contracts"],
+  business: ["clinical", "scheduling", "business"],
   marketing: ["clinical", "business"],
 };
 
@@ -124,6 +124,73 @@ interface EditableDateCellProps {
   field: string;
   onUpdate: (id: string, field: string, value: string | null) => void;
   isPending: boolean;
+}
+
+interface EditableCurrencyCellProps {
+  value: string | number | null | undefined;
+  surgeryId: string;
+  field: string;
+  onUpdate: (id: string, field: string, value: string | null) => void;
+  isPending: boolean;
+}
+
+function EditableCurrencyCell({ value, surgeryId, field, onUpdate, isPending }: EditableCurrencyCellProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+
+  const handleStartEdit = () => {
+    const num = value !== null && value !== undefined 
+      ? (typeof value === "string" ? parseFloat(value) : value)
+      : null;
+    setInputValue(num !== null && !isNaN(num) ? num.toString() : "");
+    setIsEditing(true);
+  };
+
+  const handleSave = () => {
+    const num = parseFloat(inputValue);
+    onUpdate(surgeryId, field, inputValue && !isNaN(num) ? inputValue : null);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSave();
+    } else if (e.key === "Escape") {
+      setIsEditing(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <Input
+        type="number"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={handleKeyDown}
+        className="h-8 w-24"
+        autoFocus
+        data-testid={`input-${field}-${surgeryId}`}
+      />
+    );
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-8 px-2 justify-start font-medium w-full"
+      disabled={isPending}
+      onClick={handleStartEdit}
+      data-testid={`button-edit-${field}-${surgeryId}`}
+    >
+      {isPending ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        formatCurrency(value)
+      )}
+    </Button>
+  );
 }
 
 function EditableDateCell({ value, surgeryId, field, onUpdate, isPending }: EditableDateCellProps) {
@@ -472,20 +539,23 @@ export function SurgeryPlanningTable({
                   {t("surgeryPlanning.columns.price")}
                 </TableHead>
                 <TableHead>{t("surgeryPlanning.columns.quoteSent")}</TableHead>
+                <TableHead>
+                  <FileText className="h-4 w-4 inline mr-1" />
+                  {t("surgeryPlanning.columns.contractSent")}
+                </TableHead>
+                <TableHead>{t("surgeryPlanning.columns.contractReceived")}</TableHead>
                 <TableHead>{t("surgeryPlanning.columns.invoiceSent")}</TableHead>
-                <TableHead>{t("surgeryPlanning.columns.paymentStatus")}</TableHead>
                 <TableHead>{t("surgeryPlanning.columns.paymentDate")}</TableHead>
               </>
             )}
             
-            {showContracts && (
+            {showContracts && !showBusiness && (
               <>
                 <TableHead>
                   <FileText className="h-4 w-4 inline mr-1" />
                   {t("surgeryPlanning.columns.contractSent")}
                 </TableHead>
                 <TableHead>{t("surgeryPlanning.columns.contractReceived")}</TableHead>
-                <TableHead>{t("surgeryPlanning.columns.anesthesiaConsent")}</TableHead>
               </>
             )}
             
@@ -574,8 +644,14 @@ export function SurgeryPlanningTable({
                   
                   {showBusiness && (
                     <>
-                      <TableCell className="font-medium">
-                        {formatCurrency(surgery.price)}
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <EditableCurrencyCell
+                          value={surgery.price}
+                          surgeryId={surgery.id}
+                          field="price"
+                          onUpdate={handleUpdate}
+                          isPending={isFieldPending(surgery.id, "price")}
+                        />
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <EditableDateCell
@@ -586,38 +662,6 @@ export function SurgeryPlanningTable({
                           isPending={isFieldPending(surgery.id, "quoteSentDate")}
                         />
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <EditableDateCell
-                          value={surgery.invoiceSentDate}
-                          surgeryId={surgery.id}
-                          field="invoiceSentDate"
-                          onUpdate={handleUpdate}
-                          isPending={isFieldPending(surgery.id, "invoiceSentDate")}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        {surgery.paymentStatus ? (
-                          <Badge className={PAYMENT_STATUS_COLORS[surgery.paymentStatus]}>
-                            {surgery.paymentStatus}
-                          </Badge>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <EditableDateCell
-                          value={surgery.paymentDate}
-                          surgeryId={surgery.id}
-                          field="paymentDate"
-                          onUpdate={handleUpdate}
-                          isPending={isFieldPending(surgery.id, "paymentDate")}
-                        />
-                      </TableCell>
-                    </>
-                  )}
-                  
-                  {showContracts && (
-                    <>
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <EditableDateCell
                           value={surgery.treatmentContractSentDate}
@@ -637,12 +681,44 @@ export function SurgeryPlanningTable({
                         />
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
-                        <EditableCheckboxCell
-                          value={surgery.anesthesiaConsentSent}
+                        <EditableDateCell
+                          value={surgery.invoiceSentDate}
                           surgeryId={surgery.id}
-                          field="anesthesiaConsentSent"
+                          field="invoiceSentDate"
                           onUpdate={handleUpdate}
-                          isPending={isFieldPending(surgery.id, "anesthesiaConsentSent")}
+                          isPending={isFieldPending(surgery.id, "invoiceSentDate")}
+                        />
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <EditableDateCell
+                          value={surgery.paymentDate}
+                          surgeryId={surgery.id}
+                          field="paymentDate"
+                          onUpdate={handleUpdate}
+                          isPending={isFieldPending(surgery.id, "paymentDate")}
+                        />
+                      </TableCell>
+                    </>
+                  )}
+                  
+                  {showContracts && !showBusiness && (
+                    <>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <EditableDateCell
+                          value={surgery.treatmentContractSentDate}
+                          surgeryId={surgery.id}
+                          field="treatmentContractSentDate"
+                          onUpdate={handleUpdate}
+                          isPending={isFieldPending(surgery.id, "treatmentContractSentDate")}
+                        />
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <EditableDateCell
+                          value={surgery.treatmentContractReceivedDate}
+                          surgeryId={surgery.id}
+                          field="treatmentContractReceivedDate"
+                          onUpdate={handleUpdate}
+                          isPending={isFieldPending(surgery.id, "treatmentContractReceivedDate")}
                         />
                       </TableCell>
                     </>
