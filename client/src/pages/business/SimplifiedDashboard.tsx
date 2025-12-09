@@ -43,8 +43,8 @@ export default function SimplifiedDashboard() {
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24">
       <div>
-        <h1 className="text-2xl font-bold">{t('business.title')}</h1>
-        <p className="text-muted-foreground">{t('business.subtitle')}</p>
+        <h1 className="text-2xl font-bold">{t('business.dashboard.title')}</h1>
+        <p className="text-muted-foreground">{t('business.dashboard.subtitle')}</p>
       </div>
 
       <Card>
