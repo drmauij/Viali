@@ -628,6 +628,93 @@ export function SurgeryPlanningTable({
     );
   };
   
+  // Helper function to format pre-op summary for PDF
+  const formatPreOpSummaryForPdf = (surgeryId: string): string => {
+    const preOpData = preOpMap.get(surgeryId);
+    if (!preOpData || !preOpData.assessment) return '-';
+    
+    const assessment = preOpData.assessment;
+    const parts: string[] = [];
+    
+    // ASA classification
+    if (assessment.asa != null && assessment.asa !== '') {
+      parts.push(`ASA ${assessment.asa}`);
+    }
+    
+    // Weight and height
+    if (assessment.weight != null && assessment.weight !== '' && assessment.weight !== 0) {
+      parts.push(`${assessment.weight}kg`);
+    }
+    if (assessment.height != null && assessment.height !== '' && assessment.height !== 0) {
+      parts.push(`${assessment.height}cm`);
+    }
+    
+    // Anesthesia techniques
+    if (assessment.anesthesiaTechniques) {
+      const techniques: string[] = [];
+      const at = assessment.anesthesiaTechniques;
+      
+      if (at.general) {
+        const generalSubs = at.generalOptions ? Object.entries(at.generalOptions)
+          .filter(([_, value]) => value)
+          .map(([key]) => key.toUpperCase())
+          : [];
+        techniques.push(generalSubs.length > 0 ? `ITN (${generalSubs.join(', ')})` : 'ITN');
+      }
+      if (at.spinal) techniques.push('SPA');
+      if (at.epidural) techniques.push('PDA');
+      if (at.regional) {
+        const regionalSubs = at.regionalOptions ? Object.entries(at.regionalOptions)
+          .filter(([_, value]) => value)
+          .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+          : [];
+        techniques.push(regionalSubs.length > 0 ? `Regional (${regionalSubs.join(', ')})` : 'Regional');
+      }
+      if (at.sedation) techniques.push('Sedierung');
+      if (at.combined) techniques.push('Kombiniert');
+      
+      if (techniques.length > 0) {
+        parts.push(techniques.join(', '));
+      }
+    }
+    
+    // Installations (airway management)
+    if (assessment.installations && Object.keys(assessment.installations).length > 0) {
+      const installations = Object.entries(assessment.installations)
+        .filter(([_, value]) => value)
+        .map(([key]) => {
+          if (key === 'ett') return 'ETT';
+          if (key === 'lma') return 'LMA';
+          if (key === 'mask') return 'Maske';
+          return key.replace(/([A-Z])/g, ' $1').trim();
+        })
+        .join(', ');
+      if (installations) {
+        parts.push(installations);
+      }
+    }
+    
+    // Post-op ICU
+    if (assessment.postOpICU) {
+      parts.push('IMC geplant');
+    }
+    
+    // CAVE (important warnings)
+    if (assessment.cave != null && assessment.cave !== '') {
+      parts.push(`CAVE: ${assessment.cave}`);
+    }
+    
+    // Approval status
+    if (preOpData.status === 'completed') {
+      const isApproved = assessment.surgicalApproval === 'approved';
+      parts.push(isApproved ? '✓ Freigegeben' : '✗ Nicht freigegeben');
+    } else if (assessment.standBy) {
+      parts.push('⏸ Stand-by');
+    }
+    
+    return parts.length > 0 ? parts.join(' • ') : '-';
+  };
+  
   // Generate PDF for a day's surgeries
   const generateDayPdf = (dateKey: string, daySurgeries: Surgery[]) => {
     const doc = new jsPDF({ orientation: 'landscape' });
@@ -681,7 +768,7 @@ export function SurgeryPlanningTable({
     
     const staffColumnText = formatStaffColumn();
     
-    // Table data
+    // Table data - columns: Datum, Operator, Patient, Eingriff, Note, Anesthesia, Staff
     const tableData = daySurgeries.map((surgery) => {
       const patient = patientMap.get(surgery.patientId);
       const patientName = patient ? `${patient.surname}, ${patient.firstName}` : '-';
@@ -703,19 +790,23 @@ export function SurgeryPlanningTable({
         `• Schnitt: ${startTime}`
       ].join('\n');
       
+      // Get pre-op/anesthesia summary
+      const anesthesiaSummary = formatPreOpSummaryForPdf(surgery.id);
+      
       return [
         datumText,
         surgery.surgeon || '-',
         `${patientName}\n${patientBirthday}`,
         surgery.plannedSurgery || '-',
-        staffColumnText,
-        surgery.notes || '-'
+        surgery.notes || '-',
+        anesthesiaSummary,
+        staffColumnText
       ];
     });
     
     autoTable(doc, {
       startY: 28,
-      head: [['Datum', 'Operator', 'Patient', 'Eingriff', 'Staff', 'Note']],
+      head: [['Datum', 'Operator', 'Patient', 'Eingriff', 'Note', 'Anästhesie', 'Staff']],
       body: tableData,
       theme: 'grid',
       styles: { 
@@ -730,12 +821,13 @@ export function SurgeryPlanningTable({
         fontStyle: 'bold'
       },
       columnStyles: {
-        0: { cellWidth: 35 },
-        1: { cellWidth: 25 },
-        2: { cellWidth: 35 },
-        3: { cellWidth: 60 },
-        4: { cellWidth: 55 },
-        5: { cellWidth: 50 }
+        0: { cellWidth: 30 },
+        1: { cellWidth: 22 },
+        2: { cellWidth: 32 },
+        3: { cellWidth: 50 },
+        4: { cellWidth: 35 },
+        5: { cellWidth: 50 },
+        6: { cellWidth: 50 }
       }
     });
     
