@@ -146,14 +146,16 @@ export class PolymedBrowserClient {
       await this.page!.goto(this.loginUrl, { waitUntil: 'networkidle' });
       await this.delay(1000);
 
-      const loginLink = await this.page!.$('a[href*="login"], button:has-text("Login"), a:has-text("Anmelden")');
-      if (loginLink) {
-        await loginLink.click();
-        await this.page!.waitForLoadState('networkidle');
+      // Polymed has login form that may be collapsed - look for reveal button
+      const loginRevealButton = await this.page!.$('button:has-text("Hier gehts zum Login"), button:has-text("Login"), [class*="login"] button');
+      if (loginRevealButton) {
+        console.log('[Polymed] Clicking to reveal login form...');
+        await loginRevealButton.click();
         await this.delay(500);
       }
 
-      const usernameInput = await this.page!.$('input[name="email"], input[name="username"], input[type="email"], input#email, input#username');
+      // Polymed has login form directly on main page with customerNumber field
+      const usernameInput = await this.page!.$('input[name="customerNumber"], input[name="email"], input[name="username"], input[type="email"], input#email, input#username');
       const passwordInput = await this.page!.$('input[name="password"], input[type="password"], input#password');
 
       if (!usernameInput || !passwordInput) {
@@ -238,14 +240,15 @@ export class PolymedBrowserClient {
 
       console.log(`[Polymed] Searching for code: ${code}`);
       
-      const searchInput = await this.page!.$('input[name="search"], input[name="q"], input[type="search"], input.search-input, input#search');
+      // Polymed search input uses placeholder="Produktsuche…"
+      let searchInput = await this.page!.$('input[placeholder*="Produktsuche"], input[placeholder*="suche"], input[name="search"], input[name="q"], input[type="search"], input.search-input, input#search');
       
       if (!searchInput) {
         await this.page!.goto(SEARCH_URL, { waitUntil: 'networkidle' });
         await this.delay(500);
       }
 
-      const currentSearchInput = await this.page!.$('input[name="search"], input[name="q"], input[type="search"], input.search-input, input#search');
+      const currentSearchInput = await this.page!.$('input[placeholder*="Produktsuche"], input[placeholder*="suche"], input[name="search"], input[name="q"], input[type="search"], input.search-input, input#search');
       
       if (!currentSearchInput) {
         return {
@@ -296,86 +299,78 @@ export class PolymedBrowserClient {
     const products: PolymedPriceData[] = [];
 
     try {
-      const productCards = await this.page!.$$('.product-card, .product-item, .product, [class*="product-box"], article[class*="product"]');
+      // Polymed uses CSS modules with hashed class names like styles_productCard__g2_eE
+      const productCards = await this.page!.$$('[class*="productCard"], .product-card, .product-item');
       
-      if (productCards.length === 0) {
-        const tableRows = await this.page!.$$('table tbody tr, .product-list tr, .search-results tr');
-        
-        for (const row of tableRows) {
-          try {
-            const nameEl = await row.$('td:nth-child(1), .product-name, .name');
-            const codeEl = await row.$('td:nth-child(2), .product-code, .article-code, .code');
-            const priceEl = await row.$('td:last-child, .price, .product-price');
-            
-            const name = nameEl ? await nameEl.textContent() : '';
-            const code = codeEl ? await codeEl.textContent() : '';
-            const priceText = priceEl ? await priceEl.textContent() : '';
-            
-            if (name && priceText) {
-              const price = this.parsePrice(priceText);
-              
-              products.push({
-                articleCode: (code || '').trim(),
-                productName: (name || '').trim(),
-                price,
-                currency: 'CHF',
-                catalogUrl: this.page!.url(),
-              });
-            }
-          } catch (e) {
-          }
-        }
-      } else {
+      if (productCards.length > 0) {
         for (const card of productCards) {
           try {
-            const nameEl = await card.$('.product-name, .name, h2, h3, .title, [class*="product-title"]');
-            const codeEl = await card.$('.product-code, .article-code, .code, .sku, [class*="article"]');
-            const priceEl = await card.$('.price, .product-price, [class*="price"]');
-            const descEl = await card.$('.description, .product-description, p');
-            const linkEl = await card.$('a[href*="product"], a[href*="artikel"]');
+            // Title is in h4.PolymedTitle or div with title class
+            const nameEl = await card.$('h4, [class*="title"] h4, [class*="label"]');
+            // PMC-Code follows pattern: <span>PMC-Code: </span><span>CODE</span>
+            const codeSpans = await card.$$('span');
+            let articleCode = '';
+            for (let i = 0; i < codeSpans.length - 1; i++) {
+              const text = await codeSpans[i].textContent();
+              if (text?.includes('PMC-Code')) {
+                articleCode = (await codeSpans[i + 1].textContent()) ?? '';
+                break;
+              }
+            }
+            // Product link
+            const linkEl = await card.$('a[href*="/product/"], a[href*="/artikel/"]');
+            // Image
             const imgEl = await card.$('img');
+            // Price - may be in various elements
+            const priceEl = await card.$('[class*="price"], [class*="Price"]');
 
             const name = nameEl ? (await nameEl.textContent()) ?? '' : '';
-            const code = codeEl ? (await codeEl.textContent()) ?? '' : '';
             const priceText = priceEl ? (await priceEl.textContent()) ?? '' : '';
-            const description = descEl ? (await descEl.textContent()) ?? '' : '';
             const catalogUrl = linkEl ? (await linkEl.getAttribute('href')) ?? '' : '';
             const imageUrl = imgEl ? (await imgEl.getAttribute('src')) ?? '' : '';
 
-            if (name || code) {
+            if (name || articleCode) {
               const price = this.parsePrice(priceText);
               
               products.push({
-                articleCode: code.trim(),
+                articleCode: articleCode.trim(),
                 productName: name.trim(),
-                description: description.trim() || undefined,
                 price,
                 currency: 'CHF',
                 catalogUrl: catalogUrl ? new URL(catalogUrl, this.loginUrl).href : undefined,
-                imageUrl: imageUrl ? new URL(imageUrl, this.loginUrl).href : undefined,
+                imageUrl: imageUrl || undefined,
               });
             }
           } catch (e) {
+            // Skip individual card errors
           }
         }
       }
 
+      // Fallback: try to find products by looking for product links
       if (products.length === 0) {
-        const priceElements = await this.page!.$$('[class*="price"]');
-        const titleElements = await this.page!.$$('h1, h2, h3, .title');
+        const productLinks = await this.page!.$$('a[href*="/de/product/"]');
         
-        if (priceElements.length > 0 && titleElements.length > 0) {
-          const priceText = await priceElements[0].textContent();
-          const titleText = await titleElements[0].textContent();
-          
-          if (priceText && titleText) {
-            products.push({
-              articleCode: '',
-              productName: titleText.trim(),
-              price: this.parsePrice(priceText),
-              currency: 'CHF',
-              catalogUrl: this.page!.url(),
-            });
+        for (const link of productLinks) {
+          try {
+            const href = await link.getAttribute('href');
+            const text = await link.textContent();
+            
+            if (text && href) {
+              // Extract PMC code from URL (last segment before product name)
+              const codeMatch = href.match(/-(\d+)$/);
+              const articleCode = codeMatch ? codeMatch[1] : '';
+              
+              products.push({
+                articleCode,
+                productName: text.trim(),
+                price: 0,
+                currency: 'CHF',
+                catalogUrl: new URL(href, this.loginUrl).href,
+              });
+            }
+          } catch (e) {
+            // Skip individual link errors
           }
         }
       }
