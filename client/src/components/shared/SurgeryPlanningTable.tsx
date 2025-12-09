@@ -443,6 +443,22 @@ export function SurgeryPlanningTable({
     });
   }, [surgeries, sortState, patientMap]);
   
+  // Group surgeries by day
+  const groupedByDay = useMemo(() => {
+    const groups = new Map<string, Surgery[]>();
+    sortedSurgeries.forEach((surgery) => {
+      const dateKey = new Date(surgery.plannedDate).toLocaleDateString('en-CA'); // YYYY-MM-DD format for sorting
+      if (!groups.has(dateKey)) {
+        groups.set(dateKey, []);
+      }
+      groups.get(dateKey)!.push(surgery);
+    });
+    // Sort groups by date (respecting current sort direction)
+    return Array.from(groups.entries()).sort((a, b) => 
+      sortState.direction === 'asc' ? a[0].localeCompare(b[0]) : b[0].localeCompare(a[0])
+    );
+  }, [sortedSurgeries, sortState.direction]);
+  
   const toggleRowExpand = (surgeryId: string) => {
     setExpandedRows((prev) => {
       const next = new Set(prev);
@@ -462,6 +478,18 @@ export function SurgeryPlanningTable({
   const showImplants = columnGroups.includes("implants");
   const showPaidStatus = columnGroups.includes("paidStatus");
   const hideRoomAndAdmission = moduleContext === "business";
+  
+  // Calculate total columns for day header colspan
+  const totalColumns = useMemo(() => {
+    let count = 1; // expand button column
+    if (showClinical) count += hideRoomAndAdmission ? 4 : 5; // date, patient, procedure, surgeon, (room)
+    if (showScheduling) count += hideRoomAndAdmission ? 1 : 2; // (admission), status
+    if (showPaidStatus) count += 1;
+    if (showBusiness) count += 6; // price, quote, contract sent/received, invoice, payment
+    if (showContracts && !showBusiness) count += 2;
+    if (showImplants) count += 3;
+    return count;
+  }, [showClinical, showScheduling, showBusiness, showContracts, showImplants, showPaidStatus, hideRoomAndAdmission]);
   
   if (surgeriesLoading) {
     return (
@@ -581,14 +609,31 @@ export function SurgeryPlanningTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedSurgeries.map((surgery) => {
-            const patient = patientMap.get(surgery.patientId);
-            const patientName = patient ? `${patient.surname}, ${patient.firstName}` : "-";
-            const roomName = surgery.surgeryRoomId ? roomMap.get(surgery.surgeryRoomId) ?? "-" : "-";
-            const isExpanded = expandedRows.has(surgery.id);
-            
-            return (
-              <Fragment key={surgery.id}>
+          {groupedByDay.map(([dateKey, daySurgeries]) => (
+            <Fragment key={dateKey}>
+              {/* Day header row */}
+              <TableRow className="bg-muted/60 hover:bg-muted/60">
+                <TableCell colSpan={totalColumns} className="py-2 font-semibold text-sm">
+                  {new Date(dateKey + 'T12:00:00').toLocaleDateString(undefined, { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                  <span className="ml-2 text-muted-foreground font-normal">
+                    ({daySurgeries.length} {daySurgeries.length === 1 ? t('surgeryPlanning.surgery', 'surgery') : t('surgeryPlanning.surgeries', 'surgeries')})
+                  </span>
+                </TableCell>
+              </TableRow>
+              {/* Surgeries for this day */}
+              {daySurgeries.map((surgery) => {
+                const patient = patientMap.get(surgery.patientId);
+                const patientName = patient ? `${patient.surname}, ${patient.firstName}` : "-";
+                const roomName = surgery.surgeryRoomId ? roomMap.get(surgery.surgeryRoomId) ?? "-" : "-";
+                const isExpanded = expandedRows.has(surgery.id);
+                
+                return (
+                  <Fragment key={surgery.id}>
                 <TableRow
                   className={cn(
                     "cursor-pointer hover:bg-muted/50",
@@ -815,9 +860,11 @@ export function SurgeryPlanningTable({
                     </TableCell>
                   </TableRow>
                 )}
-              </Fragment>
-            );
-          })}
+                  </Fragment>
+                );
+              })}
+            </Fragment>
+          ))}
         </TableBody>
       </Table>
     </div>
