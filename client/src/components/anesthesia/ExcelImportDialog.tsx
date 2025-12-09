@@ -527,7 +527,7 @@ export default function ExcelImportDialog({
                 </div>
               </div>
 
-              <ScrollArea className="flex-1 border rounded-md">
+              <ScrollArea className="flex-1 border rounded-md max-h-[50vh] overflow-auto">
                 <div className="p-2 space-y-2">
                   {parsedRows.map((row, index) => (
                     <div
