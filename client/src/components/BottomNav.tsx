@@ -161,7 +161,6 @@ export default function BottomNav() {
     if (activeModule === "clinic") {
       const clinicItems: NavItem[] = [
         { id: "clinic-invoices", icon: "fas fa-file-invoice-dollar", label: t('bottomNav.clinic.invoices'), path: "/clinic" },
-        { id: "clinic-settings", icon: "fas fa-building", label: t('bottomNav.clinic.settings'), path: "/clinic/settings" },
       ];
       return clinicItems;
     }

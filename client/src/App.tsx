@@ -47,7 +47,6 @@ import SimplifiedDashboard from "@/pages/business/SimplifiedDashboard";
 import SimplifiedStaff from "@/pages/business/SimplifiedStaff";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
 import ClinicInvoices from "@/pages/clinic/Invoices";
-import ClinicCompanySettings from "@/pages/clinic/CompanySettings";
 import "@/i18n/config";
 
 // Home redirect component that checks module preference
@@ -187,7 +186,6 @@ function Router() {
             {/* Clinic Module - ambulatory invoicing */}
             <Route path="/clinic" component={ClinicInvoices} />
             <Route path="/clinic/invoices" component={ClinicInvoices} />
-            <Route path="/clinic/settings" component={ClinicCompanySettings} />
             <Route path="/signup" component={Signup} />
             {/* Demo/Testing Routes */}
             <Route path="/demo/editable-values" component={EditableValuesDemo} />
