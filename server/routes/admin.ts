@@ -36,16 +36,53 @@ async function isAdmin(req: any, res: Response, next: NextFunction) {
   }
 }
 
+router.get('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const hospital = await storage.getHospital(hospitalId);
+    
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    
+    res.json(hospital);
+  } catch (error) {
+    console.error("Error fetching hospital:", error);
+    res.status(500).json({ message: "Failed to fetch hospital" });
+  }
+});
+
 router.patch('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { name } = req.body;
+    const { 
+      name,
+      companyName,
+      companyStreet,
+      companyPostalCode,
+      companyCity,
+      companyPhone,
+      companyFax,
+      companyEmail,
+      companyLogoUrl
+    } = req.body;
 
     if (!name) {
       return res.status(400).json({ message: "Hospital name is required" });
     }
 
-    const updated = await storage.updateHospital(hospitalId, { name });
+    const updates: Record<string, any> = { name };
+    
+    if (companyName !== undefined) updates.companyName = companyName;
+    if (companyStreet !== undefined) updates.companyStreet = companyStreet;
+    if (companyPostalCode !== undefined) updates.companyPostalCode = companyPostalCode;
+    if (companyCity !== undefined) updates.companyCity = companyCity;
+    if (companyPhone !== undefined) updates.companyPhone = companyPhone;
+    if (companyFax !== undefined) updates.companyFax = companyFax;
+    if (companyEmail !== undefined) updates.companyEmail = companyEmail;
+    if (companyLogoUrl !== undefined) updates.companyLogoUrl = companyLogoUrl;
+
+    const updated = await storage.updateHospital(hospitalId, updates);
     res.json(updated);
   } catch (error) {
     console.error("Error updating hospital:", error);
