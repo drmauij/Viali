@@ -541,7 +541,8 @@
       "pharmacy": "Pharmacy",
       "anesthesia": "Anesthesia",
       "storage": "Storage / Warehouse",
-      "business": "Business / Admin"
+      "business": "Business / Admin",
+      "clinic": "Clinic"
     },
     "noLocations": "No Locations",
     "noLocationsMessage": "Get started by adding your first location.",

@@ -27,6 +27,7 @@ const UNIT_TYPES = [
   { value: "anesthesia", labelKey: "admin.unitTypes.anesthesia" },
   { value: "storage", labelKey: "admin.unitTypes.storage" },
   { value: "business", labelKey: "admin.unitTypes.business" },
+  { value: "clinic", labelKey: "admin.unitTypes.clinic" },
 ] as const;
 
 export default function Hospital() {

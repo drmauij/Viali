@@ -541,7 +541,8 @@
       "pharmacy": "Apotheke",
       "anesthesia": "Anästhesie",
       "storage": "Lager",
-      "business": "Geschäftsleitung"
+      "business": "Geschäftsleitung",
+      "clinic": "Praxis"
     },
     "noLocations": "Keine Standorte",
     "noLocationsMessage": "Beginnen Sie mit dem Hinzufügen Ihres ersten Standorts.",
