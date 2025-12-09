@@ -810,25 +810,26 @@ export function SurgeryPlanningTable({
       body: tableData,
       theme: 'grid',
       styles: { 
-        fontSize: 8, 
-        cellPadding: 2,
+        fontSize: 7, 
+        cellPadding: 1.5,
         overflow: 'linebreak',
         valign: 'top'
       },
       headStyles: {
         fillColor: [66, 66, 66],
-        fontSize: 9,
+        fontSize: 8,
         fontStyle: 'bold'
       },
       columnStyles: {
-        0: { cellWidth: 30 },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 32 },
-        3: { cellWidth: 50 },
-        4: { cellWidth: 35 },
-        5: { cellWidth: 50 },
-        6: { cellWidth: 50 }
-      }
+        0: { cellWidth: 28 },
+        1: { cellWidth: 20 },
+        2: { cellWidth: 30 },
+        3: { cellWidth: 55 },
+        4: { cellWidth: 30 },
+        5: { cellWidth: 48 },
+        6: { cellWidth: 55 }
+      },
+      margin: { left: 10, right: 10 }
     });
     
     // Save the PDF
