@@ -26,15 +26,15 @@ function HelpTooltip({ content }: { content: string }) {
   );
 }
 
-const mockSurgeryStaffCosts = [
-  { id: 1, date: "2024-01-15", patient: "Patient A", surgery: "Hip Replacement", surgeons: 1850, anesthesia: 1280, nurses: 440, assistants: 180, total: 3750 },
-  { id: 2, date: "2024-01-15", patient: "Patient B", surgery: "Knee Arthroscopy", surgeons: 920, anesthesia: 640, nurses: 220, assistants: 90, total: 1870 },
-  { id: 3, date: "2024-01-14", patient: "Patient C", surgery: "Appendectomy", surgeons: 540, anesthesia: 480, nurses: 165, assistants: 85, total: 1270 },
-  { id: 4, date: "2024-01-14", patient: "Patient D", surgery: "Rhinoplasty", surgeons: 1100, anesthesia: 800, nurses: 275, assistants: 110, total: 2285 },
-  { id: 5, date: "2024-01-13", patient: "Patient E", surgery: "Carpal Tunnel Release", surgeons: 360, anesthesia: 320, nurses: 110, assistants: 55, total: 845 },
-  { id: 6, date: "2024-01-13", patient: "Patient F", surgery: "Spinal Fusion", surgeons: 2200, anesthesia: 1600, nurses: 550, assistants: 220, total: 4570 },
-  { id: 7, date: "2024-01-12", patient: "Patient G", surgery: "Hernia Repair", surgeons: 720, anesthesia: 560, nurses: 192, assistants: 90, total: 1562 },
-  { id: 8, date: "2024-01-12", patient: "Patient H", surgery: "ACL Reconstruction", surgeons: 1480, anesthesia: 960, nurses: 330, assistants: 150, total: 2920 },
+const mockSurgeryCostBreakdown = [
+  { id: 1, date: "2024-01-15", surgery: "Hip Replacement", staffCost: 2850, anesthesiaMaterials: 1480, surgeryMaterials: 3200, totalCost: 7530, patientPayment: 12500 },
+  { id: 2, date: "2024-01-15", surgery: "Knee Arthroscopy", staffCost: 1420, anesthesiaMaterials: 640, surgeryMaterials: 890, totalCost: 2950, patientPayment: 5800 },
+  { id: 3, date: "2024-01-14", surgery: "Appendectomy", staffCost: 980, anesthesiaMaterials: 380, surgeryMaterials: 520, totalCost: 1880, patientPayment: 4200 },
+  { id: 4, date: "2024-01-14", surgery: "Rhinoplasty", staffCost: 1650, anesthesiaMaterials: 720, surgeryMaterials: 1100, totalCost: 3470, patientPayment: 8500 },
+  { id: 5, date: "2024-01-13", surgery: "Carpal Tunnel Release", staffCost: 680, anesthesiaMaterials: 280, surgeryMaterials: 350, totalCost: 1310, patientPayment: 2800 },
+  { id: 6, date: "2024-01-13", surgery: "Spinal Fusion", staffCost: 3800, anesthesiaMaterials: 1850, surgeryMaterials: 8500, totalCost: 14150, patientPayment: 28000 },
+  { id: 7, date: "2024-01-12", surgery: "Hernia Repair", staffCost: 1120, anesthesiaMaterials: 420, surgeryMaterials: 680, totalCost: 2220, patientPayment: 4800 },
+  { id: 8, date: "2024-01-12", surgery: "ACL Reconstruction", staffCost: 2100, anesthesiaMaterials: 890, surgeryMaterials: 2400, totalCost: 5390, patientPayment: 9500 },
 ];
 
 export default function SimplifiedDashboard() {
@@ -108,35 +108,35 @@ export default function SimplifiedDashboard() {
       <Card>
         <CardHeader>
           <div className="flex items-center">
-            <CardTitle className="text-lg">{t('business.staff.surgeryStaffCosts')}</CardTitle>
-            <HelpTooltip content={t('business.help.surgeryStaffCosts')} />
+            <CardTitle className="text-lg">{t('business.costBreakdown.title', 'Surgery Cost Breakdown')}</CardTitle>
+            <HelpTooltip content={t('business.costBreakdown.help', 'Cost breakdown per surgery showing staff costs, materials, and patient payment')} />
           </div>
-          <CardDescription>{t('business.staff.surgeryStaffCostsDesc')}</CardDescription>
+          <CardDescription>{t('business.costBreakdown.description', 'Detailed cost analysis for each surgery')}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t('business.staff.date')}</TableHead>
-                  <TableHead>{t('business.staff.surgery')}</TableHead>
-                  <TableHead className="text-right">{t('business.staff.surgeons')}</TableHead>
-                  <TableHead className="text-right">{t('business.staff.anesthesia')}</TableHead>
-                  <TableHead className="text-right">{t('business.staff.nurses')}</TableHead>
-                  <TableHead className="text-right">{t('business.staff.assistants')}</TableHead>
-                  <TableHead className="text-right">{t('business.staff.totalCost')}</TableHead>
+                  <TableHead>{t('business.staff.date', 'Date')}</TableHead>
+                  <TableHead>{t('business.staff.surgery', 'Surgery')}</TableHead>
+                  <TableHead className="text-right">{t('business.costBreakdown.staffCost', 'Staff')}</TableHead>
+                  <TableHead className="text-right">{t('business.costBreakdown.anesthesiaMaterials', 'Anesthesia Meds & Materials')}</TableHead>
+                  <TableHead className="text-right">{t('business.costBreakdown.surgeryMaterials', 'Surgery Materials')}</TableHead>
+                  <TableHead className="text-right">{t('business.costBreakdown.totalCost', 'Total Cost')}</TableHead>
+                  <TableHead className="text-right">{t('business.costBreakdown.patientPayment', 'Patient Payment')}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockSurgeryStaffCosts.map((row) => (
-                  <TableRow key={row.id}>
+                {mockSurgeryCostBreakdown.map((row) => (
+                  <TableRow key={row.id} data-testid={`row-cost-breakdown-${row.id}`}>
                     <TableCell>{row.date}</TableCell>
                     <TableCell className="font-medium">{row.surgery}</TableCell>
-                    <TableCell className="text-right">€{row.surgeons.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">€{row.anesthesia.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">€{row.nurses.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">€{row.assistants.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-bold">€{row.total.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">€{row.staffCost.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">€{row.anesthesiaMaterials.toLocaleString()}</TableCell>
+                    <TableCell className="text-right">€{row.surgeryMaterials.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-semibold">€{row.totalCost.toLocaleString()}</TableCell>
+                    <TableCell className="text-right font-bold text-green-600 dark:text-green-400">€{row.patientPayment.toLocaleString()}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
