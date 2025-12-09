@@ -1,12 +1,17 @@
 import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
+import { Calendar, TableProperties } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
 import SurgerySummaryDialog from "@/components/anesthesia/SurgerySummaryDialog";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { DuplicateRecordsDialog } from "@/components/anesthesia/DuplicateRecordsDialog";
+import { SurgeryPlanningTable } from "@/components/shared/SurgeryPlanningTable";
 import { useModule } from "@/contexts/ModuleContext";
 import { apiRequest } from "@/lib/queryClient";
+import type { Surgery } from "@shared/schema";
 
 const SURGERY_CONTEXT_KEY = "oplist_surgery_context";
 
@@ -40,10 +45,13 @@ function shouldUsePacuMode(timeMarkers?: TimeMarker[]): boolean {
   return hasX2 && !hasP;
 }
 
+type ViewMode = "calendar" | "table";
+
 export default function OpList() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const { activeModule } = useModule();
+  const [viewMode, setViewMode] = useState<ViewMode>("calendar");
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -71,6 +79,12 @@ export default function OpList() {
   const handleEventClick = (surgeryId: string, patientId: string) => {
     setSelectedSurgeryId(surgeryId);
     setSelectedPatientId(patientId);
+    setSummaryOpen(true);
+  };
+
+  const handleTableSurgeryClick = (surgery: Surgery) => {
+    setSelectedSurgeryId(surgery.id);
+    setSelectedPatientId(surgery.patientId);
     setSummaryOpen(true);
   };
 
@@ -203,16 +217,52 @@ export default function OpList() {
   return (
     <div className="container mx-auto px-0 py-6 pb-24">
       {/* Header */}
-      <div className="mb-6 px-4">
-        <h1 className="text-2xl font-bold mb-2">{t('anesthesia.op.scheduleTitle')}</h1>
-        <p className="text-sm text-muted-foreground">
-          {t('anesthesia.op.scheduleSubtitle')}
-        </p>
+      <div className="mb-6 px-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold mb-2">{t('anesthesia.op.scheduleTitle')}</h1>
+          <p className="text-sm text-muted-foreground">
+            {t('anesthesia.op.scheduleSubtitle')}
+          </p>
+        </div>
+        
+        {/* View Toggle */}
+        <ToggleGroup
+          type="single"
+          value={viewMode}
+          onValueChange={(value) => value && setViewMode(value as ViewMode)}
+          className="border rounded-lg"
+        >
+          <ToggleGroupItem
+            value="calendar"
+            aria-label={t('surgeryPlanning.calendarView')}
+            data-testid="toggle-calendar-view"
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            {t('surgeryPlanning.calendarView')}
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="table"
+            aria-label={t('surgeryPlanning.tableView')}
+            data-testid="toggle-table-view"
+          >
+            <TableProperties className="h-4 w-4 mr-2" />
+            {t('surgeryPlanning.tableView')}
+          </ToggleGroupItem>
+        </ToggleGroup>
       </div>
 
-      {/* Calendar View */}
+      {/* Calendar or Table View */}
       <div className="min-h-[600px]">
-        <OPCalendar onEventClick={handleEventClick} />
+        {viewMode === "calendar" ? (
+          <OPCalendar onEventClick={handleEventClick} />
+        ) : (
+          <div className="px-4">
+            <SurgeryPlanningTable
+              moduleContext="anesthesia"
+              onSurgeryClick={handleTableSurgeryClick}
+            />
+          </div>
+        )}
       </div>
 
       {/* Surgery Summary Dialog */}

@@ -3,6 +3,7 @@
     "name": "Name",
     "cancel": "Abbrechen",
     "save": "Speichern",
+    "saved": "Gespeichert",
     "add": "Hinzufügen",
     "delete": "Löschen",
     "edit": "Bearbeiten",
@@ -2388,6 +2389,11 @@
       "turnoverImproved": "Wechselzeit verbessert",
       "turnoverImprovedDesc": "Durchschnittliche Wechselzeit um 8,5% reduziert - guter Fortschritt bei Effizienzzielen."
     },
+    "surgeryPlanning": {
+      "title": "OP-Planung",
+      "description": "Verfolgen Sie Abrechnung, Verträge und Implantatstatus für anstehende Operationen",
+      "help": "Umfassende Übersicht aller Operationen mit Abrechnungs-, Vertrags- und Implantatverfolgung. Klicken Sie auf bearbeitbare Felder, um Daten und Status zu aktualisieren."
+    },
     "help": {
       "totalSurgeries": "Gesamtzahl der abgeschlossenen chirurgischen Eingriffe. Nutzen Sie dies für die Kapazitätsplanung. Höhere Zahlen bedeuten mehr Aktivität, aber prüfen Sie auch Qualitätsmetriken.",
       "totalCosts": "Gesamtausgaben für Materialien, Verbrauchsmaterial und Medikamente. Personalkosten sind nicht enthalten. Verfolgen Sie dies, um Ausgabentrends und Einsparmöglichkeiten zu identifizieren.",
@@ -2740,5 +2746,42 @@
       "regionalRateChart": "Trend bei der Regionalanästhesie-Nutzung für geeignete Fälle.",
       "alerts": "Automatische Erkenntnisse basierend auf klinischen Metriken. Hebt Verbesserungen und Handlungsbedarf hervor."
     }
+  },
+  "surgeryPlanning": {
+    "calendarView": "Kalender",
+    "tableView": "Tabelle",
+    "noSurgeries": "Keine Operationen im ausgewählten Zeitraum gefunden",
+    "updateSuccess": "Operation erfolgreich aktualisiert",
+    "columns": {
+      "date": "Datum",
+      "patient": "Patient",
+      "procedure": "Eingriff",
+      "surgeon": "Chirurg",
+      "room": "Raum",
+      "admissionTime": "Eintritt",
+      "status": "Status",
+      "price": "Preis",
+      "quoteSent": "Offerte gesendet",
+      "invoiceSent": "Rechnung gesendet",
+      "paymentStatus": "Zahlung",
+      "paymentDate": "Bezahlt",
+      "contractSent": "Vertrag gesendet",
+      "contractReceived": "Vertrag erhalten",
+      "anesthesiaConsent": "Anästhesie-Aufklärung",
+      "implantOrdered": "Implantat bestellt",
+      "implantReceived": "Implantat erhalten",
+      "implantVendor": "Lieferant"
+    },
+    "patientInfo": "Patienteninformationen",
+    "patientNumber": "Patientennummer",
+    "birthday": "Geburtsdatum",
+    "surgeryDetails": "Operationsdetails",
+    "notes": "Notizen",
+    "actualStart": "Tatsächlicher Start",
+    "actualEnd": "Tatsächliches Ende",
+    "paymentInfo": "Zahlungsinformationen",
+    "paymentMethod": "Zahlungsmethode",
+    "paymentNotes": "Zahlungsnotizen",
+    "implantInfo": "Implantatdetails"
   }
 }

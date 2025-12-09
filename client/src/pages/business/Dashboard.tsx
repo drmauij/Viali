@@ -13,8 +13,10 @@ import {
   LayoutGrid,
   Calendar,
   Users,
-  AlertTriangle
+  AlertTriangle,
+  TableProperties
 } from "lucide-react";
+import { SurgeryPlanningTable } from "@/components/shared/SurgeryPlanningTable";
 import {
   LineChart,
   Line,
@@ -561,6 +563,24 @@ export default function BusinessDashboard() {
               </div>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Surgery Planning Table */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center">
+            <TableProperties className="h-5 w-5 mr-2 text-primary" />
+            <CardTitle className="text-lg">{t('business.surgeryPlanning.title')}</CardTitle>
+            <HelpTooltip content={t('business.surgeryPlanning.help')} />
+          </div>
+          <CardDescription>{t('business.surgeryPlanning.description')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SurgeryPlanningTable
+            moduleContext="business"
+            showFilters={true}
+          />
         </CardContent>
       </Card>
     </div>

@@ -3,6 +3,7 @@
     "name": "Name",
     "cancel": "Cancel",
     "save": "Save",
+    "saved": "Saved",
     "add": "Add",
     "delete": "Delete",
     "edit": "Edit",
@@ -2388,6 +2389,11 @@
       "turnoverImproved": "Turnover Time Improved",
       "turnoverImprovedDesc": "Average turnover reduced by 8.5% this month - good progress toward efficiency goals."
     },
+    "surgeryPlanning": {
+      "title": "Surgery Planning",
+      "description": "Track billing, contracts, and implant status for upcoming surgeries",
+      "help": "Comprehensive overview of all surgeries with billing, contract, and implant tracking. Click on editable fields to update dates and status."
+    },
     "help": {
       "totalSurgeries": "The total number of completed surgical procedures. Use this to track surgical volume and capacity planning. Higher numbers indicate more activity, but check quality metrics alongside.",
       "totalCosts": "Total spending on materials, supplies, and medications used during surgeries. This excludes staff costs. Track this to identify spending trends and potential savings opportunities.",
@@ -2725,5 +2731,42 @@
       "regionalRateChart": "Trend in regional anesthesia utilization for eligible cases.",
       "alerts": "Automated insights based on clinical metrics. Highlights improvements and areas needing attention."
     }
+  },
+  "surgeryPlanning": {
+    "calendarView": "Calendar",
+    "tableView": "Table",
+    "noSurgeries": "No surgeries found for the selected date range",
+    "updateSuccess": "Surgery updated successfully",
+    "columns": {
+      "date": "Date",
+      "patient": "Patient",
+      "procedure": "Procedure",
+      "surgeon": "Surgeon",
+      "room": "Room",
+      "admissionTime": "Admission",
+      "status": "Status",
+      "price": "Price",
+      "quoteSent": "Quote Sent",
+      "invoiceSent": "Invoice Sent",
+      "paymentStatus": "Payment",
+      "paymentDate": "Paid",
+      "contractSent": "Contract Sent",
+      "contractReceived": "Contract Received",
+      "anesthesiaConsent": "Anesthesia Consent",
+      "implantOrdered": "Implant Ordered",
+      "implantReceived": "Implant Received",
+      "implantVendor": "Vendor"
+    },
+    "patientInfo": "Patient Information",
+    "patientNumber": "Patient Number",
+    "birthday": "Birthday",
+    "surgeryDetails": "Surgery Details",
+    "notes": "Notes",
+    "actualStart": "Actual Start",
+    "actualEnd": "Actual End",
+    "paymentInfo": "Payment Information",
+    "paymentMethod": "Payment Method",
+    "paymentNotes": "Payment Notes",
+    "implantInfo": "Implant Details"
   }
 }
