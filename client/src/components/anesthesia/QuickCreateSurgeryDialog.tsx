@@ -62,6 +62,7 @@ export default function QuickCreateSurgeryDialog({
   const [surgeryRoomId, setSurgeryRoomId] = useState(initialRoomId || "");
   const [plannedDate, setPlannedDate] = useState(formatDateTimeLocal(initialDate));
   const [duration, setDuration] = useState<number>(getDefaultDuration());
+  const [admissionTime, setAdmissionTime] = useState("");
   const [plannedSurgery, setPlannedSurgery] = useState("");
   const [surgeonId, setSurgeonId] = useState("");
   const [notes, setNotes] = useState("");
@@ -222,6 +223,7 @@ export default function QuickCreateSurgeryDialog({
     setSurgeryRoomId(initialRoomId || "");
     setPlannedDate(formatDateTimeLocal(initialDate));
     setDuration(getDefaultDuration());
+    setAdmissionTime("");
     setPlannedSurgery("");
     setSurgeonId("");
     setNotes("");
@@ -288,6 +290,15 @@ export default function QuickCreateSurgeryDialog({
 
     const matchedSurgeon = surgeons.find(s => s.id === surgeonId);
     
+    let admissionTimeISO = undefined;
+    if (admissionTime) {
+      const [admDatePart, admTimePart] = admissionTime.split('T');
+      const [admYear, admMonth, admDay] = admDatePart.split('-').map(Number);
+      const [admHour, admMinute] = admTimePart.split(':').map(Number);
+      const admissionDate = new Date(admYear, admMonth - 1, admDay, admHour, admMinute);
+      admissionTimeISO = admissionDate.toISOString();
+    }
+
     createSurgeryMutation.mutate({
       hospitalId,
       patientId: selectedPatientId,
@@ -298,6 +309,7 @@ export default function QuickCreateSurgeryDialog({
       surgeon: matchedSurgeon?.name || undefined,
       surgeonId: surgeonId || undefined,
       notes: notes.trim() || undefined,
+      admissionTime: admissionTimeISO,
       status: "planned",
     });
   };
@@ -498,6 +510,18 @@ export default function QuickCreateSurgeryDialog({
                 data-testid="input-duration"
               />
             </div>
+          </div>
+
+          {/* Admission Time */}
+          <div className="space-y-2">
+            <Label htmlFor="admission-time">{t('anesthesia.quickSchedule.admissionTime', 'Admission Time')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'optional')})</span></Label>
+            <Input
+              id="admission-time"
+              type="datetime-local"
+              value={admissionTime}
+              onChange={(e) => setAdmissionTime(e.target.value)}
+              data-testid="input-admission-time"
+            />
           </div>
 
           {/* Planned Surgery */}

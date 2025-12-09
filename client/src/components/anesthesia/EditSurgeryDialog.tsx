@@ -27,6 +27,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   // Form state
   const [plannedDate, setPlannedDate] = useState("");
   const [duration, setDuration] = useState(90);
+  const [admissionTime, setAdmissionTime] = useState("");
   const [plannedSurgery, setPlannedSurgery] = useState("");
   const [surgeryRoomId, setSurgeryRoomId] = useState("");
   const [surgeonId, setSurgeonId] = useState("");
@@ -84,6 +85,18 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setSurgeryRoomId(surgery.surgeryRoomId || "");
       setSurgeonId(surgery.surgeonId || "");
       setNotes(surgery.notes || "");
+      
+      if (surgery.admissionTime) {
+        const admissionDateObj = new Date(surgery.admissionTime);
+        const aYear = admissionDateObj.getFullYear();
+        const aMonth = String(admissionDateObj.getMonth() + 1).padStart(2, '0');
+        const aDay = String(admissionDateObj.getDate()).padStart(2, '0');
+        const aHours = String(admissionDateObj.getHours()).padStart(2, '0');
+        const aMinutes = String(admissionDateObj.getMinutes()).padStart(2, '0');
+        setAdmissionTime(`${aYear}-${aMonth}-${aDay}T${aHours}:${aMinutes}`);
+      } else {
+        setAdmissionTime("");
+      }
     }
   }, [surgery]);
 
@@ -101,6 +114,15 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
 
       const matchedSurgeon = surgeons.find((s: any) => s.id === surgeonId);
       
+      let admissionTimeISO = null;
+      if (admissionTime) {
+        const [admDatePart, admTimePart] = admissionTime.split('T');
+        const [admYear, admMonth, admDay] = admDatePart.split('-').map(Number);
+        const [admHour, admMinute] = admTimePart.split(':').map(Number);
+        const admissionDate = new Date(admYear, admMonth - 1, admDay, admHour, admMinute);
+        admissionTimeISO = admissionDate.toISOString();
+      }
+
       const response = await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
         plannedDate: startDate.toISOString(),
         actualEndTime: endDate.toISOString(),
@@ -109,6 +131,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         surgeon: matchedSurgeon?.name || null,
         surgeonId: surgeonId || null,
         notes: notes || null,
+        admissionTime: admissionTimeISO,
       });
       return response.json();
     },
@@ -280,6 +303,19 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     data-testid="input-edit-duration"
                   />
                 </div>
+              </div>
+
+              {/* Admission Time */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-admission-time">{t('anesthesia.editSurgery.admissionTime', 'Admission Time')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.optional', 'optional')})</span></Label>
+                <Input
+                  id="edit-admission-time"
+                  type="datetime-local"
+                  value={admissionTime}
+                  onChange={(e) => setAdmissionTime(e.target.value)}
+                  disabled={!canWrite}
+                  data-testid="input-edit-admission-time"
+                />
               </div>
 
               {/* Planned Surgery */}
