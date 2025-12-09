@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 import { 
   TrendingUp, 
@@ -577,10 +578,51 @@ export default function BusinessDashboard() {
           <CardDescription>{t('business.surgeryPlanning.description')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <SurgeryPlanningTable
-            moduleContext="business"
-            showFilters={true}
-          />
+          <Tabs defaultValue="current">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
+              <TabsTrigger value="current" data-testid="tab-business-current-surgeries">
+                {t('surgeryPlanning.currentAndFuture')}
+              </TabsTrigger>
+              <TabsTrigger value="past" data-testid="tab-business-past-surgeries">
+                {t('surgeryPlanning.past')}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="current" className="mt-4">
+              <SurgeryPlanningTable
+                moduleContext="business"
+                dateFrom={(() => {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  return today;
+                })()}
+                dateTo={(() => {
+                  const future = new Date();
+                  future.setFullYear(future.getFullYear() + 1);
+                  future.setHours(23, 59, 59, 999);
+                  return future;
+                })()}
+                showFilters={true}
+              />
+            </TabsContent>
+            <TabsContent value="past" className="mt-4">
+              <SurgeryPlanningTable
+                moduleContext="business"
+                dateFrom={(() => {
+                  const past = new Date();
+                  past.setFullYear(past.getFullYear() - 2);
+                  past.setHours(0, 0, 0, 0);
+                  return past;
+                })()}
+                dateTo={(() => {
+                  const yesterday = new Date();
+                  yesterday.setDate(yesterday.getDate() - 1);
+                  yesterday.setHours(23, 59, 59, 999);
+                  return yesterday;
+                })()}
+                showFilters={true}
+              />
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
