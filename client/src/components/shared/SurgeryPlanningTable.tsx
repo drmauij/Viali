@@ -392,6 +392,7 @@ export function SurgeryPlanningTable({
   const showBusiness = columnGroups.includes("business");
   const showContracts = columnGroups.includes("contracts");
   const showImplants = columnGroups.includes("implants");
+  const hideRoomAndAdmission = moduleContext === "business";
   
   if (surgeriesLoading) {
     return (
@@ -448,16 +449,18 @@ export function SurgeryPlanningTable({
                   />
                 </TableHead>
                 <TableHead>{t("surgeryPlanning.columns.surgeon")}</TableHead>
-                <TableHead>{t("surgeryPlanning.columns.room")}</TableHead>
+                {!hideRoomAndAdmission && <TableHead>{t("surgeryPlanning.columns.room")}</TableHead>}
               </>
             )}
             
             {showScheduling && (
               <>
-                <TableHead>
-                  <Clock className="h-4 w-4 inline mr-1" />
-                  {t("surgeryPlanning.columns.admissionTime")}
-                </TableHead>
+                {!hideRoomAndAdmission && (
+                  <TableHead>
+                    <Clock className="h-4 w-4 inline mr-1" />
+                    {t("surgeryPlanning.columns.admissionTime")}
+                  </TableHead>
+                )}
                 <TableHead>{t("surgeryPlanning.columns.status")}</TableHead>
               </>
             )}
@@ -544,13 +547,13 @@ export function SurgeryPlanningTable({
                         {surgery.plannedSurgery}
                       </TableCell>
                       <TableCell>{surgery.surgeon ?? "-"}</TableCell>
-                      <TableCell>{roomName}</TableCell>
+                      {!hideRoomAndAdmission && <TableCell>{roomName}</TableCell>}
                     </>
                   )}
                   
                   {showScheduling && (
                     <>
-                      <TableCell>{formatTime(surgery.admissionTime)}</TableCell>
+                      {!hideRoomAndAdmission && <TableCell>{formatTime(surgery.admissionTime)}</TableCell>}
                       <TableCell>
                         <Badge
                           variant={
