@@ -46,6 +46,77 @@ Core design decisions include:
 - **Historical Record Viewport Centering**: The timeline automatically detects historical records and centers the viewport on the actual data range.
 - **Record Locking System**: Anesthesia records are automatically locked when the PACU End (A2) marker is set.
 
+## Planned Features
+
+### Ambulatory Invoice Module (Future Implementation)
+A new module to enable invoicing for ambulatory/outpatient services, integrating with existing patient and inventory data.
+
+**Reference Implementation:** Based on [Rechnung-Ersteller](https://github.com/drmauij/Rechnung-Ersteller) - a simple German invoice management app.
+
+#### Core Features
+1. **Invoice Creation** - Select patient, add line items, calculate totals with VAT
+2. **Patient Integration** - Use existing patients table as invoice recipients
+3. **Item Integration** - Use existing inventory items with patient pricing
+4. **PDF Generation** - Professional invoice PDFs with clinic branding
+5. **Invoice History** - List and search past invoices
+6. **Auto-incrementing Invoice Numbers** - Sequential numbering per hospital
+
+#### Database Changes Required
+
+**New field in `items` table:**
+```sql
+patientPrice: decimal("patient_price", { precision: 10, scale: 2 })
+```
+- This is the "Abgabepreis patient final" (final patient dispensing price)
+- Distinct from supplier prices (basispreis, publikumspreis) which represent costs
+- Used for calculating invoice totals
+
+**New tables needed:**
+```
+ambulatory_invoices:
+  - id, hospitalId, invoiceNumber, date
+  - patientId (references patients)
+  - customerName, customerAddress fields
+  - subtotal, vatRate, vatAmount, total
+  - comments, status
+  - createdBy, createdAt
+
+ambulatory_invoice_items:
+  - id, invoiceId, itemId
+  - description, quantity, unitPrice, total
+```
+
+#### Bulk Import Enhancement
+Adapt existing CSV import in `client/src/pages/Items.tsx` to support:
+1. **Excel (XLSX) parsing** - Currently only CSV supported
+2. **Pharmacode matching** - Match existing items by pharmacode when available
+3. **Patient price import** - New `patientPrice` field mapping
+4. **Update mode** - Match by pharmacode OR name, update prices (not just create)
+
+**Expected Excel columns:**
+- Item Name
+- Pharmacode (for matching)
+- Supplier Price (basispreis)
+- Supplier = Galexis
+- Patient Price (new patientPrice field)
+
+#### Implementation Estimate
+- Database schema + migration: ~30 min
+- Backend routes (CRUD for invoices): ~1-2 hours
+- Invoice creation page (patient select, item picker, calculations): ~2-3 hours
+- Invoice list/history page: ~1 hour
+- PDF invoice generation: ~1-2 hours
+- Patient price field in items + import enhancement: ~1-2 hours
+- Translations (EN/DE): ~30 min
+
+**Total: ~8-12 hours (2-3 sessions)**
+
+#### Architecture Notes
+- Follows existing module patterns (routing, storage, shared schema)
+- Reuses existing components: patient lookup, item selection, PDF generation (jsPDF)
+- Access controlled via role-based permissions per hospital
+- Multi-hospital support with data isolation
+
 ## External Dependencies
 
 **Database:**
