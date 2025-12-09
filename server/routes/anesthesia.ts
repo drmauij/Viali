@@ -4895,8 +4895,10 @@ router.get('/api/staff-pool/:hospitalId/:date', isAuthenticated, async (req: any
         role: dailyStaffPool.role,
         createdBy: dailyStaffPool.createdBy,
         createdAt: dailyStaffPool.createdAt,
+        staffType: users.staffType,
       })
       .from(dailyStaffPool)
+      .leftJoin(users, eq(dailyStaffPool.userId, users.id))
       .where(
         and(
           eq(dailyStaffPool.hospitalId, hospitalId),

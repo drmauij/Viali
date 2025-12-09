@@ -452,14 +452,16 @@ export function SurgeryPlanningTable({
       pacuNurse: 'IMC/AWR',
     };
     
-    // Format staff for Leihpersonal column
+    // Format staff for Staff column
     const formatStaffColumn = (): string => {
       if (staff.length === 0) return '-';
       
       const byRole = new Map<string, string[]>();
-      staff.forEach((s) => {
+      staff.forEach((s: any) => {
         const names = byRole.get(s.role) || [];
-        names.push(s.name);
+        const isExternal = s.staffType === 'external';
+        const displayName = isExternal ? `${s.name} (Extern)` : s.name;
+        names.push(displayName);
         byRole.set(s.role, names);
       });
       
@@ -508,7 +510,7 @@ export function SurgeryPlanningTable({
     
     autoTable(doc, {
       startY: 28,
-      head: [['Datum', 'Operator', 'Patient', 'Eingriff', 'Leihpersonal', 'Note']],
+      head: [['Datum', 'Operator', 'Patient', 'Eingriff', 'Staff', 'Note']],
       body: tableData,
       theme: 'grid',
       styles: { 
