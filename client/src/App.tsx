@@ -46,6 +46,8 @@ import StaffCosts from "@/pages/business/StaffCosts";
 import SimplifiedDashboard from "@/pages/business/SimplifiedDashboard";
 import SimplifiedStaff from "@/pages/business/SimplifiedStaff";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
+import ClinicInvoices from "@/pages/clinic/Invoices";
+import ClinicCompanySettings from "@/pages/clinic/CompanySettings";
 import "@/i18n/config";
 
 // Home redirect component that checks module preference
@@ -69,6 +71,9 @@ function HomeRedirect() {
       return;
     } else if (savedModule === "inventory") {
       navigate("/inventory/items", { replace: true });
+      return;
+    } else if (savedModule === "clinic") {
+      navigate("/clinic", { replace: true });
       return;
     }
 
@@ -179,6 +184,10 @@ function Router() {
             <Route path="/business/time">{() => <ProtectedRoute requireBusiness><TimeAnalytics /></ProtectedRoute>}</Route>
             <Route path="/business/staff-full">{() => <ProtectedRoute requireBusiness><StaffCosts /></ProtectedRoute>}</Route>
             <Route path="/business/dashboard-full">{() => <ProtectedRoute requireBusiness><BusinessDashboard /></ProtectedRoute>}</Route>
+            {/* Clinic Module - ambulatory invoicing */}
+            <Route path="/clinic" component={ClinicInvoices} />
+            <Route path="/clinic/invoices" component={ClinicInvoices} />
+            <Route path="/clinic/settings" component={ClinicCompanySettings} />
             <Route path="/signup" component={Signup} />
             {/* Demo/Testing Routes */}
             <Route path="/demo/editable-values" component={EditableValuesDemo} />

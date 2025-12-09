@@ -87,6 +87,14 @@ export default function ModuleDrawer() {
       color: "bg-purple-500",
       adminOnly: true,
     },
+    {
+      id: "clinic",
+      icon: "fas fa-file-invoice-dollar",
+      title: t('modules.clinic.title'),
+      description: t('modules.clinic.description'),
+      route: "/clinic",
+      color: "bg-emerald-500",
+    },
   ];
 
   // Business-only users (manager role in business unit without anesthesia/surgery access)

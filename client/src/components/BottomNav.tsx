@@ -158,6 +158,14 @@ export default function BottomNav() {
       return businessItems;
     }
     
+    if (activeModule === "clinic") {
+      const clinicItems: NavItem[] = [
+        { id: "clinic-invoices", icon: "fas fa-file-invoice-dollar", label: t('bottomNav.clinic.invoices'), path: "/clinic" },
+        { id: "clinic-settings", icon: "fas fa-building", label: t('bottomNav.clinic.settings'), path: "/clinic/settings" },
+      ];
+      return clinicItems;
+    }
+    
     // Inventory module nav items
     return [
       { id: "items", icon: "fas fa-boxes", label: t('bottomNav.items'), path: "/inventory/items" },
