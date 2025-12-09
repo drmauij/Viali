@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -51,6 +52,10 @@ export default function Units() {
   const [unitForm, setUnitForm] = useState({
     name: "",
     type: "",
+    isAnesthesiaModule: false,
+    isSurgeryModule: false,
+    isBusinessModule: false,
+    isClinicModule: false,
   });
 
   // Check if user is admin
@@ -156,7 +161,14 @@ export default function Units() {
   });
 
   const resetUnitForm = () => {
-    setUnitForm({ name: "", type: "" });
+    setUnitForm({ 
+      name: "", 
+      type: "",
+      isAnesthesiaModule: false,
+      isSurgeryModule: false,
+      isBusinessModule: false,
+      isClinicModule: false,
+    });
     setEditingUnit(null);
   };
 
@@ -170,6 +182,10 @@ export default function Units() {
     setUnitForm({
       name: unit.name,
       type: unit.type || "",
+      isAnesthesiaModule: (unit as any).isAnesthesiaModule || false,
+      isSurgeryModule: (unit as any).isSurgeryModule || false,
+      isBusinessModule: (unit as any).isBusinessModule || false,
+      isClinicModule: (unit as any).isClinicModule || false,
     });
     setUnitDialogOpen(true);
   };
@@ -183,6 +199,10 @@ export default function Units() {
     const data = {
       name: unitForm.name,
       type: unitForm.type || null,
+      isAnesthesiaModule: unitForm.isAnesthesiaModule,
+      isSurgeryModule: unitForm.isSurgeryModule,
+      isBusinessModule: unitForm.isBusinessModule,
+      isClinicModule: unitForm.isClinicModule,
     };
 
     if (editingUnit) {
@@ -354,6 +374,56 @@ export default function Units() {
                 placeholder={t("admin.typePlaceholder")}
                 data-testid="input-unit-type"
               />
+            </div>
+            <Separator />
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">{t("admin.enabledModules")}</Label>
+              <div className="space-y-3 mt-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="is-anesthesia-module"
+                    checked={unitForm.isAnesthesiaModule}
+                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, isAnesthesiaModule: !!checked })}
+                    data-testid="checkbox-anesthesia-module"
+                  />
+                  <Label htmlFor="is-anesthesia-module" className="text-sm font-normal cursor-pointer">
+                    {t("admin.anesthesiaModule")}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="is-surgery-module"
+                    checked={unitForm.isSurgeryModule}
+                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, isSurgeryModule: !!checked })}
+                    data-testid="checkbox-surgery-module"
+                  />
+                  <Label htmlFor="is-surgery-module" className="text-sm font-normal cursor-pointer">
+                    {t("admin.surgeryModule")}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="is-business-module"
+                    checked={unitForm.isBusinessModule}
+                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, isBusinessModule: !!checked })}
+                    data-testid="checkbox-business-module"
+                  />
+                  <Label htmlFor="is-business-module" className="text-sm font-normal cursor-pointer">
+                    {t("admin.businessModule")}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="is-clinic-module"
+                    checked={unitForm.isClinicModule}
+                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, isClinicModule: !!checked })}
+                    data-testid="checkbox-clinic-module"
+                  />
+                  <Label htmlFor="is-clinic-module" className="text-sm font-normal cursor-pointer">
+                    {t("admin.clinicModule")}
+                  </Label>
+                </div>
+              </div>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>

@@ -8,6 +8,7 @@ interface ProtectedRouteProps {
   requireSurgery?: boolean;
   requireAdmin?: boolean;
   requireBusiness?: boolean;
+  requireClinic?: boolean;
 }
 
 export function ProtectedRoute({ 
@@ -15,7 +16,8 @@ export function ProtectedRoute({
   requireAnesthesia, 
   requireSurgery,
   requireAdmin,
-  requireBusiness
+  requireBusiness,
+  requireClinic
 }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const activeHospital = useActiveHospital();
@@ -26,6 +28,7 @@ export function ProtectedRoute({
   const hasSurgeryAccess = activeHospital?.isSurgeryModule === true;
   const hasAdminAccess = activeHospital?.role === "admin";
   const hasBusinessAccess = activeHospital?.isBusinessModule === true;
+  const hasClinicAccess = activeHospital?.isClinicModule === true;
 
   // Determine the default redirect path based on active unit's module
   const getDefaultRedirect = (): string => {
@@ -37,6 +40,9 @@ export function ProtectedRoute({
     }
     if (hasSurgeryAccess) {
       return "/surgery/op";
+    }
+    if (hasClinicAccess) {
+      return "/clinic";
     }
     // Default fallback for inventory/standard units
     return "/inventory/items";
@@ -84,6 +90,11 @@ export function ProtectedRoute({
 
   // Check business module access - active unit must be business module
   if (requireBusiness && !hasBusinessAccess) {
+    return <Redirect to={defaultRedirect} />;
+  }
+
+  // Check clinic module access - active unit must be clinic module
+  if (requireClinic && !hasClinicAccess) {
     return <Redirect to={defaultRedirect} />;
   }
 

@@ -106,6 +106,12 @@ function HomeRedirect() {
         navigate("/surgery/op", { replace: true });
         return;
       }
+
+      // If user's unit has clinic module enabled, default to clinic module
+      if (activeHospital.isClinicModule) {
+        navigate("/clinic", { replace: true });
+        return;
+      }
     }
 
     // Default to inventory for all other cases
@@ -184,8 +190,9 @@ function Router() {
             <Route path="/business/staff-full">{() => <ProtectedRoute requireBusiness><StaffCosts /></ProtectedRoute>}</Route>
             <Route path="/business/dashboard-full">{() => <ProtectedRoute requireBusiness><BusinessDashboard /></ProtectedRoute>}</Route>
             {/* Clinic Module - ambulatory invoicing */}
-            <Route path="/clinic" component={ClinicInvoices} />
-            <Route path="/clinic/invoices" component={ClinicInvoices} />
+            <Route path="/clinic">{() => <ProtectedRoute requireClinic><ClinicInvoices /></ProtectedRoute>}</Route>
+            <Route path="/clinic/invoices">{() => <ProtectedRoute requireClinic><ClinicInvoices /></ProtectedRoute>}</Route>
+            <Route path="/clinic/patients">{() => <ProtectedRoute requireClinic><Patients /></ProtectedRoute>}</Route>
             <Route path="/signup" component={Signup} />
             {/* Demo/Testing Routes */}
             <Route path="/demo/editable-values" component={EditableValuesDemo} />

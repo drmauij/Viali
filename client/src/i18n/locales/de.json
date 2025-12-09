@@ -86,6 +86,7 @@
       "staff": "Personal"
     },
     "clinic": {
+      "patients": "Patienten",
       "invoices": "Rechnungen",
       "settings": "Firma"
     },
@@ -565,6 +566,12 @@
     "failedToUpdateUnit": "Einheit konnte nicht aktualisiert werden",
     "failedToDeleteUnit": "Einheit konnte nicht gelöscht werden",
     "deleteUnitConfirm": "Möchten Sie diese Einheit wirklich löschen?",
+    "unitNameRequired": "Einheitenname ist erforderlich",
+    "enabledModules": "Aktivierte Module",
+    "anesthesiaModule": "Anästhesie-Modul",
+    "surgeryModule": "Chirurgie-Modul",
+    "businessModule": "Business-Modul",
+    "clinicModule": "Klinik-Modul",
     "createNewUser": "Neuen Benutzer erstellen",
     "editUser": "Benutzer bearbeiten",
     "noUsers": "Keine Benutzer",

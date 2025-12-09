@@ -78,6 +78,7 @@ export const units = pgTable("units", {
   isAnesthesiaModule: boolean("is_anesthesia_module").default(false),
   isSurgeryModule: boolean("is_surgery_module").default(false),
   isBusinessModule: boolean("is_business_module").default(false),
+  isClinicModule: boolean("is_clinic_module").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_units_hospital").on(table.hospitalId),
