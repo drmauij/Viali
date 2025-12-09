@@ -54,7 +54,7 @@ export default function SimplifiedDashboard() {
             <CardTitle className="text-lg">{t('business.surgeryPlanning.title')}</CardTitle>
             <HelpTooltip content={t('business.surgeryPlanning.help')} />
           </div>
-          <CardDescription>{t('business.surgeryPlanning.descriptionWithCosts', 'Track billing, contracts, costs and implant status for surgeries')}</CardDescription>
+          <CardDescription>{t('business.surgeryPlanning.descriptionWithCosts', 'Track billing, contracts, and costs for surgeries')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="current">
