@@ -38,14 +38,19 @@ export default function QuickCreateSurgeryDialog({
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
   
-  // Helper to format date for datetime-local input (preserves local timezone)
-  const formatDateTimeLocal = (date: Date): string => {
+  // Helper to format date for date input (preserves local timezone)
+  const formatDateOnly = (date: Date): string => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Helper to format time for time input (preserves local timezone)
+  const formatTimeOnly = (date: Date): string => {
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    return `${hours}:${minutes}`;
   };
 
   // Calculate default duration in minutes (3 hours = 180 minutes)
@@ -60,7 +65,8 @@ export default function QuickCreateSurgeryDialog({
   // Form state
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
   const [surgeryRoomId, setSurgeryRoomId] = useState(initialRoomId || "");
-  const [plannedDate, setPlannedDate] = useState(formatDateTimeLocal(initialDate));
+  const [surgeryDate, setSurgeryDate] = useState(formatDateOnly(initialDate));
+  const [startTime, setStartTime] = useState(formatTimeOnly(initialDate));
   const [duration, setDuration] = useState<number>(getDefaultDuration());
   const [admissionTime, setAdmissionTime] = useState("");
   const [plannedSurgery, setPlannedSurgery] = useState("");
@@ -143,7 +149,8 @@ export default function QuickCreateSurgeryDialog({
   // Update form when props change (e.g., when user drags to select time range)
   useEffect(() => {
     if (open) {
-      setPlannedDate(formatDateTimeLocal(initialDate));
+      setSurgeryDate(formatDateOnly(initialDate));
+      setStartTime(formatTimeOnly(initialDate));
       setSurgeryRoomId(initialRoomId || "");
       setDuration(getDefaultDuration());
     }
@@ -221,7 +228,8 @@ export default function QuickCreateSurgeryDialog({
   const resetForm = () => {
     setSelectedPatientId("");
     setSurgeryRoomId(initialRoomId || "");
-    setPlannedDate(formatDateTimeLocal(initialDate));
+    setSurgeryDate(formatDateOnly(initialDate));
+    setStartTime(formatTimeOnly(initialDate));
     setDuration(getDefaultDuration());
     setAdmissionTime("");
     setPlannedSurgery("");
@@ -277,11 +285,9 @@ export default function QuickCreateSurgeryDialog({
     }
 
     // Calculate end time from start time + duration
-    // Parse datetime-local input as local time, not UTC
-    // Input format: "2025-11-04T12:00"
-    const [datePart, timePart] = plannedDate.split('T');
-    const [year, month, day] = datePart.split('-').map(Number);
-    const [hour, minute] = timePart.split(':').map(Number);
+    // Parse date and time separately
+    const [year, month, day] = surgeryDate.split('-').map(Number);
+    const [hour, minute] = startTime.split(':').map(Number);
     
     // Create Date in local timezone
     const startDate = new Date(year, month - 1, day, hour, minute);
@@ -292,10 +298,8 @@ export default function QuickCreateSurgeryDialog({
     
     let admissionTimeISO = undefined;
     if (admissionTime) {
-      const [admDatePart, admTimePart] = admissionTime.split('T');
-      const [admYear, admMonth, admDay] = admDatePart.split('-').map(Number);
-      const [admHour, admMinute] = admTimePart.split(':').map(Number);
-      const admissionDate = new Date(admYear, admMonth - 1, admDay, admHour, admMinute);
+      const [admHour, admMinute] = admissionTime.split(':').map(Number);
+      const admissionDate = new Date(year, month - 1, day, admHour, admMinute);
       admissionTimeISO = admissionDate.toISOString();
     }
 
@@ -487,19 +491,41 @@ export default function QuickCreateSurgeryDialog({
             </Select>
           </div>
 
-          {/* Planned Date & Time */}
-          <div className="grid gap-3" style={{ gridTemplateColumns: '5fr 3fr' }}>
-            <div className="space-y-2">
-              <Label htmlFor="planned-date">{t('anesthesia.quickSchedule.startTime')} *</Label>
+          {/* Surgery Date */}
+          <div className="space-y-2">
+            <Label htmlFor="surgery-date">{t('anesthesia.quickSchedule.date', 'Date')} *</Label>
+            <Input
+              id="surgery-date"
+              type="date"
+              value={surgeryDate}
+              onChange={(e) => setSurgeryDate(e.target.value)}
+              data-testid="input-surgery-date"
+            />
+          </div>
+
+          {/* Start Time, Admission Time & Duration */}
+          <div className="flex gap-3 min-w-0">
+            <div className="space-y-2 flex-1 min-w-0">
+              <Label htmlFor="start-time">{t('anesthesia.quickSchedule.startTime')} *</Label>
               <Input
-                id="planned-date"
-                type="datetime-local"
-                value={plannedDate}
-                onChange={(e) => setPlannedDate(e.target.value)}
-                data-testid="input-planned-date"
+                id="start-time"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                data-testid="input-start-time"
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-2 flex-1 min-w-0">
+              <Label htmlFor="admission-time">{t('anesthesia.quickSchedule.admissionTime', 'Admission')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'opt.')})</span></Label>
+              <Input
+                id="admission-time"
+                type="time"
+                value={admissionTime}
+                onChange={(e) => setAdmissionTime(e.target.value)}
+                data-testid="input-admission-time"
+              />
+            </div>
+            <div className="space-y-2 w-20 shrink-0">
               <Label htmlFor="duration">{t('anesthesia.quickSchedule.duration')} *</Label>
               <Input
                 id="duration"
@@ -510,18 +536,6 @@ export default function QuickCreateSurgeryDialog({
                 data-testid="input-duration"
               />
             </div>
-          </div>
-
-          {/* Admission Time */}
-          <div className="space-y-2">
-            <Label htmlFor="admission-time">{t('anesthesia.quickSchedule.admissionTime', 'Admission Time')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.optional', 'optional')})</span></Label>
-            <Input
-              id="admission-time"
-              type="datetime-local"
-              value={admissionTime}
-              onChange={(e) => setAdmissionTime(e.target.value)}
-              data-testid="input-admission-time"
-            />
           </div>
 
           {/* Planned Surgery */}

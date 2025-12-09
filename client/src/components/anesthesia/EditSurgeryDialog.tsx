@@ -25,7 +25,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Form state
-  const [plannedDate, setPlannedDate] = useState("");
+  const [surgeryDate, setSurgeryDate] = useState("");
+  const [startTime, setStartTime] = useState("");
   const [duration, setDuration] = useState(90);
   const [admissionTime, setAdmissionTime] = useState("");
   const [plannedSurgery, setPlannedSurgery] = useState("");
@@ -73,7 +74,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       const day = String(plannedDateObj.getDate()).padStart(2, '0');
       const hours = String(plannedDateObj.getHours()).padStart(2, '0');
       const minutes = String(plannedDateObj.getMinutes()).padStart(2, '0');
-      setPlannedDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+      setSurgeryDate(`${year}-${month}-${day}`);
+      setStartTime(`${hours}:${minutes}`);
 
       if (surgery.actualEndTime) {
         const endDateObj = new Date(surgery.actualEndTime);
@@ -88,12 +90,9 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       
       if (surgery.admissionTime) {
         const admissionDateObj = new Date(surgery.admissionTime);
-        const aYear = admissionDateObj.getFullYear();
-        const aMonth = String(admissionDateObj.getMonth() + 1).padStart(2, '0');
-        const aDay = String(admissionDateObj.getDate()).padStart(2, '0');
         const aHours = String(admissionDateObj.getHours()).padStart(2, '0');
         const aMinutes = String(admissionDateObj.getMinutes()).padStart(2, '0');
-        setAdmissionTime(`${aYear}-${aMonth}-${aDay}T${aHours}:${aMinutes}`);
+        setAdmissionTime(`${aHours}:${aMinutes}`);
       } else {
         setAdmissionTime("");
       }
@@ -103,10 +102,9 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async () => {
-      // Parse datetime-local string as local time
-      const [datePart, timePart] = plannedDate.split('T');
-      const [year, month, day] = datePart.split('-').map(Number);
-      const [hour, minute] = timePart.split(':').map(Number);
+      // Parse date and time separately
+      const [year, month, day] = surgeryDate.split('-').map(Number);
+      const [hour, minute] = startTime.split(':').map(Number);
       const startDate = new Date(year, month - 1, day, hour, minute);
 
       const endDate = new Date(startDate);
@@ -116,10 +114,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       
       let admissionTimeISO = null;
       if (admissionTime) {
-        const [admDatePart, admTimePart] = admissionTime.split('T');
-        const [admYear, admMonth, admDay] = admDatePart.split('-').map(Number);
-        const [admHour, admMinute] = admTimePart.split(':').map(Number);
-        const admissionDate = new Date(admYear, admMonth - 1, admDay, admHour, admMinute);
+        const [admHour, admMinute] = admissionTime.split(':').map(Number);
+        const admissionDate = new Date(year, month - 1, day, admHour, admMinute);
         admissionTimeISO = admissionDate.toISOString();
       }
 
@@ -193,7 +189,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   });
 
   const handleUpdate = () => {
-    if (!plannedDate || !plannedSurgery || !surgeryRoomId) {
+    if (!surgeryDate || !startTime || !plannedSurgery || !surgeryRoomId) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields.",
@@ -278,20 +274,44 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 </Select>
               </div>
 
-              {/* Start Time & Duration */}
+              {/* Surgery Date */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-surgery-date">{t('anesthesia.editSurgery.date', 'Date')} *</Label>
+                <Input
+                  id="edit-surgery-date"
+                  type="date"
+                  value={surgeryDate}
+                  onChange={(e) => setSurgeryDate(e.target.value)}
+                  disabled={!canWrite}
+                  data-testid="input-edit-surgery-date"
+                />
+              </div>
+
+              {/* Start Time, Admission Time & Duration */}
               <div className="flex gap-3 min-w-0">
                 <div className="space-y-2 flex-1 min-w-0">
-                  <Label htmlFor="edit-planned-date">{t('anesthesia.editSurgery.startTime')} *</Label>
+                  <Label htmlFor="edit-start-time">{t('anesthesia.editSurgery.startTime')} *</Label>
                   <Input
-                    id="edit-planned-date"
-                    type="datetime-local"
-                    value={plannedDate}
-                    onChange={(e) => setPlannedDate(e.target.value)}
+                    id="edit-start-time"
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
                     disabled={!canWrite}
-                    data-testid="input-edit-planned-date"
+                    data-testid="input-edit-start-time"
                   />
                 </div>
-                <div className="space-y-2 w-24 shrink-0">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <Label htmlFor="edit-admission-time">{t('anesthesia.editSurgery.admissionTime', 'Admission')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.optional', 'opt.')})</span></Label>
+                  <Input
+                    id="edit-admission-time"
+                    type="time"
+                    value={admissionTime}
+                    onChange={(e) => setAdmissionTime(e.target.value)}
+                    disabled={!canWrite}
+                    data-testid="input-edit-admission-time"
+                  />
+                </div>
+                <div className="space-y-2 w-20 shrink-0">
                   <Label htmlFor="edit-duration">{t('anesthesia.editSurgery.duration')} *</Label>
                   <Input
                     id="edit-duration"
@@ -303,19 +323,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     data-testid="input-edit-duration"
                   />
                 </div>
-              </div>
-
-              {/* Admission Time */}
-              <div className="space-y-2">
-                <Label htmlFor="edit-admission-time">{t('anesthesia.editSurgery.admissionTime', 'Admission Time')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.optional', 'optional')})</span></Label>
-                <Input
-                  id="edit-admission-time"
-                  type="datetime-local"
-                  value={admissionTime}
-                  onChange={(e) => setAdmissionTime(e.target.value)}
-                  disabled={!canWrite}
-                  data-testid="input-edit-admission-time"
-                />
               </div>
 
               {/* Planned Surgery */}
