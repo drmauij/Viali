@@ -1,13 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
-import { format } from "date-fns";
 import { Calendar, TableProperties } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
 import SurgerySummaryDialog from "@/components/anesthesia/SurgerySummaryDialog";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
@@ -50,25 +46,14 @@ function shouldUsePacuMode(timeMarkers?: TimeMarker[]): boolean {
 }
 
 type ViewMode = "calendar" | "table";
-
-// Calculate date range for table view (past 30 days to next 60 days for comprehensive view)
-function getDefaultDateRange() {
-  const now = new Date();
-  const start = new Date(now);
-  start.setDate(start.getDate() - 30);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(now);
-  end.setDate(end.getDate() + 60);
-  end.setHours(23, 59, 59, 999);
-  return { start, end };
-}
+type TableTab = "current" | "past";
 
 export default function OpList() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const { activeModule } = useModule();
   const [viewMode, setViewMode] = useState<ViewMode>("calendar");
-  const [tableViewDates, setTableViewDates] = useState(() => getDefaultDateRange());
+  const [tableTab, setTableTab] = useState<TableTab>("current");
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
@@ -274,92 +259,53 @@ export default function OpList() {
           <OPCalendar onEventClick={handleEventClick} />
         ) : (
           <div className="px-4 space-y-4">
-            <div className="flex flex-wrap items-center gap-4 p-4 bg-muted/50 rounded-lg">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{t('common.from')}:</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={cn("w-[140px] justify-start text-left font-normal")}
-                      data-testid="button-date-from"
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {format(tableViewDates.start, "dd.MM.yyyy")}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={tableViewDates.start}
-                      onSelect={(date) => {
-                        if (date) {
-                          const newStart = new Date(date);
-                          newStart.setHours(0, 0, 0, 0);
-                          setTableViewDates(prev => {
-                            if (newStart > prev.end) {
-                              const newEnd = new Date(newStart);
-                              newEnd.setDate(newEnd.getDate() + 30);
-                              newEnd.setHours(23, 59, 59, 999);
-                              return { start: newStart, end: newEnd };
-                            }
-                            return { ...prev, start: newStart };
-                          });
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium">{t('common.to')}:</span>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className={cn("w-[140px] justify-start text-left font-normal")}
-                      data-testid="button-date-to"
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {format(tableViewDates.end, "dd.MM.yyyy")}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={tableViewDates.end}
-                      disabled={(date) => date < tableViewDates.start}
-                      onSelect={(date) => {
-                        if (date) {
-                          const newEnd = new Date(date);
-                          newEnd.setHours(23, 59, 59, 999);
-                          setTableViewDates(prev => ({ ...prev, end: newEnd }));
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setTableViewDates(getDefaultDateRange())}
-                data-testid="button-reset-dates"
-              >
-                {t('common.reset')}
-              </Button>
-            </div>
-            <SurgeryPlanningTable
-              moduleContext="anesthesia"
-              onSurgeryClick={handleTableSurgeryClick}
-              dateFrom={tableViewDates.start}
-              dateTo={tableViewDates.end}
-              showFilters={true}
-            />
+            <Tabs value={tableTab} onValueChange={(v) => setTableTab(v as TableTab)}>
+              <TabsList className="grid w-full max-w-md grid-cols-2">
+                <TabsTrigger value="current" data-testid="tab-current-surgeries">
+                  {t('surgeryPlanning.currentAndFuture')}
+                </TabsTrigger>
+                <TabsTrigger value="past" data-testid="tab-past-surgeries">
+                  {t('surgeryPlanning.past')}
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="current" className="mt-4">
+                <SurgeryPlanningTable
+                  moduleContext="anesthesia"
+                  onSurgeryClick={handleTableSurgeryClick}
+                  dateFrom={(() => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    return today;
+                  })()}
+                  dateTo={(() => {
+                    const future = new Date();
+                    future.setFullYear(future.getFullYear() + 1);
+                    future.setHours(23, 59, 59, 999);
+                    return future;
+                  })()}
+                  showFilters={true}
+                />
+              </TabsContent>
+              <TabsContent value="past" className="mt-4">
+                <SurgeryPlanningTable
+                  moduleContext="anesthesia"
+                  onSurgeryClick={handleTableSurgeryClick}
+                  dateFrom={(() => {
+                    const past = new Date();
+                    past.setFullYear(past.getFullYear() - 2);
+                    past.setHours(0, 0, 0, 0);
+                    return past;
+                  })()}
+                  dateTo={(() => {
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    yesterday.setHours(23, 59, 59, 999);
+                    return yesterday;
+                  })()}
+                  showFilters={true}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         )}
       </div>

@@ -2735,6 +2735,8 @@
   "surgeryPlanning": {
     "calendarView": "Calendar",
     "tableView": "Table",
+    "currentAndFuture": "Current & Future",
+    "past": "Past",
     "noSurgeries": "No surgeries found for the selected date range",
     "updateSuccess": "Surgery updated successfully",
     "columns": {

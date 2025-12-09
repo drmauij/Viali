@@ -14,8 +14,6 @@ import {
   FileText,
   CreditCard,
   Calendar,
-  ChevronDown,
-  ChevronUp,
   Loader2
 } from "lucide-react";
 import {
@@ -245,7 +243,6 @@ export function SurgeryPlanningTable({
   const activeHospital = useActiveHospital();
   
   const [sortState, setSortState] = useState<SortState>({ field: "plannedDate", direction: "desc" });
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set());
   
   const columnGroups = visibleColumnGroups ?? DEFAULT_COLUMN_GROUPS[moduleContext];
@@ -375,18 +372,6 @@ export function SurgeryPlanningTable({
     });
   }, [surgeries, sortState, patientMap]);
   
-  const toggleRowExpand = (surgeryId: string) => {
-    setExpandedRows((prev) => {
-      const next = new Set(prev);
-      if (next.has(surgeryId)) {
-        next.delete(surgeryId);
-      } else {
-        next.add(surgeryId);
-      }
-      return next;
-    });
-  };
-  
   const showClinical = columnGroups.includes("clinical");
   const showScheduling = columnGroups.includes("scheduling");
   const showBusiness = columnGroups.includes("business");
@@ -419,8 +404,6 @@ export function SurgeryPlanningTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-10"></TableHead>
-            
             {showClinical && (
               <>
                 <TableHead>
@@ -503,10 +486,8 @@ export function SurgeryPlanningTable({
             const patient = patientMap.get(surgery.patientId);
             const patientName = patient ? `${patient.surname}, ${patient.firstName}` : "-";
             const roomName = surgery.surgeryRoomId ? roomMap.get(surgery.surgeryRoomId) ?? "-" : "-";
-            const isExpanded = expandedRows.has(surgery.id);
             
             return (
-              <>
                 <TableRow
                   key={surgery.id}
                   className={cn(
@@ -516,25 +497,6 @@ export function SurgeryPlanningTable({
                   onClick={() => onSurgeryClick?.(surgery)}
                   data-testid={`row-surgery-${surgery.id}`}
                 >
-                  <TableCell className="p-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleRowExpand(surgery.id);
-                      }}
-                      data-testid={`button-expand-${surgery.id}`}
-                    >
-                      {isExpanded ? (
-                        <ChevronUp className="h-4 w-4" />
-                      ) : (
-                        <ChevronDown className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </TableCell>
-                  
                   {showClinical && (
                     <>
                       <TableCell className="font-medium">
@@ -670,55 +632,6 @@ export function SurgeryPlanningTable({
                     </>
                   )}
                 </TableRow>
-                
-                {isExpanded && (
-                  <TableRow key={`${surgery.id}-expanded`}>
-                    <TableCell colSpan={100} className="bg-muted/30 p-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                        {patient && (
-                          <div>
-                            <h4 className="font-semibold mb-2">{t("surgeryPlanning.patientInfo")}</h4>
-                            <div className="space-y-1">
-                              <p><span className="text-muted-foreground">{t("surgeryPlanning.patientNumber")}:</span> {patient.patientNumber ?? "-"}</p>
-                              <p><span className="text-muted-foreground">{t("surgeryPlanning.birthday")}:</span> {patient.birthday ? formatDate(patient.birthday) : "-"}</p>
-                            </div>
-                          </div>
-                        )}
-                        
-                        <div>
-                          <h4 className="font-semibold mb-2">{t("surgeryPlanning.surgeryDetails")}</h4>
-                          <div className="space-y-1">
-                            <p><span className="text-muted-foreground">{t("surgeryPlanning.notes")}:</span> {surgery.notes ?? "-"}</p>
-                            {surgery.actualStartTime && (
-                              <p><span className="text-muted-foreground">{t("surgeryPlanning.actualStart")}:</span> {formatDateTime(surgery.actualStartTime)}</p>
-                            )}
-                            {surgery.actualEndTime && (
-                              <p><span className="text-muted-foreground">{t("surgeryPlanning.actualEnd")}:</span> {formatDateTime(surgery.actualEndTime)}</p>
-                            )}
-                          </div>
-                        </div>
-                        
-                        {showBusiness && surgery.paymentNotes && (
-                          <div>
-                            <h4 className="font-semibold mb-2">{t("surgeryPlanning.paymentInfo")}</h4>
-                            <div className="space-y-1">
-                              <p><span className="text-muted-foreground">{t("surgeryPlanning.paymentMethod")}:</span> {surgery.paymentMethod ?? "-"}</p>
-                              <p><span className="text-muted-foreground">{t("surgeryPlanning.paymentNotes")}:</span> {surgery.paymentNotes}</p>
-                            </div>
-                          </div>
-                        )}
-                        
-                        {showImplants && surgery.implantDetails && (
-                          <div>
-                            <h4 className="font-semibold mb-2">{t("surgeryPlanning.implantInfo")}</h4>
-                            <p className="text-sm">{surgery.implantDetails}</p>
-                          </div>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </>
             );
           })}
         </TableBody>

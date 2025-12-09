@@ -2750,6 +2750,8 @@
   "surgeryPlanning": {
     "calendarView": "Kalender",
     "tableView": "Tabelle",
+    "currentAndFuture": "Aktuell & Zukünftig",
+    "past": "Vergangen",
     "noSurgeries": "Keine Operationen im ausgewählten Zeitraum gefunden",
     "updateSuccess": "Operation erfolgreich aktualisiert",
     "columns": {
