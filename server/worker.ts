@@ -604,17 +604,33 @@ async function workerLoop() {
   }
 }
 
-process.on('SIGTERM', () => {
-  console.log('[Worker] Received SIGTERM, shutting down gracefully...');
-  process.exit(0);
-});
+/**
+ * Start the background worker.
+ * Can be called from main server process or run as standalone.
+ */
+export function startWorker() {
+  console.log('[Worker] Initializing background job processor...');
+  workerLoop().catch(error => {
+    console.error('[Worker] Fatal error in worker loop:', error);
+  });
+}
 
-process.on('SIGINT', () => {
-  console.log('[Worker] Received SIGINT, shutting down gracefully...');
-  process.exit(0);
-});
+// Check if this file is being run directly (standalone mode)
+const isMainModule = import.meta.url === `file://${process.argv[1]}`;
 
-workerLoop().catch(error => {
-  console.error('[Worker] Fatal error:', error);
-  process.exit(1);
-});
+if (isMainModule) {
+  process.on('SIGTERM', () => {
+    console.log('[Worker] Received SIGTERM, shutting down gracefully...');
+    process.exit(0);
+  });
+
+  process.on('SIGINT', () => {
+    console.log('[Worker] Received SIGINT, shutting down gracefully...');
+    process.exit(0);
+  });
+
+  workerLoop().catch(error => {
+    console.error('[Worker] Fatal error:', error);
+    process.exit(1);
+  });
+}

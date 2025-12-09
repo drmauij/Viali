@@ -6,6 +6,7 @@ import { sql } from "drizzle-orm";
 import { db, pool } from "./db";
 import { startAutoStopService } from "./services/autoStopInfusions";
 import { storage } from "./storage";
+import { startWorker } from "./worker";
 
 const app = express();
 
@@ -193,6 +194,9 @@ app.use((req, res, next) => {
       
       // Start auto-stop service for infusions
       startAutoStopService(storage);
+      
+      // Start background worker for processing jobs (bulk imports, price syncs)
+      startWorker();
     });
 
     // Handle server errors
