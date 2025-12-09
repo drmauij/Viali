@@ -1,10 +1,10 @@
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 
-export const ROLE_HIERARCHY = ['admin', 'manager', 'doctor', 'nurse', 'guest'] as const;
+export const ROLE_HIERARCHY = ['admin', 'manager', 'doctor', 'nurse', 'staff', 'guest'] as const;
 export type UserRole = typeof ROLE_HIERARCHY[number];
 
-export const WRITE_ROLES: UserRole[] = ['admin', 'manager', 'doctor', 'nurse'];
+export const WRITE_ROLES: UserRole[] = ['admin', 'manager', 'doctor', 'nurse', 'staff'];
 export const READ_ONLY_ROLES: UserRole[] = ['guest'];
 
 // Helper to get hospitalId from various resource types
@@ -83,8 +83,10 @@ export async function getUserRole(userId: string, hospitalId: string): Promise<s
   const roles = matchingHospitals.map(h => h.role).filter(Boolean);
   
   if (roles.includes('admin')) return 'admin';
+  if (roles.includes('manager')) return 'manager';
   if (roles.includes('doctor')) return 'doctor';
   if (roles.includes('nurse')) return 'nurse';
+  if (roles.includes('staff')) return 'staff';
   if (roles.includes('guest')) return 'guest';
   
   return roles[0] || null;
@@ -191,8 +193,10 @@ async function getActiveRoleFromRequest(req: any, userId: string, hospitalId: st
   
   // Fall back to highest role if header role is invalid or not provided
   if (availableRoles.includes('admin')) return 'admin';
+  if (availableRoles.includes('manager')) return 'manager';
   if (availableRoles.includes('doctor')) return 'doctor';
   if (availableRoles.includes('nurse')) return 'nurse';
+  if (availableRoles.includes('staff')) return 'staff';
   if (availableRoles.includes('guest')) return 'guest';
   
   return availableRoles[0] || null;
