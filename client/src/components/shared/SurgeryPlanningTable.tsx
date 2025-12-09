@@ -17,7 +17,13 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
-  Download
+  Download,
+  FileEdit,
+  PauseCircle,
+  CircleDashed,
+  Stethoscope,
+  CheckCircle2,
+  XCircle
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -37,6 +43,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -396,6 +403,204 @@ export function SurgeryPlanningTable({
     enabled: !!activeHospital?.id && uniqueDates.length > 0,
   });
   
+  // Fetch pre-op assessments for surgeries (only for anesthesia/surgery modules)
+  const surgeryIds = useMemo(() => surgeries.map((s) => s.id), [surgeries]);
+  const showPreOpColumn = moduleContext === "anesthesia" || moduleContext === "surgery";
+  
+  const { data: preOpAssessments = [] } = useQuery<any[]>({
+    queryKey: ["/api/anesthesia/preop-assessments/bulk", surgeryIds],
+    queryFn: async () => {
+      if (surgeryIds.length === 0) return [];
+      const response = await fetch(`/api/anesthesia/preop-assessments/bulk?surgeryIds=${surgeryIds.join(",")}`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: surgeryIds.length > 0 && showPreOpColumn,
+  });
+  
+  // Map pre-op assessments by surgery ID
+  const preOpMap = useMemo(() => {
+    const map = new Map<string, any>();
+    preOpAssessments.forEach((item) => {
+      if (item.surgery?.id) {
+        map.set(item.surgery.id, item);
+      }
+    });
+    return map;
+  }, [preOpAssessments]);
+  
+  // Helper function to get pre-op summary for expanded row
+  const getPreOpSummary = (assessment: any, surgery: any): string | null => {
+    if (!assessment) return null;
+    
+    const parts: string[] = [];
+    
+    if (assessment.asa != null && assessment.asa !== '') {
+      parts.push(`ASA ${assessment.asa}`);
+    }
+    if (assessment.weight != null && assessment.weight !== '' && assessment.weight !== 0) {
+      parts.push(`${assessment.weight}kg`);
+    }
+    if (assessment.height != null && assessment.height !== '' && assessment.height !== 0) {
+      parts.push(`${assessment.height}cm`);
+    }
+    if (assessment.heartRate != null && assessment.heartRate !== '' && assessment.heartRate !== 0) {
+      parts.push(`HR ${assessment.heartRate}`);
+    }
+    if (assessment.bloodPressureSystolic != null && assessment.bloodPressureDiastolic != null && 
+        assessment.bloodPressureSystolic !== 0 && assessment.bloodPressureDiastolic !== 0) {
+      parts.push(`BP ${assessment.bloodPressureSystolic}/${assessment.bloodPressureDiastolic}`);
+    }
+    if (assessment.cave != null && assessment.cave !== '') {
+      parts.push(`CAVE: ${assessment.cave}`);
+    }
+    
+    if (assessment.anesthesiaTechniques) {
+      const techniques: string[] = [];
+      const at = assessment.anesthesiaTechniques;
+      
+      if (at.general) {
+        const generalSubs = at.generalOptions ? Object.entries(at.generalOptions)
+          .filter(([_, value]) => value)
+          .map(([key]) => key.toUpperCase())
+          : [];
+        techniques.push(generalSubs.length > 0 ? `General (${generalSubs.join(', ')})` : 'General');
+      }
+      if (at.spinal) techniques.push('Spinal');
+      if (at.epidural) {
+        const epiduralSubs = at.epiduralOptions ? Object.entries(at.epiduralOptions)
+          .filter(([_, value]) => value)
+          .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+          : [];
+        techniques.push(epiduralSubs.length > 0 ? `Epidural (${epiduralSubs.join(', ')})` : 'Epidural');
+      }
+      if (at.regional) {
+        const regionalSubs = at.regionalOptions ? Object.entries(at.regionalOptions)
+          .filter(([_, value]) => value)
+          .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+          : [];
+        techniques.push(regionalSubs.length > 0 ? `Regional (${regionalSubs.join(', ')})` : 'Regional');
+      }
+      if (at.sedation) techniques.push('Sedation');
+      if (at.combined) techniques.push('Combined');
+      
+      if (techniques.length > 0) {
+        parts.push(techniques.join(', '));
+      }
+    }
+    
+    if (assessment.installations && Object.keys(assessment.installations).length > 0) {
+      const installations = Object.entries(assessment.installations)
+        .filter(([_, value]) => value)
+        .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+        .join(', ');
+      if (installations) {
+        parts.push(installations);
+      }
+    }
+    
+    if (assessment.postOpICU) {
+      parts.push(t('anesthesia.preop.postOpICUPlanned'));
+    }
+    
+    if (assessment.specialNotes != null && assessment.specialNotes !== '') {
+      parts.push(assessment.specialNotes);
+    }
+    
+    if (assessment.anesthesiaOther != null && assessment.anesthesiaOther !== '') {
+      parts.push(assessment.anesthesiaOther);
+    }
+    
+    // Add patient allergies from surgery data
+    const allergies: string[] = [];
+    if (surgery?.patientAllergies && Array.isArray(surgery.patientAllergies) && surgery.patientAllergies.length > 0) {
+      allergies.push(...surgery.patientAllergies);
+    }
+    if (surgery?.patientOtherAllergies) {
+      allergies.push(surgery.patientOtherAllergies);
+    }
+    if (allergies.length > 0) {
+      parts.push(`${t('anesthesia.preop.allergies')}: ${allergies.join(', ')}`);
+    }
+    
+    return parts.length > 0 ? parts.join(' • ') : null;
+  };
+  
+  // Helper function to render pre-op status icon with tooltip
+  const renderPreOpStatusIcon = (surgeryId: string) => {
+    const preOpData = preOpMap.get(surgeryId);
+    
+    // No assessment exists - planned (grey)
+    if (!preOpData || !preOpData.assessment) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <CircleDashed className="h-5 w-5 text-gray-400 mx-auto" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t("surgeryPlanning.preOp.statusPlanned")}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    
+    const assessment = preOpData.assessment;
+    const status = preOpData.status;
+    
+    // Stand-by (orange pause)
+    if (assessment.standBy) {
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <PauseCircle className="h-5 w-5 text-orange-500 mx-auto" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{t("surgeryPlanning.preOp.statusStandby")}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    
+    // Completed - check approval status
+    if (status === 'completed') {
+      const isApproved = assessment.surgicalApproval === 'approved';
+      return (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              {isApproved ? (
+                <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 mx-auto" />
+              ) : (
+                <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mx-auto" />
+              )}
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{isApproved ? t("surgeryPlanning.preOp.statusApproved") : t("surgeryPlanning.preOp.statusRejected")}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    
+    // Draft / In progress (blue file edit)
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <FileEdit className="h-5 w-5 text-blue-500 mx-auto" />
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{t("surgeryPlanning.preOp.statusInProgress")}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+  
   // Render staff pills for a given date
   const renderStaffPills = (dateKey: string) => {
     const staff = staffPoolByDate[dateKey];
@@ -664,12 +869,13 @@ export function SurgeryPlanningTable({
     let count = 1; // expand button column
     if (showClinical) count += hideRoomAndAdmission ? 4 : 5; // date, patient, procedure, surgeon, (room)
     if (showScheduling) count += hideRoomAndAdmission ? 1 : 2; // (admission), status
+    if (showScheduling && showPreOpColumn) count += 1; // pre-op column
     if (showPaidStatus) count += 1;
     if (showBusiness) count += 6; // price, quote, contract sent/received, invoice, payment
     if (showContracts && !showBusiness) count += 2;
     if (showImplants) count += 3;
     return count;
-  }, [showClinical, showScheduling, showBusiness, showContracts, showImplants, showPaidStatus, hideRoomAndAdmission]);
+  }, [showClinical, showScheduling, showBusiness, showContracts, showImplants, showPaidStatus, showPreOpColumn, hideRoomAndAdmission]);
   
   if (surgeriesLoading) {
     return (
@@ -739,6 +945,12 @@ export function SurgeryPlanningTable({
                   </TableHead>
                 )}
                 <TableHead>{t("surgeryPlanning.columns.status")}</TableHead>
+                {showPreOpColumn && (
+                  <TableHead className="text-center">
+                    <Stethoscope className="h-4 w-4 inline mr-1" />
+                    {t("surgeryPlanning.columns.preOp")}
+                  </TableHead>
+                )}
               </>
             )}
             
@@ -893,6 +1105,11 @@ export function SurgeryPlanningTable({
                           {surgery.status}
                         </Badge>
                       </TableCell>
+                      {showPreOpColumn && (
+                        <TableCell className="text-center" data-testid={`cell-preop-${surgery.id}`}>
+                          {renderPreOpStatusIcon(surgery.id)}
+                        </TableCell>
+                      )}
                     </>
                   )}
                   
@@ -1056,6 +1273,23 @@ export function SurgeryPlanningTable({
                             <p className="text-sm">{surgery.implantDetails}</p>
                           </div>
                         )}
+                        
+                        {showPreOpColumn && (() => {
+                          const preOpData = preOpMap.get(surgery.id);
+                          const assessment = preOpData?.assessment;
+                          if (!assessment) return null;
+                          const summary = getPreOpSummary(assessment, preOpData?.surgery);
+                          if (!summary) return null;
+                          return (
+                            <div className="lg:col-span-3" data-testid={`preop-details-${surgery.id}`}>
+                              <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                <Stethoscope className="h-4 w-4" />
+                                {t("surgeryPlanning.preOpInfo")}
+                              </h4>
+                              <p className="text-sm text-muted-foreground">{summary}</p>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </TableCell>
                   </TableRow>

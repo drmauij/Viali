@@ -2788,7 +2788,16 @@
       "anesthesiaConsent": "Anesthesia Consent",
       "implantOrdered": "Implant Ordered",
       "implantReceived": "Implant Received",
-      "implantVendor": "Vendor"
+      "implantVendor": "Vendor",
+      "preOp": "Pre-Op",
+      "paid": "Paid"
+    },
+    "preOp": {
+      "statusPlanned": "Pre-op assessment not yet started",
+      "statusInProgress": "Pre-op assessment in progress",
+      "statusStandby": "Pre-op assessment on stand-by",
+      "statusApproved": "Pre-op assessment completed - Approved",
+      "statusRejected": "Pre-op assessment completed - Not Approved"
     },
     "patientInfo": "Patient Information",
     "patientNumber": "Patient Number",
@@ -2800,6 +2809,7 @@
     "paymentInfo": "Payment Information",
     "paymentMethod": "Payment Method",
     "paymentNotes": "Payment Notes",
-    "implantInfo": "Implant Details"
+    "implantInfo": "Implant Details",
+    "preOpInfo": "Pre-Operative Assessment"
   }
 }

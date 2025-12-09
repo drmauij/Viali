@@ -2802,7 +2802,16 @@
       "anesthesiaConsent": "Anästhesie-Aufklärung",
       "implantOrdered": "Implantat bestellt",
       "implantReceived": "Implantat erhalten",
-      "implantVendor": "Lieferant"
+      "implantVendor": "Lieferant",
+      "preOp": "Präop",
+      "paid": "Bezahlt"
+    },
+    "preOp": {
+      "statusPlanned": "Präoperative Beurteilung noch nicht begonnen",
+      "statusInProgress": "Präoperative Beurteilung in Bearbeitung",
+      "statusStandby": "Präoperative Beurteilung in Wartestellung",
+      "statusApproved": "Präoperative Beurteilung abgeschlossen - Genehmigt",
+      "statusRejected": "Präoperative Beurteilung abgeschlossen - Nicht genehmigt"
     },
     "patientInfo": "Patienteninformationen",
     "patientNumber": "Patientennummer",
@@ -2814,6 +2823,7 @@
     "paymentInfo": "Zahlungsinformationen",
     "paymentMethod": "Zahlungsmethode",
     "paymentNotes": "Zahlungsnotizen",
-    "implantInfo": "Implantatdetails"
+    "implantInfo": "Implantatdetails",
+    "preOpInfo": "Präoperative Beurteilung"
   }
 }
