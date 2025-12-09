@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useToast } from "@/hooks/use-toast";
-import type { Surgery, Patient } from "@shared/schema";
+import type { Surgery, Patient, DailyStaffPool } from "@shared/schema";
 
 export type ModuleContext = "anesthesia" | "surgery" | "business" | "marketing";
 
@@ -358,6 +358,76 @@ export function SurgeryPlanningTable({
     return map;
   }, [surgeryRooms]);
   
+  // Get unique dates from surgeries for staff pool fetching
+  const uniqueDates = useMemo(() => {
+    const dates = new Set<string>();
+    surgeries.forEach((surgery) => {
+      const dateKey = new Date(surgery.plannedDate).toLocaleDateString('en-CA');
+      dates.add(dateKey);
+    });
+    return Array.from(dates);
+  }, [surgeries]);
+  
+  // Fetch staff pool for all dates
+  const { data: staffPoolByDate = {} } = useQuery<Record<string, DailyStaffPool[]>>({
+    queryKey: ["/api/staff-pool-multi", activeHospital?.id, uniqueDates],
+    queryFn: async () => {
+      if (!activeHospital?.id || uniqueDates.length === 0) return {};
+      
+      const results: Record<string, DailyStaffPool[]> = {};
+      await Promise.all(
+        uniqueDates.map(async (date) => {
+          try {
+            const response = await fetch(`/api/staff-pool/${activeHospital.id}/${date}`);
+            if (response.ok) {
+              results[date] = await response.json();
+            }
+          } catch {
+            // Ignore errors for individual dates
+          }
+        })
+      );
+      return results;
+    },
+    enabled: !!activeHospital?.id && uniqueDates.length > 0,
+  });
+  
+  // Role labels for compact display
+  const roleLabels: Record<string, string> = {
+    surgeon: t('staffRoles.surgeon', 'Surg'),
+    surgicalAssistant: t('staffRoles.surgicalAssistant', 'Asst'),
+    instrumentNurse: t('staffRoles.instrumentNurse', 'Instr'),
+    circulatingNurse: t('staffRoles.circulatingNurse', 'Circ'),
+    anesthesiologist: t('staffRoles.anesthesiologist', 'Anest'),
+    anesthesiaNurse: t('staffRoles.anesthesiaNurse', 'AnNrs'),
+    pacuNurse: t('staffRoles.pacuNurse', 'PACU'),
+  };
+  
+  // Format staff for a given date (compact display)
+  const formatStaffForDate = (dateKey: string): string | null => {
+    const staff = staffPoolByDate[dateKey];
+    if (!staff || staff.length === 0) return null;
+    
+    // Group by role and list names
+    const byRole = new Map<string, string[]>();
+    staff.forEach((s) => {
+      const names = byRole.get(s.role) || [];
+      // Extract first name or abbreviated name
+      const shortName = s.name.split(' ')[0] || s.name;
+      names.push(shortName);
+      byRole.set(s.role, names);
+    });
+    
+    // Format as "Role: Name1, Name2; Role2: Name3"
+    const parts: string[] = [];
+    byRole.forEach((names, role) => {
+      const label = roleLabels[role] || role;
+      parts.push(`${label}: ${names.join(', ')}`);
+    });
+    
+    return parts.join(' · ');
+  };
+  
   const updateMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: Partial<Surgery> }) => {
       return await apiRequest("PATCH", `/api/anesthesia/surgeries/${id}`, updates);
@@ -614,15 +684,24 @@ export function SurgeryPlanningTable({
               {/* Day header row */}
               <TableRow className="bg-muted/60 hover:bg-muted/60">
                 <TableCell colSpan={totalColumns} className="py-2 font-semibold text-sm">
-                  {new Date(dateKey + 'T12:00:00').toLocaleDateString(undefined, { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
-                  })}
-                  <span className="ml-2 text-muted-foreground font-normal">
-                    ({daySurgeries.length} {daySurgeries.length === 1 ? t('surgeryPlanning.surgery', 'surgery') : t('surgeryPlanning.surgeries', 'surgeries')})
-                  </span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>
+                      {new Date(dateKey + 'T12:00:00').toLocaleDateString(undefined, { 
+                        weekday: 'long', 
+                        year: 'numeric', 
+                        month: 'long', 
+                        day: 'numeric' 
+                      })}
+                      <span className="ml-2 text-muted-foreground font-normal">
+                        ({daySurgeries.length} {daySurgeries.length === 1 ? t('surgeryPlanning.surgery', 'surgery') : t('surgeryPlanning.surgeries', 'surgeries')})
+                      </span>
+                    </span>
+                    {formatStaffForDate(dateKey) && (
+                      <span className="text-xs text-muted-foreground font-normal">
+                        {formatStaffForDate(dateKey)}
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
               {/* Surgeries for this day */}
