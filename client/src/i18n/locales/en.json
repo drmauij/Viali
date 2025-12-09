@@ -139,7 +139,7 @@
       "description": "User management, hospital settings, and system configuration"
     },
     "clinic": {
-      "title": "Clinic Invoices",
+      "title": "Clinic",
       "description": "Create and manage ambulatory invoices for outpatient services"
     },
     "business": {

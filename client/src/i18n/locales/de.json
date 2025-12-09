@@ -139,7 +139,7 @@
       "description": "Benutzerverwaltung, Krankenhauseinstellungen und Systemkonfiguration"
     },
     "clinic": {
-      "title": "Praxis-Rechnungen",
+      "title": "Praxis",
       "description": "Erstellen und verwalten Sie ambulante Rechnungen für Praxisleistungen"
     },
     "business": {
