@@ -15,6 +15,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail, Users as UsersIcon, UserCog, ArrowRightLeft } from "lucide-react";
 import type { Unit, UserHospitalRole, User } from "@shared/schema";
 
+// Get available roles based on unit type
+// Anesthesia/OR units: doctor, nurse, guest, admin
+// Business units: manager, staff
+function getRolesForUnitType(unitType: string | null | undefined): Array<{ value: string; labelKey: string }> {
+  const lowerType = (unitType || "").toLowerCase();
+  
+  if (lowerType === "business") {
+    return [
+      { value: "manager", labelKey: "admin.roleManager" },
+      { value: "staff", labelKey: "admin.roleStaff" },
+    ];
+  }
+  
+  // For anesthesia, OR, or any other clinical unit types
+  return [
+    { value: "doctor", labelKey: "admin.roleDoctor" },
+    { value: "nurse", labelKey: "admin.roleNurse" },
+    { value: "guest", labelKey: "admin.roleGuest" },
+    { value: "admin", labelKey: "admin.roleAdmin" },
+  ];
+}
+
 // Generate a secure random password
 function generateSecurePassword(length: number = 12): string {
   const lowercase = 'abcdefghijklmnopqrstuvwxyz';
@@ -907,15 +929,24 @@ export default function Users() {
               <Label htmlFor="user-units">{t("admin.units")} *</Label>
               <Select
                 value={userForm.unitId}
-                onValueChange={(value) => setUserForm({ ...userForm, unitId: value })}
+                onValueChange={(value) => {
+                  const selectedUnit = units.find(u => u.id === value);
+                  const availableRoles = getRolesForUnitType(selectedUnit?.type);
+                  const currentRoleValid = availableRoles.some(r => r.value === userForm.role);
+                  setUserForm({ 
+                    ...userForm, 
+                    unitId: value,
+                    role: currentRoleValid ? userForm.role : ""
+                  });
+                }}
               >
                 <SelectTrigger data-testid="select-user-units">
                   <SelectValue placeholder={t("admin.selectLocation")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {units.map((units) => (
-                    <SelectItem key={units.id} value={units.id}>
-                      {units.name}
+                  {units.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id}>
+                      {unit.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -926,16 +957,20 @@ export default function Users() {
               <Select
                 value={userForm.role}
                 onValueChange={(value) => setUserForm({ ...userForm, role: value })}
+                disabled={!userForm.unitId}
               >
                 <SelectTrigger data-testid="select-user-role">
-                  <SelectValue placeholder={t("admin.selectRole")} />
+                  <SelectValue placeholder={userForm.unitId ? t("admin.selectRole") : t("admin.selectUnitFirst")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">{t("admin.roleAdmin")}</SelectItem>
-                  <SelectItem value="manager">{t("admin.roleManager")}</SelectItem>
-                  <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
-                  <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
-                  <SelectItem value="guest">{t("admin.roleGuest")}</SelectItem>
+                  {(() => {
+                    const selectedUnit = units.find(u => u.id === userForm.unitId);
+                    return getRolesForUnitType(selectedUnit?.type).map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {t(role.labelKey)}
+                      </SelectItem>
+                    ));
+                  })()}
                 </SelectContent>
               </Select>
             </div>
@@ -991,7 +1026,16 @@ export default function Users() {
               <Label htmlFor="staff-units">{t("admin.units")} *</Label>
               <Select
                 value={staffMemberForm.unitId}
-                onValueChange={(value) => setStaffMemberForm({ ...staffMemberForm, unitId: value })}
+                onValueChange={(value) => {
+                  const selectedUnit = units.find(u => u.id === value);
+                  const availableRoles = getRolesForUnitType(selectedUnit?.type);
+                  const currentRoleValid = availableRoles.some(r => r.value === staffMemberForm.role);
+                  setStaffMemberForm({ 
+                    ...staffMemberForm, 
+                    unitId: value,
+                    role: currentRoleValid ? staffMemberForm.role : ""
+                  });
+                }}
               >
                 <SelectTrigger data-testid="select-staff-units">
                   <SelectValue placeholder={t("admin.selectLocation")} />
@@ -1010,13 +1054,20 @@ export default function Users() {
               <Select
                 value={staffMemberForm.role}
                 onValueChange={(value) => setStaffMemberForm({ ...staffMemberForm, role: value })}
+                disabled={!staffMemberForm.unitId}
               >
                 <SelectTrigger data-testid="select-staff-role">
-                  <SelectValue placeholder={t("admin.selectRole")} />
+                  <SelectValue placeholder={staffMemberForm.unitId ? t("admin.selectRole") : t("admin.selectUnitFirst")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
-                  <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
+                  {(() => {
+                    const selectedUnit = units.find(u => u.id === staffMemberForm.unitId);
+                    return getRolesForUnitType(selectedUnit?.type).map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {t(role.labelKey)}
+                      </SelectItem>
+                    ));
+                  })()}
                 </SelectContent>
               </Select>
             </div>
@@ -1202,33 +1253,46 @@ export default function Users() {
                 <Label className="text-sm font-medium mb-2 block">{t("admin.addRoleLocation")}</Label>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Select
-                    value={newPair.role}
-                    onValueChange={(value) => setNewPair({ ...newPair, role: value })}
-                  >
-                    <SelectTrigger className="flex-1" data-testid="select-new-role">
-                      <SelectValue placeholder={t("admin.selectRole")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="admin">{t("admin.roleAdmin")}</SelectItem>
-                      <SelectItem value="manager">{t("admin.roleManager")}</SelectItem>
-                      <SelectItem value="doctor">{t("admin.roleDoctor")}</SelectItem>
-                      <SelectItem value="nurse">{t("admin.roleNurse")}</SelectItem>
-                      <SelectItem value="guest">{t("admin.roleGuest")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select
                     value={newPair.unitId}
-                    onValueChange={(value) => setNewPair({ ...newPair, unitId: value })}
+                    onValueChange={(value) => {
+                      const selectedUnit = units.find(u => u.id === value);
+                      const availableRoles = getRolesForUnitType(selectedUnit?.type);
+                      const currentRoleValid = availableRoles.some(r => r.value === newPair.role);
+                      setNewPair({ 
+                        ...newPair, 
+                        unitId: value,
+                        role: currentRoleValid ? newPair.role : ""
+                      });
+                    }}
                   >
                     <SelectTrigger className="flex-1" data-testid="select-new-units">
                       <SelectValue placeholder={t("admin.selectLocation")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {units.map((units) => (
-                        <SelectItem key={units.id} value={units.id}>
-                          {units.name}
+                      {units.map((unit) => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          {unit.name}
                         </SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={newPair.role}
+                    onValueChange={(value) => setNewPair({ ...newPair, role: value })}
+                    disabled={!newPair.unitId}
+                  >
+                    <SelectTrigger className="flex-1" data-testid="select-new-role">
+                      <SelectValue placeholder={newPair.unitId ? t("admin.selectRole") : t("admin.selectUnitFirst")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(() => {
+                        const selectedUnit = units.find(u => u.id === newPair.unitId);
+                        return getRolesForUnitType(selectedUnit?.type).map((role) => (
+                          <SelectItem key={role.value} value={role.value}>
+                            {t(role.labelKey)}
+                          </SelectItem>
+                        ));
+                      })()}
                     </SelectContent>
                   </Select>
                   <Button
