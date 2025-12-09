@@ -129,20 +129,31 @@ export class GalexisClient {
       }
 
       const responseXml = await response.text();
+      console.log('[Galexis] Raw XML response (first 1000 chars):', responseXml.substring(0, 1000));
+      
       const parsed = this.parser.parse(responseXml);
+      console.log('[Galexis] Parsed response keys:', Object.keys(parsed));
       
       const conditionsResponse = parsed.customerSpecificConditionsResponse;
       
       if (!conditionsResponse) {
+        console.log('[Galexis] Full parsed response:', JSON.stringify(parsed, null, 2).substring(0, 2000));
         throw new Error('Invalid response format from Galexis');
       }
 
+      console.log('[Galexis] Response keys:', Object.keys(conditionsResponse));
+
       if (conditionsResponse.clientErrorResponse) {
-        throw new Error(`Galexis authentication error: ${conditionsResponse.clientErrorResponse.message || 'Unknown error'}`);
+        const errorMsg = conditionsResponse.clientErrorResponse.message || 
+                        conditionsResponse.clientErrorResponse.errorText ||
+                        JSON.stringify(conditionsResponse.clientErrorResponse);
+        console.log('[Galexis] Client error response:', JSON.stringify(conditionsResponse.clientErrorResponse));
+        throw new Error(`Galexis authentication error: ${errorMsg}`);
       }
 
       if (conditionsResponse.nothingFound !== undefined) {
-        console.log('[Galexis] No conditions found (may need registration first)');
+        console.log('[Galexis] API returned nothingFound - no customer-specific conditions registered');
+        console.log('[Galexis] Full response:', JSON.stringify(conditionsResponse, null, 2));
         return { prices: [], hasMore: false, nextKey: '' };
       }
 
