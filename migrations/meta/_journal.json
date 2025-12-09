@@ -120,6 +120,13 @@
       "when": 1765254419209,
       "tag": "0016_deep_jackpot",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1765318730517,
+      "tag": "0017_fantastic_bruce_banner",
+      "breakpoints": true
     }
   ]
 }

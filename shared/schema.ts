@@ -168,6 +168,7 @@ export const items = pgTable("items", {
   barcodes: text("barcodes").array(), // Multiple barcodes per item
   imageUrl: varchar("image_url"),
   sortOrder: integer("sort_order").default(0),
+  patientPrice: decimal("patient_price", { precision: 10, scale: 2 }), // Final patient dispensing price for ambulatory invoices
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -2537,6 +2538,66 @@ export type AuditTrail = typeof auditTrail.$inferSelect;
 export type InsertAuditTrail = z.infer<typeof insertAuditTrailSchema>;
 export type Note = typeof notes.$inferSelect;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
+
+// ========================================
+// Clinic Module (Outpatient/Medical Clinic)
+// ========================================
+
+// Clinic Invoices - Invoices for outpatient services
+export const clinicInvoices = pgTable("clinic_invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  invoiceNumber: integer("invoice_number").notNull(),
+  date: timestamp("date").notNull().defaultNow(),
+  patientId: varchar("patient_id").references(() => patients.id),
+  customerName: text("customer_name").notNull(),
+  customerAddress: text("customer_address"),
+  subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
+  vatRate: decimal("vat_rate", { precision: 5, scale: 2 }).notNull().default("7.7"),
+  vatAmount: decimal("vat_amount", { precision: 10, scale: 2 }).notNull(),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+  comments: text("comments"),
+  status: varchar("status", { enum: ["draft", "sent", "paid", "cancelled"] }).default("draft"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_clinic_invoices_hospital").on(table.hospitalId),
+  index("idx_clinic_invoices_patient").on(table.patientId),
+  index("idx_clinic_invoices_status").on(table.status),
+  index("idx_clinic_invoices_date").on(table.date),
+]);
+
+// Clinic Invoice Items - Line items for each invoice
+export const clinicInvoiceItems = pgTable("clinic_invoice_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  invoiceId: varchar("invoice_id").notNull().references(() => clinicInvoices.id, { onDelete: 'cascade' }),
+  itemId: varchar("item_id").references(() => items.id),
+  description: text("description").notNull(),
+  quantity: integer("quantity").notNull().default(1),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  total: decimal("total", { precision: 10, scale: 2 }).notNull(),
+}, (table) => [
+  index("idx_clinic_invoice_items_invoice").on(table.invoiceId),
+  index("idx_clinic_invoice_items_item").on(table.itemId),
+]);
+
+// Clinic Invoice Insert Schemas
+export const insertClinicInvoiceSchema = createInsertSchema(clinicInvoices, {
+  date: z.coerce.date(),
+}).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertClinicInvoiceItemSchema = createInsertSchema(clinicInvoiceItems).omit({
+  id: true,
+});
+
+// Clinic Invoice Types
+export type ClinicInvoice = typeof clinicInvoices.$inferSelect;
+export type InsertClinicInvoice = z.infer<typeof insertClinicInvoiceSchema>;
+export type ClinicInvoiceItem = typeof clinicInvoiceItems.$inferSelect;
+export type InsertClinicInvoiceItem = z.infer<typeof insertClinicInvoiceItemSchema>;
 
 // Bulk operations schemas
 export const bulkImportItemSchema = z.object({
