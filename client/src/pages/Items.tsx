@@ -264,6 +264,7 @@ export default function Items() {
   const [isLoadingLots, setIsLoadingLots] = useState(false);
   const [lotsScanner, setLotsScanner] = useState(false);
   const [newLot, setNewLot] = useState({ lotNumber: "", expiryDate: "" });
+  const [addItemScanner, setAddItemScanner] = useState(false);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -3129,6 +3130,37 @@ export default function Items() {
               )}
             </div>
 
+            {/* Barcode Scanner for GTIN */}
+            <div>
+              <Label>{t('items.scanBarcode')}</Label>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full mt-2"
+                onClick={() => setAddItemScanner(true)}
+                data-testid="button-scan-barcode-add"
+              >
+                <i className="fas fa-qrcode mr-2"></i>
+                {formData.gtin ? t('items.rescanBarcode') : t('items.scanBarcodeForGtin')}
+              </Button>
+              {formData.gtin && (
+                <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-800">
+                  <div className="flex items-center gap-2">
+                    <i className="fas fa-check-circle text-green-600 dark:text-green-400"></i>
+                    <span className="text-sm text-green-700 dark:text-green-300">
+                      GTIN: {formData.gtin}
+                    </span>
+                  </div>
+                  {formData.lotNumber && (
+                    <div className="text-xs text-muted-foreground mt-1">
+                      LOT: {formData.lotNumber}
+                      {formData.expiryDate && ` | Exp: ${formData.expiryDate}`}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div>
               <Label htmlFor="name">{t('items.itemName')} *</Label>
               <Input 
@@ -4974,6 +5006,57 @@ export default function Items() {
         }}
         onManualEntry={() => {
           setLotsScanner(false);
+        }}
+      />
+
+      {/* GS1/DataMatrix Scanner for Add Item Flow */}
+      <BarcodeScanner
+        isOpen={addItemScanner}
+        onClose={() => setAddItemScanner(false)}
+        onScan={(code) => {
+          setAddItemScanner(false);
+          
+          if (isGS1Code(code)) {
+            const parsed = parseGS1Code(code);
+            
+            setFormData(prev => ({
+              ...prev,
+              gtin: parsed.gtin || prev.gtin,
+              lotNumber: parsed.lotNumber || prev.lotNumber,
+              expiryDate: parsed.expiryDate || prev.expiryDate,
+            }));
+            
+            toast({
+              title: t('items.barcodeScanned'),
+              description: `GTIN: ${parsed.gtin || 'N/A'}${parsed.lotNumber ? `, LOT: ${parsed.lotNumber}` : ''}${parsed.expiryDate ? `, EXP: ${parsed.expiryDate}` : ''}`,
+            });
+          } else if (/^\d{13,14}$/.test(code)) {
+            setFormData(prev => ({
+              ...prev,
+              gtin: code.padStart(14, '0'),
+            }));
+            toast({
+              title: t('items.barcodeScanned'),
+              description: `GTIN: ${code}`,
+            });
+          } else if (/^\d{7}$/.test(code)) {
+            setFormData(prev => ({
+              ...prev,
+              pharmacode: code,
+            }));
+            toast({
+              title: t('items.pharmacodeScanned'),
+              description: `Pharmacode: ${code}`,
+            });
+          } else {
+            toast({
+              title: t('items.codeScanned'),
+              description: `${t('items.rawValue')}: ${code}`,
+            });
+          }
+        }}
+        onManualEntry={() => {
+          setAddItemScanner(false);
         }}
       />
       </div>

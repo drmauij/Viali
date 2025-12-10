@@ -423,17 +423,20 @@ router.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (r
   try {
     const { itemId } = req.params;
     const userId = req.user.id;
-    const { activeUnitId } = req.body;
+    // Get active unit from header (preferred) or body (fallback)
+    const activeUnitId = getActiveUnitIdFromRequest(req) || req.body.activeUnitId;
     
     const item = await storage.getItem(itemId);
     if (!item) {
       return res.status(404).json({ message: "Item not found" });
     }
     
-    const unitId = activeUnitId || await getUserUnitForHospital(userId, item.hospitalId);
-    console.log(`[ITEM ACCESS CHECK] Item: ${item.name}, ItemUnitId: ${item.unitId}, UserActiveUnitId: ${unitId}`);
-    if (!unitId || unitId !== item.unitId) {
-      console.log(`[ACCESS DENIED] User active unit ${unitId} does not match item unit ${item.unitId}`);
+    const unitId = await getUserUnitForHospital(userId, item.hospitalId, activeUnitId || undefined);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    if (unitId !== item.unitId) {
       return res.status(403).json({ message: "Access denied to this item" });
     }
     
@@ -496,13 +499,14 @@ router.patch('/api/items/:itemId/reduce-unit', isAuthenticated, requireWriteAcce
   try {
     const { itemId } = req.params;
     const userId = req.user.id;
+    const activeUnitId = getActiveUnitIdFromRequest(req);
     
     const item = await storage.getItem(itemId);
     if (!item) {
       return res.status(404).json({ message: "Item not found" });
     }
     
-    const unitId = await getUserUnitForHospital(userId, item.hospitalId);
+    const unitId = await getUserUnitForHospital(userId, item.hospitalId, activeUnitId || undefined);
     if (!unitId || unitId !== item.unitId) {
       return res.status(403).json({ message: "Access denied to this item" });
     }
