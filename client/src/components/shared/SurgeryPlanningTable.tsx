@@ -795,7 +795,8 @@ export function SurgeryPlanningTable({
       parts.push('⏸ Stand-by');
     }
     
-    return parts.length > 0 ? parts.join(' • ') : '-';
+    // Use newlines for PDF to avoid messy wrapping with bullet separators
+    return parts.length > 0 ? parts.join('\n') : '-';
   };
   
   // Generate PDF for a day's surgeries
