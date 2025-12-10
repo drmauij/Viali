@@ -634,7 +634,8 @@ router.patch('/api/patients/:id', isAuthenticated, requireWriteAccess, async (re
   }
 });
 
-router.delete('/api/patients/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+// Archive patient (soft delete - patients cannot be permanently deleted)
+router.post('/api/patients/:id/archive', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
@@ -652,12 +653,40 @@ router.delete('/api/patients/:id', isAuthenticated, requireWriteAccess, async (r
       return res.status(403).json({ message: "Access denied" });
     }
 
-    await storage.deletePatient(id);
+    const patient = await storage.archivePatient(id, userId);
     
-    res.json({ message: "Patient deleted successfully" });
+    res.json({ message: "Patient archived successfully", patient });
   } catch (error) {
-    console.error("Error deleting patient:", error);
-    res.status(500).json({ message: "Failed to delete patient" });
+    console.error("Error archiving patient:", error);
+    res.status(500).json({ message: "Failed to archive patient" });
+  }
+});
+
+// Unarchive patient (restore from archive)
+router.post('/api/patients/:id/unarchive', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const existingPatient = await storage.getPatient(id);
+    
+    if (!existingPatient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === existingPatient.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const patient = await storage.unarchivePatient(id);
+    
+    res.json({ message: "Patient restored successfully", patient });
+  } catch (error) {
+    console.error("Error restoring patient:", error);
+    res.status(500).json({ message: "Failed to restore patient" });
   }
 });
 
@@ -902,7 +931,8 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
   }
 });
 
-router.delete('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+// Archive surgery (soft delete - surgeries cannot be permanently deleted)
+router.post('/api/anesthesia/surgeries/:id/archive', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
@@ -920,28 +950,40 @@ router.delete('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcce
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const anesthesiaRecord = await storage.getAnesthesiaRecord(id).catch(() => null);
+    const archivedSurgery = await storage.archiveSurgery(id, userId);
     
-    if (anesthesiaRecord) {
-      return res.status(400).json({ 
-        message: "Cannot delete surgery with existing anesthesia record. Please delete the anesthesia record first." 
-      });
-    }
-
-    const preOpAssessment = await db.select().from(preOpAssessments).where(eq(preOpAssessments.surgeryId, id)).limit(1);
-    
-    if (preOpAssessment.length > 0) {
-      return res.status(400).json({ 
-        message: "Cannot delete surgery with existing pre-operative assessment. Please delete the assessment first." 
-      });
-    }
-
-    await storage.deleteSurgery(id);
-    
-    res.json({ message: "Surgery deleted successfully" });
+    res.json({ message: "Surgery archived successfully", surgery: archivedSurgery });
   } catch (error) {
-    console.error("Error deleting surgery:", error);
-    res.status(500).json({ message: "Failed to delete surgery" });
+    console.error("Error archiving surgery:", error);
+    res.status(500).json({ message: "Failed to archive surgery" });
+  }
+});
+
+// Unarchive surgery (restore from archive)
+router.post('/api/anesthesia/surgeries/:id/unarchive', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const surgery = await storage.getSurgery(id);
+    
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const restoredSurgery = await storage.unarchiveSurgery(id);
+    
+    res.json({ message: "Surgery restored successfully", surgery: restoredSurgery });
+  } catch (error) {
+    console.error("Error restoring surgery:", error);
+    res.status(500).json({ message: "Failed to restore surgery" });
   }
 });
 

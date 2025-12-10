@@ -311,7 +311,8 @@ export interface IStorage {
   getPatient(id: string): Promise<Patient | undefined>;
   createPatient(patient: InsertPatient): Promise<Patient>;
   updatePatient(id: string, updates: Partial<Patient>): Promise<Patient>;
-  deletePatient(id: string): Promise<void>;
+  archivePatient(id: string, userId: string): Promise<Patient>;
+  unarchivePatient(id: string): Promise<Patient>;
   generatePatientNumber(hospitalId: string): Promise<string>;
   
   // Case operations
@@ -332,7 +333,8 @@ export interface IStorage {
   getSurgery(id: string): Promise<Surgery | undefined>;
   createSurgery(surgery: InsertSurgery): Promise<Surgery>;
   updateSurgery(id: string, updates: Partial<Surgery>): Promise<Surgery>;
-  deleteSurgery(id: string): Promise<void>;
+  archiveSurgery(id: string, userId: string): Promise<Surgery>;
+  unarchiveSurgery(id: string): Promise<Surgery>;
   
   // Anesthesia Record operations
   getAnesthesiaRecord(surgeryId: string): Promise<AnesthesiaRecord | undefined>;
@@ -2063,12 +2065,32 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async deletePatient(id: string): Promise<void> {
-    // Soft delete: set deletedAt timestamp instead of hard delete
-    await db
+  async archivePatient(id: string, userId: string): Promise<Patient> {
+    const [archived] = await db
       .update(patients)
-      .set({ deletedAt: new Date() })
-      .where(eq(patients.id, id));
+      .set({ 
+        isArchived: true, 
+        archivedAt: new Date(), 
+        archivedBy: userId,
+        updatedAt: new Date() 
+      })
+      .where(eq(patients.id, id))
+      .returning();
+    return archived;
+  }
+
+  async unarchivePatient(id: string): Promise<Patient> {
+    const [restored] = await db
+      .update(patients)
+      .set({ 
+        isArchived: false, 
+        archivedAt: null, 
+        archivedBy: null,
+        updatedAt: new Date() 
+      })
+      .where(eq(patients.id, id))
+      .returning();
+    return restored;
   }
 
   async generatePatientNumber(hospitalId: string): Promise<string> {
@@ -2182,10 +2204,32 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async deleteSurgery(id: string): Promise<void> {
-    await db
-      .delete(surgeries)
-      .where(eq(surgeries.id, id));
+  async archiveSurgery(id: string, userId: string): Promise<Surgery> {
+    const [archived] = await db
+      .update(surgeries)
+      .set({ 
+        isArchived: true, 
+        archivedAt: new Date(), 
+        archivedBy: userId,
+        updatedAt: new Date() 
+      })
+      .where(eq(surgeries.id, id))
+      .returning();
+    return archived;
+  }
+
+  async unarchiveSurgery(id: string): Promise<Surgery> {
+    const [restored] = await db
+      .update(surgeries)
+      .set({ 
+        isArchived: false, 
+        archivedAt: null, 
+        archivedBy: null,
+        updatedAt: new Date() 
+      })
+      .where(eq(surgeries.id, id))
+      .returning();
+    return restored;
   }
 
   // Anesthesia Record operations
