@@ -1046,7 +1046,7 @@ export function SurgeryPlanningTable({
     if (showScheduling && showPreOpColumn) count += 1; // pre-op column
     if (showPaidStatus) count += 1;
     if (showBusiness) count += 6; // price, quote, contract sent/received, invoice, payment
-    if (showContracts && !showBusiness) count += 2;
+    if (showContracts && !showBusiness) count += 1; // contract received icon only
     if (showImplants) count += 3;
     return count;
   }, [showClinical, showScheduling, showBusiness, showContracts, showImplants, showPaidStatus, showPreOpColumn, hideRoomAndAdmission]);
@@ -1153,13 +1153,9 @@ export function SurgeryPlanningTable({
             )}
             
             {showContracts && !showBusiness && (
-              <>
-                <TableHead>
-                  <FileText className="h-4 w-4 inline mr-1" />
-                  {t("surgeryPlanning.columns.contractSent")}
-                </TableHead>
-                <TableHead>{t("surgeryPlanning.columns.contractReceived")}</TableHead>
-              </>
+              <TableHead className="text-center w-12" title={t("surgeryPlanning.columns.contractReceived")}>
+                <FileText className="h-4 w-4 inline" />
+              </TableHead>
             )}
             
             {showImplants && (
@@ -1365,26 +1361,13 @@ export function SurgeryPlanningTable({
                   )}
                   
                   {showContracts && !showBusiness && (
-                    <>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <EditableDateCell
-                          value={surgery.treatmentContractSentDate}
-                          surgeryId={surgery.id}
-                          field="treatmentContractSentDate"
-                          onUpdate={handleUpdate}
-                          isPending={isFieldPending(surgery.id, "treatmentContractSentDate")}
-                        />
-                      </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <EditableDateCell
-                          value={surgery.treatmentContractReceivedDate}
-                          surgeryId={surgery.id}
-                          field="treatmentContractReceivedDate"
-                          onUpdate={handleUpdate}
-                          isPending={isFieldPending(surgery.id, "treatmentContractReceivedDate")}
-                        />
-                      </TableCell>
-                    </>
+                    <TableCell className="text-center">
+                      {surgery.treatmentContractReceivedDate ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 inline" />
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                   )}
                   
                   {showImplants && (
