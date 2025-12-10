@@ -87,8 +87,8 @@ const PAYMENT_STATUS_COLORS: Record<string, string> = {
 };
 
 const DEFAULT_COLUMN_GROUPS: Record<ModuleContext, ColumnGroup[]> = {
-  anesthesia: ["clinical", "scheduling", "paidStatus", "implants"],
-  surgery: ["clinical", "scheduling", "paidStatus", "implants"],
+  anesthesia: ["clinical", "scheduling", "paidStatus", "contracts", "implants"],
+  surgery: ["clinical", "scheduling", "paidStatus", "contracts", "implants"],
   business: ["clinical", "scheduling", "business"],
   marketing: ["clinical", "business"],
 };
@@ -1277,17 +1277,14 @@ export function SurgeryPlanningTable({
                       )}
                       <TableCell>
                         <Badge
-                          variant={
-                            surgery.status === "completed"
-                              ? "default"
-                              : surgery.status === "in-progress"
-                              ? "secondary"
-                              : surgery.status === "cancelled"
-                              ? "destructive"
-                              : "outline"
-                          }
+                          className={cn(
+                            (surgery as any).planningStatus === "confirmed"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/30"
+                              : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          )}
+                          variant="secondary"
                         >
-                          {surgery.status}
+                          {t(`surgeryPlanning.planningStatus.${(surgery as any).planningStatus || "pre-registered"}`)}
                         </Badge>
                       </TableCell>
                       {showPreOpColumn && (

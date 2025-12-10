@@ -2153,7 +2153,8 @@
       "surgeryUpdated": "Surgery Updated",
       "surgeryUpdatedDescription": "Surgery details have been successfully updated.",
       "surgeryDeleted": "Surgery Deleted",
-      "surgeryDeletedDescription": "The surgery and all associated data have been successfully deleted."
+      "surgeryDeletedDescription": "The surgery and all associated data have been successfully deleted.",
+      "planningStatus": "Planning Status"
     },
     "quickSchedule": {
       "title": "Quick Schedule Surgery",
@@ -2911,6 +2912,10 @@
       "statusStandby": "Pre-op assessment on stand-by",
       "statusApproved": "Pre-op assessment completed - Approved",
       "statusRejected": "Pre-op assessment completed - Not Approved"
+    },
+    "planningStatus": {
+      "pre-registered": "Pre-Registered",
+      "confirmed": "Confirmed"
     },
     "patientInfo": "Patient Information",
     "patientNumber": "Patient Number",

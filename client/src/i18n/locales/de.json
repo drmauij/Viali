@@ -2152,7 +2152,8 @@
       "surgeryUpdated": "OP aktualisiert",
       "surgeryUpdatedDescription": "OP-Details wurden erfolgreich aktualisiert.",
       "surgeryDeleted": "OP gelöscht",
-      "surgeryDeletedDescription": "Die OP und alle zugehörigen Daten wurden erfolgreich gelöscht."
+      "surgeryDeletedDescription": "Die OP und alle zugehörigen Daten wurden erfolgreich gelöscht.",
+      "planningStatus": "Planungsstatus"
     },
     "quickSchedule": {
       "title": "OP Schnellplanung",
@@ -2925,6 +2926,10 @@
       "statusStandby": "Präoperative Beurteilung in Wartestellung",
       "statusApproved": "Präoperative Beurteilung abgeschlossen - Genehmigt",
       "statusRejected": "Präoperative Beurteilung abgeschlossen - Nicht genehmigt"
+    },
+    "planningStatus": {
+      "pre-registered": "Vorgemeldet",
+      "confirmed": "Bestätigt"
     },
     "patientInfo": "Patienteninformationen",
     "patientNumber": "Patientennummer",

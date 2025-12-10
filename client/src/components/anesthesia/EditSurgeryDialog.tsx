@@ -34,6 +34,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [surgeonId, setSurgeonId] = useState("");
   const [notes, setNotes] = useState("");
   const [implantDetails, setImplantDetails] = useState("");
+  const [planningStatus, setPlanningStatus] = useState<"pre-registered" | "confirmed">("pre-registered");
 
   // Fetch surgery details
   const { data: surgery, isLoading } = useQuery<any>({
@@ -89,6 +90,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setSurgeonId(surgery.surgeonId || "");
       setNotes(surgery.notes || "");
       setImplantDetails(surgery.implantDetails || "");
+      setPlanningStatus(surgery.planningStatus || "pre-registered");
       
       if (surgery.admissionTime) {
         const admissionDateObj = new Date(surgery.admissionTime);
@@ -131,6 +133,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         notes: notes || null,
         admissionTime: admissionTimeISO,
         implantDetails: implantDetails || null,
+        planningStatus,
       });
       return response.json();
     },
@@ -359,6 +362,24 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                         {s.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Planning Status */}
+              <div className="space-y-2">
+                <Label htmlFor="edit-planning-status">{t('anesthesia.editSurgery.planningStatus', 'Planning Status')}</Label>
+                <Select 
+                  value={planningStatus} 
+                  onValueChange={(value) => setPlanningStatus(value as "pre-registered" | "confirmed")}
+                  disabled={!canWrite}
+                >
+                  <SelectTrigger id="edit-planning-status" data-testid="select-edit-planning-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pre-registered">{t('surgeryPlanning.planningStatus.pre-registered', 'Pre-Registered')}</SelectItem>
+                    <SelectItem value="confirmed">{t('surgeryPlanning.planningStatus.confirmed', 'Confirmed')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

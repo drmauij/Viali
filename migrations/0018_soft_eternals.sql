@@ -1,0 +1,1 @@
+ALTER TABLE "surgeries" ADD COLUMN "planning_status" varchar DEFAULT 'pre-registered' NOT NULL;

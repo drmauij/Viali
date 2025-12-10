@@ -721,6 +721,9 @@ export const surgeries = pgTable("surgeries", {
   
   status: varchar("status", { enum: ["planned", "in-progress", "completed", "cancelled"] }).notNull().default("planned"),
   
+  // Planning status - used for administrative tracking (vorgemeldet/bestätigt)
+  planningStatus: varchar("planning_status", { enum: ["pre-registered", "confirmed"] }).notNull().default("pre-registered"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
