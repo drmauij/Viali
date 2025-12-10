@@ -503,8 +503,9 @@ export function SurgeryPlanningTable({
   const preOpMap = useMemo(() => {
     const map = new Map<string, any>();
     preOpAssessments.forEach((item) => {
-      if (item.surgery?.id) {
-        map.set(item.surgery.id, item);
+      // The API returns assessment records directly with surgeryId field
+      if (item.surgeryId) {
+        map.set(item.surgeryId, { assessment: item, status: item.status });
       }
     });
     return map;
