@@ -61,10 +61,11 @@ type Surgeon = {
 
 export default function PatientDetail() {
   const { t } = useTranslation();
-  // Support both anesthesia and surgery module routes
+  // Support anesthesia, surgery, and clinic module routes
   const [, anesthesiaParams] = useRoute("/anesthesia/patients/:id");
   const [, surgeryParams] = useRoute("/surgery/patients/:id");
-  const params = anesthesiaParams || surgeryParams;
+  const [, clinicParams] = useRoute("/clinic/patients/:id");
+  const params = anesthesiaParams || surgeryParams || clinicParams;
   const [, setLocation] = useLocation();
   const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
   const [isPreOpOpen, setIsPreOpOpen] = useState(false);
@@ -77,7 +78,8 @@ export default function PatientDetail() {
   const isPreOpReadOnly = !canWrite;
   const { activeModule } = useModule();
   const isSurgeryModule = activeModule === "surgery";
-  const moduleBasePath = isSurgeryModule ? "/surgery" : "/anesthesia";
+  const isClinicModule = activeModule === "clinic";
+  const moduleBasePath = isClinicModule ? "/clinic" : isSurgeryModule ? "/surgery" : "/anesthesia";
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   // Track if Edit Patient dialog was opened via URL navigation (should use history.back()) or button click (just close)
   const editOpenedViaUrl = useRef(false);
@@ -552,7 +554,7 @@ export default function PatientDetail() {
         title: t('anesthesia.patientDetail.successPatientArchived', 'Patient archived'),
         description: t('anesthesia.patientDetail.successPatientArchivedDesc', 'Patient has been moved to archive'),
       });
-      setLocation("/anesthesia/patients");
+      setLocation(`${moduleBasePath}/patients`);
     },
     onError: (error: any) => {
       toast({
