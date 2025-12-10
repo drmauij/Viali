@@ -212,6 +212,111 @@ Important:
   }
 }
 
+interface ExtractedCodesData {
+  gtin?: string;
+  pharmacode?: string;
+  ean?: string;
+  supplierCode?: string;
+  lotNumber?: string;
+  expiryDate?: string;
+  confidence: number;
+}
+
+export async function analyzeCodesImage(base64Image: string): Promise<ExtractedCodesData> {
+  try {
+    // First, try to decode any barcodes in the image using ZXing
+    let decodedBarcode: { gtin?: string; lotNumber?: string; expiryDate?: string; productionDate?: string; text?: string } | null = null;
+    try {
+      decodedBarcode = await tryDecodeWithMultipleStrategies(base64Image);
+      if (decodedBarcode) {
+        console.log('[OpenAI] Barcode decoded successfully for codes extraction:', {
+          gtin: decodedBarcode.gtin,
+          lot: decodedBarcode.lotNumber,
+          expiry: decodedBarcode.expiryDate,
+          raw: decodedBarcode.text
+        });
+      }
+    } catch (barcodeError) {
+      console.log('[OpenAI] Barcode decoding failed, continuing with AI analysis for codes');
+    }
+
+    const visionResponse = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `Analyze this pharmaceutical/medical product image and extract ONLY the product identification codes in JSON format. Focus on finding ALL visible barcodes and code labels:
+{
+  "gtin": "GTIN/EAN code (13-14 digits). Look for GS1 DataMatrix barcodes (01 prefix) OR 13-digit numbers near barcodes",
+  "pharmacode": "Swiss Pharmacode OR German PZN number (7-8 digits). Labeled 'Pharmacode', 'PH', 'PZN', or 'Pharmazentralnummer'",
+  "ean": "EAN-13 barcode number if different from GTIN (13 digits)",
+  "supplierCode": "Supplier/distributor article code (often starts with letters, varies by supplier)",
+  "lotNumber": "LOT/Batch number (labeled 'LOT', 'Ch.-B.', 'BATCH', 'Lot', 'Charge'). Alphanumeric code",
+  "expiryDate": "Expiration date in YYYY-MM-DD format. Look for hourglass icon (⌛), 'EXP', 'Verfall', 'Verwendbar bis'",
+  "confidence": "confidence score 0-1"
+}
+
+IMPORTANT CODE IDENTIFICATION:
+1. GTIN (Global Trade Item Number):
+   - 13-14 digit numeric code
+   - Found in/near barcodes or labeled "GTIN", "EAN", "UPC"
+   - In GS1 DataMatrix: 14 digits after '01' prefix
+   
+2. Pharmacode/PZN:
+   - 7-8 digit NUMERIC code ONLY
+   - Labeled "PZN", "Pharmacode", "PH"
+   - Example: 00570074, 1234567
+   
+3. Supplier Code:
+   - Variable format, often alphanumeric
+   - May be labeled "Art.", "REF", or supplier-specific
+   
+4. LOT/Batch Number:
+   - Alphanumeric (letters AND numbers)
+   - Labeled "LOT", "Ch.-B.", "BATCH"
+   - ⚠️ NEVER confuse with Pharmacode!
+
+Look carefully at all visible labels and barcodes. Extract every code you can find.
+Return ONLY valid JSON.`
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${base64Image}`
+              }
+            }
+          ],
+        },
+      ],
+      response_format: { type: "json_object" },
+      max_completion_tokens: 1024,
+    });
+
+    const result = JSON.parse(visionResponse.choices[0].message.content || "{}");
+    
+    // Merge barcode decoder results with AI results (decoder takes priority)
+    let gtin = decodedBarcode?.gtin || result.gtin;
+    let expiryDate = decodedBarcode?.expiryDate || result.expiryDate;
+    let lotNumber = decodedBarcode?.lotNumber || result.lotNumber;
+    
+    return {
+      gtin,
+      pharmacode: result.pharmacode,
+      ean: result.ean,
+      supplierCode: result.supplierCode,
+      lotNumber,
+      expiryDate,
+      confidence: Math.max(0, Math.min(1, result.confidence || 0)),
+    };
+  } catch (error: any) {
+    console.error("Error analyzing codes image with OpenAI:", error);
+    throw new Error("Failed to analyze codes image: " + error.message);
+  }
+}
+
 interface BulkItemExtraction {
   name: string;
   description?: string;

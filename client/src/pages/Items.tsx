@@ -145,6 +145,8 @@ export default function Items() {
     imageUrl: "",
     gtin: "",
     pharmacode: "",
+    ean: "",
+    supplierCode: "",
     migel: "",
     atc: "",
     manufacturer: "",
@@ -265,6 +267,25 @@ export default function Items() {
   const [lotsScanner, setLotsScanner] = useState(false);
   const [newLot, setNewLot] = useState({ lotNumber: "", expiryDate: "" });
   const [addItemScanner, setAddItemScanner] = useState(false);
+  
+  // 2-step photo capture state for Add Item
+  const [addItemStep, setAddItemStep] = useState<1 | 2>(1);
+  const [isAnalyzingCodes, setIsAnalyzingCodes] = useState(false);
+  const [codesImage, setCodesImage] = useState<string | null>(null);
+  const codesFileInputRef = useRef<HTMLInputElement>(null);
+  const codesGalleryInputRef = useRef<HTMLInputElement>(null);
+  
+  // Individual barcode scan state for Add Item codes
+  const [scanningCodeField, setScanningCodeField] = useState<'gtin' | 'pharmacode' | 'supplierCode' | null>(null);
+  
+  // Edit Item codes capture state
+  const [isAnalyzingEditCodes, setIsAnalyzingEditCodes] = useState(false);
+  const [editCodesImage, setEditCodesImage] = useState<string | null>(null);
+  const editCodesFileInputRef = useRef<HTMLInputElement>(null);
+  const editCodesGalleryInputRef = useRef<HTMLInputElement>(null);
+  
+  // Individual barcode scan state for Edit Item codes
+  const [scanningEditCodeField, setScanningEditCodeField] = useState<'gtin' | 'pharmacode' | 'migel' | 'atc' | null>(null);
 
   // Drag and drop sensors
   const sensors = useSensors(
@@ -1426,6 +1447,8 @@ export default function Items() {
       imageUrl: "",
       gtin: "",
       pharmacode: "",
+      ean: "",
+      supplierCode: "",
       migel: "",
       atc: "",
       manufacturer: "",
@@ -1434,6 +1457,145 @@ export default function Items() {
     });
     setSelectedUnit("Pack");
     setUploadedImages([]);
+    setAddItemStep(1);
+    setCodesImage(null);
+    setScanningCodeField(null);
+  };
+  
+  // Handler for Step 2: Codes image extraction
+  const handleCodesImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsAnalyzingCodes(true);
+    
+    try {
+      const compressedImage = await compressImage(file);
+      setCodesImage(compressedImage);
+      
+      // Analyze image for codes
+      const response = await apiRequest('POST', '/api/items/analyze-codes', {
+        image: compressedImage
+      });
+      const result: any = await response.json();
+      
+      // Update form with extracted codes
+      setFormData(prev => ({
+        ...prev,
+        gtin: result.gtin || prev.gtin,
+        pharmacode: result.pharmacode || prev.pharmacode,
+        ean: result.ean || prev.ean,
+        supplierCode: result.supplierCode || prev.supplierCode,
+        lotNumber: result.lotNumber || prev.lotNumber,
+        expiryDate: result.expiryDate || prev.expiryDate,
+      }));
+      
+      toast({
+        title: t('items.codesExtracted'),
+        description: `${t('common.confidence')}: ${Math.round((result.confidence || 0) * 100)}%`,
+      });
+    } catch (error: any) {
+      toast({
+        title: t('items.codesExtractionFailed'),
+        description: error.message || t('items.failedToExtractCodes'),
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzingCodes(false);
+      e.target.value = '';
+    }
+  };
+  
+  // Handler for individual barcode scan result in Add Item
+  const handleAddItemCodeScan = (code: string) => {
+    if (!scanningCodeField) return;
+    
+    setFormData(prev => ({
+      ...prev,
+      [scanningCodeField]: code
+    }));
+    
+    toast({
+      title: t('items.codeCaptured'),
+      description: `${scanningCodeField.toUpperCase()}: ${code}`,
+    });
+    
+    setScanningCodeField(null);
+  };
+  
+  // Handler for Edit Item codes image extraction
+  const handleEditCodesImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsAnalyzingEditCodes(true);
+    
+    try {
+      const compressedImage = await compressImage(file);
+      setEditCodesImage(compressedImage);
+      
+      // Analyze image for codes
+      const response = await apiRequest('POST', '/api/items/analyze-codes', {
+        image: compressedImage
+      });
+      const result: any = await response.json();
+      
+      // Update itemCodes with extracted codes (gtin, pharmacode, manufacturer are the main scannable codes)
+      setItemCodes(prev => ({
+        ...prev,
+        gtin: result.gtin || prev?.gtin,
+        pharmacode: result.pharmacode || prev?.pharmacode,
+        manufacturer: result.manufacturer || prev?.manufacturer,
+      }));
+      
+      // If lot/expiry was extracted, update the newLot state for easy addition
+      if (result.lotNumber || result.expiryDate) {
+        setNewLot(prev => ({
+          lotNumber: result.lotNumber || prev.lotNumber,
+          expiryDate: result.expiryDate || prev.expiryDate,
+        }));
+      }
+      
+      const extractedFields: string[] = [];
+      if (result.gtin) extractedFields.push('GTIN');
+      if (result.pharmacode) extractedFields.push('Pharmacode');
+      if (result.manufacturer) extractedFields.push('Manufacturer');
+      if (result.lotNumber) extractedFields.push('LOT');
+      if (result.expiryDate) extractedFields.push('Expiry');
+      
+      toast({
+        title: t('items.codesExtracted'),
+        description: extractedFields.length > 0 
+          ? `${extractedFields.join(', ')} (${Math.round((result.confidence || 0) * 100)}%)`
+          : `${t('common.confidence')}: ${Math.round((result.confidence || 0) * 100)}%`,
+      });
+    } catch (error: any) {
+      toast({
+        title: t('items.codesExtractionFailed'),
+        description: error.message || t('items.failedToExtractCodes'),
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzingEditCodes(false);
+      e.target.value = '';
+    }
+  };
+  
+  // Handler for individual barcode scan result in Edit Item codes
+  const handleEditItemCodeScan = (code: string) => {
+    if (!scanningEditCodeField) return;
+    
+    setItemCodes(prev => ({
+      ...prev,
+      [scanningEditCodeField]: code
+    }));
+    
+    toast({
+      title: t('items.codeCaptured'),
+      description: `${scanningEditCodeField.toUpperCase()}: ${code}`,
+    });
+    
+    setScanningEditCodeField(null);
   };
 
   const handleDownloadInventory = () => {
@@ -3081,9 +3243,35 @@ export default function Items() {
             <DialogDescription>{t('items.createNewInventoryItem')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddItem} className="space-y-4">
-            {/* Image Upload */}
-            <div>
-              <Label>{t('items.uploadPhoto')}</Label>
+            {/* Step Indicator */}
+            <div className="flex items-center gap-2 mb-4">
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${addItemStep === 1 ? 'bg-primary text-primary-foreground' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'}`}>
+                {addItemStep > 1 ? <i className="fas fa-check"></i> : <span>1</span>}
+                <span>{t('items.productInfo')}</span>
+              </div>
+              <div className="flex-1 h-0.5 bg-border"></div>
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${addItemStep === 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                <span>2</span>
+                <span>{t('items.productCodes')}</span>
+              </div>
+            </div>
+            
+            {/* Step 1: Product Info Photo */}
+            <div className={`p-4 rounded-lg border-2 ${addItemStep === 1 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${addItemStep === 1 ? 'bg-primary text-primary-foreground' : 'bg-green-500 text-white'}`}>
+                    {uploadedImages.length > 0 ? <i className="fas fa-check text-xs"></i> : '1'}
+                  </div>
+                  <Label className="font-semibold">{t('items.step1ProductPhoto')}</Label>
+                </div>
+                {addItemStep > 1 && (
+                  <Button type="button" variant="ghost" size="sm" onClick={() => setAddItemStep(1)}>
+                    <i className="fas fa-edit mr-1"></i>{t('common.edit')}
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">{t('items.step1Description')}</p>
               <input
                 type="file"
                 ref={fileInputRef}
@@ -3128,38 +3316,162 @@ export default function Items() {
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* Barcode Scanner for GTIN */}
-            <div>
-              <Label>{t('items.scanBarcode')}</Label>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full mt-2"
-                onClick={() => setAddItemScanner(true)}
-                data-testid="button-scan-barcode-add"
-              >
-                <i className="fas fa-qrcode mr-2"></i>
-                {formData.gtin ? t('items.rescanBarcode') : t('items.scanBarcodeForGtin')}
-              </Button>
-              {formData.gtin && (
-                <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-800">
-                  <div className="flex items-center gap-2">
-                    <i className="fas fa-check-circle text-green-600 dark:text-green-400"></i>
-                    <span className="text-sm text-green-700 dark:text-green-300">
-                      GTIN: {formData.gtin}
-                    </span>
-                  </div>
-                  {formData.lotNumber && (
-                    <div className="text-xs text-muted-foreground mt-1">
-                      LOT: {formData.lotNumber}
-                      {formData.expiryDate && ` | Exp: ${formData.expiryDate}`}
-                    </div>
-                  )}
-                </div>
+              {uploadedImages.length > 0 && addItemStep === 1 && (
+                <Button 
+                  type="button" 
+                  className="w-full mt-3" 
+                  onClick={() => setAddItemStep(2)}
+                  data-testid="button-next-to-codes"
+                >
+                  {t('items.nextStepCodes')} <i className="fas fa-arrow-right ml-2"></i>
+                </Button>
               )}
             </div>
+            
+            {/* Step 2: Product Codes Photo */}
+            {addItemStep === 2 && (
+              <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">2</div>
+                  <Label className="font-semibold">{t('items.step2CodesPhoto')}</Label>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">{t('items.step2Description')}</p>
+                <input
+                  type="file"
+                  ref={codesFileInputRef}
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleCodesImageUpload}
+                  className="hidden"
+                />
+                <input
+                  type="file"
+                  ref={codesGalleryInputRef}
+                  accept="image/*"
+                  onChange={handleCodesImageUpload}
+                  className="hidden"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => codesFileInputRef.current?.click()}
+                    disabled={isAnalyzingCodes}
+                    data-testid="button-camera-codes"
+                  >
+                    <i className={`fas ${isAnalyzingCodes ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
+                    {isAnalyzingCodes ? t('items.analyzing') : t('items.captureCodesPhoto')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => codesGalleryInputRef.current?.click()}
+                    disabled={isAnalyzingCodes}
+                    data-testid="button-gallery-codes"
+                  >
+                    <i className="fas fa-images mr-2"></i>
+                    {t('items.uploadFromGallery')}
+                  </Button>
+                </div>
+                {codesImage && (
+                  <div className="mt-2">
+                    <img src={codesImage} alt="Codes" className="h-16 w-16 object-cover rounded border" />
+                  </div>
+                )}
+                
+                {/* Extracted Codes Display with Individual Scan Fallback */}
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <i className="fas fa-barcode text-primary"></i>
+                    <span className="text-sm font-medium">{t('items.extractedCodes')}</span>
+                  </div>
+                  
+                  {/* GTIN */}
+                  <div className="flex items-center gap-2">
+                    <Label className="w-24 text-xs text-muted-foreground">GTIN/EAN</Label>
+                    <Input 
+                      value={formData.gtin}
+                      onChange={(e) => setFormData(prev => ({ ...prev, gtin: e.target.value }))}
+                      placeholder="GTIN..."
+                      className="h-8 flex-1"
+                      data-testid="input-add-gtin-step2"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setScanningCodeField('gtin')}
+                      data-testid="button-scan-gtin"
+                    >
+                      <i className="fas fa-barcode"></i>
+                    </Button>
+                  </div>
+                  
+                  {/* Pharmacode */}
+                  <div className="flex items-center gap-2">
+                    <Label className="w-24 text-xs text-muted-foreground">Pharmacode</Label>
+                    <Input 
+                      value={formData.pharmacode}
+                      onChange={(e) => setFormData(prev => ({ ...prev, pharmacode: e.target.value }))}
+                      placeholder="Pharmacode..."
+                      className="h-8 flex-1"
+                      data-testid="input-add-pharmacode-step2"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setScanningCodeField('pharmacode')}
+                      data-testid="button-scan-pharmacode"
+                    >
+                      <i className="fas fa-barcode"></i>
+                    </Button>
+                  </div>
+                  
+                  {/* Supplier Code */}
+                  <div className="flex items-center gap-2">
+                    <Label className="w-24 text-xs text-muted-foreground">{t('items.supplierCode')}</Label>
+                    <Input 
+                      value={formData.supplierCode}
+                      onChange={(e) => setFormData(prev => ({ ...prev, supplierCode: e.target.value }))}
+                      placeholder={t('items.supplierCode') + "..."}
+                      className="h-8 flex-1"
+                      data-testid="input-add-supplier-code-step2"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => setScanningCodeField('supplierCode')}
+                      data-testid="button-scan-supplier-code"
+                    >
+                      <i className="fas fa-barcode"></i>
+                    </Button>
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground mt-2">
+                    <i className="fas fa-info-circle mr-1"></i>
+                    {t('items.scanFallbackHint')}
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Skip to manual entry option */}
+            {addItemStep === 1 && uploadedImages.length === 0 && (
+              <Button 
+                type="button" 
+                variant="ghost" 
+                className="w-full text-muted-foreground"
+                onClick={() => setAddItemStep(2)}
+              >
+                <i className="fas fa-keyboard mr-2"></i>
+                {t('items.skipPhotoEntry')}
+              </Button>
+            )}
 
             <div>
               <Label htmlFor="name">{t('items.itemName')} *</Label>
@@ -3726,12 +4038,67 @@ export default function Items() {
                   </div>
                 ) : (
                   <>
+                    {/* Capture All Codes Photo Section */}
+                    {canWrite && (
+                      <div className="p-4 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5">
+                        <div className="flex items-center gap-2 mb-2">
+                          <i className="fas fa-camera text-primary"></i>
+                          <Label className="font-semibold">{t('items.captureAllCodes')}</Label>
+                        </div>
+                        <p className="text-xs text-muted-foreground mb-3">{t('items.captureAllCodesDesc')}</p>
+                        <input
+                          type="file"
+                          ref={editCodesFileInputRef}
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handleEditCodesImageUpload}
+                          className="hidden"
+                        />
+                        <input
+                          type="file"
+                          ref={editCodesGalleryInputRef}
+                          accept="image/*"
+                          onChange={handleEditCodesImageUpload}
+                          className="hidden"
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => editCodesFileInputRef.current?.click()}
+                            disabled={isAnalyzingEditCodes}
+                            data-testid="button-edit-camera-codes"
+                          >
+                            <i className={`fas ${isAnalyzingEditCodes ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
+                            {isAnalyzingEditCodes ? t('items.analyzing') : t('controlled.takePhoto')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => editCodesGalleryInputRef.current?.click()}
+                            disabled={isAnalyzingEditCodes}
+                            data-testid="button-edit-gallery-codes"
+                          >
+                            <i className="fas fa-images mr-2"></i>
+                            {t('items.uploadFromGallery')}
+                          </Button>
+                        </div>
+                        {editCodesImage && (
+                          <div className="mt-2">
+                            <img src={editCodesImage} alt="Codes" className="h-12 w-12 object-cover rounded border" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     {/* Universal Product Codes Section */}
                     <div className="space-y-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <i className="fas fa-barcode text-primary"></i>
-                          <h3 className="font-semibold">Universal Codes</h3>
+                          <h3 className="font-semibold">{t('items.universalCodes')}</h3>
                         </div>
                         {canWrite && (
                           <Button
@@ -3749,47 +4116,103 @@ export default function Items() {
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <Label htmlFor="gtin">GTIN/EAN</Label>
-                          <Input 
-                            id="gtin"
-                            placeholder="e.g., 7680123456789"
-                            value={itemCodes?.gtin || ""}
-                            onChange={(e) => setItemCodes(prev => ({ ...prev, gtin: e.target.value }))}
-                            disabled={!canWrite}
-                            data-testid="input-gtin"
-                          />
+                          <div className="flex gap-1">
+                            <Input 
+                              id="gtin"
+                              placeholder="e.g., 7680123456789"
+                              value={itemCodes?.gtin || ""}
+                              onChange={(e) => setItemCodes(prev => ({ ...prev, gtin: e.target.value }))}
+                              disabled={!canWrite}
+                              data-testid="input-gtin"
+                            />
+                            {canWrite && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9 flex-shrink-0"
+                                onClick={() => setScanningEditCodeField('gtin')}
+                                data-testid="button-scan-edit-gtin"
+                              >
+                                <i className="fas fa-barcode text-xs"></i>
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <div>
                           <Label htmlFor="pharmacode">Pharmacode</Label>
-                          <Input 
-                            id="pharmacode"
-                            placeholder="7-digit Swiss code"
-                            value={itemCodes?.pharmacode || ""}
-                            onChange={(e) => setItemCodes(prev => ({ ...prev, pharmacode: e.target.value }))}
-                            disabled={!canWrite}
-                            data-testid="input-pharmacode"
-                          />
+                          <div className="flex gap-1">
+                            <Input 
+                              id="pharmacode"
+                              placeholder="7-digit Swiss code"
+                              value={itemCodes?.pharmacode || ""}
+                              onChange={(e) => setItemCodes(prev => ({ ...prev, pharmacode: e.target.value }))}
+                              disabled={!canWrite}
+                              data-testid="input-pharmacode"
+                            />
+                            {canWrite && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9 flex-shrink-0"
+                                onClick={() => setScanningEditCodeField('pharmacode')}
+                                data-testid="button-scan-edit-pharmacode"
+                              >
+                                <i className="fas fa-barcode text-xs"></i>
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <div>
                           <Label htmlFor="migel">MiGeL Code</Label>
-                          <Input 
-                            id="migel"
-                            placeholder="Swiss device code"
-                            value={itemCodes?.migel || ""}
-                            onChange={(e) => setItemCodes(prev => ({ ...prev, migel: e.target.value }))}
-                            disabled={!canWrite}
-                            data-testid="input-migel"
-                          />
+                          <div className="flex gap-1">
+                            <Input 
+                              id="migel"
+                              placeholder="Swiss device code"
+                              value={itemCodes?.migel || ""}
+                              onChange={(e) => setItemCodes(prev => ({ ...prev, migel: e.target.value }))}
+                              disabled={!canWrite}
+                              data-testid="input-migel"
+                            />
+                            {canWrite && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9 flex-shrink-0"
+                                onClick={() => setScanningEditCodeField('migel')}
+                                data-testid="button-scan-edit-migel"
+                              >
+                                <i className="fas fa-barcode text-xs"></i>
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <div>
                           <Label htmlFor="atc">ATC Code</Label>
-                          <Input 
-                            id="atc"
-                            placeholder="e.g., N02BE01"
-                            value={itemCodes?.atc || ""}
-                            onChange={(e) => setItemCodes(prev => ({ ...prev, atc: e.target.value }))}
-                            disabled={!canWrite}
-                            data-testid="input-atc"
-                          />
+                          <div className="flex gap-1">
+                            <Input 
+                              id="atc"
+                              placeholder="e.g., N02BE01"
+                              value={itemCodes?.atc || ""}
+                              onChange={(e) => setItemCodes(prev => ({ ...prev, atc: e.target.value }))}
+                              disabled={!canWrite}
+                              data-testid="input-atc"
+                            />
+                            {canWrite && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9 flex-shrink-0"
+                                onClick={() => setScanningEditCodeField('atc')}
+                                data-testid="button-scan-edit-atc"
+                              >
+                                <i className="fas fa-barcode text-xs"></i>
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <div className="col-span-2">
                           <Label htmlFor="manufacturer">Manufacturer</Label>
@@ -3806,7 +4229,7 @@ export default function Items() {
                       
                       {/* Pack Information */}
                       <div className="pt-2 border-t">
-                        <Label className="text-sm text-muted-foreground mb-2 block">Pack Information</Label>
+                        <Label className="text-sm text-muted-foreground mb-2 block">{t('items.packInformation')}</Label>
                         <div className="grid grid-cols-3 gap-3">
                           <div>
                             <Label htmlFor="packContent" className="text-xs">Pack Content</Label>
@@ -3864,7 +4287,7 @@ export default function Items() {
                           data-testid="button-save-codes"
                         >
                           <i className="fas fa-save mr-2"></i>
-                          Save Codes
+                          {t('items.saveCodes')}
                         </Button>
                       )}
                     </div>
@@ -3874,7 +4297,7 @@ export default function Items() {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <i className="fas fa-truck text-primary"></i>
-                          <h3 className="font-semibold">Supplier Pricing</h3>
+                          <h3 className="font-semibold">{t('items.supplierPricing')}</h3>
                         </div>
                       </div>
                       
@@ -5057,6 +5480,34 @@ export default function Items() {
         }}
         onManualEntry={() => {
           setAddItemScanner(false);
+        }}
+      />
+      
+      {/* Individual Code Field Scanner for Add Item */}
+      <BarcodeScanner
+        isOpen={scanningCodeField !== null}
+        onClose={() => setScanningCodeField(null)}
+        onScan={(code) => {
+          if (scanningCodeField) {
+            handleAddItemCodeScan(code);
+          }
+        }}
+        onManualEntry={() => {
+          setScanningCodeField(null);
+        }}
+      />
+      
+      {/* Individual Code Field Scanner for Edit Item Codes */}
+      <BarcodeScanner
+        isOpen={scanningEditCodeField !== null}
+        onClose={() => setScanningEditCodeField(null)}
+        onScan={(code) => {
+          if (scanningEditCodeField) {
+            handleEditItemCodeScan(code);
+          }
+        }}
+        onManualEntry={() => {
+          setScanningEditCodeField(null);
         }}
       />
       </div>

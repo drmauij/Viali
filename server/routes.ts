@@ -241,6 +241,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI image analysis for extracting ONLY product codes (pharmacode, GTIN, EAN, supplier codes)
+  app.post('/api/items/analyze-codes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { image } = req.body;
+      if (!image) {
+        return res.status(400).json({ message: "Image data is required" });
+      }
+
+      // Remove data URL prefix if present
+      const base64Image = image.replace(/^data:image\/\w+;base64,/, '');
+      
+      const { analyzeCodesImage } = await import('./openai');
+      const extractedCodes = await analyzeCodesImage(base64Image);
+      
+      res.json(extractedCodes);
+    } catch (error: any) {
+      console.error("Error analyzing codes image:", error);
+      res.status(500).json({ message: error.message || "Failed to analyze codes image" });
+    }
+  });
+
   // Bulk AI image analysis for multiple items
   app.post('/api/items/analyze-images', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
