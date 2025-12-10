@@ -151,8 +151,10 @@ export default function BottomNav() {
       const businessItems: NavItem[] = [
         { id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" },
       ];
-      // Only show Staff tab for admin and manager roles (not for staff role due to sensitive hourly rate data)
+      // Only show Costs and Staff tabs for admin and manager roles (not for staff role)
+      // Staff role users can only access Dashboard tab
       if (activeHospital?.role === 'admin' || activeHospital?.role === 'manager') {
+        businessItems.push({ id: "business-costs", icon: "fas fa-dollar-sign", label: t('bottomNav.business.costs', 'Costs'), path: "/business/costs" });
         businessItems.push({ id: "business-staff", icon: "fas fa-users", label: t('bottomNav.business.staff'), path: "/business/staff" });
       }
       return businessItems;

@@ -58,15 +58,12 @@ export default function SimplifiedDashboard() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="current">
-            <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="current" data-testid="tab-business-current-surgeries">
                 {t('surgeryPlanning.currentAndFuture')}
               </TabsTrigger>
               <TabsTrigger value="past" data-testid="tab-business-past-surgeries">
                 {t('surgeryPlanning.past')}
-              </TabsTrigger>
-              <TabsTrigger value="costs" data-testid="tab-business-costs">
-                {t('business.tabs.costs', 'Costs')}
               </TabsTrigger>
             </TabsList>
             <TabsContent value="current" className="mt-4">
@@ -104,91 +101,113 @@ export default function SimplifiedDashboard() {
                 showFilters={true}
               />
             </TabsContent>
-            <TabsContent value="costs" className="mt-4">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold flex items-center">
-                    {t('business.costBreakdown.title', 'Surgery Cost Breakdown')}
-                    <HelpTooltip content={t('business.costBreakdown.help', 'Cost breakdown per surgery showing staff costs, materials, and patient payment')} />
-                  </h3>
-                  <p className="text-sm text-muted-foreground">{t('business.costBreakdown.description', 'Detailed cost analysis for each surgery')}</p>
-                </div>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('business.staff.date', 'Date')}</TableHead>
-                        <TableHead>{t('business.staff.surgery', 'Surgery')}</TableHead>
-                        <TableHead className="text-right">{t('business.costBreakdown.staffCost', 'Staff')}</TableHead>
-                        <TableHead className="text-right">{t('business.costBreakdown.anesthesiaMaterials', 'Anesthesia Meds & Materials')}</TableHead>
-                        <TableHead className="text-right">{t('business.costBreakdown.surgeryMaterials', 'Surgery Materials')}</TableHead>
-                        <TableHead className="text-right">{t('business.costBreakdown.totalCost', 'Total Cost')}</TableHead>
-                        <TableHead className="text-right">{t('business.costBreakdown.patientPayment', 'Patient Payment')}</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {mockSurgeryCostBreakdown.map((row) => (
-                        <TableRow key={row.id} data-testid={`row-cost-breakdown-${row.id}`}>
-                          <TableCell>{row.date}</TableCell>
-                          <TableCell className="font-medium">{row.surgery}</TableCell>
-                          <TableCell className="text-right">€{row.staffCost.toLocaleString()}</TableCell>
-                          <TableCell className="text-right">€{row.anesthesiaMaterials.toLocaleString()}</TableCell>
-                          <TableCell className="text-right">€{row.surgeryMaterials.toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-semibold">€{row.totalCost.toLocaleString()}</TableCell>
-                          <TableCell className="text-right font-bold text-green-600 dark:text-green-400">€{row.patientPayment.toLocaleString()}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
 
-      {/* Old Surgery Cost Breakdown Card - Hidden */}
-      {false && (
-      <Card>
-        <CardHeader>
-          <div className="flex items-center">
-            <CardTitle className="text-lg">{t('business.costBreakdown.title', 'Surgery Cost Breakdown')}</CardTitle>
-            <HelpTooltip content={t('business.costBreakdown.help', 'Cost breakdown per surgery showing staff costs, materials, and patient payment')} />
-          </div>
-          <CardDescription>{t('business.costBreakdown.description', 'Detailed cost analysis for each surgery')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>{t('business.staff.date', 'Date')}</TableHead>
-                  <TableHead>{t('business.staff.surgery', 'Surgery')}</TableHead>
-                  <TableHead className="text-right">{t('business.costBreakdown.staffCost', 'Staff')}</TableHead>
-                  <TableHead className="text-right">{t('business.costBreakdown.anesthesiaMaterials', 'Anesthesia Meds & Materials')}</TableHead>
-                  <TableHead className="text-right">{t('business.costBreakdown.surgeryMaterials', 'Surgery Materials')}</TableHead>
-                  <TableHead className="text-right">{t('business.costBreakdown.totalCost', 'Total Cost')}</TableHead>
-                  <TableHead className="text-right">{t('business.costBreakdown.patientPayment', 'Patient Payment')}</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockSurgeryCostBreakdown.map((row) => (
-                  <TableRow key={row.id} data-testid={`row-cost-breakdown-${row.id}`}>
-                    <TableCell>{row.date}</TableCell>
-                    <TableCell className="font-medium">{row.surgery}</TableCell>
-                    <TableCell className="text-right">€{row.staffCost.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">€{row.anesthesiaMaterials.toLocaleString()}</TableCell>
-                    <TableCell className="text-right">€{row.surgeryMaterials.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-semibold">€{row.totalCost.toLocaleString()}</TableCell>
-                    <TableCell className="text-right font-bold text-green-600 dark:text-green-400">€{row.patientPayment.toLocaleString()}</TableCell>
+      {/* 
+        ============================================================
+        BACKUP: Old Surgery Cost Breakdown Card (Previously Hidden)
+        ============================================================
+        This was the original standalone costs card. Keeping for future retrieval.
+        Previously wrapped in {false && (...)} and now explicitly commented.
+        
+        The costs functionality has been moved to /business/costs (CostAnalytics.tsx)
+        
+        Original implementation:
+        <Card>
+          <CardHeader>
+            <div className="flex items-center">
+              <CardTitle className="text-lg">{t('business.costBreakdown.title', 'Surgery Cost Breakdown')}</CardTitle>
+              <HelpTooltip content={t('business.costBreakdown.help', 'Cost breakdown per surgery showing staff costs, materials, and patient payment')} />
+            </div>
+            <CardDescription>{t('business.costBreakdown.description', 'Detailed cost analysis for each surgery')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('business.staff.date', 'Date')}</TableHead>
+                    <TableHead>{t('business.staff.surgery', 'Surgery')}</TableHead>
+                    <TableHead className="text-right">{t('business.costBreakdown.staffCost', 'Staff')}</TableHead>
+                    <TableHead className="text-right">{t('business.costBreakdown.anesthesiaMaterials', 'Anesthesia Meds & Materials')}</TableHead>
+                    <TableHead className="text-right">{t('business.costBreakdown.surgeryMaterials', 'Surgery Materials')}</TableHead>
+                    <TableHead className="text-right">{t('business.costBreakdown.totalCost', 'Total Cost')}</TableHead>
+                    <TableHead className="text-right">{t('business.costBreakdown.patientPayment', 'Patient Payment')}</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {mockSurgeryCostBreakdown.map((row) => (
+                    <TableRow key={row.id} data-testid={`row-cost-breakdown-${row.id}`}>
+                      <TableCell>{row.date}</TableCell>
+                      <TableCell className="font-medium">{row.surgery}</TableCell>
+                      <TableCell className="text-right">€{row.staffCost.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">€{row.anesthesiaMaterials.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">€{row.surgeryMaterials.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-semibold">€{row.totalCost.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-bold text-green-600 dark:text-green-400">€{row.patientPayment.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+        
+        ============================================================
+        BACKUP: Costs Subtab from Surgery Planning Card
+        ============================================================
+        This was the costs subtab inside the Surgery Planning card.
+        Moved to dedicated /business/costs page (CostAnalytics.tsx).
+        
+        Original TabsTrigger (was in grid-cols-3 layout):
+        <TabsTrigger value="costs" data-testid="tab-business-costs">
+          {t('business.tabs.costs', 'Costs')}
+        </TabsTrigger>
+        
+        Original TabsContent:
+        <TabsContent value="costs" className="mt-4">
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-semibold flex items-center">
+                {t('business.costBreakdown.title', 'Surgery Cost Breakdown')}
+                <HelpTooltip content={t('business.costBreakdown.help', 'Cost breakdown per surgery showing staff costs, materials, and patient payment')} />
+              </h3>
+              <p className="text-sm text-muted-foreground">{t('business.costBreakdown.description', 'Detailed cost analysis for each surgery')}</p>
+            </div>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('business.staff.date', 'Date')}</TableHead>
+                    <TableHead>{t('business.staff.surgery', 'Surgery')}</TableHead>
+                    <TableHead className="text-right">{t('business.costBreakdown.staffCost', 'Staff')}</TableHead>
+                    <TableHead className="text-right">{t('business.costBreakdown.anesthesiaMaterials', 'Anesthesia Meds & Materials')}</TableHead>
+                    <TableHead className="text-right">{t('business.costBreakdown.surgeryMaterials', 'Surgery Materials')}</TableHead>
+                    <TableHead className="text-right">{t('business.costBreakdown.totalCost', 'Total Cost')}</TableHead>
+                    <TableHead className="text-right">{t('business.costBreakdown.patientPayment', 'Patient Payment')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {mockSurgeryCostBreakdown.map((row) => (
+                    <TableRow key={row.id} data-testid={`row-cost-breakdown-${row.id}`}>
+                      <TableCell>{row.date}</TableCell>
+                      <TableCell className="font-medium">{row.surgery}</TableCell>
+                      <TableCell className="text-right">€{row.staffCost.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">€{row.anesthesiaMaterials.toLocaleString()}</TableCell>
+                      <TableCell className="text-right">€{row.surgeryMaterials.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-semibold">€{row.totalCost.toLocaleString()}</TableCell>
+                      <TableCell className="text-right font-bold text-green-600 dark:text-green-400">€{row.patientPayment.toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
-        </CardContent>
-      </Card>
-      )}
+        </TabsContent>
+        ============================================================
+      */}
     </div>
   );
 }
