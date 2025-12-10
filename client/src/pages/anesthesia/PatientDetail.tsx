@@ -80,6 +80,9 @@ export default function PatientDetail() {
   const isSurgeryModule = activeModule === "surgery";
   const isClinicModule = activeModule === "clinic";
   const moduleBasePath = isClinicModule ? "/clinic" : isSurgeryModule ? "/surgery" : "/anesthesia";
+  // Clinic users can edit patient data but cannot create/edit/archive surgeries or access surgery details
+  const canManageSurgeries = canWrite && !isClinicModule;
+  const canViewSurgeryDetails = !isClinicModule;
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   // Track if Edit Patient dialog was opened via URL navigation (should use history.back()) or button click (just close)
   const editOpenedViaUrl = useRef(false);
@@ -1419,7 +1422,7 @@ export default function PatientDetail() {
 
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('anesthesia.patientDetail.surgeries')} ({surgeries?.length || 0})</h2>
-        {canWrite && (
+        {canManageSurgeries && (
           <Dialog open={isCreateCaseOpen} onOpenChange={setIsCreateCaseOpen}>
             <DialogTrigger asChild>
               <Button className="gap-2" data-testid="button-create-case">
@@ -1759,7 +1762,7 @@ export default function PatientDetail() {
                     >
                       <Download className="h-4 w-4" />
                     </Button>
-                    {canWrite && (
+                    {canManageSurgeries && (
                       <>
                         <Button
                           variant="ghost"
