@@ -657,10 +657,16 @@ export const patients = pgTable("patients", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   deletedAt: timestamp("deleted_at"),
+  
+  // Archive (soft delete - patients should never be fully deleted)
+  isArchived: boolean("is_archived").default(false).notNull(),
+  archivedAt: timestamp("archived_at"),
+  archivedBy: varchar("archived_by").references(() => users.id),
 }, (table) => [
   index("idx_patients_hospital").on(table.hospitalId),
   index("idx_patients_surname").on(table.surname),
   index("idx_patients_number").on(table.hospitalId, table.patientNumber),
+  index("idx_patients_archived").on(table.isArchived),
 ]);
 
 // Cases (Episode of Care) - Container for patient hospital stay
@@ -727,6 +733,11 @@ export const surgeries = pgTable("surgeries", {
   // Planning status - used for administrative tracking (vorgemeldet/bestätigt)
   planningStatus: varchar("planning_status", { enum: ["pre-registered", "confirmed"] }).notNull().default("pre-registered"),
   
+  // Archive (soft delete - surgeries should never be fully deleted)
+  isArchived: boolean("is_archived").default(false).notNull(),
+  archivedAt: timestamp("archived_at"),
+  archivedBy: varchar("archived_by").references(() => users.id),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -738,6 +749,7 @@ export const surgeries = pgTable("surgeries", {
   index("idx_surgeries_status").on(table.status),
   index("idx_surgeries_planned_date").on(table.plannedDate),
   index("idx_surgeries_payment_status").on(table.paymentStatus),
+  index("idx_surgeries_archived").on(table.isArchived),
 ]);
 
 // Anesthesia Records - Main perioperative anesthesia data
