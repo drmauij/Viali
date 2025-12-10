@@ -1,4 +1,6 @@
 import express, { type Request, Response, NextFunction } from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
@@ -7,6 +9,13 @@ import { db, pool } from "./db";
 import { startAutoStopService } from "./services/autoStopInfusions";
 import { storage } from "./storage";
 import { startWorker } from "./worker";
+
+// Get the directory of the current module (works in both dev and production)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// In production (dist/), go up one level to find migrations
+// In development (server/), go up one level to find migrations
+const migrationsPath = path.resolve(__dirname, "..", "migrations");
 
 const app = express();
 
@@ -57,8 +66,8 @@ app.use((req, res, next) => {
   try {
     // Run database migrations automatically on startup
     try {
-      log("Running database migrations...");
-      await migrate(db, { migrationsFolder: "./migrations" });
+      log(`Running database migrations from: ${migrationsPath}`);
+      await migrate(db, { migrationsFolder: migrationsPath });
       log("✓ Database migrations completed successfully");
     } catch (error: any) {
       // Handle migration failures gracefully
@@ -94,8 +103,6 @@ app.use((req, res, next) => {
             `);
             
             const fs = await import('fs');
-            const path = await import('path');
-            const migrationsPath = path.join(process.cwd(), 'migrations');
             const metaPath = path.join(migrationsPath, 'meta', '_journal.json');
             
             if (fs.existsSync(metaPath)) {
@@ -118,8 +125,6 @@ app.use((req, res, next) => {
           } else {
             // Migrations table exists, check for missing entries
             const fs = await import('fs');
-            const path = await import('path');
-            const migrationsPath = path.join(process.cwd(), 'migrations');
             const metaPath = path.join(migrationsPath, 'meta', '_journal.json');
             
             if (fs.existsSync(metaPath)) {
