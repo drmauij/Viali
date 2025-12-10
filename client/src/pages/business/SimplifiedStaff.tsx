@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { Redirect } from "wouter";
 import {
   Card,
   CardContent,
@@ -470,6 +471,13 @@ export default function SimplifiedStaff() {
         <p className="text-muted-foreground">{t('common.selectHospital')}</p>
       </div>
     );
+  }
+
+  const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
+
+  // Redirect staff users to dashboard - they can only access Dashboard tab
+  if (!isManager) {
+    return <Redirect to="/business" />;
   }
 
   return (

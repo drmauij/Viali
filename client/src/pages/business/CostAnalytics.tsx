@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { Redirect } from "wouter";
 import { 
   HelpCircle, 
   TrendingUp, 
@@ -306,10 +308,18 @@ function ChartCard({ title, description, helpText, children }: ChartCardProps) {
 
 export default function CostAnalytics() {
   const { t } = useTranslation();
+  const activeHospital = useActiveHospital();
   const [period, setPeriod] = useState("month");
   const [surgeryTypeFilter, setSurgeryTypeFilter] = useState("all");
   const [activeSubTab, setActiveSubTab] = useState("overview");
   const [surgerySearch, setSurgerySearch] = useState("");
+
+  const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
+
+  // Redirect staff users to dashboard - they can only access Dashboard tab
+  if (!isManager) {
+    return <Redirect to="/business" />;
+  }
 
   const totalCosts = mockCostByCategory.reduce((sum, cat) => sum + cat.value, 0);
 
