@@ -14,6 +14,7 @@ import { apiRequest } from "@/lib/queryClient";
 import type { Surgery } from "@shared/schema";
 
 const SURGERY_CONTEXT_KEY = "oplist_surgery_context";
+const VIEW_MODE_KEY = "oplist_view_mode";
 
 interface TimeMarker {
   id: string;
@@ -52,8 +53,19 @@ export default function OpList() {
   const { t } = useTranslation();
   const [, setLocation] = useLocation();
   const { activeModule } = useModule();
-  const [viewMode, setViewMode] = useState<ViewMode>("calendar");
+  
+  // Initialize viewMode from sessionStorage to persist across navigation
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = sessionStorage.getItem(VIEW_MODE_KEY);
+    return (saved === "calendar" || saved === "table") ? saved : "calendar";
+  });
   const [tableTab, setTableTab] = useState<TableTab>("current");
+  
+  // Persist viewMode changes to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem(VIEW_MODE_KEY, viewMode);
+  }, [viewMode]);
+  
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [summaryOpen, setSummaryOpen] = useState(false);
