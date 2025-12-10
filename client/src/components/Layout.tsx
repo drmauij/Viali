@@ -14,6 +14,7 @@ interface Hospital {
   isAnesthesiaModule?: boolean;
   isSurgeryModule?: boolean;
   isBusinessModule?: boolean;
+  isClinicModule?: boolean;
 }
 
 interface LayoutProps {
@@ -58,7 +59,9 @@ export default function Layout({ children }: LayoutProps) {
     
     // Determine the correct redirect path based on the new unit's modules
     let redirectPath = "/inventory/items"; // Default fallback
-    if (hospital.isBusinessModule) {
+    if (hospital.isClinicModule) {
+      redirectPath = "/clinic";
+    } else if (hospital.isBusinessModule) {
       redirectPath = "/business";
     } else if (hospital.isAnesthesiaModule) {
       redirectPath = "/anesthesia/op";

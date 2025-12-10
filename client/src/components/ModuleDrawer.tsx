@@ -13,6 +13,7 @@ interface ModuleCard {
   color: string;
   adminOnly?: boolean;
   businessOnly?: boolean;
+  clinicOnly?: boolean;
 }
 
 export default function ModuleDrawer() {
@@ -42,6 +43,7 @@ export default function ModuleDrawer() {
   const hasAnesthesiaAccess = activeHospital?.isAnesthesiaModule === true;
   const hasSurgeryAccess = activeHospital?.isSurgeryModule === true;
   const hasBusinessAccess = activeHospital?.isBusinessModule === true;
+  const hasClinicAccess = activeHospital?.isClinicModule === true;
   const isAdmin = activeHospital?.role === "admin";
 
   const allModules: ModuleCard[] = [
@@ -94,6 +96,7 @@ export default function ModuleDrawer() {
       description: t('modules.clinic.description'),
       route: "/clinic",
       color: "bg-emerald-500",
+      clinicOnly: true,
     },
   ];
 
@@ -106,6 +109,8 @@ export default function ModuleDrawer() {
     if (module.adminOnly && !isAdmin) return false;
     // Business module only for users assigned to business units
     if (module.businessOnly && !hasBusinessAccess) return false;
+    // Clinic module only for users assigned to clinic units
+    if (module.clinicOnly && !hasClinicAccess) return false;
     // Anesthesia module only for anesthesia staff (assigned to anesthesia unit)
     if (module.id === "anesthesia" && !hasAnesthesiaAccess) return false;
     // Surgery module only for OR staff (assigned to surgery unit)

@@ -14,6 +14,10 @@ interface Hospital {
   role: string;
   unitId: string;
   unitName: string;
+  isAnesthesiaModule?: boolean;
+  isSurgeryModule?: boolean;
+  isBusinessModule?: boolean;
+  isClinicModule?: boolean;
 }
 
 interface TopBarProps {
