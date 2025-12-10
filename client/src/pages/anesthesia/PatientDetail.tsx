@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Trash2, Download, CheckCircle, Save } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -85,7 +85,7 @@ export default function PatientDetail() {
   const preOpOpenedViaUrl = useRef(false);
   // Track if we're currently saving to prevent useEffect from resetting form data
   const isSavingRef = useRef(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     surname: "",
     firstName: "",
@@ -254,7 +254,7 @@ export default function PatientDetail() {
     duration: 180,
     notes: "",
   });
-  const [deleteDialogSurgeryId, setDeleteDialogSurgeryId] = useState<string | null>(null);
+  const [archiveDialogSurgeryId, setArchiveDialogSurgeryId] = useState<string | null>(null);
   const [consentData, setConsentData] = useState({
     general: false,
     regional: false,
@@ -465,10 +465,10 @@ export default function PatientDetail() {
     },
   });
 
-  // Mutation to delete a surgery
-  const deleteSurgeryMutation = useMutation({
+  // Mutation to archive a surgery
+  const archiveSurgeryMutation = useMutation({
     mutationFn: async (surgeryId: string) => {
-      return await apiRequest("DELETE", `/api/anesthesia/surgeries/${surgeryId}`);
+      return await apiRequest("POST", `/api/anesthesia/surgeries/${surgeryId}/archive`);
     },
     onSuccess: () => {
       // Invalidate patient-specific surgeries query
@@ -488,15 +488,15 @@ export default function PatientDetail() {
         }
       });
       toast({
-        title: t('anesthesia.patientDetail.successSurgeryDeleted'),
-        description: t('anesthesia.patientDetail.successSurgeryDeletedDesc'),
+        title: t('anesthesia.patientDetail.successSurgeryArchived', 'Surgery archived'),
+        description: t('anesthesia.patientDetail.successSurgeryArchivedDesc', 'Surgery has been moved to archive'),
       });
-      setDeleteDialogSurgeryId(null);
+      setArchiveDialogSurgeryId(null);
     },
     onError: (error: any) => {
       toast({
         title: t('anesthesia.patientDetail.error'),
-        description: error.message || t('anesthesia.patientDetail.errorSurgeryDeleted'),
+        description: error.message || t('anesthesia.patientDetail.errorSurgeryArchived', 'Failed to archive surgery'),
         variant: "destructive",
       });
     },
@@ -536,10 +536,10 @@ export default function PatientDetail() {
     },
   });
 
-  // Mutation to delete a patient
-  const deletePatientMutation = useMutation({
+  // Mutation to archive a patient
+  const archivePatientMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("DELETE", `/api/patients/${patient?.id}`);
+      return await apiRequest("POST", `/api/patients/${patient?.id}/archive`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ 
@@ -549,15 +549,15 @@ export default function PatientDetail() {
         }
       });
       toast({
-        title: t('anesthesia.patientDetail.successPatientDeleted'),
-        description: t('anesthesia.patientDetail.successPatientDeletedDesc'),
+        title: t('anesthesia.patientDetail.successPatientArchived', 'Patient archived'),
+        description: t('anesthesia.patientDetail.successPatientArchivedDesc', 'Patient has been moved to archive'),
       });
       setLocation("/anesthesia/patients");
     },
     onError: (error: any) => {
       toast({
         title: t('anesthesia.patientDetail.error'),
-        description: error.message || t('anesthesia.patientDetail.errorPatientDeleted'),
+        description: error.message || t('anesthesia.patientDetail.errorPatientArchived', 'Failed to archive patient'),
         variant: "destructive",
       });
     },
@@ -876,9 +876,9 @@ export default function PatientDetail() {
     updateSurgeryMutation.mutate({ id: editingCaseId, data: updateData });
   };
 
-  const handleDeleteCase = () => {
-    if (!deleteDialogSurgeryId) return;
-    deleteSurgeryMutation.mutate(deleteDialogSurgeryId);
+  const handleArchiveCase = () => {
+    if (!archiveDialogSurgeryId) return;
+    archiveSurgeryMutation.mutate(archiveDialogSurgeryId);
   };
 
   const handleSavePreOpAssessment = async (markAsCompleted = false, overrideData: any = {}) => {
@@ -1330,12 +1330,13 @@ export default function PatientDetail() {
                     <Pencil className="h-4 w-4" />
                   </Button>
                   <Button
-                    variant="destructive"
+                    variant="outline"
                     size="icon"
-                    onClick={() => setIsDeleteDialogOpen(true)}
-                    data-testid="button-delete-patient"
+                    onClick={() => setIsArchiveDialogOpen(true)}
+                    data-testid="button-archive-patient"
+                    title={t('anesthesia.patientDetail.archivePatient', 'Archive Patient')}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Archive className="h-4 w-4" />
                   </Button>
                 </div>
               )}
@@ -1692,30 +1693,29 @@ export default function PatientDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Surgery Confirmation Dialog */}
-      <AlertDialog open={!!deleteDialogSurgeryId} onOpenChange={(open) => !open && setDeleteDialogSurgeryId(null)}>
+      {/* Archive Surgery Confirmation Dialog */}
+      <AlertDialog open={!!archiveDialogSurgeryId} onOpenChange={(open) => !open && setArchiveDialogSurgeryId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Surgery?</AlertDialogTitle>
+            <AlertDialogTitle>{t('anesthesia.patientDetail.archiveSurgery', 'Archive Surgery?')}</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the surgery record.
+              {t('anesthesia.patientDetail.archiveSurgeryConfirmation', 'This surgery will be moved to the archive. All associated records will be preserved.')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete-surgery">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-archive-surgery">{t('anesthesia.patientDetail.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDeleteCase}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete-surgery"
-              disabled={deleteSurgeryMutation.isPending}
+              onClick={handleArchiveCase}
+              data-testid="button-confirm-archive-surgery"
+              disabled={archiveSurgeryMutation.isPending}
             >
-              {deleteSurgeryMutation.isPending ? (
+              {archiveSurgeryMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  {t('anesthesia.patientDetail.archiving', 'Archiving...')}
                 </>
               ) : (
-                t('anesthesia.patientDetail.delete')
+                t('anesthesia.patientDetail.archiveSurgery', 'Archive Surgery')
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -1770,10 +1770,11 @@ export default function PatientDetail() {
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => setDeleteDialogSurgeryId(surgery.id)}
-                          data-testid={`button-delete-surgery-${surgery.id}`}
+                          onClick={() => setArchiveDialogSurgeryId(surgery.id)}
+                          data-testid={`button-archive-surgery-${surgery.id}`}
+                          title={t('anesthesia.patientDetail.archiveSurgery', 'Archive Surgery')}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Archive className="h-4 w-4" />
                         </Button>
                       </>
                     )}
@@ -3897,36 +3898,35 @@ export default function PatientDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Patient Confirmation Dialog */}
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      {/* Archive Patient Confirmation Dialog */}
+      <AlertDialog open={isArchiveDialogOpen} onOpenChange={setIsArchiveDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('anesthesia.patientDetail.deletePatient')}</AlertDialogTitle>
+            <AlertDialogTitle>{t('anesthesia.patientDetail.archivePatient', 'Archive Patient')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('anesthesia.patientDetail.deletePatientConfirmation')}
+              {t('anesthesia.patientDetail.archivePatientConfirmation', 'Are you sure you want to archive this patient? The patient will be moved to the archive and will no longer appear in the active patient list.')}
               <br /><br />
               <strong>{t('anesthesia.patientDetail.patient')}: {patient.surname}, {patient.firstName}</strong>
               <br />
               {t('anesthesia.patientDetail.patientId')}: {patient.patientNumber}
               <br /><br />
-              {t('anesthesia.patientDetail.deleteWarning')}
+              {t('anesthesia.patientDetail.archiveInfo', 'Archived patients and their data are preserved and can be restored if needed.')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">{t('anesthesia.patientDetail.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-archive">{t('anesthesia.patientDetail.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deletePatientMutation.mutate()}
-              disabled={deletePatientMutation.isPending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete-patient"
+              onClick={() => archivePatientMutation.mutate()}
+              disabled={archivePatientMutation.isPending}
+              data-testid="button-confirm-archive-patient"
             >
-              {deletePatientMutation.isPending ? (
+              {archivePatientMutation.isPending ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t('anesthesia.patientDetail.deleting')}
+                  {t('anesthesia.patientDetail.archiving', 'Archiving...')}
                 </>
               ) : (
-                t('anesthesia.patientDetail.deletePatient')
+                t('anesthesia.patientDetail.archivePatient', 'Archive Patient')
               )}
             </AlertDialogAction>
           </AlertDialogFooter>

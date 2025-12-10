@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useState, useEffect } from "react";
-import { Loader2, Trash2, Save, X, Eye } from "lucide-react";
+import { Loader2, Archive, Save, X, Eye } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 interface EditSurgeryDialogProps {
@@ -22,7 +22,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const { t } = useTranslation();
   const { toast } = useToast();
   const canWrite = useCanWrite();
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
 
   // Form state
   const [surgeryDate, setSurgeryDate] = useState("");
@@ -163,10 +163,10 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     },
   });
 
-  // Delete mutation
-  const deleteMutation = useMutation({
+  // Archive mutation
+  const archiveMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("DELETE", `/api/anesthesia/surgeries/${surgeryId}`);
+      const response = await apiRequest("POST", `/api/anesthesia/surgeries/${surgeryId}/archive`);
       return response.json();
     },
     onSuccess: () => {
@@ -180,15 +180,15 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         });
       }
       toast({
-        title: t('anesthesia.editSurgery.surgeryDeleted'),
-        description: t('anesthesia.editSurgery.surgeryDeletedDescription'),
+        title: t('anesthesia.editSurgery.surgeryArchived', 'Surgery archived'),
+        description: t('anesthesia.editSurgery.surgeryArchivedDescription', 'Surgery has been moved to archive'),
       });
       onClose();
     },
     onError: () => {
       toast({
-        title: "Delete Failed",
-        description: "Failed to delete surgery. Please try again.",
+        title: t('anesthesia.editSurgery.archiveFailed', 'Archive Failed'),
+        description: t('anesthesia.editSurgery.archiveFailedDescription', 'Failed to archive surgery. Please try again.'),
         variant: "destructive",
       });
     },
@@ -206,12 +206,12 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     updateMutation.mutate();
   };
 
-  const handleDelete = () => {
-    setShowDeleteConfirm(true);
+  const handleArchive = () => {
+    setShowArchiveConfirm(true);
   };
 
-  const confirmDelete = () => {
-    deleteMutation.mutate();
+  const confirmArchive = () => {
+    archiveMutation.mutate();
   };
 
   if (!surgeryId) return null;
@@ -418,7 +418,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   <>
                     <Button
                       onClick={handleUpdate}
-                      disabled={updateMutation.isPending || deleteMutation.isPending}
+                      disabled={updateMutation.isPending || archiveMutation.isPending}
                       data-testid="button-update-surgery"
                       className="w-full sm:flex-1"
                     >
@@ -434,7 +434,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     <Button
                       variant="outline"
                       onClick={onClose}
-                      disabled={deleteMutation.isPending || updateMutation.isPending}
+                      disabled={archiveMutation.isPending || updateMutation.isPending}
                       data-testid="button-cancel-surgery"
                       className="w-full sm:flex-1"
                     >
@@ -442,18 +442,18 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                       {t('common.cancel')}
                     </Button>
                     <Button
-                      variant="destructive"
-                      onClick={handleDelete}
-                      disabled={deleteMutation.isPending || updateMutation.isPending}
-                      data-testid="button-delete-surgery"
+                      variant="outline"
+                      onClick={handleArchive}
+                      disabled={archiveMutation.isPending || updateMutation.isPending}
+                      data-testid="button-archive-surgery"
                       className="w-full sm:flex-1"
                     >
-                      {deleteMutation.isPending ? (
-                        <>{t('anesthesia.editSurgery.deleting')}</>
+                      {archiveMutation.isPending ? (
+                        <>{t('anesthesia.editSurgery.archiving', 'Archiving...')}</>
                       ) : (
                         <>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          {t('anesthesia.editSurgery.deleteSurgery')}
+                          <Archive className="mr-2 h-4 w-4" />
+                          {t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
                         </>
                       )}
                     </Button>
@@ -475,25 +475,24 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      {/* Archive Confirmation Dialog */}
+      <AlertDialog open={showArchiveConfirm} onOpenChange={setShowArchiveConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('anesthesia.editSurgery.confirmDelete')}</AlertDialogTitle>
+            <AlertDialogTitle>{t('anesthesia.editSurgery.confirmArchive', 'Archive Surgery?')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t('anesthesia.editSurgery.confirmDeleteMessage')}
+              {t('anesthesia.editSurgery.confirmArchiveMessage', 'This surgery will be moved to the archive. All associated records will be preserved.')}
               <br /><br />
-              <strong>{t('anesthesia.editSurgery.confirmDeleteWarning')}</strong>
+              <strong>{t('anesthesia.editSurgery.confirmArchiveInfo', 'Archived surgeries can be restored if needed.')}</strong>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-delete">{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-archive">{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={confirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              data-testid="button-confirm-delete"
+              onClick={confirmArchive}
+              data-testid="button-confirm-archive"
             >
-              {t('anesthesia.editSurgery.deleteSurgery')}
+              {t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
