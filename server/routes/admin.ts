@@ -201,24 +201,27 @@ router.get('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req,
 router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { name, type, parentId } = req.body;
+    const { name, type, parentId, isAnesthesiaModule, isSurgeryModule, isBusinessModule, isClinicModule } = req.body;
     
     if (!name) {
       return res.status(400).json({ message: "Unit name is required" });
     }
     
-    const isAnesthesiaModule = type === 'anesthesia';
-    const isSurgeryModule = type === 'or';
-    const isBusinessModule = type === 'business';
+    // Use explicit flags from request, fallback to type-based derivation
+    const anesthesiaModule = isAnesthesiaModule !== undefined ? isAnesthesiaModule : type === 'anesthesia';
+    const surgeryModule = isSurgeryModule !== undefined ? isSurgeryModule : type === 'or';
+    const businessModule = isBusinessModule !== undefined ? isBusinessModule : type === 'business';
+    const clinicModule = isClinicModule !== undefined ? isClinicModule : type === 'clinic';
 
     const unit = await storage.createUnit({
       hospitalId,
       name,
       type: type || null,
       parentId: parentId || null,
-      isAnesthesiaModule,
-      isSurgeryModule,
-      isBusinessModule,
+      isAnesthesiaModule: anesthesiaModule,
+      isSurgeryModule: surgeryModule,
+      isBusinessModule: businessModule,
+      isClinicModule: clinicModule,
     });
     res.status(201).json(unit);
   } catch (error) {
@@ -230,7 +233,7 @@ router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req
 router.patch('/api/admin/units/:unitId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { unitId } = req.params;
-    const { name, type, parentId } = req.body;
+    const { name, type, parentId, isAnesthesiaModule, isSurgeryModule, isBusinessModule, isClinicModule } = req.body;
     
     const units = await storage.getUnits(req.body.hospitalId);
     const unit = units.find(l => l.id === unitId);
@@ -247,13 +250,14 @@ router.patch('/api/admin/units/:unitId', isAuthenticated, requireWriteAccess, as
     
     const updates: any = {};
     if (name !== undefined) updates.name = name;
-    if (type !== undefined) {
-      updates.type = type;
-      updates.isAnesthesiaModule = type === 'anesthesia';
-      updates.isSurgeryModule = type === 'or';
-      updates.isBusinessModule = type === 'business';
-    }
+    if (type !== undefined) updates.type = type;
     if (parentId !== undefined) updates.parentId = parentId;
+    
+    // Accept explicit module flags from request
+    if (isAnesthesiaModule !== undefined) updates.isAnesthesiaModule = isAnesthesiaModule;
+    if (isSurgeryModule !== undefined) updates.isSurgeryModule = isSurgeryModule;
+    if (isBusinessModule !== undefined) updates.isBusinessModule = isBusinessModule;
+    if (isClinicModule !== undefined) updates.isClinicModule = isClinicModule;
     
     const updated = await storage.updateUnit(unitId, updates);
     res.json(updated);
