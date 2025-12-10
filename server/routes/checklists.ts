@@ -169,13 +169,22 @@ router.delete('/api/checklists/templates/:id', isAuthenticated, requireWriteAcce
 router.get('/api/checklists/pending/:hospitalId', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
+    const { unitId } = req.query; // Optional unitId filter
     const userId = req.user.id;
     
     const hospitals = await storage.getUserHospitals(userId);
-    const userLocations = hospitals.filter(h => h.id === hospitalId);
+    let userLocations = hospitals.filter(h => h.id === hospitalId);
     
     if (userLocations.length === 0) {
       return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    // If unitId is provided, filter to only that unit
+    if (unitId) {
+      userLocations = userLocations.filter(loc => loc.unitId === unitId);
+      if (userLocations.length === 0) {
+        return res.status(403).json({ message: "Access denied to this unit" });
+      }
     }
     
     const allPending = await Promise.all(
@@ -202,13 +211,22 @@ router.get('/api/checklists/pending/:hospitalId', isAuthenticated, async (req: a
 router.get('/api/checklists/count/:hospitalId', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
+    const { unitId } = req.query; // Optional unitId filter
     const userId = req.user.id;
     
     const hospitals = await storage.getUserHospitals(userId);
-    const userLocations = hospitals.filter(h => h.id === hospitalId);
+    let userLocations = hospitals.filter(h => h.id === hospitalId);
     
     if (userLocations.length === 0) {
       return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    // If unitId is provided, filter to only that unit
+    if (unitId) {
+      userLocations = userLocations.filter(loc => loc.unitId === unitId);
+      if (userLocations.length === 0) {
+        return res.status(403).json({ message: "Access denied to this unit" });
+      }
     }
     
     const counts = await Promise.all(
@@ -330,13 +348,21 @@ router.get('/api/checklists/history/:hospitalId', isAuthenticated, async (req: a
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
-    const { templateId, limit } = req.query;
+    const { templateId, limit, unitId } = req.query; // Added unitId filter
     
     const hospitals = await storage.getUserHospitals(userId);
-    const userLocations = hospitals.filter(h => h.id === hospitalId);
+    let userLocations = hospitals.filter(h => h.id === hospitalId);
     
     if (userLocations.length === 0) {
       return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    // If unitId is provided, filter to only that unit
+    if (unitId) {
+      userLocations = userLocations.filter(loc => loc.unitId === unitId);
+      if (userLocations.length === 0) {
+        return res.status(403).json({ message: "Access denied to this unit" });
+      }
     }
     
     const allCompletions = await Promise.all(

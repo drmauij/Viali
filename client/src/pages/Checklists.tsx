@@ -45,13 +45,13 @@ export default function Checklists() {
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
 
   const { data: pendingChecklists = [], isLoading: isLoadingPending } = useQuery<PendingChecklist[]>({
-    queryKey: [`/api/checklists/pending/${activeHospital?.id}`, activeHospital?.unitId],
-    enabled: !!activeHospital?.id,
+    queryKey: [`/api/checklists/pending/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
 
   const { data: completionHistory = [], isLoading: isLoadingHistory } = useQuery<ChecklistCompletionWithDetails[]>({
-    queryKey: [`/api/checklists/history/${activeHospital?.id}`, activeHospital?.unitId],
-    enabled: !!activeHospital?.id,
+    queryKey: [`/api/checklists/history/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
 
   const completeMutation = useMutation({
@@ -76,9 +76,9 @@ export default function Checklists() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/history/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/count/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}?unitId=${activeHospital?.unitId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/history/${activeHospital?.id}?unitId=${activeHospital?.unitId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/count/${activeHospital?.id}?unitId=${activeHospital?.unitId}`] });
       toast({
         title: t("common.success"),
         description: t("checklists.completionSuccess"),
@@ -115,8 +115,8 @@ export default function Checklists() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/count/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}?unitId=${activeHospital?.unitId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/checklists/count/${activeHospital?.id}?unitId=${activeHospital?.unitId}`] });
       toast({
         title: t("common.success"),
         description: t("checklists.dismissSuccess"),

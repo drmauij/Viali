@@ -40,10 +40,10 @@ export default function BottomNav() {
 
   const isAdmin = activeHospital?.role === "admin";
 
-  // Fetch pending checklist count
+  // Fetch pending checklist count for the active unit
   const { data: pendingCountData } = useQuery<{ count: number }>({
-    queryKey: [`/api/checklists/count/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id,
+    queryKey: [`/api/checklists/count/${activeHospital?.id}?unitId=${activeHospital?.unitId}`],
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
     refetchInterval: 30000, // Refetch every 30 seconds
   });
 

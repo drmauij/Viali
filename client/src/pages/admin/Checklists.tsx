@@ -60,9 +60,14 @@ export default function Checklists() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/templates/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/count/${activeHospital?.id}`] });
+      // Invalidate all checklist-related queries for this hospital (covers all units)
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && typeof key[0] === 'string' && 
+            key[0].includes('/api/checklists') && key[0].includes(activeHospital?.id || '');
+        },
+      });
       setTemplateDialogOpen(false);
       resetTemplateForm();
       toast({ title: t("common.success"), description: t("admin.templateCreatedSuccess") });
@@ -78,9 +83,14 @@ export default function Checklists() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/templates/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/count/${activeHospital?.id}`] });
+      // Invalidate all checklist-related queries for this hospital (covers all units)
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && typeof key[0] === 'string' && 
+            key[0].includes('/api/checklists') && key[0].includes(activeHospital?.id || '');
+        },
+      });
       setTemplateDialogOpen(false);
       resetTemplateForm();
       toast({ title: t("common.success"), description: t("admin.templateUpdatedSuccess") });
@@ -96,9 +106,14 @@ export default function Checklists() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/templates/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/pending/${activeHospital?.id}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/checklists/count/${activeHospital?.id}`] });
+      // Invalidate all checklist-related queries for this hospital (covers all units)
+      queryClient.invalidateQueries({
+        predicate: (query) => {
+          const key = query.queryKey;
+          return Array.isArray(key) && typeof key[0] === 'string' && 
+            key[0].includes('/api/checklists') && key[0].includes(activeHospital?.id || '');
+        },
+      });
       toast({ title: t("common.success"), description: t("admin.templateDeletedSuccess") });
     },
     onError: (error: any) => {
