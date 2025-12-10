@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, UserPlus, ScanBarcode, UserCircle, UserRound, Loader2 } from "lucide-react";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useCanWrite } from "@/hooks/useCanWrite";
@@ -158,6 +159,9 @@ export default function Patients() {
         sex: "",
         email: "",
         phone: "",
+        street: "",
+        postalCode: "",
+        city: "",
         allergies: [],
         otherAllergies: "",
         internalNotes: ""
@@ -268,166 +272,181 @@ export default function Patients() {
             <DialogHeader>
               <DialogTitle>{t('anesthesia.patients.createPatient')}</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-3">
+            <Tabs defaultValue="personal" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="personal">{t('anesthesia.patients.tabPersonal', 'Personal')}</TabsTrigger>
+                <TabsTrigger value="address">{t('anesthesia.patients.tabAddress', 'Address')}</TabsTrigger>
+                <TabsTrigger value="medical">{t('anesthesia.patients.tabMedical', 'Medical')}</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="personal" className="space-y-4 pt-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="surname">{t('anesthesia.patients.surname')} *</Label>
+                    <Input
+                      id="surname"
+                      placeholder={t('anesthesia.patients.surnamePlaceholder')}
+                      value={newPatient.surname}
+                      onChange={(e) => setNewPatient({ ...newPatient, surname: e.target.value })}
+                      data-testid="input-surname"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">{t('anesthesia.patients.firstname')} *</Label>
+                    <Input
+                      id="firstName"
+                      placeholder={t('anesthesia.patients.firstnamePlaceholder')}
+                      value={newPatient.firstName}
+                      onChange={(e) => setNewPatient({ ...newPatient, firstName: e.target.value })}
+                      data-testid="input-first-name"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="birthday">{t('anesthesia.patients.dateOfBirth')} *</Label>
+                    <Input
+                      id="birthday"
+                      type="text"
+                      placeholder="15.03.95 or 030495"
+                      value={birthdayInput}
+                      onChange={handleBirthdayChange}
+                      data-testid="input-birthday"
+                      className={birthdayInput && !newPatient.birthday ? "border-destructive" : ""}
+                    />
+                    {birthdayInput && newPatient.birthday && (
+                      <div className="text-xs text-muted-foreground">
+                        {formatDate(newPatient.birthday)}
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sex">{t('anesthesia.patients.sex')} *</Label>
+                    <Select value={newPatient.sex} onValueChange={(value) => setNewPatient({ ...newPatient, sex: value })}>
+                      <SelectTrigger data-testid="select-sex">
+                        <SelectValue placeholder={t('anesthesia.patients.selectSex')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="M">{t('anesthesia.patients.male')}</SelectItem>
+                        <SelectItem value="F">{t('anesthesia.patients.female')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="pt-2 text-xs text-muted-foreground">
+                  * {t('anesthesia.patients.requiredFields', 'Required fields')}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="address" className="space-y-4 pt-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="patient@example.com"
+                      value={newPatient.email}
+                      onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
+                      data-testid="input-email"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">{t('anesthesia.patients.phone')}</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="+41 79 123 45 67"
+                      value={newPatient.phone}
+                      onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
+                      data-testid="input-phone"
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="surname">{t('anesthesia.patients.surname')}</Label>
+                  <Label htmlFor="street">{t('anesthesia.patients.street', 'Street, Nr')}</Label>
                   <Input
-                    id="surname"
-                    placeholder={t('anesthesia.patients.surnamePlaceholder')}
-                    value={newPatient.surname}
-                    onChange={(e) => setNewPatient({ ...newPatient, surname: e.target.value })}
-                    data-testid="input-surname"
+                    id="street"
+                    placeholder="Musterstraße 123"
+                    value={newPatient.street}
+                    onChange={(e) => setNewPatient({ ...newPatient, street: e.target.value })}
+                    data-testid="input-street"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="firstName">{t('anesthesia.patients.firstname')}</Label>
-                  <Input
-                    id="firstName"
-                    placeholder={t('anesthesia.patients.firstnamePlaceholder')}
-                    value={newPatient.firstName}
-                    onChange={(e) => setNewPatient({ ...newPatient, firstName: e.target.value })}
-                    data-testid="input-first-name"
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="birthday">{t('anesthesia.patients.dateOfBirth')}</Label>
-                  <Input
-                    id="birthday"
-                    type="text"
-                    placeholder="15.03.95 or 030495"
-                    value={birthdayInput}
-                    onChange={handleBirthdayChange}
-                    data-testid="input-birthday"
-                    className={birthdayInput && !newPatient.birthday ? "border-destructive" : ""}
-                  />
-                  {birthdayInput && newPatient.birthday && (
-                    <div className="text-xs text-muted-foreground">
-                      {formatDate(newPatient.birthday)}
-                    </div>
-                  )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="postalCode">{t('anesthesia.patients.postalCode', 'PLZ')}</Label>
+                    <Input
+                      id="postalCode"
+                      placeholder="8000"
+                      value={newPatient.postalCode}
+                      onChange={(e) => setNewPatient({ ...newPatient, postalCode: e.target.value })}
+                      data-testid="input-postal-code"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="city">{t('anesthesia.patients.city', 'City')}</Label>
+                    <Input
+                      id="city"
+                      placeholder="Zürich"
+                      value={newPatient.city}
+                      onChange={(e) => setNewPatient({ ...newPatient, city: e.target.value })}
+                      data-testid="input-city"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="sex">{t('anesthesia.patients.sex')}</Label>
-                  <Select value={newPatient.sex} onValueChange={(value) => setNewPatient({ ...newPatient, sex: value })}>
-                    <SelectTrigger data-testid="select-sex">
-                      <SelectValue placeholder={t('anesthesia.patients.selectSex')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="M">{t('anesthesia.patients.male')}</SelectItem>
-                      <SelectItem value="F">{t('anesthesia.patients.female')}</SelectItem>
-                    </SelectContent>
-                  </Select>
+              </TabsContent>
+              
+              <TabsContent value="medical" className="space-y-4 pt-4">
+                <div className="space-y-3">
+                  <Label>{t('anesthesia.patients.allergies', 'Allergies')}</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(anesthesiaSettings?.allergyList || []).map((allergy) => (
+                      <div key={allergy.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`allergy-${allergy.id}`}
+                          checked={newPatient.allergies.includes(allergy.id)}
+                          onCheckedChange={() => toggleAllergy(allergy.id)}
+                          data-testid={`checkbox-allergy-${allergy.id}`}
+                        />
+                        <Label htmlFor={`allergy-${allergy.id}`} className="text-sm font-normal cursor-pointer">
+                          {allergy.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="otherAllergies">{t('anesthesia.patients.otherAllergies', 'Other Allergies')}</Label>
+                    <Textarea
+                      id="otherAllergies"
+                      placeholder={t('anesthesia.patients.otherAllergiesPlaceholder', 'Other allergies...')}
+                      value={newPatient.otherAllergies}
+                      onChange={(e) => setNewPatient({ ...newPatient, otherAllergies: e.target.value })}
+                      rows={2}
+                      data-testid="textarea-other-allergies"
+                    />
+                  </div>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="patient@example.com"
-                  value={newPatient.email}
-                  onChange={(e) => setNewPatient({ ...newPatient, email: e.target.value })}
-                  data-testid="input-email"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">{t('anesthesia.patients.phone')}</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="+39 123 456 7890"
-                  value={newPatient.phone}
-                  onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
-                  data-testid="input-phone"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="street">{t('anesthesia.patients.street', 'Street, Nr')}</Label>
-                <Input
-                  id="street"
-                  placeholder="Musterstraße 123"
-                  value={newPatient.street}
-                  onChange={(e) => setNewPatient({ ...newPatient, street: e.target.value })}
-                  data-testid="input-street"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="postalCode">{t('anesthesia.patients.postalCode', 'PLZ')}</Label>
-                  <Input
-                    id="postalCode"
-                    placeholder="8000"
-                    value={newPatient.postalCode}
-                    onChange={(e) => setNewPatient({ ...newPatient, postalCode: e.target.value })}
-                    data-testid="input-postal-code"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="city">{t('anesthesia.patients.city', 'City')}</Label>
-                  <Input
-                    id="city"
-                    placeholder="Zürich"
-                    value={newPatient.city}
-                    onChange={(e) => setNewPatient({ ...newPatient, city: e.target.value })}
-                    data-testid="input-city"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <Label>Allergies</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(anesthesiaSettings?.allergyList || []).map((allergy) => (
-                    <div key={allergy.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`allergy-${allergy.id}`}
-                        checked={newPatient.allergies.includes(allergy.id)}
-                        onCheckedChange={() => toggleAllergy(allergy.id)}
-                        data-testid={`checkbox-allergy-${allergy.id}`}
-                      />
-                      <Label htmlFor={`allergy-${allergy.id}`} className="text-sm font-normal cursor-pointer">
-                        {allergy.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="otherAllergies">Other Allergies (free text)</Label>
+                  <Label htmlFor="internalNotes">{t('anesthesia.patients.notes')}</Label>
                   <Textarea
-                    id="otherAllergies"
-                    placeholder="Other allergies..."
-                    value={newPatient.otherAllergies}
-                    onChange={(e) => setNewPatient({ ...newPatient, otherAllergies: e.target.value })}
-                    rows={2}
-                    data-testid="textarea-other-allergies"
+                    id="internalNotes"
+                    placeholder={t('anesthesia.patients.notesPlaceholder')}
+                    value={newPatient.internalNotes}
+                    onChange={(e) => setNewPatient({ ...newPatient, internalNotes: e.target.value })}
+                    rows={3}
+                    data-testid="textarea-internal-notes"
                   />
                 </div>
-              </div>
+              </TabsContent>
+            </Tabs>
 
-              <div className="space-y-2">
-                <Label htmlFor="internalNotes">{t('anesthesia.patients.notes')}</Label>
-                <Textarea
-                  id="internalNotes"
-                  placeholder="Additional notes..."
-                  value={newPatient.internalNotes}
-                  onChange={(e) => setNewPatient({ ...newPatient, internalNotes: e.target.value })}
-                  rows={3}
-                  data-testid="textarea-internal-notes"
-                />
-              </div>
-
-              <div className="pt-2 text-xs text-muted-foreground">
-                * Required fields. Patient ID will be auto-generated.
-              </div>
-
+            <div className="pt-4">
               <Button 
                 onClick={handleCreatePatient} 
                 className="w-full" 

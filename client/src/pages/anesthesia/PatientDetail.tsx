@@ -504,7 +504,7 @@ export default function PatientDetail() {
 
   // Mutation to update a patient
   const updatePatientMutation = useMutation({
-    mutationFn: async (patientData: Partial<Patient>) => {
+    mutationFn: async (patientData: Partial<Patient> & Record<string, any>) => {
       return await apiRequest("PATCH", `/api/patients/${patient?.id}`, patientData);
     },
     onSuccess: () => {
@@ -3637,245 +3637,262 @@ export default function PatientDetail() {
             <DialogTitle>{t('anesthesia.patientDetail.editPatient')}</DialogTitle>
             <DialogDescription>{t('anesthesia.patientDetail.updatePatientInfo')}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-surname">Surname *</Label>
-                <Input
-                  id="edit-surname"
-                  value={editForm.surname}
-                  onChange={(e) => setEditForm({ ...editForm, surname: e.target.value })}
-                  data-testid="input-edit-surname"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-firstName">First Name *</Label>
-                <Input
-                  id="edit-firstName"
-                  value={editForm.firstName}
-                  onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
-                  data-testid="input-edit-firstName"
-                />
-              </div>
-            </div>
+          <Tabs defaultValue="personal" className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="personal">{t('anesthesia.patients.tabPersonal', 'Personal')}</TabsTrigger>
+              <TabsTrigger value="address">{t('anesthesia.patients.tabAddress', 'Address')}</TabsTrigger>
+              <TabsTrigger value="medical">{t('anesthesia.patients.tabMedical', 'Medical')}</TabsTrigger>
+            </TabsList>
             
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-birthday">Birthday *</Label>
-                <Input
-                  id="edit-birthday"
-                  type="date"
-                  value={editForm.birthday}
-                  onChange={(e) => setEditForm({ ...editForm, birthday: e.target.value })}
-                  data-testid="input-edit-birthday"
-                />
+            <TabsContent value="personal" className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-surname">{t('anesthesia.patients.surname')} *</Label>
+                  <Input
+                    id="edit-surname"
+                    value={editForm.surname}
+                    onChange={(e) => setEditForm({ ...editForm, surname: e.target.value })}
+                    data-testid="input-edit-surname"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-firstName">{t('anesthesia.patients.firstname')} *</Label>
+                  <Input
+                    id="edit-firstName"
+                    value={editForm.firstName}
+                    onChange={(e) => setEditForm({ ...editForm, firstName: e.target.value })}
+                    data-testid="input-edit-firstName"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-sex">Sex *</Label>
-                <Select
-                  value={editForm.sex}
-                  onValueChange={(value: "M" | "F" | "O") => setEditForm({ ...editForm, sex: value })}
-                >
-                  <SelectTrigger data-testid="select-edit-sex">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="M">Male</SelectItem>
-                    <SelectItem value="F">Female</SelectItem>
-                    <SelectItem value="O">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-email">Email</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={editForm.email}
-                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  data-testid="input-edit-email"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-phone">Phone</Label>
-                <Input
-                  id="edit-phone"
-                  value={editForm.phone}
-                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                  data-testid="input-edit-phone"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-street">{t('anesthesia.patients.street', 'Street, Nr')}</Label>
-              <Input
-                id="edit-street"
-                value={editForm.street}
-                onChange={(e) => setEditForm({ ...editForm, street: e.target.value })}
-                data-testid="input-edit-street"
-                placeholder="Musterstraße 123"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-postalCode">{t('anesthesia.patients.postalCode', 'PLZ')}</Label>
-                <Input
-                  id="edit-postalCode"
-                  value={editForm.postalCode}
-                  onChange={(e) => setEditForm({ ...editForm, postalCode: e.target.value })}
-                  data-testid="input-edit-postalCode"
-                  placeholder="8000"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-city">{t('anesthesia.patients.city', 'City')}</Label>
-                <Input
-                  id="edit-city"
-                  value={editForm.city}
-                  onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-                  data-testid="input-edit-city"
-                  placeholder="Zürich"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="edit-emergencyContact">Emergency Contact</Label>
-              <Input
-                id="edit-emergencyContact"
-                value={editForm.emergencyContact}
-                onChange={(e) => setEditForm({ ...editForm, emergencyContact: e.target.value })}
-                data-testid="input-edit-emergencyContact"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-insuranceProvider">Insurance Provider</Label>
-                <Input
-                  id="edit-insuranceProvider"
-                  value={editForm.insuranceProvider}
-                  onChange={(e) => setEditForm({ ...editForm, insuranceProvider: e.target.value })}
-                  data-testid="input-edit-insuranceProvider"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-insuranceNumber">Insurance Number</Label>
-                <Input
-                  id="edit-insuranceNumber"
-                  value={editForm.insuranceNumber}
-                  onChange={(e) => setEditForm({ ...editForm, insuranceNumber: e.target.value })}
-                  data-testid="input-edit-insuranceNumber"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Allergies</Label>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {(anesthesiaSettings?.allergyList || []).map((allergy) => (
-                  <Badge
-                    key={allergy.id}
-                    variant={editForm.allergies.includes(allergy.id) ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => {
-                      if (editForm.allergies.includes(allergy.id)) {
-                        setEditForm({
-                          ...editForm,
-                          allergies: editForm.allergies.filter((a) => a !== allergy.id),
-                        });
-                      } else {
-                        setEditForm({
-                          ...editForm,
-                          allergies: [...editForm.allergies, allergy.id],
-                        });
-                      }
-                    }}
-                    data-testid={`badge-edit-allergy-${allergy.id}`}
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-birthday">{t('anesthesia.patients.dateOfBirth')} *</Label>
+                  <Input
+                    id="edit-birthday"
+                    type="date"
+                    value={editForm.birthday}
+                    onChange={(e) => setEditForm({ ...editForm, birthday: e.target.value })}
+                    data-testid="input-edit-birthday"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-sex">{t('anesthesia.patients.sex')} *</Label>
+                  <Select
+                    value={editForm.sex}
+                    onValueChange={(value: "M" | "F" | "O") => setEditForm({ ...editForm, sex: value })}
                   >
-                    {allergy.label}
-                  </Badge>
-                ))}
+                    <SelectTrigger data-testid="select-edit-sex">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="M">{t('anesthesia.patients.male')}</SelectItem>
+                      <SelectItem value="F">{t('anesthesia.patients.female')}</SelectItem>
+                      <SelectItem value="O">{t('anesthesia.patients.other')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+              
+              <div className="pt-2 text-xs text-muted-foreground">
+                * {t('anesthesia.patients.requiredFields', 'Required fields')}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="address" className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    data-testid="input-edit-email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-phone">{t('anesthesia.patients.phone')}</Label>
+                  <Input
+                    id="edit-phone"
+                    value={editForm.phone}
+                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    data-testid="input-edit-phone"
+                  />
+                </div>
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-otherAllergies">Other Allergies (free text)</Label>
-              <Textarea
-                id="edit-otherAllergies"
-                value={editForm.otherAllergies}
-                onChange={(e) => setEditForm({ ...editForm, otherAllergies: e.target.value })}
-                data-testid="textarea-edit-otherAllergies"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-street">{t('anesthesia.patients.street', 'Street, Nr')}</Label>
+                <Input
+                  id="edit-street"
+                  value={editForm.street}
+                  onChange={(e) => setEditForm({ ...editForm, street: e.target.value })}
+                  data-testid="input-edit-street"
+                  placeholder="Musterstraße 123"
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-internalNotes">Internal Notes</Label>
-              <Textarea
-                id="edit-internalNotes"
-                value={editForm.internalNotes}
-                onChange={(e) => setEditForm({ ...editForm, internalNotes: e.target.value })}
-                data-testid="textarea-edit-internalNotes"
-              />
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-postalCode">{t('anesthesia.patients.postalCode', 'PLZ')}</Label>
+                  <Input
+                    id="edit-postalCode"
+                    value={editForm.postalCode}
+                    onChange={(e) => setEditForm({ ...editForm, postalCode: e.target.value })}
+                    data-testid="input-edit-postalCode"
+                    placeholder="8000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-city">{t('anesthesia.patients.city', 'City')}</Label>
+                  <Input
+                    id="edit-city"
+                    value={editForm.city}
+                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                    data-testid="input-edit-city"
+                    placeholder="Zürich"
+                  />
+                </div>
+              </div>
 
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setIsEditDialogOpen(false)}
-                data-testid="button-cancel-edit"
-              >
-                Cancel
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() => {
-                  if (!editForm.surname || !editForm.firstName || !editForm.birthday) {
-                    toast({
-                      title: "Missing required fields",
-                      description: "Please fill in Surname, First Name, and Birthday",
-                      variant: "destructive",
-                    });
-                    return;
-                  }
-                  updatePatientMutation.mutate({
-                    surname: editForm.surname,
-                    firstName: editForm.firstName,
-                    birthday: editForm.birthday,
-                    sex: editForm.sex,
-                    email: editForm.email || null,
-                    phone: editForm.phone || null,
-                    address: editForm.address || null,
-                    street: editForm.street || null,
-                    postalCode: editForm.postalCode || null,
-                    city: editForm.city || null,
-                    emergencyContact: editForm.emergencyContact || null,
-                    insuranceProvider: editForm.insuranceProvider || null,
-                    insuranceNumber: editForm.insuranceNumber || null,
-                    allergies: editForm.allergies.length > 0 ? editForm.allergies : null,
-                    otherAllergies: editForm.otherAllergies || null,
-                    internalNotes: editForm.internalNotes || null,
+              <div className="space-y-2">
+                <Label htmlFor="edit-emergencyContact">{t('anesthesia.patients.emergencyContact', 'Emergency Contact')}</Label>
+                <Input
+                  id="edit-emergencyContact"
+                  value={editForm.emergencyContact}
+                  onChange={(e) => setEditForm({ ...editForm, emergencyContact: e.target.value })}
+                  data-testid="input-edit-emergencyContact"
+                  placeholder="+41 79 123 45 67"
+                />
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="medical" className="space-y-4 pt-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-insuranceProvider">{t('anesthesia.patients.insuranceProvider', 'Insurance Provider')}</Label>
+                  <Input
+                    id="edit-insuranceProvider"
+                    value={editForm.insuranceProvider}
+                    onChange={(e) => setEditForm({ ...editForm, insuranceProvider: e.target.value })}
+                    data-testid="input-edit-insuranceProvider"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-insuranceNumber">{t('anesthesia.patients.insuranceNumber', 'Insurance Number')}</Label>
+                  <Input
+                    id="edit-insuranceNumber"
+                    value={editForm.insuranceNumber}
+                    onChange={(e) => setEditForm({ ...editForm, insuranceNumber: e.target.value })}
+                    data-testid="input-edit-insuranceNumber"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t('anesthesia.patients.allergies', 'Allergies')}</Label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {(anesthesiaSettings?.allergyList || []).map((allergy) => (
+                    <Badge
+                      key={allergy.id}
+                      variant={editForm.allergies.includes(allergy.id) ? "default" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        if (editForm.allergies.includes(allergy.id)) {
+                          setEditForm({
+                            ...editForm,
+                            allergies: editForm.allergies.filter((a) => a !== allergy.id),
+                          });
+                        } else {
+                          setEditForm({
+                            ...editForm,
+                            allergies: [...editForm.allergies, allergy.id],
+                          });
+                        }
+                      }}
+                      data-testid={`badge-edit-allergy-${allergy.id}`}
+                    >
+                      {allergy.label}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-otherAllergies">{t('anesthesia.patients.otherAllergies', 'Other Allergies')}</Label>
+                <Textarea
+                  id="edit-otherAllergies"
+                  value={editForm.otherAllergies}
+                  onChange={(e) => setEditForm({ ...editForm, otherAllergies: e.target.value })}
+                  data-testid="textarea-edit-otherAllergies"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-internalNotes">{t('anesthesia.patients.notes')}</Label>
+                <Textarea
+                  id="edit-internalNotes"
+                  value={editForm.internalNotes}
+                  onChange={(e) => setEditForm({ ...editForm, internalNotes: e.target.value })}
+                  data-testid="textarea-edit-internalNotes"
+                />
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <div className="flex gap-3 pt-4">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setIsEditDialogOpen(false)}
+              data-testid="button-cancel-edit"
+            >
+              {t('common.cancel', 'Cancel')}
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                if (!editForm.surname || !editForm.firstName || !editForm.birthday) {
+                  toast({
+                    title: t('anesthesia.patients.missingFields', 'Missing required fields'),
+                    description: t('anesthesia.patients.fillRequiredFields', 'Please fill in Surname, First Name, and Birthday'),
+                    variant: "destructive",
                   });
-                }}
-                disabled={updatePatientMutation.isPending}
-                data-testid="button-save-patient-edit"
-              >
-                {updatePatientMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t('anesthesia.patientDetail.saving')}
-                  </>
-                ) : (
-                  t('anesthesia.patientDetail.saveChanges')
-                )}
-              </Button>
-            </div>
+                  return;
+                }
+                updatePatientMutation.mutate({
+                  surname: editForm.surname,
+                  firstName: editForm.firstName,
+                  birthday: editForm.birthday,
+                  sex: editForm.sex,
+                  email: editForm.email || null,
+                  phone: editForm.phone || null,
+                  address: editForm.address || null,
+                  street: editForm.street || null,
+                  postalCode: editForm.postalCode || null,
+                  city: editForm.city || null,
+                  emergencyContact: editForm.emergencyContact || null,
+                  insuranceProvider: editForm.insuranceProvider || null,
+                  insuranceNumber: editForm.insuranceNumber || null,
+                  allergies: editForm.allergies.length > 0 ? editForm.allergies : null,
+                  otherAllergies: editForm.otherAllergies || null,
+                  internalNotes: editForm.internalNotes || null,
+                });
+              }}
+              disabled={updatePatientMutation.isPending}
+              data-testid="button-save-patient-edit"
+            >
+              {updatePatientMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t('anesthesia.patientDetail.saving')}
+                </>
+              ) : (
+                t('anesthesia.patientDetail.saveChanges')
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
