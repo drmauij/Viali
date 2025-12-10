@@ -1281,7 +1281,8 @@ export default function Items() {
               ...prev,
               name: itemName.trim() || prev.name,
               description: result.description || prev.description,
-              barcode: result.barcode || prev.barcode,
+              // Use GTIN as barcode if no other barcode was found
+              barcode: result.barcode || result.gtin || prev.barcode,
               imageUrl: i === 0 ? compressedImage : prev.imageUrl, // Save first image as item photo
               gtin: result.gtin || prev.gtin,
               pharmacode: result.pharmacode || prev.pharmacode,
@@ -4941,14 +4942,8 @@ export default function Items() {
             const parsed = parseGS1Code(code);
             
             if (parsed.lotNumber) {
-              const expiryDate = parsed.expiryDate ? (() => {
-                const parts = parsed.expiryDate.match(/(\d{2})\/(\d{2})\/(\d{2})/);
-                if (parts) {
-                  const year = parseInt(parts[3]) > 50 ? `19${parts[3]}` : `20${parts[3]}`;
-                  return `${year}-${parts[1]}-${parts[2]}`;
-                }
-                return "";
-              })() : "";
+              // GS1 parser already returns dates in YYYY-MM-DD format
+              const expiryDate = parsed.expiryDate || "";
               
               setNewLot({
                 lotNumber: parsed.lotNumber,

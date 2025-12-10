@@ -17,10 +17,13 @@ interface ExtractedItemData {
   pharmacode?: string;
   lotNumber?: string;
   expiryDate?: string;
+  productionDate?: string;
   ref?: string;
   manufacturer?: string;
   packContent?: string;
   unitsPerPack?: number;
+  // GS1 DataMatrix raw content
+  gs1DataMatrix?: string;
 }
 
 export async function analyzeItemImage(base64Image: string): Promise<ExtractedItemData> {
@@ -43,27 +46,44 @@ export async function analyzeItemImage(base64Image: string): Promise<ExtractedIt
   "unit": "packaging unit type - must be one of: 'Pack', 'Single unit'",
   "confidence": "confidence score 0-1 for the extraction",
   
-  "gtin": "GTIN/EAN/UPC code (13-14 digits, often starts with 76 for Swiss products)",
+  "gtin": "GTIN/EAN/UPC code (13-14 digits). Look in GS1 DataMatrix barcodes after '01' prefix",
   "pharmacode": "Swiss Pharmacode (7-digit number, often shown as 'Pharmacode' or 'PH')",
   "lotNumber": "LOT/Batch number (often labeled 'LOT', 'Ch.-B.', 'BATCH')",
-  "expiryDate": "Expiry date in YYYY-MM-DD format (labeled 'EXP', 'Verfall', 'Verwendbar bis')",
+  "expiryDate": "EXPIRATION date in YYYY-MM-DD format - date with HOURGLASS/SANDCLOCK icon (⌛) or labeled 'EXP', 'Verfall', 'Verwendbar bis'",
+  "productionDate": "PRODUCTION/MANUFACTURING date in YYYY-MM-DD format - date with FACTORY icon (🏭) or labeled 'MFG', 'Herstellung', 'Prod'",
   "ref": "REF/Article number (manufacturer's reference code)",
   "manufacturer": "Manufacturer/Company name (e.g., 'B. Braun', '3M', 'Polymed')",
   "packContent": "Pack content description (e.g., '10x5ml', '50 Stück', '1000ml')",
-  "unitsPerPack": "Number of individual units in the pack (numeric)"
+  "unitsPerPack": "Number of individual units in the pack (numeric)",
+  "gs1DataMatrix": "If a GS1 DataMatrix or GS1-128 barcode is visible, extract its full content (e.g., '010402249518831117300801102SH21D8001')"
 }
 
-Swiss Medical Product Labels typically contain:
-- GTIN: 13-digit barcode (often starts with 76)
-- Pharmacode: 7-digit Swiss pharmacy code
-- LOT/Ch.-B.: Batch/lot number
-- EXP/Verfall: Expiry date
-- REF: Manufacturer article code
-- Look for DataMatrix/QR codes which may encode (01)GTIN(10)LOT(17)EXPIRY
+CRITICAL DATE IDENTIFICATION:
+Medical products have TWO different dates with specific symbols:
+1. EXPIRATION DATE (when product expires) - marked with:
+   - Hourglass/sandclock icon (⌛)
+   - "EXP", "Verfall", "Verwendbar bis", "Use by"
+   - This is typically the LATER date (e.g., 2030-08-01)
+2. PRODUCTION DATE (when product was made) - marked with:
+   - Factory icon (🏭) or calendar with factory
+   - "MFG", "Herstellung", "Prod", "Manufacturing"
+   - This is typically the EARLIER date (e.g., 2025-08-21)
+
+GS1 DataMatrix/GS1-128 Barcode Parsing:
+- These barcodes encode data using Application Identifiers (AI):
+  - (01) = GTIN (14 digits following)
+  - (17) = Expiration date in YYMMDD format
+  - (11) = Production date in YYMMDD format
+  - (10) = Batch/LOT number (variable length)
+- Example: "01 04022495188311 17 300801 10 25H21D8001" means:
+  - GTIN: 04022495188311
+  - Expiry: 2030-08-01
+  - LOT: 25H21D8001
 
 Important:
-- Extract ALL codes visible on packaging including GS1 DataMatrix content if visible
-- Convert expiry dates to YYYY-MM-DD format
+- Extract the GTIN from GS1 DataMatrix barcodes (the 14 digits after '01')
+- ALWAYS distinguish expiration date (hourglass) from production date (factory)
+- Convert dates to YYYY-MM-DD format
 - For unit: MOST pharmaceutical items should be "Pack". Use "Single unit" ONLY for individual vials/ampoules
 - If information is not clearly visible, omit that field
 - Return valid JSON only`
@@ -83,6 +103,50 @@ Important:
 
     const result = JSON.parse(visionResponse.choices[0].message.content || "{}");
     
+    // If gs1DataMatrix content is available, parse it to extract/validate GTIN and dates
+    let gtin = result.gtin;
+    let expiryDate = result.expiryDate;
+    let lotNumber = result.lotNumber;
+    let productionDate = result.productionDate;
+    
+    if (result.gs1DataMatrix) {
+      const gs1Content = result.gs1DataMatrix.replace(/\s/g, '');
+      
+      // Parse AI (01) = GTIN (14 digits)
+      const gtinMatch = gs1Content.match(/01(\d{14})/);
+      if (gtinMatch && !gtin) {
+        gtin = gtinMatch[1];
+      }
+      
+      // Parse AI (17) = Expiry date (YYMMDD)
+      const expiryMatch = gs1Content.match(/17(\d{6})/);
+      if (expiryMatch && !expiryDate) {
+        const yymmdd = expiryMatch[1];
+        const yy = parseInt(yymmdd.substring(0, 2));
+        const mm = yymmdd.substring(2, 4);
+        const dd = yymmdd.substring(4, 6);
+        const year = yy >= 50 ? 1900 + yy : 2000 + yy;
+        expiryDate = `${year}-${mm}-${dd === '00' ? '28' : dd}`;
+      }
+      
+      // Parse AI (11) = Production date (YYMMDD)
+      const prodMatch = gs1Content.match(/11(\d{6})/);
+      if (prodMatch && !productionDate) {
+        const yymmdd = prodMatch[1];
+        const yy = parseInt(yymmdd.substring(0, 2));
+        const mm = yymmdd.substring(2, 4);
+        const dd = yymmdd.substring(4, 6);
+        const year = yy >= 50 ? 1900 + yy : 2000 + yy;
+        productionDate = `${year}-${mm}-${dd === '00' ? '01' : dd}`;
+      }
+      
+      // Parse AI (10) = LOT/Batch (variable length, ends at next AI or end)
+      const lotMatch = gs1Content.match(/10([A-Za-z0-9]+?)(?=(?:17|21|11|240)|$)/);
+      if (lotMatch && !lotNumber) {
+        lotNumber = lotMatch[1];
+      }
+    }
+    
     return {
       name: result.name,
       description: result.description,
@@ -92,14 +156,16 @@ Important:
       unit: result.unit,
       confidence: Math.max(0, Math.min(1, result.confidence || 0)),
       // Extended product codes
-      gtin: result.gtin,
+      gtin,
       pharmacode: result.pharmacode,
-      lotNumber: result.lotNumber,
-      expiryDate: result.expiryDate,
+      lotNumber,
+      expiryDate,
+      productionDate,
       ref: result.ref,
       manufacturer: result.manufacturer,
       packContent: result.packContent,
       unitsPerPack: result.unitsPerPack ? parseInt(result.unitsPerPack) : undefined,
+      gs1DataMatrix: result.gs1DataMatrix,
     };
   } catch (error: any) {
     console.error("Error analyzing image with OpenAI:", error);
