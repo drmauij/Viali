@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm, useFieldArray } from "react-hook-form";
@@ -25,17 +25,36 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarIcon, Plus, Trash2, Save, X } from "lucide-react";
+import { CalendarIcon, Plus, Trash2, Save, X, Search, UserPlus, Pencil, Check, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 interface Patient {
   id: string;
   firstName: string;
   surname: string;
+  street?: string | null;
+  postalCode?: string | null;
+  city?: string | null;
 }
 
 interface InventoryItem {
@@ -52,9 +71,8 @@ interface InvoiceFormProps {
 }
 
 const invoiceFormSchema = z.object({
-  customerName: z.string().min(1, "Customer name is required"),
+  patientId: z.string().min(1, "Patient is required"),
   customerAddress: z.string().optional(),
-  patientId: z.string().optional(),
   date: z.date(),
   vatRate: z.coerce.number().min(0).max(100).default(7.7),
   comments: z.string().optional(),
@@ -73,7 +91,18 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
   const { toast } = useToast();
   const dateLocale = i18n.language === 'de' ? de : enUS;
 
-  const { data: patients = [] } = useQuery<Patient[]>({
+  const [patientSearch, setPatientSearch] = useState("");
+  const [isPatientPopoverOpen, setIsPatientPopoverOpen] = useState(false);
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
+  const [quickCreateForm, setQuickCreateForm] = useState({ firstName: "", surname: "" });
+  const [isCreatingPatient, setIsCreatingPatient] = useState(false);
+  
+  const [editingAddress, setEditingAddress] = useState(false);
+  const [addressForm, setAddressForm] = useState({ street: "", postalCode: "", city: "" });
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+
+  const { data: patients = [], refetch: refetchPatients } = useQuery<Patient[]>({
     queryKey: ['/api/patients', hospitalId],
     queryFn: async () => {
       const res = await fetch(`/api/patients?hospitalId=${hospitalId}`, {
@@ -100,9 +129,8 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceFormSchema),
     defaultValues: {
-      customerName: '',
-      customerAddress: '',
       patientId: '',
+      customerAddress: '',
       date: new Date(),
       vatRate: 7.7,
       comments: '',
@@ -117,8 +145,12 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
 
   const createMutation = useMutation({
     mutationFn: async (data: InvoiceFormData) => {
+      const customerName = selectedPatient 
+        ? `${selectedPatient.firstName} ${selectedPatient.surname}` 
+        : '';
       await apiRequest('POST', `/api/clinic/${hospitalId}/invoices`, {
         ...data,
+        customerName,
         patientId: data.patientId || null,
       });
     },
@@ -150,11 +182,102 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
     return { subtotal, vatAmount, total };
   }, [watchedItems, watchedVatRate]);
 
-  const handlePatientSelect = (patientId: string) => {
-    form.setValue("patientId", patientId);
-    const patient = patients.find(p => p.id === patientId);
-    if (patient) {
-      form.setValue("customerName", `${patient.firstName} ${patient.surname}`);
+  const filteredPatients = useMemo(() => {
+    if (!patientSearch.trim()) return patients;
+    const search = patientSearch.toLowerCase();
+    return patients.filter(p => 
+      p.firstName.toLowerCase().includes(search) || 
+      p.surname.toLowerCase().includes(search)
+    );
+  }, [patients, patientSearch]);
+
+  const handlePatientSelect = (patient: Patient) => {
+    setSelectedPatient(patient);
+    form.setValue("patientId", patient.id);
+    setAddressForm({
+      street: patient.street || "",
+      postalCode: patient.postalCode || "",
+      city: patient.city || "",
+    });
+    setIsPatientPopoverOpen(false);
+    setPatientSearch("");
+  };
+
+  const handleQuickCreate = async () => {
+    if (!quickCreateForm.firstName.trim() || !quickCreateForm.surname.trim()) {
+      toast({
+        title: t('common.error'),
+        description: t('clinic.invoices.patientNameRequired', 'First name and surname are required'),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsCreatingPatient(true);
+    try {
+      const response = await apiRequest('POST', '/api/patients', {
+        hospitalId,
+        firstName: quickCreateForm.firstName.trim(),
+        surname: quickCreateForm.surname.trim(),
+        birthday: new Date().toISOString().split('T')[0],
+        sex: 'O',
+      });
+      
+      const newPatient = response as unknown as Patient;
+      await refetchPatients();
+      
+      handlePatientSelect(newPatient);
+      setIsQuickCreateOpen(false);
+      setQuickCreateForm({ firstName: "", surname: "" });
+      
+      toast({
+        title: t('clinic.invoices.patientCreated', 'Patient created'),
+        description: t('clinic.invoices.patientCreatedDesc', 'New patient has been created and selected'),
+      });
+    } catch (error: any) {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('clinic.invoices.patientCreateError', 'Failed to create patient'),
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPatient(false);
+    }
+  };
+
+  const handleSaveAddress = async () => {
+    if (!selectedPatient) return;
+    
+    setIsSavingAddress(true);
+    try {
+      await apiRequest('PATCH', `/api/patients/${selectedPatient.id}`, {
+        street: addressForm.street || null,
+        postalCode: addressForm.postalCode || null,
+        city: addressForm.city || null,
+      });
+      
+      setSelectedPatient({
+        ...selectedPatient,
+        street: addressForm.street,
+        postalCode: addressForm.postalCode,
+        city: addressForm.city,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/patients'] });
+      setEditingAddress(false);
+      
+      toast({
+        title: t('clinic.invoices.addressSaved', 'Address saved'),
+        description: t('clinic.invoices.addressSavedDesc', 'Patient address has been updated'),
+      });
+    } catch (error: any) {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('clinic.invoices.addressSaveError', 'Failed to save address'),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingAddress(false);
     }
   };
 
@@ -173,104 +296,236 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
     createMutation.mutate(data);
   };
 
+  const hasAddressData = addressForm.street || addressForm.postalCode || addressForm.city;
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="patientId"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('clinic.invoices.patient')}</FormLabel>
-                <Select value={field.value} onValueChange={handlePatientSelect}>
+        {/* Date - full width on top */}
+        <FormField
+          control={form.control}
+          name="date"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>{t('clinic.invoices.date')}</FormLabel>
+              <Popover>
+                <PopoverTrigger asChild>
                   <FormControl>
-                    <SelectTrigger data-testid="select-patient">
-                      <SelectValue placeholder={t('clinic.invoices.selectPatient')} />
-                    </SelectTrigger>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full pl-3 text-left font-normal",
+                        !field.value && "text-muted-foreground"
+                      )}
+                      data-testid="button-date-picker"
+                    >
+                      {field.value ? (
+                        format(field.value, "PP", { locale: dateLocale })
+                      ) : (
+                        <span>{t('common.pickDate')}</span>
+                      )}
+                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                    </Button>
                   </FormControl>
-                  <SelectContent>
-                    {patients.map(patient => (
-                      <SelectItem key={patient.id} value={patient.id}>
-                        {patient.firstName} {patient.surname}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={field.value}
+                    onSelect={field.onChange}
+                    locale={dateLocale}
+                  />
+                </PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-          <FormField
-            control={form.control}
-            name="date"
-            render={({ field }) => (
-              <FormItem className="flex flex-col">
-                <FormLabel>{t('clinic.invoices.date')}</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full pl-3 text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                        data-testid="button-date-picker"
-                      >
-                        {field.value ? (
-                          format(field.value, "PP", { locale: dateLocale })
-                        ) : (
-                          <span>{t('common.pickDate')}</span>
-                        )}
-                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value}
-                      onSelect={field.onChange}
-                      locale={dateLocale}
+        {/* Patient Selection - own row with search */}
+        <FormField
+          control={form.control}
+          name="patientId"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <FormLabel>{t('clinic.invoices.patient')} *</FormLabel>
+              <Popover open={isPatientPopoverOpen} onOpenChange={setIsPatientPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn(
+                        "w-full justify-between",
+                        !selectedPatient && "text-muted-foreground"
+                      )}
+                      data-testid="select-patient"
+                    >
+                      {selectedPatient ? (
+                        `${selectedPatient.firstName} ${selectedPatient.surname}`
+                      ) : (
+                        <span className="flex items-center gap-2">
+                          <Search className="h-4 w-4" />
+                          {t('clinic.invoices.searchPatient', 'Search patient...')}
+                        </span>
+                      )}
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0" align="start">
+                  <Command>
+                    <CommandInput 
+                      placeholder={t('clinic.invoices.searchPatient', 'Search patient...')}
+                      value={patientSearch}
+                      onValueChange={setPatientSearch}
+                      data-testid="input-patient-search"
                     />
-                  </PopoverContent>
-                </Popover>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <FormField
-          control={form.control}
-          name="customerName"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('clinic.invoices.customerName')} *</FormLabel>
-              <FormControl>
-                <Input {...field} data-testid="input-customer-name" />
-              </FormControl>
+                    <CommandList>
+                      <CommandEmpty>
+                        <div className="p-2 text-center">
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {t('clinic.invoices.noPatientFound', 'No patient found')}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setQuickCreateForm({ 
+                                firstName: patientSearch.split(' ')[0] || '', 
+                                surname: patientSearch.split(' ').slice(1).join(' ') || '' 
+                              });
+                              setIsQuickCreateOpen(true);
+                              setIsPatientPopoverOpen(false);
+                            }}
+                            data-testid="button-quick-create-patient"
+                          >
+                            <UserPlus className="h-4 w-4 mr-2" />
+                            {t('clinic.invoices.createNewPatient', 'Create new patient')}
+                          </Button>
+                        </div>
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {filteredPatients.map((patient) => (
+                          <CommandItem
+                            key={patient.id}
+                            value={`${patient.firstName} ${patient.surname}`}
+                            onSelect={() => handlePatientSelect(patient)}
+                            data-testid={`patient-option-${patient.id}`}
+                          >
+                            {patient.firstName} {patient.surname}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="customerAddress"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t('clinic.invoices.customerAddress')}</FormLabel>
-              <FormControl>
-                <Textarea {...field} rows={2} data-testid="input-customer-address" />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {/* Patient Address Preview - shown when patient is selected */}
+        {selectedPatient && (
+          <Card className="bg-muted/50">
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-muted-foreground">
+                  {t('clinic.invoices.invoiceAddress', 'Invoice Address')}
+                </span>
+                {!editingAddress ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setEditingAddress(true)}
+                    data-testid="button-edit-address"
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    {t('common.edit')}
+                  </Button>
+                ) : (
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setAddressForm({
+                          street: selectedPatient.street || "",
+                          postalCode: selectedPatient.postalCode || "",
+                          city: selectedPatient.city || "",
+                        });
+                        setEditingAddress(false);
+                      }}
+                      data-testid="button-cancel-address"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleSaveAddress}
+                      disabled={isSavingAddress}
+                      data-testid="button-save-address"
+                    >
+                      {isSavingAddress ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Check className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
 
+              {editingAddress ? (
+                <div className="space-y-2">
+                  <Input
+                    placeholder={t('clinic.invoices.street', 'Street, Nr.')}
+                    value={addressForm.street}
+                    onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
+                    data-testid="input-address-street"
+                  />
+                  <div className="grid grid-cols-3 gap-2">
+                    <Input
+                      placeholder={t('clinic.invoices.postalCode', 'PLZ')}
+                      value={addressForm.postalCode}
+                      onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
+                      data-testid="input-address-postal-code"
+                    />
+                    <Input
+                      className="col-span-2"
+                      placeholder={t('clinic.invoices.city', 'City')}
+                      value={addressForm.city}
+                      onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
+                      data-testid="input-address-city"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm">
+                  {hasAddressData ? (
+                    <>
+                      {addressForm.street && <div>{addressForm.street}</div>}
+                      {(addressForm.postalCode || addressForm.city) && (
+                        <div>{[addressForm.postalCode, addressForm.city].filter(Boolean).join(' ')}</div>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-muted-foreground italic">
+                      {t('clinic.invoices.noAddressData', 'No address data - click Edit to add')}
+                    </span>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Line Items */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <FormLabel>{t('clinic.invoices.lineItems')}</FormLabel>
@@ -446,6 +701,66 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
           </Button>
         </div>
       </form>
+
+      {/* Quick Create Patient Dialog */}
+      <Dialog open={isQuickCreateOpen} onOpenChange={setIsQuickCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('clinic.invoices.createNewPatient', 'Create New Patient')}</DialogTitle>
+            <DialogDescription>
+              {t('clinic.invoices.quickCreateDescription', 'Enter basic patient information. You can add more details later.')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('clinic.invoices.firstName', 'First Name')} *</Label>
+              <Input
+                value={quickCreateForm.firstName}
+                onChange={(e) => setQuickCreateForm({ ...quickCreateForm, firstName: e.target.value })}
+                placeholder={t('clinic.invoices.firstName', 'First Name')}
+                data-testid="input-quick-create-firstname"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('clinic.invoices.surname', 'Surname')} *</Label>
+              <Input
+                value={quickCreateForm.surname}
+                onChange={(e) => setQuickCreateForm({ ...quickCreateForm, surname: e.target.value })}
+                placeholder={t('clinic.invoices.surname', 'Surname')}
+                data-testid="input-quick-create-surname"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setIsQuickCreateOpen(false)}
+              data-testid="button-cancel-quick-create"
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button 
+              type="button" 
+              onClick={handleQuickCreate}
+              disabled={isCreatingPatient}
+              data-testid="button-confirm-quick-create"
+            >
+              {isCreatingPatient ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t('common.creating', 'Creating...')}
+                </>
+              ) : (
+                <>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  {t('clinic.invoices.createAndSelect', 'Create & Select')}
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 }
