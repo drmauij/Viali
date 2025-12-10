@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { tryDecodeWithMultipleStrategies } from "./services/barcodeDecoder";
 
 // Using gpt-4o-mini for cost-effective image analysis
 // This is using OpenAI's API, which points to OpenAI's API servers and requires your own API key.
@@ -28,6 +29,22 @@ interface ExtractedItemData {
 
 export async function analyzeItemImage(base64Image: string): Promise<ExtractedItemData> {
   try {
+    // First, try to decode any barcodes in the image using ZXing
+    let decodedBarcode: { gtin?: string; lotNumber?: string; expiryDate?: string; productionDate?: string; text?: string } | null = null;
+    try {
+      decodedBarcode = await tryDecodeWithMultipleStrategies(base64Image);
+      if (decodedBarcode) {
+        console.log('[OpenAI] Barcode decoded successfully:', {
+          gtin: decodedBarcode.gtin,
+          lot: decodedBarcode.lotNumber,
+          expiry: decodedBarcode.expiryDate,
+          raw: decodedBarcode.text
+        });
+      }
+    } catch (barcodeError) {
+      console.log('[OpenAI] Barcode decoding failed, continuing with AI analysis');
+    }
+
     const visionResponse = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
@@ -122,13 +139,16 @@ Important:
 
     const result = JSON.parse(visionResponse.choices[0].message.content || "{}");
     
-    // If gs1DataMatrix content is available, parse it to extract/validate GTIN and dates
-    let gtin = result.gtin;
-    let expiryDate = result.expiryDate;
-    let lotNumber = result.lotNumber;
-    let productionDate = result.productionDate;
+    // Start with barcode decoder results (most reliable for GTIN/lot/dates from DataMatrix)
+    // Then use AI results as fallback for anything not decoded
+    let gtin = decodedBarcode?.gtin || result.gtin;
+    let expiryDate = decodedBarcode?.expiryDate || result.expiryDate;
+    let lotNumber = decodedBarcode?.lotNumber || result.lotNumber;
+    let productionDate = decodedBarcode?.productionDate || result.productionDate;
+    let gs1DataMatrixContent = decodedBarcode?.text || result.gs1DataMatrix;
     
-    if (result.gs1DataMatrix) {
+    // If AI provided gs1DataMatrix content, also parse it as backup
+    if (result.gs1DataMatrix && !decodedBarcode) {
       const gs1Content = result.gs1DataMatrix.replace(/\s/g, '');
       
       // Parse AI (01) = GTIN (14 digits)
@@ -184,7 +204,7 @@ Important:
       manufacturer: result.manufacturer,
       packContent: result.packContent,
       unitsPerPack: result.unitsPerPack ? parseInt(result.unitsPerPack) : undefined,
-      gs1DataMatrix: result.gs1DataMatrix,
+      gs1DataMatrix: gs1DataMatrixContent,
     };
   } catch (error: any) {
     console.error("Error analyzing image with OpenAI:", error);
