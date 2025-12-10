@@ -1154,8 +1154,9 @@ export function SurgeryPlanningTable({
             )}
             
             {showContracts && !showBusiness && (
-              <TableHead className="text-center w-12" title={t("surgeryPlanning.columns.contractReceived")}>
-                <FileText className="h-4 w-4 inline" />
+              <TableHead className="text-center">
+                <FileText className="h-4 w-4 inline mr-1" />
+                {t("surgeryPlanning.columns.contractReceived")}
               </TableHead>
             )}
             
