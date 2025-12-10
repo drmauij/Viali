@@ -1819,40 +1819,43 @@ export default function PatientDetail() {
                   </div>
                 )}
 
-                {isSurgeryModule ? (
-                  <div className="pt-2">
-                    <Button
-                      variant="outline"
-                      className="w-full h-auto py-4 flex-col gap-2"
-                      onClick={() => setLocation(`${moduleBasePath}/op/${surgery.id}`)}
-                      data-testid={`button-surgery-doc-${surgery.id}`}
-                    >
-                      <FileText className="h-10 w-10 text-primary" />
-                      <span className="text-sm font-medium">{t('anesthesia.patientDetail.surgeryDocumentation')}</span>
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3 pt-2">
-                    <Button
-                      variant="outline"
-                      className="h-auto py-4 flex-col gap-2"
-                      onClick={() => {
-                        setSelectedCaseId(surgery.id);
-                        setAssessmentData(prev => ({
-                          ...prev,
-                          allergies: patient.allergies || [],
-                        }));
-                        preOpOpenedViaUrl.current = false;
-                        setIsPreOpOpen(true);
-                      }}
-                      data-testid={`button-preop-${surgery.id}`}
-                    >
-                      <ClipboardList className="h-10 w-10 text-primary" />
-                      <span className="text-sm font-medium">{t('anesthesia.patientDetail.preOp')}</span>
-                    </Button>
-                    
-                    <AnesthesiaRecordButton surgeryId={surgery.id} />
-                  </div>
+                {/* Surgery detail navigation - hidden for clinic users */}
+                {canViewSurgeryDetails && (
+                  isSurgeryModule ? (
+                    <div className="pt-2">
+                      <Button
+                        variant="outline"
+                        className="w-full h-auto py-4 flex-col gap-2"
+                        onClick={() => setLocation(`${moduleBasePath}/op/${surgery.id}`)}
+                        data-testid={`button-surgery-doc-${surgery.id}`}
+                      >
+                        <FileText className="h-10 w-10 text-primary" />
+                        <span className="text-sm font-medium">{t('anesthesia.patientDetail.surgeryDocumentation')}</span>
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <Button
+                        variant="outline"
+                        className="h-auto py-4 flex-col gap-2"
+                        onClick={() => {
+                          setSelectedCaseId(surgery.id);
+                          setAssessmentData(prev => ({
+                            ...prev,
+                            allergies: patient.allergies || [],
+                          }));
+                          preOpOpenedViaUrl.current = false;
+                          setIsPreOpOpen(true);
+                        }}
+                        data-testid={`button-preop-${surgery.id}`}
+                      >
+                        <ClipboardList className="h-10 w-10 text-primary" />
+                        <span className="text-sm font-medium">{t('anesthesia.patientDetail.preOp')}</span>
+                      </Button>
+                      
+                      <AnesthesiaRecordButton surgeryId={surgery.id} />
+                    </div>
+                  )
                 )}
               </CardContent>
             </Card>
