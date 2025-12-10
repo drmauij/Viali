@@ -787,14 +787,6 @@ export function SurgeryPlanningTable({
       parts.push(`CAVE: ${assessment.cave}`);
     }
     
-    // Approval status
-    if (preOpData.status === 'completed') {
-      const isApproved = assessment.surgicalApproval === 'approved';
-      parts.push(isApproved ? '✓ Freigegeben' : '✗ Nicht freigegeben');
-    } else if (assessment.standBy) {
-      parts.push('⏸ Stand-by');
-    }
-    
     // Use newlines for PDF to avoid messy wrapping with bullet separators
     return parts.length > 0 ? parts.join('\n') : '-';
   };
