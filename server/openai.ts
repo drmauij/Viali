@@ -46,9 +46,9 @@ export async function analyzeItemImage(base64Image: string): Promise<ExtractedIt
   "unit": "packaging unit type - must be one of: 'Pack', 'Single unit'",
   "confidence": "confidence score 0-1 for the extraction",
   
-  "gtin": "GTIN/EAN/UPC code (13-14 digits). Look in GS1 DataMatrix barcodes after '01' prefix",
-  "pharmacode": "Swiss Pharmacode (7-digit number, often shown as 'Pharmacode' or 'PH')",
-  "lotNumber": "LOT/Batch number (often labeled 'LOT', 'Ch.-B.', 'BATCH')",
+  "gtin": "GTIN/EAN/UPC code (13-14 digits). Look for this in GS1 DataMatrix barcodes after '01' prefix OR as a 13-digit number near the barcode",
+  "pharmacode": "Swiss Pharmacode OR German PZN number (7-8 digits, labeled 'Pharmacode', 'PH', 'PZN', or 'Pharmazentralnummer'). NEVER confuse with LOT number!",
+  "lotNumber": "LOT/Batch number (labeled 'LOT', 'Ch.-B.', 'BATCH'). This is alphanumeric (e.g., '25H21D8001') and is DIFFERENT from pharmacode/PZN!",
   "expiryDate": "EXPIRATION date in YYYY-MM-DD format - date with HOURGLASS/SANDCLOCK icon (⌛) or labeled 'EXP', 'Verfall', 'Verwendbar bis'",
   "productionDate": "PRODUCTION/MANUFACTURING date in YYYY-MM-DD format - date with FACTORY icon (🏭) or labeled 'MFG', 'Herstellung', 'Prod'",
   "ref": "REF/Article number (manufacturer's reference code)",
@@ -79,6 +79,25 @@ GS1 DataMatrix/GS1-128 Barcode Parsing:
   - GTIN: 04022495188311
   - Expiry: 2030-08-01
   - LOT: 25H21D8001
+
+CRITICAL CODE IDENTIFICATION - DO NOT CONFUSE:
+1. GTIN (Global Trade Item Number):
+   - 13-14 digit numeric code
+   - Found in/near barcodes or as "GTIN", "EAN", "UPC"
+   - Example: 04022495188311
+2. Pharmacode/PZN (Product Identification):
+   - 7-8 digit numeric code ONLY
+   - Labeled "PZN", "Pharmacode", "PH", or "Pharmazentralnummer"
+   - Example: 00570074
+3. LOT/Batch Number (Production Batch):
+   - Alphanumeric code (letters AND numbers)
+   - Labeled "LOT", "Ch.-B.", "BATCH", or inside square brackets [LOT]
+   - Example: 25H21D8001
+   - ⚠️ NEVER put LOT number in pharmacode field!
+4. REF (Reference/Article Number):
+   - Manufacturer's catalog number
+   - Labeled "REF" or "Art.-Nr."
+   - Example: 4613503F
 
 Important:
 - Extract the GTIN from GS1 DataMatrix barcodes (the 14 digits after '01')
