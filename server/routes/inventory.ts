@@ -11,6 +11,7 @@ import {
 import { eq } from "drizzle-orm";
 import {
   getUserUnitForHospital,
+  getActiveUnitIdFromRequest,
   checkLicenseLimit,
   requireWriteAccess
 } from "../utils";
@@ -555,14 +556,21 @@ router.delete('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (
   try {
     const { itemId } = req.params;
     const userId = req.user.id;
+    const activeUnitId = getActiveUnitIdFromRequest(req);
     
     const item = await storage.getItem(itemId);
     if (!item) {
       return res.status(404).json({ message: "Item not found" });
     }
     
-    const unitId = await getUserUnitForHospital(userId, item.hospitalId);
-    if (!unitId || unitId !== item.unitId) {
+    // Use active unit from request header, or fall back to user's default unit for this hospital
+    const unitId = await getUserUnitForHospital(userId, item.hospitalId, activeUnitId || undefined);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    // Verify item belongs to user's active unit
+    if (item.unitId !== unitId) {
       return res.status(403).json({ message: "Access denied to this item" });
     }
     
@@ -578,6 +586,7 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
   try {
     const { itemIds } = req.body;
     const userId = req.user.id;
+    const activeUnitId = getActiveUnitIdFromRequest(req);
     
     if (!Array.isArray(itemIds) || itemIds.length === 0) {
       return res.status(400).json({ message: "Item IDs array is required" });
@@ -596,7 +605,8 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
           continue;
         }
         
-        const unitId = await getUserUnitForHospital(userId, item.hospitalId);
+        // Use active unit from request header, or fall back to user's default unit
+        const unitId = await getUserUnitForHospital(userId, item.hospitalId, activeUnitId || undefined);
         if (!unitId || unitId !== item.unitId) {
           results.failed.push({ id: itemId, reason: "Access denied" });
           continue;
