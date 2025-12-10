@@ -6,6 +6,7 @@ import {
   RGBLuminanceSource,
   BinaryBitmap,
   HybridBinarizer,
+  GlobalHistogramBinarizer,
 } from '@zxing/library';
 
 export interface DecodedBarcode {
@@ -17,10 +18,8 @@ export interface DecodedBarcode {
   productionDate?: string;
 }
 
-export async function decodeDataMatrixFromBase64(base64Image: string): Promise<DecodedBarcode | null> {
+async function decodeFromBuffer(imageBuffer: Buffer): Promise<DecodedBarcode | null> {
   try {
-    const imageBuffer = Buffer.from(base64Image, 'base64');
-    
     const { data, info } = await sharp(imageBuffer)
       .ensureAlpha()
       .raw()
@@ -46,14 +45,24 @@ export async function decodeDataMatrixFromBase64(base64Image: string): Promise<D
       BarcodeFormat.CODE_128,
     ]);
     hints.set(DecodeHintType.TRY_HARDER, true);
+    hints.set(DecodeHintType.PURE_BARCODE, false);
 
     const reader = new MultiFormatReader();
     reader.setHints(hints);
 
     const luminanceSource = new RGBLuminanceSource(rgbData, width, height);
-    const binaryBitmap = new BinaryBitmap(new HybridBinarizer(luminanceSource));
+    
+    // Try HybridBinarizer first
+    let result;
+    try {
+      const binaryBitmap = new BinaryBitmap(new HybridBinarizer(luminanceSource));
+      result = reader.decode(binaryBitmap);
+    } catch {
+      // Try GlobalHistogramBinarizer as fallback
+      const binaryBitmap2 = new BinaryBitmap(new GlobalHistogramBinarizer(luminanceSource));
+      result = reader.decode(binaryBitmap2);
+    }
 
-    const result = reader.decode(binaryBitmap);
     const barcodeText = result.getText();
     const format = BarcodeFormat[result.getBarcodeFormat()];
 
@@ -74,11 +83,6 @@ export async function decodeDataMatrixFromBase64(base64Image: string): Promise<D
 
     return decoded;
   } catch (error: any) {
-    if (error.message?.includes('NotFoundException') || error.name === 'NotFoundException') {
-      console.log('[BarcodeDecoder] No barcode found in image');
-      return null;
-    }
-    console.error('[BarcodeDecoder] Error decoding barcode:', error.message || error);
     return null;
   }
 }
@@ -132,29 +136,87 @@ function parseGS1Content(content: string): {
 }
 
 export async function tryDecodeWithMultipleStrategies(base64Image: string): Promise<DecodedBarcode | null> {
-  const originalResult = await decodeDataMatrixFromBase64(base64Image);
-  if (originalResult) {
-    return originalResult;
-  }
+  const imageBuffer = Buffer.from(base64Image, 'base64');
+  
+  // Strategy 1: Original image
+  let result = await decodeFromBuffer(imageBuffer);
+  if (result) return result;
 
+  // Strategy 2: Greyscale + normalize + sharpen
   try {
-    const imageBuffer = Buffer.from(base64Image, 'base64');
-
-    const enhancedBuffer = await sharp(imageBuffer)
+    const enhanced1 = await sharp(imageBuffer)
       .greyscale()
       .normalize()
-      .sharpen()
+      .sharpen({ sigma: 2 })
       .toBuffer();
-
-    const enhancedBase64 = enhancedBuffer.toString('base64');
-    const enhancedResult = await decodeDataMatrixFromBase64(enhancedBase64);
-    if (enhancedResult) {
-      console.log('[BarcodeDecoder] Decoded with enhanced image processing');
-      return enhancedResult;
+    result = await decodeFromBuffer(enhanced1);
+    if (result) {
+      console.log('[BarcodeDecoder] Decoded with greyscale+normalize+sharpen');
+      return result;
     }
-  } catch (error) {
-    console.log('[BarcodeDecoder] Enhanced processing failed');
+  } catch {}
+
+  // Strategy 3: High contrast
+  try {
+    const enhanced2 = await sharp(imageBuffer)
+      .greyscale()
+      .linear(1.5, -50)
+      .toBuffer();
+    result = await decodeFromBuffer(enhanced2);
+    if (result) {
+      console.log('[BarcodeDecoder] Decoded with high contrast');
+      return result;
+    }
+  } catch {}
+
+  // Strategy 4: Threshold (binarize)
+  try {
+    const enhanced3 = await sharp(imageBuffer)
+      .greyscale()
+      .threshold(128)
+      .toBuffer();
+    result = await decodeFromBuffer(enhanced3);
+    if (result) {
+      console.log('[BarcodeDecoder] Decoded with threshold');
+      return result;
+    }
+  } catch {}
+
+  // Strategy 5: Resize larger (2x)
+  try {
+    const metadata = await sharp(imageBuffer).metadata();
+    const enhanced4 = await sharp(imageBuffer)
+      .resize(metadata.width! * 2, metadata.height! * 2, { kernel: 'lanczos3' })
+      .greyscale()
+      .normalize()
+      .toBuffer();
+    result = await decodeFromBuffer(enhanced4);
+    if (result) {
+      console.log('[BarcodeDecoder] Decoded with 2x resize');
+      return result;
+    }
+  } catch {}
+
+  // Strategy 6: Rotate and try (for slightly angled barcodes)
+  for (const angle of [5, -5, 10, -10]) {
+    try {
+      const rotated = await sharp(imageBuffer)
+        .rotate(angle, { background: { r: 255, g: 255, b: 255, alpha: 1 } })
+        .greyscale()
+        .normalize()
+        .toBuffer();
+      result = await decodeFromBuffer(rotated);
+      if (result) {
+        console.log(`[BarcodeDecoder] Decoded with ${angle}° rotation`);
+        return result;
+      }
+    } catch {}
   }
 
+  console.log('[BarcodeDecoder] No barcode found after all strategies');
   return null;
+}
+
+export async function decodeDataMatrixFromBase64(base64Image: string): Promise<DecodedBarcode | null> {
+  return tryDecodeWithMultipleStrategies(base64Image);
 }
