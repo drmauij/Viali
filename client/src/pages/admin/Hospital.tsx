@@ -49,9 +49,20 @@ export default function Hospital() {
     browserUsername: "",
   });
 
-  // Hospital name states
+  // Hospital company data states
   const [hospitalDialogOpen, setHospitalDialogOpen] = useState(false);
-  const [hospitalName, setHospitalName] = useState(activeHospital?.name || "");
+  const [hospitalForm, setHospitalForm] = useState({
+    name: activeHospital?.name || "",
+    companyName: "",
+    companyStreet: "",
+    companyPostalCode: "",
+    companyCity: "",
+    companyPhone: "",
+    companyFax: "",
+    companyEmail: "",
+    companyLogoUrl: "",
+  });
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
   // Seed data states
   const [seedDialogOpen, setSeedDialogOpen] = useState(false);
@@ -274,19 +285,43 @@ export default function Hospital() {
     },
   });
 
+  // Fetch full hospital data
+  const { data: fullHospitalData } = useQuery<any>({
+    queryKey: [`/api/admin/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id && isAdmin && hospitalDialogOpen,
+  });
+
+  // Initialize form when hospital data is loaded
+  useEffect(() => {
+    if (fullHospitalData && hospitalDialogOpen) {
+      setHospitalForm({
+        name: fullHospitalData.name || "",
+        companyName: fullHospitalData.companyName || "",
+        companyStreet: fullHospitalData.companyStreet || "",
+        companyPostalCode: fullHospitalData.companyPostalCode || "",
+        companyCity: fullHospitalData.companyCity || "",
+        companyPhone: fullHospitalData.companyPhone || "",
+        companyFax: fullHospitalData.companyFax || "",
+        companyEmail: fullHospitalData.companyEmail || "",
+        companyLogoUrl: fullHospitalData.companyLogoUrl || "",
+      });
+    }
+  }, [fullHospitalData, hospitalDialogOpen]);
+
   // Hospital mutation
   const updateHospitalMutation = useMutation({
-    mutationFn: async (name: string) => {
-      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}`, { name });
+    mutationFn: async (data: typeof hospitalForm) => {
+      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}`, data);
       return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}`] });
       setHospitalDialogOpen(false);
-      toast({ title: t("common.success"), description: t("admin.hospitalNameUpdatedSuccess") });
+      toast({ title: t("common.success"), description: t("admin.hospitalDataUpdatedSuccess") });
     },
     onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospitalName"), variant: "destructive" });
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospital"), variant: "destructive" });
     },
   });
 
@@ -479,16 +514,73 @@ export default function Hospital() {
   };
 
   const handleEditHospitalName = () => {
-    setHospitalName(activeHospital?.name || "");
     setHospitalDialogOpen(true);
   };
 
-  const handleSaveHospitalName = () => {
-    if (!hospitalName.trim()) {
+  const handleSaveHospital = () => {
+    if (!hospitalForm.name.trim()) {
       toast({ title: t("common.error"), description: t("admin.hospitalNameRequired"), variant: "destructive" });
       return;
     }
-    updateHospitalMutation.mutate(hospitalName);
+    updateHospitalMutation.mutate(hospitalForm);
+  };
+
+  // Compress image for logo upload
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          
+          const maxSize = 400;
+          if (width > maxSize || height > maxSize) {
+            if (width > height) {
+              height = (height / width) * maxSize;
+              width = maxSize;
+            } else {
+              width = (width / height) * maxSize;
+              height = maxSize;
+            }
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+          
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          resolve(compressedDataUrl);
+        };
+        img.onerror = reject;
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: t("common.error"), description: t("admin.logoTooLarge"), variant: "destructive" });
+      return;
+    }
+    
+    setIsUploadingLogo(true);
+    try {
+      const compressedImage = await compressImage(file);
+      setHospitalForm(prev => ({ ...prev, companyLogoUrl: compressedImage }));
+    } catch (error) {
+      toast({ title: t("common.error"), description: t("admin.failedToUploadLogo"), variant: "destructive" });
+    } finally {
+      setIsUploadingLogo(false);
+    }
   };
 
   if (!activeHospital) {
@@ -1372,33 +1464,164 @@ export default function Hospital() {
         </DialogContent>
       </Dialog>
 
-      {/* Hospital Name Dialog */}
+      {/* Hospital Company Data Dialog */}
       <Dialog open={hospitalDialogOpen} onOpenChange={setHospitalDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{t("admin.editHospitalName")}</DialogTitle>
+            <DialogTitle>{t("admin.editCompanyData")}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-6">
+            {/* Logo Section */}
+            <div className="flex gap-6">
+              <div className="flex-shrink-0">
+                <div className="w-32 h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
+                  {hospitalForm.companyLogoUrl ? (
+                    <img 
+                      src={hospitalForm.companyLogoUrl} 
+                      alt="Company Logo" 
+                      className="w-full h-full object-contain"
+                    />
+                  ) : (
+                    <i className="fas fa-building text-4xl text-muted-foreground"></i>
+                  )}
+                </div>
+                <div className="mt-2">
+                  <label htmlFor="logo-upload" className="cursor-pointer">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm" 
+                      className="w-full"
+                      disabled={isUploadingLogo}
+                      asChild
+                    >
+                      <span>
+                        <i className="fas fa-upload mr-2"></i>
+                        {isUploadingLogo ? t("common.loading") : t("admin.uploadLogo")}
+                      </span>
+                    </Button>
+                    <input
+                      id="logo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleLogoUpload}
+                      data-testid="input-logo-upload"
+                    />
+                  </label>
+                  <p className="text-xs text-muted-foreground mt-1 text-center">{t("admin.logoMaxSize")}</p>
+                </div>
+              </div>
+
+              {/* Company Data Section */}
+              <div className="flex-1 space-y-4">
+                <div>
+                  <Label htmlFor="company-name">{t("admin.companyName")} *</Label>
+                  <Input
+                    id="company-name"
+                    value={hospitalForm.companyName}
+                    onChange={(e) => setHospitalForm(prev => ({ ...prev, companyName: e.target.value }))}
+                    placeholder={t("admin.companyNamePlaceholder")}
+                    data-testid="input-company-name"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="col-span-2">
+                    <Label htmlFor="company-street">{t("admin.companyStreet")}</Label>
+                    <Input
+                      id="company-street"
+                      value={hospitalForm.companyStreet}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, companyStreet: e.target.value }))}
+                      placeholder={t("admin.companyStreetPlaceholder")}
+                      data-testid="input-company-street"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="company-postal-code">{t("admin.companyPostalCode")}</Label>
+                    <Input
+                      id="company-postal-code"
+                      value={hospitalForm.companyPostalCode}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, companyPostalCode: e.target.value }))}
+                      placeholder="8000"
+                      data-testid="input-company-postal-code"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="company-city">{t("admin.companyCity")}</Label>
+                  <Input
+                    id="company-city"
+                    value={hospitalForm.companyCity}
+                    onChange={(e) => setHospitalForm(prev => ({ ...prev, companyCity: e.target.value }))}
+                    placeholder={t("admin.companyCityPlaceholder")}
+                    data-testid="input-company-city"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="company-phone">{t("admin.companyPhone")}</Label>
+                <Input
+                  id="company-phone"
+                  value={hospitalForm.companyPhone}
+                  onChange={(e) => setHospitalForm(prev => ({ ...prev, companyPhone: e.target.value }))}
+                  placeholder="+41 44 123 45 67"
+                  data-testid="input-company-phone"
+                />
+              </div>
+              <div>
+                <Label htmlFor="company-fax">{t("admin.companyFax")}</Label>
+                <Input
+                  id="company-fax"
+                  value={hospitalForm.companyFax}
+                  onChange={(e) => setHospitalForm(prev => ({ ...prev, companyFax: e.target.value }))}
+                  placeholder="+41 44 123 45 68"
+                  data-testid="input-company-fax"
+                />
+              </div>
+            </div>
+
             <div>
+              <Label htmlFor="company-email">{t("admin.companyEmail")}</Label>
+              <Input
+                id="company-email"
+                type="email"
+                value={hospitalForm.companyEmail}
+                onChange={(e) => setHospitalForm(prev => ({ ...prev, companyEmail: e.target.value }))}
+                placeholder="info@klinik.ch"
+                data-testid="input-company-email"
+              />
+            </div>
+
+            {/* Hospital Name (System name) */}
+            <div className="pt-4 border-t">
               <Label htmlFor="hospital-name">{t("admin.hospitalNameLabel")} *</Label>
               <Input
                 id="hospital-name"
-                value={hospitalName}
-                onChange={(e) => setHospitalName(e.target.value)}
+                value={hospitalForm.name}
+                onChange={(e) => setHospitalForm(prev => ({ ...prev, name: e.target.value }))}
                 placeholder={t("admin.hospitalNamePlaceholder")}
                 data-testid="input-hospital-name"
               />
+              <p className="text-xs text-muted-foreground mt-1">{t("admin.hospitalNameHint")}</p>
             </div>
-            <div className="flex gap-2 justify-end">
+
+            <div className="flex gap-2 justify-end pt-4">
               <Button variant="outline" onClick={() => setHospitalDialogOpen(false)}>
                 {t("common.cancel")}
               </Button>
               <Button
-                onClick={handleSaveHospitalName}
-                disabled={updateHospitalMutation.isPending}
+                onClick={handleSaveHospital}
+                disabled={updateHospitalMutation.isPending || isUploadingLogo}
                 data-testid="button-save-hospital"
               >
-                {t("common.edit")}
+                <i className="fas fa-save mr-2"></i>
+                {t("common.save")}
               </Button>
             </div>
           </div>
