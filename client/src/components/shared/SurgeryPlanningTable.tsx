@@ -905,13 +905,13 @@ export function SurgeryPlanningTable({
         fontStyle: 'bold'
       },
       columnStyles: {
-        0: { cellWidth: 28 },
-        1: { cellWidth: 22 },
-        2: { cellWidth: 32 },
-        3: { cellWidth: 52 },
-        4: { cellWidth: 28 },
-        5: { cellWidth: 50 },
-        6: { cellWidth: 54 }
+        0: { cellWidth: 26 },  // Datum
+        1: { cellWidth: 22 },  // Operator
+        2: { cellWidth: 32 },  // Patient
+        3: { cellWidth: 42 },  // Eingriff (reduced)
+        4: { cellWidth: 50 },  // Note (increased)
+        5: { cellWidth: 38 },  // Anästhesie (reduced)
+        6: { cellWidth: 56 }   // Staff
       },
       margin: { left: 10, right: 10 }
     });
