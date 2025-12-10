@@ -31,7 +31,11 @@ export default function Patients() {
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
   
   // Module-aware base path for navigation
-  const moduleBasePath = activeModule === "surgery" ? "/surgery" : "/anesthesia";
+  const moduleBasePath = activeModule === "surgery" 
+    ? "/surgery" 
+    : activeModule === "clinic" 
+      ? "/clinic" 
+      : "/anesthesia";
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newPatient, setNewPatient] = useState({
