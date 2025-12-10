@@ -190,6 +190,11 @@ export default function BottomNav() {
     if (path === "/business") {
       return location === "/business" || location === "/business/dashboard";
     }
+    // Clinic invoices is at "/clinic" but patients is at "/clinic/patients"
+    // Need exact match for "/clinic" to avoid matching "/clinic/patients"
+    if (path === "/clinic") {
+      return location === "/clinic" || location === "/clinic/invoices" || location?.startsWith("/clinic/invoices/");
+    }
     return location?.startsWith(path);
   };
 
