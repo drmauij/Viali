@@ -540,24 +540,6 @@ export default function Hospital() {
         </div>
       </div>
 
-      {/* Module Configuration Info Card */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <div className="flex items-start gap-3">
-          <i className="fas fa-info-circle text-xl text-primary mt-0.5"></i>
-          <div>
-            <h3 className="font-semibold text-foreground text-lg mb-2">
-              Module Configuration
-            </h3>
-            <p className="text-sm text-muted-foreground mb-2">
-              Anesthesia and Surgery modules are now configured per-unit in the Units tab.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Edit a unit and enable the "Anesthesia Module" or "Surgery Module" checkbox to configure which units support these features.
-            </p>
-          </div>
-        </div>
-      </div>
-
       {/* Seed Default Data Card */}
       <div className="bg-card border border-border rounded-lg p-4">
         <div className="flex items-center justify-between">
