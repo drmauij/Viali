@@ -2,6 +2,55 @@
 -- Creates clinic invoicing tables and adds required columns
 -- All statements use IF NOT EXISTS for safe re-running
 
+-- Add company info columns to hospitals table (for invoicing)
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hospitals' AND column_name = 'company_name') THEN
+    ALTER TABLE "hospitals" ADD COLUMN "company_name" varchar;
+  END IF;
+END $$;--> statement-breakpoint
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hospitals' AND column_name = 'company_street') THEN
+    ALTER TABLE "hospitals" ADD COLUMN "company_street" varchar;
+  END IF;
+END $$;--> statement-breakpoint
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hospitals' AND column_name = 'company_postal_code') THEN
+    ALTER TABLE "hospitals" ADD COLUMN "company_postal_code" varchar;
+  END IF;
+END $$;--> statement-breakpoint
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hospitals' AND column_name = 'company_city') THEN
+    ALTER TABLE "hospitals" ADD COLUMN "company_city" varchar;
+  END IF;
+END $$;--> statement-breakpoint
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hospitals' AND column_name = 'company_phone') THEN
+    ALTER TABLE "hospitals" ADD COLUMN "company_phone" varchar;
+  END IF;
+END $$;--> statement-breakpoint
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hospitals' AND column_name = 'company_fax') THEN
+    ALTER TABLE "hospitals" ADD COLUMN "company_fax" varchar;
+  END IF;
+END $$;--> statement-breakpoint
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hospitals' AND column_name = 'company_email') THEN
+    ALTER TABLE "hospitals" ADD COLUMN "company_email" varchar;
+  END IF;
+END $$;--> statement-breakpoint
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'hospitals' AND column_name = 'company_logo_url') THEN
+    ALTER TABLE "hospitals" ADD COLUMN "company_logo_url" varchar;
+  END IF;
+END $$;--> statement-breakpoint
+
 -- Add patient_price column to items table
 DO $$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'items' AND column_name = 'patient_price') THEN
