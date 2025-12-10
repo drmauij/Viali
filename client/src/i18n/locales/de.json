@@ -2926,6 +2926,8 @@
   "surgeryPlanning": {
     "calendarView": "Kalender",
     "tableView": "Tabelle",
+    "compactView": "Kompaktansicht",
+    "extendedView": "Erweiterte Ansicht",
     "currentAndFuture": "Aktuell & Zukünftig",
     "past": "Vergangen",
     "noSurgeries": "Keine Operationen im ausgewählten Zeitraum gefunden",

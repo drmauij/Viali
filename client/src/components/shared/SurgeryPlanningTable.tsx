@@ -407,6 +407,7 @@ export function SurgeryPlanningTable({
   const [sortState, setSortState] = useState<SortState>({ field: "plannedDate", direction: "asc" });
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
   const [pendingUpdates, setPendingUpdates] = useState<Set<string>>(new Set());
+  const [isCompactView, setIsCompactView] = useState(true); // Default to compact view
   
   const columnGroups = visibleColumnGroups ?? DEFAULT_COLUMN_GROUPS[moduleContext];
   
@@ -1034,10 +1035,14 @@ export function SurgeryPlanningTable({
   const showClinical = columnGroups.includes("clinical");
   const showScheduling = columnGroups.includes("scheduling");
   const showBusiness = columnGroups.includes("business");
-  const showContracts = columnGroups.includes("contracts");
-  const showImplants = columnGroups.includes("implants");
-  const showPaidStatus = columnGroups.includes("paidStatus");
+  const showContracts = columnGroups.includes("contracts") && !isCompactView;
+  const showImplants = columnGroups.includes("implants") && !isCompactView;
+  const showPaidStatus = columnGroups.includes("paidStatus") && !isCompactView;
   const hideRoomAndAdmission = moduleContext === "business";
+  
+  // Check if compact toggle should be shown (only for anesthesia/surgery modules with control columns)
+  const showCompactToggle = (moduleContext === "anesthesia" || moduleContext === "surgery") && 
+    (columnGroups.includes("paidStatus") || columnGroups.includes("contracts") || columnGroups.includes("implants"));
   
   // Calculate total columns for day header colspan
   const totalColumns = useMemo(() => {
@@ -1074,11 +1079,35 @@ export function SurgeryPlanningTable({
   }
   
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-10"></TableHead>
+    <div className="space-y-2">
+      {showCompactToggle && (
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsCompactView(!isCompactView)}
+            className="gap-2"
+            data-testid="toggle-compact-view"
+          >
+            {isCompactView ? (
+              <>
+                <ChevronDown className="h-4 w-4" />
+                {t("surgeryPlanning.extendedView")}
+              </>
+            ) : (
+              <>
+                <ChevronUp className="h-4 w-4" />
+                {t("surgeryPlanning.compactView")}
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+      <div className="rounded-md border max-h-[calc(100vh-280px)] overflow-auto">
+        <Table>
+          <TableHeader className="sticky top-0 bg-background z-10">
+            <TableRow>
+              <TableHead className="w-10"></TableHead>
             
             {showClinical && (
               <>
@@ -1467,7 +1496,8 @@ export function SurgeryPlanningTable({
             </Fragment>
           ))}
         </TableBody>
-      </Table>
+        </Table>
+      </div>
     </div>
   );
 }
