@@ -889,6 +889,9 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
     if (updateData.actualStartTime && typeof updateData.actualStartTime === 'string') {
       updateData.actualStartTime = new Date(updateData.actualStartTime);
     }
+    if (updateData.admissionTime && typeof updateData.admissionTime === 'string') {
+      updateData.admissionTime = new Date(updateData.admissionTime);
+    }
 
     const updatedSurgery = await storage.updateSurgery(id, updateData);
     
