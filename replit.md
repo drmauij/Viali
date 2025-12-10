@@ -8,6 +8,30 @@ Preferred communication style: Simple, everyday language.
 
 Deployment Environment: The application is deployed to a custom server on **Exoscale** (Ubuntu-based VPS), NOT on Replit. Do not search Replit documentation for deployment-related issues. The user has sudo access and full control over the server environment.
 
+### Database Migration Workflow (CRITICAL)
+**NEVER manually create migration files without updating the journal!**
+
+The correct workflow for database migrations:
+1. Update the schema in `shared/schema.ts`
+2. Run `npm run db:generate` to let Drizzle create the migration file AND update the journal
+3. Convert the generated migration SQL to **idempotent format** using `IF NOT EXISTS` checks
+4. Test locally before deploying
+
+Example idempotent pattern:
+```sql
+DO $$ 
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'my_table' AND column_name = 'my_column') THEN
+    ALTER TABLE "my_table" ADD COLUMN "my_column" varchar;
+  END IF;
+END $$;
+```
+
+**Production deployment:**
+- Migration path uses `__dirname/../migrations` (absolute path) for PM2 compatibility
+- Copy `migrations` folder alongside `dist` folder when deploying
+- Idempotent migrations are safe to re-run if columns already exist
+
 ## System Architecture
 
 ### Frontend
