@@ -197,8 +197,8 @@ export default function SurgerySummaryDialog({
                   </div>
                 )}
               </div>
-              {/* Admin-only Edit Patient Button */}
-              {activeHospital?.role === 'admin' && onEditPatient && (
+              {/* Edit Patient Button - available to admin, doctor, and nurse roles */}
+              {['admin', 'doctor', 'nurse'].includes(activeHospital?.role || '') && onEditPatient && (
                 <Button
                   variant="outline"
                   size="sm"

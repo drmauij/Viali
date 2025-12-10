@@ -2165,7 +2165,7 @@
       "firstName": "First Name",
       "surname": "Surname",
       "dateOfBirth": "Date of Birth",
-      "dobPlaceholder": "15.03.95 or 15.03.1995",
+      "dobPlaceholder": "15.03.95 or 030495",
       "gender": "Gender",
       "male": "Male",
       "female": "Female",

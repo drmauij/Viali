@@ -91,15 +91,39 @@ export default function QuickCreateSurgeryDialog({
     return `${day}/${month}/${year}`;
   };
 
-  // Parse birthday from various formats (dd.mm.yy, dd.mm.yyyy) to ISO format (yyyy-mm-dd)
+  // Parse birthday from various formats to ISO format (yyyy-mm-dd)
+  // Supported formats:
+  // - dd.mm.yy or dd.mm.yyyy (with dots)
+  // - ddmmyyyy (8 digits without dots)
+  // - ddmmyy (6 digits without dots)
+  // - dmyy (4 digits: single-digit day and month, 2-digit year)
   const parseBirthday = (input: string): string | null => {
     const trimmed = input.trim();
     
-    // Match dd.mm.yy or dd.mm.yyyy
-    const match = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
-    if (!match) return null;
+    let day: string, month: string, year: string;
     
-    let [, day, month, year] = match;
+    // Try format with dots first: dd.mm.yy or dd.mm.yyyy
+    const dotMatch = trimmed.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
+    if (dotMatch) {
+      [, day, month, year] = dotMatch;
+    } else if (/^\d{8}$/.test(trimmed)) {
+      // 8 digits: ddmmyyyy (e.g., 03041977)
+      day = trimmed.substring(0, 2);
+      month = trimmed.substring(2, 4);
+      year = trimmed.substring(4, 8);
+    } else if (/^\d{6}$/.test(trimmed)) {
+      // 6 digits: ddmmyy (e.g., 030477)
+      day = trimmed.substring(0, 2);
+      month = trimmed.substring(2, 4);
+      year = trimmed.substring(4, 6);
+    } else if (/^\d{4}$/.test(trimmed)) {
+      // 4 digits: dmyy (e.g., 3477 = 3rd April 1977)
+      day = trimmed.substring(0, 1);
+      month = trimmed.substring(1, 2);
+      year = trimmed.substring(2, 4);
+    } else {
+      return null;
+    }
     
     // Convert 2-digit year to 4-digit (yy -> 19yy or 20yy)
     if (year.length === 2) {

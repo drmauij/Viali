@@ -79,6 +79,8 @@ export default function PatientDetail() {
   const isSurgeryModule = activeModule === "surgery";
   const moduleBasePath = isSurgeryModule ? "/surgery" : "/anesthesia";
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  // Track if Edit Patient dialog was opened via URL navigation (should use history.back()) or button click (just close)
+  const editOpenedViaUrl = useRef(false);
   // Track if Pre-OP dialog was opened via URL navigation (should use history.back()) or button click (just close)
   const preOpOpenedViaUrl = useRef(false);
   // Track if we're currently saving to prevent useEffect from resetting form data
@@ -217,6 +219,8 @@ export default function PatientDetail() {
         otherAllergies: patient.otherAllergies || "",
         internalNotes: patient.internalNotes || "",
       });
+      // Mark that this was opened via URL navigation (should go back after save)
+      editOpenedViaUrl.current = true;
       setIsEditDialogOpen(true);
       
       // Clean up URL by removing openEdit parameter
@@ -509,6 +513,13 @@ export default function PatientDetail() {
         description: t('anesthesia.patientDetail.successPatientUpdatedDesc'),
       });
       setIsEditDialogOpen(false);
+      
+      // If edit was opened via URL navigation (e.g., from Surgery Summary), go back
+      if (editOpenedViaUrl.current) {
+        editOpenedViaUrl.current = false;
+        // Use history.back() to return to where the user came from
+        window.history.back();
+      }
     },
     onError: (error: any) => {
       toast({
