@@ -94,6 +94,9 @@ export default function PatientDetail() {
     email: "",
     phone: "",
     address: "",
+    street: "",
+    postalCode: "",
+    city: "",
     emergencyContact: "",
     insuranceProvider: "",
     insuranceNumber: "",
@@ -212,6 +215,9 @@ export default function PatientDetail() {
         email: patient.email || "",
         phone: patient.phone || "",
         address: patient.address || "",
+        street: (patient as any).street || "",
+        postalCode: (patient as any).postalCode || "",
+        city: (patient as any).city || "",
         emergencyContact: patient.emergencyContact || "",
         insuranceProvider: patient.insuranceProvider || "",
         insuranceNumber: patient.insuranceNumber || "",
@@ -1307,6 +1313,9 @@ export default function PatientDetail() {
                         email: patient.email || "",
                         phone: patient.phone || "",
                         address: patient.address || "",
+                        street: (patient as any).street || "",
+                        postalCode: (patient as any).postalCode || "",
+                        city: (patient as any).city || "",
                         emergencyContact: patient.emergencyContact || "",
                         insuranceProvider: patient.insuranceProvider || "",
                         insuranceNumber: patient.insuranceNumber || "",
@@ -3702,13 +3711,37 @@ export default function PatientDetail() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-address">Address</Label>
+              <Label htmlFor="edit-street">{t('anesthesia.patients.street', 'Street, Nr')}</Label>
               <Input
-                id="edit-address"
-                value={editForm.address}
-                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                data-testid="input-edit-address"
+                id="edit-street"
+                value={editForm.street}
+                onChange={(e) => setEditForm({ ...editForm, street: e.target.value })}
+                data-testid="input-edit-street"
+                placeholder="Musterstraße 123"
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-postalCode">{t('anesthesia.patients.postalCode', 'PLZ')}</Label>
+                <Input
+                  id="edit-postalCode"
+                  value={editForm.postalCode}
+                  onChange={(e) => setEditForm({ ...editForm, postalCode: e.target.value })}
+                  data-testid="input-edit-postalCode"
+                  placeholder="8000"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-city">{t('anesthesia.patients.city', 'City')}</Label>
+                <Input
+                  id="edit-city"
+                  value={editForm.city}
+                  onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
+                  data-testid="input-edit-city"
+                  placeholder="Zürich"
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -3819,6 +3852,9 @@ export default function PatientDetail() {
                     email: editForm.email || null,
                     phone: editForm.phone || null,
                     address: editForm.address || null,
+                    street: editForm.street || null,
+                    postalCode: editForm.postalCode || null,
+                    city: editForm.city || null,
                     emergencyContact: editForm.emergencyContact || null,
                     insuranceProvider: editForm.insuranceProvider || null,
                     insuranceNumber: editForm.insuranceNumber || null,

@@ -638,6 +638,9 @@ export const patients = pgTable("patients", {
   email: varchar("email"),
   phone: varchar("phone"),
   address: text("address"),
+  street: varchar("street"), // Straße, Nr
+  postalCode: varchar("postal_code"), // PLZ
+  city: varchar("city"), // Ort
   emergencyContact: text("emergency_contact"),
   
   // Insurance & Administrative

@@ -40,6 +40,9 @@ export default function Patients() {
     sex: "",
     email: "",
     phone: "",
+    street: "",
+    postalCode: "",
+    city: "",
     allergies: [] as string[],
     otherAllergies: "",
     internalNotes: "",
@@ -232,6 +235,9 @@ export default function Patients() {
       sex: newPatient.sex,
       email: newPatient.email || null,
       phone: newPatient.phone || null,
+      street: newPatient.street || null,
+      postalCode: newPatient.postalCode || null,
+      city: newPatient.city || null,
       allergies: newPatient.allergies.length > 0 ? newPatient.allergies : null,
       otherAllergies: newPatient.otherAllergies || null,
       internalNotes: newPatient.internalNotes || null,
@@ -340,6 +346,40 @@ export default function Patients() {
                   onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
                   data-testid="input-phone"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="street">{t('anesthesia.patients.street', 'Street, Nr')}</Label>
+                <Input
+                  id="street"
+                  placeholder="Musterstraße 123"
+                  value={newPatient.street}
+                  onChange={(e) => setNewPatient({ ...newPatient, street: e.target.value })}
+                  data-testid="input-street"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="postalCode">{t('anesthesia.patients.postalCode', 'PLZ')}</Label>
+                  <Input
+                    id="postalCode"
+                    placeholder="8000"
+                    value={newPatient.postalCode}
+                    onChange={(e) => setNewPatient({ ...newPatient, postalCode: e.target.value })}
+                    data-testid="input-postal-code"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="city">{t('anesthesia.patients.city', 'City')}</Label>
+                  <Input
+                    id="city"
+                    placeholder="Zürich"
+                    value={newPatient.city}
+                    onChange={(e) => setNewPatient({ ...newPatient, city: e.target.value })}
+                    data-testid="input-city"
+                  />
+                </div>
               </div>
 
               <div className="space-y-3">
