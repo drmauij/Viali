@@ -106,7 +106,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
             </button>
             
             {showHospitalDropdown && hospitals.length > 1 && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-card border border-border rounded-lg shadow-lg z-50">
+              <div className="absolute top-full left-0 mt-2 w-64 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[60vh] overflow-y-auto">
                 {hospitals.map((hospital) => (
                   <button
                     key={hospital.id}
