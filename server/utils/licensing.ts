@@ -7,7 +7,7 @@ export function getLicenseLimit(licenseType: string): number {
     case "free":
       return 10;
     case "basic":
-      return 200;
+      return 500;
     default:
       return 10;
   }
