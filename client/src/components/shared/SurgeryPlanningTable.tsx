@@ -1096,9 +1096,10 @@ export function SurgeryPlanningTable({
           </Button>
         </div>
       )}
-      <div className="rounded-md border max-h-[calc(100vh-280px)] overflow-auto">
-        <Table>
-          <TableHeader className="sticky top-0 z-20 bg-background [&_th]:bg-background">
+      <div className="rounded-md border">
+        <div className="max-h-[calc(100vh-280px)] overflow-auto">
+          <table className="w-full caption-bottom text-sm">
+            <thead className="sticky top-0 z-20 bg-background [&_tr]:border-b">
             <TableRow>
               <TableHead className="w-10 lg:sticky lg:left-0 lg:z-30 bg-background"></TableHead>
             
@@ -1185,8 +1186,8 @@ export function SurgeryPlanningTable({
               </>
             )}
           </TableRow>
-        </TableHeader>
-        <TableBody>
+        </thead>
+        <tbody className="[&_tr:last-child]:border-0">
           {groupedByDay.map(([dateKey, daySurgeries]) => (
             <Fragment key={dateKey}>
               {/* Day header row */}
@@ -1484,8 +1485,9 @@ export function SurgeryPlanningTable({
               })}
             </Fragment>
           ))}
-        </TableBody>
-        </Table>
+        </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
