@@ -523,4 +523,120 @@ router.patch('/api/clinic/:hospitalId/company-data', isAuthenticated, isClinicAc
   }
 });
 
+// Send invoice via email
+router.post('/api/clinic/:hospitalId/invoices/:invoiceId/send-email', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { hospitalId, invoiceId } = req.params;
+    const { email, pdfBase64, language, saveEmailToPatient } = req.body;
+    
+    if (!email || !pdfBase64) {
+      return res.status(400).json({ message: "Email and PDF data are required" });
+    }
+    
+    // Strip data URI prefix if present (data:application/pdf;base64,)
+    let cleanPdfBase64 = pdfBase64;
+    if (typeof pdfBase64 === 'string' && pdfBase64.includes(',')) {
+      cleanPdfBase64 = pdfBase64.split(',').pop() || pdfBase64;
+    }
+    
+    // Get invoice details
+    const invoice = await db
+      .select()
+      .from(clinicInvoices)
+      .where(
+        and(
+          eq(clinicInvoices.hospitalId, hospitalId),
+          eq(clinicInvoices.id, invoiceId)
+        )
+      )
+      .limit(1);
+    
+    if (invoice.length === 0) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+    
+    // Get hospital/clinic name
+    const { hospitals: hospitalsTable } = await import("@shared/schema");
+    const hospital = await db
+      .select()
+      .from(hospitalsTable)
+      .where(eq(hospitalsTable.id, hospitalId))
+      .limit(1);
+    
+    const clinicName = hospital[0]?.companyName || hospital[0]?.name || 'Clinic';
+    
+    // Send email
+    const { sendInvoiceEmail } = await import('../resend');
+    const result = await sendInvoiceEmail(
+      email,
+      invoice[0].invoiceNumber,
+      invoice[0].customerName,
+      invoice[0].total,
+      clinicName,
+      cleanPdfBase64,
+      language || 'de'
+    );
+    
+    if (!result.success) {
+      return res.status(500).json({ message: "Failed to send email", error: result.error });
+    }
+    
+    // Update invoice status to 'sent' if it was draft
+    if (invoice[0].status === 'draft') {
+      await db
+        .update(clinicInvoices)
+        .set({ status: 'sent' })
+        .where(eq(clinicInvoices.id, invoiceId));
+    }
+    
+    // Optionally save email to patient
+    if (saveEmailToPatient && invoice[0].patientId) {
+      const { patients: patientsTable } = await import("@shared/schema");
+      await db
+        .update(patientsTable)
+        .set({ email })
+        .where(eq(patientsTable.id, invoice[0].patientId));
+    }
+    
+    res.json({ success: true, message: "Invoice sent successfully" });
+  } catch (error) {
+    console.error("Error sending invoice email:", error);
+    res.status(500).json({ message: "Failed to send invoice email" });
+  }
+});
+
+// Get patient email for invoice
+router.get('/api/clinic/:hospitalId/invoices/:invoiceId/patient-email', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId, invoiceId } = req.params;
+    
+    const invoice = await db
+      .select()
+      .from(clinicInvoices)
+      .where(
+        and(
+          eq(clinicInvoices.hospitalId, hospitalId),
+          eq(clinicInvoices.id, invoiceId)
+        )
+      )
+      .limit(1);
+    
+    if (invoice.length === 0 || !invoice[0].patientId) {
+      return res.json({ email: null });
+    }
+    
+    const { patients: patientsTable } = await import("@shared/schema");
+    const patient = await db
+      .select({ email: patientsTable.email })
+      .from(patientsTable)
+      .where(eq(patientsTable.id, invoice[0].patientId))
+      .limit(1);
+    
+    res.json({ email: patient[0]?.email || null });
+  } catch (error) {
+    console.error("Error fetching patient email:", error);
+    res.status(500).json({ message: "Failed to fetch patient email" });
+  }
+});
+
 export default router;

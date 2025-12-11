@@ -282,3 +282,90 @@ export async function sendBulkImportCompleteEmail(
     return { success: false, error };
   }
 }
+
+export async function sendInvoiceEmail(
+  toEmail: string,
+  invoiceNumber: number,
+  customerName: string,
+  total: string,
+  clinicName: string,
+  pdfBase64: string,
+  language: 'de' | 'en' = 'de'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    console.log('[Email] Sending invoice from:', fromEmail, 'to:', toEmail);
+
+    const isGerman = language === 'de';
+    const subject = isGerman 
+      ? `Rechnung Nr. ${invoiceNumber} - ${clinicName}`
+      : `Invoice No. ${invoiceNumber} - ${clinicName}`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .invoice-details { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .total { font-size: 24px; font-weight: bold; color: #2563eb; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${clinicName}</h1>
+            </div>
+            <div class="content">
+              <p>${isGerman ? 'Guten Tag' : 'Dear'} ${customerName},</p>
+              <p>${isGerman 
+                ? 'anbei erhalten Sie Ihre Rechnung als PDF-Anhang.' 
+                : 'Please find your invoice attached as a PDF.'}</p>
+              
+              <div class="invoice-details">
+                <p><strong>${isGerman ? 'Rechnungsnummer' : 'Invoice Number'}:</strong> ${invoiceNumber}</p>
+                <p><strong>${isGerman ? 'Gesamtbetrag' : 'Total Amount'}:</strong> <span class="total">CHF ${total}</span></p>
+              </div>
+              
+              <p>${isGerman 
+                ? 'Bei Fragen stehen wir Ihnen gerne zur Verfügung.' 
+                : 'If you have any questions, please do not hesitate to contact us.'}</p>
+              
+              <p>${isGerman ? 'Freundliche Grüsse' : 'Best regards'},<br/>${clinicName}</p>
+            </div>
+            <div class="footer">
+              <p>${isGerman ? 'Diese E-Mail wurde automatisch generiert.' : 'This is an automated email.'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+      attachments: [
+        {
+          filename: `${isGerman ? 'Rechnung' : 'Invoice'}_${invoiceNumber}.pdf`,
+          content: pdfBase64,
+        }
+      ]
+    });
+
+    if (error) {
+      console.error('Failed to send invoice email:', error);
+      return { success: false, error };
+    }
+
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error sending invoice email:', error);
+    return { success: false, error };
+  }
+}

@@ -12,6 +12,7 @@
     "search": "Search",
     "loading": "Loading...",
     "adding": "Adding...",
+    "sending": "Sending...",
     "noData": "No data available",
     "error": "Error",
     "success": "Success",
@@ -2499,7 +2500,16 @@
       "downloadPdf": "Download PDF",
       "pdfGenerated": "PDF Generated",
       "pdfGeneratedDescription": "Invoice PDF has been downloaded",
-      "pdfError": "Failed to generate PDF"
+      "pdfError": "Failed to generate PDF",
+      "sendViaEmail": "Send via Email",
+      "emailAddress": "Email Address",
+      "enterEmail": "Enter email address",
+      "currentPatientEmail": "Current patient email",
+      "saveEmailToPatient": "Save this email address for the patient",
+      "sendEmail": "Send Email",
+      "emailSent": "Email Sent",
+      "emailSentDescription": "The invoice has been sent via email successfully",
+      "emailError": "Failed to send email"
     }
   },
   "business": {

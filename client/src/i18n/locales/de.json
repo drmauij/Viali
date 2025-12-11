@@ -12,6 +12,7 @@
     "search": "Suchen",
     "loading": "Laden...",
     "adding": "Hinzufügen...",
+    "sending": "Wird gesendet...",
     "noData": "Keine Daten verfügbar",
     "error": "Fehler",
     "success": "Erfolg",
@@ -2498,7 +2499,16 @@
       "downloadPdf": "PDF herunterladen",
       "pdfGenerated": "PDF erstellt",
       "pdfGeneratedDescription": "Rechnungs-PDF wurde heruntergeladen",
-      "pdfError": "PDF konnte nicht erstellt werden"
+      "pdfError": "PDF konnte nicht erstellt werden",
+      "sendViaEmail": "Per E-Mail senden",
+      "emailAddress": "E-Mail-Adresse",
+      "enterEmail": "E-Mail-Adresse eingeben",
+      "currentPatientEmail": "Aktuelle Patienten-E-Mail",
+      "saveEmailToPatient": "Diese E-Mail-Adresse für den Patienten speichern",
+      "sendEmail": "E-Mail senden",
+      "emailSent": "E-Mail gesendet",
+      "emailSentDescription": "Die Rechnung wurde erfolgreich per E-Mail gesendet",
+      "emailError": "E-Mail konnte nicht gesendet werden"
     }
   },
   "business": {

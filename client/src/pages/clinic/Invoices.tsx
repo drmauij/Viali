@@ -21,7 +21,9 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, FileText, Trash2, Eye, Download, Check } from "lucide-react";
+import { Plus, Search, FileText, Trash2, Eye, Download, Check, Mail, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -87,6 +89,11 @@ export default function ClinicInvoices() {
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [invoiceWithItems, setInvoiceWithItems] = useState<InvoiceWithItems | null>(null);
   const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [showEmailForm, setShowEmailForm] = useState(false);
+  const [emailAddress, setEmailAddress] = useState("");
+  const [patientEmail, setPatientEmail] = useState<string | null>(null);
+  const [saveEmailToPatient, setSaveEmailToPatient] = useState(false);
+  const [isEmailSending, setIsEmailSending] = useState(false);
 
   const activeHospital = useMemo(() => {
     const userHospitals = (user as any)?.hospitals;
@@ -199,17 +206,230 @@ export default function ClinicInvoices() {
   const handleViewInvoice = async (invoice: Invoice) => {
     setSelectedInvoice(invoice);
     setViewDialogOpen(true);
+    setShowEmailForm(false);
+    setEmailAddress("");
+    setPatientEmail(null);
+    setSaveEmailToPatient(false);
     
     try {
-      const res = await fetch(`/api/clinic/${hospitalId}/invoices/${invoice.id}`, {
-        credentials: 'include'
-      });
-      if (res.ok) {
-        const invoiceData = await res.json();
+      const [invoiceRes, emailRes] = await Promise.all([
+        fetch(`/api/clinic/${hospitalId}/invoices/${invoice.id}`, { credentials: 'include' }),
+        fetch(`/api/clinic/${hospitalId}/invoices/${invoice.id}/patient-email`, { credentials: 'include' })
+      ]);
+      
+      if (invoiceRes.ok) {
+        const invoiceData = await invoiceRes.json();
         setInvoiceWithItems(invoiceData);
       }
+      
+      if (emailRes.ok) {
+        const emailData = await emailRes.json();
+        setPatientEmail(emailData.email);
+        if (emailData.email) {
+          setEmailAddress(emailData.email);
+        }
+      }
     } catch (error) {
-      console.error('Failed to fetch invoice items:', error);
+      console.error('Failed to fetch invoice data:', error);
+    }
+  };
+  
+  const generatePDFBase64 = async (): Promise<string | null> => {
+    if (!invoiceWithItems || !companyData) return null;
+    
+    const doc = new jsPDF();
+    const invoice = invoiceWithItems;
+    const isGerman = i18n.language === 'de';
+    
+    // Add company logo if available
+    let logoYOffset = 0;
+    if (companyData.companyLogoUrl) {
+      try {
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'Anonymous';
+        await new Promise<void>((resolve, reject) => {
+          logoImg.onload = () => resolve();
+          logoImg.onerror = () => reject();
+          logoImg.src = companyData.companyLogoUrl;
+        });
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = logoImg.width;
+        canvas.height = logoImg.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(logoImg, 0, 0);
+        }
+        
+        const maxLogoWidth = 60;
+        const maxLogoHeight = 35;
+        const aspectRatio = logoImg.width / logoImg.height;
+        let logoWidth = maxLogoWidth;
+        let logoHeight = logoWidth / aspectRatio;
+        if (logoHeight > maxLogoHeight) {
+          logoHeight = maxLogoHeight;
+          logoWidth = logoHeight * aspectRatio;
+        }
+        
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const logoX = (pageWidth - logoWidth) / 2;
+        const flattenedLogoUrl = canvas.toDataURL('image/jpeg', 1.0);
+        doc.addImage(flattenedLogoUrl, 'JPEG', logoX, 10, logoWidth, logoHeight);
+        logoYOffset = logoHeight + 8;
+      } catch (e) {
+        console.warn('Failed to load company logo for PDF:', e);
+      }
+    }
+    
+    doc.setFontSize(18);
+    doc.text(isGerman ? "RECHNUNG" : "INVOICE", 20, 15 + logoYOffset);
+    
+    doc.setFontSize(10);
+    let yPos = 30 + logoYOffset;
+    
+    if (companyData.companyName) {
+      doc.setFontSize(12);
+      doc.text(companyData.companyName, 20, yPos);
+      yPos += 5;
+      doc.setFontSize(10);
+    }
+    if (companyData.companyStreet) {
+      doc.text(companyData.companyStreet, 20, yPos);
+      yPos += 5;
+    }
+    if (companyData.companyPostalCode || companyData.companyCity) {
+      doc.text(`${companyData.companyPostalCode} ${companyData.companyCity}`.trim(), 20, yPos);
+      yPos += 5;
+    }
+    if (companyData.companyPhone) {
+      doc.text(`${isGerman ? 'Tel' : 'Phone'}: ${companyData.companyPhone}`, 20, yPos);
+      yPos += 5;
+    }
+    if (companyData.companyEmail) {
+      doc.text(`${isGerman ? 'E-Mail' : 'Email'}: ${companyData.companyEmail}`, 20, yPos);
+      yPos += 5;
+    }
+    
+    doc.setFontSize(10);
+    doc.text(`${isGerman ? 'Rechnung Nr.' : 'Invoice No.'}: ${invoice.invoiceNumber}`, 140, 30 + logoYOffset);
+    doc.text(`${isGerman ? 'Datum' : 'Date'}: ${format(new Date(invoice.date), 'PP', { locale: dateLocale })}`, 140, 37 + logoYOffset);
+    
+    yPos = Math.max(yPos + 10, 65);
+    doc.setFontSize(11);
+    doc.text(isGerman ? "Rechnungsempfänger:" : "Bill To:", 20, yPos);
+    yPos += 6;
+    doc.setFontSize(10);
+    doc.text(invoice.customerName, 20, yPos);
+    yPos += 5;
+    if (invoice.customerAddress) {
+      const addressLines = invoice.customerAddress.split('\n');
+      addressLines.forEach(line => {
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+    
+    yPos += 10;
+    
+    const tableHeaders = [
+      [
+        isGerman ? 'Beschreibung' : 'Description',
+        isGerman ? 'Menge' : 'Qty',
+        isGerman ? 'Preis' : 'Price',
+        'Total'
+      ]
+    ];
+    
+    const tableData = invoice.items.map(item => [
+      item.description,
+      item.quantity.toString(),
+      `CHF ${parseFloat(item.unitPrice).toFixed(2)}`,
+      `CHF ${parseFloat(item.total).toFixed(2)}`
+    ]);
+    
+    const rightMargin = 25;
+    const tableRightEdge = 210 - rightMargin;
+    
+    autoTable(doc, {
+      startY: yPos,
+      head: tableHeaders,
+      body: tableData,
+      theme: 'striped',
+      headStyles: { fillColor: [60, 60, 60], textColor: [255, 255, 255] },
+      columnStyles: {
+        0: { cellWidth: 75 },
+        1: { cellWidth: 20, halign: 'center' },
+        2: { cellWidth: 35, halign: 'right' },
+        3: { cellWidth: 35, halign: 'right' },
+      },
+      margin: { left: 20, right: rightMargin },
+    });
+    
+    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    
+    doc.setFontSize(10);
+    doc.text(isGerman ? 'Zwischensumme:' : 'Subtotal:', 120, finalY);
+    doc.text(`CHF ${parseFloat(invoice.subtotal).toFixed(2)}`, tableRightEdge, finalY, { align: 'right' });
+    
+    doc.text(`${isGerman ? 'MwSt.' : 'VAT'} (${invoice.vatRate}%):`, 120, finalY + 6);
+    doc.text(`CHF ${parseFloat(invoice.vatAmount).toFixed(2)}`, tableRightEdge, finalY + 6, { align: 'right' });
+    
+    doc.setLineWidth(0.5);
+    doc.line(120, finalY + 10, tableRightEdge, finalY + 10);
+    
+    doc.setFontSize(12);
+    doc.setFont(undefined as any, 'bold');
+    doc.text(isGerman ? 'Gesamtbetrag:' : 'Total:', 120, finalY + 17);
+    doc.text(`CHF ${parseFloat(invoice.total).toFixed(2)}`, tableRightEdge, finalY + 17, { align: 'right' });
+    
+    doc.setFont(undefined as any, 'normal');
+    
+    if (invoice.comments) {
+      doc.setFontSize(10);
+      doc.text(isGerman ? 'Bemerkungen:' : 'Comments:', 20, finalY + 30);
+      doc.text(invoice.comments, 20, finalY + 36);
+    }
+    
+    // Return base64 without the data URI prefix
+    const pdfOutput = doc.output('datauristring');
+    return pdfOutput.split(',')[1];
+  };
+  
+  const handleSendEmail = async () => {
+    if (!emailAddress || !selectedInvoice) return;
+    
+    setIsEmailSending(true);
+    try {
+      const pdfBase64 = await generatePDFBase64();
+      if (!pdfBase64) {
+        throw new Error('Failed to generate PDF');
+      }
+      
+      const response = await apiRequest('POST', `/api/clinic/${hospitalId}/invoices/${selectedInvoice.id}/send-email`, {
+        email: emailAddress,
+        pdfBase64,
+        language: i18n.language,
+        saveEmailToPatient: saveEmailToPatient && emailAddress !== patientEmail,
+      });
+      
+      toast({
+        title: t('clinic.invoices.emailSent'),
+        description: t('clinic.invoices.emailSentDescription'),
+      });
+      
+      setShowEmailForm(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'invoices'] });
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      toast({
+        title: t('common.error'),
+        description: t('clinic.invoices.emailError'),
+        variant: "destructive",
+      });
+    } finally {
+      setIsEmailSending(false);
     }
   };
 
@@ -616,16 +836,88 @@ export default function ClinicInvoices() {
                 </div>
               )}
 
-              <div className="border-t pt-4 flex justify-end">
-                <Button
-                  onClick={generateInvoicePDF}
-                  disabled={isPdfLoading || !invoiceWithItems}
-                  data-testid="button-download-pdf"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  {isPdfLoading ? t('common.loading') : t('clinic.invoices.downloadPdf')}
-                </Button>
-              </div>
+              {/* Email sending section */}
+              {showEmailForm ? (
+                <div className="border-t pt-4 space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email-input">{t('clinic.invoices.emailAddress')}</Label>
+                    <Input
+                      id="email-input"
+                      type="email"
+                      value={emailAddress}
+                      onChange={(e) => setEmailAddress(e.target.value)}
+                      placeholder={t('clinic.invoices.enterEmail')}
+                      data-testid="input-email-address"
+                    />
+                    {patientEmail && (
+                      <p className="text-xs text-muted-foreground">
+                        {t('clinic.invoices.currentPatientEmail')}: {patientEmail}
+                      </p>
+                    )}
+                  </div>
+                  
+                  {emailAddress && emailAddress !== patientEmail && selectedInvoice?.patientId && (
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="save-email"
+                        checked={saveEmailToPatient}
+                        onCheckedChange={(checked) => setSaveEmailToPatient(checked === true)}
+                        data-testid="checkbox-save-email"
+                      />
+                      <Label htmlFor="save-email" className="text-sm">
+                        {t('clinic.invoices.saveEmailToPatient')}
+                      </Label>
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowEmailForm(false)}
+                      data-testid="button-cancel-email"
+                    >
+                      {t('common.cancel')}
+                    </Button>
+                    <Button
+                      onClick={handleSendEmail}
+                      disabled={!emailAddress || isEmailSending}
+                      data-testid="button-send-email"
+                    >
+                      {isEmailSending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          {t('common.sending')}
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="h-4 w-4 mr-2" />
+                          {t('clinic.invoices.sendEmail')}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="border-t pt-4 flex gap-2 justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowEmailForm(true)}
+                    disabled={!invoiceWithItems}
+                    data-testid="button-show-email-form"
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    {t('clinic.invoices.sendViaEmail')}
+                  </Button>
+                  <Button
+                    onClick={generateInvoicePDF}
+                    disabled={isPdfLoading || !invoiceWithItems}
+                    data-testid="button-download-pdf"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    {isPdfLoading ? t('common.loading') : t('clinic.invoices.downloadPdf')}
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
