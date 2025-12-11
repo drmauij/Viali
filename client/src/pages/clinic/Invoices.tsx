@@ -236,6 +236,20 @@ export default function ClinicInvoices() {
             logoImg.src = companyData.companyLogoUrl;
           });
           
+          // Flatten transparent PNG onto white background using canvas
+          // jsPDF doesn't support transparency and renders transparent areas as black
+          const canvas = document.createElement('canvas');
+          canvas.width = logoImg.width;
+          canvas.height = logoImg.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            // Fill with white background first
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // Draw the logo on top
+            ctx.drawImage(logoImg, 0, 0);
+          }
+          
           // Calculate aspect ratio and add to PDF
           const maxLogoWidth = 40;
           const maxLogoHeight = 20;
@@ -247,7 +261,9 @@ export default function ClinicInvoices() {
             logoWidth = logoHeight * aspectRatio;
           }
           
-          doc.addImage(logoImg, 'PNG', 20, 10, logoWidth, logoHeight);
+          // Use the flattened canvas image instead of original
+          const flattenedLogoUrl = canvas.toDataURL('image/png');
+          doc.addImage(flattenedLogoUrl, 'PNG', 20, 10, logoWidth, logoHeight);
           logoYOffset = logoHeight + 5;
         } catch (e) {
           // Logo failed to load, continue without it
