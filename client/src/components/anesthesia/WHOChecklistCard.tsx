@@ -61,12 +61,13 @@ export function WHOChecklistCard({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="flex items-center gap-2">
-          <Icon className="h-5 w-5" />
-          {title}
-        </CardTitle>
-        {saveStatus !== 'idle' && (
+      <CardHeader className="pb-2">
+        <div className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Icon className="h-5 w-5" />
+            {title}
+          </CardTitle>
+          {saveStatus !== 'idle' && (
           <Badge variant={
             saveStatus === 'saving' ? 'secondary' :
             saveStatus === 'saved' ? 'default' : 'destructive'
@@ -75,7 +76,9 @@ export function WHOChecklistCard({
             {saveStatus === 'saved' && t('anesthesia.op.saved')}
             {saveStatus === 'error' && t('anesthesia.op.errorSaving')}
           </Badge>
-        )}
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">{t('anesthesia.op.checklistSaveHint')}</p>
       </CardHeader>
       <CardContent className="space-y-3">
         {items && items.length > 0 ? (

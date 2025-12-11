@@ -992,6 +992,7 @@
       "saved": "Gespeichert",
       "error": "Fehler",
       "errorSaving": "Fehler beim Speichern",
+      "checklistSaveHint": "Checkliste wird gespeichert, wenn Sie Ihre Unterschrift hinzufügen",
       "errorCreatingRecord": "Anästhesieprotokoll konnte nicht erstellt werden. Bitte Seite aktualisieren.",
       "patientFallback": "Patient",
       "procedure": "EINGRIFF",

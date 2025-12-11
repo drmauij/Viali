@@ -992,6 +992,7 @@
       "saved": "Saved",
       "error": "Error",
       "errorSaving": "Error saving",
+      "checklistSaveHint": "Checklist will be saved when you add your signature",
       "errorCreatingRecord": "Failed to create anesthesia record. Please refresh the page.",
       "patientFallback": "Patient",
       "procedure": "PROCEDURE",
