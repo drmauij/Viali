@@ -7,14 +7,16 @@ import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSe
 import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, FileSpreadsheet, Users, User, X } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import QuickCreateSurgeryDialog from "./QuickCreateSurgeryDialog";
-import ExcelImportDialog from "./ExcelImportDialog";
 import TimelineWeekView from "./TimelineWeekView";
 import PlanStaffDialog from "./PlanStaffDialog";
 import PlannedStaffBox, { StaffPoolEntry, ROLE_CONFIG } from "./PlannedStaffBox";
@@ -205,9 +207,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     roomId?: string;
   } | null>(null);
   
-  // Excel import dialog state
-  const [excelImportOpen, setExcelImportOpen] = useState(false);
-  
   // Plan Staff dialog state
   const [planStaffDialogOpen, setPlanStaffDialogOpen] = useState(false);
   
@@ -342,6 +341,165 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       title: room.name,
     }));
   }, [surgeryRooms]);
+
+  // Build roomMap for PDF generation
+  const roomMap = useMemo(() => {
+    const map = new Map<string, string>();
+    surgeryRooms.forEach((room: any) => {
+      map.set(room.id, room.name);
+    });
+    return map;
+  }, [surgeryRooms]);
+
+  // Build patientMap for PDF generation
+  const patientMap = useMemo(() => {
+    const map = new Map<string, any>();
+    allPatients.forEach((patient: any) => {
+      map.set(patient.id, patient);
+    });
+    return map;
+  }, [allPatients]);
+
+  // Generate PDF for the current day's surgeries
+  const generateDayPdf = useCallback(() => {
+    // Filter surgeries for the selected day
+    const dayStart = new Date(selectedDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(selectedDate);
+    dayEnd.setHours(23, 59, 59, 999);
+    
+    const daySurgeries = surgeries.filter((s: any) => {
+      const date = new Date(s.plannedDate);
+      return date >= dayStart && date <= dayEnd;
+    });
+
+    if (daySurgeries.length === 0) {
+      toast({
+        title: "No surgeries",
+        description: "There are no surgeries planned for this day.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: 'landscape' });
+    
+    // Format date for display
+    const displayDate = format(selectedDate, 'dd.MM.yyyy');
+    const dateKey = format(selectedDate, 'yyyy-MM-dd');
+    
+    // Header
+    doc.setFontSize(16);
+    doc.text(`OP-TAG ${displayDate}`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(activeHospital?.name || '', 14, 22);
+    
+    // Group surgeries by room
+    const surgeriesByRoom = new Map<string, any[]>();
+    daySurgeries.forEach((surgery: any) => {
+      const roomId = surgery.surgeryRoomId || 'unassigned';
+      const roomSurgeries = surgeriesByRoom.get(roomId) || [];
+      roomSurgeries.push(surgery);
+      surgeriesByRoom.set(roomId, roomSurgeries);
+    });
+    
+    // Sort rooms: assigned rooms first (sorted by name), then unassigned
+    const sortedRoomIds = Array.from(surgeriesByRoom.keys()).sort((a, b) => {
+      if (a === 'unassigned') return 1;
+      if (b === 'unassigned') return -1;
+      const nameA = roomMap.get(a) || '';
+      const nameB = roomMap.get(b) || '';
+      return nameA.localeCompare(nameB);
+    });
+    
+    // Helper to format surgery row for table
+    const formatSurgeryRow = (surgery: any) => {
+      const patient = patientMap.get(surgery.patientId);
+      const patientName = patient ? `${patient.surname}, ${patient.firstName}` : '-';
+      const patientBirthday = patient?.birthday 
+        ? `(${format(new Date(patient.birthday), 'dd.MM.yyyy')})`
+        : '';
+      
+      const admissionTime = surgery.admissionTime 
+        ? format(new Date(surgery.admissionTime), 'HH:mm')
+        : '-';
+      const startTime = surgery.plannedDate 
+        ? format(new Date(surgery.plannedDate), 'HH:mm')
+        : '-';
+      
+      const datumText = [
+        displayDate,
+        `• Eintritt: ${admissionTime} Uhr`,
+        `• Schnitt: ${startTime}`
+      ].join('\n');
+      
+      return [
+        datumText,
+        surgery.surgeon || '-',
+        `${patientName}\n${patientBirthday}`,
+        surgery.plannedSurgery || '-',
+        surgery.notes || '-'
+      ];
+    };
+    
+    let currentY = 28;
+    
+    // Generate a table for each room
+    sortedRoomIds.forEach((roomId, index) => {
+      const roomSurgeries = surgeriesByRoom.get(roomId) || [];
+      const roomName = roomId === 'unassigned' 
+        ? 'Ohne Saal' 
+        : (roomMap.get(roomId) || `Saal ${roomId}`);
+      
+      // Add room header
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${roomName}`, 14, currentY);
+      currentY += 6;
+      
+      // Table data for this room
+      const tableData = roomSurgeries.map(formatSurgeryRow);
+      
+      autoTable(doc, {
+        startY: currentY,
+        head: [['Datum', 'Operator', 'Patient', 'Eingriff', 'Note']],
+        body: tableData,
+        theme: 'grid',
+        styles: { 
+          fontSize: 9, 
+          cellPadding: 2,
+          overflow: 'linebreak',
+          valign: 'top'
+        },
+        headStyles: {
+          fillColor: [66, 66, 66],
+          fontSize: 10,
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { cellWidth: 30 },  // Datum
+          1: { cellWidth: 30 },  // Operator
+          2: { cellWidth: 40 },  // Patient
+          3: { cellWidth: 80 },  // Eingriff
+          4: { cellWidth: 80 }   // Note
+        },
+        margin: { left: 10, right: 10 },
+      });
+      
+      // Get final Y position from autoTable
+      const finalY = (doc as any).lastAutoTable?.finalY || currentY;
+      currentY = finalY + 10;
+      
+      // Check if we need a new page for the next room
+      if (index < sortedRoomIds.length - 1 && currentY > 180) {
+        doc.addPage();
+        currentY = 20;
+      }
+    });
+    
+    // Save the PDF
+    doc.save(`OP-Tag_${dateKey}.pdf`);
+  }, [selectedDate, surgeries, activeHospital, roomMap, patientMap, toast]);
 
   // Helper to invalidate all room staff related queries
   const invalidateRoomStaffQueries = useCallback(() => {
@@ -740,16 +898,18 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             <CalendarRange className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
             <span className="hidden sm:inline">Month</span>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setExcelImportOpen(true)}
-            data-testid="button-excel-import"
-            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm bg-green-50 border-green-200 text-green-700 hover:bg-green-100 dark:bg-green-950 dark:border-green-800 dark:text-green-300 dark:hover:bg-green-900"
-          >
-            <FileSpreadsheet className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-            <span className="hidden sm:inline">Excel</span>
-          </Button>
+          {activeHospital && currentView === "day" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={generateDayPdf}
+              data-testid="button-download-pdf"
+              className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
+            >
+              <Download className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+              <span className="hidden sm:inline">PDF</span>
+            </Button>
+          )}
           {activeHospital && currentView === "day" && (
             <Button
               variant="outline"
@@ -934,16 +1094,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           initialDate={quickCreateData.date}
           initialEndDate={quickCreateData.endDate}
           initialRoomId={quickCreateData.roomId}
-          surgeryRooms={surgeryRooms}
-        />
-      )}
-
-      {/* Excel Import Dialog */}
-      {activeHospital && (
-        <ExcelImportDialog
-          open={excelImportOpen}
-          onOpenChange={setExcelImportOpen}
-          hospitalId={activeHospital.id}
           surgeryRooms={surgeryRooms}
         />
       )}
