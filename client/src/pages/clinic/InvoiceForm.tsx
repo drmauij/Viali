@@ -222,6 +222,13 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
       postalCode: patient.postalCode || "",
       city: patient.city || "",
     });
+    // Build and set the customer address from patient data
+    const addressParts = [];
+    if (patient.street) addressParts.push(patient.street);
+    if (patient.postalCode || patient.city) {
+      addressParts.push(`${patient.postalCode || ''} ${patient.city || ''}`.trim());
+    }
+    form.setValue("customerAddress", addressParts.join('\n'));
     setIsPatientPopoverOpen(false);
     setPatientSearch("");
   };
@@ -294,6 +301,14 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
         postalCode: addressForm.postalCode,
         city: addressForm.city,
       });
+      
+      // Update the customerAddress form field as well
+      const addressParts = [];
+      if (addressForm.street) addressParts.push(addressForm.street);
+      if (addressForm.postalCode || addressForm.city) {
+        addressParts.push(`${addressForm.postalCode || ''} ${addressForm.city || ''}`.trim());
+      }
+      form.setValue("customerAddress", addressParts.join('\n'));
       
       queryClient.invalidateQueries({ queryKey: ['/api/patients'] });
       setEditingAddress(false);

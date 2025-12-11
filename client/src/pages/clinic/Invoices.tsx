@@ -223,11 +223,43 @@ export default function ClinicInvoices() {
       const invoice = invoiceWithItems;
       const isGerman = i18n.language === 'de';
       
+      // Add company logo if available
+      let logoYOffset = 0;
+      if (companyData.companyLogoUrl) {
+        try {
+          // Load the logo image
+          const logoImg = new Image();
+          logoImg.crossOrigin = 'Anonymous';
+          await new Promise<void>((resolve, reject) => {
+            logoImg.onload = () => resolve();
+            logoImg.onerror = () => reject();
+            logoImg.src = companyData.companyLogoUrl;
+          });
+          
+          // Calculate aspect ratio and add to PDF
+          const maxLogoWidth = 40;
+          const maxLogoHeight = 20;
+          const aspectRatio = logoImg.width / logoImg.height;
+          let logoWidth = maxLogoWidth;
+          let logoHeight = logoWidth / aspectRatio;
+          if (logoHeight > maxLogoHeight) {
+            logoHeight = maxLogoHeight;
+            logoWidth = logoHeight * aspectRatio;
+          }
+          
+          doc.addImage(logoImg, 'PNG', 20, 10, logoWidth, logoHeight);
+          logoYOffset = logoHeight + 5;
+        } catch (e) {
+          // Logo failed to load, continue without it
+          console.warn('Failed to load company logo for PDF:', e);
+        }
+      }
+      
       doc.setFontSize(18);
-      doc.text(isGerman ? "RECHNUNG" : "INVOICE", 20, 20);
+      doc.text(isGerman ? "RECHNUNG" : "INVOICE", 20, 15 + logoYOffset);
       
       doc.setFontSize(10);
-      let yPos = 35;
+      let yPos = 30 + logoYOffset;
       
       if (companyData.companyName) {
         doc.setFontSize(12);
@@ -253,8 +285,8 @@ export default function ClinicInvoices() {
       }
       
       doc.setFontSize(10);
-      doc.text(`${isGerman ? 'Rechnung Nr.' : 'Invoice No.'}: ${invoice.invoiceNumber}`, 140, 35);
-      doc.text(`${isGerman ? 'Datum' : 'Date'}: ${format(new Date(invoice.date), 'PP', { locale: dateLocale })}`, 140, 42);
+      doc.text(`${isGerman ? 'Rechnung Nr.' : 'Invoice No.'}: ${invoice.invoiceNumber}`, 140, 30 + logoYOffset);
+      doc.text(`${isGerman ? 'Datum' : 'Date'}: ${format(new Date(invoice.date), 'PP', { locale: dateLocale })}`, 140, 37 + logoYOffset);
       
       yPos = Math.max(yPos + 10, 65);
       doc.setFontSize(11);
@@ -311,18 +343,19 @@ export default function ClinicInvoices() {
       
       doc.setFontSize(10);
       doc.text(isGerman ? 'Zwischensumme:' : 'Subtotal:', 130, finalY);
-      doc.text(`CHF ${parseFloat(invoice.subtotal).toFixed(2)}`, 175, finalY, { align: 'right' });
+      doc.text(`CHF ${parseFloat(invoice.subtotal).toFixed(2)}`, 190, finalY, { align: 'right' });
       
       doc.text(`${isGerman ? 'MwSt.' : 'VAT'} (${invoice.vatRate}%):`, 130, finalY + 6);
-      doc.text(`CHF ${parseFloat(invoice.vatAmount).toFixed(2)}`, 175, finalY + 6, { align: 'right' });
+      doc.text(`CHF ${parseFloat(invoice.vatAmount).toFixed(2)}`, 190, finalY + 6, { align: 'right' });
       
       doc.setLineWidth(0.5);
-      doc.line(130, finalY + 10, 175, finalY + 10);
+      doc.line(130, finalY + 10, 190, finalY + 10);
       
       doc.setFontSize(12);
       doc.setFont(undefined as any, 'bold');
+      // Position labels on the left, values on the right to avoid overlap
       doc.text(isGerman ? 'Gesamtbetrag:' : 'Total:', 130, finalY + 17);
-      doc.text(`CHF ${parseFloat(invoice.total).toFixed(2)}`, 175, finalY + 17, { align: 'right' });
+      doc.text(`CHF ${parseFloat(invoice.total).toFixed(2)}`, 190, finalY + 17, { align: 'right' });
       
       doc.setFont(undefined as any, 'normal');
       
