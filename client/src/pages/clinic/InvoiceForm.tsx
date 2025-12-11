@@ -77,7 +77,7 @@ const invoiceFormSchema = z.object({
   patientId: z.string().min(1, "Patient is required"),
   customerAddress: z.string().optional(),
   date: z.date(),
-  vatRate: z.coerce.number().min(0).max(100).default(7.7),
+  vatRate: z.coerce.number().min(0).max(100).default(2.6),
   comments: z.string().optional(),
   items: z.array(z.object({
     itemId: z.string().optional(),
@@ -733,26 +733,11 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="vatRate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('clinic.invoices.vatRate')} (%)</FormLabel>
-                <FormControl>
-                  <Input 
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    max="100"
-                    {...field}
-                    data-testid="input-vat-rate"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* VAT rate fixed at 2.6% - display only, not editable */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">{t('clinic.invoices.vatRate')}</Label>
+            <div className="text-sm text-muted-foreground">2.6%</div>
+          </div>
 
           <div className="space-y-1 text-right">
             <div className="text-sm text-muted-foreground">
