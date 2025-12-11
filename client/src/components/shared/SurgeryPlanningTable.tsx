@@ -1098,13 +1098,13 @@ export function SurgeryPlanningTable({
       )}
       <div className="rounded-md border max-h-[calc(100vh-280px)] overflow-auto">
         <Table>
-          <TableHeader className="sticky top-0 bg-background z-10">
+          <TableHeader className="sticky top-0 z-20 bg-background [&_th]:bg-background">
             <TableRow>
-              <TableHead className="w-10 lg:sticky lg:left-0 lg:z-20 bg-background"></TableHead>
+              <TableHead className="w-10 lg:sticky lg:left-0 lg:z-30 bg-background"></TableHead>
             
             {showClinical && (
               <>
-                <TableHead>
+                <TableHead className="bg-background">
                   <SortableHeader
                     label={t("surgeryPlanning.columns.patient")}
                     field="patientName"
@@ -1112,7 +1112,7 @@ export function SurgeryPlanningTable({
                     onSort={handleSort}
                   />
                 </TableHead>
-                <TableHead>
+                <TableHead className="bg-background">
                   <SortableHeader
                     label={t("surgeryPlanning.columns.procedure")}
                     field="plannedSurgery"
@@ -1120,8 +1120,8 @@ export function SurgeryPlanningTable({
                     onSort={handleSort}
                   />
                 </TableHead>
-                <TableHead>{t("surgeryPlanning.columns.surgeon")}</TableHead>
-                {!hideRoomAndAdmission && <TableHead>{t("surgeryPlanning.columns.room")}</TableHead>}
+                <TableHead className="bg-background">{t("surgeryPlanning.columns.surgeon")}</TableHead>
+                {!hideRoomAndAdmission && <TableHead className="bg-background">{t("surgeryPlanning.columns.room")}</TableHead>}
               </>
             )}
             
