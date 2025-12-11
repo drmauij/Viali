@@ -172,9 +172,9 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
         ? `${selectedPatient.firstName} ${selectedPatient.surname}` 
         : '';
       
-      // Build customer address from selected patient or form data
-      let customerAddress = data.customerAddress;
-      if (!customerAddress && selectedPatient) {
+      // Build customer address from selected patient - always use latest patient data
+      let customerAddress = '';
+      if (selectedPatient) {
         const addressParts = [];
         if (selectedPatient.street) addressParts.push(selectedPatient.street);
         if (selectedPatient.postalCode || selectedPatient.city) {
@@ -182,11 +182,17 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
         }
         customerAddress = addressParts.join('\n');
       }
+      // Fall back to form data if patient has no address but user entered one manually
+      if (!customerAddress && data.customerAddress) {
+        customerAddress = data.customerAddress;
+      }
+      
+      console.log('Creating invoice with customerAddress:', customerAddress, 'from patient:', selectedPatient);
       
       await apiRequest('POST', `/api/clinic/${hospitalId}/invoices`, {
         ...data,
         customerName,
-        customerAddress,
+        customerAddress: customerAddress || null,
         patientId: data.patientId || null,
       });
     },
