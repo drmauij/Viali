@@ -4926,7 +4926,7 @@ export default function Items() {
               <input
                 type="file"
                 ref={bulkFileInputRef}
-                accept="image/*,.csv"
+                accept="image/*,.csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 multiple
                 onChange={handleBulkImageUpload}
                 className="hidden"
@@ -4951,9 +4951,9 @@ export default function Items() {
                   onClick={() => bulkFileInputRef.current?.click()}
                   data-testid="button-csv-upload"
                 >
-                  <i className="fas fa-file-csv text-4xl mb-2"></i>
-                  <div className="font-semibold">Upload CSV</div>
-                  <div className="text-xs text-muted-foreground mt-1">Map fields from spreadsheet</div>
+                  <i className="fas fa-file-excel text-4xl mb-2"></i>
+                  <div className="font-semibold">Upload CSV/Excel</div>
+                  <div className="text-xs text-muted-foreground mt-1">Import from spreadsheet (.csv, .xlsx)</div>
                 </Button>
               </div>
               <div className="flex justify-center">
