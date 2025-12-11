@@ -5015,11 +5015,11 @@ export default function Items() {
               <div className="space-y-3">
                 <div className="text-sm font-medium">Map CSV Columns to Item Fields</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {['name', 'description', 'unit', 'initialStock', 'minThreshold', 'maxThreshold', 'packSize', 'critical', 'controlled', 'imageUrl', 'barcodes'].map(field => (
+                  {['name', 'description', 'unit', 'initialStock', 'minThreshold', 'maxThreshold', 'packSize', 'critical', 'controlled', 'imageUrl', 'barcodes', 'patientPrice'].map(field => (
                     <div key={field}>
                       <Label className="text-xs">
                         {field === 'name' && '* '}
-                        {field === 'initialStock' ? 'Stock' : field === 'minThreshold' ? 'Min' : field === 'maxThreshold' ? 'Max' : field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')}
+                        {field === 'initialStock' ? 'Stock' : field === 'minThreshold' ? 'Min' : field === 'maxThreshold' ? 'Max' : field === 'patientPrice' ? 'Patient Price (Final)' : field.charAt(0).toUpperCase() + field.slice(1).replace(/([A-Z])/g, ' $1')}
                       </Label>
                       <Select
                         value={Object.entries(csvMapping).find(([_, target]) => target === field)?.[0] || 'skip'}
@@ -5176,8 +5176,8 @@ export default function Items() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">Supplier Info (Optional)</span>
                       <span className="text-xs text-muted-foreground">
-                        {Object.values(csvMapping).filter(v => ['preferredSupplier', 'supplierArticleCode', 'supplierPrice', 'patientPrice'].includes(v)).length > 0 
-                          ? `${Object.values(csvMapping).filter(v => ['preferredSupplier', 'supplierArticleCode', 'supplierPrice', 'patientPrice'].includes(v)).length} fields mapped`
+                        {Object.values(csvMapping).filter(v => ['preferredSupplier', 'supplierArticleCode', 'supplierPrice'].includes(v)).length > 0 
+                          ? `${Object.values(csvMapping).filter(v => ['preferredSupplier', 'supplierArticleCode', 'supplierPrice'].includes(v)).length} fields mapped`
                           : 'For catalog transfer'}
                       </span>
                     </div>
@@ -5188,7 +5188,6 @@ export default function Items() {
                         { key: 'preferredSupplier', label: 'Preferred Supplier' },
                         { key: 'supplierArticleCode', label: 'Supplier Article Code' },
                         { key: 'supplierPrice', label: 'Supplier Price' },
-                        { key: 'patientPrice', label: 'Patient Price (Final)' },
                       ].map(({ key, label}) => (
                         <div key={key}>
                           <Label className="text-xs">{label}</Label>
