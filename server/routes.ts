@@ -562,6 +562,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           imageUrl: bulkItem.imageUrl ?? null,
           folderId,
           vendorId,
+          patientPrice: bulkItem.patientPrice ?? null,
         };
 
         const item = await storage.createItem(itemData);
