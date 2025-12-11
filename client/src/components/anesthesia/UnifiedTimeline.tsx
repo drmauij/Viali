@@ -3315,30 +3315,70 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   }, [shouldAutoRecenterView, anesthesiaRecordId, data.startTime, data.endTime, now, isChartReady, hasValidContentBounds]);
 
   // Update dataZoom xAxisIndex when swimlane structure changes
+  // CRITICAL: Must wait for chart to have matching grids/xAxes before updating xAxisIndex
+  // Otherwise ECharts throws "coordinateSystem" errors when series reference non-existent grids
   useEffect(() => {
     if (!isChartReady) return;
+    if (!isMountedRef.current) return;
     
     const chart = chartRef.current?.getEchartsInstance();
     if (!chart) return;
 
-    try {
-      // Update dataZoom to include all current x-axes without resetting zoom state
-      const numGrids = activeSwimlanes.length + 1; // +1 for vitals grid
-      const currentOption = chart.getOption() as any;
-      if (!currentOption) return;
-      const currentDataZoom = currentOption.dataZoom?.[0];
+    let rafId: number | null = null;
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    const tryUpdateDataZoom = () => {
+      if (!isMountedRef.current) return;
       
-      chart.setOption({
-        dataZoom: [{
-          xAxisIndex: Array.from({ length: numGrids }, (_, i) => i),
-          // Preserve current zoom state
-          start: currentDataZoom?.start,
-          end: currentDataZoom?.end,
-        }]
-      });
-    } catch (error) {
-      console.warn('[TIMELINE] Error updating dataZoom:', error);
-    }
+      try {
+        const numGrids = activeSwimlanes.length + 1; // +1 for vitals grid
+        const currentOption = chart.getOption() as any;
+        if (!currentOption) return;
+        
+        // CRITICAL GUARD: Wait for chart to have the expected number of xAxes
+        // If counts don't match, the chart hasn't processed the new option yet
+        const xAxisCount = Array.isArray(currentOption.xAxis) ? currentOption.xAxis.length : 0;
+        
+        if (xAxisCount !== numGrids) {
+          // Chart grids not yet synchronized - retry with RAF
+          attempts++;
+          if (attempts < maxAttempts) {
+            rafId = requestAnimationFrame(tryUpdateDataZoom);
+          }
+          return;
+        }
+        
+        const currentDataZoom = currentOption.dataZoom?.[0];
+        
+        // Only update if xAxisIndex doesn't already match
+        const currentXAxisIndex = currentDataZoom?.xAxisIndex || [];
+        const expectedXAxisIndex = Array.from({ length: xAxisCount }, (_, i) => i);
+        const indexMatches = Array.isArray(currentXAxisIndex) && 
+          currentXAxisIndex.length === expectedXAxisIndex.length &&
+          currentXAxisIndex.every((v: number, i: number) => v === expectedXAxisIndex[i]);
+        
+        if (!indexMatches) {
+          chart.setOption({
+            dataZoom: [{
+              xAxisIndex: expectedXAxisIndex,
+              // Preserve current zoom state
+              start: currentDataZoom?.start,
+              end: currentDataZoom?.end,
+            }]
+          });
+        }
+      } catch (error) {
+        console.warn('[TIMELINE] Error updating dataZoom:', error);
+      }
+    };
+
+    // Use RAF to ensure chart has processed option changes first
+    rafId = requestAnimationFrame(tryUpdateDataZoom);
+    
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId);
+    };
   }, [activeSwimlanes, isChartReady]);
 
 
