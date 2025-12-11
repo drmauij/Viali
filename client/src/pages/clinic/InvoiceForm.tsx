@@ -732,19 +732,14 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          {/* VAT rate fixed at 2.6% - display only, not editable */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">{t('clinic.invoices.vatRate')}</Label>
-            <div className="text-sm text-muted-foreground">2.6%</div>
-          </div>
-
+        {/* Totals section - VAT fixed at 2.6% */}
+        <div className="flex justify-end">
           <div className="space-y-1 text-right">
             <div className="text-sm text-muted-foreground">
               {t('clinic.invoices.subtotal')}: CHF {totals.subtotal.toFixed(2)}
             </div>
             <div className="text-sm text-muted-foreground">
-              {t('clinic.invoices.vat')} ({watchedVatRate}%): CHF {totals.vatAmount.toFixed(2)}
+              {t('clinic.invoices.vat')} (2.6%): CHF {totals.vatAmount.toFixed(2)}
             </div>
             <div className="text-lg font-bold">
               {t('clinic.invoices.total')}: CHF {totals.total.toFixed(2)}
