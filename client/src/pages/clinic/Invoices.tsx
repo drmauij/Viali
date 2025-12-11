@@ -65,6 +65,8 @@ interface InvoiceItem {
   unitPrice: string;
   total: string;
   itemName?: string;
+  pharmacode?: string | null;
+  gtin?: string | null;
 }
 
 interface CompanyData {
@@ -347,12 +349,21 @@ export default function ClinicInvoices() {
       ]
     ];
     
-    const tableData = invoice.items.map(item => [
-      item.description,
-      item.quantity.toString(),
-      `CHF ${parseFloat(item.unitPrice).toFixed(2)}`,
-      `CHF ${parseFloat(item.total).toFixed(2)}`
-    ]);
+    const tableData = invoice.items.map(item => {
+      let description = item.description;
+      const codes: string[] = [];
+      if (item.pharmacode) codes.push(`Pharmacode: ${item.pharmacode}`);
+      if (item.gtin) codes.push(`GTIN: ${item.gtin}`);
+      if (codes.length > 0) {
+        description += `\n${codes.join(' | ')}`;
+      }
+      return [
+        description,
+        item.quantity.toString(),
+        `CHF ${parseFloat(item.unitPrice).toFixed(2)}`,
+        `CHF ${parseFloat(item.total).toFixed(2)}`
+      ];
+    });
     
     const rightMargin = 25;
     const tableRightEdge = 210 - rightMargin;
@@ -370,6 +381,7 @@ export default function ClinicInvoices() {
         3: { cellWidth: 35, halign: 'right' },
       },
       margin: { left: 20, right: rightMargin },
+      styles: { cellPadding: 2, fontSize: 9 },
     });
     
     const finalY = (doc as any).lastAutoTable.finalY + 10;
@@ -556,12 +568,21 @@ export default function ClinicInvoices() {
         ]
       ];
       
-      const tableData = invoice.items.map(item => [
-        item.description,
-        item.quantity.toString(),
-        `CHF ${parseFloat(item.unitPrice).toFixed(2)}`,
-        `CHF ${parseFloat(item.total).toFixed(2)}`
-      ]);
+      const tableData = invoice.items.map(item => {
+        let description = item.description;
+        const codes: string[] = [];
+        if (item.pharmacode) codes.push(`Pharmacode: ${item.pharmacode}`);
+        if (item.gtin) codes.push(`GTIN: ${item.gtin}`);
+        if (codes.length > 0) {
+          description += `\n${codes.join(' | ')}`;
+        }
+        return [
+          description,
+          item.quantity.toString(),
+          `CHF ${parseFloat(item.unitPrice).toFixed(2)}`,
+          `CHF ${parseFloat(item.total).toFixed(2)}`
+        ];
+      });
       
       // Right margin is 25, so table ends at 210-25=185
       const rightMargin = 25;
@@ -583,6 +604,7 @@ export default function ClinicInvoices() {
           3: { cellWidth: 35, halign: 'right' },
         },
         margin: { left: 20, right: rightMargin },
+        styles: { cellPadding: 2, fontSize: 9 },
       });
       
       const finalY = (doc as any).lastAutoTable.finalY + 10;
@@ -808,8 +830,15 @@ export default function ClinicInvoices() {
                     {invoiceWithItems.items.map((item, index) => (
                       <div key={item.id} className="flex justify-between text-sm bg-muted/50 p-2 rounded" data-testid={`invoice-item-${index}`}>
                         <div className="flex-1">
-                          <span className="font-medium">{item.description}</span>
-                          <span className="text-muted-foreground ml-2">x{item.quantity}</span>
+                          <div className="font-medium">{item.description}</div>
+                          {(item.pharmacode || item.gtin) && (
+                            <div className="text-xs text-muted-foreground">
+                              {item.pharmacode && <span>Pharmacode: {item.pharmacode}</span>}
+                              {item.pharmacode && item.gtin && <span> | </span>}
+                              {item.gtin && <span>GTIN: {item.gtin}</span>}
+                            </div>
+                          )}
+                          <span className="text-muted-foreground">x{item.quantity}</span>
                         </div>
                         <span>CHF {parseFloat(item.total).toFixed(2)}</span>
                       </div>

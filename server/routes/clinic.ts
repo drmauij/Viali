@@ -151,7 +151,7 @@ router.get('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, isCli
     
     const invoice = invoiceResult[0];
     
-    // Get invoice items
+    // Get invoice items with item codes (pharmacode, GTIN)
     const invoiceItems = await db
       .select({
         id: clinicInvoiceItems.id,
@@ -162,9 +162,12 @@ router.get('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, isCli
         unitPrice: clinicInvoiceItems.unitPrice,
         total: clinicInvoiceItems.total,
         itemName: items.name,
+        pharmacode: itemCodes.pharmacode,
+        gtin: itemCodes.gtin,
       })
       .from(clinicInvoiceItems)
       .leftJoin(items, eq(clinicInvoiceItems.itemId, items.id))
+      .leftJoin(itemCodes, eq(items.id, itemCodes.itemId))
       .where(eq(clinicInvoiceItems.invoiceId, invoiceId));
     
     res.json({
