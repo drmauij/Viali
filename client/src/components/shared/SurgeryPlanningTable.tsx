@@ -1190,7 +1190,7 @@ export function SurgeryPlanningTable({
           {groupedByDay.map(([dateKey, daySurgeries]) => (
             <Fragment key={dateKey}>
               {/* Day header row */}
-              <TableRow className="bg-muted/60 hover:bg-muted/60">
+              <TableRow className="bg-blue-50 hover:bg-blue-50 dark:bg-blue-950/40 dark:hover:bg-blue-950/40">
                 <TableCell colSpan={totalColumns} className="py-2 font-semibold text-sm">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
