@@ -149,7 +149,16 @@ export default function PreOpList() {
     completed: filteredAssessments.filter((item) => item.status === 'completed' && !item.assessment?.standBy),
   };
 
-  const displayedAssessments = groupedByStatus[activeTab];
+  // Sort by upcoming surgery date (nearest first)
+  const sortByPlannedDate = (items: any[]) => {
+    return [...items].sort((a, b) => {
+      const dateA = a.surgery?.plannedDate ? new Date(a.surgery.plannedDate).getTime() : Infinity;
+      const dateB = b.surgery?.plannedDate ? new Date(b.surgery.plannedDate).getTime() : Infinity;
+      return dateA - dateB;
+    });
+  };
+
+  const displayedAssessments = sortByPlannedDate(groupedByStatus[activeTab]);
 
   const getStandByReasonLabel = (reason: string) => {
     switch (reason) {
