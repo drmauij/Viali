@@ -128,6 +128,7 @@ export default function Items() {
     controlled: false,
     trackExactQuantity: false,
     imageUrl: "",
+    patientPrice: "",
   });
   const [formData, setFormData] = useState({
     name: "",
@@ -659,6 +660,7 @@ export default function Items() {
       controlled: item.controlled || false,
       trackExactQuantity: item.trackExactQuantity || false,
       imageUrl: item.imageUrl || "",
+      patientPrice: item.patientPrice || "",
     });
     setSelectedUnit(normalizeUnit(item.unit));
     setEditDialogTab("details");
@@ -1204,6 +1206,7 @@ export default function Items() {
       critical: editFormData.critical,
       controlled: editFormData.controlled,
       imageUrl: editFormData.imageUrl || null,
+      patientPrice: editFormData.patientPrice ? editFormData.patientPrice : null,
     };
 
     // Also save codes if they exist
@@ -3825,6 +3828,25 @@ export default function Items() {
                 disabled={!canWrite}
                 data-testid="input-edit-description" 
               />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-patientPrice">{t('items.patientPrice', 'Patient Price (CHF)')}</Label>
+              <Input 
+                id="edit-patientPrice" 
+                name="patientPrice" 
+                type="number"
+                step="0.01"
+                min="0"
+                value={editFormData.patientPrice}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, patientPrice: e.target.value }))}
+                disabled={!canWrite}
+                placeholder="0.00"
+                data-testid="input-edit-patient-price" 
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {t('items.patientPriceHint', 'Final price charged to patients for ambulatory invoices')}
+              </p>
             </div>
 
             {/* Item Qualities - Critical and Controlled */}
