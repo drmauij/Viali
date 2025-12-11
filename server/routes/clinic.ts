@@ -345,6 +345,44 @@ router.delete('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, is
   }
 });
 
+// Update invoice status
+router.patch('/api/clinic/:hospitalId/invoices/:invoiceId/status', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { hospitalId, invoiceId } = req.params;
+    const { status } = req.body;
+    
+    if (!status || !['draft', 'paid'].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+    
+    // Verify invoice belongs to hospital
+    const existing = await db
+      .select()
+      .from(clinicInvoices)
+      .where(
+        and(
+          eq(clinicInvoices.hospitalId, hospitalId),
+          eq(clinicInvoices.id, invoiceId)
+        )
+      )
+      .limit(1);
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ message: "Invoice not found" });
+    }
+    
+    await db
+      .update(clinicInvoices)
+      .set({ status })
+      .where(eq(clinicInvoices.id, invoiceId));
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error updating invoice status:", error);
+    res.status(500).json({ message: "Failed to update invoice status" });
+  }
+});
+
 // Get items with patient prices for invoice item picker
 router.get('/api/clinic/:hospitalId/items-with-prices', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
@@ -387,6 +425,9 @@ router.get('/api/clinic/:hospitalId/items-with-prices', isAuthenticated, isClini
       gtin: codesMap.get(item.id)?.gtin || null,
       pharmacode: codesMap.get(item.id)?.pharmacode || null,
     }));
+    
+    // Debug log for price issue
+    console.log('Items with prices:', enrichedItems.filter(i => i.patientPrice).map(i => ({ name: i.name, patientPrice: i.patientPrice })));
     
     res.json(enrichedItems);
   } catch (error) {

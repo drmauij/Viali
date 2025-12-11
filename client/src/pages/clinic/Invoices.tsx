@@ -21,7 +21,7 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, FileText, Trash2, Eye, Download } from "lucide-react";
+import { Plus, Search, FileText, Trash2, Eye, Download, Check } from "lucide-react";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -150,6 +150,26 @@ export default function ClinicInvoices() {
     },
   });
 
+  const markPaidMutation = useMutation({
+    mutationFn: async (invoiceId: string) => {
+      await apiRequest('PATCH', `/api/clinic/${hospitalId}/invoices/${invoiceId}/status`, { status: 'paid' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'invoices'] });
+      toast({
+        title: t('clinic.invoices.markedPaid', 'Marked as Paid'),
+        description: t('clinic.invoices.markedPaidDescription', 'Invoice has been marked as paid'),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('clinic.invoices.markPaidError', 'Failed to mark invoice as paid'),
+        variant: "destructive",
+      });
+    },
+  });
+
   const filteredInvoices = useMemo(() => {
     return invoices.filter(inv => {
       const matchesSearch = 
@@ -167,15 +187,11 @@ export default function ClinicInvoices() {
   const getStatusBadge = (status: string) => {
     const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
       draft: "secondary",
-      sent: "default",
-      paid: "outline",
-      cancelled: "destructive",
+      paid: "default",
     };
     const labels: Record<string, string> = {
       draft: t('clinic.invoices.status.draft'),
-      sent: t('clinic.invoices.status.sent'),
       paid: t('clinic.invoices.status.paid'),
-      cancelled: t('clinic.invoices.status.cancelled'),
     };
     return <Badge variant={variants[status] || "default"}>{labels[status] || status}</Badge>;
   };
@@ -396,9 +412,7 @@ export default function ClinicInvoices() {
           <SelectContent>
             <SelectItem value="all">{t('clinic.invoices.filter.all')}</SelectItem>
             <SelectItem value="draft">{t('clinic.invoices.status.draft')}</SelectItem>
-            <SelectItem value="sent">{t('clinic.invoices.status.sent')}</SelectItem>
             <SelectItem value="paid">{t('clinic.invoices.status.paid')}</SelectItem>
-            <SelectItem value="cancelled">{t('clinic.invoices.status.cancelled')}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -449,6 +463,17 @@ export default function ClinicInvoices() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
+                      {invoice.status === 'draft' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => markPaidMutation.mutate(invoice.id)}
+                          disabled={markPaidMutation.isPending}
+                          data-testid={`button-mark-paid-${invoice.id}`}
+                        >
+                          <Check className="h-4 w-4 text-green-600" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
