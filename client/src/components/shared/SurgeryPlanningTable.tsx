@@ -1040,7 +1040,7 @@ export function SurgeryPlanningTable({
   // Calculate total columns for day header colspan
   const totalColumns = useMemo(() => {
     let count = 1; // expand button column
-    if (showClinical) count += hideRoomAndAdmission ? 4 : 5; // date, patient, procedure, surgeon, (room)
+    if (showClinical) count += hideRoomAndAdmission ? 3 : 4; // patient, procedure, surgeon, (room) - removed date column since grouped by date
     if (showScheduling) count += hideRoomAndAdmission ? 1 : 2; // (admission), status
     if (showScheduling && showPreOpColumn) count += 1; // pre-op column
     if (showPaidStatus) count += 1;
@@ -1104,14 +1104,6 @@ export function SurgeryPlanningTable({
             
             {showClinical && (
               <>
-                <TableHead>
-                  <SortableHeader
-                    label={t("surgeryPlanning.columns.date")}
-                    field="plannedDate"
-                    sortState={sortState}
-                    onSort={handleSort}
-                  />
-                </TableHead>
                 <TableHead>
                   <SortableHeader
                     label={t("surgeryPlanning.columns.patient")}
@@ -1269,10 +1261,14 @@ export function SurgeryPlanningTable({
                   
                   {showClinical && (
                     <>
-                      <TableCell className="font-medium">
-                        {formatDateTime(surgery.plannedDate)}
+                      <TableCell>
+                        <div className="font-medium">{patientName}</div>
+                        {patient?.birthday && (
+                          <div className="text-xs text-muted-foreground">
+                            {formatDate(patient.birthday)}
+                          </div>
+                        )}
                       </TableCell>
-                      <TableCell>{patientName}</TableCell>
                       <TableCell className="max-w-[200px] truncate" title={surgery.plannedSurgery}>
                         {surgery.plannedSurgery}
                       </TableCell>
