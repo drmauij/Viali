@@ -138,7 +138,14 @@ export default function ControlledLog() {
 
   // Fetch patients for patient search
   const { data: patients = [] } = useQuery<Patient[]>({
-    queryKey: ['/api/patients'],
+    queryKey: ['/api/patients', activeHospital?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/patients?hospitalId=${activeHospital?.id}`, {
+        credentials: 'include'
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
     enabled: !!activeHospital?.id,
   });
 
