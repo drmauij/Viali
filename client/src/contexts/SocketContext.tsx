@@ -84,17 +84,17 @@ const SECTION_TO_QUERY_KEY: Record<AnesthesiaDataSection, (recordId: string) => 
   events: (recordId) => [`/api/anesthesia/events/${recordId}`],
   positions: (recordId) => [`/api/anesthesia/positions/${recordId}`],
   staff: (recordId) => [`/api/anesthesia/staff/${recordId}`],
-  checklists: (recordId) => [`/api/anesthesia/records/surgery`],
+  checklists: (recordId) => [`/api/anesthesia/records/${recordId}`],
   technique: (recordId) => [`/api/anesthesia/${recordId}/general-technique`],
   airway: (recordId) => [`/api/anesthesia/${recordId}/airway`],
-  intraOp: (recordId) => [`/api/anesthesia/records/surgery`],
-  countsSterile: (recordId) => [`/api/anesthesia/records/surgery`],
-  surgeryStaff: (recordId) => [`/api/anesthesia/records/surgery`],
+  intraOp: (recordId) => [`/api/anesthesia/records/${recordId}`],
+  countsSterile: (recordId) => [`/api/anesthesia/records/${recordId}`],
+  surgeryStaff: (recordId) => [`/api/anesthesia/records/${recordId}`],
   inventoryUsage: (recordId) => [`/api/anesthesia/inventory/${recordId}`],
   output: (recordId) => [`/api/anesthesia/vitals/snapshot/${recordId}`],
   rhythm: (recordId) => [`/api/anesthesia/vitals/${recordId}`],
   tof: (recordId) => [`/api/anesthesia/tof/${recordId}`],
-  timeMarkers: (recordId) => [`/api/anesthesia/records/surgery`],
+  timeMarkers: (recordId) => [`/api/anesthesia/records/${recordId}`],
 };
 
 interface SocketProviderProps {
@@ -370,9 +370,10 @@ export function SocketProvider({ children }: SocketProviderProps) {
           queryClient.invalidateQueries({
             predicate: (query) => {
               const key = query.queryKey;
-              return Array.isArray(key) && 
-                typeof key[0] === 'string' && 
-                key[0].includes('/api/anesthesia/records/surgery');
+              if (!Array.isArray(key) || typeof key[0] !== 'string') return false;
+              // Match both surgery-based and record-id-based queries
+              return key[0].includes('/api/anesthesia/records/surgery') ||
+                key[0].includes(`/api/anesthesia/records/${payload.recordId}`);
             },
             refetchType: 'active',
           });

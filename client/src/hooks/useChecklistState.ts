@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useDebouncedAutoSave } from "@/hooks/useDebouncedAutoSave";
 import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -22,7 +23,7 @@ interface ChecklistState {
   notes: string;
   signature: string;
   showSignaturePad: boolean;
-  saveStatus: 'idle' | 'saving' | 'saved' | 'error';
+  saveStatus: 'idle' | 'pending' | 'saving' | 'saved' | 'error';
   setChecklist: (checklist: Record<string, boolean>) => void;
   setNotes: (notes: string) => void;
   setSignature: (signature: string) => void;
@@ -41,11 +42,23 @@ export function useChecklistState({
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const prevAnesthesiaRecordIdRef = useRef<string | undefined>();
 
-  const autoSave = useAutoSaveMutation({
+  // Convert checklistType from camelCase to kebab-case: signIn -> sign-in, timeOut -> time-out, signOut -> sign-out
+  const kebabType = checklistType.replace(/([A-Z])/g, '-$1').toLowerCase();
+
+  // Debounced auto-save for checkbox/notes changes (longer debounce to batch multiple clicks)
+  const debouncedSave = useDebouncedAutoSave({
     mutationFn: async (data: { checklist: Record<string, boolean>; notes: string; signature: string }) => {
       if (!anesthesiaRecordId) throw new Error("No anesthesia record");
-      // Convert checklistType from camelCase to kebab-case: signIn -> sign-in, timeOut -> time-out, signOut -> sign-out
-      const kebabType = checklistType.replace(/([A-Z])/g, '-$1').toLowerCase();
+      return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecordId}/checklist/${kebabType}`, data);
+    },
+    queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
+    debounceMs: 2000, // 2 second debounce for checkbox/notes changes
+  });
+
+  // Immediate save for signature changes (saves everything at once)
+  const immediateSave = useAutoSaveMutation({
+    mutationFn: async (data: { checklist: Record<string, boolean>; notes: string; signature: string }) => {
+      if (!anesthesiaRecordId) throw new Error("No anesthesia record");
       return apiRequest('PATCH', `/api/anesthesia/records/${anesthesiaRecordId}/checklist/${kebabType}`, data);
     },
     queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`],
@@ -71,8 +84,8 @@ export function useChecklistState({
     const hasAnyData = Object.keys(checklist).length > 0 || notes.trim() !== "" || signature !== "";
     
     // If anesthesiaRecordId transitioned from undefined to defined, and we have pending data
-    if (!prevId && anesthesiaRecordId && hasAnyData && autoSave.status !== 'saving') {
-      autoSave.mutate({
+    if (!prevId && anesthesiaRecordId && hasAnyData && immediateSave.status !== 'saving') {
+      immediateSave.mutate({
         checklist,
         notes,
         signature,
@@ -81,13 +94,13 @@ export function useChecklistState({
     
     // Update ref for next render
     prevAnesthesiaRecordIdRef.current = anesthesiaRecordId;
-  }, [anesthesiaRecordId, checklist, notes, signature, autoSave]);
+  }, [anesthesiaRecordId, checklist, notes, signature, immediateSave]);
 
   const handleChecklistChange = (newChecklist: Record<string, boolean>) => {
     setChecklist(newChecklist);
-    // Only trigger auto-save if anesthesiaRecordId exists
+    // Use debounced save for checkbox changes (batches multiple rapid clicks)
     if (anesthesiaRecordId) {
-      autoSave.mutate({
+      debouncedSave.mutate({
         checklist: newChecklist,
         notes,
         signature,
@@ -97,9 +110,9 @@ export function useChecklistState({
 
   const handleNotesChange = (newNotes: string) => {
     setNotes(newNotes);
-    // Only trigger auto-save if anesthesiaRecordId exists
+    // Use debounced save for notes changes
     if (anesthesiaRecordId) {
-      autoSave.mutate({
+      debouncedSave.mutate({
         checklist,
         notes: newNotes,
         signature,
@@ -109,9 +122,11 @@ export function useChecklistState({
 
   const handleSignatureChange = (newSignature: string) => {
     setSignature(newSignature);
-    // Only trigger auto-save if anesthesiaRecordId exists
+    // Immediate save when signature is entered (flushes pending and saves everything)
     if (anesthesiaRecordId) {
-      autoSave.mutate({
+      // Flush any pending debounced changes first, then do immediate save
+      debouncedSave.flush?.();
+      immediateSave.mutate({
         checklist,
         notes,
         signature: newSignature,
@@ -119,12 +134,17 @@ export function useChecklistState({
     }
   };
 
+  // Combine statuses: prioritize immediate save status, then debounced
+  const combinedStatus = immediateSave.status !== 'idle' 
+    ? immediateSave.status 
+    : debouncedSave.status;
+
   return {
     checklist,
     notes,
     signature,
     showSignaturePad,
-    saveStatus: autoSave.status,
+    saveStatus: combinedStatus,
     setChecklist: handleChecklistChange,
     setNotes: handleNotesChange,
     setSignature: handleSignatureChange,
