@@ -95,8 +95,9 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
   const [isPatientPopoverOpen, setIsPatientPopoverOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
-  const [quickCreateForm, setQuickCreateForm] = useState({ firstName: "", surname: "" });
+  const [quickCreateForm, setQuickCreateForm] = useState({ firstName: "", surname: "", birthday: undefined as Date | undefined });
   const [isCreatingPatient, setIsCreatingPatient] = useState(false);
+  const [isBirthdayPopoverOpen, setIsBirthdayPopoverOpen] = useState(false);
   
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressForm, setAddressForm] = useState({ street: "", postalCode: "", city: "" });
@@ -213,13 +214,22 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
       return;
     }
 
+    if (!quickCreateForm.birthday) {
+      toast({
+        title: t('common.error'),
+        description: t('clinic.invoices.birthdayRequired', 'Birthday is required'),
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsCreatingPatient(true);
     try {
       const response = await apiRequest('POST', '/api/patients', {
         hospitalId,
         firstName: quickCreateForm.firstName.trim(),
         surname: quickCreateForm.surname.trim(),
-        birthday: new Date().toISOString().split('T')[0],
+        birthday: format(quickCreateForm.birthday, 'yyyy-MM-dd'),
         sex: 'O',
       });
       
@@ -228,7 +238,7 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
       
       handlePatientSelect(newPatient);
       setIsQuickCreateOpen(false);
-      setQuickCreateForm({ firstName: "", surname: "" });
+      setQuickCreateForm({ firstName: "", surname: "", birthday: undefined });
       
       toast({
         title: t('clinic.invoices.patientCreated', 'Patient created'),
@@ -393,7 +403,8 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
                             onClick={() => {
                               setQuickCreateForm({ 
                                 firstName: patientSearch.split(' ')[0] || '', 
-                                surname: patientSearch.split(' ').slice(1).join(' ') || '' 
+                                surname: patientSearch.split(' ').slice(1).join(' ') || '',
+                                birthday: undefined
                               });
                               setIsQuickCreateOpen(true);
                               setIsPatientPopoverOpen(false);
@@ -729,6 +740,43 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
                 placeholder={t('clinic.invoices.surname', 'Surname')}
                 data-testid="input-quick-create-surname"
               />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('clinic.invoices.birthday', 'Birthday')} *</Label>
+              <Popover open={isBirthdayPopoverOpen} onOpenChange={setIsBirthdayPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !quickCreateForm.birthday && "text-muted-foreground"
+                    )}
+                    data-testid="button-quick-create-birthday"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {quickCreateForm.birthday ? (
+                      format(quickCreateForm.birthday, "PP", { locale: dateLocale })
+                    ) : (
+                      <span>{t('common.pickDate', 'Pick a date')}</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={quickCreateForm.birthday}
+                    onSelect={(date) => {
+                      setQuickCreateForm({ ...quickCreateForm, birthday: date });
+                      setIsBirthdayPopoverOpen(false);
+                    }}
+                    locale={dateLocale}
+                    defaultMonth={quickCreateForm.birthday || new Date(2000, 0)}
+                    captionLayout="dropdown"
+                    fromYear={1900}
+                    toYear={new Date().getFullYear()}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
           <div className="flex justify-end gap-2">
