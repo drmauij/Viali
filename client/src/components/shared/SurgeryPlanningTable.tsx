@@ -1096,8 +1096,7 @@ export function SurgeryPlanningTable({
           </Button>
         </div>
       )}
-      <div className="rounded-md border">
-        <div className="md:max-h-[calc(100vh-280px)] md:overflow-auto">
+      <div className="rounded-md border overflow-x-auto">
           <table className="w-full caption-bottom text-sm">
             <thead className="sticky top-0 z-20 bg-background [&_tr]:border-b">
             <TableRow>
@@ -1487,7 +1486,6 @@ export function SurgeryPlanningTable({
           ))}
         </tbody>
           </table>
-        </div>
       </div>
     </div>
   );
