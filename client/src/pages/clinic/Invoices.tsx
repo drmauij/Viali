@@ -250,9 +250,9 @@ export default function ClinicInvoices() {
             ctx.drawImage(logoImg, 0, 0);
           }
           
-          // Calculate aspect ratio and add to PDF
-          const maxLogoWidth = 40;
-          const maxLogoHeight = 20;
+          // Calculate aspect ratio and add to PDF - larger logo
+          const maxLogoWidth = 60;
+          const maxLogoHeight = 35;
           const aspectRatio = logoImg.width / logoImg.height;
           let logoWidth = maxLogoWidth;
           let logoHeight = logoWidth / aspectRatio;
@@ -262,12 +262,12 @@ export default function ClinicInvoices() {
           }
           
           // Use the flattened canvas image instead of original
-          // Center the logo on the page (A4 width is 210mm, so center = 105)
+          // Center the logo on the page (A4 width is 210mm)
           const pageWidth = doc.internal.pageSize.getWidth();
           const logoX = (pageWidth - logoWidth) / 2;
-          const flattenedLogoUrl = canvas.toDataURL('image/png');
-          doc.addImage(flattenedLogoUrl, 'PNG', logoX, 10, logoWidth, logoHeight);
-          logoYOffset = logoHeight + 5;
+          const flattenedLogoUrl = canvas.toDataURL('image/jpeg', 1.0);
+          doc.addImage(flattenedLogoUrl, 'JPEG', logoX, 10, logoWidth, logoHeight);
+          logoYOffset = logoHeight + 8;
         } catch (e) {
           // Logo failed to load, continue without it
           console.warn('Failed to load company logo for PDF:', e);
@@ -340,6 +340,10 @@ export default function ClinicInvoices() {
         `CHF ${parseFloat(item.total).toFixed(2)}`
       ]);
       
+      // Right margin is 25, so table ends at 210-25=185
+      const rightMargin = 25;
+      const tableRightEdge = 210 - rightMargin; // 185
+      
       autoTable(doc, {
         startY: yPos,
         head: tableHeaders,
@@ -350,31 +354,31 @@ export default function ClinicInvoices() {
           textColor: [255, 255, 255],
         },
         columnStyles: {
-          0: { cellWidth: 80 },
+          0: { cellWidth: 75 },
           1: { cellWidth: 20, halign: 'center' },
-          2: { cellWidth: 30, halign: 'right' },
-          3: { cellWidth: 30, halign: 'right' },
+          2: { cellWidth: 35, halign: 'right' },
+          3: { cellWidth: 35, halign: 'right' },
         },
-        margin: { left: 20, right: 30 },
+        margin: { left: 20, right: rightMargin },
       });
       
       const finalY = (doc as any).lastAutoTable.finalY + 10;
       
+      // Summary section aligned with table right edge
       doc.setFontSize(10);
-      doc.text(isGerman ? 'Zwischensumme:' : 'Subtotal:', 130, finalY);
-      doc.text(`CHF ${parseFloat(invoice.subtotal).toFixed(2)}`, 190, finalY, { align: 'right' });
+      doc.text(isGerman ? 'Zwischensumme:' : 'Subtotal:', 120, finalY);
+      doc.text(`CHF ${parseFloat(invoice.subtotal).toFixed(2)}`, tableRightEdge, finalY, { align: 'right' });
       
-      doc.text(`${isGerman ? 'MwSt.' : 'VAT'} (${invoice.vatRate}%):`, 130, finalY + 6);
-      doc.text(`CHF ${parseFloat(invoice.vatAmount).toFixed(2)}`, 190, finalY + 6, { align: 'right' });
+      doc.text(`${isGerman ? 'MwSt.' : 'VAT'} (${invoice.vatRate}%):`, 120, finalY + 6);
+      doc.text(`CHF ${parseFloat(invoice.vatAmount).toFixed(2)}`, tableRightEdge, finalY + 6, { align: 'right' });
       
       doc.setLineWidth(0.5);
-      doc.line(130, finalY + 10, 190, finalY + 10);
+      doc.line(120, finalY + 10, tableRightEdge, finalY + 10);
       
       doc.setFontSize(12);
       doc.setFont(undefined as any, 'bold');
-      // Position labels on the left, values on the right to avoid overlap
-      doc.text(isGerman ? 'Gesamtbetrag:' : 'Total:', 130, finalY + 17);
-      doc.text(`CHF ${parseFloat(invoice.total).toFixed(2)}`, 190, finalY + 17, { align: 'right' });
+      doc.text(isGerman ? 'Gesamtbetrag:' : 'Total:', 120, finalY + 17);
+      doc.text(`CHF ${parseFloat(invoice.total).toFixed(2)}`, tableRightEdge, finalY + 17, { align: 'right' });
       
       doc.setFont(undefined as any, 'normal');
       
