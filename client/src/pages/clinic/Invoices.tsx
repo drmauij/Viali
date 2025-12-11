@@ -262,8 +262,11 @@ export default function ClinicInvoices() {
           }
           
           // Use the flattened canvas image instead of original
+          // Center the logo on the page (A4 width is 210mm, so center = 105)
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const logoX = (pageWidth - logoWidth) / 2;
           const flattenedLogoUrl = canvas.toDataURL('image/png');
-          doc.addImage(flattenedLogoUrl, 'PNG', 20, 10, logoWidth, logoHeight);
+          doc.addImage(flattenedLogoUrl, 'PNG', logoX, 10, logoWidth, logoHeight);
           logoYOffset = logoHeight + 5;
         } catch (e) {
           // Logo failed to load, continue without it
@@ -347,12 +350,12 @@ export default function ClinicInvoices() {
           textColor: [255, 255, 255],
         },
         columnStyles: {
-          0: { cellWidth: 90 },
-          1: { cellWidth: 25, halign: 'center' },
-          2: { cellWidth: 35, halign: 'right' },
-          3: { cellWidth: 35, halign: 'right' },
+          0: { cellWidth: 80 },
+          1: { cellWidth: 20, halign: 'center' },
+          2: { cellWidth: 30, halign: 'right' },
+          3: { cellWidth: 30, halign: 'right' },
         },
-        margin: { left: 20, right: 20 },
+        margin: { left: 20, right: 30 },
       });
       
       const finalY = (doc as any).lastAutoTable.finalY + 10;
