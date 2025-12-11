@@ -243,7 +243,7 @@ export default function OpList() {
   };
 
   return (
-    <div className="container mx-auto px-0 py-6 pb-24 flex flex-col" style={{ height: 'calc(100vh - 73px)' }}>
+    <div className={`container mx-auto px-0 py-6 pb-24 ${viewMode === 'table' ? 'flex flex-col' : ''}`} style={viewMode === 'table' ? { height: 'calc(100vh - 73px)' } : undefined}>
       {/* Header */}
       <div className="mb-6 px-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -280,7 +280,7 @@ export default function OpList() {
       </div>
 
       {/* Calendar or Table View */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className={viewMode === 'table' ? "flex-1 min-h-0 overflow-hidden" : ""}>
         {viewMode === "calendar" ? (
           <OPCalendar onEventClick={handleEventClick} />
         ) : (
