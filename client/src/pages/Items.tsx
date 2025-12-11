@@ -19,6 +19,7 @@ import type { Item, StockLevel, InsertItem, Vendor, Folder, Lot } from "@shared/
 import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X } from "lucide-react";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import BarcodeScanner from "@/components/BarcodeScanner";
@@ -1724,10 +1725,18 @@ export default function Items() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     
-    // Check if it's a CSV file
+    // Check if it's a CSV or Excel file
     const firstFile = files[0];
-    if (firstFile.name.endsWith('.csv')) {
+    const fileName = firstFile.name.toLowerCase();
+    if (fileName.endsWith('.csv')) {
       handleCsvUpload(firstFile);
+      e.target.value = '';
+      return;
+    }
+    
+    // Handle Excel files (.xlsx, .xls)
+    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+      handleExcelUpload(firstFile);
       e.target.value = '';
       return;
     }
@@ -1888,6 +1897,85 @@ export default function Items() {
         });
       }
     });
+  };
+  
+  const handleExcelUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'binary' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+        
+        if (jsonData.length === 0) {
+          toast({
+            title: "Empty Excel File",
+            description: "The Excel file appears to be empty",
+            variant: "destructive",
+          });
+          return;
+        }
+        
+        const headers = Object.keys(jsonData[0] as object);
+        setCsvHeaders(headers);
+        setCsvData(jsonData as Record<string, any>[]);
+        setImportMode('csv');
+        
+        // Auto-map common column names (same logic as CSV)
+        const autoMapping: Record<string, string> = {};
+        headers.forEach(header => {
+          const lowerHeader = header.toLowerCase().trim();
+          if (lowerHeader === 'name' || lowerHeader === 'item name' || lowerHeader === 'product name') {
+            autoMapping[header] = 'name';
+          } else if (lowerHeader === 'description' || lowerHeader === 'desc') {
+            autoMapping[header] = 'description';
+          } else if (lowerHeader === 'stock' || lowerHeader === 'quantity' || lowerHeader === 'initial stock') {
+            autoMapping[header] = 'initialStock';
+          } else if (lowerHeader === 'min' || lowerHeader === 'min threshold' || lowerHeader === 'minimum') {
+            autoMapping[header] = 'minThreshold';
+          } else if (lowerHeader === 'max' || lowerHeader === 'max threshold' || lowerHeader === 'maximum') {
+            autoMapping[header] = 'maxThreshold';
+          } else if (lowerHeader === 'unit' || lowerHeader === 'order unit') {
+            autoMapping[header] = 'unit';
+          } else if (lowerHeader === 'critical') {
+            autoMapping[header] = 'critical';
+          } else if (lowerHeader === 'controlled') {
+            autoMapping[header] = 'controlled';
+          } else if (lowerHeader === 'pack size' || lowerHeader === 'packsize') {
+            autoMapping[header] = 'packSize';
+          } else if (lowerHeader === 'barcode' || lowerHeader === 'sku') {
+            autoMapping[header] = 'barcode';
+          } else if (lowerHeader === 'pharmacode') {
+            autoMapping[header] = 'pharmacode';
+          } else if (lowerHeader === 'gtin' || lowerHeader === 'ean' || lowerHeader === 'gtin/ean') {
+            autoMapping[header] = 'gtin';
+          } else if (lowerHeader === 'manufacturer' || lowerHeader === 'hersteller') {
+            autoMapping[header] = 'manufacturer';
+          } else if (lowerHeader === 'supplierprice' || lowerHeader === 'supplier price' || lowerHeader === 'price' || lowerHeader === 'basispreis') {
+            autoMapping[header] = 'supplierPrice';
+          } else if (lowerHeader === 'preferredsupplier' || lowerHeader === 'preferred supplier' || lowerHeader === 'supplier' || lowerHeader === 'lieferant') {
+            autoMapping[header] = 'preferredSupplier';
+          }
+        });
+        setCsvMapping(autoMapping);
+      } catch (error: any) {
+        toast({
+          title: "Excel Parse Error",
+          description: error.message || "Failed to parse Excel file",
+          variant: "destructive",
+        });
+      }
+    };
+    reader.onerror = () => {
+      toast({
+        title: "File Read Error",
+        description: "Failed to read the Excel file",
+        variant: "destructive",
+      });
+    };
+    reader.readAsBinaryString(file);
   };
   
   const processCsvData = () => {
