@@ -372,23 +372,29 @@ export function StickyTimelineHeader({
 
   useEffect(() => {
     if (chartRef.current && (currentStart || currentEnd)) {
-      const chart = chartRef.current.getEchartsInstance();
-      
-      // Calculate interval for dynamic updates
-      const visibleStart = currentStart || startTime;
-      const visibleEnd = currentEnd || endTime;
-      const visibleRange = visibleEnd - visibleStart;
-      const viewSpanMinutes = visibleRange / (60 * 1000);
-      const useFineTicks = viewSpanMinutes <= 30;
-      const intervalMs = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000);
-      
-      chart.setOption({
-        xAxis: {
-          min: visibleStart,
-          max: visibleEnd,
-          interval: intervalMs,
-        },
-      });
+      try {
+        const chart = chartRef.current.getEchartsInstance();
+        // Safety check: ensure chart exists and is not disposed
+        if (!chart || chart.isDisposed?.()) return;
+        
+        // Calculate interval for dynamic updates
+        const visibleStart = currentStart || startTime;
+        const visibleEnd = currentEnd || endTime;
+        const visibleRange = visibleEnd - visibleStart;
+        const viewSpanMinutes = visibleRange / (60 * 1000);
+        const useFineTicks = viewSpanMinutes <= 30;
+        const intervalMs = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000);
+        
+        chart.setOption({
+          xAxis: {
+            min: visibleStart,
+            max: visibleEnd,
+            interval: intervalMs,
+          },
+        });
+      } catch (e) {
+        // Chart may be disposed during navigation - ignore errors
+      }
     }
   }, [currentStart, currentEnd, startTime, endTime]);
 
