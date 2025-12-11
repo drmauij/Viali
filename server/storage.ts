@@ -4650,10 +4650,11 @@ export class DatabaseStorage implements IStorage {
             delta: -item.quantity, // CRITICAL FIX: Use 'delta' field, not 'qty'
             movementType: 'OUT',
             userId,
-            notes: `Anesthesia commit: ${patientName || 'Unknown patient'}`,
+            notes: `Anesthesia commit: ${anesthesiaRecordId}`,
             controlledVerified: false, // CRITICAL FIX: Requires verification
             signatures: signature ? [signature] : [], // CRITICAL FIX: Store signature
             patientId,
+            metadata: { beforeQty: currentUnits, afterQty: newUnits },
           });
         }
       }
