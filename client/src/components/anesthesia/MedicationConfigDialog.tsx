@@ -77,10 +77,19 @@ export function MedicationConfigDialog({
   // Quick add form state
   const [quickAddName, setQuickAddName] = useState("");
 
-  // Fetch all inventory items
+  // Fetch units to find the anesthesia unit
+  const { data: hospitalUnits = [] } = useQuery<Array<{ id: string; name: string; isAnesthesiaModule: boolean }>>({
+    queryKey: [`/api/units/${activeHospitalId}`],
+    enabled: !!activeHospitalId && open,
+  });
+
+  // Find the anesthesia unit ID
+  const anesthesiaUnitId = hospitalUnits.find(u => u.isAnesthesiaModule)?.id;
+
+  // Fetch inventory items from the anesthesia unit specifically
   const { data: allInventoryItems = [] } = useQuery<Item[]>({
-    queryKey: [`/api/items/${activeHospitalId}?unitId=${activeUnitId}`, activeUnitId],
-    enabled: !!activeHospitalId && !!activeUnitId && open,
+    queryKey: [`/api/items/${activeHospitalId}?unitId=${anesthesiaUnitId}`, anesthesiaUnitId],
+    enabled: !!activeHospitalId && !!anesthesiaUnitId && open,
   });
 
   // Filter items based on search query
@@ -139,12 +148,12 @@ export function MedicationConfigDialog({
       return apiRequest('POST', `/api/items`, { 
         ...newItem, 
         hospitalId: activeHospitalId,
-        unitId: activeUnitId,
+        unitId: anesthesiaUnitId, // Always create in anesthesia unit
         unit: "Pack" // Default to Pack type for quick-add items
       }) as Promise<Item>;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?unitId=${activeUnitId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?unitId=${anesthesiaUnitId}`] });
       toast({
         title: t("anesthesia.timeline.itemCreated"),
         description: `${data.name} ${t("anesthesia.timeline.itemCreatedDescription")}`,
