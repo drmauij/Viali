@@ -1288,73 +1288,53 @@ export default function ControlledLog() {
                 </div>
 
                 {patientMethod === "text" && (
-                  <Popover open={patientSearchOpen} onOpenChange={setPatientSearchOpen}>
-                    <PopoverTrigger asChild>
-                      <div className="relative">
-                        <Input
-                          placeholder={t('controlled.enterPatientId')}
-                          value={patientId}
-                          onChange={(e) => {
-                            setPatientId(e.target.value);
-                            setPatientSearchText(e.target.value);
-                            if (e.target.value.length > 0) {
-                              setPatientSearchOpen(true);
-                            }
-                          }}
-                          onFocus={() => {
-                            if (patientId.length > 0 || patients.length > 0) {
-                              setPatientSearchOpen(true);
-                            }
-                          }}
-                          data-testid="patient-id-input"
-                        />
+                  <div className="relative">
+                    <Input
+                      placeholder={t('controlled.enterPatientId')}
+                      value={patientId}
+                      onChange={(e) => {
+                        setPatientId(e.target.value);
+                        setPatientSearchText(e.target.value);
+                        setPatientSearchOpen(true);
+                      }}
+                      onFocus={() => setPatientSearchOpen(true)}
+                      onBlur={() => {
+                        // Delay to allow click on dropdown item
+                        setTimeout(() => setPatientSearchOpen(false), 200);
+                      }}
+                      data-testid="patient-id-input"
+                    />
+                    {patientSearchOpen && filteredPatients.length > 0 && (
+                      <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        {filteredPatients.map((patient) => (
+                          <div
+                            key={patient.id}
+                            className="px-3 py-2 cursor-pointer hover:bg-accent"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              const displayName = `${patient.surname || ''}, ${patient.firstName || ''}`.trim().replace(/^,\s*|,\s*$/g, '');
+                              const patientInfo = patient.patientNumber 
+                                ? `${displayName} (${patient.patientNumber})`
+                                : displayName;
+                              setPatientId(patientInfo);
+                              setPatientSearchOpen(false);
+                              setPatientSearchText('');
+                            }}
+                            data-testid={`patient-option-${patient.id}`}
+                          >
+                            <div className="font-medium">
+                              {patient.surname}{patient.surname && patient.firstName ? ', ' : ''}{patient.firstName}
+                            </div>
+                            {patient.patientNumber && (
+                              <div className="text-xs text-muted-foreground">
+                                {patient.patientNumber}
+                              </div>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-full min-w-[300px] p-0" align="start">
-                      <Command shouldFilter={false}>
-                        <CommandInput 
-                          placeholder={t('controlled.searchPatient', 'Search patient...')}
-                          value={patientSearchText}
-                          onValueChange={setPatientSearchText}
-                          data-testid="patient-search-input"
-                        />
-                        <CommandList>
-                          <CommandEmpty>
-                            {t('controlled.noPatientFound', 'No patient found. You can enter any text.')}
-                          </CommandEmpty>
-                          <CommandGroup>
-                            {filteredPatients.map((patient) => (
-                              <CommandItem
-                                key={patient.id}
-                                value={patient.id}
-                                onSelect={() => {
-                                  const displayName = `${patient.surname || ''}, ${patient.firstName || ''}`.trim().replace(/^,\s*|,\s*$/g, '');
-                                  const patientInfo = patient.patientNumber 
-                                    ? `${displayName} (${patient.patientNumber})`
-                                    : displayName;
-                                  setPatientId(patientInfo);
-                                  setPatientSearchOpen(false);
-                                  setPatientSearchText('');
-                                }}
-                                data-testid={`patient-option-${patient.id}`}
-                              >
-                                <div className="flex flex-col">
-                                  <span className="font-medium">
-                                    {patient.surname}{patient.surname && patient.firstName ? ', ' : ''}{patient.firstName}
-                                  </span>
-                                  {patient.patientNumber && (
-                                    <span className="text-xs text-muted-foreground">
-                                      {patient.patientNumber}
-                                    </span>
-                                  )}
-                                </div>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
+                    )}
+                  </div>
                 )}
 
                 {patientMethod === "barcode" && (
