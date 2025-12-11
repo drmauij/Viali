@@ -1957,6 +1957,8 @@ export default function Items() {
             autoMapping[header] = 'supplierPrice';
           } else if (lowerHeader === 'preferredsupplier' || lowerHeader === 'preferred supplier' || lowerHeader === 'supplier' || lowerHeader === 'lieferant') {
             autoMapping[header] = 'preferredSupplier';
+          } else if (lowerHeader === 'patientprice' || lowerHeader === 'patient price' || lowerHeader === 'final price' || lowerHeader === 'endpreis' || lowerHeader === 'abgabepreis') {
+            autoMapping[header] = 'patientPrice';
           }
         });
         setCsvMapping(autoMapping);
@@ -2104,6 +2106,10 @@ export default function Items() {
           case 'supplierPrice':
             if (!item.supplierInfo) item.supplierInfo = {};
             item.supplierInfo[targetField] = value ? String(value) : undefined;
+            break;
+          // Patient price (final dispensing price)
+          case 'patientPrice':
+            item.patientPrice = value ? String(value) : undefined;
             break;
         }
       });
@@ -5170,8 +5176,8 @@ export default function Items() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium">Supplier Info (Optional)</span>
                       <span className="text-xs text-muted-foreground">
-                        {Object.values(csvMapping).filter(v => ['preferredSupplier', 'supplierArticleCode', 'supplierPrice'].includes(v)).length > 0 
-                          ? `${Object.values(csvMapping).filter(v => ['preferredSupplier', 'supplierArticleCode', 'supplierPrice'].includes(v)).length} fields mapped`
+                        {Object.values(csvMapping).filter(v => ['preferredSupplier', 'supplierArticleCode', 'supplierPrice', 'patientPrice'].includes(v)).length > 0 
+                          ? `${Object.values(csvMapping).filter(v => ['preferredSupplier', 'supplierArticleCode', 'supplierPrice', 'patientPrice'].includes(v)).length} fields mapped`
                           : 'For catalog transfer'}
                       </span>
                     </div>
@@ -5182,6 +5188,7 @@ export default function Items() {
                         { key: 'preferredSupplier', label: 'Preferred Supplier' },
                         { key: 'supplierArticleCode', label: 'Supplier Article Code' },
                         { key: 'supplierPrice', label: 'Supplier Price' },
+                        { key: 'patientPrice', label: 'Patient Price (Final)' },
                       ].map(({ key, label}) => (
                         <div key={key}>
                           <Label className="text-xs">{label}</Label>
