@@ -157,7 +157,7 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
       date: new Date(),
       vatRate: 7.7,
       comments: '',
-      items: [{ itemId: '', description: '', quantity: 1, unitPrice: 0 }],
+      items: [],
     },
   });
 
@@ -560,170 +560,142 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
 
         {/* Line Items */}
         <div>
-          <div className="flex items-center justify-between mb-2">
-            <FormLabel>{t('clinic.invoices.lineItems')}</FormLabel>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => append({ itemId: '', description: '', quantity: 1, unitPrice: 0 })}
-              data-testid="button-add-item"
-            >
-              <Plus className="h-4 w-4 mr-1" />
-              {t('clinic.invoices.addItem')}
-            </Button>
-          </div>
-
-          <div className="space-y-3">
-            {fields.map((field, index) => (
-              <Card key={field.id}>
-                <CardContent className="p-3 space-y-2">
-                  <div className="flex gap-2">
-                    <Popover 
-                      open={openItemPopovers[index] || false} 
-                      onOpenChange={(open) => setOpenItemPopovers(prev => ({ ...prev, [index]: open }))}
-                    >
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          className="flex-1 justify-between font-normal"
-                          data-testid={`select-item-${index}`}
-                        >
-                          {form.watch(`items.${index}.itemId`) ? (
-                            (() => {
-                              const selectedItem = inventoryItems.find(i => i.id === form.watch(`items.${index}.itemId`));
-                              return selectedItem ? (
-                                <span className="truncate">
-                                  {selectedItem.name} {selectedItem.patientPrice && `(CHF ${selectedItem.patientPrice})`}
-                                </span>
-                              ) : t('clinic.invoices.selectItem');
-                            })()
-                          ) : (
-                            <span className="flex items-center gap-2 text-muted-foreground">
-                              <Search className="h-4 w-4" />
-                              {t('clinic.invoices.selectItem')}
+          <FormLabel className="mb-2 block">{t('clinic.invoices.lineItems')}</FormLabel>
+          
+          {/* Single search dropdown to add items */}
+          <Popover 
+            open={openItemPopovers[0] || false} 
+            onOpenChange={(open) => setOpenItemPopovers(prev => ({ ...prev, [0]: open }))}
+          >
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start font-normal mb-3"
+                data-testid="button-add-item"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                <Search className="h-4 w-4 mr-2 text-muted-foreground" />
+                <span className="text-muted-foreground">{t('clinic.invoices.searchAndAddItem', 'Search and add item...')}</span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full min-w-[350px] p-0" align="start">
+              <Command shouldFilter={false}>
+                <CommandInput 
+                  placeholder={t('clinic.invoices.searchItem', 'Search item...')}
+                  value={itemSearches[0] || ''}
+                  onValueChange={(value) => setItemSearches(prev => ({ ...prev, [0]: value }))}
+                  data-testid="input-item-search"
+                />
+                <CommandList>
+                  <CommandEmpty>
+                    {t('clinic.invoices.noItemFound', 'No item found')}
+                  </CommandEmpty>
+                  <CommandGroup>
+                    {getFilteredItems(0).map((item) => (
+                      <CommandItem
+                        key={item.id}
+                        value={item.id}
+                        onSelect={() => {
+                          // Add new line with this item
+                          append({
+                            itemId: item.id,
+                            description: item.name,
+                            quantity: 1,
+                            unitPrice: item.patientPrice ? parseFloat(item.patientPrice) : 0
+                          });
+                          setOpenItemPopovers(prev => ({ ...prev, [0]: false }));
+                          setItemSearches(prev => ({ ...prev, [0]: '' }));
+                        }}
+                        data-testid={`item-option-${item.id}`}
+                      >
+                        <div className="flex flex-col">
+                          <span>{item.name} {item.patientPrice && `(CHF ${item.patientPrice})`}</span>
+                          {(item.pharmacode || item.gtin) && (
+                            <span className="text-xs text-muted-foreground">
+                              {[item.pharmacode && `PC: ${item.pharmacode}`, item.gtin && `GTIN: ${item.gtin}`].filter(Boolean).join(' | ')}
                             </span>
                           )}
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          {/* List of added items */}
+          {fields.length > 0 && (
+            <div className="space-y-2">
+              {fields.map((field, index) => {
+                const item = inventoryItems.find(i => i.id === form.watch(`items.${index}.itemId`));
+                return (
+                  <Card key={field.id}>
+                    <CardContent className="p-3">
+                      <div className="flex items-center gap-3">
+                        {/* Item name */}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate" data-testid={`item-name-${index}`}>
+                            {form.watch(`items.${index}.description`) || t('clinic.invoices.customItem', 'Custom item')}
+                          </div>
+                          {item?.patientPrice && (
+                            <div className="text-xs text-muted-foreground">
+                              CHF {item.patientPrice} / {t('clinic.invoices.unit', 'unit')}
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Quantity input */}
+                        <div className="flex items-center gap-1">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.quantity`}
+                            render={({ field }) => (
+                              <FormItem className="space-y-0">
+                                <FormControl>
+                                  <Input 
+                                    type="number"
+                                    min="1"
+                                    {...field}
+                                    className="w-16 h-8 text-center"
+                                    data-testid={`input-quantity-${index}`}
+                                  />
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        {/* Line total */}
+                        <div className="w-24 text-right font-medium" data-testid={`item-total-${index}`}>
+                          CHF {((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.unitPrice || 0)).toFixed(2)}
+                        </div>
+                        
+                        {/* Remove button */}
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 flex-shrink-0"
+                          onClick={() => remove(index)}
+                          data-testid={`button-remove-item-${index}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-full min-w-[300px] p-0" align="start">
-                        <Command shouldFilter={false}>
-                          <CommandInput 
-                            placeholder={t('clinic.invoices.searchItem', 'Search item...')}
-                            value={itemSearches[index] || ''}
-                            onValueChange={(value) => setItemSearches(prev => ({ ...prev, [index]: value }))}
-                            data-testid={`input-item-search-${index}`}
-                          />
-                          <CommandList>
-                            <CommandEmpty>
-                              {t('clinic.invoices.noItemFound', 'No item found')}
-                            </CommandEmpty>
-                            <CommandGroup>
-                              {getFilteredItems(index).map((item) => (
-                                <CommandItem
-                                  key={item.id}
-                                  value={item.id}
-                                  onSelect={() => {
-                                    handleItemSelect(index, item.id);
-                                    setOpenItemPopovers(prev => ({ ...prev, [index]: false }));
-                                    setItemSearches(prev => ({ ...prev, [index]: '' }));
-                                  }}
-                                  data-testid={`item-option-${item.id}`}
-                                >
-                                  <div className="flex flex-col">
-                                    <span>{item.name} {item.patientPrice && `(CHF ${item.patientPrice})`}</span>
-                                    {(item.pharmacode || item.gtin) && (
-                                      <span className="text-xs text-muted-foreground">
-                                        {[item.pharmacode && `PC: ${item.pharmacode}`, item.gtin && `GTIN: ${item.gtin}`].filter(Boolean).join(' | ')}
-                                      </span>
-                                    )}
-                                  </div>
-                                </CommandItem>
-                              ))}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                    {fields.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => remove(index)}
-                        data-testid={`button-remove-item-${index}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    )}
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name={`items.${index}.description`}
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormControl>
-                          <Input 
-                            {...field} 
-                            placeholder={t('clinic.invoices.description')}
-                            data-testid={`input-description-${index}`}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.quantity`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              min="1"
-                              {...field}
-                              placeholder={t('clinic.invoices.quantity')}
-                              data-testid={`input-quantity-${index}`}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name={`items.${index}.unitPrice`}
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormControl>
-                            <Input 
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              {...field}
-                              placeholder={t('clinic.invoices.unitPrice')}
-                              data-testid={`input-unitprice-${index}`}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="flex items-center justify-end font-medium">
-                      CHF {((watchedItems[index]?.quantity || 0) * (watchedItems[index]?.unitPrice || 0)).toFixed(2)}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+          
+          {fields.length === 0 && (
+            <div className="text-center py-6 text-muted-foreground border border-dashed rounded-lg">
+              {t('clinic.invoices.noItemsYet', 'No items added yet. Use the search above to add items.')}
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
