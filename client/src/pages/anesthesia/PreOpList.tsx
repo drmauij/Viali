@@ -149,12 +149,27 @@ export default function PreOpList() {
     completed: filteredAssessments.filter((item) => item.status === 'completed' && !item.assessment?.standBy),
   };
 
-  // Sort by upcoming surgery date (nearest first)
+  // Sort by upcoming surgery date (future dates first, nearest at top; past dates after)
   const sortByPlannedDate = (items: any[]) => {
+    const now = Date.now();
     return [...items].sort((a, b) => {
       const dateA = a.surgery?.plannedDate ? new Date(a.surgery.plannedDate).getTime() : Infinity;
       const dateB = b.surgery?.plannedDate ? new Date(b.surgery.plannedDate).getTime() : Infinity;
-      return dateA - dateB;
+      
+      const aIsFuture = dateA >= now;
+      const bIsFuture = dateB >= now;
+      
+      // Future dates come first
+      if (aIsFuture && !bIsFuture) return -1;
+      if (!aIsFuture && bIsFuture) return 1;
+      
+      // Both future: sort ascending (closest first)
+      // Both past: sort descending (most recent first)
+      if (aIsFuture && bIsFuture) {
+        return dateA - dateB;
+      } else {
+        return dateB - dateA;
+      }
     });
   };
 
