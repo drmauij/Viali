@@ -513,14 +513,17 @@ export default function Op() {
     if (surgeryError || (!isSurgeryLoading && !surgery)) {
       setIsOpen(false);
       setTimeout(() => {
-        if (window.history.length > 1) {
-          window.history.back();
-        } else {
-          setLocation(isSurgeryMode ? '/surgery/op' : '/anesthesia/op');
+        // Determine the appropriate list page based on current mode
+        let fallbackPath = '/anesthesia/op';
+        if (isSurgeryMode) {
+          fallbackPath = '/surgery/op';
+        } else if (isPacuMode) {
+          fallbackPath = '/anesthesia/pacu';
         }
+        setLocation(fallbackPath);
       }, 100);
     }
-  }, [surgery, surgeryError, isSurgeryLoading, setLocation, isSurgeryMode]);
+  }, [surgery, surgeryError, isSurgeryLoading, setLocation, isSurgeryMode, isPacuMode]);
 
   // Dialog state for editing allergies and CAVE
   const [isAllergiesDialogOpen, setIsAllergiesDialogOpen] = useState(false);
@@ -1006,11 +1009,17 @@ export default function Op() {
     setIsOpen(open);
     if (!open) {
       setTimeout(() => {
-        if (window.history.length > 1) {
-          window.history.back();
-        } else {
-          setLocation(isSurgeryMode ? '/surgery/op' : '/anesthesia/op');
+        // Determine the appropriate list page based on current mode
+        let fallbackPath = '/anesthesia/op';
+        if (isSurgeryMode) {
+          fallbackPath = '/surgery/op';
+        } else if (isPacuMode) {
+          fallbackPath = '/anesthesia/pacu';
         }
+        
+        // Always use direct navigation instead of history.back() to avoid
+        // navigation issues when switching between modes (PACU <-> Anesthesia)
+        setLocation(fallbackPath);
       }, 100);
     }
   };
