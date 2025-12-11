@@ -12,7 +12,7 @@ import {
   items,
   itemCodes,
 } from "@shared/schema";
-import { eq, and, desc, sql, max } from "drizzle-orm";
+import { eq, and, desc, sql, max, inArray } from "drizzle-orm";
 import { z } from "zod";
 
 const router = Router();
@@ -377,7 +377,7 @@ router.get('/api/clinic/:hospitalId/items-with-prices', isAuthenticated, isClini
         pharmacode: itemCodes.pharmacode,
       })
       .from(itemCodes)
-      .where(sql`${itemCodes.itemId} = ANY(${itemIds})`) : [];
+      .where(inArray(itemCodes.itemId, itemIds)) : [];
     
     // Map codes to items
     const codesMap = new Map(codes.map(c => [c.itemId, c]));
