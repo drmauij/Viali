@@ -301,6 +301,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 }, ref) {
   const chartRef = useRef<any>(null);
   const activeSwimlaneRef = useRef<SwimlaneConfig[]>([]); // Stores latest swimlanes for PDF export
+  const isMountedRef = useRef(true); // Track if component is mounted to prevent accessing disposed chart
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
   const [showCommitReminder, setShowCommitReminder] = useState(false);
   const [isChartReady, setIsChartReady] = useState(false);
@@ -309,6 +310,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const activeHospital = useActiveHospital();
   const { t } = useTranslation();
   const canWriteBase = useCanWrite();
+  
+  // Track component mount state to prevent accessing disposed chart on unmount
+  // CRITICAL: Use useLayoutEffect so cleanup runs BEFORE other effect cleanups
+  // This ensures isMountedRef.current is false when chart event handlers cleanup
+  useLayoutEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
   
   // Reset chart ready state when anesthesia record changes to prevent stale instance access
   useEffect(() => {
@@ -3081,6 +3092,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     if (!chart) return;
 
     const handleDataZoom = (params: any) => {
+      // Don't access chart if component is unmounted
+      if (!isMountedRef.current) return;
       try {
         const option = chart.getOption() as any;
         if (!option) return;
@@ -3118,6 +3131,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
     chart.on('datazoom', handleDataZoom);
     return () => {
+      // Don't access chart if component is unmounted - chart is already disposed
+      if (!isMountedRef.current) return;
       try {
         const currentChart = chartRef.current?.getEchartsInstance();
         if (currentChart) {
@@ -3134,12 +3149,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
   // Handle chart ready - mark chart as ready and let unified effect handle viewport
   // Viewport initialization is deferred to the unified effect for consistency
-  const handleChartReady = (chart: any) => {
+  const handleChartReady = useCallback((chart: any) => {
+    // Don't update state if component is already unmounted
+    if (!isMountedRef.current) return;
     // Mark chart as ready for image export
     setIsChartReady(true);
     // Viewport initialization is handled by the unified effect
     // This callback just signals that the chart is ready
-  };
+  }, []);
 
   // Derive a stable boolean for whether contentBounds is valid
   // This allows us to trigger the effect when bounds become valid, without re-running on every data change
@@ -3195,6 +3212,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     const applyViewport = (): boolean => {
       if (isCancelled) return false;
+      // Don't access chart if component is unmounted
+      if (!isMountedRef.current) return false;
       
       const chart = chartRef.current?.getEchartsInstance();
       if (!chart) return false;
@@ -3390,13 +3409,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
 
     chart.on('click', handleChartClick);
     return () => {
+      // Don't access chart if component is unmounted - chart is already disposed
+      if (!isMountedRef.current) return;
       try {
         const currentChart = chartRef.current?.getEchartsInstance();
         if (currentChart) {
           currentChart.off('click', handleChartClick);
         }
       } catch (error) {
-        console.warn('[TIMELINE] Error cleaning up click handler:', error);
+        // Suppress warning - chart may already be disposed during navigation
       }
     };
   }, [chartRef, activeToolMode, hrDataPoints, bpDataPoints, spo2DataPoints, clinicalSnapshot, currentTime, canWrite, isChartReady]);
@@ -3406,6 +3427,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     if (!isChartReady) return;
     
     const updateZoomState = () => {
+      // Don't access chart if component is unmounted
+      if (!isMountedRef.current) return;
       // Get fresh chart instance on every call to ensure it's ready
       const chart = chartRef.current?.getEchartsInstance();
       if (!chart) return;
@@ -3458,13 +3481,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
 
     return () => {
+      // Don't access chart if component is unmounted - chart is already disposed
+      if (!isMountedRef.current) return;
       try {
         const chart = chartRef.current?.getEchartsInstance();
         if (chart) {
           chart.off('datazoom', updateZoomState);
         }
       } catch (error) {
-        console.warn('[ZOOM] Error cleaning up datazoom handler:', error);
+        // Suppress warning - chart may already be disposed during navigation
       }
     };
   }, [chartRef, data.startTime, data.endTime, isChartReady]);
