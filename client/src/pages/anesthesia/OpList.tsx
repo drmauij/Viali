@@ -243,7 +243,7 @@ export default function OpList() {
   };
 
   return (
-    <div className="container mx-auto px-0 py-6 pb-24">
+    <div className="container mx-auto px-0 py-6 pb-24 flex flex-col" style={{ height: 'calc(100vh - 73px)' }}>
       {/* Header */}
       <div className="mb-6 px-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
@@ -280,13 +280,13 @@ export default function OpList() {
       </div>
 
       {/* Calendar or Table View */}
-      <div>
+      <div className="flex-1 min-h-0 overflow-hidden">
         {viewMode === "calendar" ? (
           <OPCalendar onEventClick={handleEventClick} />
         ) : (
-          <div className="px-4 space-y-4">
-            <Tabs value={tableTab} onValueChange={(v) => setTableTab(v as TableTab)}>
-              <TabsList className="grid w-full max-w-md grid-cols-2">
+          <div className="px-4 h-full flex flex-col">
+            <Tabs value={tableTab} onValueChange={(v) => setTableTab(v as TableTab)} className="flex-1 flex flex-col min-h-0">
+              <TabsList className="grid w-full max-w-md grid-cols-2 flex-shrink-0">
                 <TabsTrigger value="current" data-testid="tab-current-surgeries">
                   {t('surgeryPlanning.currentAndFuture')}
                 </TabsTrigger>
@@ -294,7 +294,7 @@ export default function OpList() {
                   {t('surgeryPlanning.past')}
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="current" className="mt-4">
+              <TabsContent value="current" className="mt-4 flex-1 min-h-0 overflow-hidden">
                 <SurgeryPlanningTable
                   moduleContext="anesthesia"
                   onSurgeryClick={handleTableSurgeryClick}
@@ -312,7 +312,7 @@ export default function OpList() {
                   showFilters={true}
                 />
               </TabsContent>
-              <TabsContent value="past" className="mt-4">
+              <TabsContent value="past" className="mt-4 flex-1 min-h-0 overflow-hidden">
                 <SurgeryPlanningTable
                   moduleContext="anesthesia"
                   onSurgeryClick={handleTableSurgeryClick}
