@@ -171,9 +171,22 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
       const customerName = selectedPatient 
         ? `${selectedPatient.firstName} ${selectedPatient.surname}` 
         : '';
+      
+      // Build customer address from selected patient or form data
+      let customerAddress = data.customerAddress;
+      if (!customerAddress && selectedPatient) {
+        const addressParts = [];
+        if (selectedPatient.street) addressParts.push(selectedPatient.street);
+        if (selectedPatient.postalCode || selectedPatient.city) {
+          addressParts.push(`${selectedPatient.postalCode || ''} ${selectedPatient.city || ''}`.trim());
+        }
+        customerAddress = addressParts.join('\n');
+      }
+      
       await apiRequest('POST', `/api/clinic/${hospitalId}/invoices`, {
         ...data,
         customerName,
+        customerAddress,
         patientId: data.patientId || null,
       });
     },
