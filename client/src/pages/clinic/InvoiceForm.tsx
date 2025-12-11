@@ -213,16 +213,16 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
   });
 
   const watchedItems = form.watch("items");
-  const watchedVatRate = form.watch("vatRate");
+  const FIXED_VAT_RATE = 2.6; // Fixed VAT rate
 
   const totals = useMemo(() => {
     const subtotal = watchedItems.reduce((sum, item) => {
       return sum + (item.quantity || 0) * (item.unitPrice || 0);
     }, 0);
-    const vatAmount = subtotal * (watchedVatRate / 100);
+    const vatAmount = subtotal * (FIXED_VAT_RATE / 100);
     const total = subtotal + vatAmount;
     return { subtotal, vatAmount, total };
-  }, [watchedItems, watchedVatRate]);
+  }, [watchedItems]);
 
   const filteredPatients = useMemo(() => {
     if (!patientSearch.trim()) return patients;
