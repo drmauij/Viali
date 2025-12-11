@@ -77,9 +77,9 @@ export function MedicationConfigDialog({
   // Quick add form state
   const [quickAddName, setQuickAddName] = useState("");
 
-  // Fetch inventory items from the anesthesia module (uses /api/anesthesia/items endpoint)
+  // Fetch ALL inventory items from the anesthesia unit (not just configured ones)
   const { data: allInventoryItems = [] } = useQuery<Item[]>({
-    queryKey: [`/api/anesthesia/items/${activeHospitalId}`],
+    queryKey: [`/api/items/${activeHospitalId}?module=anesthesia`],
     enabled: !!activeHospitalId && open,
   });
   
@@ -151,6 +151,7 @@ export function MedicationConfigDialog({
       }) as Promise<Item>;
     },
     onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospitalId}?module=anesthesia`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/items/${activeHospitalId}`] });
       toast({
         title: t("anesthesia.timeline.itemCreated"),
