@@ -1105,7 +1105,7 @@ export function SurgeryPlanningTable({
             
             {showClinical && (
               <>
-                <TableHead className="bg-background">
+                <TableHead className="lg:sticky lg:left-10 lg:z-30 bg-background min-w-[140px]">
                   <SortableHeader
                     label={t("surgeryPlanning.columns.patient")}
                     field="patientName"
@@ -1262,7 +1262,7 @@ export function SurgeryPlanningTable({
                   
                   {showClinical && (
                     <>
-                      <TableCell>
+                      <TableCell className="lg:sticky lg:left-10 lg:z-10 bg-background min-w-[140px]">
                         <div className="font-medium">{patientName}</div>
                         {patient?.birthday && (
                           <div className="text-xs text-muted-foreground">
