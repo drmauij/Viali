@@ -255,24 +255,30 @@ export default function ClinicInvoices() {
           logoImg.src = companyData.companyLogoUrl;
         });
         
-        // Create a larger canvas for better quality and fill with white background
-        const scaleFactor = 2;
+        // Create a high-resolution canvas for crisp PDF output
+        // Use 4x scale factor for print-quality resolution
+        const scaleFactor = 4;
         const canvas = document.createElement('canvas');
-        canvas.width = logoImg.naturalWidth * scaleFactor || logoImg.width * scaleFactor;
-        canvas.height = logoImg.naturalHeight * scaleFactor || logoImg.height * scaleFactor;
+        const origWidth = logoImg.naturalWidth || logoImg.width;
+        const origHeight = logoImg.naturalHeight || logoImg.height;
+        canvas.width = origWidth * scaleFactor;
+        canvas.height = origHeight * scaleFactor;
         const ctx = canvas.getContext('2d');
         if (ctx) {
+          // Enable high-quality image scaling
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
           // Fill entire canvas with white first (handles transparency)
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
-          // Draw the logo scaled up
+          // Draw the logo at full resolution
           ctx.drawImage(logoImg, 0, 0, canvas.width, canvas.height);
         }
         
         // Larger logo dimensions for better visibility
         const maxLogoWidth = 80;
         const maxLogoHeight = 50;
-        const aspectRatio = (logoImg.naturalWidth || logoImg.width) / (logoImg.naturalHeight || logoImg.height);
+        const aspectRatio = origWidth / origHeight;
         let logoWidth = maxLogoWidth;
         let logoHeight = logoWidth / aspectRatio;
         if (logoHeight > maxLogoHeight) {
@@ -282,8 +288,9 @@ export default function ClinicInvoices() {
         
         const pageWidth = doc.internal.pageSize.getWidth();
         const logoX = (pageWidth - logoWidth) / 2;
-        const flattenedLogoUrl = canvas.toDataURL('image/jpeg', 1.0);
-        doc.addImage(flattenedLogoUrl, 'JPEG', logoX, 10, logoWidth, logoHeight);
+        // Use PNG format to preserve quality (no compression artifacts)
+        const flattenedLogoUrl = canvas.toDataURL('image/png');
+        doc.addImage(flattenedLogoUrl, 'PNG', logoX, 10, logoWidth, logoHeight);
         logoYOffset = logoHeight + 10;
       } catch (e) {
         console.warn('Failed to load company logo for PDF:', e);
@@ -473,24 +480,30 @@ export default function ClinicInvoices() {
             logoImg.src = companyData.companyLogoUrl;
           });
           
-          // Create a larger canvas for better quality and fill with white background
-          const scaleFactor = 2;
+          // Create a high-resolution canvas for crisp PDF output
+          // Use 4x scale factor for print-quality resolution
+          const scaleFactor = 4;
           const canvas = document.createElement('canvas');
-          canvas.width = logoImg.naturalWidth * scaleFactor || logoImg.width * scaleFactor;
-          canvas.height = logoImg.naturalHeight * scaleFactor || logoImg.height * scaleFactor;
+          const origWidth = logoImg.naturalWidth || logoImg.width;
+          const origHeight = logoImg.naturalHeight || logoImg.height;
+          canvas.width = origWidth * scaleFactor;
+          canvas.height = origHeight * scaleFactor;
           const ctx = canvas.getContext('2d');
           if (ctx) {
+            // Enable high-quality image scaling
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
             // Fill entire canvas with white first (handles transparency)
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            // Draw the logo scaled up
+            // Draw the logo at full resolution
             ctx.drawImage(logoImg, 0, 0, canvas.width, canvas.height);
           }
           
           // Larger logo dimensions for better visibility
           const maxLogoWidth = 80;
           const maxLogoHeight = 50;
-          const aspectRatio = (logoImg.naturalWidth || logoImg.width) / (logoImg.naturalHeight || logoImg.height);
+          const aspectRatio = origWidth / origHeight;
           let logoWidth = maxLogoWidth;
           let logoHeight = logoWidth / aspectRatio;
           if (logoHeight > maxLogoHeight) {
@@ -500,8 +513,9 @@ export default function ClinicInvoices() {
           
           const pageWidth = doc.internal.pageSize.getWidth();
           const logoX = (pageWidth - logoWidth) / 2;
-          const flattenedLogoUrl = canvas.toDataURL('image/jpeg', 1.0);
-          doc.addImage(flattenedLogoUrl, 'JPEG', logoX, 10, logoWidth, logoHeight);
+          // Use PNG format to preserve quality (no compression artifacts)
+          const flattenedLogoUrl = canvas.toDataURL('image/png');
+          doc.addImage(flattenedLogoUrl, 'PNG', logoX, 10, logoWidth, logoHeight);
           logoYOffset = logoHeight + 10;
         } catch (e) {
           // Logo failed to load, continue without it
