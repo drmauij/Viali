@@ -140,6 +140,13 @@ export function MedicationConfigDialog({
     }
   }, [open]);
 
+  // Auto-set administration unit to 'ml' for free-rate infusions
+  useEffect(() => {
+    if (configAnesthesiaType === 'infusion' && !configIsRateControlled) {
+      setConfigAdministrationUnit('ml');
+    }
+  }, [configAnesthesiaType, configIsRateControlled]);
+
   // Mutation to create a new item
   const createItemMutation = useMutation({
     mutationFn: async (newItem: { name: string }) => {
