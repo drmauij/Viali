@@ -767,10 +767,14 @@ export default function Items() {
     mutationFn: async (items: any[]) => {
       const response = await fetch("/api/items/bulk", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "X-Active-Unit-Id": activeHospital?.unitId || "",
+        },
         body: JSON.stringify({
           items,
           hospitalId: activeHospital?.id,
+          unitId: activeHospital?.unitId,
         }),
         credentials: "include",
       });

@@ -420,8 +420,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Bulk item creation
   app.post('/api/items/bulk', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
-      const { items: bulkItems, hospitalId } = req.body;
+      const { items: bulkItems, hospitalId, unitId: requestedUnitId } = req.body;
       const userId = req.user.id;
+      const activeUnitId = getActiveUnitIdFromRequest(req);
       
       console.log('[BULK] Received', bulkItems?.length, 'items for bulk creation');
       if (bulkItems && bulkItems.length > 0) {
@@ -444,10 +445,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Hospital ID is required" });
       }
 
-      // Verify user has access to this hospital
-      const unitId = await getUserUnitForHospital(userId, hospitalId);
+      // Use unitId from request body or header, falling back to user's default unit
+      const unitId = requestedUnitId || activeUnitId || await getUserUnitForHospital(userId, hospitalId);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Verify user has access to this unit
+      const verifyUnitId = await getUserUnitForHospital(userId, hospitalId, unitId);
+      if (!verifyUnitId || verifyUnitId !== unitId) {
+        return res.status(403).json({ message: "Access denied to this unit" });
       }
 
       // Check license limit for bulk creation
