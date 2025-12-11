@@ -844,15 +844,32 @@ export function SurgeryPlanningTable({
     
     const staffColumnText = formatStaffColumn();
     
-    // Table data - columns: Datum, Operator, Patient, Eingriff, Note, Anesthesia, Staff
-    const tableData = daySurgeries.map((surgery) => {
+    // Group surgeries by room
+    const surgeriesByRoom = new Map<string, Surgery[]>();
+    daySurgeries.forEach((surgery) => {
+      const roomId = surgery.surgeryRoomId || 'unassigned';
+      const roomSurgeries = surgeriesByRoom.get(roomId) || [];
+      roomSurgeries.push(surgery);
+      surgeriesByRoom.set(roomId, roomSurgeries);
+    });
+    
+    // Sort rooms: assigned rooms first (sorted by name), then unassigned
+    const sortedRoomIds = Array.from(surgeriesByRoom.keys()).sort((a, b) => {
+      if (a === 'unassigned') return 1;
+      if (b === 'unassigned') return -1;
+      const nameA = roomMap.get(a) || '';
+      const nameB = roomMap.get(b) || '';
+      return nameA.localeCompare(nameB);
+    });
+    
+    // Helper to format surgery data for table
+    const formatSurgeryRow = (surgery: Surgery) => {
       const patient = patientMap.get(surgery.patientId);
       const patientName = patient ? `${patient.surname}, ${patient.firstName}` : '-';
       const patientBirthday = patient?.birthday 
         ? `(${format(new Date(patient.birthday), 'dd.MM.yyyy')})`
         : '';
       
-      // Format Datum column with details
       const admissionTime = surgery.admissionTime 
         ? format(new Date(surgery.admissionTime), 'HH:mm')
         : '-';
@@ -866,7 +883,6 @@ export function SurgeryPlanningTable({
         `• Schnitt: ${startTime}`
       ].join('\n');
       
-      // Get pre-op/anesthesia summary
       const anesthesiaSummary = formatPreOpSummaryForPdf(surgery.id);
       
       return [
@@ -878,34 +894,67 @@ export function SurgeryPlanningTable({
         anesthesiaSummary,
         staffColumnText
       ];
-    });
+    };
     
-    autoTable(doc, {
-      startY: 28,
-      head: [['Datum', 'Operator', 'Patient', 'Eingriff', 'Note', 'Anästhesie', 'Staff']],
-      body: tableData,
-      theme: 'grid',
-      styles: { 
-        fontSize: 9, 
-        cellPadding: 2,
-        overflow: 'linebreak',
-        valign: 'top'
-      },
-      headStyles: {
-        fillColor: [66, 66, 66],
-        fontSize: 10,
-        fontStyle: 'bold'
-      },
-      columnStyles: {
-        0: { cellWidth: 26 },  // Datum
-        1: { cellWidth: 22 },  // Operator
-        2: { cellWidth: 32 },  // Patient
-        3: { cellWidth: 42 },  // Eingriff (reduced)
-        4: { cellWidth: 50 },  // Note (increased)
-        5: { cellWidth: 38 },  // Anästhesie (reduced)
-        6: { cellWidth: 56 }   // Staff
-      },
-      margin: { left: 10, right: 10 }
+    let currentY = 28;
+    
+    // Generate a table for each room
+    sortedRoomIds.forEach((roomId, index) => {
+      const roomSurgeries = surgeriesByRoom.get(roomId) || [];
+      const roomName = roomId === 'unassigned' 
+        ? 'Ohne Saal' 
+        : (roomMap.get(roomId) || `Saal ${roomId}`);
+      
+      // Add room header
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${roomName}`, 14, currentY);
+      currentY += 6;
+      
+      // Table data for this room
+      const tableData = roomSurgeries.map(formatSurgeryRow);
+      
+      autoTable(doc, {
+        startY: currentY,
+        head: [['Datum', 'Operator', 'Patient', 'Eingriff', 'Note', 'Anästhesie', 'Staff']],
+        body: tableData,
+        theme: 'grid',
+        styles: { 
+          fontSize: 9, 
+          cellPadding: 2,
+          overflow: 'linebreak',
+          valign: 'top'
+        },
+        headStyles: {
+          fillColor: [66, 66, 66],
+          fontSize: 10,
+          fontStyle: 'bold'
+        },
+        columnStyles: {
+          0: { cellWidth: 26 },  // Datum
+          1: { cellWidth: 22 },  // Operator
+          2: { cellWidth: 32 },  // Patient
+          3: { cellWidth: 42 },  // Eingriff
+          4: { cellWidth: 50 },  // Note
+          5: { cellWidth: 38 },  // Anästhesie
+          6: { cellWidth: 56 }   // Staff
+        },
+        margin: { left: 10, right: 10 },
+        didDrawPage: (data) => {
+          // Update currentY after table is drawn
+          currentY = (data.cursor?.y || currentY) + 10;
+        }
+      });
+      
+      // Get final Y position from autoTable
+      const finalY = (doc as any).lastAutoTable?.finalY || currentY;
+      currentY = finalY + 10;
+      
+      // Check if we need a new page for the next room
+      if (index < sortedRoomIds.length - 1 && currentY > 180) {
+        doc.addPage();
+        currentY = 20;
+      }
     });
     
     // Save the PDF
