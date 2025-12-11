@@ -402,8 +402,8 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
                             size="sm"
                             onClick={() => {
                               setQuickCreateForm({ 
-                                firstName: patientSearch.split(' ')[0] || '', 
-                                surname: patientSearch.split(' ').slice(1).join(' ') || '',
+                                firstName: patientSearch.split(' ').slice(1).join(' ') || '', 
+                                surname: patientSearch.split(' ')[0] || '',
                                 birthday: undefined
                               });
                               setIsQuickCreateOpen(true);
@@ -724,21 +724,22 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>{t('clinic.invoices.firstName', 'First Name')} *</Label>
-              <Input
-                value={quickCreateForm.firstName}
-                onChange={(e) => setQuickCreateForm({ ...quickCreateForm, firstName: e.target.value })}
-                placeholder={t('clinic.invoices.firstName', 'First Name')}
-                data-testid="input-quick-create-firstname"
-              />
-            </div>
-            <div className="space-y-2">
               <Label>{t('clinic.invoices.surname', 'Surname')} *</Label>
               <Input
                 value={quickCreateForm.surname}
                 onChange={(e) => setQuickCreateForm({ ...quickCreateForm, surname: e.target.value })}
                 placeholder={t('clinic.invoices.surname', 'Surname')}
                 data-testid="input-quick-create-surname"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t('clinic.invoices.firstName', 'First Name')} *</Label>
+              <Input
+                value={quickCreateForm.firstName}
+                onChange={(e) => setQuickCreateForm({ ...quickCreateForm, firstName: e.target.value })}
+                placeholder={t('clinic.invoices.firstName', 'First Name')}
+                data-testid="input-quick-create-firstname"
               />
             </div>
             <div className="space-y-2">
