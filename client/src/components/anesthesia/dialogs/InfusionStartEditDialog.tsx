@@ -15,6 +15,7 @@ interface EditingInfusionStart {
   medicationName: string;
   isFreeFlow: boolean;
   administrationUnit?: string | null;
+  rateUnit?: string | null;
 }
 
 interface InfusionStartEditDialogProps {
@@ -113,32 +114,41 @@ export function InfusionStartEditDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          {/* Dose Input */}
+          {/* Dose Input - use rateUnit for rate-controlled infusions, administrationUnit for free-flow */}
           <div className="grid gap-2">
-            <Label htmlFor="infusion-dose-edit-value">
-              Starting Dose{editingInfusionStart?.administrationUnit ? ` (${editingInfusionStart.administrationUnit})` : ''}
-            </Label>
-            <div className="flex items-center gap-2">
-              <Input
-                ref={inputRef}
-                id="infusion-dose-edit-value"
-                data-testid="input-infusion-dose-edit-value"
-                value={doseInput}
-                onChange={(e) => setDoseInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSave();
-                  }
-                }}
-                placeholder="e.g., 5, 100, 500"
-                autoFocus
-              />
-              {editingInfusionStart?.administrationUnit && (
-                <span className="text-sm text-muted-foreground whitespace-nowrap">
-                  {editingInfusionStart.administrationUnit}
-                </span>
-              )}
-            </div>
+            {(() => {
+              const displayUnit = editingInfusionStart?.isFreeFlow 
+                ? editingInfusionStart?.administrationUnit 
+                : editingInfusionStart?.rateUnit || editingInfusionStart?.administrationUnit;
+              return (
+                <>
+                  <Label htmlFor="infusion-dose-edit-value">
+                    Starting {editingInfusionStart?.isFreeFlow ? 'Dose' : 'Rate'}{displayUnit ? ` (${displayUnit})` : ''}
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      ref={inputRef}
+                      id="infusion-dose-edit-value"
+                      data-testid="input-infusion-dose-edit-value"
+                      value={doseInput}
+                      onChange={(e) => setDoseInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSave();
+                        }
+                      }}
+                      placeholder="e.g., 5, 100, 500"
+                      autoFocus
+                    />
+                    {displayUnit && (
+                      <span className="text-sm text-muted-foreground whitespace-nowrap">
+                        {displayUnit}
+                      </span>
+                    )}
+                  </div>
+                </>
+              );
+            })()}
           </div>
           
           {/* Note Input */}

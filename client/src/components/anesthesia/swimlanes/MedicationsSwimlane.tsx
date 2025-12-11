@@ -500,6 +500,7 @@ export function MedicationsSwimlane({
     medicationName: string;
     isFreeFlow: boolean;
     administrationUnit?: string | null;
+    rateUnit?: string | null;
   } | null>(null);
   const [showInfusionEditDialog, setShowInfusionEditDialog] = useState(false);
 
@@ -717,6 +718,7 @@ export function MedicationsSwimlane({
                   medicationName: lane.label.trim(),
                   isFreeFlow: false,
                   administrationUnit: lane.administrationUnit,
+                  rateUnit: session.segments?.[0]?.rateUnit || lane.rateUnit,
                 });
                 setShowInfusionEditDialog(true);
               }}
