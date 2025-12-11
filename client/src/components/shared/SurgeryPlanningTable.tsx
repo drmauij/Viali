@@ -1098,7 +1098,7 @@ export function SurgeryPlanningTable({
       )}
       <div className="rounded-md border overflow-x-auto">
           <table className="w-full caption-bottom text-sm">
-            <thead className="[&_tr]:border-b">
+            <thead className="sticky z-20 bg-background [&_tr]:border-b" style={{ top: 'var(--top-bar-height, 73px)' }}>
             <TableRow>
               <TableHead className="w-10 lg:sticky lg:left-0 lg:z-30 bg-background"></TableHead>
             

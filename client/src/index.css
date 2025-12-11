@@ -432,6 +432,11 @@
   border-bottom: 1px solid var(--border);
   padding: 16px;
   z-index: 10;
+  height: var(--top-bar-height, 73px);
+}
+
+:root {
+  --top-bar-height: 73px;
 }
 
 .expiry-indicator {
