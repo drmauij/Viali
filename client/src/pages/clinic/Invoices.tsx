@@ -367,6 +367,7 @@ export default function ClinicInvoices() {
             </DialogHeader>
             <InvoiceForm 
               hospitalId={hospitalId}
+              unitId={activeHospital?.unitId}
               onSuccess={() => {
                 setCreateDialogOpen(false);
                 queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'invoices'] });

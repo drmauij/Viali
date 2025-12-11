@@ -10,6 +10,7 @@ import {
   insertClinicInvoiceItemSchema,
   patients,
   items,
+  itemCodes,
 } from "@shared/schema";
 import { eq, and, desc, sql, max } from "drizzle-orm";
 import { z } from "zod";
@@ -348,6 +349,13 @@ router.delete('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, is
 router.get('/api/clinic/:hospitalId/items-with-prices', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
+    const { unitId } = req.query;
+    
+    // Build where condition
+    const conditions = [eq(items.hospitalId, hospitalId)];
+    if (unitId && typeof unitId === 'string') {
+      conditions.push(eq(items.unitId, unitId));
+    }
     
     const itemsWithPrices = await db
       .select({
@@ -357,13 +365,30 @@ router.get('/api/clinic/:hospitalId/items-with-prices', isAuthenticated, isClini
         patientPrice: items.patientPrice,
       })
       .from(items)
-      .where(eq(items.hospitalId, hospitalId))
+      .where(and(...conditions))
       .orderBy(items.name);
     
-    // Filter to only items that have a patient price set
-    const priceableItems = itemsWithPrices.filter(item => item.patientPrice !== null);
+    // Get item codes for all items
+    const itemIds = itemsWithPrices.map(item => item.id);
+    const codes = itemIds.length > 0 ? await db
+      .select({
+        itemId: itemCodes.itemId,
+        gtin: itemCodes.gtin,
+        pharmacode: itemCodes.pharmacode,
+      })
+      .from(itemCodes)
+      .where(sql`${itemCodes.itemId} = ANY(${itemIds})`) : [];
     
-    res.json(priceableItems);
+    // Map codes to items
+    const codesMap = new Map(codes.map(c => [c.itemId, c]));
+    
+    const enrichedItems = itemsWithPrices.map(item => ({
+      ...item,
+      gtin: codesMap.get(item.id)?.gtin || null,
+      pharmacode: codesMap.get(item.id)?.pharmacode || null,
+    }));
+    
+    res.json(enrichedItems);
   } catch (error) {
     console.error("Error fetching items with prices:", error);
     res.status(500).json({ message: "Failed to fetch items" });

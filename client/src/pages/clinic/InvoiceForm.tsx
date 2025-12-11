@@ -62,10 +62,13 @@ interface InventoryItem {
   name: string;
   description: string | null;
   patientPrice: string | null;
+  gtin: string | null;
+  pharmacode: string | null;
 }
 
 interface InvoiceFormProps {
   hospitalId: string;
+  unitId?: string;
   onSuccess: () => void;
   onCancel: () => void;
 }
@@ -86,7 +89,7 @@ const invoiceFormSchema = z.object({
 
 type InvoiceFormData = z.infer<typeof invoiceFormSchema>;
 
-export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: InvoiceFormProps) {
+export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }: InvoiceFormProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const dateLocale = i18n.language === 'de' ? de : enUS;
@@ -101,6 +104,10 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
   
   const [editingAddress, setEditingAddress] = useState(false);
   const [addressForm, setAddressForm] = useState({ street: "", postalCode: "", city: "" });
+  
+  // Item search state - per item row
+  const [itemSearches, setItemSearches] = useState<Record<number, string>>({});
+  const [openItemPopovers, setOpenItemPopovers] = useState<Record<number, boolean>>({});
   const [isSavingAddress, setIsSavingAddress] = useState(false);
 
   const { data: patients = [], refetch: refetchPatients } = useQuery<Patient[]>({
@@ -116,9 +123,12 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
   });
 
   const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
-    queryKey: ['/api/clinic', hospitalId, 'items-with-prices'],
+    queryKey: ['/api/clinic', hospitalId, 'items-with-prices', unitId],
     queryFn: async () => {
-      const res = await fetch(`/api/clinic/${hospitalId}/items-with-prices`, {
+      const url = unitId 
+        ? `/api/clinic/${hospitalId}/items-with-prices?unitId=${unitId}`
+        : `/api/clinic/${hospitalId}/items-with-prices`;
+      const res = await fetch(url, {
         credentials: 'include'
       });
       if (!res.ok) return [];
@@ -126,6 +136,18 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
     },
     enabled: !!hospitalId,
   });
+  
+  // Filter items based on search for a specific row
+  const getFilteredItems = (index: number) => {
+    const search = (itemSearches[index] || '').toLowerCase().trim();
+    if (!search) return inventoryItems;
+    return inventoryItems.filter(item => 
+      item.name.toLowerCase().includes(search) ||
+      (item.description && item.description.toLowerCase().includes(search)) ||
+      (item.gtin && item.gtin.includes(search)) ||
+      (item.pharmacode && item.pharmacode.includes(search))
+    );
+  };
 
   const form = useForm<InvoiceFormData>({
     resolver: zodResolver(invoiceFormSchema),
@@ -557,21 +579,73 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
               <Card key={field.id}>
                 <CardContent className="p-3 space-y-2">
                   <div className="flex gap-2">
-                    <Select
-                      value={form.watch(`items.${index}.itemId`) || ''}
-                      onValueChange={(value) => handleItemSelect(index, value)}
+                    <Popover 
+                      open={openItemPopovers[index] || false} 
+                      onOpenChange={(open) => setOpenItemPopovers(prev => ({ ...prev, [index]: open }))}
                     >
-                      <SelectTrigger className="flex-1" data-testid={`select-item-${index}`}>
-                        <SelectValue placeholder={t('clinic.invoices.selectItem')} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {inventoryItems.map(item => (
-                          <SelectItem key={item.id} value={item.id}>
-                            {item.name} {item.patientPrice && `(CHF ${item.patientPrice})`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          className="flex-1 justify-between font-normal"
+                          data-testid={`select-item-${index}`}
+                        >
+                          {form.watch(`items.${index}.itemId`) ? (
+                            (() => {
+                              const selectedItem = inventoryItems.find(i => i.id === form.watch(`items.${index}.itemId`));
+                              return selectedItem ? (
+                                <span className="truncate">
+                                  {selectedItem.name} {selectedItem.patientPrice && `(CHF ${selectedItem.patientPrice})`}
+                                </span>
+                              ) : t('clinic.invoices.selectItem');
+                            })()
+                          ) : (
+                            <span className="flex items-center gap-2 text-muted-foreground">
+                              <Search className="h-4 w-4" />
+                              {t('clinic.invoices.selectItem')}
+                            </span>
+                          )}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-full min-w-[300px] p-0" align="start">
+                        <Command shouldFilter={false}>
+                          <CommandInput 
+                            placeholder={t('clinic.invoices.searchItem', 'Search item...')}
+                            value={itemSearches[index] || ''}
+                            onValueChange={(value) => setItemSearches(prev => ({ ...prev, [index]: value }))}
+                            data-testid={`input-item-search-${index}`}
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              {t('clinic.invoices.noItemFound', 'No item found')}
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {getFilteredItems(index).map((item) => (
+                                <CommandItem
+                                  key={item.id}
+                                  value={item.id}
+                                  onSelect={() => {
+                                    handleItemSelect(index, item.id);
+                                    setOpenItemPopovers(prev => ({ ...prev, [index]: false }));
+                                    setItemSearches(prev => ({ ...prev, [index]: '' }));
+                                  }}
+                                  data-testid={`item-option-${item.id}`}
+                                >
+                                  <div className="flex flex-col">
+                                    <span>{item.name} {item.patientPrice && `(CHF ${item.patientPrice})`}</span>
+                                    {(item.pharmacode || item.gtin) && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {[item.pharmacode && `PC: ${item.pharmacode}`, item.gtin && `GTIN: ${item.gtin}`].filter(Boolean).join(' | ')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     {fields.length > 1 && (
                       <Button
                         type="button"
