@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -155,7 +155,7 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
       patientId: '',
       customerAddress: '',
       date: new Date(),
-      vatRate: 7.7,
+      vatRate: 2.6, // Fixed VAT rate
       comments: '',
       items: [],
     },
@@ -191,6 +191,7 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
       
       await apiRequest('POST', `/api/clinic/${hospitalId}/invoices`, {
         ...data,
+        vatRate: 2.6, // Always use fixed VAT rate
         customerName,
         customerAddress: customerAddress || null,
         patientId: data.patientId || null,
@@ -212,12 +213,19 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
     },
   });
 
-  const watchedItems = form.watch("items");
   const FIXED_VAT_RATE = 2.6; // Fixed VAT rate
+  
+  // Use useWatch for proper reactivity when item fields change
+  const watchedItems = useWatch({
+    control: form.control,
+    name: "items",
+    defaultValue: [],
+  });
 
+  // Calculate totals - recomputes whenever watchedItems changes
   const totals = useMemo(() => {
-    const subtotal = watchedItems.reduce((sum, item) => {
-      return sum + (item.quantity || 0) * (item.unitPrice || 0);
+    const subtotal = (watchedItems || []).reduce((sum, item) => {
+      return sum + (Number(item?.quantity) || 0) * (Number(item?.unitPrice) || 0);
     }, 0);
     const vatAmount = subtotal * (FIXED_VAT_RATE / 100);
     const total = subtotal + vatAmount;
