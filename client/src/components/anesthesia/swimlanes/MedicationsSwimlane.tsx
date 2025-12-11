@@ -672,7 +672,7 @@ export function MedicationsSwimlane({
               visibleStart={visibleStart}
               visibleEnd={visibleEnd}
               segments={session.segments}
-              administrationUnit={lane.administrationUnit}
+              administrationUnit={session.segments?.[0]?.rateUnit || lane.rateUnit || lane.administrationUnit}
               onClick={() => {
                 // If session is running (no endTime), open the simplified RateManageDialog
                 // If session is stopped (has endTime), allow resuming or show appropriate dialog
