@@ -1100,7 +1100,7 @@ export function SurgeryPlanningTable({
         <Table>
           <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow>
-              <TableHead className="w-10"></TableHead>
+              <TableHead className="w-10 lg:sticky lg:left-0 lg:z-20 bg-background"></TableHead>
             
             {showClinical && (
               <>
@@ -1240,7 +1240,7 @@ export function SurgeryPlanningTable({
                   onClick={() => onSurgeryClick?.(surgery)}
                   data-testid={`row-surgery-${surgery.id}`}
                 >
-                  <TableCell className="p-1">
+                  <TableCell className="p-1 lg:sticky lg:left-0 lg:z-10 bg-background">
                     <Button
                       variant="ghost"
                       size="sm"
