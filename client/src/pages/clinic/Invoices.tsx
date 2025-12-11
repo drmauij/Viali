@@ -253,19 +253,24 @@ export default function ClinicInvoices() {
           logoImg.src = companyData.companyLogoUrl;
         });
         
+        // Create a larger canvas for better quality and fill with white background
+        const scaleFactor = 2;
         const canvas = document.createElement('canvas');
-        canvas.width = logoImg.width;
-        canvas.height = logoImg.height;
+        canvas.width = logoImg.naturalWidth * scaleFactor || logoImg.width * scaleFactor;
+        canvas.height = logoImg.naturalHeight * scaleFactor || logoImg.height * scaleFactor;
         const ctx = canvas.getContext('2d');
         if (ctx) {
+          // Fill entire canvas with white first (handles transparency)
           ctx.fillStyle = '#FFFFFF';
           ctx.fillRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(logoImg, 0, 0);
+          // Draw the logo scaled up
+          ctx.drawImage(logoImg, 0, 0, canvas.width, canvas.height);
         }
         
-        const maxLogoWidth = 60;
-        const maxLogoHeight = 35;
-        const aspectRatio = logoImg.width / logoImg.height;
+        // Larger logo dimensions for better visibility
+        const maxLogoWidth = 80;
+        const maxLogoHeight = 50;
+        const aspectRatio = (logoImg.naturalWidth || logoImg.width) / (logoImg.naturalHeight || logoImg.height);
         let logoWidth = maxLogoWidth;
         let logoHeight = logoWidth / aspectRatio;
         if (logoHeight > maxLogoHeight) {
@@ -277,14 +282,14 @@ export default function ClinicInvoices() {
         const logoX = (pageWidth - logoWidth) / 2;
         const flattenedLogoUrl = canvas.toDataURL('image/jpeg', 1.0);
         doc.addImage(flattenedLogoUrl, 'JPEG', logoX, 10, logoWidth, logoHeight);
-        logoYOffset = logoHeight + 8;
+        logoYOffset = logoHeight + 10;
       } catch (e) {
         console.warn('Failed to load company logo for PDF:', e);
       }
     }
     
     doc.setFontSize(18);
-    doc.text(isGerman ? "RECHNUNG" : "INVOICE", 20, 15 + logoYOffset);
+    doc.text(isGerman ? "RECHNUNG" : "INVOICE", 20, 18 + logoYOffset);
     
     doc.setFontSize(10);
     let yPos = 30 + logoYOffset;
@@ -456,24 +461,24 @@ export default function ClinicInvoices() {
             logoImg.src = companyData.companyLogoUrl;
           });
           
-          // Flatten transparent PNG onto white background using canvas
-          // jsPDF doesn't support transparency and renders transparent areas as black
+          // Create a larger canvas for better quality and fill with white background
+          const scaleFactor = 2;
           const canvas = document.createElement('canvas');
-          canvas.width = logoImg.width;
-          canvas.height = logoImg.height;
+          canvas.width = logoImg.naturalWidth * scaleFactor || logoImg.width * scaleFactor;
+          canvas.height = logoImg.naturalHeight * scaleFactor || logoImg.height * scaleFactor;
           const ctx = canvas.getContext('2d');
           if (ctx) {
-            // Fill with white background first
+            // Fill entire canvas with white first (handles transparency)
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            // Draw the logo on top
-            ctx.drawImage(logoImg, 0, 0);
+            // Draw the logo scaled up
+            ctx.drawImage(logoImg, 0, 0, canvas.width, canvas.height);
           }
           
-          // Calculate aspect ratio and add to PDF - larger logo
-          const maxLogoWidth = 60;
-          const maxLogoHeight = 35;
-          const aspectRatio = logoImg.width / logoImg.height;
+          // Larger logo dimensions for better visibility
+          const maxLogoWidth = 80;
+          const maxLogoHeight = 50;
+          const aspectRatio = (logoImg.naturalWidth || logoImg.width) / (logoImg.naturalHeight || logoImg.height);
           let logoWidth = maxLogoWidth;
           let logoHeight = logoWidth / aspectRatio;
           if (logoHeight > maxLogoHeight) {
@@ -481,13 +486,11 @@ export default function ClinicInvoices() {
             logoWidth = logoHeight * aspectRatio;
           }
           
-          // Use the flattened canvas image instead of original
-          // Center the logo on the page (A4 width is 210mm)
           const pageWidth = doc.internal.pageSize.getWidth();
           const logoX = (pageWidth - logoWidth) / 2;
           const flattenedLogoUrl = canvas.toDataURL('image/jpeg', 1.0);
           doc.addImage(flattenedLogoUrl, 'JPEG', logoX, 10, logoWidth, logoHeight);
-          logoYOffset = logoHeight + 8;
+          logoYOffset = logoHeight + 10;
         } catch (e) {
           // Logo failed to load, continue without it
           console.warn('Failed to load company logo for PDF:', e);
@@ -495,7 +498,7 @@ export default function ClinicInvoices() {
       }
       
       doc.setFontSize(18);
-      doc.text(isGerman ? "RECHNUNG" : "INVOICE", 20, 15 + logoYOffset);
+      doc.text(isGerman ? "RECHNUNG" : "INVOICE", 20, 18 + logoYOffset);
       
       doc.setFontSize(10);
       let yPos = 30 + logoYOffset;
