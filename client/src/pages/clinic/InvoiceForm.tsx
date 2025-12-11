@@ -233,7 +233,7 @@ export default function InvoiceForm({ hospitalId, onSuccess, onCancel }: Invoice
         sex: 'O',
       });
       
-      const newPatient = response as unknown as Patient;
+      const newPatient = await response.json() as Patient;
       await refetchPatients();
       
       handlePatientSelect(newPatient);
