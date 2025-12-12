@@ -497,11 +497,12 @@ export function SurgeryPlanningTable({
             const response = await fetch(`/api/room-staff/all/${activeHospital.id}/${date}`);
             if (response.ok) {
               const data = await response.json();
-              // Group by roomId
+              // Group by surgeryRoomId (API returns surgeryRoomId, not roomId)
               const byRoom: Record<string, any[]> = {};
               data.forEach((staff: any) => {
-                if (!byRoom[staff.roomId]) byRoom[staff.roomId] = [];
-                byRoom[staff.roomId].push(staff);
+                const roomId = staff.surgeryRoomId;
+                if (!byRoom[roomId]) byRoom[roomId] = [];
+                byRoom[roomId].push(staff);
               });
               results[date] = byRoom;
             }
