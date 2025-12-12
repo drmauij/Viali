@@ -109,6 +109,69 @@ export function calculateFreeFlowAmpules(): number {
   return 1;
 }
 
+// Calculate raw volume in mg for a rate-controlled segment (without rounding)
+// This should be used when summing multiple segments before applying Math.ceil
+export function calculateRateControlledVolume(
+  rate: string | null | undefined,
+  rateUnit: string | null | undefined,
+  startTime: Date | string,
+  endTime: Date | string | null | undefined,
+  patientWeight?: number
+): number {
+  const rateValue = parseNumericValue(rate);
+  if (rateValue === 0) return 0;
+  
+  const start = new Date(startTime).getTime();
+  const end = endTime ? new Date(endTime).getTime() : Date.now();
+  const durationHours = (end - start) / (1000 * 60 * 60);
+  
+  if (durationHours <= 0) return 0;
+  
+  const rateUnitLower = normalizeRateUnit(rateUnit);
+  
+  let totalVolume = 0;
+  
+  if (rateUnitLower.includes('ml/h') || rateUnitLower.includes('ml/hr')) {
+    totalVolume = rateValue * durationHours;
+  } else if (rateUnitLower.includes('μg/kg/min') || rateUnitLower.includes('µg/kg/min') || rateUnitLower.includes('ug/kg/min') || rateUnitLower.includes('mcg/kg/min')) {
+    const durationMinutes = durationHours * 60;
+    const weight = patientWeight || 70;
+    const totalMicrograms = rateValue * weight * durationMinutes;
+    totalVolume = totalMicrograms / 1000;
+  } else if (rateUnitLower.includes('μg/kg/h') || rateUnitLower.includes('μg/kg/hr') || rateUnitLower.includes('µg/kg/h') || rateUnitLower.includes('ug/kg/h') || rateUnitLower.includes('mcg/kg/h') || rateUnitLower.includes('µg/kg/hr') || rateUnitLower.includes('ug/kg/hr') || rateUnitLower.includes('mcg/kg/hr')) {
+    const totalMicrograms = rateValue * (patientWeight || 70) * durationHours;
+    totalVolume = totalMicrograms / 1000;
+  } else if (rateUnitLower.includes('mg/kg/min')) {
+    const durationMinutes = durationHours * 60;
+    totalVolume = rateValue * (patientWeight || 70) * durationMinutes;
+  } else if (rateUnitLower.includes('mg/kg/h') || rateUnitLower.includes('mg/kg/hr')) {
+    totalVolume = rateValue * (patientWeight || 70) * durationHours;
+  } else if (rateUnitLower.includes('μg/min') || rateUnitLower.includes('µg/min') || rateUnitLower.includes('ug/min') || rateUnitLower.includes('mcg/min')) {
+    const durationMinutes = durationHours * 60;
+    const totalMicrograms = rateValue * durationMinutes;
+    totalVolume = totalMicrograms / 1000;
+  } else if (rateUnitLower.includes('mg/min')) {
+    const durationMinutes = durationHours * 60;
+    totalVolume = rateValue * durationMinutes;
+  } else if (rateUnitLower.includes('mg/h') || rateUnitLower.includes('mg/hr')) {
+    totalVolume = rateValue * durationHours;
+  } else {
+    totalVolume = rateValue * durationHours;
+  }
+  
+  return totalVolume;
+}
+
+// Convert raw volume to ampules (apply Math.ceil at the end)
+export function volumeToAmpules(
+  totalVolume: number,
+  ampuleTotalContent: string | null | undefined
+): number {
+  const ampuleValue = parseNumericValue(ampuleTotalContent);
+  if (ampuleValue === 0 || totalVolume === 0) return 0;
+  return Math.ceil(totalVolume / ampuleValue);
+}
+
 export function calculateRateControlledAmpules(
   rate: string | null | undefined,
   rateUnit: string | null | undefined,

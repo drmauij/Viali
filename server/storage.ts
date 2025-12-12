@@ -138,7 +138,7 @@ import {
 import { randomUUID } from "crypto";
 import { db } from "./db";
 import { eq, and, desc, asc, sql, inArray, lte, gte, or, ilike, isNull } from "drizzle-orm";
-import { calculateInventoryForMedication, calculateRateControlledAmpules } from "./services/inventoryCalculations";
+import { calculateInventoryForMedication, calculateRateControlledAmpules, calculateRateControlledVolume, volumeToAmpules } from "./services/inventoryCalculations";
 import { encryptCredential, decryptCredential } from "./utils/encryption";
 
 export interface IStorage {
@@ -4360,6 +4360,10 @@ export class DatabaseStorage implements IStorage {
           }
         }
         
+        // CRITICAL FIX: Sum raw volumes across all sessions and segments FIRST,
+        // then apply Math.ceil only at the end to get correct ampule count
+        let totalRawVolume = 0;
+        
         for (const session of sessions) {
           type Segment = { rate: string; start: Date; end: Date };
           const segments: Segment[] = [];
@@ -4391,27 +4395,36 @@ export class DatabaseStorage implements IStorage {
             });
           }
           
+          // Sum raw volumes for each segment (without rounding)
           for (const segment of segments) {
-            const ampules = calculateRateControlledAmpules(
+            const volume = calculateRateControlledVolume(
               segment.rate,
               item.rateUnit,
               segment.start,
               segment.end,
-              item.ampuleTotalContent,
               patientWeight
             );
-            console.log('[INVENTORY-CALC] Rate-controlled calculation:', {
+            console.log('[INVENTORY-CALC] Rate-controlled segment volume:', {
               itemId,
               rate: segment.rate,
               rateUnit: item.rateUnit,
               start: segment.start,
               end: segment.end,
-              ampuleTotalContent: item.ampuleTotalContent,
-              patientWeight,
-              calculatedAmpules: ampules
+              calculatedVolume: volume
             });
-            totalQty += ampules;
+            totalRawVolume += volume;
           }
+        }
+        
+        // Apply Math.ceil only at the end on the total volume
+        if (totalRawVolume > 0) {
+          totalQty = volumeToAmpules(totalRawVolume, item.ampuleTotalContent);
+          console.log('[INVENTORY-CALC] Final ampule calculation:', {
+            itemId,
+            totalRawVolume,
+            ampuleTotalContent: item.ampuleTotalContent,
+            totalAmpules: totalQty
+          });
         }
       }
 
