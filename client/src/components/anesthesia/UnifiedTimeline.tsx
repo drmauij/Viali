@@ -2684,7 +2684,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         if (!sessionStartTime) return;
         
         let sessionTotalDose = 0;
-        let derivedUnit = unit;
+        let derivedUnit = ''; // Start empty, derive from rate unit
         
         // Calculate dose for each segment
         session.segments.forEach((segment, index) => {
@@ -2724,7 +2724,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         
         if (sessionTotalDose > 0) {
           if (!doses[swimlaneId]) {
+            // Use derived unit from rate calculation, fallback to administrationUnit
             doses[swimlaneId] = { total: 0, unit: derivedUnit || unit };
+          } else if (derivedUnit && !doses[swimlaneId].unit) {
+            // Update unit if we derived one and none was set
+            doses[swimlaneId].unit = derivedUnit;
           }
           doses[swimlaneId].total += sessionTotalDose;
         }
