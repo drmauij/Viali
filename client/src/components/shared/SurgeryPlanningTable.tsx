@@ -829,27 +829,20 @@ export function SurgeryPlanningTable({
       year: 'numeric'
     });
     
-    // Staff labels for PDF
-    const staffLabels: Record<string, string> = {
-      surgeon: 'Chirurg',
-      surgicalAssistant: 'Assistenz',
-      instrumentNurse: 'OTA',
-      circulatingNurse: 'Springer',
-      anesthesiologist: 'ANÄ',
-      anesthesiaNurse: 'Anä-Pflege',
-      pacuNurse: 'IMC/AWR',
-    };
-    
-    // Build roomStaffByRoom for PDF from fetched data
+    // Build roomStaffByRoom Map for PDF from fetched data
     const roomStaffForDate = roomStaffByDateAndRoom[dateKey] || {};
-    const roomStaffByRoom: Record<string, RoomStaffInfo[]> = {};
+    const roomStaffByRoom = new Map<string, RoomStaffInfo>();
     
     Object.entries(roomStaffForDate).forEach(([roomId, staffList]) => {
-      roomStaffByRoom[roomId] = (staffList as any[]).map((s) => ({
-        role: s.role,
-        name: s.name,
-        isExternal: s.staffType === 'external',
-      }));
+      const staffByRole = new Map<string, string[]>();
+      (staffList as any[]).forEach((s) => {
+        const names = staffByRole.get(s.role) || [];
+        const isExternal = s.staffType === 'external';
+        const displayName = isExternal ? `${s.name} (Extern)` : s.name;
+        names.push(displayName);
+        staffByRole.set(s.role, names);
+      });
+      roomStaffByRoom.set(roomId, { roomId, staffByRole });
     });
     
     const columns: DayPlanPdfColumn[] = [
@@ -873,7 +866,6 @@ export function SurgeryPlanningTable({
       roomMap,
       columns,
       roomStaffByRoom,
-      staffLabels,
     });
   };
   
