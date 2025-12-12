@@ -1,14 +1,17 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2, Stethoscope } from "lucide-react";
+import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2, Stethoscope, EyeOff } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 function getPreOpSummary(assessment: any, surgery: any, t: (key: string) => string): string | null {
   if (!assessment) return null;
@@ -108,6 +111,7 @@ function getPreOpSummary(assessment: any, surgery: any, t: (key: string) => stri
 
 export default function PreOpList() {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"planned" | "draft" | "standby" | "completed">("planned");
@@ -122,9 +126,34 @@ export default function PreOpList() {
     enabled: !!activeHospital?.id,
   });
 
+  // Mutation to toggle noPreOpRequired flag
+  const toggleNoPreOpMutation = useMutation({
+    mutationFn: async (surgeryId: string) => {
+      return await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
+        noPreOpRequired: true,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id || ''}`] });
+      toast({
+        title: t('anesthesia.preop.noPreOpRequiredSuccess'),
+        description: t('anesthesia.preop.noPreOpRequiredSuccessDesc'),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('anesthesia.preop.noPreOpRequiredError'),
+        variant: "destructive",
+      });
+    },
+  });
+
   // Filter and group assessments by status
   const filteredAssessments = (assessments || []).filter((item) => {
     if (!item.surgery) return false;
+    // Filter out surgeries marked as not requiring pre-op assessment
+    if (item.surgery.noPreOpRequired) return false;
     const searchLower = searchTerm.toLowerCase();
     return (
       item.surgery.procedureName?.toLowerCase().includes(searchLower) ||
@@ -401,7 +430,7 @@ export default function PreOpList() {
                   </div>
 
                   {/* Status Badge & Stand-By Reason */}
-                  <div className="flex flex-col items-end gap-1" data-testid={`badge-status-${surgery.id}`}>
+                  <div className="flex flex-col items-end gap-2" data-testid={`badge-status-${surgery.id}`}>
                     {getStatusBadge(item)}
                     {item.assessment?.standBy && item.assessment?.standByReason && (
                       <span className="text-xs text-amber-600 dark:text-amber-400 max-w-[180px] text-right">
@@ -409,6 +438,23 @@ export default function PreOpList() {
                           ? item.assessment?.standByReasonNote 
                           : getStandByReasonLabel(item.assessment?.standByReason)}
                       </span>
+                    )}
+                    {/* Button to mark surgery as not requiring pre-op (only for planned items) */}
+                    {item.status === 'planned' && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleNoPreOpMutation.mutate(surgery.id);
+                        }}
+                        disabled={toggleNoPreOpMutation.isPending}
+                        data-testid={`button-no-preop-${surgery.id}`}
+                      >
+                        <EyeOff className="h-3 w-3 mr-1" />
+                        {t('anesthesia.preop.noPreOpRequired')}
+                      </Button>
                     )}
                   </div>
                 </div>

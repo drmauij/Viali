@@ -733,6 +733,9 @@ export const surgeries = pgTable("surgeries", {
   // Planning status - used for administrative tracking (vorgemeldet/bestätigt)
   planningStatus: varchar("planning_status", { enum: ["pre-registered", "confirmed"] }).notNull().default("pre-registered"),
   
+  // Pre-op assessment flag - surgeries with local anesthesia only (done by surgeon) don't need anesthesia pre-op
+  noPreOpRequired: boolean("no_pre_op_required").default(false).notNull(),
+  
   // Archive (soft delete - surgeries should never be fully deleted)
   isArchived: boolean("is_archived").default(false).notNull(),
   archivedAt: timestamp("archived_at"),

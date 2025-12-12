@@ -833,6 +833,10 @@
         "completed": "Abgeschlossen"
       },
       "tabStandBy": "Stand-By",
+      "noPreOpRequired": "Keine Präop nötig",
+      "noPreOpRequiredSuccess": "Operation aktualisiert",
+      "noPreOpRequiredSuccessDesc": "Operation als ohne Anästhesie-Präop markiert",
+      "noPreOpRequiredError": "Fehler beim Aktualisieren der Operation",
       "standByLabel": "Fall auf Stand-By setzen",
       "standByReasonLabel": "Grund",
       "standByReasonNote": "Zusätzliche Anmerkungen",

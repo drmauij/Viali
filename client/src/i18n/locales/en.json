@@ -833,6 +833,10 @@
         "completed": "Completed"
       },
       "tabStandBy": "Stand-By",
+      "noPreOpRequired": "No Pre-Op Needed",
+      "noPreOpRequiredSuccess": "Surgery Updated",
+      "noPreOpRequiredSuccessDesc": "Surgery marked as not requiring anesthesia pre-op assessment",
+      "noPreOpRequiredError": "Failed to update surgery",
       "standByLabel": "Put Case on Stand-By",
       "standByReasonLabel": "Reason",
       "standByReasonNote": "Additional Notes",
