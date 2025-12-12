@@ -45,23 +45,19 @@ export function RateManageDialog({
   administrationUnit,
 }: RateManageDialogProps) {
   const [rateInput, setRateInput] = useState("");
-  const [initialBolusInput, setInitialBolusInput] = useState("");
 
   // Sync managing rate data to form
   useEffect(() => {
     if (managingRate) {
       setRateInput(managingRate.value || "");
-      setInitialBolusInput("");
     } else {
       setRateInput("");
-      setInitialBolusInput("");
     }
   }, [managingRate]);
 
   const handleClose = () => {
     onOpenChange(false);
     setRateInput("");
-    setInitialBolusInput("");
   };
 
   // Use the prop if provided, otherwise calculate from infusionData (legacy behavior)
@@ -93,8 +89,7 @@ export function RateManageDialog({
   const handleStartNewInfusion = () => {
     const rate = rateInput.trim() || managingRate?.value || "";
     if (rate) {
-      const bolus = initialBolusInput.trim();
-      onRateStartNew(rate, bolus || undefined);
+      onRateStartNew(rate);
       handleClose();
     }
   };
@@ -181,25 +176,6 @@ export function RateManageDialog({
             >
               Save
             </Button>
-          </div>
-
-          {/* Initial Bolus for New Infusion (optional) */}
-          <div className="grid gap-2 pt-2 border-t">
-            <Label htmlFor="initial-bolus-manage" className="text-sm pt-2">
-              Initial Bolus {administrationUnit ? `(${administrationUnit})` : ''} <span className="text-muted-foreground">(optional)</span>
-            </Label>
-            <Input
-              id="initial-bolus-manage"
-              type="number"
-              inputMode="decimal"
-              data-testid="input-initial-bolus-manage"
-              value={initialBolusInput}
-              onChange={(e) => setInitialBolusInput(e.target.value)}
-              placeholder="e.g., 150"
-            />
-            <p className="text-xs text-muted-foreground">
-              Bolus dose given at new infusion start
-            </p>
           </div>
 
           {/* Action Buttons - Second */}
