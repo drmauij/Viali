@@ -72,8 +72,23 @@ const UnifiedInfusion = ({
   // Build display text with unit, optional initial bolus, and optional note in parentheses
   const unit = administrationUnit || '';
   const doseWithUnit = unit ? `${startDose} ${unit}` : startDose;
-  // For rate-controlled infusions with initial bolus, show: "<rate> - <bolus> <unit>"
-  const bolusDisplay = initialBolus ? ` - ${initialBolus} ${unit}` : '';
+  
+  // Extract base unit for bolus from rate unit (e.g., mg/kg/h → mg, mcg/min → mcg)
+  const getBolusUnit = (rateUnit: string): string => {
+    const unitLower = (rateUnit || '').toLowerCase();
+    if (unitLower.includes('mcg') || unitLower.includes('µg') || unitLower.includes('μg') || unitLower.includes('ug')) {
+      return 'mcg';
+    } else if (unitLower.includes('mg')) {
+      return 'mg';
+    } else if (unitLower.includes('ml')) {
+      return 'ml';
+    }
+    return '';
+  };
+  const bolusUnit = getBolusUnit(unit);
+  
+  // For rate-controlled infusions with initial bolus, show: "<rate> - <bolus> <baseUnit>"
+  const bolusDisplay = initialBolus ? ` - ${initialBolus} ${bolusUnit}` : '';
   const rateAndBolus = `${doseWithUnit}${bolusDisplay}`;
   const displayText = startNote ? `${rateAndBolus} (${startNote})` : rateAndBolus;
   
@@ -240,7 +255,7 @@ const UnifiedInfusion = ({
           </div>
           {initialBolus && (
             <div className="text-xs text-muted-foreground">
-              Initial bolus: {initialBolus} {unit}
+              Initial bolus: {initialBolus} {bolusUnit}
             </div>
           )}
           {startNote && (
