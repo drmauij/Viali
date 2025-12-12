@@ -715,7 +715,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       const end = moment(selectedDate).endOf('week');
       return `${start.format('DD/MM/YYYY')} - ${end.format('DD/MM/YYYY')}`;
     }
-    return moment(selectedDate).format('DD/MM/YYYY');
+    // Day view: show day name followed by date
+    return moment(selectedDate).format('dddd, DD/MM/YYYY');
   };
 
   return (
