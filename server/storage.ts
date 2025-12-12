@@ -48,6 +48,9 @@ import {
   inventoryUsage,
   inventoryCommits,
   auditTrail,
+  surgeonChecklistTemplates,
+  surgeonChecklistTemplateItems,
+  surgeryPreOpChecklistEntries,
   type User,
   type UpsertUser,
   type Hospital,
@@ -134,6 +137,10 @@ import {
   type InsertInventoryCommit,
   type AuditTrail,
   type InsertAuditTrail,
+  type SurgeonChecklistTemplate,
+  type InsertSurgeonChecklistTemplate,
+  type SurgeonChecklistTemplateItem,
+  type SurgeryPreOpChecklistEntry,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -507,6 +514,17 @@ export interface IStorage {
   // Audit Trail operations
   getAuditTrail(recordType: string, recordId: string): Promise<AuditTrail[]>;
   createAuditLog(log: InsertAuditTrail): Promise<void>;
+  
+  // Surgeon Checklist Template operations
+  getSurgeonChecklistTemplates(hospitalId: string, userId?: string): Promise<SurgeonChecklistTemplate[]>;
+  getSurgeonChecklistTemplate(id: string): Promise<(SurgeonChecklistTemplate & { items: SurgeonChecklistTemplateItem[] }) | undefined>;
+  createSurgeonChecklistTemplate(template: InsertSurgeonChecklistTemplate): Promise<SurgeonChecklistTemplate>;
+  updateSurgeonChecklistTemplate(id: string, updates: Partial<SurgeonChecklistTemplate>, items?: { id?: string; label: string; sortOrder: number }[]): Promise<SurgeonChecklistTemplate>;
+  deleteSurgeonChecklistTemplate(id: string): Promise<void>;
+  
+  // Surgery Pre-Op Checklist operations
+  getSurgeryPreOpChecklist(surgeryId: string): Promise<{ templateId: string | null; entries: SurgeryPreOpChecklistEntry[] }>;
+  saveSurgeryPreOpChecklist(surgeryId: string, templateId: string, entries: { itemId: string; checked: boolean; note?: string | null }[]): Promise<SurgeryPreOpChecklistEntry[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -4798,6 +4816,161 @@ export class DatabaseStorage implements IStorage {
 
   async createAuditLog(log: InsertAuditTrail): Promise<void> {
     await db.insert(auditTrail).values(log);
+  }
+
+  // Surgeon Checklist Template operations
+  async getSurgeonChecklistTemplates(hospitalId: string, userId?: string): Promise<SurgeonChecklistTemplate[]> {
+    const templates = await db
+      .select()
+      .from(surgeonChecklistTemplates)
+      .where(
+        and(
+          eq(surgeonChecklistTemplates.hospitalId, hospitalId),
+          userId 
+            ? or(
+                eq(surgeonChecklistTemplates.ownerUserId, userId),
+                eq(surgeonChecklistTemplates.isShared, true)
+              )
+            : undefined
+        )
+      )
+      .orderBy(desc(surgeonChecklistTemplates.createdAt));
+    return templates;
+  }
+
+  async getSurgeonChecklistTemplate(id: string): Promise<(SurgeonChecklistTemplate & { items: SurgeonChecklistTemplateItem[] }) | undefined> {
+    const [template] = await db
+      .select()
+      .from(surgeonChecklistTemplates)
+      .where(eq(surgeonChecklistTemplates.id, id));
+    
+    if (!template) return undefined;
+
+    const items = await db
+      .select()
+      .from(surgeonChecklistTemplateItems)
+      .where(eq(surgeonChecklistTemplateItems.templateId, id))
+      .orderBy(asc(surgeonChecklistTemplateItems.sortOrder));
+
+    return { ...template, items };
+  }
+
+  async createSurgeonChecklistTemplate(template: InsertSurgeonChecklistTemplate): Promise<SurgeonChecklistTemplate> {
+    const [created] = await db
+      .insert(surgeonChecklistTemplates)
+      .values(template)
+      .returning();
+    return created;
+  }
+
+  async updateSurgeonChecklistTemplate(
+    id: string, 
+    updates: Partial<SurgeonChecklistTemplate>, 
+    items?: { id?: string; label: string; sortOrder: number }[]
+  ): Promise<SurgeonChecklistTemplate> {
+    const [updated] = await db
+      .update(surgeonChecklistTemplates)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(surgeonChecklistTemplates.id, id))
+      .returning();
+
+    if (items) {
+      const existingItems = await db
+        .select()
+        .from(surgeonChecklistTemplateItems)
+        .where(eq(surgeonChecklistTemplateItems.templateId, id));
+
+      const existingIds = existingItems.map(i => i.id);
+      const incomingIds = items.filter(i => i.id).map(i => i.id!);
+      const idsToDelete = existingIds.filter(eid => !incomingIds.includes(eid));
+
+      if (idsToDelete.length > 0) {
+        await db
+          .delete(surgeonChecklistTemplateItems)
+          .where(inArray(surgeonChecklistTemplateItems.id, idsToDelete));
+      }
+
+      for (const item of items) {
+        if (item.id && existingIds.includes(item.id)) {
+          await db
+            .update(surgeonChecklistTemplateItems)
+            .set({ label: item.label, sortOrder: item.sortOrder })
+            .where(eq(surgeonChecklistTemplateItems.id, item.id));
+        } else {
+          await db
+            .insert(surgeonChecklistTemplateItems)
+            .values({
+              templateId: id,
+              label: item.label,
+              sortOrder: item.sortOrder,
+            });
+        }
+      }
+    }
+
+    return updated;
+  }
+
+  async deleteSurgeonChecklistTemplate(id: string): Promise<void> {
+    await db.delete(surgeonChecklistTemplates).where(eq(surgeonChecklistTemplates.id, id));
+  }
+
+  // Surgery Pre-Op Checklist operations
+  async getSurgeryPreOpChecklist(surgeryId: string): Promise<{ templateId: string | null; entries: SurgeryPreOpChecklistEntry[] }> {
+    const entries = await db
+      .select()
+      .from(surgeryPreOpChecklistEntries)
+      .where(eq(surgeryPreOpChecklistEntries.surgeryId, surgeryId));
+
+    const templateId = entries.length > 0 ? entries[0].templateId : null;
+    return { templateId, entries };
+  }
+
+  async saveSurgeryPreOpChecklist(
+    surgeryId: string, 
+    templateId: string, 
+    entries: { itemId: string; checked: boolean; note?: string | null }[]
+  ): Promise<SurgeryPreOpChecklistEntry[]> {
+    const results: SurgeryPreOpChecklistEntry[] = [];
+
+    for (const entry of entries) {
+      const existing = await db
+        .select()
+        .from(surgeryPreOpChecklistEntries)
+        .where(
+          and(
+            eq(surgeryPreOpChecklistEntries.surgeryId, surgeryId),
+            eq(surgeryPreOpChecklistEntries.itemId, entry.itemId)
+          )
+        );
+
+      if (existing.length > 0) {
+        const [updated] = await db
+          .update(surgeryPreOpChecklistEntries)
+          .set({ 
+            checked: entry.checked, 
+            note: entry.note ?? null,
+            updatedAt: new Date() 
+          })
+          .where(eq(surgeryPreOpChecklistEntries.id, existing[0].id))
+          .returning();
+        results.push(updated);
+      } else {
+        const [created] = await db
+          .insert(surgeryPreOpChecklistEntries)
+          .values({
+            surgeryId,
+            templateId,
+            itemId: entry.itemId,
+            checked: entry.checked,
+            note: entry.note ?? null,
+          })
+          .returning();
+        results.push(created);
+      }
+    }
+
+    return results;
   }
 }
 
