@@ -3,7 +3,7 @@
 A mobile-first web application designed for hospital operations, featuring comprehensive modules for Inventory Management, Anesthesia Records, and Administration.
 
 ![Viali Dashboard](https://img.shields.io/badge/Status-Active-success)
-![License](https://img.shields.io/badge/License-Open%20Source-blue)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 
 ## 🏥 Overview
 
@@ -430,7 +430,9 @@ Your support helps us:
 
 ## 📄 License
 
-This project is open source and available under the [MIT License](LICENSE).
+This project is open source and available under the [Apache License 2.0](./LICENSE).
+
+See the [LICENSE](./LICENSE) file for full license text.
 
 ## 🙏 Acknowledgments
 
