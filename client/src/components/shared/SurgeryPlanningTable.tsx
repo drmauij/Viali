@@ -914,7 +914,6 @@ export function SurgeryPlanningTable({
         if (!dateB) return -1;
         return dateA.getTime() - dateB.getTime();
       });
-      console.log('PDF Sort - Room:', roomName, 'Surgeries:', sortedRoomSurgeries.map(s => ({ patient: s.patientId, time: s.plannedDate })));
       
       // Add room header
       doc.setFontSize(12);

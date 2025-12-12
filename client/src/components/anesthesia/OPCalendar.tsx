@@ -451,6 +451,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         ? 'Ohne Saal' 
         : (roomMap.get(roomId) || `Saal ${roomId}`);
       
+      // Sort surgeries within the room by planned begin time (ascending - earliest first)
+      const sortedRoomSurgeries = [...roomSurgeries].sort((a: any, b: any) => {
+        const dateA = a.plannedDate ? new Date(a.plannedDate) : null;
+        const dateB = b.plannedDate ? new Date(b.plannedDate) : null;
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return dateA.getTime() - dateB.getTime();
+      });
+      
       // Add room header
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
@@ -458,7 +468,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       currentY += 6;
       
       // Table data for this room
-      const tableData = roomSurgeries.map(formatSurgeryRow);
+      const tableData = sortedRoomSurgeries.map(formatSurgeryRow);
       
       autoTable(doc, {
         startY: currentY,
