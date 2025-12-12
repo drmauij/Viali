@@ -6,7 +6,6 @@ import { setupVite, serveStatic, log } from "./vite";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { sql } from "drizzle-orm";
 import { db, pool } from "./db";
-import { startAutoStopService } from "./services/autoStopInfusions";
 import { storage } from "./storage";
 import { startWorker } from "./worker";
 
@@ -196,9 +195,6 @@ app.use((req, res, next) => {
       reusePort: true,
     }, () => {
       log(`serving on port ${port}`);
-      
-      // Start auto-stop service for infusions
-      startAutoStopService(storage);
       
       // Start background worker for processing jobs (bulk imports, price syncs)
       startWorker();
