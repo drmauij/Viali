@@ -1844,7 +1844,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   
   const [infusionHoverInfo, setInfusionHoverInfo] = useState<{ x: number; y: number; time: number; swimlaneId: string; label: string } | null>(null);
   const [showInfusionDialog, setShowInfusionDialog] = useState(false);
-  const [pendingInfusionValue, setPendingInfusionValue] = useState<{ swimlaneId: string; time: number; label: string } | null>(null);
+  const [pendingInfusionValue, setPendingInfusionValue] = useState<{ swimlaneId: string; time: number; label: string; itemId?: string; administrationUnit?: string | null } | null>(null);
   const [infusionInput, setInfusionInput] = useState("");
   const [showInfusionEditDialog, setShowInfusionEditDialog] = useState(false);
   const [editingInfusionValue, setEditingInfusionValue] = useState<{ swimlaneId: string; time: number; value: string; index: number } | null>(null);
@@ -7264,7 +7264,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         open={showInfusionDialog}
         onOpenChange={setShowInfusionDialog}
         pendingInfusionValue={pendingInfusionValue}
-        onInfusionValueEntry={(swimlaneId, time, value) => {
+        onInfusionValueEntry={(swimlaneId, time, value, initialBolus) => {
+          // Update local infusion data for visual display
           setInfusionData(prev => {
             const existingData = prev[swimlaneId] || [];
             return {
@@ -7272,6 +7273,21 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               [swimlaneId]: [...existingData, [time, value] as [number, string]]
             };
           });
+          
+          // Persist to database if we have the necessary IDs
+          const itemId = pendingInfusionValue?.itemId;
+          if (itemId && anesthesiaRecordId) {
+            createMedication.mutate({
+              anesthesiaRecordId,
+              itemId,
+              timestamp: new Date(time),
+              type: 'infusion_start',
+              rate: value,
+              dose: value,
+              initialBolus: initialBolus || undefined,
+            });
+          }
+          
           setPendingInfusionValue(null);
         }}
       />

@@ -399,7 +399,7 @@ export interface MedicationsSwimlaneProps {
   onMedicationDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string; defaultDose?: string | null; administrationUnit?: string | null; itemId: string }) => void;
   onMedicationEditDialogOpen: (editing: { swimlaneId: string; time: number; dose: string; note?: string; index: number; id: string }) => void;
   onInstantMedicationSave: (swimlaneId: string, time: number, dose: string, itemId: string) => Promise<void>;
-  onInfusionDialogOpen: (pending: { swimlaneId: string; time: number; label: string }) => void;
+  onInfusionDialogOpen: (pending: { swimlaneId: string; time: number; label: string; itemId?: string; administrationUnit?: string | null }) => void;
   onFreeFlowDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string; administrationUnit?: string | null }) => void;
   onFreeFlowSheetOpen: (session: FreeFlowSession & { clickMode?: 'label' | 'segment' }, doseInput: string, timeInput: number) => void;
   onFreeFlowStopDialogOpen: (session: FreeFlowSession, clickTime: number) => void;
@@ -1302,79 +1302,26 @@ export function MedicationsSwimlane({
                         return;
                       }
                       
-                      // SCENARIO 1: No session clicked - start a new infusion with the default dose
-                      console.log('[RATE-INFUSION-CLICK] No session clicked - starting new infusion');
-                      
-                      // Extract group ID and item ID from swimlane id
-                      const groupMatch = lane.id.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
-                      if (!groupMatch || !anesthesiaRecordId) {
-                        console.error('[RATE-INFUSION-CLICK] Failed to match swimlane ID or missing recordId');
-                        return;
-                      }
-                      
-                      const groupId = groupMatch[1];
-                      const itemId = groupMatch[2];
-                      
-                      // Find item by ID directly
-                      const item = anesthesiaItems.find(i => i.id === itemId);
-                      if (!item) {
-                        console.error('[RATE-INFUSION-CLICK] Item not found with ID', itemId);
-                        return;
-                      }
-                      
-                      console.log('[RATE-INFUSION-CLICK] Starting rate-controlled infusion:', {
-                        itemId: item.id,
-                        itemName: item.name,
-                        rate: lane.defaultDose,
-                        rateUnit: lane.rateUnit,
-                        time
+                      // SCENARIO 1: No session clicked - open rate selection dialog with default rate
+                      // This allows user to optionally add an initial bolus before starting
+                      console.log('[RATE-INFUSION-CLICK] No session clicked - opening rate selection dialog for bolus option');
+                      onRateSelectionDialogOpen({
+                        swimlaneId: lane.id,
+                        time,
+                        label: lane.label.trim(),
+                        rateOptions: [lane.defaultDose!], // Single option with the default rate
+                        itemId: lane.itemId,
+                        administrationUnit: lane.administrationUnit,
                       });
-                      
-                      // Update local state for immediate feedback
-                      setInfusionData(prev => ({
-                        ...prev,
-                        [lane.id]: [...(prev[lane.id] || []), [time, lane.defaultDose]].sort((a, b) => a[0] - b[0]),
-                      }));
-                      
-                      // Create initial rate infusion session (as array!)
-                      const tempId = crypto.randomUUID(); // Temporary ID for optimistic update
-                      const newSegment: RateInfusionSegment = {
-                        startTime: time,
-                        rate: lane.defaultDose,
-                        rateUnit: lane.rateUnit || '',
-                      };
-                      setRateInfusionSessions(prev => ({
-                        ...prev,
-                        [lane.id]: [{
-                          id: tempId, // Temporary ID, will be replaced by real ID from database
-                          swimlaneId: lane.id,
-                          label: lane.label.trim(),
-                          syringeQuantity: lane.defaultDose, // Use actual configured value, not hardcoded "50ml"
-                          startDose: lane.defaultDose, // Also set startDose to match
-                          segments: [newSegment],
-                          startTime: time,
-                          state: 'running',
-                        }],
-                      }));
-                      
-                      // 🔥 FIX: Save to database as infusion_start (first rate)
-                      createMedicationMutation.mutate({
-                        anesthesiaRecordId,
-                        itemId: item.id,
-                        timestamp: new Date(time),
-                        type: 'infusion_start' as const,
-                        rate: lane.defaultDose,
-                        dose: lane.defaultDose, // Syringe quantity
-                      });
-                      
-                      console.log('[RATE-INFUSION-CLICK] Mutation called!');
                     }
                   } else {
                     // No default dose: open dialog
                     onInfusionDialogOpen({ 
                       swimlaneId: lane.id, 
                       time, 
-                      label: lane.label.trim() 
+                      label: lane.label.trim(),
+                      itemId: lane.itemId,
+                      administrationUnit: lane.administrationUnit,
                     });
                   }
                 }
