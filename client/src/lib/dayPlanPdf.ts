@@ -1,0 +1,183 @@
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { format } from "date-fns";
+
+export interface DayPlanPdfColumn {
+  header: string;
+  width: number;
+  getValue: (surgery: any, helpers: DayPlanPdfHelpers) => string;
+}
+
+export interface DayPlanPdfHelpers {
+  patientMap: Map<string, any>;
+  roomMap: Map<string, string>;
+  displayDate: string;
+  formatTime: (date: any) => string;
+  formatDate: (date: any) => string;
+}
+
+export interface DayPlanPdfOptions {
+  date: Date;
+  hospitalName: string;
+  surgeries: any[];
+  patientMap: Map<string, any>;
+  roomMap: Map<string, string>;
+  columns: DayPlanPdfColumn[];
+}
+
+export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
+  const { date, hospitalName, surgeries, patientMap, roomMap, columns } = options;
+
+  if (surgeries.length === 0) {
+    return;
+  }
+
+  const doc = new jsPDF({ orientation: 'landscape' });
+  
+  const displayDate = format(date, 'dd.MM.yyyy');
+  const dateKey = format(date, 'yyyy-MM-dd');
+  
+  doc.setFontSize(16);
+  doc.text(`OP-TAG ${displayDate}`, 14, 15);
+  doc.setFontSize(10);
+  doc.text(hospitalName || '', 14, 22);
+  
+  const surgeriesByRoom = new Map<string, any[]>();
+  surgeries.forEach((surgery: any) => {
+    const roomId = surgery.surgeryRoomId || 'unassigned';
+    const roomSurgeries = surgeriesByRoom.get(roomId) || [];
+    roomSurgeries.push(surgery);
+    surgeriesByRoom.set(roomId, roomSurgeries);
+  });
+  
+  const sortedRoomIds = Array.from(surgeriesByRoom.keys()).sort((a, b) => {
+    if (a === 'unassigned') return 1;
+    if (b === 'unassigned') return -1;
+    const nameA = roomMap.get(a) || '';
+    const nameB = roomMap.get(b) || '';
+    return nameA.localeCompare(nameB);
+  });
+  
+  const helpers: DayPlanPdfHelpers = {
+    patientMap,
+    roomMap,
+    displayDate,
+    formatTime: (dateVal: any) => {
+      if (!dateVal) return '-';
+      return format(new Date(dateVal), 'HH:mm');
+    },
+    formatDate: (dateVal: any) => {
+      if (!dateVal) return '-';
+      return format(new Date(dateVal), 'dd.MM.yyyy');
+    },
+  };
+  
+  let currentY = 28;
+  
+  sortedRoomIds.forEach((roomId, index) => {
+    const roomSurgeries = surgeriesByRoom.get(roomId) || [];
+    const roomName = roomId === 'unassigned' 
+      ? 'Ohne Saal' 
+      : (roomMap.get(roomId) || `Saal ${roomId}`);
+    
+    const sortedRoomSurgeries = [...roomSurgeries].sort((a: any, b: any) => {
+      const dateA = a.plannedDate ? new Date(a.plannedDate) : null;
+      const dateB = b.plannedDate ? new Date(b.plannedDate) : null;
+      if (!dateA && !dateB) return 0;
+      if (!dateA) return 1;
+      if (!dateB) return -1;
+      return dateA.getTime() - dateB.getTime();
+    });
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${roomName}`, 14, currentY);
+    currentY += 6;
+    
+    const tableData = sortedRoomSurgeries.map((surgery) => 
+      columns.map((col) => col.getValue(surgery, helpers))
+    );
+    
+    const columnStyles: Record<number, { cellWidth: number }> = {};
+    columns.forEach((col, idx) => {
+      columnStyles[idx] = { cellWidth: col.width };
+    });
+    
+    autoTable(doc, {
+      startY: currentY,
+      head: [columns.map((col) => col.header)],
+      body: tableData,
+      theme: 'grid',
+      styles: { 
+        fontSize: 9, 
+        cellPadding: 2,
+        overflow: 'linebreak',
+        valign: 'top'
+      },
+      headStyles: {
+        fillColor: [66, 66, 66],
+        fontSize: 10,
+        fontStyle: 'bold'
+      },
+      columnStyles,
+      margin: { left: 10, right: 10 },
+    });
+    
+    const finalY = (doc as any).lastAutoTable?.finalY || currentY;
+    currentY = finalY + 10;
+    
+    if (index < sortedRoomIds.length - 1 && currentY > 180) {
+      doc.addPage();
+      currentY = 20;
+    }
+  });
+  
+  doc.save(`OP-Tag_${dateKey}.pdf`);
+}
+
+export const defaultColumns = {
+  datum: (displayDate: string): DayPlanPdfColumn => ({
+    header: 'Datum',
+    width: 26,
+    getValue: (surgery, helpers) => {
+      const admissionTime = helpers.formatTime(surgery.admissionTime);
+      const startTime = helpers.formatTime(surgery.plannedDate);
+      return [
+        displayDate,
+        `• Eintritt: ${admissionTime} Uhr`,
+        `• Schnitt: ${startTime}`
+      ].join('\n');
+    },
+  }),
+  
+  operator: (): DayPlanPdfColumn => ({
+    header: 'Operator',
+    width: 22,
+    getValue: (surgery) => surgery.surgeon || '-',
+  }),
+  
+  patient: (): DayPlanPdfColumn => ({
+    header: 'Patient',
+    width: 32,
+    getValue: (surgery, helpers) => {
+      const patient = helpers.patientMap.get(surgery.patientId);
+      const patientName = patient ? `${patient.surname}, ${patient.firstName}` : '-';
+      const patientBirthday = patient?.birthday 
+        ? `(${format(new Date(patient.birthday), 'dd.MM.yyyy')})`
+        : '';
+      return `${patientName}\n${patientBirthday}`;
+    },
+  }),
+  
+  eingriff: (): DayPlanPdfColumn => ({
+    header: 'Eingriff',
+    width: 42,
+    getValue: (surgery) => surgery.plannedSurgery || '-',
+  }),
+  
+  note: (): DayPlanPdfColumn => ({
+    header: 'Note',
+    width: 50,
+    getValue: (surgery) => surgery.notes || '-',
+  }),
+};

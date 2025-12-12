@@ -25,8 +25,7 @@ import {
   CheckCircle2,
   XCircle
 } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn } from "@/lib/dayPlanPdf";
 import {
   Table,
   TableBody,
@@ -791,23 +790,14 @@ export function SurgeryPlanningTable({
     return parts.length > 0 ? parts.join('\n') : '-';
   };
   
-  // Generate PDF for a day's surgeries
+  // Generate PDF for a day's surgeries using shared utility
   const generateDayPdf = (dateKey: string, daySurgeries: Surgery[]) => {
-    const doc = new jsPDF({ orientation: 'landscape' });
     const staff = staffPoolByDate[dateKey] || [];
-    
-    // Format date for display
     const displayDate = new Date(dateKey + 'T12:00:00').toLocaleDateString('de-DE', {
       day: '2-digit',
       month: '2-digit', 
       year: 'numeric'
     });
-    
-    // Header
-    doc.setFontSize(16);
-    doc.text(`OP-TAG ${displayDate}`, 14, 15);
-    doc.setFontSize(10);
-    doc.text(activeHospital?.name || '', 14, 22);
     
     // Staff labels for PDF
     const staffLabels: Record<string, string> = {
@@ -844,131 +834,32 @@ export function SurgeryPlanningTable({
     
     const staffColumnText = formatStaffColumn();
     
-    // Group surgeries by room
-    const surgeriesByRoom = new Map<string, Surgery[]>();
-    daySurgeries.forEach((surgery) => {
-      const roomId = surgery.surgeryRoomId || 'unassigned';
-      const roomSurgeries = surgeriesByRoom.get(roomId) || [];
-      roomSurgeries.push(surgery);
-      surgeriesByRoom.set(roomId, roomSurgeries);
+    const columns: DayPlanPdfColumn[] = [
+      defaultColumns.datum(displayDate),
+      defaultColumns.operator(),
+      defaultColumns.patient(),
+      defaultColumns.eingriff(),
+      defaultColumns.note(),
+      {
+        header: 'Anästhesie',
+        width: 38,
+        getValue: (surgery) => formatPreOpSummaryForPdf(surgery.id),
+      },
+      {
+        header: 'Staff',
+        width: 56,
+        getValue: () => staffColumnText,
+      },
+    ];
+
+    generateDayPlanPdf({
+      date: new Date(dateKey + 'T12:00:00'),
+      hospitalName: activeHospital?.name || '',
+      surgeries: daySurgeries,
+      patientMap,
+      roomMap,
+      columns,
     });
-    
-    // Sort rooms: assigned rooms first (sorted by name), then unassigned
-    const sortedRoomIds = Array.from(surgeriesByRoom.keys()).sort((a, b) => {
-      if (a === 'unassigned') return 1;
-      if (b === 'unassigned') return -1;
-      const nameA = roomMap.get(a) || '';
-      const nameB = roomMap.get(b) || '';
-      return nameA.localeCompare(nameB);
-    });
-    
-    // Helper to format surgery data for table
-    const formatSurgeryRow = (surgery: Surgery) => {
-      const patient = patientMap.get(surgery.patientId);
-      const patientName = patient ? `${patient.surname}, ${patient.firstName}` : '-';
-      const patientBirthday = patient?.birthday 
-        ? `(${format(new Date(patient.birthday), 'dd.MM.yyyy')})`
-        : '';
-      
-      const admissionTime = surgery.admissionTime 
-        ? format(new Date(surgery.admissionTime), 'HH:mm')
-        : '-';
-      const startTime = surgery.plannedDate 
-        ? format(new Date(surgery.plannedDate), 'HH:mm')
-        : '-';
-      
-      const datumText = [
-        displayDate,
-        `• Eintritt: ${admissionTime} Uhr`,
-        `• Schnitt: ${startTime}`
-      ].join('\n');
-      
-      const anesthesiaSummary = formatPreOpSummaryForPdf(surgery.id);
-      
-      return [
-        datumText,
-        surgery.surgeon || '-',
-        `${patientName}\n${patientBirthday}`,
-        surgery.plannedSurgery || '-',
-        surgery.notes || '-',
-        anesthesiaSummary,
-        staffColumnText
-      ];
-    };
-    
-    let currentY = 28;
-    
-    // Generate a table for each room
-    sortedRoomIds.forEach((roomId, index) => {
-      const roomSurgeries = surgeriesByRoom.get(roomId) || [];
-      const roomName = roomId === 'unassigned' 
-        ? 'Ohne Saal' 
-        : (roomMap.get(roomId) || `Saal ${roomId}`);
-      
-      // Sort surgeries within the room by planned begin time (ascending - earliest first)
-      const sortedRoomSurgeries = [...roomSurgeries].sort((a, b) => {
-        const dateA = a.plannedDate ? new Date(a.plannedDate) : null;
-        const dateB = b.plannedDate ? new Date(b.plannedDate) : null;
-        if (!dateA && !dateB) return 0;
-        if (!dateA) return 1;
-        if (!dateB) return -1;
-        return dateA.getTime() - dateB.getTime();
-      });
-      
-      // Add room header
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${roomName}`, 14, currentY);
-      currentY += 6;
-      
-      // Table data for this room
-      const tableData = sortedRoomSurgeries.map(formatSurgeryRow);
-      
-      autoTable(doc, {
-        startY: currentY,
-        head: [['Datum', 'Operator', 'Patient', 'Eingriff', 'Note', 'Anästhesie', 'Staff']],
-        body: tableData,
-        theme: 'grid',
-        styles: { 
-          fontSize: 9, 
-          cellPadding: 2,
-          overflow: 'linebreak',
-          valign: 'top'
-        },
-        headStyles: {
-          fillColor: [66, 66, 66],
-          fontSize: 10,
-          fontStyle: 'bold'
-        },
-        columnStyles: {
-          0: { cellWidth: 26 },  // Datum
-          1: { cellWidth: 22 },  // Operator
-          2: { cellWidth: 32 },  // Patient
-          3: { cellWidth: 42 },  // Eingriff
-          4: { cellWidth: 50 },  // Note
-          5: { cellWidth: 38 },  // Anästhesie
-          6: { cellWidth: 56 }   // Staff
-        },
-        margin: { left: 10, right: 10 },
-        didDrawPage: (data) => {
-          // Update currentY after table is drawn
-          currentY = (data.cursor?.y || currentY) + 10;
-        }
-      });
-      
-      // Get final Y position from autoTable
-      const finalY = (doc as any).lastAutoTable?.finalY || currentY;
-      currentY = finalY + 10;
-      
-      // Check if we need a new page for the next room
-      if (index < sortedRoomIds.length - 1 && currentY > 180) {
-        doc.addPage();
-        currentY = 20;
-      }
-    });
-    
-    // Save the PDF
-    doc.save(`OP-Tag_${dateKey}.pdf`);
   };
   
   const updateMutation = useMutation({

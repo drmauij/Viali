@@ -8,9 +8,8 @@ import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { format } from "date-fns";
+import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn } from "@/lib/dayPlanPdf";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
@@ -362,7 +361,6 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
   // Generate PDF for the current day's surgeries
   const generateDayPdf = useCallback(() => {
-    // Filter surgeries for the selected day
     const dayStart = new Date(selectedDate);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(selectedDate);
@@ -382,133 +380,23 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       return;
     }
 
-    const doc = new jsPDF({ orientation: 'landscape' });
-    
-    // Format date for display
     const displayDate = format(selectedDate, 'dd.MM.yyyy');
-    const dateKey = format(selectedDate, 'yyyy-MM-dd');
-    
-    // Header
-    doc.setFontSize(16);
-    doc.text(`OP-TAG ${displayDate}`, 14, 15);
-    doc.setFontSize(10);
-    doc.text(activeHospital?.name || '', 14, 22);
-    
-    // Group surgeries by room
-    const surgeriesByRoom = new Map<string, any[]>();
-    daySurgeries.forEach((surgery: any) => {
-      const roomId = surgery.surgeryRoomId || 'unassigned';
-      const roomSurgeries = surgeriesByRoom.get(roomId) || [];
-      roomSurgeries.push(surgery);
-      surgeriesByRoom.set(roomId, roomSurgeries);
+    const columns: DayPlanPdfColumn[] = [
+      { ...defaultColumns.datum(displayDate), width: 30 },
+      { ...defaultColumns.operator(), width: 30 },
+      { ...defaultColumns.patient(), width: 40 },
+      { ...defaultColumns.eingriff(), width: 80 },
+      { ...defaultColumns.note(), width: 80 },
+    ];
+
+    generateDayPlanPdf({
+      date: selectedDate,
+      hospitalName: activeHospital?.name || '',
+      surgeries: daySurgeries,
+      patientMap,
+      roomMap,
+      columns,
     });
-    
-    // Sort rooms: assigned rooms first (sorted by name), then unassigned
-    const sortedRoomIds = Array.from(surgeriesByRoom.keys()).sort((a, b) => {
-      if (a === 'unassigned') return 1;
-      if (b === 'unassigned') return -1;
-      const nameA = roomMap.get(a) || '';
-      const nameB = roomMap.get(b) || '';
-      return nameA.localeCompare(nameB);
-    });
-    
-    // Helper to format surgery row for table
-    const formatSurgeryRow = (surgery: any) => {
-      const patient = patientMap.get(surgery.patientId);
-      const patientName = patient ? `${patient.surname}, ${patient.firstName}` : '-';
-      const patientBirthday = patient?.birthday 
-        ? `(${format(new Date(patient.birthday), 'dd.MM.yyyy')})`
-        : '';
-      
-      const admissionTime = surgery.admissionTime 
-        ? format(new Date(surgery.admissionTime), 'HH:mm')
-        : '-';
-      const startTime = surgery.plannedDate 
-        ? format(new Date(surgery.plannedDate), 'HH:mm')
-        : '-';
-      
-      const datumText = [
-        displayDate,
-        `• Eintritt: ${admissionTime} Uhr`,
-        `• Schnitt: ${startTime}`
-      ].join('\n');
-      
-      return [
-        datumText,
-        surgery.surgeon || '-',
-        `${patientName}\n${patientBirthday}`,
-        surgery.plannedSurgery || '-',
-        surgery.notes || '-'
-      ];
-    };
-    
-    let currentY = 28;
-    
-    // Generate a table for each room
-    sortedRoomIds.forEach((roomId, index) => {
-      const roomSurgeries = surgeriesByRoom.get(roomId) || [];
-      const roomName = roomId === 'unassigned' 
-        ? 'Ohne Saal' 
-        : (roomMap.get(roomId) || `Saal ${roomId}`);
-      
-      // Sort surgeries within the room by planned begin time (ascending - earliest first)
-      const sortedRoomSurgeries = [...roomSurgeries].sort((a: any, b: any) => {
-        const dateA = a.plannedDate ? new Date(a.plannedDate) : null;
-        const dateB = b.plannedDate ? new Date(b.plannedDate) : null;
-        if (!dateA && !dateB) return 0;
-        if (!dateA) return 1;
-        if (!dateB) return -1;
-        return dateA.getTime() - dateB.getTime();
-      });
-      
-      // Add room header
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${roomName}`, 14, currentY);
-      currentY += 6;
-      
-      // Table data for this room
-      const tableData = sortedRoomSurgeries.map(formatSurgeryRow);
-      
-      autoTable(doc, {
-        startY: currentY,
-        head: [['Datum', 'Operator', 'Patient', 'Eingriff', 'Note']],
-        body: tableData,
-        theme: 'grid',
-        styles: { 
-          fontSize: 9, 
-          cellPadding: 2,
-          overflow: 'linebreak',
-          valign: 'top'
-        },
-        headStyles: {
-          fillColor: [66, 66, 66],
-          fontSize: 10,
-          fontStyle: 'bold'
-        },
-        columnStyles: {
-          0: { cellWidth: 30 },  // Datum
-          1: { cellWidth: 30 },  // Operator
-          2: { cellWidth: 40 },  // Patient
-          3: { cellWidth: 80 },  // Eingriff
-          4: { cellWidth: 80 }   // Note
-        },
-        margin: { left: 10, right: 10 },
-      });
-      
-      // Get final Y position from autoTable
-      const finalY = (doc as any).lastAutoTable?.finalY || currentY;
-      currentY = finalY + 10;
-      
-      // Check if we need a new page for the next room
-      if (index < sortedRoomIds.length - 1 && currentY > 180) {
-        doc.addPage();
-        currentY = 20;
-      }
-    });
-    
-    // Save the PDF
-    doc.save(`OP-Tag_${dateKey}.pdf`);
   }, [selectedDate, surgeries, activeHospital, roomMap, patientMap, toast]);
 
   // Helper to invalidate all room staff related queries
