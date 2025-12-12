@@ -30,6 +30,7 @@ import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSett
 import SignaturePad from "@/components/SignaturePad";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButton";
+import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 
 type Patient = {
   id: string;
@@ -252,15 +253,6 @@ export default function PatientDetail() {
     noPreOpRequired: false,
   });
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
-  const [editCase, setEditCase] = useState({
-    plannedSurgery: "",
-    surgeon: "",
-    plannedDate: "",
-    surgeryRoomId: "",
-    duration: 180,
-    notes: "",
-    noPreOpRequired: false,
-  });
   const [archiveDialogSurgeryId, setArchiveDialogSurgeryId] = useState<string | null>(null);
   const [consentData, setConsentData] = useState({
     general: false,
@@ -423,50 +415,6 @@ export default function PatientDetail() {
       toast({
         title: t('anesthesia.patientDetail.error'),
         description: error.message || t('anesthesia.patientDetail.errorSurgeryCreated'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Mutation to update a surgery
-  const updateSurgeryMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: Partial<{
-      plannedSurgery: string;
-      surgeon: string | null;
-      plannedDate: string;
-      surgeryRoomId: string | null;
-      actualEndTime: string;
-    }> }) => {
-      return await apiRequest("PATCH", `/api/anesthesia/surgeries/${id}`, data);
-    },
-    onSuccess: () => {
-      // Invalidate patient-specific surgeries query
-      queryClient.invalidateQueries({ 
-        queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${params?.id}`] 
-      });
-      // Invalidate all surgery queries (for OP calendar)
-      queryClient.invalidateQueries({ 
-        queryKey: ['/api/anesthesia/surgeries'],
-        exact: false
-      });
-      // Invalidate pre-op assessment list (hospital-specific)
-      queryClient.invalidateQueries({ 
-        predicate: (query) => {
-          const key = query.queryKey[0];
-          return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`);
-        }
-      });
-      toast({
-        title: t('anesthesia.patientDetail.successSurgeryUpdated'),
-        description: t('anesthesia.patientDetail.successSurgeryUpdatedDesc'),
-      });
-      setEditingCaseId(null);
-      setEditCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
-    },
-    onError: (error: any) => {
-      toast({
-        title: t('anesthesia.patientDetail.error'),
-        description: error.message || t('anesthesia.patientDetail.errorSurgeryUpdated'),
         variant: "destructive",
       });
     },
@@ -825,65 +773,6 @@ export default function PatientDetail() {
 
   const handleEditCase = (surgery: any) => {
     setEditingCaseId(surgery.id);
-    
-    // Calculate duration from existing start and end times
-    let duration = 180; // Default 3 hours
-    if (surgery.plannedDate && surgery.actualEndTime) {
-      const start = new Date(surgery.plannedDate);
-      const end = new Date(surgery.actualEndTime);
-      const diffMs = end.getTime() - start.getTime();
-      duration = Math.round(diffMs / (1000 * 60)); // Convert ms to minutes
-    }
-    
-    setEditCase({
-      plannedSurgery: surgery.plannedSurgery,
-      surgeon: surgery.surgeon || "",
-      plannedDate: formatDateTimeForInput(surgery.plannedDate),
-      surgeryRoomId: surgery.surgeryRoomId || "",
-      duration: duration,
-      notes: surgery.notes || "",
-      noPreOpRequired: surgery.noPreOpRequired || false,
-    });
-  };
-
-  const handleUpdateCase = () => {
-    if (!editCase.plannedSurgery || !editCase.plannedDate) {
-      toast({
-        title: t('anesthesia.patientDetail.errorMissingRequiredFields'),
-        description: t('anesthesia.patientDetail.errorFillPlannedSurgeryDate'),
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate duration
-    if (!editCase.duration || editCase.duration <= 0) {
-      toast({
-        title: t('anesthesia.patientDetail.errorInvalidDuration'),
-        description: t('anesthesia.patientDetail.errorDurationGreaterZero'),
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!editingCaseId) return;
-
-    // Calculate end time from start time + duration
-    const startDate = new Date(editCase.plannedDate);
-    const endDate = new Date(startDate);
-    endDate.setMinutes(endDate.getMinutes() + editCase.duration);
-
-    const updateData = {
-      plannedSurgery: editCase.plannedSurgery,
-      surgeon: editCase.surgeon || null,
-      plannedDate: editCase.plannedDate,
-      surgeryRoomId: editCase.surgeryRoomId || null,
-      actualEndTime: endDate.toISOString(),
-      notes: editCase.notes || null,
-      noPreOpRequired: editCase.noPreOpRequired,
-    };
-
-    updateSurgeryMutation.mutate({ id: editingCaseId, data: updateData });
   };
 
   const handleArchiveCase = () => {
@@ -1582,154 +1471,11 @@ export default function PatientDetail() {
         )}
       </div>
 
-      {/* Edit Surgery Dialog */}
-      <Dialog open={!!editingCaseId} onOpenChange={(open) => !open && setEditingCaseId(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-          <div className="p-6 border-b shrink-0">
-            <DialogHeader>
-              <DialogTitle>{t('anesthesia.patientDetail.editSurgery')}</DialogTitle>
-              <DialogDescription>{t('anesthesia.patientDetail.updateSurgeryDetails')}</DialogDescription>
-            </DialogHeader>
-          </div>
-          <div className="space-y-4 py-4 px-6 overflow-y-auto flex-1 min-h-0">
-            <div className="space-y-2">
-              <Label htmlFor="edit-surgery">{t('anesthesia.patientDetail.plannedSurgery')}</Label>
-              <Input
-                id="edit-surgery"
-                placeholder="e.g., Laparoscopic Cholecystectomy"
-                value={editCase.plannedSurgery}
-                onChange={(e) => setEditCase({ ...editCase, plannedSurgery: e.target.value })}
-                data-testid="input-edit-planned-surgery"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-surgeon">Surgeon <span className="text-xs text-muted-foreground">(optional)</span></Label>
-              <Select 
-                value={editCase.surgeon || "none"} 
-                onValueChange={(value) => setEditCase({ ...editCase, surgeon: value === "none" ? "" : value })}
-                disabled={isLoadingSurgeons}
-              >
-                <SelectTrigger data-testid="select-edit-surgeon">
-                  <SelectValue placeholder={isLoadingSurgeons ? "Loading surgeons..." : "Select surgeon (optional)"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">
-                    <span className="text-muted-foreground italic">No surgeon selected</span>
-                  </SelectItem>
-                  {isLoadingSurgeons ? (
-                    <SelectItem value="loading" disabled>
-                      Loading surgeons...
-                    </SelectItem>
-                  ) : surgeons.length === 0 ? (
-                    <SelectItem value="no-surgeons" disabled>
-                      No surgeons available
-                    </SelectItem>
-                  ) : (
-                    surgeons.map((surgeon) => (
-                      <SelectItem key={surgeon.id} value={surgeon.name}>
-                        {surgeon.name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-surgery-room">Surgery Room <span className="text-xs text-muted-foreground">(optional)</span></Label>
-              <Select 
-                value={editCase.surgeryRoomId || "none"} 
-                onValueChange={(value) => setEditCase({ ...editCase, surgeryRoomId: value === "none" ? "" : value })}
-                disabled={isLoadingSurgeryRooms}
-              >
-                <SelectTrigger data-testid="select-edit-surgery-room">
-                  <SelectValue placeholder={isLoadingSurgeryRooms ? "Loading rooms..." : "Select surgery room (optional)"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">
-                    <span className="text-muted-foreground italic">No room selected</span>
-                  </SelectItem>
-                  {isLoadingSurgeryRooms ? (
-                    <SelectItem value="loading" disabled>
-                      Loading rooms...
-                    </SelectItem>
-                  ) : surgeryRooms.length === 0 ? (
-                    <SelectItem value="no-rooms" disabled>
-                      No surgery rooms available
-                    </SelectItem>
-                  ) : (
-                    surgeryRooms.map((room) => (
-                      <SelectItem key={room.id} value={room.id}>
-                        {room.name}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-date">{t('anesthesia.patientDetail.plannedDate')}</Label>
-              <Input
-                id="edit-date"
-                type="datetime-local"
-                value={editCase.plannedDate}
-                onChange={(e) => setEditCase({ ...editCase, plannedDate: e.target.value })}
-                data-testid="input-edit-planned-date"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-duration">Duration (minutes)</Label>
-              <Input
-                id="edit-duration"
-                type="number"
-                min="1"
-                value={editCase.duration}
-                onChange={(e) => setEditCase({ ...editCase, duration: parseInt(e.target.value) || 0 })}
-                data-testid="input-edit-duration"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-notes">Notes <span className="text-xs text-muted-foreground">(optional)</span></Label>
-              <Textarea
-                id="edit-notes"
-                placeholder="Enter notes about antibiotics, patient position, etc."
-                value={editCase.notes}
-                onChange={(e) => setEditCase({ ...editCase, notes: e.target.value })}
-                data-testid="textarea-edit-notes"
-                rows={3}
-              />
-            </div>
-            <div className="flex items-center space-x-2 pt-2">
-              <Checkbox
-                id="edit-no-preop-required"
-                checked={editCase.noPreOpRequired}
-                onCheckedChange={(checked) => setEditCase({ ...editCase, noPreOpRequired: checked === true })}
-                data-testid="checkbox-edit-no-preop-required"
-              />
-              <Label 
-                htmlFor="edit-no-preop-required" 
-                className="text-sm font-normal cursor-pointer"
-              >
-                {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
-              </Label>
-            </div>
-            <Button 
-              onClick={handleUpdateCase} 
-              className="w-full" 
-              data-testid="button-submit-edit-case"
-              disabled={updateSurgeryMutation.isPending}
-            >
-              {updateSurgeryMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t('anesthesia.patientDetail.updating')}
-                </>
-              ) : (
-                t('anesthesia.patientDetail.updateSurgery')
-              )}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Edit Surgery Dialog - Using shared component */}
+      <EditSurgeryDialog 
+        surgeryId={editingCaseId} 
+        onClose={() => setEditingCaseId(null)} 
+      />
 
       {/* Archive Surgery Confirmation Dialog */}
       <AlertDialog open={!!archiveDialogSurgeryId} onOpenChange={(open) => !open && setArchiveDialogSurgeryId(null)}>

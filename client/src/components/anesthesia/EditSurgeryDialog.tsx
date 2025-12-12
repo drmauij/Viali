@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +36,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [notes, setNotes] = useState("");
   const [implantDetails, setImplantDetails] = useState("");
   const [planningStatus, setPlanningStatus] = useState<"pre-registered" | "confirmed">("pre-registered");
+  const [noPreOpRequired, setNoPreOpRequired] = useState(false);
 
   // Fetch surgery details
   const { data: surgery, isLoading } = useQuery<any>({
@@ -91,6 +93,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setNotes(surgery.notes || "");
       setImplantDetails(surgery.implantDetails || "");
       setPlanningStatus(surgery.planningStatus || "pre-registered");
+      setNoPreOpRequired(surgery.noPreOpRequired || false);
       
       if (surgery.admissionTime) {
         const admissionDateObj = new Date(surgery.admissionTime);
@@ -134,12 +137,18 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         admissionTime: admissionTimeISO,
         implantDetails: implantDetails || null,
         planningStatus,
+        noPreOpRequired,
       });
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
+      // Invalidate all surgery queries (including patient-specific ones)
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes('/api/anesthesia/surgeries');
+        }
+      });
       if (surgery?.hospitalId) {
         queryClient.invalidateQueries({ 
           predicate: (query) => {
@@ -170,7 +179,13 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      // Invalidate all surgery queries (including patient-specific ones)
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes('/api/anesthesia/surgeries');
+        }
+      });
       if (surgery?.hospitalId) {
         queryClient.invalidateQueries({ 
           predicate: (query) => {
@@ -410,6 +425,23 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   data-testid="textarea-edit-implant-details"
                   rows={3}
                 />
+              </div>
+
+              {/* No Anesthesia Pre-Op Required */}
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox
+                  id="edit-no-preop-required"
+                  checked={noPreOpRequired}
+                  onCheckedChange={(checked) => setNoPreOpRequired(checked === true)}
+                  disabled={!canWrite}
+                  data-testid="checkbox-edit-no-preop-required"
+                />
+                <Label 
+                  htmlFor="edit-no-preop-required" 
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
+                </Label>
               </div>
 
               {/* Action Buttons */}
