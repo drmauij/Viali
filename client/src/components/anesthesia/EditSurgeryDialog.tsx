@@ -6,13 +6,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useState, useEffect } from "react";
-import { Loader2, Archive, Save, X, Eye } from "lucide-react";
+import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { SurgeonChecklistTab } from "./SurgeonChecklistTab";
+import type { SurgeryContext } from "@shared/checklistPlaceholders";
 
 interface EditSurgeryDialogProps {
   surgeryId: string | null;
@@ -24,6 +27,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const { toast } = useToast();
   const canWrite = useCanWrite();
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
 
   // Form state
   const [surgeryDate, setSurgeryDate] = useState("");
@@ -246,19 +250,41 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="space-y-4 px-6 py-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0">
-              {/* Read-only banner for guests */}
-              {!canWrite && (
-                <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3">
-                  <Eye className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                  <div>
-                    <p className="font-medium text-amber-800 dark:text-amber-200">View Only Mode</p>
-                    <p className="text-sm text-amber-600 dark:text-amber-400">You have read-only access.</p>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col flex-1 min-h-0">
+              <div className="px-6 border-b shrink-0">
+                <TabsList className="w-full justify-start h-auto p-0 bg-transparent">
+                  <TabsTrigger 
+                    value="details" 
+                    className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none pb-2"
+                    data-testid="tab-details"
+                  >
+                    <FileEdit className="h-4 w-4" />
+                    {t('anesthesia.editSurgery.details', 'Details')}
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="checklist" 
+                    className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none pb-2"
+                    data-testid="tab-checklist"
+                  >
+                    <ClipboardList className="h-4 w-4" />
+                    {t('anesthesia.editSurgery.checklist', 'Checklist')}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="details" className="space-y-4 px-6 py-4 overflow-y-auto overflow-x-hidden flex-1 min-h-0 mt-0">
+                {/* Read-only banner for guests */}
+                {!canWrite && (
+                  <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3">
+                    <Eye className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                    <div>
+                      <p className="font-medium text-amber-800 dark:text-amber-200">View Only Mode</p>
+                      <p className="text-sm text-amber-600 dark:text-amber-400">You have read-only access.</p>
+                    </div>
                   </div>
-                </div>
-              )}
-              {/* Patient Information (Read-only) */}
-              {patient && (
+                )}
+                {/* Patient Information (Read-only) */}
+                {patient && (
                 <div className="space-y-2">
                   <Label>{t('anesthesia.editSurgery.patient')}</Label>
                   <div className="rounded-md border border-input bg-muted px-3 py-2 text-sm">
@@ -502,7 +528,30 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   </Button>
                 )}
               </div>
-            </div>
+              </TabsContent>
+
+              <TabsContent value="checklist" className="px-6 py-4 overflow-y-auto flex-1 min-h-0 mt-0">
+                {surgery && (
+                  <SurgeonChecklistTab
+                    surgeryId={surgeryId!}
+                    hospitalId={surgery.hospitalId}
+                    surgeryContext={{
+                      price: surgery.price,
+                      admissionTime: surgery.admissionTime,
+                      plannedDate: surgery.plannedDate,
+                      plannedSurgery: surgery.plannedSurgery,
+                      surgeonName: surgery.surgeon || surgeons.find((s: any) => s.id === surgery.surgeonId)?.name,
+                      patientName: patient ? `${patient.firstName} ${patient.surname}` : undefined,
+                      patientDob: patient?.birthday,
+                      surgeryRoom: surgeryRooms.find((r: any) => r.id === surgery.surgeryRoomId)?.name,
+                      notes: surgery.notes,
+                      implantDetails: surgery.implantDetails,
+                    } as SurgeryContext}
+                    canWrite={canWrite}
+                  />
+                )}
+              </TabsContent>
+            </Tabs>
           )}
         </DialogContent>
       </Dialog>

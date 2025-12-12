@@ -4932,27 +4932,38 @@ export class DatabaseStorage implements IStorage {
     entries: { itemId: string; checked: boolean; note?: string | null }[]
   ): Promise<SurgeryPreOpChecklistEntry[]> {
     const results: SurgeryPreOpChecklistEntry[] = [];
+    const incomingItemIds = entries.map(e => e.itemId);
+
+    // Delete any existing entries for this surgery that are not in the incoming list
+    // This handles template changes or items being removed from the template
+    const existingEntries = await db
+      .select()
+      .from(surgeryPreOpChecklistEntries)
+      .where(eq(surgeryPreOpChecklistEntries.surgeryId, surgeryId));
+
+    const orphanedIds = existingEntries
+      .filter(e => !incomingItemIds.includes(e.itemId))
+      .map(e => e.id);
+
+    if (orphanedIds.length > 0) {
+      await db
+        .delete(surgeryPreOpChecklistEntries)
+        .where(inArray(surgeryPreOpChecklistEntries.id, orphanedIds));
+    }
 
     for (const entry of entries) {
-      const existing = await db
-        .select()
-        .from(surgeryPreOpChecklistEntries)
-        .where(
-          and(
-            eq(surgeryPreOpChecklistEntries.surgeryId, surgeryId),
-            eq(surgeryPreOpChecklistEntries.itemId, entry.itemId)
-          )
-        );
+      const existing = existingEntries.find(e => e.itemId === entry.itemId);
 
-      if (existing.length > 0) {
+      if (existing) {
         const [updated] = await db
           .update(surgeryPreOpChecklistEntries)
           .set({ 
             checked: entry.checked, 
             note: entry.note ?? null,
+            templateId, // Update templateId in case it changed
             updatedAt: new Date() 
           })
-          .where(eq(surgeryPreOpChecklistEntries.id, existing[0].id))
+          .where(eq(surgeryPreOpChecklistEntries.id, existing.id))
           .returning();
         results.push(updated);
       } else {
