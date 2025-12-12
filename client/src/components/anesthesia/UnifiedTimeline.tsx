@@ -2722,6 +2722,14 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           }
         });
         
+        // Add initial bolus to session total if present
+        if (session.initialBolus) {
+          const bolusValue = parseNumericValue(session.initialBolus);
+          if (bolusValue > 0) {
+            sessionTotalDose += bolusValue;
+          }
+        }
+        
         if (sessionTotalDose > 0) {
           if (!doses[swimlaneId]) {
             // Use derived unit from rate calculation, fallback to administrationUnit

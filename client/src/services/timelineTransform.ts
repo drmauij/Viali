@@ -175,6 +175,7 @@ export function transformRateInfusions(
         syringeQuantity: startRecord.dose || '50ml',
         startDose: startRecord.dose || '50ml', // Add start dose for rendering
         startNote: startRecord.note || null, // Note for the start dose
+        initialBolus: startRecord.initialBolus || null, // Initial bolus given at infusion start
         segments,
         state,
         startTime,

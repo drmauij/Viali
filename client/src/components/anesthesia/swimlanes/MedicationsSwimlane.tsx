@@ -20,6 +20,7 @@ type UnifiedInfusionProps = {
   endTime: number | null;
   startDose: string;
   startNote?: string | null;
+  initialBolus?: string | null; // Initial bolus given at infusion start
   isFreeFlow: boolean;
   medicationName: string;
   onClick: () => void; // Click on line - opens management sheet
@@ -43,6 +44,7 @@ const UnifiedInfusion = ({
   endTime,
   startDose,
   startNote,
+  initialBolus,
   isFreeFlow,
   medicationName,
   onClick,
@@ -67,10 +69,13 @@ const UnifiedInfusion = ({
   const lineYOffset = swimlaneHeight - 2;
   const visibleRange = visibleEnd - visibleStart;
   
-  // Build display text with unit and optional note in parentheses
+  // Build display text with unit, optional initial bolus, and optional note in parentheses
   const unit = administrationUnit || '';
   const doseWithUnit = unit ? `${startDose} ${unit}` : startDose;
-  const displayText = startNote ? `${doseWithUnit} (${startNote})` : doseWithUnit;
+  // For rate-controlled infusions with initial bolus, show: "<rate> - <bolus> <unit>"
+  const bolusDisplay = initialBolus ? ` - ${initialBolus} ${unit}` : '';
+  const rateAndBolus = `${doseWithUnit}${bolusDisplay}`;
+  const displayText = startNote ? `${rateAndBolus} (${startNote})` : rateAndBolus;
   
   // Calculate actual start position (before clipping)
   const actualStartPercent = ((startTime - visibleStart) / visibleRange) * 100;
@@ -231,8 +236,13 @@ const UnifiedInfusion = ({
             {medicationName} {isFreeFlow ? '(Free-flow)' : '(Rate-controlled)'}
           </div>
           <div className="text-xs text-muted-foreground">
-            Start dose: {startDose}
+            {isFreeFlow ? 'Dose' : 'Rate'}: {startDose} {unit}
           </div>
+          {initialBolus && (
+            <div className="text-xs text-muted-foreground">
+              Initial bolus: {initialBolus} {unit}
+            </div>
+          )}
           {startNote && (
             <div className="text-xs text-muted-foreground">
               Note: {startNote}
@@ -661,6 +671,7 @@ export function MedicationsSwimlane({
               endTime={endTime}
               startDose={session.startDose || session.syringeQuantity || '?'}
               startNote={session.startNote}
+              initialBolus={session.initialBolus}
               isFreeFlow={false}
               medicationName={lane.label.trim()}
               leftPercent={leftPercent}

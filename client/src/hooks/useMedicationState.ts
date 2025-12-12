@@ -15,6 +15,7 @@ export interface RateInfusionSession {
   syringeQuantity: string;
   startDose: string; // Added for unified infusion rendering
   startNote?: string | null; // Optional note for the start dose
+  initialBolus?: string | null; // Initial bolus given at infusion start
   segments: RateInfusionSegment[];
   state: 'running' | 'paused' | 'stopped';
   startTime?: number;
