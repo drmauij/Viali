@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download } from "lucide-react";
 import { format } from "date-fns";
-import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn } from "@/lib/dayPlanPdf";
+import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
@@ -380,6 +380,19 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       return;
     }
 
+    // Build room staff data for PDF
+    const roomStaffByRoom = new Map<string, RoomStaffInfo>();
+    roomStaff.forEach((staff: RoomStaffAssignment) => {
+      let roomInfo = roomStaffByRoom.get(staff.surgeryRoomId);
+      if (!roomInfo) {
+        roomInfo = { roomId: staff.surgeryRoomId, staffByRole: new Map() };
+        roomStaffByRoom.set(staff.surgeryRoomId, roomInfo);
+      }
+      const names = roomInfo.staffByRole.get(staff.role) || [];
+      names.push(staff.name);
+      roomInfo.staffByRole.set(staff.role, names);
+    });
+
     const displayDate = format(selectedDate, 'dd.MM.yyyy');
     const columns: DayPlanPdfColumn[] = [
       { ...defaultColumns.datum(displayDate), width: 30 },
@@ -396,8 +409,9 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       patientMap,
       roomMap,
       columns,
+      roomStaffByRoom,
     });
-  }, [selectedDate, surgeries, activeHospital, roomMap, patientMap, toast]);
+  }, [selectedDate, surgeries, activeHospital, roomMap, patientMap, toast, roomStaff]);
 
   // Helper to invalidate all room staff related queries
   const invalidateRoomStaffQueries = useCallback(() => {

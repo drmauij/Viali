@@ -16,6 +16,11 @@ export interface DayPlanPdfHelpers {
   formatDate: (date: any) => string;
 }
 
+export interface RoomStaffInfo {
+  roomId: string;
+  staffByRole: Map<string, string[]>; // role -> names
+}
+
 export interface DayPlanPdfOptions {
   date: Date;
   hospitalName: string;
@@ -23,10 +28,22 @@ export interface DayPlanPdfOptions {
   patientMap: Map<string, any>;
   roomMap: Map<string, string>;
   columns: DayPlanPdfColumn[];
+  roomStaffByRoom?: Map<string, RoomStaffInfo>;
 }
 
+// Role labels for display
+const ROLE_LABELS: Record<string, string> = {
+  surgeon: 'Chirurg',
+  surgicalAssistant: 'Assistenz',
+  instrumentNurse: 'OTA',
+  circulatingNurse: 'Springer',
+  anesthesiologist: 'ANÄ',
+  anesthesiaNurse: 'Anä-Pflege',
+  pacuNurse: 'IMC/AWR',
+};
+
 export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
-  const { date, hospitalName, surgeries, patientMap, roomMap, columns } = options;
+  const { date, hospitalName, surgeries, patientMap, roomMap, columns, roomStaffByRoom } = options;
 
   if (surgeries.length === 0) {
     return;
@@ -92,7 +109,25 @@ export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
     doc.setFontSize(12);
     doc.setFont('helvetica', 'bold');
     doc.text(`${roomName}`, 14, currentY);
-    currentY += 6;
+    currentY += 5;
+    
+    // Add staff information if available
+    if (roomStaffByRoom && roomId !== 'unassigned') {
+      const roomStaffInfo = roomStaffByRoom.get(roomId);
+      if (roomStaffInfo && roomStaffInfo.staffByRole.size > 0) {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'normal');
+        const staffParts: string[] = [];
+        roomStaffInfo.staffByRole.forEach((names, role) => {
+          const label = ROLE_LABELS[role] || role;
+          staffParts.push(`${label}: ${names.join(', ')}`);
+        });
+        const staffText = staffParts.join('  |  ');
+        doc.text(staffText, 14, currentY);
+        currentY += 5;
+      }
+    }
+    currentY += 1;
     
     const tableData = sortedRoomSurgeries.map((surgery) => 
       columns.map((col) => col.getValue(surgery, helpers))
