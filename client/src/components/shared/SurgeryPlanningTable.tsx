@@ -25,7 +25,7 @@ import {
   CheckCircle2,
   XCircle
 } from "lucide-react";
-import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn } from "@/lib/dayPlanPdf";
+import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import {
   Table,
   TableBody,
@@ -484,6 +484,37 @@ export function SurgeryPlanningTable({
     enabled: !!activeHospital?.id && uniqueDates.length > 0,
   });
   
+  // Fetch room staff assignments for all dates (for PDF generation)
+  const { data: roomStaffByDateAndRoom = {} } = useQuery<Record<string, Record<string, any[]>>>({
+    queryKey: ["/api/room-staff-multi", activeHospital?.id, uniqueDates],
+    queryFn: async () => {
+      if (!activeHospital?.id || uniqueDates.length === 0) return {};
+      
+      const results: Record<string, Record<string, any[]>> = {};
+      await Promise.all(
+        uniqueDates.map(async (date) => {
+          try {
+            const response = await fetch(`/api/room-staff/all/${activeHospital.id}/${date}`);
+            if (response.ok) {
+              const data = await response.json();
+              // Group by roomId
+              const byRoom: Record<string, any[]> = {};
+              data.forEach((staff: any) => {
+                if (!byRoom[staff.roomId]) byRoom[staff.roomId] = [];
+                byRoom[staff.roomId].push(staff);
+              });
+              results[date] = byRoom;
+            }
+          } catch {
+            // Ignore errors for individual dates
+          }
+        })
+      );
+      return results;
+    },
+    enabled: !!activeHospital?.id && uniqueDates.length > 0,
+  });
+  
   // Fetch pre-op assessments for surgeries (only for anesthesia/surgery modules)
   const surgeryIds = useMemo(() => surgeries.map((s) => s.id), [surgeries]);
   const showPreOpColumn = moduleContext === "anesthesia" || moduleContext === "surgery";
@@ -792,7 +823,6 @@ export function SurgeryPlanningTable({
   
   // Generate PDF for a day's surgeries using shared utility
   const generateDayPdf = (dateKey: string, daySurgeries: Surgery[]) => {
-    const staff = staffPoolByDate[dateKey] || [];
     const displayDate = new Date(dateKey + 'T12:00:00').toLocaleDateString('de-DE', {
       day: '2-digit',
       month: '2-digit', 
@@ -810,29 +840,17 @@ export function SurgeryPlanningTable({
       pacuNurse: 'IMC/AWR',
     };
     
-    // Format staff for Staff column
-    const formatStaffColumn = (): string => {
-      if (staff.length === 0) return '-';
-      
-      const byRole = new Map<string, string[]>();
-      staff.forEach((s: any) => {
-        const names = byRole.get(s.role) || [];
-        const isExternal = s.staffType === 'external';
-        const displayName = isExternal ? `${s.name} (Extern)` : s.name;
-        names.push(displayName);
-        byRole.set(s.role, names);
-      });
-      
-      const parts: string[] = [];
-      byRole.forEach((names, role) => {
-        const label = staffLabels[role] || role;
-        parts.push(`• ${label}: ${names.join(', ')}`);
-      });
-      
-      return parts.join('\n');
-    };
+    // Build roomStaffByRoom for PDF from fetched data
+    const roomStaffForDate = roomStaffByDateAndRoom[dateKey] || {};
+    const roomStaffByRoom: Record<string, RoomStaffInfo[]> = {};
     
-    const staffColumnText = formatStaffColumn();
+    Object.entries(roomStaffForDate).forEach(([roomId, staffList]) => {
+      roomStaffByRoom[roomId] = (staffList as any[]).map((s) => ({
+        role: s.role,
+        name: s.name,
+        isExternal: s.staffType === 'external',
+      }));
+    });
     
     const columns: DayPlanPdfColumn[] = [
       defaultColumns.datum(displayDate),
@@ -845,11 +863,6 @@ export function SurgeryPlanningTable({
         width: 38,
         getValue: (surgery) => formatPreOpSummaryForPdf(surgery.id),
       },
-      {
-        header: 'Staff',
-        width: 56,
-        getValue: () => staffColumnText,
-      },
     ];
 
     generateDayPlanPdf({
@@ -859,6 +872,8 @@ export function SurgeryPlanningTable({
       patientMap,
       roomMap,
       columns,
+      roomStaffByRoom,
+      staffLabels,
     });
   };
   
