@@ -905,6 +905,13 @@ export function SurgeryPlanningTable({
         ? 'Ohne Saal' 
         : (roomMap.get(roomId) || `Saal ${roomId}`);
       
+      // Sort surgeries within the room by planned begin time
+      const sortedRoomSurgeries = [...roomSurgeries].sort((a, b) => {
+        const timeA = a.plannedDate ? new Date(a.plannedDate).getTime() : Infinity;
+        const timeB = b.plannedDate ? new Date(b.plannedDate).getTime() : Infinity;
+        return timeA - timeB;
+      });
+      
       // Add room header
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
@@ -912,7 +919,7 @@ export function SurgeryPlanningTable({
       currentY += 6;
       
       // Table data for this room
-      const tableData = roomSurgeries.map(formatSurgeryRow);
+      const tableData = sortedRoomSurgeries.map(formatSurgeryRow);
       
       autoTable(doc, {
         startY: currentY,
