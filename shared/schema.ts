@@ -2730,6 +2730,7 @@ export const surgeryPreOpChecklistEntries = pgTable("surgery_preop_checklist_ent
 // Insert schemas
 export const insertSurgeonChecklistTemplateSchema = createInsertSchema(surgeonChecklistTemplates).omit({
   id: true,
+  ownerUserId: true,
   createdAt: true,
   updatedAt: true,
 });

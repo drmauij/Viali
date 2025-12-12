@@ -66,7 +66,7 @@ router.post("/api/surgeon-checklists/templates", isAuthenticated, requireWriteAc
     const template = await storage.createSurgeonChecklistTemplate({
       ...parsed.data,
       ownerUserId: req.user.id,
-    });
+    } as any);
 
     if (req.body.items && Array.isArray(req.body.items)) {
       await storage.updateSurgeonChecklistTemplate(template.id, {}, req.body.items);
