@@ -128,9 +128,9 @@ export default function PreOpList() {
 
   // Mutation to toggle noPreOpRequired flag
   const toggleNoPreOpMutation = useMutation({
-    mutationFn: async (surgeryId: string) => {
+    mutationFn: async ({ surgeryId, currentValue }: { surgeryId: string; currentValue: boolean }) => {
       return await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, {
-        noPreOpRequired: true,
+        noPreOpRequired: !currentValue,
       });
     },
     onSuccess: () => {
@@ -149,11 +149,9 @@ export default function PreOpList() {
     },
   });
 
-  // Filter and group assessments by status
+  // Filter assessments by search term
   const filteredAssessments = (assessments || []).filter((item) => {
     if (!item.surgery) return false;
-    // Filter out surgeries marked as not requiring pre-op assessment
-    if (item.surgery.noPreOpRequired) return false;
     const searchLower = searchTerm.toLowerCase();
     return (
       item.surgery.procedureName?.toLowerCase().includes(searchLower) ||
@@ -172,7 +170,8 @@ export default function PreOpList() {
   });
 
   const groupedByStatus = {
-    planned: filteredAssessments.filter((item) => item.status === 'planned' && !item.assessment?.standBy),
+    // Filter out noPreOpRequired surgeries only from the planned tab
+    planned: filteredAssessments.filter((item) => item.status === 'planned' && !item.assessment?.standBy && !item.surgery?.noPreOpRequired),
     draft: filteredAssessments.filter((item) => item.status === 'draft' && !item.assessment?.standBy),
     standby: filteredStandByItems,
     completed: filteredAssessments.filter((item) => item.status === 'completed' && !item.assessment?.standBy),
@@ -439,15 +438,18 @@ export default function PreOpList() {
                           : getStandByReasonLabel(item.assessment?.standByReason)}
                       </span>
                     )}
-                    {/* Button to mark surgery as not requiring pre-op (only for planned items) */}
-                    {item.status === 'planned' && (
+                    {/* Button to mark surgery as not requiring pre-op (only for planned items without assessment) */}
+                    {item.status === 'planned' && !item.assessment && (
                       <Button
                         variant="ghost"
                         size="sm"
                         className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleNoPreOpMutation.mutate(surgery.id);
+                          toggleNoPreOpMutation.mutate({ 
+                            surgeryId: surgery.id, 
+                            currentValue: !!surgery.noPreOpRequired 
+                          });
                         }}
                         disabled={toggleNoPreOpMutation.isPending}
                         data-testid={`button-no-preop-${surgery.id}`}
