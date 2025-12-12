@@ -1396,6 +1396,9 @@ export const anesthesiaMedications = pgTable("anesthesia_medications", {
   rate: varchar("rate"), // e.g., "5 ml/hr", "0.1 μg/kg/min"
   endTimestamp: timestamp("end_timestamp", { withTimezone: true }), // When infusion stopped
   
+  // Initial bolus (for rate-controlled infusions - administered at start)
+  initialBolus: varchar("initial_bolus"), // e.g., "150" (in administration unit, typically mg)
+  
   // Session tracking for infusions
   infusionSessionId: varchar("infusion_session_id"), // UUID to group related start/stop/rate_change events
   

@@ -18,8 +18,9 @@ interface RateSelectionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pendingRateSelection: PendingRateSelection | null;
-  onRateSelection: (selectedRate: string) => void;
-  onCustomRateEntry: (customRate: string) => void;
+  onRateSelection: (selectedRate: string, initialBolus?: string) => void;
+  onCustomRateEntry: (customRate: string, initialBolus?: string) => void;
+  administrationUnit?: string | null;
 }
 
 export function RateSelectionDialog({
@@ -28,15 +29,18 @@ export function RateSelectionDialog({
   pendingRateSelection,
   onRateSelection,
   onCustomRateEntry,
+  administrationUnit,
 }: RateSelectionDialogProps) {
   const [customRateInput, setCustomRateInput] = useState("");
+  const [initialBolusInput, setInitialBolusInput] = useState("");
   const { toast } = useToast();
   const { t } = useTranslation();
 
-  // Reset input when dialog closes
+  // Reset inputs when dialog closes
   useEffect(() => {
     if (!open) {
       setCustomRateInput("");
+      setInitialBolusInput("");
     }
   }, [open]);
 
@@ -50,18 +54,21 @@ export function RateSelectionDialog({
       });
       return;
     }
-    onCustomRateEntry(rate);
+    const bolus = initialBolusInput.trim();
+    onCustomRateEntry(rate, bolus || undefined);
     handleClose();
   };
 
   const handlePresetRate = (rate: string) => {
-    onRateSelection(rate);
+    const bolus = initialBolusInput.trim();
+    onRateSelection(rate, bolus || undefined);
     handleClose();
   };
 
   const handleClose = () => {
     onOpenChange(false);
     setCustomRateInput("");
+    setInitialBolusInput("");
   };
 
   return (
@@ -120,6 +127,25 @@ export function RateSelectionDialog({
               }}
               placeholder="e.g., 8"
             />
+          </div>
+          
+          {/* Initial Bolus (optional) */}
+          <div className="grid gap-2 pt-2">
+            <Label htmlFor="initial-bolus" className="text-sm">
+              Initial Bolus {administrationUnit ? `(${administrationUnit})` : ''} <span className="text-muted-foreground">(optional)</span>
+            </Label>
+            <Input
+              id="initial-bolus"
+              type="number"
+              inputMode="decimal"
+              data-testid="input-initial-bolus"
+              value={initialBolusInput}
+              onChange={(e) => setInitialBolusInput(e.target.value)}
+              placeholder="e.g., 150"
+            />
+            <p className="text-xs text-muted-foreground">
+              Bolus dose given at infusion start (added to total medication count)
+            </p>
           </div>
         </div>
         <DialogFooterWithTime

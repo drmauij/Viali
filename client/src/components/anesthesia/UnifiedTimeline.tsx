@@ -1949,6 +1949,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     time: number; 
     label: string;
     rateOptions: string[]; // parsed from defaultDose like "6-12-16"
+    itemId?: string; // item ID for database mutation
+    administrationUnit?: string | null; // unit for initial bolus display
   } | null>(null);
   const [customRateInput, setCustomRateInput] = useState("");
   
@@ -1969,6 +1971,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     sessionId?: string; // medication record ID for the running session
     itemId?: string; // item ID for creating new records
     isRunning?: boolean; // whether the infusion is currently running
+    administrationUnit?: string | null; // unit for initial bolus display
   } | null>(null);
   const [rateManageTime, setRateManageTime] = useState<number>(0);
   const [rateManageInput, setRateManageInput] = useState("");
@@ -5661,10 +5664,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   // Handle rate selection (from rate options or custom input)
-  const handleRateSelection = (selectedRate: string) => {
+  const handleRateSelection = (selectedRate: string, initialBolus?: string) => {
     if (!pendingRateSelection) return;
     
-    const { swimlaneId, time, label } = pendingRateSelection;
+    const { swimlaneId, time, label, itemId } = pendingRateSelection;
     
     // Add the selected rate to infusion data
     setInfusionData(prev => {
@@ -5696,9 +5699,22 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       },
     }));
     
+    // Persist to database
+    if (itemId && anesthesiaRecordId) {
+      createMedication.mutate({
+        anesthesiaRecordId,
+        itemId,
+        timestamp: new Date(time),
+        type: 'infusion_start',
+        rate: selectedRate,
+        dose: selectedRate, // Syringe quantity
+        initialBolus: initialBolus || undefined, // Initial bolus given at infusion start
+      });
+    }
+    
     toast({
       title: "Rate set",
-      description: `${label} set to ${selectedRate}`,
+      description: `${label} set to ${selectedRate}${initialBolus ? ` with ${initialBolus} bolus` : ''}`,
     });
     
     // Reset dialog state
@@ -5708,8 +5724,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   // Handle custom rate entry (from rate selection dialog)
-  const handleCustomRateEntry = () => {
-    const rate = customRateInput.trim();
+  const handleCustomRateEntry = (customRate: string, initialBolus?: string) => {
+    const rate = customRate.trim();
     if (!rate || isNaN(Number(rate)) || Number(rate) <= 0) {
       toast({
         title: "Invalid rate",
@@ -5718,7 +5734,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       });
       return;
     }
-    handleRateSelection(rate);
+    handleRateSelection(rate, initialBolus);
   };
 
   // Handle rate start (resume a stopped rate-controlled infusion)
@@ -5784,7 +5800,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   };
 
   // Handle start new rate (stop current and create new infusion_start)
-  const handleRateStartNew = (newRate: string) => {
+  const handleRateStartNew = (newRate: string, initialBolus?: string) => {
     if (!managingRate || !anesthesiaRecordId) return;
     
     const { swimlaneId, label, itemId, sessionId } = managingRate;
@@ -5820,6 +5836,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       type: 'infusion_start',
       rate: newRate,
       dose: currentSession?.syringeQuantity || '50ml', // Use same syringe quantity or default
+      initialBolus: initialBolus || undefined, // Initial bolus given at infusion start
     });
     
     toast({
@@ -8176,6 +8193,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         pendingRateSelection={pendingRateSelection}
         onRateSelection={handleRateSelection}
         onCustomRateEntry={handleCustomRateEntry}
+        administrationUnit={pendingRateSelection?.administrationUnit}
       />
 
       {/* Rate Management Dialog (edit/stop/change existing rate) */}
@@ -8191,6 +8209,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onRateStartNew={handleRateStartNew}
         onRateChange={handleRateChange}
         isRunning={managingRate?.isRunning}
+        administrationUnit={managingRate?.administrationUnit}
       />
 
       {/* Output Value Entry Dialog */}

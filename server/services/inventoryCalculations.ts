@@ -5,6 +5,7 @@ interface MedicationRecord {
   timestamp: Date | string;
   endTimestamp?: Date | string | null;
   itemId: string;
+  initialBolus?: string | null;
 }
 
 interface MedicationItem {
@@ -114,7 +115,8 @@ export function calculateRateControlledAmpules(
   startTime: Date | string,
   endTime: Date | string | null | undefined,
   ampuleTotalContent: string | null | undefined,
-  patientWeight?: number
+  patientWeight?: number,
+  initialBolus?: string | null
 ): number {
   const rateValue = parseNumericValue(rate);
   if (rateValue === 0) return 0;
@@ -129,13 +131,17 @@ export function calculateRateControlledAmpules(
   // Normalize rate unit to handle localized formats (e.g., "µg/kg per minute" → "µg/kg/min")
   const rateUnitLower = normalizeRateUnit(rateUnit);
   
+  // Parse initial bolus if provided (assumed to be in the same unit as ampuleTotalContent)
+  const initialBolusValue = parseNumericValue(initialBolus);
+  
   console.log('[CALC-DEBUG] Input values:', {
     rateValue,
     rateUnit,
     rateUnitLower,
     durationHours,
     ampuleTotalContent,
-    patientWeight
+    patientWeight,
+    initialBolus: initialBolusValue
   });
   
   let totalVolume = 0;
@@ -192,12 +198,17 @@ export function calculateRateControlledAmpules(
     console.log('[CALC-DEBUG] Default calculation (unrecognized unit)');
   }
   
+  // Add initial bolus to total volume (initial bolus is in same unit as ampuleTotalContent)
+  const totalWithBolus = totalVolume + initialBolusValue;
+  
   const ampuleValue = parseNumericValue(ampuleTotalContent);
   if (ampuleValue === 0) return 0;
   
-  const result = Math.ceil(totalVolume / ampuleValue);
+  const result = Math.ceil(totalWithBolus / ampuleValue);
   console.log('[CALC-DEBUG] Final calculation:', {
     totalVolume,
+    initialBolusValue,
+    totalWithBolus,
     ampuleValue,
     result
   });
@@ -293,7 +304,8 @@ export function calculateInventoryForMedication(
       medication.timestamp,
       medication.endTimestamp,
       item.ampuleTotalContent,
-      patientWeight
+      patientWeight,
+      medication.initialBolus
     );
   }
   

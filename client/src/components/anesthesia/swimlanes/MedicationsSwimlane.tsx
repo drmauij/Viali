@@ -407,8 +407,8 @@ export interface MedicationsSwimlaneProps {
   onRateStopDialogOpen: (session: RateInfusionSession, clickTime: number) => void;
   onRateRestartDialogOpen: (previousSession: RateInfusionSession, clickTime: number) => void;
   onRateSheetOpen: (session: { swimlaneId: string; label: string; clickMode: 'label' | 'segment'; rateUnit: string; defaultDose?: string }, rateInput: string, timeInput: number, quantityInput?: string) => void;
-  onRateManageDialogOpen: (managing: { swimlaneId: string; time: number; value: string; index: number; label: string; rateOptions?: string[]; rateUnit?: string }, time: number, input: string) => void;
-  onRateSelectionDialogOpen: (pending: { swimlaneId: string; time: number; label: string; rateOptions: string[] }) => void;
+  onRateManageDialogOpen: (managing: { swimlaneId: string; time: number; value: string; index: number; label: string; rateOptions?: string[]; rateUnit?: string; sessionId?: string; itemId?: string; isRunning?: boolean; administrationUnit?: string | null }, time: number, input: string) => void;
+  onRateSelectionDialogOpen: (pending: { swimlaneId: string; time: number; label: string; rateOptions: string[]; itemId?: string; administrationUnit?: string | null }) => void;
 }
 
 /**
@@ -1235,6 +1235,7 @@ export function MedicationsSwimlane({
                               sessionId: clickedSession.id,
                               itemId: lane.itemId,
                               isRunning: true,
+                              administrationUnit: lane.administrationUnit,
                             },
                             time,
                             currentRate
@@ -1254,6 +1255,8 @@ export function MedicationsSwimlane({
                         time,
                         label: lane.label.trim(),
                         rateOptions,
+                        itemId: lane.itemId,
+                        administrationUnit: lane.administrationUnit,
                       });
                     } else {
                       // Simple numeric default: check ALL sessions (including stopped ones)
@@ -1286,6 +1289,7 @@ export function MedicationsSwimlane({
                               sessionId: clickedSession.id,
                               itemId: lane.itemId,
                               isRunning: true,
+                              administrationUnit: lane.administrationUnit,
                             },
                             time,
                             currentRate
