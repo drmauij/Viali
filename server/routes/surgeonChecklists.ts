@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { requireWriteAccess, verifyUserHospitalUnitAccess } from "../utils";
+import { requireWriteAccess, userHasHospitalAccess } from "../utils";
 import { 
   insertSurgeonChecklistTemplateSchema, 
   updateSurgeonChecklistTemplateSchema,
@@ -10,16 +10,16 @@ import {
 
 const router = Router();
 
-router.get("/api/surgeon-checklists/templates", isAuthenticated, async (req, res) => {
+router.get("/api/surgeon-checklists/templates", isAuthenticated, async (req: any, res) => {
   try {
     const hospitalId = req.query.hospitalId as string;
-    const userId = req.user?.id;
+    const userId = req.user?.id as string;
     
     if (!hospitalId) {
       return res.status(400).json({ error: "hospitalId is required" });
     }
 
-    const hasAccess = await verifyUserHospitalUnitAccess(userId!, hospitalId);
+    const hasAccess = await userHasHospitalAccess(userId, hospitalId);
     if (!hasAccess) {
       return res.status(403).json({ error: "No access to this hospital" });
     }
@@ -32,14 +32,14 @@ router.get("/api/surgeon-checklists/templates", isAuthenticated, async (req, res
   }
 });
 
-router.get("/api/surgeon-checklists/templates/:id", isAuthenticated, async (req, res) => {
+router.get("/api/surgeon-checklists/templates/:id", isAuthenticated, async (req: any, res) => {
   try {
     const template = await storage.getSurgeonChecklistTemplate(req.params.id);
     if (!template) {
       return res.status(404).json({ error: "Template not found" });
     }
 
-    const hasAccess = await verifyUserHospitalUnitAccess(req.user?.id!, template.hospitalId);
+    const hasAccess = await userHasHospitalAccess(req.user?.id as string, template.hospitalId);
     if (!hasAccess) {
       return res.status(403).json({ error: "No access to this template" });
     }
@@ -51,21 +51,21 @@ router.get("/api/surgeon-checklists/templates/:id", isAuthenticated, async (req,
   }
 });
 
-router.post("/api/surgeon-checklists/templates", isAuthenticated, requireWriteAccess, async (req, res) => {
+router.post("/api/surgeon-checklists/templates", isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const parsed = insertSurgeonChecklistTemplateSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ error: "Invalid template data", details: parsed.error });
     }
 
-    const hasAccess = await verifyUserHospitalUnitAccess(req.user?.id!, parsed.data.hospitalId);
+    const hasAccess = await userHasHospitalAccess(req.user?.id as string, parsed.data.hospitalId);
     if (!hasAccess) {
       return res.status(403).json({ error: "No access to this hospital" });
     }
 
     const template = await storage.createSurgeonChecklistTemplate({
       ...parsed.data,
-      ownerUserId: req.user!.id,
+      ownerUserId: req.user.id,
     });
 
     if (req.body.items && Array.isArray(req.body.items)) {
@@ -80,14 +80,14 @@ router.post("/api/surgeon-checklists/templates", isAuthenticated, requireWriteAc
   }
 });
 
-router.patch("/api/surgeon-checklists/templates/:id", isAuthenticated, requireWriteAccess, async (req, res) => {
+router.patch("/api/surgeon-checklists/templates/:id", isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const template = await storage.getSurgeonChecklistTemplate(req.params.id);
     if (!template) {
       return res.status(404).json({ error: "Template not found" });
     }
 
-    if (template.ownerUserId !== req.user?.id) {
+    if (template.ownerUserId !== (req.user?.id as string)) {
       return res.status(403).json({ error: "Only the template owner can edit it" });
     }
 
@@ -106,14 +106,14 @@ router.patch("/api/surgeon-checklists/templates/:id", isAuthenticated, requireWr
   }
 });
 
-router.delete("/api/surgeon-checklists/templates/:id", isAuthenticated, requireWriteAccess, async (req, res) => {
+router.delete("/api/surgeon-checklists/templates/:id", isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const template = await storage.getSurgeonChecklistTemplate(req.params.id);
     if (!template) {
       return res.status(404).json({ error: "Template not found" });
     }
 
-    if (template.ownerUserId !== req.user?.id) {
+    if (template.ownerUserId !== (req.user?.id as string)) {
       return res.status(403).json({ error: "Only the template owner can delete it" });
     }
 
