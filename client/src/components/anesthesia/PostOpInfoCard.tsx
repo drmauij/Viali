@@ -16,6 +16,7 @@ interface PostOpInfoCardProps {
       dexamethasone?: boolean;
     };
     ambulatoryCare?: {
+      repeatAntibioticAfter4h?: boolean;
       osasObservation?: boolean;
       escortRequired?: boolean;
       postBlockMotorCheck?: boolean;
@@ -119,6 +120,12 @@ export function PostOpInfoCard({ postOpData }: PostOpInfoCardProps) {
                 {t('anesthesia.op.ambulatoryCareInstructions')}
               </h4>
               <div className="space-y-1" data-testid="text-pacu-ambulatory-care">
+                {postOpData.ambulatoryCare.repeatAntibioticAfter4h && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Check className="h-3 w-3 text-green-600" />
+                    <span>{t('anesthesia.op.repeatAntibioticAfter4h')}</span>
+                  </div>
+                )}
                 {postOpData.ambulatoryCare.osasObservation && (
                   <div className="flex items-center gap-2 text-sm">
                     <Check className="h-3 w-3 text-green-600" />

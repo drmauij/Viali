@@ -1985,6 +1985,7 @@ export const updatePostOpDataSchema = z.object({
     dexamethasone: z.boolean().optional(),
   }).optional().nullable(),
   ambulatoryCare: z.object({
+    repeatAntibioticAfter4h: z.boolean().optional(),
     osasObservation: z.boolean().optional(),
     escortRequired: z.boolean().optional(),
     postBlockMotorCheck: z.boolean().optional(),

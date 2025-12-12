@@ -808,6 +808,7 @@ export default function Op() {
       dexamethasone?: boolean;
     };
     ambulatoryCare?: {
+      repeatAntibioticAfter4h?: boolean;
       osasObservation?: boolean;
       escortRequired?: boolean;
       postBlockMotorCheck?: boolean;
