@@ -245,7 +245,7 @@ export function SurgeonChecklistTemplateEditor({
                 {items.map((item, index) => (
                   <div key={index} className="flex items-start gap-2 group relative">
                     <GripVertical className="h-4 w-4 mt-2 text-muted-foreground cursor-move shrink-0" />
-                    <div className="flex-1 relative">
+                    <div className="flex-1 flex items-start gap-2">
                       <Textarea
                         ref={(el) => { inputRefs.current[index] = el; }}
                         value={item.label}
@@ -253,28 +253,22 @@ export function SurgeonChecklistTemplateEditor({
                         onKeyDown={(e) => handleKeyDown(e, index)}
                         placeholder={t('surgeonChecklist.itemPlaceholder', 'Checklist item (use #price, #admissionTime, etc.)')}
                         rows={2}
-                        className="resize-none pr-8"
+                        className="resize-none flex-1"
                         data-testid={`textarea-checklist-item-${index}`}
                       />
-                      {showPlaceholderPopover && activeItemIndex === index && (
-                        <div className="absolute top-full left-0 z-50 mt-1 w-72 bg-popover border rounded-md shadow-lg p-1 max-h-48 overflow-y-auto">
-                          {filteredPlaceholders.length > 0 ? (
-                            filteredPlaceholders.map((p) => (
-                              <button
-                                key={p.token}
-                                onClick={() => insertPlaceholder(p)}
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-accent rounded flex flex-col"
-                                data-testid={`placeholder-option-${p.token}`}
-                              >
-                                <span className="font-medium">#{p.token}</span>
-                                <span className="text-xs text-muted-foreground">{p.description}</span>
-                              </button>
-                            ))
-                          ) : (
-                            <div className="px-3 py-2 text-sm text-muted-foreground">
-                              {t('surgeonChecklist.noPlaceholders', 'No matching placeholders')}
-                            </div>
-                          )}
+                      {showPlaceholderPopover && activeItemIndex === index && filteredPlaceholders.length > 0 && (
+                        <div className="shrink-0 flex flex-wrap gap-1 max-w-[140px]">
+                          {filteredPlaceholders.slice(0, 4).map((p) => (
+                            <button
+                              key={p.token}
+                              onClick={() => insertPlaceholder(p)}
+                              className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary rounded border border-primary/20 transition-colors"
+                              title={p.description}
+                              data-testid={`placeholder-option-${p.token}`}
+                            >
+                              #{p.token}
+                            </button>
+                          ))}
                         </div>
                       )}
                     </div>
