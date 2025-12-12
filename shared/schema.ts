@@ -2666,3 +2666,108 @@ export type BulkImportItem = z.infer<typeof bulkImportItemSchema>;
 export type BulkImport = z.infer<typeof bulkImportSchema>;
 export type BulkUpdateItem = z.infer<typeof bulkUpdateItemSchema>;
 export type BulkUpdate = z.infer<typeof bulkUpdateSchema>;
+
+// ============================================
+// Surgeon Pre-Op Checklist Templates
+// ============================================
+
+// Available placeholder tokens that can be used in checklist templates
+export const checklistPlaceholderTokens = [
+  'price',
+  'admissionTime',
+  'plannedDate',
+  'plannedSurgery',
+  'surgeonName',
+  'patientName',
+  'patientDob',
+  'surgeryRoom',
+  'notes',
+  'implantDetails',
+] as const;
+
+export type ChecklistPlaceholderToken = typeof checklistPlaceholderTokens[number];
+
+// Surgeon Checklist Templates - Reusable templates created by surgeons
+export const surgeonChecklistTemplates = pgTable("surgeon_checklist_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  ownerUserId: varchar("owner_user_id").notNull().references(() => users.id),
+  title: varchar("title").notNull(),
+  isShared: boolean("is_shared").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_surgeon_checklist_templates_hospital").on(table.hospitalId),
+  index("idx_surgeon_checklist_templates_owner").on(table.ownerUserId),
+]);
+
+// Surgeon Checklist Template Items - Individual items within a template
+export const surgeonChecklistTemplateItems = pgTable("surgeon_checklist_template_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull().references(() => surgeonChecklistTemplates.id, { onDelete: 'cascade' }),
+  label: text("label").notNull(),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_surgeon_checklist_items_template").on(table.templateId),
+]);
+
+// Surgery Pre-Op Checklist Entries - Actual checklist data for a surgery
+export const surgeryPreOpChecklistEntries = pgTable("surgery_preop_checklist_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  surgeryId: varchar("surgery_id").notNull().references(() => surgeries.id, { onDelete: 'cascade' }),
+  templateId: varchar("template_id").notNull().references(() => surgeonChecklistTemplates.id),
+  itemId: varchar("item_id").notNull().references(() => surgeonChecklistTemplateItems.id),
+  checked: boolean("checked").default(false).notNull(),
+  note: text("note"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_surgery_checklist_entries_surgery").on(table.surgeryId),
+  index("idx_surgery_checklist_entries_template").on(table.templateId),
+  unique("unique_surgery_item").on(table.surgeryId, table.itemId),
+]);
+
+// Insert schemas
+export const insertSurgeonChecklistTemplateSchema = createInsertSchema(surgeonChecklistTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSurgeonChecklistTemplateItemSchema = createInsertSchema(surgeonChecklistTemplateItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertSurgeryPreOpChecklistEntrySchema = createInsertSchema(surgeryPreOpChecklistEntries).omit({
+  id: true,
+  updatedAt: true,
+});
+
+// Types
+export type SurgeonChecklistTemplate = typeof surgeonChecklistTemplates.$inferSelect;
+export type InsertSurgeonChecklistTemplate = z.infer<typeof insertSurgeonChecklistTemplateSchema>;
+export type SurgeonChecklistTemplateItem = typeof surgeonChecklistTemplateItems.$inferSelect;
+export type InsertSurgeonChecklistTemplateItem = z.infer<typeof insertSurgeonChecklistTemplateItemSchema>;
+export type SurgeryPreOpChecklistEntry = typeof surgeryPreOpChecklistEntries.$inferSelect;
+export type InsertSurgeryPreOpChecklistEntry = z.infer<typeof insertSurgeryPreOpChecklistEntrySchema>;
+
+// Update schemas for API
+export const updateSurgeonChecklistTemplateSchema = z.object({
+  title: z.string().optional(),
+  isShared: z.boolean().optional(),
+  items: z.array(z.object({
+    id: z.string().optional(),
+    label: z.string(),
+    sortOrder: z.number(),
+  })).optional(),
+});
+
+export const updateSurgeryChecklistSchema = z.object({
+  templateId: z.string(),
+  entries: z.array(z.object({
+    itemId: z.string(),
+    checked: z.boolean(),
+    note: z.string().optional().nullable(),
+  })),
+});
