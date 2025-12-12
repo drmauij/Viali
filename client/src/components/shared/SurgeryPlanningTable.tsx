@@ -905,12 +905,16 @@ export function SurgeryPlanningTable({
         ? 'Ohne Saal' 
         : (roomMap.get(roomId) || `Saal ${roomId}`);
       
-      // Sort surgeries within the room by planned begin time
+      // Sort surgeries within the room by planned begin time (ascending - earliest first)
       const sortedRoomSurgeries = [...roomSurgeries].sort((a, b) => {
-        const timeA = a.plannedDate ? new Date(a.plannedDate).getTime() : Infinity;
-        const timeB = b.plannedDate ? new Date(b.plannedDate).getTime() : Infinity;
-        return timeA - timeB;
+        const dateA = a.plannedDate ? new Date(a.plannedDate) : null;
+        const dateB = b.plannedDate ? new Date(b.plannedDate) : null;
+        if (!dateA && !dateB) return 0;
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+        return dateA.getTime() - dateB.getTime();
       });
+      console.log('PDF Sort - Room:', roomName, 'Surgeries:', sortedRoomSurgeries.map(s => ({ patient: s.patientId, time: s.plannedDate })));
       
       // Add room header
       doc.setFontSize(12);
