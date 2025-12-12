@@ -1341,7 +1341,50 @@ export function MedicationsSwimlane({
                       });
                     }
                   } else {
-                    // No default dose: open dialog
+                    // No default dose - but still check for running sessions first
+                    const sessions = rateInfusionSessions[lane.id] || [];
+                    console.log('[RATE-INFUSION-CLICK] No default dose, checking sessions:', { swimlaneId: lane.id, count: sessions.length, time });
+                    
+                    // Find if click is within any session (running or stopped)
+                    const clickedSession = sessions.find(session => {
+                      const sessionStart = session.startTime;
+                      const sessionEnd = session.endTime || Infinity;
+                      return time >= sessionStart && time <= sessionEnd;
+                    });
+                    
+                    if (clickedSession) {
+                      if (!clickedSession.endTime) {
+                        // Clicked on RUNNING infusion → open manage dialog
+                        console.log('[RATE-INFUSION-CLICK] No default dose, but clicked on running infusion');
+                        const currentRate = clickedSession.segments[clickedSession.segments.length - 1]?.rate || '0';
+                        const rateUnit = clickedSession.segments[0]?.rateUnit || lane.rateUnit || 'ml/h';
+                        
+                        onRateManageDialogOpen(
+                          {
+                            swimlaneId: lane.id,
+                            time: time,
+                            value: currentRate,
+                            index: 0,
+                            label: `${lane.label.trim()} (${rateUnit})`,
+                            rateOptions: undefined,
+                            rateUnit,
+                            sessionId: clickedSession.id,
+                            itemId: lane.itemId,
+                            isRunning: true,
+                            administrationUnit: lane.administrationUnit,
+                          },
+                          time,
+                          currentRate
+                        );
+                      } else {
+                        // Clicked on STOPPED infusion → open restart dialog
+                        console.log('[RATE-INFUSION-CLICK] No default dose, clicked on stopped infusion');
+                        onRateRestartDialogOpen(clickedSession, time);
+                      }
+                      return;
+                    }
+                    
+                    // No session clicked - open infusion dialog for new infusion
                     onInfusionDialogOpen({ 
                       swimlaneId: lane.id, 
                       time, 
