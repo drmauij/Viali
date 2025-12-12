@@ -2704,9 +2704,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             return; // Can't determine end time
           }
           
-          // Round duration to nearest minute for cleaner dose calculation
-          const rawDurationMs = segmentEnd - segmentStart;
-          const durationMs = Math.round(rawDurationMs / 60000) * 60000; // Round to nearest minute
+          const durationMs = segmentEnd - segmentStart;
           if (durationMs <= 0) return;
           
           const { dose, baseUnit } = calculateSegmentDose(
