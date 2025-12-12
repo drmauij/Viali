@@ -2274,6 +2274,7 @@
     }
   },
   "surgery": {
+    "noAnesthesia": "Without Anesthesia (local anesthesia only)",
     "opList": {
       "title": "Surgery Schedule",
       "subtitle": "Click on a surgery to open nursing documentation"

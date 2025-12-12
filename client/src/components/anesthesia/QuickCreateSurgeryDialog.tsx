@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -73,6 +74,7 @@ export default function QuickCreateSurgeryDialog({
   const [surgeonId, setSurgeonId] = useState("");
   const [notes, setNotes] = useState("");
   const [implantDetails, setImplantDetails] = useState("");
+  const [noPreOpRequired, setNoPreOpRequired] = useState(false);
   
   // New patient form state
   const [newPatientFirstName, setNewPatientFirstName] = useState("");
@@ -261,6 +263,7 @@ export default function QuickCreateSurgeryDialog({
     setSurgeonId("");
     setNotes("");
     setImplantDetails("");
+    setNoPreOpRequired(false);
     setShowNewPatientForm(false);
     setNewPatientFirstName("");
     setNewPatientSurname("");
@@ -341,6 +344,7 @@ export default function QuickCreateSurgeryDialog({
       notes: notes.trim() || undefined,
       admissionTime: admissionTimeISO,
       implantDetails: implantDetails.trim() || undefined,
+      noPreOpRequired: noPreOpRequired,
       status: "planned",
     });
   };
@@ -635,6 +639,22 @@ export default function QuickCreateSurgeryDialog({
               data-testid="textarea-implant-details"
               rows={3}
             />
+          </div>
+
+          {/* No Anesthesia Pre-Op Required */}
+          <div className="flex items-center space-x-2 pt-2">
+            <Checkbox
+              id="no-preop-required"
+              checked={noPreOpRequired}
+              onCheckedChange={(checked) => setNoPreOpRequired(checked === true)}
+              data-testid="checkbox-no-preop-required"
+            />
+            <Label 
+              htmlFor="no-preop-required" 
+              className="text-sm font-normal cursor-pointer"
+            >
+              {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
+            </Label>
           </div>
         </div>
 

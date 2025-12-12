@@ -249,6 +249,7 @@ export default function PatientDetail() {
     surgeryRoomId: "",
     duration: 180, // Default 3 hours in minutes
     notes: "",
+    noPreOpRequired: false,
   });
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
   const [editCase, setEditCase] = useState({
@@ -258,6 +259,7 @@ export default function PatientDetail() {
     surgeryRoomId: "",
     duration: 180,
     notes: "",
+    noPreOpRequired: false,
   });
   const [archiveDialogSurgeryId, setArchiveDialogSurgeryId] = useState<string | null>(null);
   const [consentData, setConsentData] = useState({
@@ -415,7 +417,7 @@ export default function PatientDetail() {
         description: t('anesthesia.patientDetail.successSurgeryCreatedDesc'),
       });
       setIsCreateCaseOpen(false);
-      setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "" });
+      setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
     },
     onError: (error: any) => {
       toast({
@@ -459,7 +461,7 @@ export default function PatientDetail() {
         description: t('anesthesia.patientDetail.successSurgeryUpdatedDesc'),
       });
       setEditingCaseId(null);
-      setEditCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "" });
+      setEditCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
     },
     onError: (error: any) => {
       toast({
@@ -814,6 +816,7 @@ export default function PatientDetail() {
       surgeryRoomId: newCase.surgeryRoomId || null,
       actualEndTime: endDate.toISOString(),
       notes: newCase.notes || null,
+      noPreOpRequired: newCase.noPreOpRequired,
     };
     
     console.log("Creating surgery with data:", surgeryData);
@@ -839,6 +842,7 @@ export default function PatientDetail() {
       surgeryRoomId: surgery.surgeryRoomId || "",
       duration: duration,
       notes: surgery.notes || "",
+      noPreOpRequired: surgery.noPreOpRequired || false,
     });
   };
 
@@ -876,6 +880,7 @@ export default function PatientDetail() {
       surgeryRoomId: editCase.surgeryRoomId || null,
       actualEndTime: endDate.toISOString(),
       notes: editCase.notes || null,
+      noPreOpRequired: editCase.noPreOpRequired,
     };
 
     updateSurgeryMutation.mutate({ id: editingCaseId, data: updateData });
@@ -1542,6 +1547,20 @@ export default function PatientDetail() {
                   rows={3}
                 />
               </div>
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox
+                  id="new-no-preop-required"
+                  checked={newCase.noPreOpRequired}
+                  onCheckedChange={(checked) => setNewCase({ ...newCase, noPreOpRequired: checked === true })}
+                  data-testid="checkbox-new-no-preop-required"
+                />
+                <Label 
+                  htmlFor="new-no-preop-required" 
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
+                </Label>
+              </div>
               <Button 
                 onClick={handleCreateCase} 
                 className="w-full" 
@@ -1678,6 +1697,20 @@ export default function PatientDetail() {
                 data-testid="textarea-edit-notes"
                 rows={3}
               />
+            </div>
+            <div className="flex items-center space-x-2 pt-2">
+              <Checkbox
+                id="edit-no-preop-required"
+                checked={editCase.noPreOpRequired}
+                onCheckedChange={(checked) => setEditCase({ ...editCase, noPreOpRequired: checked === true })}
+                data-testid="checkbox-edit-no-preop-required"
+              />
+              <Label 
+                htmlFor="edit-no-preop-required" 
+                className="text-sm font-normal cursor-pointer"
+              >
+                {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
+              </Label>
             </div>
             <Button 
               onClick={handleUpdateCase} 
