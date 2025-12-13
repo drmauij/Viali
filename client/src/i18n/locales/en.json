@@ -1507,7 +1507,15 @@
       "editAllergy": "Edit Allergy",
       "editMedication": "Edit Medication",
       "editCondition": "Edit Condition",
-      "editChecklistItem": "Edit Checklist Item"
+      "editChecklistItem": "Edit Checklist Item",
+      "patientQuestionnaireSettings": "Patient Questionnaire Settings",
+      "showOnPatientQuestionnaire": "Show on patient questionnaire",
+      "patientFriendlyLabel": "Patient-friendly label",
+      "patientFriendlyLabelPlaceholder": "e.g., High blood pressure",
+      "patientFriendlyLabelHelp": "Use simple language patients will understand. Leave empty to use the default label.",
+      "patientHelpText": "Help text for patients",
+      "patientHelpTextPlaceholder": "e.g., Have you ever been told you have high blood pressure?",
+      "patientHelpTextHelp": "Additional explanation to help patients understand the condition."
     },
     "reports": {
       "title": "Reports & Analytics",

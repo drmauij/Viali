@@ -1507,7 +1507,15 @@
       "editAllergy": "Allergie bearbeiten",
       "editMedication": "Medikament bearbeiten",
       "editCondition": "Erkrankung bearbeiten",
-      "editChecklistItem": "Checklistenpunkt bearbeiten"
+      "editChecklistItem": "Checklistenpunkt bearbeiten",
+      "patientQuestionnaireSettings": "Patienten-Fragebogen Einstellungen",
+      "showOnPatientQuestionnaire": "Im Patienten-Fragebogen anzeigen",
+      "patientFriendlyLabel": "Patientenfreundliche Bezeichnung",
+      "patientFriendlyLabelPlaceholder": "z.B. Bluthochdruck",
+      "patientFriendlyLabelHelp": "Verwenden Sie einfache Sprache, die Patienten verstehen. Leer lassen für Standardbezeichnung.",
+      "patientHelpText": "Hilfetext für Patienten",
+      "patientHelpTextPlaceholder": "z.B. Wurde bei Ihnen jemals Bluthochdruck festgestellt?",
+      "patientHelpTextHelp": "Zusätzliche Erklärung, um Patienten beim Verständnis zu helfen."
     },
     "reports": {
       "title": "Berichte & Analysen",

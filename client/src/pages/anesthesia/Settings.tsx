@@ -143,8 +143,14 @@ export default function AnesthesiaSettings() {
     category?: string;
     oldValue: string;
     oldId?: string;
+    patientVisible?: boolean;
+    patientLabel?: string;
+    patientHelpText?: string;
   } | null>(null);
   const [listItemFormValue, setListItemFormValue] = useState('');
+  const [patientVisibleForm, setPatientVisibleForm] = useState(true);
+  const [patientLabelForm, setPatientLabelForm] = useState('');
+  const [patientHelpTextForm, setPatientHelpTextForm] = useState('');
 
   // State for translation
   const [isTranslating, setIsTranslating] = useState<string | null>(null);
@@ -446,14 +452,20 @@ export default function AnesthesiaSettings() {
     });
   };
 
-  const editIllness = (category: string, oldId: string, newLabel: string) => {
+  const editIllness = (category: string, oldId: string, newLabel: string, patientMetadata?: { patientVisible?: boolean; patientLabel?: string; patientHelpText?: string }) => {
     if (!anesthesiaSettings || !newLabel.trim()) return;
     const currentLists = anesthesiaSettings.illnessLists || {};
     updateSettingsMutation.mutate({
       illnessLists: {
         ...currentLists,
         [category]: ((currentLists as any)[category] || []).map((i: any) => 
-          i.id === oldId ? { id: i.id, label: newLabel.trim() } : i
+          i.id === oldId ? { 
+            id: i.id, 
+            label: newLabel.trim(),
+            patientVisible: patientMetadata?.patientVisible ?? i.patientVisible ?? true,
+            patientLabel: patientMetadata?.patientLabel || i.patientLabel,
+            patientHelpText: patientMetadata?.patientHelpText || i.patientHelpText,
+          } : i
         ),
       },
     });
@@ -468,7 +480,11 @@ export default function AnesthesiaSettings() {
     } else if (editingListItem.type === 'medication' && editingListItem.category && editingListItem.oldId) {
       editMedication(editingListItem.category as 'anticoagulation' | 'general', editingListItem.oldId, listItemFormValue);
     } else if (editingListItem.type === 'illness' && editingListItem.category && editingListItem.oldId) {
-      editIllness(editingListItem.category, editingListItem.oldId, listItemFormValue);
+      editIllness(editingListItem.category, editingListItem.oldId, listItemFormValue, {
+        patientVisible: patientVisibleForm,
+        patientLabel: patientLabelForm.trim() || undefined,
+        patientHelpText: patientHelpTextForm.trim() || undefined,
+      });
     } else if (editingListItem.type === 'checklist' && editingListItem.category && editingListItem.oldId) {
       editChecklistItem(editingListItem.category as 'signIn' | 'timeOut' | 'signOut', editingListItem.oldId, listItemFormValue);
     }
@@ -476,6 +492,9 @@ export default function AnesthesiaSettings() {
     setListItemDialogOpen(false);
     setEditingListItem(null);
     setListItemFormValue('');
+    setPatientVisibleForm(true);
+    setPatientLabelForm('');
+    setPatientHelpTextForm('');
   };
 
   // Translation function using OpenAI
@@ -1307,8 +1326,19 @@ export default function AnesthesiaSettings() {
                           size="icon"
                           className="h-6 w-6"
                           onClick={() => {
-                            setEditingListItem({ type: 'illness', category: key, oldValue: illness.label, oldId: illness.id });
+                            setEditingListItem({ 
+                              type: 'illness', 
+                              category: key, 
+                              oldValue: illness.label, 
+                              oldId: illness.id,
+                              patientVisible: illness.patientVisible,
+                              patientLabel: illness.patientLabel,
+                              patientHelpText: illness.patientHelpText,
+                            });
                             setListItemFormValue(illness.label);
+                            setPatientVisibleForm(illness.patientVisible !== false);
+                            setPatientLabelForm(illness.patientLabel || '');
+                            setPatientHelpTextForm(illness.patientHelpText || '');
                             setListItemDialogOpen(true);
                           }}
                           data-testid={`button-edit-illness-${key}-${illness.id}`}
@@ -1880,6 +1910,62 @@ export default function AnesthesiaSettings() {
                 data-testid="input-list-item-value"
               />
             </div>
+            
+            {editingListItem?.type === 'illness' && (
+              <>
+                <div className="border-t pt-4">
+                  <h4 className="text-sm font-medium mb-3">{t('anesthesia.settings.patientQuestionnaireSettings')}</h4>
+                  
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Checkbox
+                      id="patient-visible"
+                      checked={patientVisibleForm}
+                      onCheckedChange={(checked) => setPatientVisibleForm(checked === true)}
+                      data-testid="checkbox-patient-visible"
+                    />
+                    <Label htmlFor="patient-visible" className="text-sm">
+                      {t('anesthesia.settings.showOnPatientQuestionnaire')}
+                    </Label>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div>
+                      <Label htmlFor="patient-label" className="text-sm">
+                        {t('anesthesia.settings.patientFriendlyLabel')}
+                      </Label>
+                      <Input
+                        id="patient-label"
+                        value={patientLabelForm}
+                        onChange={(e) => setPatientLabelForm(e.target.value)}
+                        placeholder={t('anesthesia.settings.patientFriendlyLabelPlaceholder')}
+                        className="mt-1"
+                        data-testid="input-patient-label"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t('anesthesia.settings.patientFriendlyLabelHelp')}
+                      </p>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="patient-help-text" className="text-sm">
+                        {t('anesthesia.settings.patientHelpText')}
+                      </Label>
+                      <Input
+                        id="patient-help-text"
+                        value={patientHelpTextForm}
+                        onChange={(e) => setPatientHelpTextForm(e.target.value)}
+                        placeholder={t('anesthesia.settings.patientHelpTextPlaceholder')}
+                        className="mt-1"
+                        data-testid="input-patient-help-text"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t('anesthesia.settings.patientHelpTextHelp')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setListItemDialogOpen(false)} data-testid="button-cancel-list-item">
