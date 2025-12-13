@@ -364,7 +364,7 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
             const senderName = req.user.firstName 
               ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() 
               : 'Someone';
-            sendMentionEmail(mentionedUser.email, senderName, content.substring(0, 200), conversation?.title || undefined)
+            sendMentionEmail(mentionedUser.email, senderName, content.substring(0, 200), req.conversation?.title || undefined)
               .catch(err => console.error('Failed to send mention email:', err));
           }
         }
