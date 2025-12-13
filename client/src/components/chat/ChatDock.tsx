@@ -25,7 +25,8 @@ import {
   Hash,
   Image,
   File,
-  Loader2
+  Loader2,
+  Trash2
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 import {
@@ -275,6 +276,28 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
       queryClient.invalidateQueries({ queryKey: ['/api/chat', activeHospital?.id, 'conversations'] });
       setMessageText("");
       setPendingAttachments([]);
+    },
+  });
+
+  const deleteConversationMutation = useMutation({
+    mutationFn: async (conversationId: string) => {
+      await apiRequest("DELETE", `/api/chat/conversations/${conversationId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/chat', activeHospital?.id, 'conversations'] });
+      setSelectedConversation(null);
+      setView('list');
+      toast({
+        title: "Conversation deleted",
+        description: "The conversation has been removed.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete conversation. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -747,7 +770,20 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem data-testid="menu-view-participants">
+                      <Users className="w-4 h-4 mr-2" />
                       View Participants
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      data-testid="menu-delete-conversation"
+                      className="text-destructive focus:text-destructive"
+                      onClick={() => {
+                        if (selectedConversation && confirm("Are you sure you want to delete this conversation? This cannot be undone.")) {
+                          deleteConversationMutation.mutate(selectedConversation.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete Conversation
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
