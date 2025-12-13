@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
+import { useTranslation } from "react-i18next";
 
 interface PendingInfusionValue {
   swimlaneId: string;
@@ -10,6 +11,7 @@ interface PendingInfusionValue {
   label: string;
   administrationUnit?: string | null;
   itemId?: string;
+  rateUnit?: string | null;
 }
 
 interface InfusionDialogProps {
@@ -25,8 +27,12 @@ export function InfusionDialog({
   pendingInfusionValue,
   onInfusionValueEntry,
 }: InfusionDialogProps) {
+  const { t } = useTranslation();
   const [infusionInput, setInfusionInput] = useState("");
   const [initialBolusInput, setInitialBolusInput] = useState("");
+  
+  // Check if TCI mode
+  const isTciMode = pendingInfusionValue?.rateUnit === "TCI";
 
   // Reset input when dialog closes
   useEffect(() => {
@@ -72,7 +78,9 @@ export function InfusionDialog({
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="infusion-value">Rate</Label>
+            <Label htmlFor="infusion-value">
+              {isTciMode ? "Target Concentration (Tc)" : "Rate"}
+            </Label>
             <Input
               id="infusion-value"
               data-testid="input-infusion-value"
@@ -83,29 +91,31 @@ export function InfusionDialog({
                   handleSave();
                 }
               }}
-              placeholder="e.g., 100ml/h, 50ml/h"
+              placeholder={isTciMode ? "e.g., 3.0, 4.5" : "e.g., 100ml/h, 50ml/h"}
               autoFocus
             />
           </div>
           
-          {/* Initial Bolus (optional) */}
-          <div className="grid gap-2 pt-2">
-            <Label htmlFor="initial-bolus" className="text-sm">
-              Initial Bolus {pendingInfusionValue?.administrationUnit ? `(${pendingInfusionValue.administrationUnit})` : ''} <span className="text-muted-foreground">(optional)</span>
-            </Label>
-            <Input
-              id="initial-bolus"
-              type="number"
-              inputMode="decimal"
-              data-testid="input-initial-bolus"
-              value={initialBolusInput}
-              onChange={(e) => setInitialBolusInput(e.target.value)}
-              placeholder="e.g., 150"
-            />
-            <p className="text-xs text-muted-foreground">
-              Bolus dose given at infusion start (added to total medication count)
-            </p>
-          </div>
+          {/* Initial Bolus (optional) - Hidden for TCI mode */}
+          {!isTciMode && (
+            <div className="grid gap-2 pt-2">
+              <Label htmlFor="initial-bolus" className="text-sm">
+                Initial Bolus {pendingInfusionValue?.administrationUnit ? `(${pendingInfusionValue.administrationUnit})` : ''} <span className="text-muted-foreground">(optional)</span>
+              </Label>
+              <Input
+                id="initial-bolus"
+                type="number"
+                inputMode="decimal"
+                data-testid="input-initial-bolus"
+                value={initialBolusInput}
+                onChange={(e) => setInitialBolusInput(e.target.value)}
+                placeholder="e.g., 150"
+              />
+              <p className="text-xs text-muted-foreground">
+                Bolus dose given at infusion start (added to total medication count)
+              </p>
+            </div>
+          )}
         </div>
         <DialogFooterWithTime
           time={pendingInfusionValue?.time}

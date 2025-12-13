@@ -424,7 +424,7 @@ export interface MedicationsSwimlaneProps {
   onMedicationDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string; defaultDose?: string | null; administrationUnit?: string | null; itemId: string }) => void;
   onMedicationEditDialogOpen: (editing: { swimlaneId: string; time: number; dose: string; note?: string; index: number; id: string }) => void;
   onInstantMedicationSave: (swimlaneId: string, time: number, dose: string, itemId: string) => Promise<void>;
-  onInfusionDialogOpen: (pending: { swimlaneId: string; time: number; label: string; itemId?: string; administrationUnit?: string | null }) => void;
+  onInfusionDialogOpen: (pending: { swimlaneId: string; time: number; label: string; itemId?: string; administrationUnit?: string | null; rateUnit?: string | null }) => void;
   onFreeFlowDoseDialogOpen: (pending: { swimlaneId: string; time: number; label: string; administrationUnit?: string | null }) => void;
   onFreeFlowSheetOpen: (session: FreeFlowSession & { clickMode?: 'label' | 'segment' }, doseInput: string, timeInput: number) => void;
   onFreeFlowStopDialogOpen: (session: FreeFlowSession, clickTime: number) => void;
@@ -1391,6 +1391,7 @@ export function MedicationsSwimlane({
                       label: lane.label.trim(),
                       itemId: lane.itemId,
                       administrationUnit: lane.administrationUnit,
+                      rateUnit: lane.rateUnit,
                     });
                   }
                 }
