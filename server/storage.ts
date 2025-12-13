@@ -617,6 +617,7 @@ export interface IStorage {
   getQuestionnaireLinkByToken(token: string): Promise<PatientQuestionnaireLink | undefined>;
   getQuestionnaireLinksForPatient(patientId: string): Promise<PatientQuestionnaireLink[]>;
   getQuestionnaireLinksForHospital(hospitalId: string): Promise<PatientQuestionnaireLink[]>;
+  updateQuestionnaireLink(id: string, updates: Partial<PatientQuestionnaireLink>): Promise<PatientQuestionnaireLink>;
   invalidateQuestionnaireLink(id: string): Promise<void>;
   
   // Questionnaire Response operations
@@ -5612,6 +5613,15 @@ export class DatabaseStorage implements IStorage {
       .from(patientQuestionnaireLinks)
       .where(eq(patientQuestionnaireLinks.hospitalId, hospitalId))
       .orderBy(desc(patientQuestionnaireLinks.createdAt));
+  }
+
+  async updateQuestionnaireLink(id: string, updates: Partial<PatientQuestionnaireLink>): Promise<PatientQuestionnaireLink> {
+    const [updated] = await db
+      .update(patientQuestionnaireLinks)
+      .set(updates)
+      .where(eq(patientQuestionnaireLinks.id, id))
+      .returning();
+    return updated;
   }
 
   async invalidateQuestionnaireLink(id: string): Promise<void> {

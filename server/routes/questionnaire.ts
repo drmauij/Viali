@@ -57,7 +57,7 @@ const createReviewSchema = z.object({
   mappings: z.record(z.string(), z.object({
     patientValue: z.string(),
     professionalField: z.string(),
-    professionalValue: z.any().default(null),
+    professionalValue: z.any(),
     notes: z.string().optional(),
   })).optional().nullable(),
   reviewNotes: z.string().optional(),
@@ -352,6 +352,24 @@ router.post('/api/questionnaire/links/:linkId/invalidate', isAuthenticated, requ
 
 // ========== PUBLIC ROUTES (for patients) ==========
 
+// Helper to validate link is still usable (not expired/submitted/reviewed)
+async function validateLinkForEdit(token: string): Promise<{ valid: true; link: any } | { valid: false; error: string; status: number }> {
+  const link = await storage.getQuestionnaireLinkByToken(token);
+  if (!link) {
+    return { valid: false, error: "Questionnaire not found", status: 404 };
+  }
+  if (link.expiresAt && new Date() > new Date(link.expiresAt)) {
+    return { valid: false, error: "This questionnaire link has expired", status: 410 };
+  }
+  if (link.status === 'expired') {
+    return { valid: false, error: "This questionnaire link has been expired", status: 410 };
+  }
+  if (link.status === 'submitted' || link.status === 'reviewed') {
+    return { valid: false, error: "This questionnaire has already been submitted", status: 410 };
+  }
+  return { valid: true, link };
+}
+
 // Helper to flatten illness lists into array
 function flattenIllnessLists(illnessLists: Record<string, any[]> | null | undefined): any[] {
   if (!illnessLists) return [];
@@ -470,19 +488,12 @@ router.post('/api/public/questionnaire/:token/save', async (req: Request, res: R
   try {
     const { token } = req.params;
     
-    const link = await storage.getQuestionnaireLinkByToken(token);
-    if (!link) {
-      return res.status(404).json({ message: "Questionnaire not found" });
+    // Validate link is still usable (fresh fetch to prevent stale-link exploitation)
+    const validation = await validateLinkForEdit(token);
+    if (!validation.valid) {
+      return res.status(validation.status).json({ message: validation.error });
     }
-
-    // Check if can still be edited
-    if (link.status === 'submitted' || link.status === 'expired' || link.status === 'reviewed') {
-      return res.status(410).json({ message: "This questionnaire can no longer be edited" });
-    }
-
-    if (link.expiresAt && new Date() > new Date(link.expiresAt)) {
-      return res.status(410).json({ message: "This questionnaire link has expired" });
-    }
+    const link = validation.link;
 
     const parsed = saveProgressSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -493,6 +504,11 @@ router.post('/api/public/questionnaire/:token/save', async (req: Request, res: R
 
     // Check for existing response
     let response = await storage.getQuestionnaireResponseByLinkId(link.id);
+    
+    // Mark link as started if first save
+    if (!response && link.status === 'pending') {
+      await storage.updateQuestionnaireLink(link.id, { status: 'started' });
+    }
 
     if (response) {
       // Update existing
@@ -573,18 +589,11 @@ router.post('/api/public/questionnaire/:token/submit', async (req: Request, res:
   try {
     const { token } = req.params;
     
-    const link = await storage.getQuestionnaireLinkByToken(token);
-    if (!link) {
-      return res.status(404).json({ message: "Questionnaire not found" });
+    const validation = await validateLinkForEdit(token);
+    if (!validation.valid) {
+      return res.status(validation.status).json({ message: validation.error });
     }
-
-    if (link.status === 'submitted' || link.status === 'reviewed') {
-      return res.status(410).json({ message: "This questionnaire has already been submitted" });
-    }
-
-    if (link.status === 'expired' || (link.expiresAt && new Date() > new Date(link.expiresAt))) {
-      return res.status(410).json({ message: "This questionnaire link has expired" });
-    }
+    const link = validation.link;
 
     const parsed = submitQuestionnaireSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -676,18 +685,11 @@ router.post('/api/public/questionnaire/:token/upload', async (req: Request, res:
   try {
     const { token } = req.params;
     
-    const link = await storage.getQuestionnaireLinkByToken(token);
-    if (!link) {
-      return res.status(404).json({ message: "Questionnaire not found" });
+    const validation = await validateLinkForEdit(token);
+    if (!validation.valid) {
+      return res.status(validation.status).json({ message: validation.error });
     }
-
-    if (link.status === 'submitted' || link.status === 'expired' || link.status === 'reviewed') {
-      return res.status(410).json({ message: "Cannot upload files to this questionnaire" });
-    }
-
-    if (link.expiresAt && new Date() > new Date(link.expiresAt)) {
-      return res.status(410).json({ message: "This questionnaire link has expired" });
-    }
+    const link = validation.link;
 
     // Get or create response
     let response = await storage.getQuestionnaireResponseByLinkId(link.id);
@@ -736,13 +738,22 @@ router.delete('/api/public/questionnaire/:token/upload/:uploadId', async (req: R
   try {
     const { token, uploadId } = req.params;
     
-    const link = await storage.getQuestionnaireLinkByToken(token);
-    if (!link) {
-      return res.status(404).json({ message: "Questionnaire not found" });
+    const validation = await validateLinkForEdit(token);
+    if (!validation.valid) {
+      return res.status(validation.status).json({ message: validation.error });
+    }
+    const link = validation.link;
+
+    // Verify the upload belongs to this token's response
+    const response = await storage.getQuestionnaireResponseByLinkId(link.id);
+    if (!response) {
+      return res.status(404).json({ message: "No questionnaire response found" });
     }
 
-    if (link.status === 'submitted' || link.status === 'expired' || link.status === 'reviewed') {
-      return res.status(410).json({ message: "Cannot modify this questionnaire" });
+    const uploads = await storage.getQuestionnaireUploads(response.id);
+    const uploadBelongsToResponse = uploads.some(u => u.id === uploadId);
+    if (!uploadBelongsToResponse) {
+      return res.status(403).json({ message: "Upload does not belong to this questionnaire" });
     }
 
     await storage.deleteQuestionnaireUpload(uploadId);
