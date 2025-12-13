@@ -256,6 +256,7 @@ export default function PatientDetail() {
   const [archiveDialogSurgeryId, setArchiveDialogSurgeryId] = useState<string | null>(null);
   const [consentData, setConsentData] = useState({
     general: false,
+    analgosedation: false,
     regional: false,
     installations: false,
     icuAdmission: false,
@@ -630,6 +631,7 @@ export default function PatientDetail() {
 
       setConsentData({
         general: existingAssessment.consentGiven || false,
+        analgosedation: existingAssessment.consentAnalgosedation || false,
         regional: existingAssessment.consentRegional || false,
         installations: existingAssessment.consentInstallations || false,
         icuAdmission: existingAssessment.consentICU || false,
@@ -793,6 +795,7 @@ export default function PatientDetail() {
       standByReasonNote: assessmentData.standByReasonNote,
       // Format consent data fields
       consentGiven: consentData.general,
+      consentAnalgosedation: consentData.analgosedation,
       consentRegional: consentData.regional,
       consentInstallations: consentData.installations,
       consentICU: consentData.icuAdmission,
@@ -3170,24 +3173,47 @@ export default function PatientDetail() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-4">
-                    <div className="flex items-start space-x-3 p-4 border rounded-lg">
-                      <Checkbox 
-                        id="general"
-                        checked={consentData.general}
-                        onCheckedChange={(checked) => setConsentData({...consentData, general: checked as boolean})}
-                        disabled={isPreOpReadOnly}
-                        data-testid="checkbox-general"
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="general" className="font-semibold text-base cursor-pointer">
-                          {t('anesthesia.patientDetail.generalAnesthesiaConsent')}
-                        </Label>
-                        <p className="text-sm text-muted-foreground mt-2">
-                          {t('anesthesia.patientDetail.generalAnesthesiaDescription')}
-                        </p>
-                        <p className="text-sm text-destructive mt-2">
-                          <strong>{t('anesthesia.patientDetail.possibleAdverseEvents')}</strong> {t('anesthesia.patientDetail.generalAnesthesiaRisks')}
-                        </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                        <Checkbox 
+                          id="general"
+                          checked={consentData.general}
+                          onCheckedChange={(checked) => setConsentData({...consentData, general: checked as boolean})}
+                          disabled={isPreOpReadOnly}
+                          data-testid="checkbox-consent-general"
+                        />
+                        <div className="flex-1">
+                          <Label htmlFor="general" className="font-semibold text-base cursor-pointer">
+                            {t('anesthesia.patientDetail.generalAnesthesiaConsent')}
+                          </Label>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            {t('anesthesia.patientDetail.generalAnesthesiaDescription')}
+                          </p>
+                          <p className="text-sm text-destructive mt-2">
+                            <strong>{t('anesthesia.patientDetail.possibleAdverseEvents')}</strong> {t('anesthesia.patientDetail.generalAnesthesiaRisks')}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start space-x-3 p-4 border rounded-lg">
+                        <Checkbox 
+                          id="analgosedation"
+                          checked={consentData.analgosedation}
+                          onCheckedChange={(checked) => setConsentData({...consentData, analgosedation: checked as boolean})}
+                          disabled={isPreOpReadOnly}
+                          data-testid="checkbox-consent-analgosedation"
+                        />
+                        <div className="flex-1">
+                          <Label htmlFor="analgosedation" className="font-semibold text-base cursor-pointer">
+                            {t('anesthesia.patientDetail.analgosedationConsent')}
+                          </Label>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            {t('anesthesia.patientDetail.analgosedationDescription')}
+                          </p>
+                          <p className="text-sm text-destructive mt-2">
+                            <strong>{t('anesthesia.patientDetail.possibleAdverseEvents')}</strong> {t('anesthesia.patientDetail.analgosedationRisks')}
+                          </p>
+                        </div>
                       </div>
                     </div>
 
@@ -3197,7 +3223,7 @@ export default function PatientDetail() {
                         checked={consentData.regional}
                         onCheckedChange={(checked) => setConsentData({...consentData, regional: checked as boolean})}
                         disabled={isPreOpReadOnly}
-                        data-testid="checkbox-regional"
+                        data-testid="checkbox-consent-regional"
                       />
                       <div className="flex-1">
                         <Label htmlFor="regional" className="font-semibold text-base cursor-pointer">

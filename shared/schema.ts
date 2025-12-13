@@ -1287,6 +1287,7 @@ export const preOpAssessments = pgTable("preop_assessments", {
   
   // Informed Consent
   consentGiven: boolean("consent_given").default(false),
+  consentAnalgosedation: boolean("consent_analgosedation").default(false),
   consentRegional: boolean("consent_regional").default(false),
   consentInstallations: boolean("consent_installations").default(false),
   consentICU: boolean("consent_icu").default(false),

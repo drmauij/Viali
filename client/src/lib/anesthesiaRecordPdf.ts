@@ -2505,6 +2505,13 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
         risks: i18next.t("anesthesia.patientDetail.generalAnesthesiaRisks")
       },
       { 
+        checked: data.preOpAssessment.consentAnalgosedation, 
+        label: i18next.t("anesthesia.patientDetail.analgosedationConsent"),
+        description: i18next.t("anesthesia.patientDetail.analgosedationDescription"),
+        risksLabel: i18next.t("anesthesia.patientDetail.possibleAdverseEvents"),
+        risks: i18next.t("anesthesia.patientDetail.analgosedationRisks")
+      },
+      { 
         checked: data.preOpAssessment.consentRegional, 
         label: i18next.t("anesthesia.patientDetail.regionalAnesthesiaConsent"),
         description: i18next.t("anesthesia.patientDetail.regionalAnesthesiaDescription"),
