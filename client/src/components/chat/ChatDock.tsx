@@ -589,15 +589,60 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
     }
   };
 
-  const formatMessageContent = (content: string) => {
+  const formatMessageContent = (content: string, onPatientClick?: (patientId: string) => void): JSX.Element => {
     const userMentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
     const patientMentionRegex = /#\[([^\]]+)\]\(([^)]+)\)/g;
     
-    let formattedContent = content
-      .replace(userMentionRegex, '<span class="text-primary font-medium">@$1</span>')
-      .replace(patientMentionRegex, '<span class="text-amber-500 dark:text-amber-400 font-medium">#$1</span>');
+    const parts: (string | JSX.Element)[] = [];
+    let lastIndex = 0;
+    let key = 0;
     
-    return formattedContent;
+    const combinedRegex = /(@\[([^\]]+)\]\(([^)]+)\))|(#\[([^\]]+)\]\(([^)]+)\))/g;
+    let match;
+    
+    while ((match = combinedRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(content.slice(lastIndex, match.index));
+      }
+      
+      if (match[1]) {
+        const userName = match[2];
+        parts.push(
+          <span 
+            key={key++}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium"
+          >
+            <UserCircle className="w-3 h-3" />
+            {userName}
+          </span>
+        );
+      } else if (match[4]) {
+        const patientName = match[5];
+        const patientId = match[6];
+        parts.push(
+          <button 
+            key={key++}
+            onClick={(e) => {
+              e.stopPropagation();
+              onPatientClick?.(patientId);
+            }}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium hover:bg-amber-500/20 transition-colors cursor-pointer"
+            data-testid={`mention-patient-pill-${patientId}`}
+          >
+            <Hash className="w-3 h-3" />
+            {patientName}
+          </button>
+        );
+      }
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    if (lastIndex < content.length) {
+      parts.push(content.slice(lastIndex));
+    }
+    
+    return <>{parts}</>;
   };
 
   const getConversationTitle = (convo: Conversation) => {
@@ -850,10 +895,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                                     This message was deleted
                                   </p>
                                 ) : (
-                                  <p 
-                                    className="text-sm whitespace-pre-wrap break-words"
-                                    dangerouslySetInnerHTML={{ __html: formatMessageContent(msg.content) }}
-                                  />
+                                  <div className="text-sm whitespace-pre-wrap break-words">
+                                    {formatMessageContent(msg.content, (patientId) => {
+                                      window.open(`/anesthesia/patients/${patientId}`, '_blank');
+                                    })}
+                                  </div>
                                 )}
                               </div>
                               <p className={`text-xs text-muted-foreground mt-1 ${isOwnMessage ? 'text-right' : ''}`}>
