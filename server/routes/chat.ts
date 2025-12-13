@@ -5,6 +5,7 @@ import { isAuthenticated } from "../auth/google";
 import { requireWriteAccess, requireHospitalAccess, getUserUnitForHospital } from "../utils";
 import { insertChatConversationSchema, insertChatMessageSchema, insertChatMentionSchema, insertChatAttachmentSchema } from "@shared/schema";
 import { z } from "zod";
+import { broadcastChatMessage, broadcastChatMessageDeleted, broadcastChatMessageEdited, notifyUserOfNewMessage } from "../socket";
 
 const createConversationSchema = z.object({
   scopeType: z.enum(['self', 'direct', 'unit', 'hospital']),
@@ -390,6 +391,34 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
     const fullMessages = await storage.getMessages(conversationId, 1);
     const fullMessage = fullMessages.find(m => m.id === message.id) || message;
     
+    broadcastChatMessage({
+      conversationId,
+      message: {
+        id: fullMessage.id,
+        senderId: fullMessage.senderId,
+        content: fullMessage.content,
+        messageType: fullMessage.messageType,
+        createdAt: fullMessage.createdAt?.toISOString() || new Date().toISOString(),
+        sender: (fullMessage as any).sender,
+        mentions: (fullMessage as any).mentions,
+        attachments: (fullMessage as any).attachments
+      },
+      timestamp: Date.now()
+    });
+    
+    for (const participant of conversation.participants) {
+      if (participant.userId !== userId) {
+        notifyUserOfNewMessage(participant.userId, {
+          conversationId,
+          messageId: fullMessage.id,
+          senderName: req.user.firstName 
+            ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() 
+            : 'Someone',
+          preview: content.substring(0, 100)
+        });
+      }
+    }
+    
     res.status(201).json(fullMessage);
   } catch (error) {
     console.error("Error creating message:", error);
@@ -419,6 +448,9 @@ router.patch('/api/chat/messages/:messageId', isAuthenticated, requireWriteAcces
     }
     
     const updated = await storage.updateMessage(messageId, content);
+    
+    broadcastChatMessageEdited(message.conversationId, updated);
+    
     res.json(updated);
   } catch (error) {
     console.error("Error updating message:", error);
@@ -440,7 +472,11 @@ router.delete('/api/chat/messages/:messageId', isAuthenticated, requireWriteAcce
       return res.status(403).json({ message: "You can only delete your own messages" });
     }
     
+    const conversationId = message.conversationId;
     const deleted = await storage.deleteMessage(messageId);
+    
+    broadcastChatMessageDeleted(conversationId, messageId);
+    
     res.json(deleted);
   } catch (error) {
     console.error("Error deleting message:", error);

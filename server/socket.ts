@@ -107,6 +107,57 @@ export function initSocketIO(server: HTTPServer, sessionMiddleware: any): Socket
       socket.emit('server:pong', { timestamp: data.timestamp });
     });
 
+    socket.on('chat:join', (conversationId: string) => {
+      if (!conversationId) return;
+      
+      const room = `chat:${conversationId}`;
+      socket.join(room);
+      console.log(`[Socket.IO] ${socket.id} joined chat room ${room}`);
+      
+      socket.to(room).emit('chat:user-joined', {
+        conversationId,
+        userId: socket.userId,
+        timestamp: Date.now()
+      });
+    });
+
+    socket.on('chat:leave', (conversationId: string) => {
+      if (!conversationId) return;
+      
+      const room = `chat:${conversationId}`;
+      socket.leave(room);
+      console.log(`[Socket.IO] ${socket.id} left chat room ${room}`);
+      
+      socket.to(room).emit('chat:user-left', {
+        conversationId,
+        userId: socket.userId,
+        timestamp: Date.now()
+      });
+    });
+
+    socket.on('chat:typing', (data: { conversationId: string; userName: string; isTyping: boolean }) => {
+      if (!data.conversationId) return;
+      
+      const room = `chat:${data.conversationId}`;
+      socket.to(room).emit('chat:typing', {
+        conversationId: data.conversationId,
+        userId: socket.userId,
+        userName: data.userName,
+        isTyping: data.isTyping
+      });
+    });
+
+    socket.on('chat:read', (data: { conversationId: string }) => {
+      if (!data.conversationId) return;
+      
+      const room = `chat:${data.conversationId}`;
+      socket.to(room).emit('chat:read', {
+        conversationId: data.conversationId,
+        userId: socket.userId,
+        lastReadAt: new Date().toISOString()
+      });
+    });
+
     socket.on('disconnect', (reason) => {
       console.log(`[Socket.IO] Client disconnected: ${socket.id} (${reason})`);
     });
@@ -140,6 +191,38 @@ export interface HospitalChecklistUpdatePayload {
   userId?: string;
 }
 
+export interface ChatMessagePayload {
+  conversationId: string;
+  message: {
+    id: string;
+    senderId: string;
+    content: string;
+    messageType: string;
+    createdAt: string;
+    sender?: {
+      id: string;
+      firstName?: string;
+      lastName?: string;
+    };
+    mentions?: unknown[];
+    attachments?: unknown[];
+  };
+  timestamp: number;
+}
+
+export interface ChatTypingPayload {
+  conversationId: string;
+  userId: string;
+  userName: string;
+  isTyping: boolean;
+}
+
+export interface ChatReadReceiptPayload {
+  conversationId: string;
+  userId: string;
+  lastReadAt: string;
+}
+
 export function broadcastChecklistUpdate(payload: HospitalChecklistUpdatePayload): void {
   if (!io) {
     console.warn('[Socket.IO] Server not initialized, cannot broadcast checklist update');
@@ -160,4 +243,63 @@ export function getRoomViewerCount(recordId: string): number {
   if (!io) return 0;
   const room = `surgery:${recordId}`;
   return io.sockets.adapter.rooms.get(room)?.size || 0;
+}
+
+export function broadcastChatMessage(payload: ChatMessagePayload): void {
+  if (!io) {
+    console.warn('[Socket.IO] Server not initialized, cannot broadcast chat message');
+    return;
+  }
+  
+  const room = `chat:${payload.conversationId}`;
+  io.to(room).emit('chat:new-message', payload);
+  
+  console.log(`[Socket.IO] Broadcast chat message to ${room}`);
+}
+
+export function broadcastChatMessageDeleted(conversationId: string, messageId: string): void {
+  if (!io) {
+    console.warn('[Socket.IO] Server not initialized, cannot broadcast message deletion');
+    return;
+  }
+  
+  const room = `chat:${conversationId}`;
+  io.to(room).emit('chat:message-deleted', {
+    conversationId,
+    messageId,
+    timestamp: Date.now()
+  });
+  
+  console.log(`[Socket.IO] Broadcast message deletion to ${room}`);
+}
+
+export function broadcastChatMessageEdited(conversationId: string, message: any): void {
+  if (!io) {
+    console.warn('[Socket.IO] Server not initialized, cannot broadcast message edit');
+    return;
+  }
+  
+  const room = `chat:${conversationId}`;
+  io.to(room).emit('chat:message-edited', {
+    conversationId,
+    message,
+    timestamp: Date.now()
+  });
+  
+  console.log(`[Socket.IO] Broadcast message edit to ${room}`);
+}
+
+export function notifyUserOfNewMessage(userId: string, notification: any): void {
+  if (!io) {
+    console.warn('[Socket.IO] Server not initialized, cannot notify user');
+    return;
+  }
+  
+  io.emit('chat:notification', {
+    targetUserId: userId,
+    notification,
+    timestamp: Date.now()
+  });
+  
+  console.log(`[Socket.IO] Sent notification to user ${userId}`);
 }
