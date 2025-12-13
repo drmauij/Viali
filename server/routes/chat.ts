@@ -6,8 +6,7 @@ import { requireWriteAccess, requireHospitalAccess, getUserUnitForHospital } fro
 import { insertChatConversationSchema, insertChatMessageSchema, insertChatMentionSchema, insertChatAttachmentSchema } from "@shared/schema";
 import { z } from "zod";
 import { broadcastChatMessage, broadcastChatMessageDeleted, broadcastChatMessageEdited, notifyUserOfNewMessage } from "../socket";
-import { ObjectStorageService, ObjectNotFoundError } from "../objectStorage";
-import { ObjectPermission } from "../objectAcl";
+import { ObjectStorageService, ObjectNotFoundError, ObjectPermission } from "../objectStorage";
 import { sendNewMessageEmail, sendMentionEmail } from "../email";
 
 const createConversationSchema = z.object({
@@ -611,16 +610,13 @@ router.get('/api/chat/objects/:objectPath(*)', isAuthenticated, async (req: any,
     const userId = req.user.id;
     const objectPath = `/objects/${req.params.objectPath}`;
     const objectStorageService = new ObjectStorageService();
-    const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
-    const canAccess = await objectStorageService.canAccessObjectEntity({
-      objectFile,
-      userId,
-      requestedPermission: ObjectPermission.READ,
-    });
+    
+    const canAccess = await objectStorageService.canAccessObject(objectPath, userId, ObjectPermission.READ);
     if (!canAccess) {
       return res.status(401).json({ message: "Access denied" });
     }
-    objectStorageService.downloadObject(objectFile, res);
+    
+    await objectStorageService.downloadObject(objectPath, res);
   } catch (error) {
     console.error("Error fetching object:", error);
     if (error instanceof ObjectNotFoundError) {
@@ -640,10 +636,17 @@ router.post('/api/chat/attachments/confirm', isAuthenticated, async (req: any, r
     }
     
     const objectStorageService = new ObjectStorageService();
-    await objectStorageService.trySetObjectEntityAclPolicy(storageKey, {
-      owner: userId,
-      visibility: "private",
-    });
+    
+    if (objectStorageService.isConfigured()) {
+      try {
+        await objectStorageService.setObjectAclPolicy(storageKey, {
+          owner: userId,
+          visibility: "private",
+        });
+      } catch (aclError) {
+        console.warn("Could not set ACL policy (object may not exist yet):", aclError);
+      }
+    }
     
     res.json({ 
       storageKey,
