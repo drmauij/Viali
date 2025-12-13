@@ -180,6 +180,9 @@ export function transformRateInfusions(
         state,
         startTime,
         endTime,
+        // TCI: Store actual amount used from infusion_stop record for display and inventory
+        actualAmountUsed: stopRecord?.dose || null,
+        stopRecordId: stopRecord?.id || null, // For editing the stop record
       });
     });
   });

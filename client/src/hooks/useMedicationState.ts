@@ -20,6 +20,9 @@ export interface RateInfusionSession {
   state: 'running' | 'paused' | 'stopped';
   startTime?: number;
   endTime?: number | null;
+  // TCI: Actual amount used (from infusion_stop record) for display and inventory
+  actualAmountUsed?: string | null;
+  stopRecordId?: string | null; // For editing the infusion_stop record
 }
 
 export interface FreeFlowSession {

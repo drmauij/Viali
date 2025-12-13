@@ -1978,6 +1978,17 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const [rateManageTime, setRateManageTime] = useState<number>(0);
   const [rateManageInput, setRateManageInput] = useState("");
   
+  // State for TCI amount edit dialog (editable pill for stopped TCI)
+  const [showTciAmountEditDialog, setShowTciAmountEditDialog] = useState(false);
+  const [editingTciAmount, setEditingTciAmount] = useState<{
+    stopRecordId: string;
+    currentAmount: string;
+    unit: string;
+    label: string;
+    swimlaneId: string;
+  } | null>(null);
+  const [tciAmountEditInput, setTciAmountEditInput] = useState("");
+  
   // State for BP dual entry (systolic then diastolic)
   const [bpEntryMode, setBpEntryMode] = useState<'sys' | 'dia'>('sys');
   const [pendingSysValue, setPendingSysValue] = useState<{ time: number; value: number } | null>(null);
@@ -2672,11 +2683,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     });
     
     // Process rate-controlled infusion doses - calculate based on rate × duration
+    // For TCI: use actualAmountUsed from infusion_stop record instead of rate calculation
     Object.entries(rateInfusionSessions).forEach(([swimlaneId, sessions]) => {
       if (!Array.isArray(sessions)) return;
       
       const swimlaneConfig = activeSwimlanes.find(s => s.id === swimlaneId);
       const unit = swimlaneConfig?.administrationUnit || '';
+      const isTciMode = swimlaneConfig?.rateUnit === 'TCI';
       
       sessions.forEach((session) => {
         if (!session.segments || !Array.isArray(session.segments)) return;
@@ -2689,7 +2702,28 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         let sessionTotalDose = 0;
         let derivedUnit = ''; // Start empty, derive from rate unit
         
-        // Calculate dose for each segment
+        // TCI: If stopped and has actualAmountUsed, use that directly
+        if (isTciMode && session.actualAmountUsed && session.endTime) {
+          const actualDose = parseNumericValue(session.actualAmountUsed);
+          if (actualDose > 0) {
+            // Parse unit from actualAmountUsed if present (e.g., "150 mg" → "mg")
+            const unitMatch = session.actualAmountUsed.match(/[\d.,]+\s*(.+)/);
+            const actualUnit = unitMatch ? unitMatch[1].trim() : unit;
+            
+            if (!doses[swimlaneId]) {
+              doses[swimlaneId] = { total: 0, unit: actualUnit };
+            }
+            doses[swimlaneId].total += actualDose;
+          }
+          return; // Skip rate × duration calculation for TCI
+        }
+        
+        // TCI running: skip calculation (will show "Running" badge instead)
+        if (isTciMode && !session.endTime) {
+          return;
+        }
+        
+        // Non-TCI: Calculate dose for each segment
         session.segments.forEach((segment, index) => {
           const segmentStart = segment.startTime;
           
@@ -6753,6 +6787,28 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           // Calculate position relative to the right panel's top
           const topOffset = lane.top - (VITALS_TOP_POS + VITALS_HEIGHT);
           
+          // Check if this is a stopped TCI with editable amount
+          const stoppedTciSession = isTciMode && sessions.find(s => s.endTime && s.stopRecordId && s.actualAmountUsed);
+          const isEditableTci = !!stoppedTciSession && canWrite;
+          
+          const handleTciPillClick = () => {
+            if (isEditableTci && stoppedTciSession) {
+              // Parse numeric value from actualAmountUsed
+              const match = stoppedTciSession.actualAmountUsed?.match(/^([\d.,]+)/);
+              const numericValue = match ? match[1] : stoppedTciSession.actualAmountUsed || '';
+              
+              setEditingTciAmount({
+                stopRecordId: stoppedTciSession.stopRecordId!,
+                currentAmount: numericValue,
+                unit: cumulativeDose.unit,
+                label: swimlaneConfig?.label || '',
+                swimlaneId: lane.id,
+              });
+              setTciAmountEditInput(numericValue);
+              setShowTciAmountEditDialog(true);
+            }
+          };
+          
           return (
             <div
               key={`cumulative-${lane.id}`}
@@ -6763,9 +6819,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               }}
             >
               <span 
-                className="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-600 text-white rounded-full whitespace-nowrap shadow-sm"
+                className={`px-1.5 py-0.5 text-[10px] font-medium bg-emerald-600 text-white rounded-full whitespace-nowrap shadow-sm ${isEditableTci ? 'pointer-events-auto cursor-pointer hover:bg-emerald-700 transition-colors' : ''}`}
                 data-testid={`badge-cumulative-dose-${lane.id}`}
-                title={`Total administered: ${cumulativeDose.total % 1 === 0 ? cumulativeDose.total : cumulativeDose.total.toFixed(1)} ${cumulativeDose.unit}`}
+                title={isEditableTci ? t("anesthesia.timeline.tciClickToEdit") : `Total administered: ${cumulativeDose.total % 1 === 0 ? cumulativeDose.total : cumulativeDose.total.toFixed(1)} ${cumulativeDose.unit}`}
+                onClick={isEditableTci ? handleTciPillClick : undefined}
               >
                 {cumulativeDose.total % 1 === 0 
                   ? cumulativeDose.total 
@@ -8370,6 +8427,109 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         administrationUnit={managingRate?.administrationUnit}
         ampuleUnit={managingRate?.ampuleUnit}
       />
+
+      {/* TCI Amount Edit Dialog (for editing actual amount after stop) */}
+      <Dialog open={showTciAmountEditDialog} onOpenChange={setShowTciAmountEditDialog}>
+        <DialogContent className="sm:max-w-[350px]" data-testid="dialog-tci-amount-edit">
+          <DialogHeader>
+            <DialogTitle>{editingTciAmount?.label}</DialogTitle>
+            <DialogDescription>
+              {t("anesthesia.timeline.tciEditActualAmount")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="tci-amount-edit">{t("anesthesia.timeline.tciActualAmountUsed")} ({editingTciAmount?.unit})</Label>
+              <Input
+                id="tci-amount-edit"
+                type="number"
+                inputMode="decimal"
+                className="text-center text-xl font-bold h-12"
+                data-testid="input-tci-amount-edit"
+                value={tciAmountEditInput}
+                onChange={(e) => setTciAmountEditInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    // Save on Enter
+                    const parsedAmount = parseFloat(tciAmountEditInput);
+                    if (!isNaN(parsedAmount) && parsedAmount > 0 && editingTciAmount) {
+                      const newDose = `${tciAmountEditInput} ${editingTciAmount.unit}`;
+                      updateMedication.mutate({
+                        id: editingTciAmount.stopRecordId,
+                        dose: newDose,
+                      }, {
+                        onSuccess: () => {
+                          toast({
+                            title: t("anesthesia.timeline.tciAmountUpdated"),
+                            description: `${editingTciAmount.label}: ${newDose}`,
+                          });
+                          setShowTciAmountEditDialog(false);
+                          setEditingTciAmount(null);
+                          setTciAmountEditInput("");
+                        },
+                        onError: () => {
+                          toast({
+                            title: "Error",
+                            description: "Failed to update amount",
+                            variant: "destructive",
+                          });
+                        }
+                      });
+                    }
+                  }
+                }}
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowTciAmountEditDialog(false);
+                  setEditingTciAmount(null);
+                  setTciAmountEditInput("");
+                }}
+                data-testid="button-tci-amount-cancel"
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={() => {
+                  const parsedAmount = parseFloat(tciAmountEditInput);
+                  if (!isNaN(parsedAmount) && parsedAmount > 0 && editingTciAmount) {
+                    const newDose = `${tciAmountEditInput} ${editingTciAmount.unit}`;
+                    updateMedication.mutate({
+                      id: editingTciAmount.stopRecordId,
+                      dose: newDose,
+                    }, {
+                      onSuccess: () => {
+                        toast({
+                          title: t("anesthesia.timeline.tciAmountUpdated"),
+                          description: `${editingTciAmount.label}: ${newDose}`,
+                        });
+                        setShowTciAmountEditDialog(false);
+                        setEditingTciAmount(null);
+                        setTciAmountEditInput("");
+                      },
+                      onError: () => {
+                        toast({
+                          title: "Error",
+                          description: "Failed to update amount",
+                          variant: "destructive",
+                        });
+                      }
+                    });
+                  }
+                }}
+                disabled={!tciAmountEditInput.trim() || isNaN(Number(tciAmountEditInput)) || Number(tciAmountEditInput) <= 0}
+                data-testid="button-tci-amount-save"
+              >
+                {t("common.save")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Output Value Entry Dialog */}
       <OutputDialog
