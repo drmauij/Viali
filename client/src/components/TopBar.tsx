@@ -5,8 +5,9 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import { useModule } from "@/contexts/ModuleContext";
-import { StickyNote } from "lucide-react";
-import NotesPanel from "./NotesPanel";
+import { MessageCircle } from "lucide-react";
+import ChatDock from "./chat/ChatDock";
+import { useQuery } from "@tanstack/react-query";
 
 interface Hospital {
   id: string;
@@ -35,10 +36,26 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
-  const [showNotesPanel, setShowNotesPanel] = useState(false);
+  const [showChatPanel, setShowChatPanel] = useState(false);
   
   const hospitalDropdownRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  const { data: notifications = [] } = useQuery<Array<{ id: string }>>({
+    queryKey: ['/api/chat', activeHospital?.id, 'notifications'],
+    queryFn: async () => {
+      if (!activeHospital?.id) return [];
+      const response = await fetch(`/api/chat/${activeHospital.id}/notifications`, {
+        credentials: 'include',
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!activeHospital?.id,
+    refetchInterval: 30000,
+  });
+
+  const unreadCount = notifications.length;
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -127,13 +144,21 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
         </div>
         
         <div className="flex items-center gap-3">
-          {/* Notes Panel Toggle */}
+          {/* Chat Panel Toggle */}
           <button
-            onClick={() => setShowNotesPanel(!showNotesPanel)}
-            className="w-9 h-9 rounded-lg hover:bg-accent flex items-center justify-center transition-colors"
-            data-testid="button-notes"
+            onClick={() => setShowChatPanel(!showChatPanel)}
+            className="w-9 h-9 rounded-lg hover:bg-accent flex items-center justify-center transition-colors relative"
+            data-testid="button-chat"
           >
-            <StickyNote className="w-5 h-5 text-foreground" />
+            <MessageCircle className="w-5 h-5 text-foreground" />
+            {unreadCount > 0 && (
+              <span 
+                className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-destructive text-destructive-foreground text-xs font-bold rounded-full flex items-center justify-center px-1"
+                data-testid="badge-unread-count"
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </button>
 
           <div className="relative" ref={userMenuRef}>
@@ -218,9 +243,9 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
         onOpenChange={setShowChangePassword}
       />
 
-      <NotesPanel 
-        isOpen={showNotesPanel}
-        onClose={() => setShowNotesPanel(false)}
+      <ChatDock 
+        isOpen={showChatPanel}
+        onClose={() => setShowChatPanel(false)}
         activeHospital={activeHospital}
       />
     </div>

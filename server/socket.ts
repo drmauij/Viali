@@ -72,6 +72,11 @@ export function initSocketIO(server: HTTPServer, sessionMiddleware: any): Socket
 
   io.on('connection', (socket: Socket) => {
     console.log(`[Socket.IO] Client connected: ${socket.id} (User: ${socket.userId})`);
+    
+    if (socket.userId) {
+      socket.join(`user:${socket.userId}`);
+      console.log(`[Socket.IO] ${socket.id} joined user room user:${socket.userId}`);
+    }
 
     socket.on('join-surgery', (recordId: string) => {
       if (!recordId) return;
@@ -295,11 +300,10 @@ export function notifyUserOfNewMessage(userId: string, notification: any): void 
     return;
   }
   
-  io.emit('chat:notification', {
-    targetUserId: userId,
+  io.to(`user:${userId}`).emit('chat:notification', {
     notification,
     timestamp: Date.now()
   });
   
-  console.log(`[Socket.IO] Sent notification to user ${userId}`);
+  console.log(`[Socket.IO] Sent notification to user room user:${userId}`);
 }

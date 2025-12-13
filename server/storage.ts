@@ -591,7 +591,7 @@ export interface IStorage {
   
   // Chat Notification operations
   createNotification(notification: InsertChatNotification): Promise<ChatNotification>;
-  getUnreadNotifications(userId: string): Promise<ChatNotification[]>;
+  getUnreadNotifications(userId: string, hospitalId?: string): Promise<ChatNotification[]>;
   markNotificationRead(id: string): Promise<ChatNotification>;
   markNotificationEmailSent(id: string): Promise<ChatNotification>;
   getUnsentEmailNotifications(limit?: number): Promise<(ChatNotification & { user: User; conversation: ChatConversation })[]>;
@@ -5416,7 +5416,29 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getUnreadNotifications(userId: string): Promise<ChatNotification[]> {
+  async getUnreadNotifications(userId: string, hospitalId?: string): Promise<ChatNotification[]> {
+    if (hospitalId) {
+      return await db
+        .select({
+          id: chatNotifications.id,
+          userId: chatNotifications.userId,
+          conversationId: chatNotifications.conversationId,
+          messageId: chatNotifications.messageId,
+          notificationType: chatNotifications.notificationType,
+          emailSent: chatNotifications.emailSent,
+          emailSentAt: chatNotifications.emailSentAt,
+          read: chatNotifications.read,
+          createdAt: chatNotifications.createdAt,
+        })
+        .from(chatNotifications)
+        .innerJoin(chatConversations, eq(chatNotifications.conversationId, chatConversations.id))
+        .where(and(
+          eq(chatNotifications.userId, userId),
+          eq(chatNotifications.read, false),
+          eq(chatConversations.hospitalId, hospitalId)
+        ))
+        .orderBy(desc(chatNotifications.createdAt));
+    }
     return await db
       .select()
       .from(chatNotifications)

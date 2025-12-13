@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation } from "@tanstack/react-query";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useToast } from "@/hooks/use-toast";
 import { 
   X, 
   Send, 
@@ -19,7 +20,12 @@ import {
   Building2,
   MessageCircle,
   MoreVertical,
-  Paperclip
+  Paperclip,
+  UserCircle,
+  Hash,
+  Image,
+  File,
+  Loader2
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 import {
@@ -28,6 +34,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+interface MentionSuggestion {
+  type: 'user' | 'patient';
+  id: string;
+  display: string;
+  subtext?: string;
+}
 
 interface ChatDockProps {
   isOpen: boolean;
@@ -101,23 +114,48 @@ type ChatView = 'list' | 'conversation' | 'new';
 export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockProps) {
   const { user } = useAuth();
   const { socket, isConnected } = useSocket();
+  const { toast } = useToast();
   const [view, setView] = useState<ChatView>('list');
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [messageText, setMessageText] = useState("");
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+  const [mentionType, setMentionType] = useState<'user' | 'patient' | null>(null);
+  const [mentionSearch, setMentionSearch] = useState("");
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingAttachments, setPendingAttachments] = useState<Array<{
+    file: globalThis.File;
+    preview?: string;
+    uploading: boolean;
+    storageKey?: string;
+  }>>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
+      
+      if (activeHospital?.id) {
+        fetch(`/api/chat/${activeHospital.id}/notifications/mark-all-read`, {
+          method: 'POST',
+          credentials: 'include',
+        }).then(() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/chat', activeHospital.id, 'notifications'] });
+        }).catch(err => console.error('Failed to mark notifications as read:', err));
+      }
+      
       return () => {
         document.body.style.overflow = originalOverflow;
       };
     }
-  }, [isOpen]);
+  }, [isOpen, activeHospital?.id]);
 
   const { data: conversations = [], isLoading: conversationsLoading } = useQuery<Conversation[]>({
     queryKey: ['/api/chat', activeHospital?.id, 'conversations'],
@@ -153,8 +191,58 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
       if (!response.ok) return [];
       return response.json();
     },
-    enabled: !!activeHospital?.id && view === 'new',
+    enabled: !!activeHospital?.id && (view === 'new' || view === 'conversation'),
   });
+
+  const { data: patients = [] } = useQuery<Array<{id: string; firstName?: string; lastName?: string; dateOfBirth?: string}>>({
+    queryKey: ['/api/patients', activeHospital?.id],
+    queryFn: async () => {
+      const response = await fetch(`/api/patients?hospitalId=${activeHospital?.id}&limit=100`, {
+        credentials: 'include',
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!activeHospital?.id && view === 'conversation',
+  });
+
+  const mentionSuggestions = useMemo((): MentionSuggestion[] => {
+    if (!showMentionSuggestions || !mentionType) return [];
+    
+    const searchLower = mentionSearch.toLowerCase();
+    
+    if (mentionType === 'user') {
+      return users
+        .filter(u => {
+          if (u.id === (user as any)?.id) return false;
+          const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+          const email = (u.email || '').toLowerCase();
+          return fullName.includes(searchLower) || email.includes(searchLower);
+        })
+        .slice(0, 5)
+        .map(u => ({
+          type: 'user' as const,
+          id: u.id,
+          display: u.firstName || u.lastName ? `${u.firstName || ''} ${u.lastName || ''}`.trim() : u.email || 'Unknown',
+          subtext: u.email
+        }));
+    } else if (mentionType === 'patient') {
+      return patients
+        .filter(p => {
+          const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
+          return fullName.includes(searchLower);
+        })
+        .slice(0, 5)
+        .map(p => ({
+          type: 'patient' as const,
+          id: p.id,
+          display: `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Unknown Patient',
+          subtext: p.dateOfBirth ? `DOB: ${p.dateOfBirth}` : undefined
+        }));
+    }
+    
+    return [];
+  }, [showMentionSuggestions, mentionType, mentionSearch, users, patients, user]);
 
   const createConversationMutation = useMutation({
     mutationFn: async (data: { scopeType: string; participantIds?: string[]; title?: string }) => {
@@ -169,10 +257,16 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
   });
 
   const sendMessageMutation = useMutation({
-    mutationFn: async (content: string) => {
+    mutationFn: async ({ content, mentions, attachments }: { 
+      content: string; 
+      mentions: Array<{ type: string; userId?: string; patientId?: string }>;
+      attachments?: Array<{ storageKey: string; filename: string; mimeType: string; sizeBytes: number }>;
+    }) => {
       const response = await apiRequest("POST", `/api/chat/conversations/${selectedConversation?.id}/messages`, {
         content,
-        messageType: 'text'
+        messageType: attachments && attachments.length > 0 ? 'file' : 'text',
+        mentions: mentions.length > 0 ? mentions : undefined,
+        attachments: attachments && attachments.length > 0 ? attachments : undefined
       });
       return response.json();
     },
@@ -180,8 +274,123 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
       queryClient.invalidateQueries({ queryKey: ['/api/chat/conversations', selectedConversation?.id, 'messages'] });
       queryClient.invalidateQueries({ queryKey: ['/api/chat', activeHospital?.id, 'conversations'] });
       setMessageText("");
+      setPendingAttachments([]);
     },
   });
+
+  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const newAttachments = Array.from(files).map(file => ({
+      file,
+      preview: file.type.startsWith('image/') ? URL.createObjectURL(file) : undefined,
+      uploading: true,
+      storageKey: undefined as string | undefined
+    }));
+
+    setPendingAttachments(prev => [...prev, ...newAttachments]);
+    setIsUploading(true);
+
+    for (let i = 0; i < newAttachments.length; i++) {
+      const attachment = newAttachments[i];
+      try {
+        const uploadResponse = await apiRequest("POST", "/api/chat/upload", { 
+          filename: attachment.file.name 
+        });
+        const { uploadURL, storageKey } = await uploadResponse.json();
+
+        await fetch(uploadURL, {
+          method: "PUT",
+          body: attachment.file,
+          headers: {
+            "Content-Type": attachment.file.type
+          }
+        });
+
+        await apiRequest("POST", "/api/chat/attachments/confirm", {
+          storageKey,
+          filename: attachment.file.name,
+          mimeType: attachment.file.type,
+          sizeBytes: attachment.file.size
+        });
+
+        setPendingAttachments(prev => prev.map((att, idx) => 
+          att.file === attachment.file 
+            ? { ...att, uploading: false, storageKey } 
+            : att
+        ));
+      } catch (error) {
+        console.error("Upload failed:", error);
+        setPendingAttachments(prev => prev.filter(att => att.file !== attachment.file));
+      }
+    }
+    setIsUploading(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, []);
+
+  const removeAttachment = useCallback((index: number) => {
+    setPendingAttachments(prev => {
+      const attachment = prev[index];
+      if (attachment?.preview) {
+        URL.revokeObjectURL(attachment.preview);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
+  }, []);
+
+  const detectMentionTrigger = useCallback((text: string, cursorPos: number) => {
+    const beforeCursor = text.slice(0, cursorPos);
+    const atMatch = beforeCursor.match(/@(\w*)$/);
+    const hashMatch = beforeCursor.match(/#(\w*)$/);
+    
+    if (atMatch) {
+      setMentionType('user');
+      setMentionSearch(atMatch[1]);
+      setMentionStartIndex(cursorPos - atMatch[0].length);
+      setShowMentionSuggestions(true);
+      setSelectedMentionIndex(0);
+    } else if (hashMatch) {
+      setMentionType('patient');
+      setMentionSearch(hashMatch[1]);
+      setMentionStartIndex(cursorPos - hashMatch[0].length);
+      setShowMentionSuggestions(true);
+      setSelectedMentionIndex(0);
+    } else {
+      setShowMentionSuggestions(false);
+      setMentionType(null);
+      setMentionSearch("");
+    }
+  }, []);
+
+  const insertMention = useCallback((suggestion: MentionSuggestion) => {
+    const prefix = suggestion.type === 'user' ? '@' : '#';
+    const mentionText = `${prefix}[${suggestion.display}](${suggestion.id}) `;
+    const newText = messageText.slice(0, mentionStartIndex) + mentionText + messageText.slice(inputRef.current?.selectionStart || messageText.length);
+    setMessageText(newText);
+    setShowMentionSuggestions(false);
+    setMentionType(null);
+    setMentionSearch("");
+    inputRef.current?.focus();
+  }, [messageText, mentionStartIndex]);
+
+  const parseMentions = useCallback((text: string) => {
+    const mentions: Array<{ type: string; userId?: string; patientId?: string }> = [];
+    const userMentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
+    const patientMentionRegex = /#\[([^\]]+)\]\(([^)]+)\)/g;
+    
+    let match;
+    while ((match = userMentionRegex.exec(text)) !== null) {
+      mentions.push({ type: 'user', userId: match[2] });
+    }
+    while ((match = patientMentionRegex.exec(text)) !== null) {
+      mentions.push({ type: 'patient', patientId: match[2] });
+    }
+    
+    return mentions;
+  }, []);
 
   useEffect(() => {
     if (selectedConversation && socket && isConnected) {
@@ -230,18 +439,32 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
       }
     };
 
+    const handleNotification = (data: { notification: { conversationId: string; messageId: string; senderName: string; preview: string } }) => {
+      const { notification } = data;
+      queryClient.invalidateQueries({ queryKey: ['/api/chat', activeHospital?.id, 'notifications'] });
+      
+      if (!isOpen || notification.conversationId !== selectedConversation?.id) {
+        toast({
+          title: `New message from ${notification.senderName}`,
+          description: notification.preview.length > 60 ? notification.preview.substring(0, 60) + '...' : notification.preview,
+        });
+      }
+    };
+
     socket.on('chat:new-message', handleNewMessage);
     socket.on('chat:typing', handleTyping);
     socket.on('chat:message-deleted', handleMessageDeleted);
     socket.on('chat:message-edited', handleMessageEdited);
+    socket.on('chat:notification', handleNotification);
 
     return () => {
       socket.off('chat:new-message', handleNewMessage);
       socket.off('chat:typing', handleTyping);
       socket.off('chat:message-deleted', handleMessageDeleted);
       socket.off('chat:message-edited', handleMessageEdited);
+      socket.off('chat:notification', handleNotification);
     };
-  }, [socket, isConnected, selectedConversation?.id, refetchMessages, activeHospital?.id, user]);
+  }, [socket, isConnected, selectedConversation?.id, refetchMessages, activeHospital?.id, user, isOpen, toast]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -270,7 +493,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
   }, [socket, selectedConversation, user]);
 
   const handleSendMessage = () => {
-    if (!messageText.trim() || !selectedConversation) return;
+    const hasContent = messageText.trim();
+    const hasAttachments = pendingAttachments.some(a => a.storageKey && !a.uploading);
+    
+    if ((!hasContent && !hasAttachments) || !selectedConversation) return;
+    if (isUploading || pendingAttachments.some(a => a.uploading)) return;
     
     if (socket) {
       socket.emit('chat:typing', {
@@ -280,7 +507,64 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
       });
     }
     
-    sendMessageMutation.mutate(messageText.trim());
+    const mentions = parseMentions(messageText);
+    const attachments = pendingAttachments
+      .filter(a => a.storageKey && !a.uploading)
+      .map(a => ({
+        storageKey: a.storageKey!,
+        filename: a.file.name,
+        mimeType: a.file.type,
+        sizeBytes: a.file.size
+      }));
+    
+    sendMessageMutation.mutate({ 
+      content: hasContent ? messageText.trim() : (attachments.length > 0 ? `Sent ${attachments.length} file(s)` : ''), 
+      mentions,
+      attachments: attachments.length > 0 ? attachments : undefined
+    });
+  };
+
+  const handleMessageInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setMessageText(newValue);
+    handleTyping();
+    detectMentionTrigger(newValue, e.target.selectionStart || newValue.length);
+  };
+
+  const handleMessageKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showMentionSuggestions && mentionSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex(prev => 
+          prev < mentionSuggestions.length - 1 ? prev + 1 : 0
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex(prev => 
+          prev > 0 ? prev - 1 : mentionSuggestions.length - 1
+        );
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertMention(mentionSuggestions[selectedMentionIndex]);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowMentionSuggestions(false);
+      }
+    } else if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const formatMessageContent = (content: string) => {
+    const userMentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
+    const patientMentionRegex = /#\[([^\]]+)\]\(([^)]+)\)/g;
+    
+    let formattedContent = content
+      .replace(userMentionRegex, '<span class="text-primary font-medium">@$1</span>')
+      .replace(patientMentionRegex, '<span class="text-amber-500 dark:text-amber-400 font-medium">#$1</span>');
+    
+    return formattedContent;
   };
 
   const getConversationTitle = (convo: Conversation) => {
@@ -515,9 +799,16 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                                     : 'bg-accent'
                                 } ${msg.isDeleted ? 'opacity-50 italic' : ''}`}
                               >
-                                <p className="text-sm whitespace-pre-wrap break-words">
-                                  {msg.isDeleted ? 'This message was deleted' : msg.content}
-                                </p>
+                                {msg.isDeleted ? (
+                                  <p className="text-sm whitespace-pre-wrap break-words italic">
+                                    This message was deleted
+                                  </p>
+                                ) : (
+                                  <p 
+                                    className="text-sm whitespace-pre-wrap break-words"
+                                    dangerouslySetInnerHTML={{ __html: formatMessageContent(msg.content) }}
+                                  />
+                                )}
                               </div>
                               <p className={`text-xs text-muted-foreground mt-1 ${isOwnMessage ? 'text-right' : ''}`}>
                                 {formatMessageTime(msg.createdAt)}
@@ -539,34 +830,117 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
               </ScrollArea>
 
               <div className="p-4 border-t border-border">
-                <div className="flex items-end gap-2">
-                  <Button variant="ghost" size="icon" className="shrink-0" data-testid="button-attach-file">
-                    <Paperclip className="w-5 h-5" />
-                  </Button>
-                  <Input
-                    placeholder="Type a message..."
-                    value={messageText}
-                    onChange={(e) => {
-                      setMessageText(e.target.value);
-                      handleTyping();
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    className="flex-1"
-                    data-testid="input-message"
-                  />
-                  <Button
-                    size="icon"
-                    onClick={handleSendMessage}
-                    disabled={!messageText.trim() || sendMessageMutation.isPending}
-                    data-testid="button-send-message"
-                  >
-                    <Send className="w-5 h-5" />
-                  </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx"
+                  className="hidden"
+                  onChange={handleFileSelect}
+                  data-testid="input-file-upload"
+                />
+                {pendingAttachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {pendingAttachments.map((attachment, index) => (
+                      <div 
+                        key={index} 
+                        className="relative group bg-accent rounded-lg p-2 flex items-center gap-2"
+                        data-testid={`attachment-preview-${index}`}
+                      >
+                        {attachment.preview ? (
+                          <img 
+                            src={attachment.preview} 
+                            alt={attachment.file.name} 
+                            className="w-12 h-12 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-muted rounded flex items-center justify-center">
+                            <File className="w-6 h-6 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0 max-w-[100px]">
+                          <p className="text-xs font-medium truncate">{attachment.file.name}</p>
+                          {attachment.uploading && (
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              <span>Uploading...</span>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                          onClick={() => removeAttachment(index)}
+                          data-testid={`remove-attachment-${index}`}
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="relative">
+                  {showMentionSuggestions && mentionSuggestions.length > 0 && (
+                    <div 
+                      className="absolute bottom-full left-0 right-0 mb-2 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto z-10"
+                      data-testid="mention-suggestions"
+                    >
+                      {mentionSuggestions.map((suggestion, index) => (
+                        <button
+                          key={`${suggestion.type}-${suggestion.id}`}
+                          className={`w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-accent ${
+                            index === selectedMentionIndex ? 'bg-accent' : ''
+                          }`}
+                          onClick={() => insertMention(suggestion)}
+                          data-testid={`mention-${suggestion.type}-${suggestion.id}`}
+                        >
+                          {suggestion.type === 'user' ? (
+                            <UserCircle className="w-5 h-5 text-primary" />
+                          ) : (
+                            <Hash className="w-5 h-5 text-amber-500" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{suggestion.display}</p>
+                            {suggestion.subtext && (
+                              <p className="text-xs text-muted-foreground truncate">{suggestion.subtext}</p>
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-end gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="shrink-0" 
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      data-testid="button-attach-file"
+                    >
+                      {isUploading ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Paperclip className="w-5 h-5" />
+                      )}
+                    </Button>
+                    <Input
+                      ref={inputRef}
+                      placeholder="Type @ to mention, # for patient..."
+                      value={messageText}
+                      onChange={handleMessageInputChange}
+                      onKeyDown={handleMessageKeyDown}
+                      className="flex-1"
+                      data-testid="input-message"
+                    />
+                    <Button
+                      size="icon"
+                      onClick={handleSendMessage}
+                      disabled={(!messageText.trim() && !pendingAttachments.some(a => a.storageKey)) || sendMessageMutation.isPending || isUploading}
+                      data-testid="button-send-message"
+                    >
+                      <Send className="w-5 h-5" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </>

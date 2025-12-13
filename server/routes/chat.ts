@@ -6,6 +6,9 @@ import { requireWriteAccess, requireHospitalAccess, getUserUnitForHospital } fro
 import { insertChatConversationSchema, insertChatMessageSchema, insertChatMentionSchema, insertChatAttachmentSchema } from "@shared/schema";
 import { z } from "zod";
 import { broadcastChatMessage, broadcastChatMessageDeleted, broadcastChatMessageEdited, notifyUserOfNewMessage } from "../socket";
+import { ObjectStorageService, ObjectNotFoundError } from "../objectStorage";
+import { ObjectPermission } from "../objectAcl";
+import { sendNewMessageEmail, sendMentionEmail } from "../email";
 
 const createConversationSchema = z.object({
   scopeType: z.enum(['self', 'direct', 'unit', 'hospital']),
@@ -356,6 +359,15 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
             emailSent: false,
             read: false
           });
+          
+          const mentionedUser = await storage.getUser(mention.userId);
+          if (mentionedUser?.email) {
+            const senderName = req.user.firstName 
+              ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() 
+              : 'Someone';
+            sendMentionEmail(mentionedUser.email, senderName, content.substring(0, 200), conversation?.title || undefined)
+              .catch(err => console.error('Failed to send mention email:', err));
+          }
         }
       }
     }
@@ -375,6 +387,10 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
     }
     
     const conversation = req.conversation;
+    const senderName = req.user.firstName 
+      ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() 
+      : 'Someone';
+    
     for (const participant of conversation.participants) {
       if (participant.userId !== userId) {
         await storage.createNotification({
@@ -385,6 +401,12 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
           emailSent: false,
           read: false
         });
+        
+        const participantUser = participant.user || await storage.getUser(participant.userId);
+        if (participantUser?.email) {
+          sendNewMessageEmail(participantUser.email, senderName, content.substring(0, 200), conversation?.title || undefined)
+            .catch(err => console.error('Failed to send new message email:', err));
+        }
       }
     }
     
@@ -411,9 +433,7 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
         notifyUserOfNewMessage(participant.userId, {
           conversationId,
           messageId: fullMessage.id,
-          senderName: req.user.firstName 
-            ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() 
-            : 'Someone',
+          senderName,
           preview: content.substring(0, 100)
         });
       }
@@ -494,7 +514,7 @@ router.get('/api/chat/:hospitalId/notifications', isAuthenticated, async (req: a
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
     
-    const notifications = await storage.getUnreadNotifications(userId);
+    const notifications = await storage.getUnreadNotifications(userId, hospitalId);
     res.json(notifications);
   } catch (error) {
     console.error("Error fetching notifications:", error);
@@ -511,6 +531,28 @@ router.post('/api/chat/notifications/:notificationId/read', isAuthenticated, asy
   } catch (error) {
     console.error("Error marking notification as read:", error);
     res.status(500).json({ message: "Failed to mark notification as read" });
+  }
+});
+
+router.post('/api/chat/:hospitalId/notifications/mark-all-read', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { hospitalId } = req.params;
+    
+    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const notifications = await storage.getUnreadNotifications(userId, hospitalId);
+    for (const notification of notifications) {
+      await storage.markNotificationRead(notification.id);
+    }
+    
+    res.json({ success: true, markedRead: notifications.length });
+  } catch (error) {
+    console.error("Error marking all notifications as read:", error);
+    res.status(500).json({ message: "Failed to mark notifications as read" });
   }
 });
 
@@ -549,6 +591,70 @@ router.patch('/api/chat/attachments/:attachmentId/save-to-patient', isAuthentica
   } catch (error) {
     console.error("Error saving attachment to patient:", error);
     res.status(500).json({ message: "Failed to save attachment to patient" });
+  }
+});
+
+router.post('/api/chat/upload', isAuthenticated, async (req: any, res) => {
+  try {
+    const { filename } = req.body;
+    const objectStorageService = new ObjectStorageService();
+    const result = await objectStorageService.getObjectEntityUploadURL(filename);
+    res.json(result);
+  } catch (error) {
+    console.error("Error getting upload URL:", error);
+    res.status(500).json({ message: "Failed to get upload URL" });
+  }
+});
+
+router.get('/api/chat/objects/:objectPath(*)', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const objectPath = `/objects/${req.params.objectPath}`;
+    const objectStorageService = new ObjectStorageService();
+    const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+    const canAccess = await objectStorageService.canAccessObjectEntity({
+      objectFile,
+      userId,
+      requestedPermission: ObjectPermission.READ,
+    });
+    if (!canAccess) {
+      return res.status(401).json({ message: "Access denied" });
+    }
+    objectStorageService.downloadObject(objectFile, res);
+  } catch (error) {
+    console.error("Error fetching object:", error);
+    if (error instanceof ObjectNotFoundError) {
+      return res.status(404).json({ message: "Object not found" });
+    }
+    res.status(500).json({ message: "Failed to fetch object" });
+  }
+});
+
+router.post('/api/chat/attachments/confirm', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { storageKey, filename, mimeType, sizeBytes } = req.body;
+    
+    if (!storageKey || !filename || !mimeType) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+    
+    const objectStorageService = new ObjectStorageService();
+    await objectStorageService.trySetObjectEntityAclPolicy(storageKey, {
+      owner: userId,
+      visibility: "private",
+    });
+    
+    res.json({ 
+      storageKey,
+      filename,
+      mimeType,
+      sizeBytes: sizeBytes || 0,
+      success: true 
+    });
+  } catch (error) {
+    console.error("Error confirming attachment:", error);
+    res.status(500).json({ message: "Failed to confirm attachment" });
   }
 });
 
