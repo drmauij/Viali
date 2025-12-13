@@ -2927,3 +2927,182 @@ export const updateSurgeryChecklistSchema = z.object({
     note: z.string().optional().nullable(),
   })),
 });
+
+// ==================== PATIENT QUESTIONNAIRE SYSTEM ====================
+
+// Patient Questionnaire Links - Unique links sent to patients for online form completion
+export const patientQuestionnaireLinks = pgTable("patient_questionnaire_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  patientId: varchar("patient_id").references(() => patients.id), // null for general/anonymous forms
+  surgeryId: varchar("surgery_id").references(() => surgeries.id), // null if not yet associated
+  token: varchar("token").notNull().unique(), // Cryptographically secure token
+  status: varchar("status", { enum: ["pending", "started", "submitted", "expired", "reviewed"] }).default("pending").notNull(),
+  language: varchar("language").default("de"), // Default language for the form
+  expiresAt: timestamp("expires_at").notNull(), // Link expiration
+  createdBy: varchar("created_by").references(() => users.id), // Staff who generated link
+  createdAt: timestamp("created_at").defaultNow(),
+  submittedAt: timestamp("submitted_at"), // When patient submitted
+  reviewedAt: timestamp("reviewed_at"), // When doctor reviewed
+  reviewedBy: varchar("reviewed_by").references(() => users.id), // Doctor who reviewed
+}, (table) => [
+  index("idx_questionnaire_links_hospital").on(table.hospitalId),
+  index("idx_questionnaire_links_patient").on(table.patientId),
+  index("idx_questionnaire_links_surgery").on(table.surgeryId),
+  index("idx_questionnaire_links_token").on(table.token),
+  index("idx_questionnaire_links_status").on(table.status),
+]);
+
+// Patient Questionnaire Responses - Stores patient-submitted data
+export const patientQuestionnaireResponses = pgTable("patient_questionnaire_responses", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  linkId: varchar("link_id").notNull().references(() => patientQuestionnaireLinks.id, { onDelete: 'cascade' }),
+  
+  // Patient identification (for general forms where patient may not exist yet)
+  patientFirstName: varchar("patient_first_name"),
+  patientLastName: varchar("patient_last_name"),
+  patientBirthday: date("patient_birthday"),
+  patientEmail: varchar("patient_email"),
+  patientPhone: varchar("patient_phone"),
+  
+  // Medical history - patient's own words
+  allergies: jsonb("allergies").$type<string[]>(),
+  allergiesNotes: text("allergies_notes"),
+  
+  // Current medications - patient-provided
+  medications: jsonb("medications").$type<Array<{
+    name: string;
+    dosage?: string;
+    frequency?: string;
+    reason?: string;
+  }>>(),
+  medicationsNotes: text("medications_notes"),
+  
+  // Medical conditions - patient-friendly checkboxes with notes
+  conditions: jsonb("conditions").$type<Record<string, {
+    checked: boolean;
+    notes?: string;
+  }>>(),
+  
+  // Lifestyle factors
+  smokingStatus: varchar("smoking_status"), // 'never', 'former', 'current'
+  smokingDetails: text("smoking_details"),
+  alcoholStatus: varchar("alcohol_status"), // 'never', 'occasional', 'regular', 'daily'
+  alcoholDetails: text("alcohol_details"),
+  
+  // Physical measurements (patient-provided)
+  height: varchar("height"),
+  weight: varchar("weight"),
+  
+  // Previous surgeries/anesthesia
+  previousSurgeries: text("previous_surgeries"),
+  previousAnesthesiaProblems: text("previous_anesthesia_problems"),
+  
+  // Women's health
+  pregnancyStatus: varchar("pregnancy_status"), // 'not_applicable', 'no', 'possible', 'yes'
+  breastfeeding: boolean("breastfeeding"),
+  womanHealthNotes: text("woman_health_notes"),
+  
+  // General notes
+  additionalNotes: text("additional_notes"),
+  questionsForDoctor: text("questions_for_doctor"),
+  
+  // Form progress tracking
+  currentStep: integer("current_step").default(0),
+  completedSteps: jsonb("completed_steps").$type<string[]>(),
+  
+  // Submission metadata
+  userAgent: text("user_agent"), // Browser info
+  ipAddress: varchar("ip_address"), // For audit
+  lastSavedAt: timestamp("last_saved_at"),
+  submittedAt: timestamp("submitted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_questionnaire_responses_link").on(table.linkId),
+]);
+
+// Patient Questionnaire Uploads - File attachments from patients
+export const patientQuestionnaireUploads = pgTable("patient_questionnaire_uploads", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  responseId: varchar("response_id").notNull().references(() => patientQuestionnaireResponses.id, { onDelete: 'cascade' }),
+  category: varchar("category", { enum: ["medication_list", "diagnosis", "exam_result", "other"] }).notNull(),
+  fileName: varchar("file_name").notNull(),
+  fileUrl: varchar("file_url").notNull(), // Object storage URL
+  mimeType: varchar("mime_type"),
+  fileSize: integer("file_size"), // bytes
+  description: text("description"), // Patient's description of the file
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_questionnaire_uploads_response").on(table.responseId),
+]);
+
+// Patient Questionnaire Review - Doctor's review/mapping of patient data
+export const patientQuestionnaireReviews = pgTable("patient_questionnaire_reviews", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  responseId: varchar("response_id").notNull().references(() => patientQuestionnaireResponses.id, { onDelete: 'cascade' }),
+  reviewedBy: varchar("reviewed_by").notNull().references(() => users.id),
+  
+  // Mapping decisions - which patient answers were mapped to which professional fields
+  mappings: jsonb("mappings").$type<Record<string, {
+    patientValue: string;
+    professionalField: string;
+    professionalValue: any;
+    notes?: string;
+  }>>(),
+  
+  // Overall review notes
+  reviewNotes: text("review_notes"),
+  
+  // Link to pre-op assessment if merged
+  preOpAssessmentId: varchar("preop_assessment_id").references(() => preOpAssessments.id),
+  
+  status: varchar("status", { enum: ["pending", "partial", "completed"] }).default("pending").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+}, (table) => [
+  index("idx_questionnaire_reviews_response").on(table.responseId),
+  index("idx_questionnaire_reviews_assessment").on(table.preOpAssessmentId),
+]);
+
+// Insert schemas for questionnaire system
+export const insertPatientQuestionnaireLinkSchema = createInsertSchema(patientQuestionnaireLinks).omit({
+  id: true,
+  createdAt: true,
+  submittedAt: true,
+  reviewedAt: true,
+});
+
+export const insertPatientQuestionnaireResponseSchema = createInsertSchema(patientQuestionnaireResponses).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPatientQuestionnaireUploadSchema = createInsertSchema(patientQuestionnaireUploads).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertPatientQuestionnaireReviewSchema = createInsertSchema(patientQuestionnaireReviews).omit({
+  id: true,
+  createdAt: true,
+  completedAt: true,
+});
+
+// Types for questionnaire system
+export type PatientQuestionnaireLink = typeof patientQuestionnaireLinks.$inferSelect;
+export type InsertPatientQuestionnaireLink = z.infer<typeof insertPatientQuestionnaireLinkSchema>;
+export type PatientQuestionnaireResponse = typeof patientQuestionnaireResponses.$inferSelect;
+export type InsertPatientQuestionnaireResponse = z.infer<typeof insertPatientQuestionnaireResponseSchema>;
+export type PatientQuestionnaireUpload = typeof patientQuestionnaireUploads.$inferSelect;
+export type InsertPatientQuestionnaireUpload = z.infer<typeof insertPatientQuestionnaireUploadSchema>;
+export type PatientQuestionnaireReview = typeof patientQuestionnaireReviews.$inferSelect;
+export type InsertPatientQuestionnaireReview = z.infer<typeof insertPatientQuestionnaireReviewSchema>;
+
+// Extended illness list type with patient visibility metadata
+export type IllnessItemWithPatientMetadata = {
+  id: string;
+  label: string; // Professional label
+  patientVisible?: boolean; // Show in patient questionnaire
+  patientLabel?: string; // Patient-friendly label
+  patientHelpText?: string; // Explanation for patients
+};
