@@ -1,0 +1,519 @@
+import { Router } from "express";
+import type { Request, Response, NextFunction } from "express";
+import { storage } from "../storage";
+import { isAuthenticated } from "../auth/google";
+import { requireWriteAccess, requireHospitalAccess, getUserUnitForHospital } from "../utils";
+import { insertChatConversationSchema, insertChatMessageSchema, insertChatMentionSchema, insertChatAttachmentSchema } from "@shared/schema";
+import { z } from "zod";
+
+const createConversationSchema = z.object({
+  scopeType: z.enum(['self', 'direct', 'unit', 'hospital']),
+  title: z.string().optional().nullable(),
+  unitId: z.string().optional().nullable(),
+  patientId: z.string().optional().nullable(),
+  participantIds: z.array(z.string()).optional()
+});
+
+const createMessageSchema = z.object({
+  content: z.string().min(1, "Message content is required"),
+  messageType: z.enum(['text', 'file', 'image', 'system']).optional().default('text'),
+  replyToMessageId: z.string().optional().nullable(),
+  mentions: z.array(z.object({
+    type: z.enum(['user', 'unit', 'patient']),
+    userId: z.string().optional().nullable(),
+    unitId: z.string().optional().nullable(),
+    patientId: z.string().optional().nullable()
+  })).optional(),
+  attachments: z.array(z.object({
+    storageKey: z.string(),
+    filename: z.string(),
+    mimeType: z.string(),
+    sizeBytes: z.number(),
+    thumbnailKey: z.string().optional().nullable()
+  })).optional()
+});
+
+const updateConversationSchema = z.object({
+  title: z.string().optional()
+});
+
+const updateMessageSchema = z.object({
+  content: z.string().min(1, "Message content is required")
+});
+
+const addParticipantSchema = z.object({
+  userId: z.string().min(1, "userId is required"),
+  role: z.enum(['owner', 'admin', 'member']).optional().default('member')
+});
+
+const saveToPatientSchema = z.object({
+  patientId: z.string().min(1, "patientId is required")
+});
+
+interface AuthenticatedRequest extends Request {
+  user: {
+    id: string;
+    email: string;
+    firstName?: string;
+    lastName?: string;
+  };
+}
+
+const router = Router();
+
+async function verifyConversationAccess(req: any, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user.id;
+    const conversationId = req.params.conversationId;
+    
+    const conversation = await storage.getConversation(conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+    
+    const isParticipant = conversation.participants.some(p => p.userId === userId);
+    if (!isParticipant) {
+      return res.status(403).json({ message: "Access denied to this conversation" });
+    }
+    
+    (req as any).conversation = conversation;
+    next();
+  } catch (error) {
+    console.error("Error verifying conversation access:", error);
+    res.status(500).json({ message: "Failed to verify conversation access" });
+  }
+}
+
+router.get('/api/chat/:hospitalId/conversations', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+    
+    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const conversations = await storage.getConversations(userId, hospitalId);
+    res.json(conversations);
+  } catch (error) {
+    console.error("Error fetching conversations:", error);
+    res.status(500).json({ message: "Failed to fetch conversations" });
+  }
+});
+
+router.get('/api/chat/:hospitalId/conversations/self', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+    
+    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const conversation = await storage.getOrCreateSelfConversation(userId, hospitalId);
+    const fullConversation = await storage.getConversation(conversation.id);
+    res.json(fullConversation);
+  } catch (error) {
+    console.error("Error fetching/creating self conversation:", error);
+    res.status(500).json({ message: "Failed to get self conversation" });
+  }
+});
+
+router.post('/api/chat/:hospitalId/conversations', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+    
+    const validated = createConversationSchema.safeParse(req.body);
+    if (!validated.success) {
+      return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid request data" });
+    }
+    
+    const { scopeType, title, unitId: targetUnitId, patientId, participantIds } = validated.data;
+    
+    const userUnitId = await getUserUnitForHospital(userId, hospitalId);
+    if (!userUnitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    if (scopeType === 'direct' && participantIds && participantIds.length === 1) {
+      const existingConvo = await storage.findDirectConversation(userId, participantIds[0], hospitalId);
+      if (existingConvo) {
+        const fullConversation = await storage.getConversation(existingConvo.id);
+        return res.json(fullConversation);
+      }
+    }
+    
+    const conversation = await storage.createConversation({
+      hospitalId,
+      creatorId: userId,
+      scopeType,
+      title: title || null,
+      unitId: targetUnitId || null,
+      patientId: patientId || null
+    });
+    
+    if (participantIds && Array.isArray(participantIds)) {
+      for (const participantId of participantIds) {
+        if (participantId !== userId) {
+          await storage.addParticipant(conversation.id, participantId, "member");
+          
+          await storage.createNotification({
+            userId: participantId,
+            conversationId: conversation.id,
+            messageId: null,
+            notificationType: "new_conversation",
+            emailSent: false,
+            read: false
+          });
+        }
+      }
+    }
+    
+    const fullConversation = await storage.getConversation(conversation.id);
+    res.status(201).json(fullConversation);
+  } catch (error) {
+    console.error("Error creating conversation:", error);
+    res.status(500).json({ message: "Failed to create conversation" });
+  }
+});
+
+router.get('/api/chat/conversations/:conversationId', isAuthenticated, verifyConversationAccess, async (req: any, res) => {
+  try {
+    res.json(req.conversation);
+  } catch (error) {
+    console.error("Error fetching conversation:", error);
+    res.status(500).json({ message: "Failed to fetch conversation" });
+  }
+});
+
+router.patch('/api/chat/conversations/:conversationId', isAuthenticated, verifyConversationAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { conversationId } = req.params;
+    
+    const validated = updateConversationSchema.safeParse(req.body);
+    if (!validated.success) {
+      return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid request data" });
+    }
+    
+    const { title } = validated.data;
+    const updated = await storage.updateConversation(conversationId, { title });
+    const fullConversation = await storage.getConversation(conversationId);
+    res.json(fullConversation);
+  } catch (error) {
+    console.error("Error updating conversation:", error);
+    res.status(500).json({ message: "Failed to update conversation" });
+  }
+});
+
+router.delete('/api/chat/conversations/:conversationId', isAuthenticated, verifyConversationAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+    const conversation = req.conversation;
+    
+    const userParticipant = conversation.participants.find((p: any) => p.userId === userId);
+    if (userParticipant?.role !== 'owner') {
+      return res.status(403).json({ message: "Only the conversation owner can delete it" });
+    }
+    
+    await storage.deleteConversation(conversationId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting conversation:", error);
+    res.status(500).json({ message: "Failed to delete conversation" });
+  }
+});
+
+router.post('/api/chat/conversations/:conversationId/participants', isAuthenticated, verifyConversationAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { conversationId } = req.params;
+    const conversation = req.conversation;
+    
+    const validated = addParticipantSchema.safeParse(req.body);
+    if (!validated.success) {
+      return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid request data" });
+    }
+    
+    const { userId: newUserId, role } = validated.data;
+    
+    const userParticipant = conversation.participants.find((p: any) => p.userId === req.user.id);
+    if (!['owner', 'admin'].includes(userParticipant?.role)) {
+      return res.status(403).json({ message: "Only owners/admins can add participants" });
+    }
+    
+    const participant = await storage.addParticipant(conversationId, newUserId, role);
+    
+    await storage.createNotification({
+      userId: newUserId,
+      conversationId,
+      messageId: null,
+      notificationType: "new_conversation",
+      emailSent: false,
+      read: false
+    });
+    
+    const fullConversation = await storage.getConversation(conversationId);
+    res.status(201).json(fullConversation);
+  } catch (error) {
+    console.error("Error adding participant:", error);
+    res.status(500).json({ message: "Failed to add participant" });
+  }
+});
+
+router.delete('/api/chat/conversations/:conversationId/participants/:userId', isAuthenticated, verifyConversationAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { conversationId, userId: targetUserId } = req.params;
+    const currentUserId = req.user.id;
+    const conversation = req.conversation;
+    
+    const currentUserParticipant = conversation.participants.find((p: any) => p.userId === currentUserId);
+    
+    if (targetUserId !== currentUserId && !['owner', 'admin'].includes(currentUserParticipant?.role)) {
+      return res.status(403).json({ message: "Only owners/admins can remove other participants" });
+    }
+    
+    await storage.removeParticipant(conversationId, targetUserId);
+    
+    if (targetUserId === currentUserId) {
+      return res.json({ success: true, left: true });
+    }
+    
+    const fullConversation = await storage.getConversation(conversationId);
+    res.json(fullConversation);
+  } catch (error) {
+    console.error("Error removing participant:", error);
+    res.status(500).json({ message: "Failed to remove participant" });
+  }
+});
+
+router.post('/api/chat/conversations/:conversationId/read', isAuthenticated, verifyConversationAccess, async (req: any, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+    
+    await storage.markConversationRead(conversationId, userId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error marking conversation as read:", error);
+    res.status(500).json({ message: "Failed to mark conversation as read" });
+  }
+});
+
+router.get('/api/chat/conversations/:conversationId/messages', isAuthenticated, verifyConversationAccess, async (req: any, res) => {
+  try {
+    const { conversationId } = req.params;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const before = req.query.before ? new Date(req.query.before as string) : undefined;
+    
+    const messages = await storage.getMessages(conversationId, limit, before);
+    res.json(messages);
+  } catch (error) {
+    console.error("Error fetching messages:", error);
+    res.status(500).json({ message: "Failed to fetch messages" });
+  }
+});
+
+router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated, verifyConversationAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+    
+    const validated = createMessageSchema.safeParse(req.body);
+    if (!validated.success) {
+      return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid request data" });
+    }
+    
+    const { content, messageType, replyToMessageId, mentions, attachments } = validated.data;
+    
+    const message = await storage.createMessage({
+      conversationId,
+      senderId: userId,
+      content,
+      messageType,
+      replyToMessageId: replyToMessageId || null
+    });
+    
+    if (mentions && Array.isArray(mentions)) {
+      for (const mention of mentions) {
+        await storage.createMention({
+          messageId: message.id,
+          mentionType: mention.type,
+          mentionedUserId: mention.userId || null,
+          mentionedUnitId: mention.unitId || null,
+          mentionedPatientId: mention.patientId || null
+        });
+        
+        if (mention.type === 'user' && mention.userId && mention.userId !== userId) {
+          await storage.createNotification({
+            userId: mention.userId,
+            conversationId,
+            messageId: message.id,
+            notificationType: "mention",
+            emailSent: false,
+            read: false
+          });
+        }
+      }
+    }
+    
+    if (attachments && Array.isArray(attachments)) {
+      for (const attachment of attachments) {
+        await storage.createAttachment({
+          messageId: message.id,
+          storageKey: attachment.storageKey,
+          filename: attachment.filename,
+          mimeType: attachment.mimeType,
+          sizeBytes: attachment.sizeBytes,
+          thumbnailKey: attachment.thumbnailKey || null,
+          savedToPatientId: null
+        });
+      }
+    }
+    
+    const conversation = req.conversation;
+    for (const participant of conversation.participants) {
+      if (participant.userId !== userId) {
+        await storage.createNotification({
+          userId: participant.userId,
+          conversationId,
+          messageId: message.id,
+          notificationType: "new_message",
+          emailSent: false,
+          read: false
+        });
+      }
+    }
+    
+    const fullMessages = await storage.getMessages(conversationId, 1);
+    const fullMessage = fullMessages.find(m => m.id === message.id) || message;
+    
+    res.status(201).json(fullMessage);
+  } catch (error) {
+    console.error("Error creating message:", error);
+    res.status(500).json({ message: "Failed to create message" });
+  }
+});
+
+router.patch('/api/chat/messages/:messageId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user.id;
+    
+    const validated = updateMessageSchema.safeParse(req.body);
+    if (!validated.success) {
+      return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid request data" });
+    }
+    
+    const { content } = validated.data;
+    
+    const message = await storage.getMessage(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+    
+    if (message.senderId !== userId) {
+      return res.status(403).json({ message: "You can only edit your own messages" });
+    }
+    
+    const updated = await storage.updateMessage(messageId, content);
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating message:", error);
+    res.status(500).json({ message: "Failed to update message" });
+  }
+});
+
+router.delete('/api/chat/messages/:messageId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { messageId } = req.params;
+    const userId = req.user.id;
+    
+    const message = await storage.getMessage(messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+    
+    if (message.senderId !== userId) {
+      return res.status(403).json({ message: "You can only delete your own messages" });
+    }
+    
+    const deleted = await storage.deleteMessage(messageId);
+    res.json(deleted);
+  } catch (error) {
+    console.error("Error deleting message:", error);
+    res.status(500).json({ message: "Failed to delete message" });
+  }
+});
+
+router.get('/api/chat/:hospitalId/notifications', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { hospitalId } = req.params;
+    
+    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const notifications = await storage.getUnreadNotifications(userId);
+    res.json(notifications);
+  } catch (error) {
+    console.error("Error fetching notifications:", error);
+    res.status(500).json({ message: "Failed to fetch notifications" });
+  }
+});
+
+router.post('/api/chat/notifications/:notificationId/read', isAuthenticated, async (req: any, res) => {
+  try {
+    const { notificationId } = req.params;
+    
+    const updated = await storage.markNotificationRead(notificationId);
+    res.json(updated);
+  } catch (error) {
+    console.error("Error marking notification as read:", error);
+    res.status(500).json({ message: "Failed to mark notification as read" });
+  }
+});
+
+router.get('/api/chat/:hospitalId/mentions', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { hospitalId } = req.params;
+    const unreadOnly = req.query.unread === 'true';
+    
+    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const mentions = await storage.getMentionsForUser(userId, hospitalId, unreadOnly);
+    res.json(mentions);
+  } catch (error) {
+    console.error("Error fetching mentions:", error);
+    res.status(500).json({ message: "Failed to fetch mentions" });
+  }
+});
+
+router.patch('/api/chat/attachments/:attachmentId/save-to-patient', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { attachmentId } = req.params;
+    
+    const validated = saveToPatientSchema.safeParse(req.body);
+    if (!validated.success) {
+      return res.status(400).json({ message: validated.error.errors[0]?.message || "Invalid request data" });
+    }
+    
+    const { patientId } = validated.data;
+    
+    const updated = await storage.updateAttachment(attachmentId, { savedToPatientId: patientId });
+    res.json(updated);
+  } catch (error) {
+    console.error("Error saving attachment to patient:", error);
+    res.status(500).json({ message: "Failed to save attachment to patient" });
+  }
+});
+
+export default router;

@@ -7,6 +7,7 @@ import anesthesiaRouter from "./anesthesia";
 import businessRouter from "./business";
 import clinicRouter from "./clinic";
 import surgeonChecklistsRouter from "./surgeonChecklists";
+import chatRouter from "./chat";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -17,4 +18,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(businessRouter);
   app.use(clinicRouter);
   app.use(surgeonChecklistsRouter);
+  app.use(chatRouter);
 }
