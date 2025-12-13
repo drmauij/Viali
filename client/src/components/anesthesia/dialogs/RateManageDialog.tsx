@@ -146,16 +146,81 @@ export function RateManageDialog({
           </DialogTitle>
           <DialogDescription>
             {isTciMode 
-              ? (isRunning ? t("anesthesia.timeline.tciEnterActualAmount") : "TCI infusion stopped")
+              ? (isRunning ? t("anesthesia.timeline.tciManageDescription", "Adjust target concentration or stop infusion") : "TCI infusion stopped")
               : (isRunning ? "Adjust or change infusion rate" : "This infusion is currently stopped")
             }
           </DialogDescription>
         </DialogHeader>
         
         <div className="grid gap-4 py-4">
-          {/* TCI Mode - Show amount input for stopping */}
+          {/* TCI Mode - Show Tc adjustment AND stop with amount */}
           {isTciMode && isRunning ? (
             <>
+              {/* Target Concentration Adjustment */}
+              <div className="grid gap-3">
+                <Label htmlFor="rate-input" className="text-sm font-medium">
+                  {t("anesthesia.timeline.tciTargetConcentration", "Target Concentration")} (Tc)
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={decrementRate}
+                    data-testid="button-decrement-tc"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  <Input
+                    id="rate-input"
+                    type="number"
+                    inputMode="decimal"
+                    className="text-center text-2xl font-bold h-14"
+                    data-testid="input-tc-manage"
+                    value={rateInput}
+                    onChange={(e) => setRateInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSaveRate();
+                      }
+                    }}
+                    placeholder="0"
+                    autoFocus
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={incrementRate}
+                    data-testid="button-increment-tc"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground min-w-[40px]">
+                    Tc
+                  </span>
+                </div>
+                <Button
+                  onClick={handleSaveRate}
+                  disabled={!rateInput.trim() || isNaN(Number(rateInput)) || Number(rateInput) <= 0 || rateInput === managingRate?.value}
+                  className="w-full"
+                  data-testid="button-save-tc"
+                >
+                  {t("anesthesia.timeline.tciChangeTc", "Change Target")}
+                </Button>
+              </div>
+
+              {/* Divider */}
+              <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">
+                    {t("common.or", "or")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Stop TCI with amount */}
               <div className="grid gap-3">
                 <Label htmlFor="tci-amount-input" className="text-sm font-medium">
                   {t("anesthesia.timeline.tciActualAmountUsed")} {ampuleUnit ? `(${ampuleUnit})` : (administrationUnit ? `(${administrationUnit})` : '')}
@@ -174,7 +239,6 @@ export function RateManageDialog({
                     }
                   }}
                   placeholder="0"
-                  autoFocus
                 />
                 <p className="text-xs text-muted-foreground">
                   {t("anesthesia.timeline.tciAmountHelp")}
@@ -184,6 +248,7 @@ export function RateManageDialog({
               <Button
                 onClick={handleTciStopInfusion}
                 disabled={!tciAmountInput.trim() || isNaN(Number(tciAmountInput)) || Number(tciAmountInput) <= 0}
+                variant="destructive"
                 className="w-full"
                 data-testid="button-tci-stop"
               >
