@@ -541,6 +541,7 @@ export function MedicationConfigDialog({
                           <SelectItem value="μg/min">μg/min</SelectItem>
                           <SelectItem value="mg/kg/h">mg/kg/h</SelectItem>
                           <SelectItem value="mg/min">mg/min</SelectItem>
+                          <SelectItem value="TCI">{t("anesthesia.timeline.tciTargetConcentration")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
