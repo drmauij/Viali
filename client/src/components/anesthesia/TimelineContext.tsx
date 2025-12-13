@@ -51,6 +51,7 @@ export type SwimlaneConfig = {
   rateUnit?: string | null;
   defaultDose?: string | null;
   administrationUnit?: string | null;
+  ampuleTotalContent?: string | null;
   itemId?: string;
   hierarchyLevel?: 'parent' | 'group' | 'item';
 };

@@ -73,9 +73,12 @@ const UnifiedInfusion = ({
   const lineYOffset = swimlaneHeight - 2;
   const visibleRange = visibleEnd - visibleStart;
   
-  // For TCI mode while running, show "Running" instead of rate
+  // Check running state
   const isRunning = endTime === null;
-  const tciRunningText = isTciMode && isRunning ? t("anesthesia.timeline.tciRunning") : null;
+  
+  // For TCI mode, show target concentration with "Tc" unit in the segment (not "Running")
+  // The "Running" text will be shown in the right-side pill instead
+  const tciDisplayText = isTciMode ? `${startDose} Tc` : null;
   
   // Build display text with unit, optional initial bolus, and optional note in parentheses
   const unit = administrationUnit || '';
@@ -98,8 +101,8 @@ const UnifiedInfusion = ({
   // For rate-controlled infusions with initial bolus, show: "<rate> - <bolus> <baseUnit>"
   const bolusDisplay = initialBolus ? ` - ${initialBolus} ${bolusUnit}` : '';
   const rateAndBolus = `${doseWithUnit}${bolusDisplay}`;
-  // For TCI mode while running, override with "Running" text
-  const displayText = tciRunningText || (startNote ? `${rateAndBolus} (${startNote})` : rateAndBolus);
+  // For TCI mode, show target concentration (e.g., "5 Tc") instead of rate unit
+  const displayText = tciDisplayText || (startNote ? `${rateAndBolus} (${startNote})` : rateAndBolus);
   
   // Calculate actual start position (before clipping)
   const actualStartPercent = ((startTime - visibleStart) / visibleRange) * 100;
@@ -441,7 +444,7 @@ export interface MedicationsSwimlaneProps {
   onRateStopDialogOpen: (session: RateInfusionSession, clickTime: number) => void;
   onRateRestartDialogOpen: (previousSession: RateInfusionSession, clickTime: number) => void;
   onRateSheetOpen: (session: { swimlaneId: string; label: string; clickMode: 'label' | 'segment'; rateUnit: string; defaultDose?: string }, rateInput: string, timeInput: number, quantityInput?: string) => void;
-  onRateManageDialogOpen: (managing: { swimlaneId: string; time: number; value: string; index: number; label: string; rateOptions?: string[]; rateUnit?: string; sessionId?: string; itemId?: string; isRunning?: boolean; administrationUnit?: string | null }, time: number, input: string) => void;
+  onRateManageDialogOpen: (managing: { swimlaneId: string; time: number; value: string; index: number; label: string; rateOptions?: string[]; rateUnit?: string; sessionId?: string; itemId?: string; isRunning?: boolean; administrationUnit?: string | null; ampuleUnit?: string | null }, time: number, input: string) => void;
   onRateSelectionDialogOpen: (pending: { swimlaneId: string; time: number; label: string; rateOptions: string[]; itemId?: string; administrationUnit?: string | null }) => void;
 }
 
@@ -491,6 +494,13 @@ export function MedicationsSwimlane({
   
   // Wrapper to convert timestamp to Date for formatTime
   const formatTime = (timestamp: number) => originalFormatTime(new Date(timestamp));
+  
+  // Helper: Parse ampule unit from ampuleTotalContent (e.g., "200 mg" → "mg")
+  const parseAmpuleUnit = (content: string | null | undefined): string | null => {
+    if (!content) return null;
+    const match = content.match(/[\d.,]+\s*(.+)/);
+    return match ? match[1].trim() : null;
+  };
 
   // Toast for notifications
   const { toast } = useToast();
@@ -727,18 +737,23 @@ export function MedicationsSwimlane({
                     ? lane.defaultDose.split('-').map(v => v.trim()).filter(v => v)
                     : undefined;
                   
+                  // Check if this is TCI mode to pass ampule unit for stop dialog
+                  const isTciModeSession = lane.rateUnit === "TCI";
+                  
                   onRateManageDialogOpen(
                     {
                       swimlaneId: lane.id,
                       time: currentTime, // Use current time for proper forward-looking management
                       value: currentRate,
                       index: 0,
-                      label: `${lane.label.trim()} (${rateUnit})`, // Include rate unit in label
+                      label: `${lane.label.trim()} (${isTciModeSession ? 'TCI' : rateUnit})`, // Include rate unit in label
                       rateOptions,
-                      rateUnit, // Pass the rate unit for display in dialog
+                      rateUnit: isTciModeSession ? "TCI" : rateUnit, // Pass the rate unit for display in dialog
                       sessionId: session.id, // Add session ID for mutations
                       itemId: lane.itemId, // Add item ID for creating new records
                       isRunning: true, // Session is running (no endTime)
+                      administrationUnit: lane.administrationUnit,
+                      ampuleUnit: isTciModeSession ? parseAmpuleUnit(lane.ampuleTotalContent) : null,
                     },
                     currentTime,
                     currentRate
@@ -1238,6 +1253,84 @@ export function MedicationsSwimlane({
                       }
                     }
                   } else if (lane.defaultDose) {
+                    // Check if TCI mode - auto-start immediately without dialog
+                    const isTciMode = lane.rateUnit === "TCI";
+                    
+                    if (isTciMode) {
+                      // TCI MODE: Check for existing sessions first
+                      const sessions = rateInfusionSessions[lane.id] || [];
+                      console.log('[TCI-CLICK] Checking sessions:', { swimlaneId: lane.id, count: sessions.length, time });
+                      
+                      // Find if click is within any session (running or stopped)
+                      const clickedSession = sessions.find(session => {
+                        const sessionStart = session.startTime;
+                        const sessionEnd = session.endTime || Infinity;
+                        return time >= sessionStart && time <= sessionEnd;
+                      });
+                      
+                      if (clickedSession) {
+                        if (!clickedSession.endTime) {
+                          // Clicked on RUNNING TCI infusion → open manage dialog
+                          console.log('[TCI-CLICK] Clicked on running TCI infusion - opening manage dialog');
+                          const currentRate = clickedSession.segments[clickedSession.segments.length - 1]?.rate || lane.defaultDose;
+                          
+                          onRateManageDialogOpen(
+                            {
+                              swimlaneId: lane.id,
+                              time: time,
+                              value: currentRate,
+                              index: 0,
+                              label: `${lane.label.trim()} (TCI)`,
+                              rateOptions: undefined,
+                              rateUnit: "TCI",
+                              sessionId: clickedSession.id,
+                              itemId: lane.itemId,
+                              isRunning: true,
+                              administrationUnit: lane.administrationUnit,
+                              ampuleUnit: parseAmpuleUnit(lane.ampuleTotalContent),
+                            },
+                            time,
+                            currentRate
+                          );
+                        } else {
+                          // Clicked on STOPPED TCI infusion → open restart (same as rate selection for now)
+                          console.log('[TCI-CLICK] Clicked on stopped TCI infusion - auto-starting new');
+                          // Auto-start new TCI session with default dose
+                          const groupMatch = lane.id.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
+                          if (groupMatch && anesthesiaRecordId) {
+                            const itemId = groupMatch[2];
+                            createMedicationMutation.mutate({
+                              anesthesiaRecordId,
+                              itemId: itemId,
+                              timestamp: new Date(time),
+                              type: 'infusion_start' as const,
+                              rate: lane.defaultDose,
+                              rateUnit: "TCI",
+                            });
+                            console.log('[TCI-CLICK] Auto-started new TCI session after stopped one');
+                          }
+                        }
+                        return;
+                      }
+                      
+                      // No session clicked - AUTO-START TCI immediately with defaultDose
+                      console.log('[TCI-CLICK] No session - auto-starting TCI with rate:', lane.defaultDose);
+                      const groupMatch = lane.id.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
+                      if (groupMatch && anesthesiaRecordId) {
+                        const itemId = groupMatch[2];
+                        createMedicationMutation.mutate({
+                          anesthesiaRecordId,
+                          itemId: itemId,
+                          timestamp: new Date(time),
+                          type: 'infusion_start' as const,
+                          rate: lane.defaultDose,
+                          rateUnit: "TCI",
+                        });
+                        console.log('[TCI-CLICK] TCI infusion auto-started');
+                      }
+                      return;
+                    }
+                    
                     // Check if defaultDose is a range (contains dashes like "6-12-16")
                     const isRange = lane.defaultDose.includes('-');
                     

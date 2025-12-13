@@ -30,6 +30,7 @@ interface RateManageDialogProps {
   onTciStop?: (amountUsed: string) => void;
   isRunning?: boolean;
   administrationUnit?: string | null;
+  ampuleUnit?: string | null;
 }
 
 export function RateManageDialog({
@@ -46,6 +47,7 @@ export function RateManageDialog({
   onTciStop,
   isRunning: isRunningProp,
   administrationUnit,
+  ampuleUnit,
 }: RateManageDialogProps) {
   const { t } = useTranslation();
   const [rateInput, setRateInput] = useState("");
@@ -156,7 +158,7 @@ export function RateManageDialog({
             <>
               <div className="grid gap-3">
                 <Label htmlFor="tci-amount-input" className="text-sm font-medium">
-                  {t("anesthesia.timeline.tciActualAmountUsed")} {administrationUnit ? `(${administrationUnit})` : ''}
+                  {t("anesthesia.timeline.tciActualAmountUsed")} {ampuleUnit ? `(${ampuleUnit})` : (administrationUnit ? `(${administrationUnit})` : '')}
                 </Label>
                 <Input
                   id="tci-amount-input"

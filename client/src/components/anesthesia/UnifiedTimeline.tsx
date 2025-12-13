@@ -228,6 +228,7 @@ type SwimlaneConfig = {
   rateUnit?: string | null;
   defaultDose?: string | null; // Default dose value (e.g., "12" or "25-35-50" for ranges)
   administrationUnit?: string | null; // Unit for doses (e.g., "mg", "μg", "ml")
+  ampuleTotalContent?: string | null; // Ampule total content (e.g., "200 mg") for TCI actual amount unit
   itemId?: string; // Reference to the original item
   hierarchyLevel?: 'parent' | 'group' | 'item'; // For three-level hierarchy styling
 };
@@ -1972,6 +1973,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     itemId?: string; // item ID for creating new records
     isRunning?: boolean; // whether the infusion is currently running
     administrationUnit?: string | null; // unit for initial bolus display
+    ampuleUnit?: string | null; // unit for TCI actual amount entry (parsed from ampuleTotalContent)
   } | null>(null);
   const [rateManageTime, setRateManageTime] = useState<number>(0);
   const [rateManageInput, setRateManageInput] = useState("");
@@ -2483,6 +2485,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 rateUnit: item.rateUnit ?? null,
                 defaultDose: item.defaultDose ?? null,
                 administrationUnit: item.administrationUnit ?? null,
+                ampuleTotalContent: item.ampuleTotalContent ?? null,
                 itemId: item.id,
                 hierarchyLevel: 'item',
               });
@@ -6712,7 +6715,40 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           const isItem = swimlaneConfig?.hierarchyLevel === 'item' && lane.itemId;
           const cumulativeDose = cumulativeDoses[lane.id];
           
-          if (!isItem || !cumulativeDose || cumulativeDose.total <= 0) return null;
+          // Check if this is an active TCI infusion (show "Running" instead of calculated total)
+          const isTciMode = swimlaneConfig?.rateUnit === "TCI";
+          const sessions = rateInfusionSessions[lane.id] || [];
+          const hasRunningTciSession = isTciMode && sessions.some(s => !s.endTime);
+          
+          // For TCI, show "Running" while active, or show total if stopped
+          // For non-TCI, show calculated total
+          if (!isItem) return null;
+          
+          // If TCI is running, show "Running" badge
+          if (hasRunningTciSession) {
+            const topOffset = lane.top - (VITALS_TOP_POS + VITALS_HEIGHT);
+            return (
+              <div
+                key={`cumulative-${lane.id}`}
+                className="absolute right-1 flex items-center justify-end"
+                style={{
+                  top: `${topOffset}px`,
+                  height: `${lane.height}px`,
+                }}
+              >
+                <span 
+                  className="px-1.5 py-0.5 text-[10px] font-medium bg-amber-500 text-white rounded-full whitespace-nowrap shadow-sm animate-pulse"
+                  data-testid={`badge-cumulative-dose-${lane.id}`}
+                  title={t("anesthesia.timeline.tciRunning")}
+                >
+                  {t("anesthesia.timeline.tciRunning")}
+                </span>
+              </div>
+            );
+          }
+          
+          // For stopped TCI or non-TCI, show cumulative dose if available
+          if (!cumulativeDose || cumulativeDose.total <= 0) return null;
           
           // Calculate position relative to the right panel's top
           const topOffset = lane.top - (VITALS_TOP_POS + VITALS_HEIGHT);
@@ -8332,6 +8368,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onTciStop={handleTciStop}
         isRunning={managingRate?.isRunning}
         administrationUnit={managingRate?.administrationUnit}
+        ampuleUnit={managingRate?.ampuleUnit}
       />
 
       {/* Output Value Entry Dialog */}
