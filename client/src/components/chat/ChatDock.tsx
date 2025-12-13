@@ -184,13 +184,14 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
   });
 
   const { data: users = [] } = useQuery<Array<{id: string; firstName?: string; lastName?: string; email?: string}>>({
-    queryKey: ['/api/users', activeHospital?.id],
+    queryKey: ['/api/hospitals', activeHospital?.id, 'users-by-module'],
     queryFn: async () => {
-      const response = await fetch(`/api/users?hospitalId=${activeHospital?.id}`, {
+      const response = await fetch(`/api/hospitals/${activeHospital?.id}/users-by-module`, {
         credentials: 'include',
       });
       if (!response.ok) return [];
-      return response.json();
+      const data = await response.json();
+      return data.users || [];
     },
     enabled: !!activeHospital?.id && (view === 'new' || view === 'conversation'),
   });
@@ -234,12 +235,22 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
           return fullName.includes(searchLower);
         })
         .slice(0, 5)
-        .map(p => ({
-          type: 'patient' as const,
-          id: p.id,
-          display: `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Unknown Patient',
-          subtext: p.dateOfBirth ? `DOB: ${p.dateOfBirth}` : undefined
-        }));
+        .map(p => {
+          let formattedDob = '';
+          if (p.dateOfBirth) {
+            try {
+              formattedDob = format(new Date(p.dateOfBirth), 'dd.MM.yyyy');
+            } catch {
+              formattedDob = p.dateOfBirth;
+            }
+          }
+          return {
+            type: 'patient' as const,
+            id: p.id,
+            display: `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Unknown Patient',
+            subtext: formattedDob ? `* ${formattedDob}` : undefined
+          };
+        });
     }
     
     return [];
