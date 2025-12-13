@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,7 +28,12 @@ import {
   CheckCircle2,
   Plus,
   X,
-  Info
+  Info,
+  Paperclip,
+  Upload,
+  FileText,
+  Image as ImageIcon,
+  Trash2
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n/config";
@@ -43,6 +48,16 @@ interface Medication {
 interface ConditionState {
   checked: boolean;
   notes?: string;
+}
+
+interface FileUpload {
+  id: string;
+  fileName: string;
+  mimeType?: string;
+  fileSize?: number;
+  category: 'medication_list' | 'diagnosis' | 'exam_result' | 'other';
+  description?: string;
+  isUploading?: boolean;
 }
 
 interface QuestionnaireConfig {
@@ -92,6 +107,14 @@ interface QuestionnaireConfig {
     label: string;
     helpText?: string;
   }>;
+  existingUploads?: Array<{
+    id: string;
+    fileName: string;
+    mimeType?: string;
+    fileSize?: number;
+    category: 'medication_list' | 'diagnosis' | 'exam_result' | 'other';
+    description?: string;
+  }>;
 }
 
 interface FormData {
@@ -129,6 +152,7 @@ const STEPS = [
   { id: "allergies", icon: AlertTriangle, labelKey: "questionnaire.steps.allergies" },
   { id: "lifestyle", icon: Cigarette, labelKey: "questionnaire.steps.lifestyle" },
   { id: "history", icon: Stethoscope, labelKey: "questionnaire.steps.history" },
+  { id: "uploads", icon: Paperclip, labelKey: "questionnaire.steps.uploads" },
   { id: "notes", icon: MessageSquare, labelKey: "questionnaire.steps.notes" },
 ];
 
@@ -186,6 +210,23 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.history.pregnancy.yes": "Pregnant",
     "questionnaire.history.breastfeeding": "Currently breastfeeding",
     "questionnaire.history.womanNotes": "Additional information",
+    "questionnaire.uploads.title": "Document Uploads",
+    "questionnaire.uploads.subtitle": "Upload photos of medication lists, diagnoses, or test results (optional)",
+    "questionnaire.uploads.selectFiles": "Select Files",
+    "questionnaire.uploads.dragDrop": "or drag and drop files here",
+    "questionnaire.uploads.supportedFormats": "Supported: Images (JPG, PNG), PDF documents",
+    "questionnaire.uploads.maxSize": "Maximum file size: 10 MB",
+    "questionnaire.uploads.category": "Category",
+    "questionnaire.uploads.category.medication_list": "Medication List",
+    "questionnaire.uploads.category.diagnosis": "Diagnosis/Report",
+    "questionnaire.uploads.category.exam_result": "Exam Result",
+    "questionnaire.uploads.category.other": "Other",
+    "questionnaire.uploads.uploading": "Uploading...",
+    "questionnaire.uploads.uploadError": "Upload failed",
+    "questionnaire.uploads.deleteConfirm": "Delete this file?",
+    "questionnaire.uploads.noFiles": "No files uploaded yet",
+    "questionnaire.uploads.skip": "You can skip this step if you have no documents to upload",
+    "questionnaire.steps.uploads": "Documents",
     "questionnaire.notes.additional": "Additional Notes",
     "questionnaire.notes.additionalHint": "Any other information you think is important",
     "questionnaire.notes.questions": "Questions for Your Doctor",
@@ -261,6 +302,23 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.history.pregnancy.yes": "Schwanger",
     "questionnaire.history.breastfeeding": "Stillt derzeit",
     "questionnaire.history.womanNotes": "Zusätzliche Informationen",
+    "questionnaire.uploads.title": "Dokumente hochladen",
+    "questionnaire.uploads.subtitle": "Laden Sie Fotos von Medikamentenlisten, Diagnosen oder Untersuchungsergebnissen hoch (optional)",
+    "questionnaire.uploads.selectFiles": "Dateien auswählen",
+    "questionnaire.uploads.dragDrop": "oder Dateien hierher ziehen",
+    "questionnaire.uploads.supportedFormats": "Unterstützt: Bilder (JPG, PNG), PDF-Dokumente",
+    "questionnaire.uploads.maxSize": "Maximale Dateigröße: 10 MB",
+    "questionnaire.uploads.category": "Kategorie",
+    "questionnaire.uploads.category.medication_list": "Medikamentenliste",
+    "questionnaire.uploads.category.diagnosis": "Diagnose/Bericht",
+    "questionnaire.uploads.category.exam_result": "Untersuchungsergebnis",
+    "questionnaire.uploads.category.other": "Sonstiges",
+    "questionnaire.uploads.uploading": "Wird hochgeladen...",
+    "questionnaire.uploads.uploadError": "Hochladen fehlgeschlagen",
+    "questionnaire.uploads.deleteConfirm": "Diese Datei löschen?",
+    "questionnaire.uploads.noFiles": "Noch keine Dateien hochgeladen",
+    "questionnaire.uploads.skip": "Sie können diesen Schritt überspringen, wenn Sie keine Dokumente hochladen möchten",
+    "questionnaire.steps.uploads": "Dokumente",
     "questionnaire.notes.additional": "Zusätzliche Hinweise",
     "questionnaire.notes.additionalHint": "Sonstige Informationen, die Sie für wichtig halten",
     "questionnaire.notes.questions": "Fragen an Ihren Arzt",
@@ -291,6 +349,8 @@ export default function PatientQuestionnaire() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [language, setLanguage] = useState<string>("de");
+  const [uploads, setUploads] = useState<FileUpload[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const t = useCallback((key: string) => {
     return translations[language]?.[key] || translations["en"]?.[key] || key;
@@ -374,6 +434,14 @@ export default function PatientQuestionnaire() {
       if (existing?.currentStep) {
         setCurrentStep(existing.currentStep);
       }
+
+      // Load existing uploads
+      if (config.existingUploads && config.existingUploads.length > 0) {
+        setUploads(config.existingUploads.map(u => ({
+          ...u,
+          isUploading: false,
+        })));
+      }
     }
   }, [config]);
 
@@ -411,6 +479,103 @@ export default function PatientQuestionnaire() {
     },
     onSuccess: () => setIsSubmitted(true),
   });
+
+  const handleFileUpload = useCallback(async (file: File, category: FileUpload['category'] = 'other') => {
+    if (!token) return;
+    
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setUploadError(t("questionnaire.uploads.maxSize"));
+      return;
+    }
+
+    const tempId = `temp-${Date.now()}`;
+    const newUpload: FileUpload = {
+      id: tempId,
+      fileName: file.name,
+      mimeType: file.type,
+      fileSize: file.size,
+      category,
+      isUploading: true,
+    };
+    
+    setUploads(prev => [...prev, newUpload]);
+    setUploadError(null);
+
+    try {
+      // Step 1: Get presigned upload URL
+      const urlRes = await fetch(`/api/public/questionnaire/${token}/upload-url`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileName: file.name, mimeType: file.type }),
+      });
+      
+      if (!urlRes.ok) {
+        throw new Error("Failed to get upload URL");
+      }
+      
+      const { uploadUrl, fileUrl } = await urlRes.json();
+
+      // Step 2: Upload file to S3
+      const uploadRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      
+      if (!uploadRes.ok) {
+        throw new Error("Failed to upload file");
+      }
+
+      // Step 3: Register upload with backend
+      const registerRes = await fetch(`/api/public/questionnaire/${token}/upload`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fileName: file.name,
+          fileUrl,
+          mimeType: file.type,
+          fileSize: file.size,
+          category,
+        }),
+      });
+      
+      if (!registerRes.ok) {
+        throw new Error("Failed to register upload");
+      }
+      
+      const result = await registerRes.json();
+      
+      // Update upload with real ID
+      setUploads(prev => prev.map(u => 
+        u.id === tempId 
+          ? { ...u, id: result.id, isUploading: false }
+          : u
+      ));
+    } catch (err) {
+      console.error("Upload error:", err);
+      setUploadError(t("questionnaire.uploads.uploadError"));
+      setUploads(prev => prev.filter(u => u.id !== tempId));
+    }
+  }, [token, t]);
+
+  const handleDeleteUpload = useCallback(async (uploadId: string) => {
+    if (!token) return;
+    
+    try {
+      const res = await fetch(`/api/public/questionnaire/${token}/upload/${uploadId}`, {
+        method: "DELETE",
+      });
+      
+      if (!res.ok) {
+        throw new Error("Failed to delete");
+      }
+      
+      setUploads(prev => prev.filter(u => u.id !== uploadId));
+    } catch (err) {
+      console.error("Delete error:", err);
+    }
+  }, [token]);
 
   const handleNext = useCallback(() => {
     const stepId = STEPS[currentStep].id;
@@ -606,6 +771,15 @@ export default function PatientQuestionnaire() {
               />
             )}
             {currentStep === 6 && (
+              <UploadsStep
+                uploads={uploads}
+                uploadError={uploadError}
+                onUpload={handleFileUpload}
+                onDelete={handleDeleteUpload}
+                t={t}
+              />
+            )}
+            {currentStep === 7 && (
               <NotesStep
                 formData={formData}
                 updateField={updateField}
@@ -1194,6 +1368,182 @@ function HistoryStep({ formData, updateField, t }: StepProps) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+interface UploadsStepProps {
+  uploads: FileUpload[];
+  uploadError: string | null;
+  onUpload: (file: File, category: FileUpload['category']) => void;
+  onDelete: (uploadId: string) => void;
+  t: (key: string) => string;
+}
+
+function UploadsStep({ uploads, uploadError, onUpload, onDelete, t }: UploadsStepProps) {
+  const [selectedCategory, setSelectedCategory] = useState<FileUpload['category']>('other');
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach(file => onUpload(file, selectedCategory));
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files) {
+      Array.from(files).forEach(file => onUpload(file, selectedCategory));
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragOver(false);
+  };
+
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const getFileIcon = (mimeType?: string) => {
+    if (mimeType?.startsWith('image/')) return <ImageIcon className="h-5 w-5" />;
+    return <FileText className="h-5 w-5" />;
+  };
+
+  const categories: { value: FileUpload['category']; labelKey: string }[] = [
+    { value: 'medication_list', labelKey: 'questionnaire.uploads.category.medication_list' },
+    { value: 'diagnosis', labelKey: 'questionnaire.uploads.category.diagnosis' },
+    { value: 'exam_result', labelKey: 'questionnaire.uploads.category.exam_result' },
+    { value: 'other', labelKey: 'questionnaire.uploads.category.other' },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="font-semibold text-lg mb-1">{t("questionnaire.uploads.title")}</h3>
+        <p className="text-sm text-gray-500 mb-4">{t("questionnaire.uploads.subtitle")}</p>
+      </div>
+
+      <div className="space-y-3">
+        <Label>{t("questionnaire.uploads.category")}</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {categories.map(cat => (
+            <button
+              key={cat.value}
+              type="button"
+              onClick={() => setSelectedCategory(cat.value)}
+              className={`p-2 text-sm rounded border transition-colors ${
+                selectedCategory === cat.value
+                  ? 'bg-primary text-primary-foreground border-primary'
+                  : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+              }`}
+              data-testid={`category-${cat.value}`}
+            >
+              {t(cat.labelKey)}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+          isDragOver
+            ? 'border-primary bg-primary/5'
+            : 'border-gray-300 dark:border-gray-600'
+        }`}
+      >
+        <Upload className="h-10 w-10 mx-auto mb-3 text-gray-400" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept="image/*,.pdf"
+          onChange={handleFileSelect}
+          className="hidden"
+          data-testid="file-input"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => fileInputRef.current?.click()}
+          data-testid="button-select-files"
+        >
+          {t("questionnaire.uploads.selectFiles")}
+        </Button>
+        <p className="text-sm text-gray-500 mt-2">{t("questionnaire.uploads.dragDrop")}</p>
+        <p className="text-xs text-gray-400 mt-1">{t("questionnaire.uploads.supportedFormats")}</p>
+        <p className="text-xs text-gray-400">{t("questionnaire.uploads.maxSize")}</p>
+      </div>
+
+      {uploadError && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{uploadError}</AlertDescription>
+        </Alert>
+      )}
+
+      {uploads.length > 0 ? (
+        <div className="space-y-2">
+          {uploads.map(upload => (
+            <div
+              key={upload.id}
+              className="flex items-center gap-3 p-3 border rounded-lg bg-gray-50 dark:bg-gray-800"
+              data-testid={`upload-${upload.id}`}
+            >
+              <div className="text-gray-500">
+                {getFileIcon(upload.mimeType)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">{upload.fileName}</p>
+                <div className="flex gap-2 text-xs text-gray-500">
+                  <span>{t(`questionnaire.uploads.category.${upload.category}`)}</span>
+                  {upload.fileSize && <span>• {formatFileSize(upload.fileSize)}</span>}
+                </div>
+              </div>
+              {upload.isUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              ) : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDelete(upload.id)}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  data-testid={`delete-upload-${upload.id}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-center text-gray-500 text-sm py-4">
+          {t("questionnaire.uploads.noFiles")}
+        </p>
+      )}
+
+      <p className="text-center text-gray-500 text-sm">
+        {t("questionnaire.uploads.skip")}
+      </p>
     </div>
   );
 }

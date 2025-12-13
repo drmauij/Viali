@@ -5,6 +5,9 @@ import { isAuthenticated } from "../auth/google";
 import { requireWriteAccess, getUserUnitForHospital } from "../utils";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { randomUUID } from "crypto";
 
 const router = Router();
 
@@ -421,6 +424,11 @@ router.get('/api/public/questionnaire/:token', async (req: Request, res: Respons
     // Get existing response if any (for resume capability)
     const existingResponse = await storage.getQuestionnaireResponseByLinkId(link.id);
 
+    // Get existing uploads if response exists
+    const existingUploads = existingResponse 
+      ? await storage.getQuestionnaireUploads(existingResponse.id)
+      : [];
+
     // Flatten illness lists and filter for patient-visible items
     const flatIllnessList = flattenIllnessLists(hospitalSettings?.illnessLists);
     const patientVisibleConditions = flatIllnessList
@@ -468,6 +476,14 @@ router.get('/api/public/questionnaire/:token', async (req: Request, res: Respons
         currentStep: existingResponse.currentStep,
         completedSteps: existingResponse.completedSteps,
       } : null,
+      existingUploads: existingUploads.map(u => ({
+        id: u.id,
+        fileName: u.fileName,
+        mimeType: u.mimeType,
+        fileSize: u.fileSize,
+        category: u.category,
+        description: u.description,
+      })),
       conditionsList: patientVisibleConditions,
       allergyList: hospitalSettings?.allergyList
         ?.filter((item: any) => item.patientVisible !== false)
@@ -677,6 +693,68 @@ router.post('/api/public/questionnaire/:token/submit', async (req: Request, res:
   } catch (error) {
     console.error("Error submitting questionnaire:", error);
     res.status(500).json({ message: "Failed to submit questionnaire" });
+  }
+});
+
+// Get presigned URL for file upload (public)
+router.post('/api/public/questionnaire/:token/upload-url', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    
+    const validation = await validateLinkForEdit(token);
+    if (!validation.valid) {
+      return res.status(validation.status).json({ message: validation.error });
+    }
+    const link = validation.link;
+
+    const { fileName, mimeType } = req.body;
+    if (!fileName) {
+      return res.status(400).json({ message: "fileName is required" });
+    }
+
+    // Check S3 configuration
+    const endpoint = process.env.S3_ENDPOINT;
+    const accessKeyId = process.env.S3_ACCESS_KEY;
+    const secretAccessKey = process.env.S3_SECRET_KEY;
+    const bucket = process.env.S3_BUCKET;
+    const region = process.env.S3_REGION || "ch-dk-2";
+
+    if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
+      return res.status(503).json({ message: "File storage not configured" });
+    }
+
+    const s3Client = new S3Client({
+      endpoint,
+      region,
+      credentials: { accessKeyId, secretAccessKey },
+      forcePathStyle: true,
+    });
+
+    // Generate unique key for the file
+    const fileId = randomUUID();
+    const extension = fileName.split('.').pop() || '';
+    const objectName = extension ? `${fileId}.${extension}` : fileId;
+    const key = `questionnaire-uploads/${link.hospitalId}/${link.id}/${objectName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: mimeType || 'application/octet-stream',
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 }); // 15 minutes
+
+    // Generate the file URL that will be accessible after upload
+    const fileUrl = `/objects/${key}`;
+
+    res.json({
+      uploadUrl,
+      fileUrl,
+      key,
+    });
+  } catch (error) {
+    console.error("Error generating upload URL:", error);
+    res.status(500).json({ message: "Failed to generate upload URL" });
   }
 });
 
