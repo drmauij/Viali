@@ -4326,11 +4326,41 @@ export class DatabaseStorage implements IStorage {
       if (isTci) {
         // TCI mode: Use the actual amount from infusion_stop records
         // When TCI infusion is stopped, user enters the actual amount used
+        // Only count stop records that have a corresponding completed start record
+        
+        const startMeds = meds.filter(m => m.type === 'infusion_start');
         const stopMeds = meds.filter(m => m.type === 'infusion_stop');
-        const totalDose = stopMeds.reduce((sum, med: any) => {
-          const doseValue = parseFloat(med.dose?.match(/[\d.]+/)?.[0] || '0');
-          return sum + doseValue;
-        }, 0);
+        
+        // Track used start IDs to prevent double-counting
+        const usedStartIds = new Set<string>();
+        let totalDose = 0;
+        
+        for (const stopMed of stopMeds) {
+          // Find the matching start record by infusionSessionId or by pairing
+          const matchingStart = startMeds.find(start => {
+            // Skip already matched starts
+            if (usedStartIds.has(start.id)) return false;
+            
+            // If stop has infusionSessionId, it should match the start record's id
+            if (stopMed.infusionSessionId && stopMed.infusionSessionId === start.id) {
+              return true;
+            }
+            // Legacy fallback: stop comes after start and start has ended
+            if (!stopMed.infusionSessionId) {
+              const startTime = new Date(start.timestamp).getTime();
+              const stopTime = new Date(stopMed.timestamp).getTime();
+              return stopTime > startTime && start.endTimestamp;
+            }
+            return false;
+          });
+          
+          // Only count dose if there's a matching completed session
+          if (matchingStart && matchingStart.endTimestamp) {
+            usedStartIds.add(matchingStart.id); // Mark as used to prevent double-counting
+            const doseValue = parseFloat(stopMed.dose?.match(/[\d.]+/)?.[0] || '0');
+            totalDose += doseValue;
+          }
+        }
         
         // Calculate ampules from total dose
         const ampuleValue = parseFloat(item.ampuleTotalContent?.match(/[\d.]+/)?.[0] || '0');
@@ -4340,7 +4370,9 @@ export class DatabaseStorage implements IStorage {
         
         console.log('[INVENTORY-CALC] TCI infusion usage:', {
           itemId,
+          startRecordsCount: startMeds.length,
           stopRecordsCount: stopMeds.length,
+          matchedSessions: usedStartIds.size,
           totalDose,
           ampuleValue,
           totalAmpules: totalQty

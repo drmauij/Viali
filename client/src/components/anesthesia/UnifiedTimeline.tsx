@@ -5815,8 +5815,19 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const handleTciStop = (amountUsed: string) => {
     if (!managingRate || !anesthesiaRecordId) return;
     
-    const { label, sessionId, itemId } = managingRate;
+    const { label, sessionId, itemId, administrationUnit } = managingRate;
     const stopTime = rateManageTime;
+    
+    // Validate amount input
+    const parsedAmount = parseFloat(amountUsed);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      toast({
+        title: "Error",
+        description: "Please enter a valid amount",
+        variant: "destructive",
+      });
+      return;
+    }
     
     if (!sessionId) {
       toast({
@@ -5836,32 +5847,61 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return;
     }
     
+    // Format dose consistently with other medication entries (include unit if available)
+    const formattedDose = administrationUnit 
+      ? `${amountUsed} ${administrationUnit}` 
+      : amountUsed;
+    
+    // Close dialog immediately to show progress (user sees spinner in background)
+    setShowRateManageDialog(false);
+    
     // Update the infusion_start record with endTimestamp
     updateMedication.mutate({
       id: sessionId,
       endTimestamp: new Date(stopTime),
+    }, {
+      onSuccess: () => {
+        // Create an infusion_stop record to capture the actual amount used
+        // Link to the session via infusionSessionId for proper pairing
+        createMedication.mutate({
+          anesthesiaRecordId,
+          itemId,
+          timestamp: new Date(stopTime),
+          type: 'infusion_stop',
+          dose: formattedDose, // Store actual amount used for inventory calculation
+          infusionSessionId: sessionId, // Link to the parent session
+        }, {
+          onSuccess: () => {
+            // Only show success and reset state after both mutations complete
+            toast({
+              title: t("anesthesia.timeline.tciStopInfusion"),
+              description: `${label} - ${formattedDose}`,
+            });
+            setManagingRate(null);
+            setRateManageTime(0);
+            setRateManageInput("");
+          },
+          onError: (error) => {
+            toast({
+              title: "Error",
+              description: "Failed to record TCI amount. Please try again.",
+              variant: "destructive",
+            });
+            console.error('[TCI-STOP] Failed to create stop record:', error);
+          }
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: "Error",
+          description: "Failed to stop TCI infusion. Please try again.",
+          variant: "destructive",
+        });
+        console.error('[TCI-STOP] Failed to update session:', error);
+        // Re-open dialog on error so user can try again
+        setShowRateManageDialog(true);
+      }
     });
-    
-    // Create an infusion_stop record to capture the actual amount used
-    // This will be used for inventory usage calculation
-    createMedication.mutate({
-      anesthesiaRecordId,
-      itemId,
-      timestamp: new Date(stopTime),
-      type: 'infusion_stop',
-      dose: amountUsed, // Store actual amount used for inventory calculation
-    });
-    
-    toast({
-      title: t("anesthesia.timeline.tciStopInfusion"),
-      description: `${label} - ${amountUsed}`,
-    });
-    
-    // Reset dialog state
-    setShowRateManageDialog(false);
-    setManagingRate(null);
-    setRateManageTime(0);
-    setRateManageInput("");
   };
 
   // Handle start new rate (stop current and create new infusion_start)
