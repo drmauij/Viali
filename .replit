@@ -48,6 +48,6 @@ defaultBucketID = "replit-objstore-a8e03a12-1e06-4c8c-b87a-809a1c51f245"
 [userenv]
 
 [userenv.shared]
-S3_ENDPOINT = "https://sos-ch-dk-2.exo.io"
-S3_REGION = "ch-dk-2"
-S3_BUCKET = "viali-storage"
+S3_ENDPOINT = "https://sos-ch-gva-2.exo.io"
+S3_REGION = "ch-gva-2"
+S3_BUCKET = "viali-bucket"
