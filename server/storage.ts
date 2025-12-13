@@ -4318,11 +4318,34 @@ export class DatabaseStorage implements IStorage {
 
       const isBolus = !item.rateUnit || item.rateUnit === null;
       const isFreeFlow = item.rateUnit === 'free';
-      const isRateControlled = item.rateUnit && item.rateUnit !== 'free';
+      const isTci = item.rateUnit === 'TCI'; // TCI mode: actual amount entered by user when stopping
+      const isRateControlled = item.rateUnit && item.rateUnit !== 'free' && item.rateUnit !== 'TCI';
 
       let totalQty = 0;
 
-      if (isBolus) {
+      if (isTci) {
+        // TCI mode: Use the actual amount from infusion_stop records
+        // When TCI infusion is stopped, user enters the actual amount used
+        const stopMeds = meds.filter(m => m.type === 'infusion_stop');
+        const totalDose = stopMeds.reduce((sum, med: any) => {
+          const doseValue = parseFloat(med.dose?.match(/[\d.]+/)?.[0] || '0');
+          return sum + doseValue;
+        }, 0);
+        
+        // Calculate ampules from total dose
+        const ampuleValue = parseFloat(item.ampuleTotalContent?.match(/[\d.]+/)?.[0] || '0');
+        if (ampuleValue > 0 && totalDose > 0) {
+          totalQty = Math.ceil(totalDose / ampuleValue);
+        }
+        
+        console.log('[INVENTORY-CALC] TCI infusion usage:', {
+          itemId,
+          stopRecordsCount: stopMeds.length,
+          totalDose,
+          ampuleValue,
+          totalAmpules: totalQty
+        });
+      } else if (isBolus) {
         const bolusMeds = meds.filter(m => m.type === 'bolus');
         // CRITICAL FIX: Sum all doses first, THEN calculate ampules
         // Wrong: ceil(10/50) + ceil(10/50) + ceil(10/50) = 3 ampules

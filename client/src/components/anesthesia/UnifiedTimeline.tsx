@@ -5811,6 +5811,59 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     setRateManageInput("");
   };
 
+  // Handle TCI stop (stop infusion and record actual amount used for inventory calculation)
+  const handleTciStop = (amountUsed: string) => {
+    if (!managingRate || !anesthesiaRecordId) return;
+    
+    const { label, sessionId, itemId } = managingRate;
+    const stopTime = rateManageTime;
+    
+    if (!sessionId) {
+      toast({
+        title: "Error",
+        description: "Session not identified",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!itemId) {
+      toast({
+        title: "Error",
+        description: "Medication item not identified",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Update the infusion_start record with endTimestamp
+    updateMedication.mutate({
+      id: sessionId,
+      endTimestamp: new Date(stopTime),
+    });
+    
+    // Create an infusion_stop record to capture the actual amount used
+    // This will be used for inventory usage calculation
+    createMedication.mutate({
+      anesthesiaRecordId,
+      itemId,
+      timestamp: new Date(stopTime),
+      type: 'infusion_stop',
+      dose: amountUsed, // Store actual amount used for inventory calculation
+    });
+    
+    toast({
+      title: t("anesthesia.timeline.tciStopInfusion"),
+      description: `${label} - ${amountUsed}`,
+    });
+    
+    // Reset dialog state
+    setShowRateManageDialog(false);
+    setManagingRate(null);
+    setRateManageTime(0);
+    setRateManageInput("");
+  };
+
   // Handle start new rate (stop current and create new infusion_start)
   const handleRateStartNew = (newRate: string, initialBolus?: string) => {
     if (!managingRate || !anesthesiaRecordId) return;
@@ -8236,6 +8289,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onRateStart={handleRateStart}
         onRateStartNew={handleRateStartNew}
         onRateChange={handleRateChange}
+        onTciStop={handleTciStop}
         isRunning={managingRate?.isRunning}
         administrationUnit={managingRate?.administrationUnit}
       />

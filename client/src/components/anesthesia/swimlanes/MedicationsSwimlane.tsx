@@ -6,6 +6,7 @@ import { InfusionStartEditDialog } from "../dialogs/InfusionStartEditDialog";
 import { RateChangeEditDialog } from "../dialogs/RateChangeEditDialog";
 import { useToast } from "@/hooks/use-toast";
 import { assignInfusionTracks } from "@/lib/infusionTrackAssignment";
+import { useTranslation } from "react-i18next";
 import type {
   RateInfusionSegment,
   RateInfusionSession,
@@ -22,6 +23,7 @@ type UnifiedInfusionProps = {
   startNote?: string | null;
   initialBolus?: string | null; // Initial bolus given at infusion start
   isFreeFlow: boolean;
+  isTciMode?: boolean; // TCI mode - show "Running" instead of rate when active
   medicationName: string;
   onClick: () => void; // Click on line - opens management sheet
   onStartTickClick: () => void; // Click on start tick - opens edit dialog
@@ -46,6 +48,7 @@ const UnifiedInfusion = ({
   startNote,
   initialBolus,
   isFreeFlow,
+  isTciMode,
   medicationName,
   onClick,
   onStartTickClick,
@@ -62,12 +65,17 @@ const UnifiedInfusion = ({
   segments,
   administrationUnit,
 }: UnifiedInfusionProps) => {
+  const { t } = useTranslation();
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
   const isDark = document.documentElement.getAttribute("data-theme") === "dark";
   
   const lineYOffset = swimlaneHeight - 2;
   const visibleRange = visibleEnd - visibleStart;
+  
+  // For TCI mode while running, show "Running" instead of rate
+  const isRunning = endTime === null;
+  const tciRunningText = isTciMode && isRunning ? t("anesthesia.timeline.tciRunning") : null;
   
   // Build display text with unit, optional initial bolus, and optional note in parentheses
   const unit = administrationUnit || '';
@@ -90,7 +98,8 @@ const UnifiedInfusion = ({
   // For rate-controlled infusions with initial bolus, show: "<rate> - <bolus> <baseUnit>"
   const bolusDisplay = initialBolus ? ` - ${initialBolus} ${bolusUnit}` : '';
   const rateAndBolus = `${doseWithUnit}${bolusDisplay}`;
-  const displayText = startNote ? `${rateAndBolus} (${startNote})` : rateAndBolus;
+  // For TCI mode while running, override with "Running" text
+  const displayText = tciRunningText || (startNote ? `${rateAndBolus} (${startNote})` : rateAndBolus);
   
   // Calculate actual start position (before clipping)
   const actualStartPercent = ((startTime - visibleStart) / visibleRange) * 100;
@@ -679,6 +688,10 @@ export function MedicationsSwimlane({
           const rightPercent = Math.min(100, endPercent);
           const widthPercent = rightPercent - leftPercent;
           
+          // Check if this is a TCI infusion (rateUnit === "TCI")
+          const sessionRateUnit = session.segments?.[0]?.rateUnit || lane.rateUnit;
+          const isTciMode = sessionRateUnit === "TCI";
+          
           return (
             <UnifiedInfusion
               key={`rate-infusion-${lane.id}-${sessionIndex}`}
@@ -688,6 +701,7 @@ export function MedicationsSwimlane({
               startNote={session.startNote}
               initialBolus={session.initialBolus}
               isFreeFlow={false}
+              isTciMode={isTciMode}
               medicationName={lane.label.trim()}
               leftPercent={leftPercent}
               widthPercent={widthPercent}
@@ -699,7 +713,7 @@ export function MedicationsSwimlane({
               visibleStart={visibleStart}
               visibleEnd={visibleEnd}
               segments={session.segments}
-              administrationUnit={session.segments?.[0]?.rateUnit || lane.rateUnit || lane.administrationUnit}
+              administrationUnit={isTciMode ? "Tc" : (session.segments?.[0]?.rateUnit || lane.rateUnit || lane.administrationUnit)}
               onClick={() => {
                 // If session is running (no endTime), open the simplified RateManageDialog
                 // If session is stopped (has endTime), allow resuming or show appropriate dialog

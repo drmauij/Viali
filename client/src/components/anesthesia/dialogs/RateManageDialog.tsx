@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Minus, Plus, StopCircle, PlayCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ManagingRate {
   swimlaneId: string;
@@ -26,6 +27,7 @@ interface RateManageDialogProps {
   onRateStart: (rate: string) => void;
   onRateStartNew: (rate: string, initialBolus?: string) => void;
   onRateChange: (newRate: string) => void;
+  onTciStop?: (amountUsed: string) => void;
   isRunning?: boolean;
   administrationUnit?: string | null;
 }
@@ -41,10 +43,16 @@ export function RateManageDialog({
   onRateStart,
   onRateStartNew,
   onRateChange,
+  onTciStop,
   isRunning: isRunningProp,
   administrationUnit,
 }: RateManageDialogProps) {
+  const { t } = useTranslation();
   const [rateInput, setRateInput] = useState("");
+  const [tciAmountInput, setTciAmountInput] = useState("");
+  
+  // Check if TCI mode
+  const isTciMode = managingRate?.rateUnit === "TCI";
 
   // Sync managing rate data to form
   useEffect(() => {
@@ -54,10 +62,18 @@ export function RateManageDialog({
       setRateInput("");
     }
   }, [managingRate]);
+  
+  // Reset TCI amount when dialog closes
+  useEffect(() => {
+    if (!open) {
+      setTciAmountInput("");
+    }
+  }, [open]);
 
   const handleClose = () => {
     onOpenChange(false);
     setRateInput("");
+    setTciAmountInput("");
   };
 
   // Use the prop if provided, otherwise calculate from infusionData (legacy behavior)
@@ -84,6 +100,13 @@ export function RateManageDialog({
   const handleStopInfusion = () => {
     onRateStop();
     handleClose();
+  };
+  
+  const handleTciStopInfusion = () => {
+    if (onTciStop && tciAmountInput.trim()) {
+      onTciStop(tciAmountInput.trim());
+      handleClose();
+    }
   };
 
   const handleStartNewInfusion = () => {
@@ -120,88 +143,133 @@ export function RateManageDialog({
             {managingRate?.label ? managingRate.label.split('(')[0].trim() : 'Rate-Controlled Infusion'}
           </DialogTitle>
           <DialogDescription>
-            {isRunning ? "Adjust or change infusion rate" : "This infusion is currently stopped"}
+            {isTciMode 
+              ? (isRunning ? t("anesthesia.timeline.tciEnterActualAmount") : "TCI infusion stopped")
+              : (isRunning ? "Adjust or change infusion rate" : "This infusion is currently stopped")
+            }
           </DialogDescription>
         </DialogHeader>
         
         <div className="grid gap-4 py-4">
-          {/* Rate Adjustment Section - First */}
-          <div className="grid gap-3">
-            <Label htmlFor="rate-input" className="text-sm font-medium">
-              {managingRate?.label ? `${managingRate.label.split(' ')[0]} Rate` : "Rate"}
-            </Label>
-            <div className="flex items-center gap-2">
+          {/* TCI Mode - Show amount input for stopping */}
+          {isTciMode && isRunning ? (
+            <>
+              <div className="grid gap-3">
+                <Label htmlFor="tci-amount-input" className="text-sm font-medium">
+                  {t("anesthesia.timeline.tciActualAmountUsed")} {administrationUnit ? `(${administrationUnit})` : ''}
+                </Label>
+                <Input
+                  id="tci-amount-input"
+                  type="number"
+                  inputMode="decimal"
+                  className="text-center text-2xl font-bold h-14"
+                  data-testid="input-tci-amount"
+                  value={tciAmountInput}
+                  onChange={(e) => setTciAmountInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      handleTciStopInfusion();
+                    }
+                  }}
+                  placeholder="0"
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">
+                  {t("anesthesia.timeline.tciAmountHelp")}
+                </p>
+              </div>
+              
               <Button
-                variant="outline"
-                size="icon"
-                onClick={decrementRate}
-                data-testid="button-decrement-rate"
-              >
-                <Minus className="w-4 h-4" />
-              </Button>
-              <Input
-                id="rate-input"
-                type="number"
-                inputMode="decimal"
-                className="text-center text-2xl font-bold h-14"
-                data-testid="input-rate-manage"
-                value={rateInput}
-                onChange={(e) => setRateInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleSaveRate();
-                  }
-                }}
-                placeholder="0"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={incrementRate}
-                data-testid="button-increment-rate"
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
-              {managingRate?.rateUnit && (
-                <span className="text-sm text-muted-foreground min-w-[80px]">
-                  {managingRate.rateUnit}
-                </span>
-              )}
-            </div>
-            <Button
-              onClick={handleSaveRate}
-              disabled={!rateInput.trim() || isNaN(Number(rateInput)) || Number(rateInput) <= 0}
-              className="w-full"
-              data-testid="button-save-rate"
-            >
-              Save
-            </Button>
-          </div>
-
-          {/* Action Buttons - Second */}
-          <div className="grid gap-2 pt-2">
-            {isRunning && (
-              <Button
-                onClick={handleStopInfusion}
-                variant="outline"
+                onClick={handleTciStopInfusion}
+                disabled={!tciAmountInput.trim() || isNaN(Number(tciAmountInput)) || Number(tciAmountInput) <= 0}
                 className="w-full"
-                data-testid="button-rate-stop"
+                data-testid="button-tci-stop"
               >
                 <StopCircle className="w-4 h-4 mr-2" />
-                Stop Infusion
+                {t("anesthesia.timeline.tciStopInfusion")}
               </Button>
-            )}
-            
-            <Button
-              onClick={handleStartNewInfusion}
-              variant="outline"
-              className="w-full"
-              data-testid="button-rate-start-new"
-            >
-              <PlayCircle className="w-4 h-4 mr-2" />
-              Start New Infusion
-            </Button>
-          </div>
+            </>
+          ) : !isTciMode ? (
+            <>
+              {/* Rate Adjustment Section - For non-TCI mode */}
+              <div className="grid gap-3">
+                <Label htmlFor="rate-input" className="text-sm font-medium">
+                  {managingRate?.label ? `${managingRate.label.split(' ')[0]} Rate` : "Rate"}
+                </Label>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={decrementRate}
+                    data-testid="button-decrement-rate"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  <Input
+                    id="rate-input"
+                    type="number"
+                    inputMode="decimal"
+                    className="text-center text-2xl font-bold h-14"
+                    data-testid="input-rate-manage"
+                    value={rateInput}
+                    onChange={(e) => setRateInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSaveRate();
+                      }
+                    }}
+                    placeholder="0"
+                  />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={incrementRate}
+                    data-testid="button-increment-rate"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                  {managingRate?.rateUnit && (
+                    <span className="text-sm text-muted-foreground min-w-[80px]">
+                      {managingRate.rateUnit}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  onClick={handleSaveRate}
+                  disabled={!rateInput.trim() || isNaN(Number(rateInput)) || Number(rateInput) <= 0}
+                  className="w-full"
+                  data-testid="button-save-rate"
+                >
+                  Save
+                </Button>
+              </div>
+
+              {/* Action Buttons - For non-TCI mode */}
+              <div className="grid gap-2 pt-2">
+                {isRunning && (
+                  <Button
+                    onClick={handleStopInfusion}
+                    variant="outline"
+                    className="w-full"
+                    data-testid="button-rate-stop"
+                  >
+                    <StopCircle className="w-4 h-4 mr-2" />
+                    Stop Infusion
+                  </Button>
+                )}
+                
+                <Button
+                  onClick={handleStartNewInfusion}
+                  variant="outline"
+                  className="w-full"
+                  data-testid="button-rate-start-new"
+                >
+                  <PlayCircle className="w-4 h-4 mr-2" />
+                  Start New Infusion
+                </Button>
+              </div>
+            </>
+          ) : null}
           
           {/* Cancel button - Small on bottom right */}
           <div className="flex justify-end pt-2">
