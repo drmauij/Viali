@@ -190,8 +190,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
         credentials: 'include',
       });
       if (!response.ok) return [];
-      const data = await response.json();
-      return data.users || [];
+      return response.json();
     },
     enabled: !!activeHospital?.id && (view === 'new' || view === 'conversation'),
   });
