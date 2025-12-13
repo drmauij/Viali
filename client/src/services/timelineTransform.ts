@@ -113,16 +113,28 @@ export function transformRateInfusions(
     
     sessions[swimlaneId] = [];
     
-    startRecords.forEach(startRecord => {
+    startRecords.forEach((startRecord, startIndex) => {
       const itemId = startRecord.itemId;
       const item = anesthesiaItems.find(i => i.id === itemId);
       if (!item || !item.rateUnit || item.rateUnit === 'free') return;
       
       const startTime = new Date(startRecord.timestamp).getTime();
       
-      const stopRecord = records.find(r => 
-        r.type === 'infusion_stop' && new Date(r.timestamp).getTime() > startTime && new Date(r.timestamp).getTime() <= startTime + 24 * 60 * 60 * 1000
-      );
+      // Find the next start record's time (if any) to bound our stop search
+      const nextStartRecord = startRecords[startIndex + 1];
+      const nextStartTime = nextStartRecord ? new Date(nextStartRecord.timestamp).getTime() : Infinity;
+      
+      // Only match a stop record if:
+      // 1. It's after THIS start
+      // 2. It's BEFORE the next start (so it belongs to this session, not a later one)
+      // 3. It's within 24 hours of this start
+      const stopRecord = records.find(r => {
+        if (r.type !== 'infusion_stop') return false;
+        const stopTime = new Date(r.timestamp).getTime();
+        return stopTime > startTime && 
+               stopTime < nextStartTime && 
+               stopTime <= startTime + 24 * 60 * 60 * 1000;
+      });
       const hasEndTimestamp = !!startRecord.endTimestamp;
       const endTime = stopRecord 
         ? new Date(stopRecord.timestamp).getTime() 
@@ -215,7 +227,7 @@ export function transformFreeFlowInfusions(
     const startRecords = records.filter(r => r.type === 'infusion_start');
     console.log('[FREE-FLOW-TRANSFORM] Processing swimlane:', swimlaneId, 'with', startRecords.length, 'start records');
     
-    startRecords.forEach(startRec => {
+    startRecords.forEach((startRec, startIndex) => {
       const item = anesthesiaItems.find(i => i.id === startRec.itemId);
       console.log('[FREE-FLOW-TRANSFORM] Checking record:', {
         itemId: startRec.itemId,
@@ -233,10 +245,17 @@ export function transformFreeFlowInfusions(
       
       const startTime = new Date(startRec.timestamp).getTime();
       
+      // Find the next start record's time (if any) to bound our stop search
+      const nextStartRecord = startRecords[startIndex + 1];
+      const nextStartTime = nextStartRecord ? new Date(nextStartRecord.timestamp).getTime() : Infinity;
+      
       const hasEndTimestamp = !!startRec.endTimestamp;
-      const stopRecord = records.find(r => 
-        r.type === 'infusion_stop' && new Date(r.timestamp).getTime() > startTime
-      );
+      // Only match a stop record if it's after THIS start but BEFORE the next start
+      const stopRecord = records.find(r => {
+        if (r.type !== 'infusion_stop') return false;
+        const stopTime = new Date(r.timestamp).getTime();
+        return stopTime > startTime && stopTime < nextStartTime;
+      });
       
       // Calculate endTime if infusion is stopped
       const endTime = stopRecord 

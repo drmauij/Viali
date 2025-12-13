@@ -409,7 +409,7 @@ const BolusPill = ({
             </div>
           )}
           <div className="text-xs text-muted-foreground">
-            {formatTime(new Date(timestamp))}
+            {formatTime(timestamp)}
           </div>
           <div className="text-xs text-muted-foreground italic mt-1">
             Click to edit
@@ -541,6 +541,7 @@ export function MedicationsSwimlane({
     swimlaneId: string;
     time: number;
     dose: string;
+    note?: string;
     medicationName: string;
     isFreeFlow: boolean;
     administrationUnit?: string | null;
@@ -822,7 +823,12 @@ export function MedicationsSwimlane({
         const visibleRange = visibleEnd - visibleStart;
         
         // Assign tracks to sessions for parallel display
-        const sessionsWithTracks = assignInfusionTracks(sessions, data.endTime);
+        // Normalize endTime to null if undefined for type compatibility
+        const normalizedSessions = sessions.map(s => ({
+          ...s,
+          endTime: s.endTime ?? null
+        }));
+        const sessionsWithTracks = assignInfusionTracks(normalizedSessions, data.endTime);
         
         // Calculate track height
         const maxTrack = Math.max(...sessionsWithTracks.map((s: any) => s.track), 0);
@@ -1263,7 +1269,7 @@ export function MedicationsSwimlane({
                       
                       // Find if click is within any session (running or stopped)
                       const clickedSession = sessions.find(session => {
-                        const sessionStart = session.startTime;
+                        const sessionStart = session.startTime ?? 0;
                         const sessionEnd = session.endTime || Infinity;
                         return time >= sessionStart && time <= sessionEnd;
                       });
@@ -1306,7 +1312,6 @@ export function MedicationsSwimlane({
                               type: 'infusion_start' as const,
                               rate: lane.defaultDose,
                               dose: lane.defaultDose, // TCI target concentration for display
-                              rateUnit: "TCI",
                             });
                             console.log('[TCI-CLICK] Auto-started new TCI session after stopped one');
                           }
@@ -1326,7 +1331,6 @@ export function MedicationsSwimlane({
                           type: 'infusion_start' as const,
                           rate: lane.defaultDose,
                           dose: lane.defaultDose, // TCI target concentration for display
-                          rateUnit: "TCI",
                         });
                         console.log('[TCI-CLICK] TCI infusion auto-started');
                       }
@@ -1346,7 +1350,7 @@ export function MedicationsSwimlane({
                       
                       // Find if click is within any session (running or stopped)
                       const clickedSession = sessions.find(session => {
-                        const sessionStart = session.startTime;
+                        const sessionStart = session.startTime ?? 0;
                         const sessionEnd = session.endTime || Infinity;
                         return time >= sessionStart && time <= sessionEnd;
                       });
@@ -1400,7 +1404,7 @@ export function MedicationsSwimlane({
                       
                       // Find if click is within any session (running or stopped)
                       const clickedSession = sessions.find(session => {
-                        const sessionStart = session.startTime;
+                        const sessionStart = session.startTime ?? 0;
                         const sessionEnd = session.endTime || Infinity;
                         return time >= sessionStart && time <= sessionEnd;
                       });
@@ -1456,7 +1460,7 @@ export function MedicationsSwimlane({
                     
                     // Find if click is within any session (running or stopped)
                     const clickedSession = sessions.find(session => {
-                      const sessionStart = session.startTime;
+                      const sessionStart = session.startTime ?? 0;
                       const sessionEnd = session.endTime || Infinity;
                       return time >= sessionStart && time <= sessionEnd;
                     });
@@ -1545,7 +1549,7 @@ export function MedicationsSwimlane({
       <InfusionStartEditDialog
         open={showInfusionEditDialog}
         onOpenChange={setShowInfusionEditDialog}
-        anesthesiaRecordId={anesthesiaRecordId}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
         editingInfusionStart={editingInfusionStart}
         onInfusionUpdated={() => {
           // Cache will be invalidated automatically by the mutation
