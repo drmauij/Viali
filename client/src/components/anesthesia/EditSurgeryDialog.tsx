@@ -407,7 +407,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 </Select>
               </div>
 
-              {/* Planning Status */}
+              {/* Planning Status - Hidden for now
               <div className="space-y-2">
                 <Label htmlFor="edit-planning-status">{t('anesthesia.editSurgery.planningStatus', 'Planning Status')}</Label>
                 <Select 
@@ -424,6 +424,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   </SelectContent>
                 </Select>
               </div>
+              */}
 
               {/* Notes */}
               <div className="space-y-2">
