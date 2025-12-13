@@ -576,13 +576,23 @@ export const medicationConfigs = pgTable("medication_configs", {
 
 // ==================== ANESTHESIA MODULE TABLES ====================
 
+// Type for illness list items with optional patient-facing metadata
+export type IllnessListItem = {
+  id: string;
+  label: string; // Professional label (shown to doctors)
+  patientVisible?: boolean; // Whether to show in patient questionnaire
+  patientLabel?: string; // Patient-friendly label for questionnaire
+  patientHelpText?: string; // Explanation/tooltip for patients
+};
+
 // Hospital Anesthesia Settings (customizable illness lists and checklist items)
 export const hospitalAnesthesiaSettings = pgTable("hospital_anesthesia_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id).unique(),
   
   // Customizable allergy list (each item has stable ID and translatable label)
-  allergyList: jsonb("allergy_list").$type<Array<{ id: string; label: string }>>(),
+  // Can include patient-facing metadata for questionnaire system
+  allergyList: jsonb("allergy_list").$type<Array<IllnessListItem>>(),
   
   // Customizable medication lists (JSONB for flexibility)
   // Each item has a stable ID and translatable label
@@ -592,20 +602,21 @@ export const hospitalAnesthesiaSettings = pgTable("hospital_anesthesia_settings"
   }>(),
   
   // Customizable illness lists per medical system (JSONB for flexibility)
+  // Each item can include patient-facing metadata for questionnaire system
   illnessLists: jsonb("illness_lists").$type<{
-    cardiovascular?: Array<{ id: string; label: string }>;
-    pulmonary?: Array<{ id: string; label: string }>;
-    gastrointestinal?: Array<{ id: string; label: string }>;
-    kidney?: Array<{ id: string; label: string }>;
-    metabolic?: Array<{ id: string; label: string }>;
-    neurological?: Array<{ id: string; label: string }>;
-    psychiatric?: Array<{ id: string; label: string }>;
-    skeletal?: Array<{ id: string; label: string }>;
-    coagulation?: Array<{ id: string; label: string }>;
-    infectious?: Array<{ id: string; label: string }>;
-    woman?: Array<{ id: string; label: string }>;
-    noxen?: Array<{ id: string; label: string }>;
-    children?: Array<{ id: string; label: string }>;
+    cardiovascular?: Array<IllnessListItem>;
+    pulmonary?: Array<IllnessListItem>;
+    gastrointestinal?: Array<IllnessListItem>;
+    kidney?: Array<IllnessListItem>;
+    metabolic?: Array<IllnessListItem>;
+    neurological?: Array<IllnessListItem>;
+    psychiatric?: Array<IllnessListItem>;
+    skeletal?: Array<IllnessListItem>;
+    coagulation?: Array<IllnessListItem>;
+    infectious?: Array<IllnessListItem>;
+    woman?: Array<IllnessListItem>;
+    noxen?: Array<IllnessListItem>;
+    children?: Array<IllnessListItem>;
   }>(),
   
   // Customizable WHO checklist items (JSONB for flexibility)
@@ -3098,11 +3109,5 @@ export type InsertPatientQuestionnaireUpload = z.infer<typeof insertPatientQuest
 export type PatientQuestionnaireReview = typeof patientQuestionnaireReviews.$inferSelect;
 export type InsertPatientQuestionnaireReview = z.infer<typeof insertPatientQuestionnaireReviewSchema>;
 
-// Extended illness list type with patient visibility metadata
-export type IllnessItemWithPatientMetadata = {
-  id: string;
-  label: string; // Professional label
-  patientVisible?: boolean; // Show in patient questionnaire
-  patientLabel?: string; // Patient-friendly label
-  patientHelpText?: string; // Explanation for patients
-};
+// Extended illness list type with patient visibility metadata (alias for IllnessListItem)
+export type IllnessItemWithPatientMetadata = IllnessListItem;

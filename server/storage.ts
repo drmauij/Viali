@@ -58,6 +58,11 @@ import {
   chatMentions,
   chatAttachments,
   chatNotifications,
+  // Patient questionnaire tables
+  patientQuestionnaireLinks,
+  patientQuestionnaireResponses,
+  patientQuestionnaireUploads,
+  patientQuestionnaireReviews,
   type User,
   type UpsertUser,
   type Hospital,
@@ -161,6 +166,15 @@ import {
   type InsertChatAttachment,
   type ChatNotification,
   type InsertChatNotification,
+  // Patient questionnaire types
+  type PatientQuestionnaireLink,
+  type InsertPatientQuestionnaireLink,
+  type PatientQuestionnaireResponse,
+  type InsertPatientQuestionnaireResponse,
+  type PatientQuestionnaireUpload,
+  type InsertPatientQuestionnaireUpload,
+  type PatientQuestionnaireReview,
+  type InsertPatientQuestionnaireReview,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -595,6 +609,33 @@ export interface IStorage {
   markNotificationRead(id: string): Promise<ChatNotification>;
   markNotificationEmailSent(id: string): Promise<ChatNotification>;
   getUnsentEmailNotifications(limit?: number): Promise<(ChatNotification & { user: User; conversation: ChatConversation })[]>;
+  
+  // ========== PATIENT QUESTIONNAIRE OPERATIONS ==========
+  
+  // Questionnaire Link operations
+  createQuestionnaireLink(link: InsertPatientQuestionnaireLink): Promise<PatientQuestionnaireLink>;
+  getQuestionnaireLinkByToken(token: string): Promise<PatientQuestionnaireLink | undefined>;
+  getQuestionnaireLinksForPatient(patientId: string): Promise<PatientQuestionnaireLink[]>;
+  getQuestionnaireLinksForHospital(hospitalId: string): Promise<PatientQuestionnaireLink[]>;
+  invalidateQuestionnaireLink(id: string): Promise<void>;
+  
+  // Questionnaire Response operations
+  createQuestionnaireResponse(response: InsertPatientQuestionnaireResponse): Promise<PatientQuestionnaireResponse>;
+  getQuestionnaireResponse(id: string): Promise<PatientQuestionnaireResponse | undefined>;
+  getQuestionnaireResponseByLinkId(linkId: string): Promise<PatientQuestionnaireResponse | undefined>;
+  updateQuestionnaireResponse(id: string, updates: Partial<PatientQuestionnaireResponse>): Promise<PatientQuestionnaireResponse>;
+  submitQuestionnaireResponse(id: string): Promise<PatientQuestionnaireResponse>;
+  getQuestionnaireResponsesForHospital(hospitalId: string, status?: string): Promise<(PatientQuestionnaireResponse & { link: PatientQuestionnaireLink })[]>;
+  
+  // Questionnaire Upload operations
+  addQuestionnaireUpload(upload: InsertPatientQuestionnaireUpload): Promise<PatientQuestionnaireUpload>;
+  getQuestionnaireUploads(responseId: string): Promise<PatientQuestionnaireUpload[]>;
+  deleteQuestionnaireUpload(id: string): Promise<void>;
+  
+  // Questionnaire Review operations
+  createQuestionnaireReview(review: InsertPatientQuestionnaireReview): Promise<PatientQuestionnaireReview>;
+  getQuestionnaireReview(responseId: string): Promise<PatientQuestionnaireReview | undefined>;
+  updateQuestionnaireReview(id: string, updates: Partial<PatientQuestionnaireReview>): Promise<PatientQuestionnaireReview>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -5537,6 +5578,181 @@ export class DatabaseStorage implements IStorage {
       user: row.users,
       conversation: row.chat_conversations
     }));
+  }
+
+  // ========== PATIENT QUESTIONNAIRE OPERATIONS ==========
+
+  async createQuestionnaireLink(link: InsertPatientQuestionnaireLink): Promise<PatientQuestionnaireLink> {
+    const [created] = await db
+      .insert(patientQuestionnaireLinks)
+      .values(link)
+      .returning();
+    return created;
+  }
+
+  async getQuestionnaireLinkByToken(token: string): Promise<PatientQuestionnaireLink | undefined> {
+    const [link] = await db
+      .select()
+      .from(patientQuestionnaireLinks)
+      .where(eq(patientQuestionnaireLinks.token, token));
+    return link;
+  }
+
+  async getQuestionnaireLinksForPatient(patientId: string): Promise<PatientQuestionnaireLink[]> {
+    return await db
+      .select()
+      .from(patientQuestionnaireLinks)
+      .where(eq(patientQuestionnaireLinks.patientId, patientId))
+      .orderBy(desc(patientQuestionnaireLinks.createdAt));
+  }
+
+  async getQuestionnaireLinksForHospital(hospitalId: string): Promise<PatientQuestionnaireLink[]> {
+    return await db
+      .select()
+      .from(patientQuestionnaireLinks)
+      .where(eq(patientQuestionnaireLinks.hospitalId, hospitalId))
+      .orderBy(desc(patientQuestionnaireLinks.createdAt));
+  }
+
+  async invalidateQuestionnaireLink(id: string): Promise<void> {
+    await db
+      .update(patientQuestionnaireLinks)
+      .set({ status: 'expired' })
+      .where(eq(patientQuestionnaireLinks.id, id));
+  }
+
+  async createQuestionnaireResponse(response: InsertPatientQuestionnaireResponse): Promise<PatientQuestionnaireResponse> {
+    const [created] = await db
+      .insert(patientQuestionnaireResponses)
+      .values(response)
+      .returning();
+    return created;
+  }
+
+  async getQuestionnaireResponse(id: string): Promise<PatientQuestionnaireResponse | undefined> {
+    const [response] = await db
+      .select()
+      .from(patientQuestionnaireResponses)
+      .where(eq(patientQuestionnaireResponses.id, id));
+    return response;
+  }
+
+  async getQuestionnaireResponseByLinkId(linkId: string): Promise<PatientQuestionnaireResponse | undefined> {
+    const [response] = await db
+      .select()
+      .from(patientQuestionnaireResponses)
+      .where(eq(patientQuestionnaireResponses.linkId, linkId));
+    return response;
+  }
+
+  async updateQuestionnaireResponse(id: string, updates: Partial<PatientQuestionnaireResponse>): Promise<PatientQuestionnaireResponse> {
+    const [updated] = await db
+      .update(patientQuestionnaireResponses)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(patientQuestionnaireResponses.id, id))
+      .returning();
+    return updated;
+  }
+
+  async submitQuestionnaireResponse(id: string): Promise<PatientQuestionnaireResponse> {
+    const [submitted] = await db
+      .update(patientQuestionnaireResponses)
+      .set({ status: 'submitted', submittedAt: new Date(), updatedAt: new Date() })
+      .where(eq(patientQuestionnaireResponses.id, id))
+      .returning();
+    
+    // Also update the link status
+    const response = await this.getQuestionnaireResponse(id);
+    if (response) {
+      await db
+        .update(patientQuestionnaireLinks)
+        .set({ status: 'submitted', submittedAt: new Date() })
+        .where(eq(patientQuestionnaireLinks.id, response.linkId));
+    }
+    
+    return submitted;
+  }
+
+  async getQuestionnaireResponsesForHospital(hospitalId: string, status?: string): Promise<(PatientQuestionnaireResponse & { link: PatientQuestionnaireLink })[]> {
+    const conditions = [eq(patientQuestionnaireLinks.hospitalId, hospitalId)];
+    if (status) {
+      conditions.push(eq(patientQuestionnaireResponses.status, status));
+    }
+    
+    const results = await db
+      .select()
+      .from(patientQuestionnaireResponses)
+      .innerJoin(patientQuestionnaireLinks, eq(patientQuestionnaireResponses.linkId, patientQuestionnaireLinks.id))
+      .where(and(...conditions))
+      .orderBy(desc(patientQuestionnaireResponses.updatedAt));
+    
+    return results.map(row => ({
+      ...row.patient_questionnaire_responses,
+      link: row.patient_questionnaire_links
+    }));
+  }
+
+  async addQuestionnaireUpload(upload: InsertPatientQuestionnaireUpload): Promise<PatientQuestionnaireUpload> {
+    const [created] = await db
+      .insert(patientQuestionnaireUploads)
+      .values(upload)
+      .returning();
+    return created;
+  }
+
+  async getQuestionnaireUploads(responseId: string): Promise<PatientQuestionnaireUpload[]> {
+    return await db
+      .select()
+      .from(patientQuestionnaireUploads)
+      .where(eq(patientQuestionnaireUploads.responseId, responseId))
+      .orderBy(asc(patientQuestionnaireUploads.createdAt));
+  }
+
+  async deleteQuestionnaireUpload(id: string): Promise<void> {
+    await db
+      .delete(patientQuestionnaireUploads)
+      .where(eq(patientQuestionnaireUploads.id, id));
+  }
+
+  async createQuestionnaireReview(review: InsertPatientQuestionnaireReview): Promise<PatientQuestionnaireReview> {
+    const [created] = await db
+      .insert(patientQuestionnaireReviews)
+      .values(review)
+      .returning();
+    
+    // Update response status to reviewed
+    await db
+      .update(patientQuestionnaireResponses)
+      .set({ status: 'reviewed', updatedAt: new Date() })
+      .where(eq(patientQuestionnaireResponses.id, review.responseId));
+    
+    // Update link status to reviewed
+    const response = await this.getQuestionnaireResponse(review.responseId);
+    if (response) {
+      await db
+        .update(patientQuestionnaireLinks)
+        .set({ status: 'reviewed', reviewedAt: new Date() })
+        .where(eq(patientQuestionnaireLinks.id, response.linkId));
+    }
+    
+    return created;
+  }
+
+  async getQuestionnaireReview(responseId: string): Promise<PatientQuestionnaireReview | undefined> {
+    const [review] = await db
+      .select()
+      .from(patientQuestionnaireReviews)
+      .where(eq(patientQuestionnaireReviews.responseId, responseId));
+    return review;
+  }
+
+  async updateQuestionnaireReview(id: string, updates: Partial<PatientQuestionnaireReview>): Promise<PatientQuestionnaireReview> {
+    const [updated] = await db
+      .update(patientQuestionnaireReviews)
+      .set(updates)
+      .where(eq(patientQuestionnaireReviews.id, id))
+      .returning();
+    return updated;
   }
 }
 
