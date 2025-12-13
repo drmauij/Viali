@@ -1663,6 +1663,109 @@ export const notes = pgTable("notes", {
   index("idx_notes_scope").on(table.scope),
 ]);
 
+// ========== CHAT SYSTEM ==========
+
+// Chat Conversations
+export const chatConversations = pgTable("chat_conversations", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  creatorId: varchar("creator_id").notNull().references(() => users.id),
+  title: varchar("title"), // Optional title for group chats
+  scopeType: varchar("scope_type", { enum: ["self", "direct", "unit", "hospital"] }).notNull(),
+  unitId: varchar("unit_id").references(() => units.id), // For unit broadcasts
+  patientId: varchar("patient_id").references(() => patients.id), // Optional patient context
+  lastMessageAt: timestamp("last_message_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_chat_conversations_hospital").on(table.hospitalId),
+  index("idx_chat_conversations_creator").on(table.creatorId),
+  index("idx_chat_conversations_scope").on(table.scopeType),
+  index("idx_chat_conversations_unit").on(table.unitId),
+  index("idx_chat_conversations_patient").on(table.patientId),
+  index("idx_chat_conversations_last_message").on(table.lastMessageAt),
+]);
+
+// Chat Conversation Participants
+export const chatParticipants = pgTable("chat_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => chatConversations.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  role: varchar("role", { enum: ["owner", "admin", "member"] }).default("member").notNull(),
+  isMuted: boolean("is_muted").default(false).notNull(),
+  lastReadAt: timestamp("last_read_at"),
+  joinedAt: timestamp("joined_at").defaultNow(),
+}, (table) => [
+  index("idx_chat_participants_conversation").on(table.conversationId),
+  index("idx_chat_participants_user").on(table.userId),
+  unique("unique_conversation_participant").on(table.conversationId, table.userId),
+]);
+
+// Chat Messages
+export const chatMessages = pgTable("chat_messages", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  conversationId: varchar("conversation_id").notNull().references(() => chatConversations.id, { onDelete: 'cascade' }),
+  senderId: varchar("sender_id").notNull().references(() => users.id),
+  content: text("content").notNull(), // Encrypted message content
+  messageType: varchar("message_type", { enum: ["text", "file", "image", "system"] }).default("text").notNull(),
+  replyToMessageId: varchar("reply_to_message_id"), // For threading
+  editedAt: timestamp("edited_at"),
+  deletedAt: timestamp("deleted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_chat_messages_conversation").on(table.conversationId),
+  index("idx_chat_messages_sender").on(table.senderId),
+  index("idx_chat_messages_created").on(table.createdAt),
+  index("idx_chat_messages_reply").on(table.replyToMessageId),
+]);
+
+// Chat Message Mentions (for @user and #patient references)
+export const chatMentions = pgTable("chat_mentions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").notNull().references(() => chatMessages.id, { onDelete: 'cascade' }),
+  mentionType: varchar("mention_type", { enum: ["user", "unit", "hospital", "patient"] }).notNull(),
+  mentionedUserId: varchar("mentioned_user_id").references(() => users.id),
+  mentionedUnitId: varchar("mentioned_unit_id").references(() => units.id),
+  mentionedPatientId: varchar("mentioned_patient_id").references(() => patients.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_chat_mentions_message").on(table.messageId),
+  index("idx_chat_mentions_user").on(table.mentionedUserId),
+  index("idx_chat_mentions_patient").on(table.mentionedPatientId),
+]);
+
+// Chat Message Attachments
+export const chatAttachments = pgTable("chat_attachments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  messageId: varchar("message_id").notNull().references(() => chatMessages.id, { onDelete: 'cascade' }),
+  storageKey: varchar("storage_key").notNull(), // Object storage key
+  filename: varchar("filename").notNull(),
+  mimeType: varchar("mime_type").notNull(),
+  sizeBytes: integer("size_bytes").notNull(),
+  thumbnailKey: varchar("thumbnail_key"), // For image previews
+  savedToPatientId: varchar("saved_to_patient_id").references(() => patients.id), // If saved to patient record
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_chat_attachments_message").on(table.messageId),
+  index("idx_chat_attachments_patient").on(table.savedToPatientId),
+]);
+
+// Chat Notifications (for email notifications tracking)
+export const chatNotifications = pgTable("chat_notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  conversationId: varchar("conversation_id").notNull().references(() => chatConversations.id, { onDelete: 'cascade' }),
+  messageId: varchar("message_id").references(() => chatMessages.id, { onDelete: 'cascade' }),
+  notificationType: varchar("notification_type", { enum: ["new_conversation", "mention", "new_message"] }).notNull(),
+  emailSent: boolean("email_sent").default(false).notNull(),
+  emailSentAt: timestamp("email_sent_at"),
+  read: boolean("read").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_chat_notifications_user").on(table.userId),
+  index("idx_chat_notifications_conversation").on(table.conversationId),
+  index("idx_chat_notifications_read").on(table.read),
+]);
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   userHospitalRoles: many(userHospitalRoles),
@@ -2456,6 +2559,43 @@ export const insertNoteSchema = createInsertSchema(notes).omit({
   updatedAt: true,
 });
 
+// Chat Insert Schemas
+export const insertChatConversationSchema = createInsertSchema(chatConversations).omit({
+  id: true,
+  creatorId: true,
+  lastMessageAt: true,
+  createdAt: true,
+});
+
+export const insertChatParticipantSchema = createInsertSchema(chatParticipants).omit({
+  id: true,
+  joinedAt: true,
+});
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
+  id: true,
+  senderId: true,
+  editedAt: true,
+  deletedAt: true,
+  createdAt: true,
+});
+
+export const insertChatMentionSchema = createInsertSchema(chatMentions).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertChatAttachmentSchema = createInsertSchema(chatAttachments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertChatNotificationSchema = createInsertSchema(chatNotifications).omit({
+  id: true,
+  emailSentAt: true,
+  createdAt: true,
+});
+
 export const insertDailyStaffPoolSchema = createInsertSchema(dailyStaffPool).omit({
   id: true,
   createdAt: true,
@@ -2573,6 +2713,20 @@ export type AuditTrail = typeof auditTrail.$inferSelect;
 export type InsertAuditTrail = z.infer<typeof insertAuditTrailSchema>;
 export type Note = typeof notes.$inferSelect;
 export type InsertNote = z.infer<typeof insertNoteSchema>;
+
+// Chat Types
+export type ChatConversation = typeof chatConversations.$inferSelect;
+export type InsertChatConversation = z.infer<typeof insertChatConversationSchema>;
+export type ChatParticipant = typeof chatParticipants.$inferSelect;
+export type InsertChatParticipant = z.infer<typeof insertChatParticipantSchema>;
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
+export type ChatMention = typeof chatMentions.$inferSelect;
+export type InsertChatMention = z.infer<typeof insertChatMentionSchema>;
+export type ChatAttachment = typeof chatAttachments.$inferSelect;
+export type InsertChatAttachment = z.infer<typeof insertChatAttachmentSchema>;
+export type ChatNotification = typeof chatNotifications.$inferSelect;
+export type InsertChatNotification = z.infer<typeof insertChatNotificationSchema>;
 
 // ========================================
 // Clinic Module (Outpatient/Medical Clinic)
