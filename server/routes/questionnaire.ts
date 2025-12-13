@@ -1,5 +1,5 @@
 import { Router } from "express";
-import type { Request, Response } from "express";
+import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import { isAuthenticated } from "../auth/google";
 import { requireWriteAccess, getUserUnitForHospital } from "../utils";
@@ -10,6 +10,87 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 
 const router = Router();
+
+// ========== RATE LIMITING ==========
+// Simple in-memory rate limiter for public endpoints
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+
+// Clean up expired entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, entry] of rateLimitStore) {
+    if (entry.resetTime < now) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+function createRateLimiter(options: { windowMs: number; maxRequests: number; keyPrefix: string }) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const token = req.params.token;
+    
+    // If token is required but missing, reject the request immediately
+    // This prevents attackers from bypassing rate limiting by omitting the token
+    if (!token || token.length < 10) {
+      return res.status(400).json({ message: "Invalid or missing questionnaire token" });
+    }
+    
+    // Use IP + token for specific throttling, with IP-only fallback for edge cases
+    const key = `${options.keyPrefix}:${ip}:${token}`;
+    const now = Date.now();
+    
+    let entry = rateLimitStore.get(key);
+    
+    if (!entry || entry.resetTime < now) {
+      entry = { count: 0, resetTime: now + options.windowMs };
+      rateLimitStore.set(key, entry);
+    }
+    
+    entry.count++;
+    
+    if (entry.count > options.maxRequests) {
+      const retryAfter = Math.ceil((entry.resetTime - now) / 1000);
+      res.set('Retry-After', String(retryAfter));
+      return res.status(429).json({ 
+        message: "Too many requests. Please try again later.",
+        retryAfter 
+      });
+    }
+    
+    next();
+  };
+}
+
+// Rate limiters for different endpoint types
+const questionnaireFetchLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 30,     // 30 requests per minute
+  keyPrefix: 'qfetch'
+});
+
+const questionnaireSaveLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 60,     // 60 saves per minute (auto-save friendly)
+  keyPrefix: 'qsave'
+});
+
+const questionnaireSubmitLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000, // 1 hour window
+  maxRequests: 5,           // 5 submissions per hour
+  keyPrefix: 'qsubmit'
+});
+
+const questionnaireUploadLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 20,     // 20 uploads per minute
+  keyPrefix: 'qupload'
+});
 
 const generateLinkSchema = z.object({
   patientId: z.string().min(1, "Patient ID is required"),
@@ -310,6 +391,24 @@ router.post('/api/questionnaire/responses/:responseId/review', isAuthenticated, 
         status: status || existingReview.status,
         completedAt: status === 'completed' ? new Date() : undefined,
       });
+
+      // Audit logging for review update
+      await storage.createAuditLog({
+        recordType: 'questionnaire_review',
+        recordId: existingReview.id,
+        action: status === 'completed' ? 'complete' : 'update',
+        userId: req.user.id,
+        oldValue: { 
+          status: existingReview.status,
+          reviewNotes: existingReview.reviewNotes,
+        },
+        newValue: { 
+          status: updated.status,
+          reviewNotes: updated.reviewNotes,
+          preOpAssessmentId: updated.preOpAssessmentId,
+        },
+      });
+
       return res.json(updated);
     }
 
@@ -321,6 +420,20 @@ router.post('/api/questionnaire/responses/:responseId/review', isAuthenticated, 
       reviewNotes,
       preOpAssessmentId,
       status: status || 'pending',
+    });
+
+    // Audit logging for review creation
+    await storage.createAuditLog({
+      recordType: 'questionnaire_review',
+      recordId: review.id,
+      action: 'create',
+      userId: req.user.id,
+      oldValue: null,
+      newValue: { 
+        responseId,
+        status: review.status,
+        reviewNotes: review.reviewNotes,
+      },
     });
 
     res.json(review);
@@ -476,7 +589,7 @@ function flattenIllnessLists(illnessLists: Record<string, any[]> | null | undefi
 }
 
 // Get questionnaire form configuration (public)
-router.get('/api/public/questionnaire/:token', async (req: Request, res: Response) => {
+router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
     
@@ -587,7 +700,7 @@ router.get('/api/public/questionnaire/:token', async (req: Request, res: Respons
 });
 
 // Save progress (public, auto-save)
-router.post('/api/public/questionnaire/:token/save', async (req: Request, res: Response) => {
+router.post('/api/public/questionnaire/:token/save', questionnaireSaveLimiter, async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
     
@@ -688,7 +801,7 @@ router.post('/api/public/questionnaire/:token/save', async (req: Request, res: R
 });
 
 // Submit questionnaire (public)
-router.post('/api/public/questionnaire/:token/submit', async (req: Request, res: Response) => {
+router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimiter, async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
     
@@ -707,6 +820,7 @@ router.post('/api/public/questionnaire/:token/submit', async (req: Request, res:
 
     // Get or create response
     let response = await storage.getQuestionnaireResponseByLinkId(link.id);
+    const priorStatus = response ? 'started' : null; // Track actual prior state for audit
 
     if (response) {
       // Update with final data
@@ -773,6 +887,21 @@ router.post('/api/public/questionnaire/:token/submit', async (req: Request, res:
     // Submit the response
     const submitted = await storage.submitQuestionnaireResponse(response.id);
 
+    // Audit logging for questionnaire submission
+    await storage.createAuditLog({
+      recordType: 'questionnaire_response',
+      recordId: response.id,
+      action: 'submit',
+      userId: null, // Patient submission (no authenticated user)
+      oldValue: priorStatus ? { status: priorStatus } : null,
+      newValue: { 
+        status: 'submitted',
+        submittedAt: submitted.submittedAt,
+        ipAddress: req.ip || null,
+        userAgent: req.headers['user-agent'] || null,
+      },
+    });
+
     res.json({ 
       message: "Questionnaire submitted successfully",
       submittedAt: submitted.submittedAt,
@@ -784,7 +913,7 @@ router.post('/api/public/questionnaire/:token/submit', async (req: Request, res:
 });
 
 // Get presigned URL for file upload (public)
-router.post('/api/public/questionnaire/:token/upload-url', async (req: Request, res: Response) => {
+router.post('/api/public/questionnaire/:token/upload-url', questionnaireUploadLimiter, async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
     
@@ -846,7 +975,7 @@ router.post('/api/public/questionnaire/:token/upload-url', async (req: Request, 
 });
 
 // Upload file attachment (public)
-router.post('/api/public/questionnaire/:token/upload', async (req: Request, res: Response) => {
+router.post('/api/public/questionnaire/:token/upload', questionnaireUploadLimiter, async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
     
@@ -899,7 +1028,7 @@ router.post('/api/public/questionnaire/:token/upload', async (req: Request, res:
 });
 
 // Delete file attachment (public - only before submission)
-router.delete('/api/public/questionnaire/:token/upload/:uploadId', async (req: Request, res: Response) => {
+router.delete('/api/public/questionnaire/:token/upload/:uploadId', questionnaireUploadLimiter, async (req: Request, res: Response) => {
   try {
     const { token, uploadId } = req.params;
     
