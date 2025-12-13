@@ -47,6 +47,7 @@ import SimplifiedDashboard from "@/pages/business/SimplifiedDashboard";
 import SimplifiedStaff from "@/pages/business/SimplifiedStaff";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
 import ClinicInvoices from "@/pages/clinic/Invoices";
+import PatientQuestionnaire from "@/pages/PatientQuestionnaire";
 import "@/i18n/config";
 
 // Home redirect component that checks module preference
@@ -139,6 +140,9 @@ function Router() {
   return (
     <>
       <Switch>
+        {/* Public routes accessible regardless of auth */}
+        <Route path="/questionnaire/:token" component={PatientQuestionnaire} />
+        
         {!isAuthenticated ? (
           <>
             <Route path="/" component={Landing} />
