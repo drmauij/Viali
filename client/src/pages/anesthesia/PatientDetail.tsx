@@ -31,6 +31,7 @@ import SignaturePad from "@/components/SignaturePad";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButton";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
+import { QuestionnaireLinksCard } from "@/components/anesthesia/QuestionnaireLinksCard";
 
 type Patient = {
   id: string;
@@ -1316,6 +1317,17 @@ export default function PatientDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Pre-Op Questionnaire Links - only show in anesthesia module */}
+      {!isSurgeryModule && !isClinicModule && patient && (
+        <div className="mb-6">
+          <QuestionnaireLinksCard 
+            patientId={patient.id}
+            patientEmail={patient.email}
+            patientName={`${patient.firstName} ${patient.surname}`}
+          />
+        </div>
+      )}
 
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('anesthesia.patientDetail.surgeries')} ({surgeries?.length || 0})</h2>

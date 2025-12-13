@@ -330,6 +330,93 @@ router.post('/api/questionnaire/responses/:responseId/review', isAuthenticated, 
   }
 });
 
+// Send questionnaire link via email
+router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const hospitalId = req.headers['x-hospital-id'] as string;
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID required" });
+    }
+
+    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    const { linkId } = req.params;
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ message: "Email address required" });
+    }
+
+    // Get the link to verify it exists and get the token
+    const link = await storage.getQuestionnaireLink(linkId);
+    if (!link) {
+      return res.status(404).json({ message: "Link not found" });
+    }
+    
+    if (link.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Access denied to this link" });
+    }
+
+    // Get hospital info for the email
+    const hospital = await storage.getHospital(hospitalId);
+    
+    // Get patient info if linked
+    let patientName = "Patient";
+    if (link.patientId) {
+      const patient = await storage.getPatient(link.patientId);
+      if (patient) {
+        patientName = `${patient.firstName} ${patient.surname}`;
+      }
+    }
+
+    const baseUrl = process.env.PUBLIC_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
+    const questionnaireUrl = `${baseUrl}/questionnaire/${link.token}`;
+    
+    // Send email using Resend
+    const { Resend } = await import('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
+      to: email,
+      subject: `Pre-Op Questionnaire - ${hospital?.name || 'Hospital'}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Pre-Operative Questionnaire</h2>
+          <p>Dear ${patientName},</p>
+          <p>You have been invited to complete a pre-operative questionnaire for your upcoming procedure at ${hospital?.name || 'our facility'}.</p>
+          <p>Please click the button below to access and complete the questionnaire:</p>
+          <p style="margin: 30px 0;">
+            <a href="${questionnaireUrl}" style="background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
+              Complete Questionnaire
+            </a>
+          </p>
+          <p>Or copy and paste this link into your browser:</p>
+          <p style="color: #666; word-break: break-all;">${questionnaireUrl}</p>
+          <p style="margin-top: 30px; color: #666; font-size: 14px;">
+            This link will expire on ${link.expiresAt ? new Date(link.expiresAt).toLocaleDateString() : 'the scheduled date'}.
+          </p>
+          <p style="color: #666; font-size: 14px;">
+            If you have any questions, please contact our office.
+          </p>
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;" />
+          <p style="color: #999; font-size: 12px;">
+            This is an automated message from ${hospital?.name || 'Viali'}.
+          </p>
+        </div>
+      `,
+    });
+    
+    res.json({ message: "Email sent successfully" });
+  } catch (error) {
+    console.error("Error sending questionnaire email:", error);
+    res.status(500).json({ message: "Failed to send email" });
+  }
+});
+
 // Invalidate/expire a questionnaire link
 router.post('/api/questionnaire/links/:linkId/invalidate', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
   try {
