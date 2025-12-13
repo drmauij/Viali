@@ -43,6 +43,18 @@ interface MentionSuggestion {
   subtext?: string;
 }
 
+interface MentionChip {
+  type: 'user' | 'patient';
+  id: string;
+  display: string;
+}
+
+interface InputSegment {
+  type: 'text' | 'mention';
+  content: string;
+  mentionData?: MentionChip;
+}
+
 interface ChatDockProps {
   isOpen: boolean;
   onClose: () => void;
@@ -425,6 +437,43 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
     return mentions;
   }, []);
 
+  const parseInputSegments = useCallback((text: string): InputSegment[] => {
+    const segments: InputSegment[] = [];
+    const combinedRegex = /(@\[([^\]]+)\]\(([^)]+)\))|(#\[([^\]]+)\]\(([^)]+)\))/g;
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = combinedRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        segments.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+      }
+      
+      if (match[1]) {
+        segments.push({
+          type: 'mention',
+          content: match[0],
+          mentionData: { type: 'user', id: match[3], display: match[2] }
+        });
+      } else if (match[4]) {
+        segments.push({
+          type: 'mention',
+          content: match[0],
+          mentionData: { type: 'patient', id: match[6], display: match[5] }
+        });
+      }
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    if (lastIndex < text.length) {
+      segments.push({ type: 'text', content: text.slice(lastIndex) });
+    }
+    
+    return segments;
+  }, []);
+
+  const inputSegments = useMemo(() => parseInputSegments(messageText), [messageText, parseInputSegments]);
+
   useEffect(() => {
     if (selectedConversation && socket && isConnected) {
       socket.emit('chat:join', selectedConversation.id);
@@ -499,9 +548,15 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
     };
   }, [socket, isConnected, selectedConversation?.id, refetchMessages, activeHospital?.id, user, isOpen, toast]);
 
+  const scrollToBottom = useCallback(() => {
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 100);
+  }, []);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
 
   const handleTyping = useCallback(() => {
     if (!socket || !selectedConversation) return;
@@ -894,6 +949,10 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                                   <p className="text-sm whitespace-pre-wrap break-words italic">
                                     This message was deleted
                                   </p>
+                                ) : !msg.content || msg.content.trim() === '' ? (
+                                  <p className="text-sm text-muted-foreground/50 italic">
+                                    (Empty message)
+                                  </p>
                                 ) : (
                                   <div className="text-sm whitespace-pre-wrap break-words">
                                     {formatMessageContent(msg.content, (patientId) => {
@@ -1015,15 +1074,56 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                         <Paperclip className="w-5 h-5" />
                       )}
                     </Button>
-                    <Input
-                      ref={inputRef}
-                      placeholder="Type @ to mention, # for patient..."
-                      value={messageText}
-                      onChange={handleMessageInputChange}
-                      onKeyDown={handleMessageKeyDown}
-                      className="flex-1"
-                      data-testid="input-message"
-                    />
+                    <div 
+                      className="flex-1 relative"
+                      onClick={() => inputRef.current?.focus()}
+                    >
+                      {inputSegments.some(s => s.type === 'mention') ? (
+                        <div className="flex flex-wrap items-center gap-1 min-h-10 px-3 py-2 rounded-md border border-input bg-background text-sm">
+                          {inputSegments.map((segment, idx) => {
+                            if (segment.type === 'mention' && segment.mentionData) {
+                              const isUser = segment.mentionData.type === 'user';
+                              return (
+                                <span
+                                  key={idx}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                                    isUser 
+                                      ? 'bg-primary/10 text-primary' 
+                                      : 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                                  }`}
+                                >
+                                  {isUser ? <UserCircle className="w-3 h-3" /> : <Hash className="w-3 h-3" />}
+                                  {segment.mentionData.display}
+                                </span>
+                              );
+                            }
+                            return <span key={idx}>{segment.content}</span>;
+                          })}
+                          <input
+                            ref={inputRef}
+                            className="flex-1 min-w-[50px] bg-transparent outline-none"
+                            value=""
+                            onChange={(e) => {
+                              const newText = messageText + e.target.value;
+                              setMessageText(newText);
+                              handleTyping();
+                              detectMentionTrigger(newText, newText.length);
+                            }}
+                            onKeyDown={handleMessageKeyDown}
+                            data-testid="input-message"
+                          />
+                        </div>
+                      ) : (
+                        <Input
+                          ref={inputRef}
+                          placeholder="Type @ to mention, # for patient..."
+                          value={messageText}
+                          onChange={handleMessageInputChange}
+                          onKeyDown={handleMessageKeyDown}
+                          data-testid="input-message"
+                        />
+                      )}
+                    </div>
                     <Button
                       size="icon"
                       onClick={handleSendMessage}
