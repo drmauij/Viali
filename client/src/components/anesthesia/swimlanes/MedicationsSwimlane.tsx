@@ -1305,6 +1305,7 @@ export function MedicationsSwimlane({
                               timestamp: new Date(time),
                               type: 'infusion_start' as const,
                               rate: lane.defaultDose,
+                              dose: lane.defaultDose, // TCI target concentration for display
                               rateUnit: "TCI",
                             });
                             console.log('[TCI-CLICK] Auto-started new TCI session after stopped one');
@@ -1324,6 +1325,7 @@ export function MedicationsSwimlane({
                           timestamp: new Date(time),
                           type: 'infusion_start' as const,
                           rate: lane.defaultDose,
+                          dose: lane.defaultDose, // TCI target concentration for display
                           rateUnit: "TCI",
                         });
                         console.log('[TCI-CLICK] TCI infusion auto-started');
