@@ -3013,5 +3013,89 @@
     "paymentNotes": "Zahlungsnotizen",
     "implantInfo": "Implantatdetails",
     "preOpInfo": "Präoperative Beurteilung"
+  },
+  "questionnaire": {
+    "review": {
+      "title": "Fragebogen-Überprüfungen",
+      "subtitle": "Überprüfen Sie von Patienten eingereichte Prä-OP-Fragebögen",
+      "searchPlaceholder": "Nach Patientenname suchen...",
+      "tabPending": "Ausstehend",
+      "tabReviewed": "Überprüft",
+      "noPending": "Keine ausstehenden Fragebögen",
+      "noReviewed": "Keine überprüften Fragebögen",
+      "selectResponse": "Wählen Sie einen Fragebogen aus, um Details anzuzeigen",
+      "reviewSection": "Überprüfung",
+      "status": "Überprüfungsstatus",
+      "statusPending": "Ausstehend",
+      "statusPartial": "Teilweise",
+      "statusCompleted": "Abgeschlossen",
+      "notes": "Überprüfungsnotizen",
+      "notesPlaceholder": "Notizen zu dieser Überprüfung hinzufügen...",
+      "saveReview": "Überprüfung speichern",
+      "saved": "Überprüfung gespeichert",
+      "savedDesc": "Die Überprüfung wurde erfolgreich gespeichert",
+      "saveError": "Überprüfung konnte nicht gespeichert werden",
+      "noMedications": "Keine Medikamente angegeben",
+      "noConditions": "Keine Erkrankungen gemeldet"
+    },
+    "personal": {
+      "height": "Körpergrösse",
+      "weight": "Körpergewicht"
+    },
+    "allergies": {
+      "title": "Allergien",
+      "none": "Keine bekannten Allergien"
+    },
+    "medications": {
+      "title": "Aktuelle Medikamente"
+    },
+    "conditions": {
+      "title": "Vorerkrankungen"
+    },
+    "lifestyle": {
+      "title": "Lebensstil",
+      "smoking": {
+        "title": "Raucherstatus",
+        "never": "Nie geraucht",
+        "former": "Ehemaliger Raucher",
+        "current": "Aktueller Raucher"
+      },
+      "alcohol": {
+        "title": "Alkoholkonsum",
+        "never": "Nie",
+        "occasional": "Gelegentlich",
+        "moderate": "Mässig",
+        "heavy": "Stark"
+      }
+    },
+    "history": {
+      "title": "Medizinische Vorgeschichte",
+      "previousSurgeries": "Frühere Operationen",
+      "anesthesiaProblems": "Frühere Narkoseprobleme",
+      "pregnancy": {
+        "title": "Schwangerschaftsstatus",
+        "notApplicable": "Nicht zutreffend",
+        "no": "Nicht schwanger",
+        "possible": "Möglicherweise schwanger",
+        "yes": "Schwanger"
+      },
+      "breastfeeding": "Stillend"
+    },
+    "notes": {
+      "title": "Zusätzliche Notizen",
+      "additional": "Zusätzliche Notizen",
+      "additionalNotes": "Zusätzliche Notizen",
+      "questions": "Fragen an den Arzt",
+      "questionsForDoctor": "Fragen an den Arzt"
+    },
+    "uploads": {
+      "title": "Hochgeladene Dokumente",
+      "category": {
+        "medication_list": "Medikamentenliste",
+        "diagnosis": "Diagnose",
+        "exam_result": "Untersuchungsergebnis",
+        "other": "Sonstiges"
+      }
+    }
   }
 }

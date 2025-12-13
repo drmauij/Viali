@@ -38,6 +38,7 @@ import Pacu from "@/pages/anesthesia/Pacu";
 import AnesthesiaReports from "@/pages/anesthesia/Reports";
 import AnesthesiaSettings from "@/pages/anesthesia/Settings";
 import ClinicalDashboard from "@/pages/anesthesia/ClinicalDashboard";
+import QuestionnaireReviews from "@/pages/anesthesia/QuestionnaireReviews";
 import SurgerySettings from "@/pages/surgery/SurgerySettings";
 import BusinessDashboard from "@/pages/business/Dashboard";
 import CostAnalytics from "@/pages/business/CostAnalytics";
@@ -176,6 +177,7 @@ function Router() {
             <Route path="/anesthesia/settings">{() => <ProtectedRoute requireAnesthesia><AnesthesiaSettings /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/schedule">{() => <ProtectedRoute requireAnesthesia><OpList /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/clinical">{() => <ProtectedRoute requireAnesthesia><ClinicalDashboard /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/questionnaires">{() => <ProtectedRoute requireAnesthesia><QuestionnaireReviews /></ProtectedRoute>}</Route>
             {/* Surgery Module - requires surgery unit access */}
             <Route path="/surgery">{() => <ProtectedRoute requireSurgery><OpList /></ProtectedRoute>}</Route>
             <Route path="/surgery/patients">{() => <ProtectedRoute requireSurgery><Patients /></ProtectedRoute>}</Route>

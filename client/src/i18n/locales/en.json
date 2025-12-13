@@ -2999,5 +2999,89 @@
     "paymentNotes": "Payment Notes",
     "implantInfo": "Implant Details",
     "preOpInfo": "Pre-Operative Assessment"
+  },
+  "questionnaire": {
+    "review": {
+      "title": "Questionnaire Reviews",
+      "subtitle": "Review patient-submitted pre-op questionnaires",
+      "searchPlaceholder": "Search by patient name...",
+      "tabPending": "Pending Review",
+      "tabReviewed": "Reviewed",
+      "noPending": "No pending questionnaires",
+      "noReviewed": "No reviewed questionnaires",
+      "selectResponse": "Select a questionnaire to view details",
+      "reviewSection": "Review",
+      "status": "Review Status",
+      "statusPending": "Pending",
+      "statusPartial": "Partial",
+      "statusCompleted": "Completed",
+      "notes": "Review Notes",
+      "notesPlaceholder": "Add notes about this review...",
+      "saveReview": "Save Review",
+      "saved": "Review Saved",
+      "savedDesc": "The review has been saved successfully",
+      "saveError": "Failed to save review",
+      "noMedications": "No medications listed",
+      "noConditions": "No conditions reported"
+    },
+    "personal": {
+      "height": "Height",
+      "weight": "Weight"
+    },
+    "allergies": {
+      "title": "Allergies",
+      "none": "No known allergies"
+    },
+    "medications": {
+      "title": "Current Medications"
+    },
+    "conditions": {
+      "title": "Medical Conditions"
+    },
+    "lifestyle": {
+      "title": "Lifestyle",
+      "smoking": {
+        "title": "Smoking Status",
+        "never": "Never smoked",
+        "former": "Former smoker",
+        "current": "Current smoker"
+      },
+      "alcohol": {
+        "title": "Alcohol Consumption",
+        "never": "Never",
+        "occasional": "Occasional",
+        "moderate": "Moderate",
+        "heavy": "Heavy"
+      }
+    },
+    "history": {
+      "title": "Medical History",
+      "previousSurgeries": "Previous Surgeries",
+      "anesthesiaProblems": "Previous Anesthesia Problems",
+      "pregnancy": {
+        "title": "Pregnancy Status",
+        "notApplicable": "Not applicable",
+        "no": "Not pregnant",
+        "possible": "Possibly pregnant",
+        "yes": "Pregnant"
+      },
+      "breastfeeding": "Breastfeeding"
+    },
+    "notes": {
+      "title": "Additional Notes",
+      "additional": "Additional Notes",
+      "additionalNotes": "Additional Notes",
+      "questions": "Questions for Doctor",
+      "questionsForDoctor": "Questions for Doctor"
+    },
+    "uploads": {
+      "title": "Uploaded Documents",
+      "category": {
+        "medication_list": "Medication List",
+        "diagnosis": "Diagnosis",
+        "exam_result": "Exam Result",
+        "other": "Other"
+      }
+    }
   }
 }
