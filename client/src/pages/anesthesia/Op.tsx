@@ -1046,6 +1046,12 @@ export default function Op() {
   useEffect(() => {
     // Only show once per surgery load, and only if we haven't already shown it
     if (!isPreOpLoading && !isPatientLoading && !showWeightDialog && surgeryId && !hasShownWeightDialogRef.current) {
+      // Skip weight dialog in surgery mode when surgery has noPreOpRequired flag
+      // (local anesthesia only cases don't need anesthesia pre-op assessment)
+      if (isSurgeryMode && surgery?.noPreOpRequired) {
+        console.log('[WEIGHT-DIALOG] Skipping weight dialog - surgery has noPreOpRequired flag');
+        return;
+      }
       // Show if no preOp assessment OR preOp assessment exists without weight
       const shouldShow = !preOpAssessment || (preOpAssessment && !patientWeight);
       if (shouldShow) {
@@ -1054,7 +1060,7 @@ export default function Op() {
         hasShownWeightDialogRef.current = true; // Mark as shown
       }
     }
-  }, [isPreOpLoading, isPatientLoading, preOpAssessment, patientWeight, showWeightDialog, surgeryId]);
+  }, [isPreOpLoading, isPatientLoading, preOpAssessment, patientWeight, showWeightDialog, surgeryId, isSurgeryMode, surgery?.noPreOpRequired]);
   
   // Handle weight save - create preOp assessment if it doesn't exist
   const handleWeightSave = async (weight: string) => {

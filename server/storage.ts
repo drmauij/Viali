@@ -2669,7 +2669,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(surgeries.hospitalId, hospitalId),
-          isNull(patients.deletedAt)
+          isNull(patients.deletedAt),
+          eq(surgeries.noPreOpRequired, false)
         )
       )
       .orderBy(desc(surgeries.plannedDate));

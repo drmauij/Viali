@@ -170,11 +170,11 @@ export default function PreOpList() {
   });
 
   const groupedByStatus = {
-    // Filter out noPreOpRequired surgeries only from the planned tab
+    // Filter out noPreOpRequired surgeries from all tabs (local anesthesia only cases)
     planned: filteredAssessments.filter((item) => item.status === 'planned' && !item.assessment?.standBy && !item.surgery?.noPreOpRequired),
-    draft: filteredAssessments.filter((item) => item.status === 'draft' && !item.assessment?.standBy),
-    standby: filteredStandByItems,
-    completed: filteredAssessments.filter((item) => item.status === 'completed' && !item.assessment?.standBy),
+    draft: filteredAssessments.filter((item) => item.status === 'draft' && !item.assessment?.standBy && !item.surgery?.noPreOpRequired),
+    standby: filteredStandByItems.filter((item) => !item.surgery?.noPreOpRequired),
+    completed: filteredAssessments.filter((item) => item.status === 'completed' && !item.assessment?.standBy && !item.surgery?.noPreOpRequired),
   };
 
   // Sort by upcoming surgery date (future dates first, nearest at top; past dates after)
