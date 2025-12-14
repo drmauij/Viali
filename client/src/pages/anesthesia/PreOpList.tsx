@@ -219,17 +219,23 @@ export default function PreOpList() {
 
     // Generate link and send email
     try {
-      const linkResponse = await generateLinkMutation.mutateAsync({
+      const response = await generateLinkMutation.mutateAsync({
         patientId: surgery.patientId,
         surgeryId: surgery.id,
       });
+      const linkData = await response.json();
       
       await sendEmailMutation.mutateAsync({
-        linkId: linkResponse.link.id,
+        linkId: linkData.link.id,
         email: surgery.patientEmail,
       });
     } catch (error) {
       console.error("Failed to send form:", error);
+      toast({
+        title: t('common.error'),
+        description: t('anesthesia.preop.emailSendError'),
+        variant: "destructive",
+      });
     }
   };
 
@@ -249,17 +255,23 @@ export default function PreOpList() {
       }
 
       // Generate link and send email
-      const linkResponse = await generateLinkMutation.mutateAsync({
+      const response = await generateLinkMutation.mutateAsync({
         patientId: selectedSurgeryForEmail.patientId,
         surgeryId: selectedSurgeryForEmail.id,
       });
+      const linkData = await response.json();
       
       await sendEmailMutation.mutateAsync({
-        linkId: linkResponse.link.id,
+        linkId: linkData.link.id,
         email: emailInput,
       });
     } catch (error) {
       console.error("Failed to send form:", error);
+      toast({
+        title: t('common.error'),
+        description: t('anesthesia.preop.emailSendError'),
+        variant: "destructive",
+      });
     }
   };
 
