@@ -614,6 +614,7 @@ export interface IStorage {
   
   // Questionnaire Link operations
   createQuestionnaireLink(link: InsertPatientQuestionnaireLink): Promise<PatientQuestionnaireLink>;
+  getQuestionnaireLink(id: string): Promise<PatientQuestionnaireLink | undefined>;
   getQuestionnaireLinkByToken(token: string): Promise<PatientQuestionnaireLink | undefined>;
   getQuestionnaireLinksForPatient(patientId: string): Promise<PatientQuestionnaireLink[]>;
   getQuestionnaireLinksForHospital(hospitalId: string): Promise<PatientQuestionnaireLink[]>;
@@ -5592,6 +5593,14 @@ export class DatabaseStorage implements IStorage {
       .values(link)
       .returning();
     return created;
+  }
+
+  async getQuestionnaireLink(id: string): Promise<PatientQuestionnaireLink | undefined> {
+    const [link] = await db
+      .select()
+      .from(patientQuestionnaireLinks)
+      .where(eq(patientQuestionnaireLinks.id, id));
+    return link;
   }
 
   async getQuestionnaireLinkByToken(token: string): Promise<PatientQuestionnaireLink | undefined> {
