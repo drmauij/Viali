@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, UserPlus, ScanBarcode, UserCircle, UserRound, Loader2 } from "lucide-react";
+import { Search, UserPlus, ScanBarcode, UserCircle, UserRound, Loader2, Send } from "lucide-react";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -20,6 +20,7 @@ import type { Patient } from "@shared/schema";
 import { formatDate } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import { useModule } from "@/contexts/ModuleContext";
+import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 
 export default function Patients() {
   const { t } = useTranslation();
@@ -53,6 +54,8 @@ export default function Patients() {
     internalNotes: "",
   });
   const [birthdayInput, setBirthdayInput] = useState("");
+  const [sendFormDialogOpen, setSendFormDialogOpen] = useState(false);
+  const [selectedPatientForForm, setSelectedPatientForForm] = useState<Patient | null>(null);
 
   // Parse birthday from various formats to ISO format (yyyy-mm-dd)
   // Supported formats:
@@ -515,17 +518,34 @@ export default function Patients() {
                 data-testid={`patient-item-${patient.id}`}
                 onClick={() => setLocation(`${moduleBasePath}/patients/${patient.id}`)}
               >
-                <div className="flex items-center gap-2">
-                  {patient.sex === "M" ? (
-                    <UserCircle className="h-5 w-5 text-blue-500" />
-                  ) : patient.sex === "F" ? (
-                    <UserRound className="h-5 w-5 text-pink-500" />
-                  ) : (
-                    <UserCircle className="h-5 w-5 text-gray-500" />
-                  )}
-                  <div className="font-semibold text-foreground">
-                    {patient.surname}, {patient.firstName}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {patient.sex === "M" ? (
+                      <UserCircle className="h-5 w-5 text-blue-500" />
+                    ) : patient.sex === "F" ? (
+                      <UserRound className="h-5 w-5 text-pink-500" />
+                    ) : (
+                      <UserCircle className="h-5 w-5 text-gray-500" />
+                    )}
+                    <div className="font-semibold text-foreground">
+                      {patient.surname}, {patient.firstName}
+                    </div>
                   </div>
+                  {canWrite && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedPatientForForm(patient);
+                        setSendFormDialogOpen(true);
+                      }}
+                      title={t('questionnaire.send.title', 'Send Questionnaire')}
+                      data-testid={`button-send-form-${patient.id}`}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  )}
                 </div>
                 <div className="text-sm text-muted-foreground mt-1 ml-7">
                   {formatDate(patient.birthday)} • {patient.patientNumber}
@@ -544,6 +564,16 @@ export default function Patients() {
             </div>
           )}
         </>
+      )}
+
+      {selectedPatientForForm && (
+        <SendQuestionnaireDialog
+          open={sendFormDialogOpen}
+          onOpenChange={setSendFormDialogOpen}
+          patientId={selectedPatientForForm.id}
+          patientName={`${selectedPatientForForm.firstName} ${selectedPatientForForm.surname}`}
+          patientEmail={selectedPatientForForm.email}
+        />
       )}
     </div>
   );

@@ -3049,6 +3049,16 @@
       "expiryDays": "Link Expiry (days)",
       "expiryDaysHint": "The link will expire after this many days (1-30)"
     },
+    "send": {
+      "title": "Send Questionnaire",
+      "description": "Send a pre-op questionnaire to {{name}}",
+      "generating": "Generating link...",
+      "linkLabel": "Questionnaire Link",
+      "orSendEmail": "Or send via email",
+      "send": "Send",
+      "sent": "Sent",
+      "noEmailHint": "No email on file for this patient"
+    },
     "review": {
       "title": "Questionnaire Reviews",
       "subtitle": "Review patient-submitted pre-op questionnaires",

@@ -3063,6 +3063,16 @@
       "expiryDays": "Link-Ablauf (Tage)",
       "expiryDaysHint": "Der Link läuft nach dieser Anzahl von Tagen ab (1-30)"
     },
+    "send": {
+      "title": "Fragebogen senden",
+      "description": "Pre-Op Fragebogen an {{name}} senden",
+      "generating": "Link wird generiert...",
+      "linkLabel": "Fragebogen-Link",
+      "orSendEmail": "Oder per E-Mail senden",
+      "send": "Senden",
+      "sent": "Gesendet",
+      "noEmailHint": "Keine E-Mail für diesen Patienten hinterlegt"
+    },
     "review": {
       "title": "Fragebogen-Überprüfungen",
       "subtitle": "Überprüfen Sie von Patienten eingereichte Prä-OP-Fragebögen",

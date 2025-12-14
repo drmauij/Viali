@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -32,6 +32,7 @@ import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButton";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { QuestionnaireLinksCard } from "@/components/anesthesia/QuestionnaireLinksCard";
+import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 
 type Patient = {
   id: string;
@@ -93,6 +94,7 @@ export default function PatientDetail() {
   // Track if we're currently saving to prevent useEffect from resetting form data
   const isSavingRef = useRef(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
+  const [isSendQuestionnaireOpen, setIsSendQuestionnaireOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     surname: "",
     firstName: "",
@@ -1204,6 +1206,15 @@ export default function PatientDetail() {
               </div>
               {canWrite && (
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsSendQuestionnaireOpen(true)}
+                    data-testid="button-send-questionnaire"
+                    title={t('questionnaire.send.title', 'Send Questionnaire')}
+                  >
+                    <Send className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="outline"
                     size="icon"
@@ -3788,6 +3799,17 @@ export default function PatientDetail() {
         }}
         title={t('anesthesia.patientDetail.patientSignature')}
       />
+
+      {/* Send Questionnaire Dialog */}
+      {patient && (
+        <SendQuestionnaireDialog
+          open={isSendQuestionnaireOpen}
+          onOpenChange={setIsSendQuestionnaireOpen}
+          patientId={patient.id}
+          patientName={`${patient.firstName} ${patient.surname}`}
+          patientEmail={patient.email}
+        />
+      )}
     </div>
   );
 }

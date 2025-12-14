@@ -881,4 +881,53 @@ router.delete('/api/admin/users/:userId/delete', isAuthenticated, requireWriteAc
   }
 });
 
+// Questionnaire token management
+router.get('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const hospital = await storage.getHospital(hospitalId);
+    
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    
+    res.json({ 
+      questionnaireToken: hospital.questionnaireToken || null 
+    });
+  } catch (error) {
+    console.error("Error fetching questionnaire token:", error);
+    res.status(500).json({ message: "Failed to fetch questionnaire token" });
+  }
+});
+
+router.post('/api/admin/:hospitalId/questionnaire-token/generate', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { nanoid } = await import('nanoid');
+    
+    const token = nanoid(24);
+    const hospital = await storage.setHospitalQuestionnaireToken(hospitalId, token);
+    
+    res.json({ 
+      questionnaireToken: hospital.questionnaireToken 
+    });
+  } catch (error) {
+    console.error("Error generating questionnaire token:", error);
+    res.status(500).json({ message: "Failed to generate questionnaire token" });
+  }
+});
+
+router.delete('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    await storage.setHospitalQuestionnaireToken(hospitalId, null);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting questionnaire token:", error);
+    res.status(500).json({ message: "Failed to delete questionnaire token" });
+  }
+});
+
 export default router;
