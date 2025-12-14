@@ -25,7 +25,10 @@ import {
   Mail,
   Phone,
   Loader2,
-  ChevronRight
+  ChevronRight,
+  Copy,
+  Check,
+  ExternalLink
 } from "lucide-react";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
@@ -48,6 +51,7 @@ export default function UnassociatedQuestionnaires() {
   const [selectedResponse, setSelectedResponse] = useState<UnassociatedResponse | null>(null);
   const [patientSearchTerm, setPatientSearchTerm] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   const activeHospital = useMemo(() => {
     const userHospitals = (user as any)?.hospitals;
@@ -66,6 +70,31 @@ export default function UnassociatedQuestionnaires() {
 
   const hospitalId = activeHospital?.id;
   const dateLocale = i18n.language === 'de' ? de : enUS;
+
+  // Fetch questionnaire token for the hospital
+  const { data: questionnaireTokenData } = useQuery<{ questionnaireToken: string | null }>({
+    queryKey: [`/api/admin/${hospitalId}/questionnaire-token`],
+    enabled: !!hospitalId,
+  });
+
+  const getQuestionnaireUrl = () => {
+    if (!questionnaireTokenData?.questionnaireToken) return null;
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/questionnaire/hospital/${questionnaireTokenData.questionnaireToken}`;
+  };
+
+  const handleCopyLink = async () => {
+    const url = getQuestionnaireUrl();
+    if (url) {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      toast({
+        title: t('common.copied', 'Copied'),
+        description: t('questionnaire.linkCopied', 'Link copied to clipboard'),
+      });
+      setTimeout(() => setLinkCopied(false), 2000);
+    }
+  };
 
   const { data: responses = [], isLoading } = useQuery<UnassociatedResponse[]>({
     queryKey: ['/api/questionnaire/unassociated', hospitalId],
@@ -179,6 +208,21 @@ export default function UnassociatedQuestionnaires() {
             {t('questionnaire.unassociated.subtitle', 'Link questionnaire submissions to patient records')}
           </p>
         </div>
+        {questionnaireTokenData?.questionnaireToken && (
+          <Button
+            variant="outline"
+            onClick={handleCopyLink}
+            className="gap-2"
+            data-testid="button-copy-open-questionnaire-link"
+          >
+            {linkCopied ? (
+              <Check className="h-4 w-4 text-green-500" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+            {t('questionnaire.openLink', 'Open Questionnaire Link')}
+          </Button>
+        )}
       </div>
 
       <div className="mb-6">

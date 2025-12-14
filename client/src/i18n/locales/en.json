@@ -3029,6 +3029,8 @@
     "preOpInfo": "Pre-Operative Assessment"
   },
   "questionnaire": {
+    "openLink": "Open Questionnaire Link",
+    "linkCopied": "Link copied to clipboard",
     "links": {
       "title": "Pre-Op Questionnaire",
       "generate": "Generate Link",

@@ -3043,6 +3043,8 @@
     "preOpInfo": "Präoperative Beurteilung"
   },
   "questionnaire": {
+    "openLink": "Fragebogen-Link öffnen",
+    "linkCopied": "Link in Zwischenablage kopiert",
     "links": {
       "title": "Prä-OP Fragebogen",
       "generate": "Link erstellen",
