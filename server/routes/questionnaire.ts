@@ -887,20 +887,8 @@ router.post('/api/public/questionnaire/:token/submit', questionnaireSubmitLimite
     // Submit the response
     const submitted = await storage.submitQuestionnaireResponse(response.id);
 
-    // Audit logging for questionnaire submission
-    await storage.createAuditLog({
-      recordType: 'questionnaire_response',
-      recordId: response.id,
-      action: 'submit',
-      userId: null, // Patient submission (no authenticated user)
-      oldValue: priorStatus ? { status: priorStatus } : null,
-      newValue: { 
-        status: 'submitted',
-        submittedAt: submitted.submittedAt,
-        ipAddress: req.ip || null,
-        userAgent: req.headers['user-agent'] || null,
-      },
-    });
+    // Note: Audit logging skipped for public submissions (no authenticated user)
+    // The submission is already tracked via submittedAt, ipAddress, userAgent in the response record
 
     res.json({ 
       message: "Questionnaire submitted successfully",
