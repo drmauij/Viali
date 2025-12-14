@@ -5486,12 +5486,13 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  async getMentionsForUser(userId: string, hospitalId: string, unreadOnly: boolean = false): Promise<(ChatMention & { message: ChatMessage })[]> {
+  async getMentionsForUser(userId: string, hospitalId: string, unreadOnly: boolean = false): Promise<(ChatMention & { message: ChatMessage & { sender?: { id: string; firstName?: string | null; lastName?: string | null; email?: string | null } } })[]> {
     const mentions = await db
       .select()
       .from(chatMentions)
       .innerJoin(chatMessages, eq(chatMentions.messageId, chatMessages.id))
       .innerJoin(chatConversations, eq(chatMessages.conversationId, chatConversations.id))
+      .leftJoin(users, eq(chatMessages.senderId, users.id))
       .where(and(
         eq(chatMentions.mentionedUserId, userId),
         eq(chatConversations.hospitalId, hospitalId),
@@ -5501,7 +5502,15 @@ export class DatabaseStorage implements IStorage {
 
     return mentions.map(row => ({
       ...row.chat_mentions,
-      message: row.chat_messages
+      message: {
+        ...row.chat_messages,
+        sender: row.users ? {
+          id: row.users.id,
+          firstName: row.users.firstName,
+          lastName: row.users.lastName,
+          email: row.users.email
+        } : undefined
+      }
     }));
   }
 

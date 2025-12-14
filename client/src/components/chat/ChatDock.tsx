@@ -26,7 +26,8 @@ import {
   Image,
   File,
   Loader2,
-  Trash2
+  Trash2,
+  AtSign
 } from "lucide-react";
 import { format, isToday, isYesterday } from "date-fns";
 import {
@@ -122,7 +123,27 @@ interface Message {
   }>;
 }
 
-type ChatView = 'list' | 'conversation' | 'new';
+type ChatView = 'list' | 'conversation' | 'new' | 'mentions';
+
+interface MentionItem {
+  id: string;
+  mentionType: string;
+  mentionedUserId: string | null;
+  createdAt: string;
+  message: {
+    id: string;
+    conversationId: string;
+    senderId: string;
+    content: string;
+    createdAt: string;
+    sender?: {
+      id: string;
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+    };
+  };
+}
 
 export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockProps) {
   const { user } = useAuth();
@@ -131,6 +152,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
   const [view, setView] = useState<ChatView>('list');
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [listTab, setListTab] = useState<'messages' | 'mentions'>('messages');
   const [messageText, setMessageText] = useState("");
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
@@ -217,6 +239,18 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
       return response.json();
     },
     enabled: !!activeHospital?.id && view === 'conversation',
+  });
+
+  const { data: myMentions = [], isLoading: mentionsLoading } = useQuery<MentionItem[]>({
+    queryKey: ['/api/chat', activeHospital?.id, 'mentions'],
+    queryFn: async () => {
+      const response = await fetch(`/api/chat/${activeHospital?.id}/mentions`, {
+        credentials: 'include',
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!activeHospital?.id && (isOpen || view === 'mentions'),
   });
 
   const mentionSuggestions = useMemo((): MentionSuggestion[] => {
@@ -766,7 +800,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
           {view === 'list' && (
             <>
               <div className="flex items-center justify-between p-4 border-b border-border">
-                <h2 className="text-lg font-semibold text-foreground">Messages</h2>
+                <h2 className="text-lg font-semibold text-foreground">Chat</h2>
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -787,66 +821,163 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                 </div>
               </div>
 
-              <div className="p-3 border-b border-border">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search conversations..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
-                    data-testid="input-search-conversations"
-                  />
-                </div>
+              <div className="flex border-b border-border">
+                <button
+                  className={`flex-1 py-2.5 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
+                    listTab === 'messages' 
+                      ? 'text-primary border-b-2 border-primary' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onClick={() => setListTab('messages')}
+                  data-testid="tab-messages"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Messages
+                </button>
+                <button
+                  className={`flex-1 py-2.5 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
+                    listTab === 'mentions' 
+                      ? 'text-primary border-b-2 border-primary' 
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                  onClick={() => setListTab('mentions')}
+                  data-testid="tab-mentions"
+                >
+                  <AtSign className="w-4 h-4" />
+                  Mentions
+                  {myMentions.length > 0 && (
+                    <span className="bg-primary text-primary-foreground text-xs font-medium px-1.5 py-0.5 rounded-full min-w-[20px]">
+                      {myMentions.length}
+                    </span>
+                  )}
+                </button>
               </div>
 
-              <ScrollArea className="flex-1">
-                {conversationsLoading ? (
-                  <div className="p-4 text-center text-muted-foreground">Loading...</div>
-                ) : filteredConversations.length === 0 ? (
-                  <div className="p-4 text-center text-muted-foreground">
-                    No conversations yet
+              {listTab === 'messages' && (
+                <>
+                  <div className="p-3 border-b border-border">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Search conversations..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9"
+                        data-testid="input-search-conversations"
+                      />
+                    </div>
                   </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {filteredConversations.map((convo) => (
-                      <button
-                        key={convo.id}
-                        className="w-full p-3 hover:bg-accent/50 text-left flex items-start gap-3"
-                        onClick={() => {
-                          setSelectedConversation(convo);
-                          setView('conversation');
-                        }}
-                        data-testid={`conversation-${convo.id}`}
-                      >
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                          {getConversationIcon(convo.scopeType)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className="font-medium text-foreground truncate">
-                              {getConversationTitle(convo)}
-                            </span>
-                            {convo.lastMessageAt && (
-                              <span className="text-xs text-muted-foreground">
-                                {formatMessageTime(convo.lastMessageAt)}
+
+                  <ScrollArea className="flex-1">
+                    {conversationsLoading ? (
+                      <div className="p-4 text-center text-muted-foreground">Loading...</div>
+                    ) : filteredConversations.length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">
+                        No conversations yet
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-border">
+                        {filteredConversations.map((convo) => (
+                          <button
+                            key={convo.id}
+                            className="w-full p-3 hover:bg-accent/50 text-left flex items-start gap-3"
+                            onClick={() => {
+                              setSelectedConversation(convo);
+                              setView('conversation');
+                            }}
+                            data-testid={`conversation-${convo.id}`}
+                          >
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                              {getConversationIcon(convo.scopeType)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-foreground truncate">
+                                  {getConversationTitle(convo)}
+                                </span>
+                                {convo.lastMessageAt && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatMessageTime(convo.lastMessageAt)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground truncate">
+                                {convo.participants.length} participant{convo.participants.length !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                            {(convo.unreadCount ?? 0) > 0 && (
+                              <span className="bg-primary text-primary-foreground text-xs font-medium px-2 py-0.5 rounded-full">
+                                {convo.unreadCount}
                               </span>
                             )}
-                          </div>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {convo.participants.length} participant{convo.participants.length !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                        {(convo.unreadCount ?? 0) > 0 && (
-                          <span className="bg-primary text-primary-foreground text-xs font-medium px-2 py-0.5 rounded-full">
-                            {convo.unreadCount}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </>
+              )}
+
+              {listTab === 'mentions' && (
+                <ScrollArea className="flex-1">
+                  {mentionsLoading ? (
+                    <div className="p-4 text-center text-muted-foreground">Loading...</div>
+                  ) : myMentions.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      <AtSign className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                      <p>No mentions yet</p>
+                      <p className="text-sm mt-1">When someone @mentions you, it will appear here</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {myMentions.map((mention) => {
+                        const sender = mention.message?.sender;
+                        const senderName = sender?.firstName || sender?.lastName 
+                          ? `${sender?.firstName || ''} ${sender?.lastName || ''}`.trim()
+                          : sender?.email || 'Someone';
+                        const messageTime = mention.message?.createdAt || mention.createdAt;
+                        const messageContent = mention.message?.content || '';
+                        return (
+                          <button
+                            key={mention.id}
+                            className="w-full p-3 hover:bg-accent/50 text-left flex items-start gap-3"
+                            onClick={() => {
+                              const convo = conversations.find(c => c.id === mention.message?.conversationId);
+                              if (convo) {
+                                setSelectedConversation(convo);
+                                setView('conversation');
+                              }
+                            }}
+                            data-testid={`mention-${mention.id}`}
+                          >
+                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                              <AtSign className="w-4 h-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-foreground truncate">
+                                  {senderName}
+                                </span>
+                                {messageTime && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {formatMessageTime(messageTime)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-sm text-muted-foreground line-clamp-2">
+                                {messageContent ? messageContent.replace(/@\[[^\]]+\]\([^)]+\)/g, (match) => {
+                                  const displayMatch = match.match(/@\[([^\]]+)\]/);
+                                  return displayMatch ? `@${displayMatch[1]}` : match;
+                                }) : 'Mentioned you'}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
+              )}
             </>
           )}
 
@@ -918,6 +1049,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                   <div className="space-y-4">
                     {[...messages].reverse().map((msg) => {
                       const isOwnMessage = msg.senderId === (user as any)?.id;
+                      const isMentioningMe = msg.mentions?.some(m => m.mentionedUserId === (user as any)?.id);
                       return (
                         <div
                           key={msg.id}
@@ -942,7 +1074,9 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                                 className={`rounded-2xl px-4 py-2 ${
                                   isOwnMessage
                                     ? 'bg-primary text-primary-foreground'
-                                    : 'bg-accent'
+                                    : isMentioningMe 
+                                      ? 'bg-primary/20 ring-2 ring-primary/50' 
+                                      : 'bg-accent'
                                 } ${msg.isDeleted ? 'opacity-50 italic' : ''}`}
                               >
                                 {msg.isDeleted ? (

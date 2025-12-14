@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import { useModule } from "@/contexts/ModuleContext";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, AtSign } from "lucide-react";
 import ChatDock from "./chat/ChatDock";
 import { useQuery } from "@tanstack/react-query";
 
@@ -55,7 +55,22 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
     refetchInterval: 30000,
   });
 
+  const { data: mentions = [] } = useQuery<Array<{ id: string }>>({
+    queryKey: ['/api/chat', activeHospital?.id, 'mentions'],
+    queryFn: async () => {
+      if (!activeHospital?.id) return [];
+      const response = await fetch(`/api/chat/${activeHospital.id}/mentions`, {
+        credentials: 'include',
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!activeHospital?.id,
+    refetchInterval: 30000,
+  });
+
   const unreadCount = notifications.length;
+  const mentionsCount = mentions.length;
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -157,6 +172,15 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
                 data-testid="badge-unread-count"
               >
                 {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+            {mentionsCount > 0 && (
+              <span 
+                className="absolute -bottom-1 -right-1 min-w-[18px] h-[18px] bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center px-1"
+                data-testid="badge-mentions-count"
+              >
+                <AtSign className="w-2.5 h-2.5 mr-0.5" />
+                {mentionsCount > 99 ? '99+' : mentionsCount}
               </span>
             )}
           </button>
