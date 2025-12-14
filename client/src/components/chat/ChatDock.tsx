@@ -1160,10 +1160,10 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                 </Button>
               </div>
 
-              <div className="p-4 space-y-4">
+              <div className="p-4 flex-1 flex flex-col min-h-0">
                 <Button
                   variant="outline"
-                  className="w-full justify-start gap-3"
+                  className="w-full justify-start gap-3 shrink-0"
                   onClick={() => {
                     createConversationMutation.mutate({ scopeType: 'self' });
                   }}
@@ -1173,10 +1173,17 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                   Personal Notes
                 </Button>
 
-                <div className="pt-4 border-t border-border">
+                <div className="pt-4 mt-4 border-t border-border flex-1 flex flex-col min-h-0">
                   <h3 className="text-sm font-medium text-muted-foreground mb-3">Start a conversation with:</h3>
-                  <ScrollArea className="h-[300px]">
-                    {users.filter(u => u.id !== (user as any)?.id).map((u) => (
+                  <ScrollArea className="flex-1">
+                    {users
+                      .filter((u, idx, arr) => u.id !== (user as any)?.id && arr.findIndex(x => x.id === u.id) === idx)
+                      .sort((a, b) => {
+                        const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim().toLowerCase() || (a.email || '').toLowerCase();
+                        const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim().toLowerCase() || (b.email || '').toLowerCase();
+                        return nameA.localeCompare(nameB);
+                      })
+                      .map((u) => (
                       <button
                         key={u.id}
                         className="w-full p-3 hover:bg-accent/50 rounded-lg text-left flex items-center gap-3"
