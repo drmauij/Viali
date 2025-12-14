@@ -1094,6 +1094,12 @@ router.post('/api/public/questionnaire/:token/upload-url', questionnaireUploadLi
     const region = process.env.S3_REGION || "ch-dk-2";
 
     if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
+      const missing = [];
+      if (!endpoint) missing.push('S3_ENDPOINT');
+      if (!accessKeyId) missing.push('S3_ACCESS_KEY');
+      if (!secretAccessKey) missing.push('S3_SECRET_KEY');
+      if (!bucket) missing.push('S3_BUCKET');
+      console.error(`[Questionnaire Upload] Missing S3 configuration: ${missing.join(', ')}`);
       return res.status(503).json({ message: "File storage not configured" });
     }
 
