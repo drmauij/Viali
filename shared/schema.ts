@@ -1400,7 +1400,7 @@ export const anesthesiaMedications = pgTable("anesthesia_medications", {
   
   timestamp: timestamp("timestamp", { withTimezone: true }).notNull(),
   type: varchar("type", { 
-    enum: ["bolus", "infusion_start", "infusion_stop", "rate_change"] 
+    enum: ["bolus", "infusion_start", "infusion_stop", "rate_change", "manual_total"] 
   }).notNull(),
   
   // Dosing

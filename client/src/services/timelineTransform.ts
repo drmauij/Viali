@@ -303,3 +303,47 @@ export function transformFreeFlowInfusions(
   return sessions;
 }
 
+// Manual total overrides - allows users to manually set cumulative dose totals
+export type ManualTotalRecord = {
+  recordId: string;
+  dose: number;
+  unit: string;
+  swimlaneId: string;
+  itemId: string;
+};
+
+export function transformManualTotals(
+  medications: any[],
+  itemToSwimlane: Map<string, string>
+): { [swimlaneId: string]: ManualTotalRecord } {
+  const manualTotals: { [swimlaneId: string]: ManualTotalRecord } = {};
+  
+  medications
+    .filter(med => med.type === 'manual_total')
+    .forEach(med => {
+      const swimlaneId = itemToSwimlane.get(med.itemId);
+      if (!swimlaneId) return;
+      
+      // Parse dose value and unit from the dose field (e.g., "150 mg")
+      const doseStr = med.dose || '';
+      const match = doseStr.match(/^([\d.,]+)\s*(.*)$/);
+      const dose = match ? parseFloat(match[1].replace(',', '.')) : 0;
+      const unit = match ? match[2].trim() : '';
+      
+      // Only keep the latest manual_total record per swimlane
+      // (in case there are multiple, use the most recent one by timestamp)
+      const existingRecord = manualTotals[swimlaneId];
+      if (!existingRecord) {
+        manualTotals[swimlaneId] = {
+          recordId: med.id,
+          dose,
+          unit,
+          swimlaneId,
+          itemId: med.itemId,
+        };
+      }
+    });
+  
+  return manualTotals;
+}
+

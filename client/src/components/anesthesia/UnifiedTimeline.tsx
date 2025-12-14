@@ -116,6 +116,8 @@ import {
   transformMedicationDoses,
   transformRateInfusions,
   transformFreeFlowInfusions,
+  transformManualTotals,
+  type ManualTotalRecord,
 } from "@/services/timelineTransform";
 import { 
   VitalsSwimlane, 
@@ -1978,14 +1980,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const [rateManageTime, setRateManageTime] = useState<number>(0);
   const [rateManageInput, setRateManageInput] = useState("");
   
-  // State for TCI amount edit dialog (editable pill for stopped TCI)
+  // State for medication total edit dialog (editable pill for all medications)
   const [showTciAmountEditDialog, setShowTciAmountEditDialog] = useState(false);
   const [editingTciAmount, setEditingTciAmount] = useState<{
-    stopRecordId: string;
+    stopRecordId: string; // Empty string means we need to create a new manual_total record
     currentAmount: string;
     unit: string;
     label: string;
     swimlaneId: string;
+    itemId?: string; // For creating new manual_total records
+    isManualOverride?: boolean; // Whether this is already a manual override
   } | null>(null);
   const [tciAmountEditInput, setTciAmountEditInput] = useState("");
   
@@ -2564,10 +2568,21 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     activeSwimlaneRef.current = activeSwimlanes;
   }, [activeSwimlanes]);
 
+  // Extract manual total overrides from medications data
+  // These allow users to override the calculated cumulative dose with a manually entered value
+  const manualTotals = useMemo(() => {
+    if (!data.medications || !anesthesiaItems?.length || !administrationGroups?.length) {
+      return {} as Record<string, ManualTotalRecord>;
+    }
+    const itemToSwimlane = buildItemToSwimlaneMap(anesthesiaItems, administrationGroups);
+    return transformManualTotals(data.medications, itemToSwimlane);
+  }, [data.medications, anesthesiaItems, administrationGroups]);
+
   // Calculate cumulative doses for each medication swimlane
   // Combines bolus doses, free-flow infusion doses, and rate-controlled infusion doses
+  // If a manual_total override exists for a swimlane, use that instead of calculated value
   const cumulativeDoses = useMemo(() => {
-    const doses: Record<string, { total: number; unit: string }> = {};
+    const doses: Record<string, { total: number; unit: string; isManualOverride?: boolean; manualRecordId?: string }> = {};
     
     // Helper to parse dose/rate value and extract numeric part
     const parseNumericValue = (valueStr: string): number => {
@@ -2780,8 +2795,22 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       });
     });
     
+    // Apply manual total overrides - these take precedence over calculated values
+    Object.entries(manualTotals).forEach(([swimlaneId, manualRecord]) => {
+      if (manualRecord.dose > 0) {
+        const swimlaneConfig = activeSwimlanes.find(s => s.id === swimlaneId);
+        const unit = manualRecord.unit || swimlaneConfig?.administrationUnit || '';
+        doses[swimlaneId] = { 
+          total: manualRecord.dose, 
+          unit,
+          isManualOverride: true,
+          manualRecordId: manualRecord.recordId,
+        };
+      }
+    });
+    
     return doses;
-  }, [medicationDoseData, freeFlowSessions, rateInfusionSessions, activeSwimlanes, currentTime, patientWeight]);
+  }, [medicationDoseData, freeFlowSessions, rateInfusionSessions, activeSwimlanes, currentTime, patientWeight, manualTotals]);
 
   // Compute unique timestamps from ventilation parameter data for the entry lane markers
   const ventilationEntryTimestamps = useMemo(() => {
@@ -6789,26 +6818,38 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           // Calculate position relative to the right panel's top
           const topOffset = lane.top - (VITALS_TOP_POS + VITALS_HEIGHT);
           
-          // Check if this is a stopped TCI with editable amount
+          // Check if this is a stopped TCI with editable amount via infusion_stop record
           const stoppedTciSession = isTciMode && sessions.find(s => s.endTime && s.stopRecordId && s.actualAmountUsed);
-          const isEditableTci = !!stoppedTciSession && canWrite;
           
-          const handleTciPillClick = () => {
-            if (isEditableTci && stoppedTciSession) {
-              // Parse numeric value from actualAmountUsed
-              const match = stoppedTciSession.actualAmountUsed?.match(/^([\d.,]+)/);
-              const numericValue = match ? match[1] : stoppedTciSession.actualAmountUsed || '';
-              
-              setEditingTciAmount({
-                stopRecordId: stoppedTciSession.stopRecordId!,
-                currentAmount: numericValue,
-                unit: cumulativeDose.unit,
-                label: swimlaneConfig?.label || '',
-                swimlaneId: lane.id,
-              });
-              setTciAmountEditInput(numericValue);
-              setShowTciAmountEditDialog(true);
-            }
+          // All medication pills are now editable when canWrite is true
+          // Users can override calculated totals with manual values
+          const isEditable = canWrite;
+          
+          const handleMedicationPillClick = () => {
+            if (!canWrite) return;
+            
+            // Get current numeric value from cumulativeDose
+            const numericValue = cumulativeDose.total.toString();
+            
+            // Determine if we're updating an existing record or creating new
+            // Priority: 1) manual_total record, 2) TCI infusion_stop record, 3) create new manual_total
+            const isManualOverride = (cumulativeDose as any).isManualOverride;
+            const manualRecordId = (cumulativeDose as any).manualRecordId;
+            
+            setEditingTciAmount({
+              stopRecordId: isManualOverride && manualRecordId 
+                ? manualRecordId 
+                : (stoppedTciSession?.stopRecordId || ''),
+              currentAmount: numericValue,
+              unit: cumulativeDose.unit,
+              label: swimlaneConfig?.label || '',
+              swimlaneId: lane.id,
+              // Additional fields for creating new manual_total if needed
+              ...(lane.itemId && { itemId: lane.itemId }),
+              isManualOverride: isManualOverride || false,
+            } as any);
+            setTciAmountEditInput(numericValue);
+            setShowTciAmountEditDialog(true);
           };
           
           return (
@@ -6821,10 +6862,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               }}
             >
               <span 
-                className={`px-1.5 py-0.5 text-[10px] font-medium bg-emerald-600 text-white rounded-full whitespace-nowrap shadow-sm ${isEditableTci ? 'pointer-events-auto cursor-pointer hover:bg-emerald-700 transition-colors' : ''}`}
+                className={`px-1.5 py-0.5 text-[10px] font-medium text-white rounded-full whitespace-nowrap shadow-sm ${
+                  (cumulativeDose as any).isManualOverride 
+                    ? 'bg-blue-600' 
+                    : 'bg-emerald-600'
+                } ${isEditable ? 'pointer-events-auto cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
                 data-testid={`badge-cumulative-dose-${lane.id}`}
-                title={isEditableTci ? t("anesthesia.timeline.tciClickToEdit") : `Total administered: ${cumulativeDose.total % 1 === 0 ? cumulativeDose.total : cumulativeDose.total.toFixed(1)} ${cumulativeDose.unit}`}
-                onClick={isEditableTci ? handleTciPillClick : undefined}
+                title={isEditable 
+                  ? t("anesthesia.timeline.clickToEditTotal", "Click to edit total") 
+                  : `Total administered: ${cumulativeDose.total % 1 === 0 ? cumulativeDose.total : cumulativeDose.total.toFixed(1)} ${cumulativeDose.unit}`}
+                onClick={isEditable ? handleMedicationPillClick : undefined}
               >
                 {cumulativeDose.total % 1 === 0 
                   ? cumulativeDose.total 
@@ -8430,53 +8477,76 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         ampuleUnit={managingRate?.ampuleUnit}
       />
 
-      {/* TCI Amount Edit Dialog (for editing actual amount after stop) */}
+      {/* Medication Total Edit Dialog (for editing cumulative dose amounts) */}
       <Dialog open={showTciAmountEditDialog} onOpenChange={setShowTciAmountEditDialog}>
-        <DialogContent className="sm:max-w-[350px]" data-testid="dialog-tci-amount-edit">
+        <DialogContent className="sm:max-w-[350px]" data-testid="dialog-medication-total-edit">
           <DialogHeader>
             <DialogTitle>{editingTciAmount?.label}</DialogTitle>
             <DialogDescription>
-              {t("anesthesia.timeline.tciEditActualAmount")}
+              {editingTciAmount?.isManualOverride 
+                ? t("anesthesia.timeline.editManualTotal", "Edit the manual override for total amount")
+                : t("anesthesia.timeline.setManualTotal", "Set a manual override for the total amount")}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="tci-amount-edit">{t("anesthesia.timeline.tciActualAmountUsed")} ({editingTciAmount?.unit})</Label>
+              <Label htmlFor="medication-total-edit">{t("anesthesia.timeline.totalAmount", "Total amount")} ({editingTciAmount?.unit})</Label>
               <Input
-                id="tci-amount-edit"
+                id="medication-total-edit"
                 type="number"
                 inputMode="decimal"
                 className="text-center text-xl font-bold h-12"
-                data-testid="input-tci-amount-edit"
+                data-testid="input-medication-total-edit"
                 value={tciAmountEditInput}
                 onChange={(e) => setTciAmountEditInput(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    // Save on Enter
                     const parsedAmount = parseFloat(tciAmountEditInput);
                     if (!isNaN(parsedAmount) && parsedAmount > 0 && editingTciAmount) {
                       const newDose = `${tciAmountEditInput} ${editingTciAmount.unit}`;
-                      updateMedication.mutate({
-                        id: editingTciAmount.stopRecordId,
-                        dose: newDose,
-                      }, {
-                        onSuccess: () => {
-                          toast({
-                            title: t("anesthesia.timeline.tciAmountUpdated"),
-                            description: `${editingTciAmount.label}: ${newDose}`,
-                          });
-                          setShowTciAmountEditDialog(false);
-                          setEditingTciAmount(null);
-                          setTciAmountEditInput("");
-                        },
-                        onError: () => {
-                          toast({
-                            title: "Error",
-                            description: "Failed to update amount",
-                            variant: "destructive",
-                          });
-                        }
-                      });
+                      
+                      // If we have an existing record ID, update it; otherwise create new manual_total
+                      if (editingTciAmount.stopRecordId) {
+                        updateMedication.mutate({
+                          id: editingTciAmount.stopRecordId,
+                          dose: newDose,
+                        }, {
+                          onSuccess: () => {
+                            toast({
+                              title: t("anesthesia.timeline.totalUpdated", "Total updated"),
+                              description: `${editingTciAmount.label}: ${newDose}`,
+                            });
+                            setShowTciAmountEditDialog(false);
+                            setEditingTciAmount(null);
+                            setTciAmountEditInput("");
+                          },
+                          onError: () => {
+                            toast({ title: "Error", description: "Failed to update", variant: "destructive" });
+                          }
+                        });
+                      } else if (editingTciAmount.itemId && anesthesiaRecordId) {
+                        // Create new manual_total record
+                        createMedication.mutate({
+                          anesthesiaRecordId,
+                          itemId: editingTciAmount.itemId,
+                          type: 'manual_total',
+                          dose: newDose,
+                          timestamp: new Date().toISOString(),
+                        }, {
+                          onSuccess: () => {
+                            toast({
+                              title: t("anesthesia.timeline.manualTotalSet", "Manual total set"),
+                              description: `${editingTciAmount.label}: ${newDose}`,
+                            });
+                            setShowTciAmountEditDialog(false);
+                            setEditingTciAmount(null);
+                            setTciAmountEditInput("");
+                          },
+                          onError: () => {
+                            toast({ title: "Error", description: "Failed to set manual total", variant: "destructive" });
+                          }
+                        });
+                      }
                     }
                   }
                 }}
@@ -8491,7 +8561,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   setEditingTciAmount(null);
                   setTciAmountEditInput("");
                 }}
-                data-testid="button-tci-amount-cancel"
+                data-testid="button-medication-total-cancel"
               >
                 {t("common.cancel")}
               </Button>
@@ -8500,31 +8570,53 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   const parsedAmount = parseFloat(tciAmountEditInput);
                   if (!isNaN(parsedAmount) && parsedAmount > 0 && editingTciAmount) {
                     const newDose = `${tciAmountEditInput} ${editingTciAmount.unit}`;
-                    updateMedication.mutate({
-                      id: editingTciAmount.stopRecordId,
-                      dose: newDose,
-                    }, {
-                      onSuccess: () => {
-                        toast({
-                          title: t("anesthesia.timeline.tciAmountUpdated"),
-                          description: `${editingTciAmount.label}: ${newDose}`,
-                        });
-                        setShowTciAmountEditDialog(false);
-                        setEditingTciAmount(null);
-                        setTciAmountEditInput("");
-                      },
-                      onError: () => {
-                        toast({
-                          title: "Error",
-                          description: "Failed to update amount",
-                          variant: "destructive",
-                        });
-                      }
-                    });
+                    
+                    // If we have an existing record ID, update it; otherwise create new manual_total
+                    if (editingTciAmount.stopRecordId) {
+                      updateMedication.mutate({
+                        id: editingTciAmount.stopRecordId,
+                        dose: newDose,
+                      }, {
+                        onSuccess: () => {
+                          toast({
+                            title: t("anesthesia.timeline.totalUpdated", "Total updated"),
+                            description: `${editingTciAmount.label}: ${newDose}`,
+                          });
+                          setShowTciAmountEditDialog(false);
+                          setEditingTciAmount(null);
+                          setTciAmountEditInput("");
+                        },
+                        onError: () => {
+                          toast({ title: "Error", description: "Failed to update", variant: "destructive" });
+                        }
+                      });
+                    } else if (editingTciAmount.itemId && anesthesiaRecordId) {
+                      // Create new manual_total record
+                      createMedication.mutate({
+                        anesthesiaRecordId,
+                        itemId: editingTciAmount.itemId,
+                        type: 'manual_total',
+                        dose: newDose,
+                        timestamp: new Date().toISOString(),
+                      }, {
+                        onSuccess: () => {
+                          toast({
+                            title: t("anesthesia.timeline.manualTotalSet", "Manual total set"),
+                            description: `${editingTciAmount.label}: ${newDose}`,
+                          });
+                          setShowTciAmountEditDialog(false);
+                          setEditingTciAmount(null);
+                          setTciAmountEditInput("");
+                        },
+                        onError: () => {
+                          toast({ title: "Error", description: "Failed to set manual total", variant: "destructive" });
+                        }
+                      });
+                    }
                   }
                 }}
                 disabled={!tciAmountEditInput.trim() || isNaN(Number(tciAmountEditInput)) || Number(tciAmountEditInput) <= 0}
-                data-testid="button-tci-amount-save"
+                data-testid="button-medication-total-save"
               >
                 {t("common.save")}
               </Button>
