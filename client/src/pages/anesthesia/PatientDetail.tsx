@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -95,6 +95,8 @@ export default function PatientDetail() {
   const isSavingRef = useRef(false);
   const [isArchiveDialogOpen, setIsArchiveDialogOpen] = useState(false);
   const [isSendQuestionnaireOpen, setIsSendQuestionnaireOpen] = useState(false);
+  const [isImportQuestionnaireOpen, setIsImportQuestionnaireOpen] = useState(false);
+  const [selectedQuestionnaireForImport, setSelectedQuestionnaireForImport] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({
     surname: "",
     firstName: "",
@@ -152,6 +154,66 @@ export default function PatientDetail() {
     queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
     enabled: !!activeHospital?.id,
   });
+
+  // Fetch questionnaire links/responses for the patient (for import feature)
+  type QuestionnaireLink = {
+    id: string;
+    token: string;
+    status: string;
+    submittedAt: string | null;
+    createdAt: string;
+    response?: {
+      id: string;
+      allergies?: string[];
+      allergiesNotes?: string;
+      medications?: Array<{ name: string; dosage?: string; frequency?: string; reason?: string }>;
+      medicationsNotes?: string;
+      conditions?: Record<string, { checked: boolean; notes?: string }>;
+      smokingStatus?: string;
+      smokingDetails?: string;
+      alcoholStatus?: string;
+      alcoholDetails?: string;
+      height?: string;
+      weight?: string;
+      previousSurgeries?: string;
+      previousAnesthesiaProblems?: string;
+      pregnancyStatus?: string;
+      breastfeeding?: boolean;
+      womanHealthNotes?: string;
+      additionalNotes?: string;
+    };
+  };
+  
+  const { data: questionnaireLinks = [] } = useQuery<QuestionnaireLink[]>({
+    queryKey: ['/api/questionnaire/patient', params?.id, 'links'],
+    queryFn: async () => {
+      const response = await fetch(`/api/questionnaire/patient/${params?.id}/links`, {
+        headers: { 'x-active-hospital-id': activeHospital?.id || '' },
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!params?.id && !!activeHospital?.id && isPreOpOpen,
+  });
+  
+  // Get the selected questionnaire response details
+  const { data: selectedQuestionnaireResponse, isLoading: isLoadingQuestionnaireResponse } = useQuery<{
+    response: QuestionnaireLink['response'];
+    link: QuestionnaireLink;
+  }>({
+    queryKey: ['/api/questionnaire/responses', selectedQuestionnaireForImport],
+    queryFn: async () => {
+      const response = await fetch(`/api/questionnaire/responses/${selectedQuestionnaireForImport}`, {
+        headers: { 'x-active-hospital-id': activeHospital?.id || '' },
+      });
+      if (!response.ok) throw new Error('Failed to fetch questionnaire response');
+      return response.json();
+    },
+    enabled: !!selectedQuestionnaireForImport && !!activeHospital?.id,
+  });
+  
+  // Filter to only submitted questionnaires
+  const submittedQuestionnaires = questionnaireLinks.filter(q => q.status === 'submitted');
 
   // Fetch hospital anesthesia settings
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
@@ -942,6 +1004,122 @@ export default function PatientDetail() {
         variant: "destructive",
       });
     }
+  };
+
+  // Handle importing questionnaire data into pre-op assessment
+  const handleImportFromQuestionnaire = () => {
+    if (!selectedQuestionnaireResponse?.response) return;
+    
+    const qResponse = selectedQuestionnaireResponse.response;
+    
+    // Map questionnaire fields to pre-op assessment fields
+    setAssessmentData(prev => {
+      const newData = { ...prev };
+      
+      // Height and weight
+      if (qResponse.height) newData.height = qResponse.height;
+      if (qResponse.weight) newData.weight = qResponse.weight;
+      
+      // Allergies - combine with existing (build on newData, not prev)
+      if (qResponse.allergies && qResponse.allergies.length > 0) {
+        const allergiesText = qResponse.allergies.join(', ');
+        newData.allergiesOther = newData.allergiesOther 
+          ? `${newData.allergiesOther}; Patient: ${allergiesText}` 
+          : `Patient: ${allergiesText}`;
+      }
+      if (qResponse.allergiesNotes) {
+        newData.allergiesOther = newData.allergiesOther 
+          ? `${newData.allergiesOther}; ${qResponse.allergiesNotes}` 
+          : qResponse.allergiesNotes;
+      }
+      
+      // Medications - add to notes (build on newData, not prev)
+      if (qResponse.medications && qResponse.medications.length > 0) {
+        const medsText = qResponse.medications.map(m => 
+          `${m.name}${m.dosage ? ` (${m.dosage})` : ''}${m.frequency ? ` - ${m.frequency}` : ''}`
+        ).join('; ');
+        newData.generalMedsOther = newData.generalMedsOther 
+          ? `${newData.generalMedsOther}; Patient: ${medsText}` 
+          : `Patient: ${medsText}`;
+      }
+      if (qResponse.medicationsNotes) {
+        newData.medicationsNotes = newData.medicationsNotes 
+          ? `${newData.medicationsNotes}; ${qResponse.medicationsNotes}` 
+          : qResponse.medicationsNotes;
+      }
+      
+      // Smoking status -> noxen (build noxenNotes on newData)
+      if (qResponse.smokingStatus && qResponse.smokingStatus !== 'never') {
+        if (newData.noxen) {
+          newData.noxen = { ...newData.noxen, smoking: true };
+        }
+        if (qResponse.smokingDetails) {
+          newData.noxenNotes = newData.noxenNotes 
+            ? `${newData.noxenNotes}; Smoking: ${qResponse.smokingDetails}` 
+            : `Smoking: ${qResponse.smokingDetails}`;
+        }
+      }
+      
+      // Alcohol status -> noxen (build noxenNotes on newData)
+      if (qResponse.alcoholStatus && qResponse.alcoholStatus !== 'never') {
+        if (newData.noxen) {
+          newData.noxen = { ...newData.noxen, alcohol: true };
+        }
+        if (qResponse.alcoholDetails) {
+          newData.noxenNotes = newData.noxenNotes 
+            ? `${newData.noxenNotes}; Alcohol: ${qResponse.alcoholDetails}` 
+            : `Alcohol: ${qResponse.alcoholDetails}`;
+        }
+      }
+      
+      // Previous surgeries -> special notes (build on newData)
+      if (qResponse.previousSurgeries) {
+        newData.specialNotes = newData.specialNotes 
+          ? `${newData.specialNotes}\n\nPrevious surgeries: ${qResponse.previousSurgeries}` 
+          : `Previous surgeries: ${qResponse.previousSurgeries}`;
+      }
+      
+      // Previous anesthesia problems -> special notes (build on newData)
+      if (qResponse.previousAnesthesiaProblems) {
+        newData.specialNotes = newData.specialNotes 
+          ? `${newData.specialNotes}\n\nPrevious anesthesia problems: ${qResponse.previousAnesthesiaProblems}` 
+          : `Previous anesthesia problems: ${qResponse.previousAnesthesiaProblems}`;
+      }
+      
+      // Woman health (pregnancy, breastfeeding)
+      if (qResponse.pregnancyStatus === 'yes' || qResponse.pregnancyStatus === 'possible') {
+        if (newData.womanIssues) {
+          newData.womanIssues = { ...newData.womanIssues, pregnancy: true };
+        }
+      }
+      if (qResponse.breastfeeding) {
+        if (newData.womanIssues) {
+          newData.womanIssues = { ...newData.womanIssues, breastfeeding: true };
+        }
+      }
+      if (qResponse.womanHealthNotes) {
+        newData.womanNotes = newData.womanNotes 
+          ? `${newData.womanNotes}; ${qResponse.womanHealthNotes}` 
+          : qResponse.womanHealthNotes;
+      }
+      
+      // Additional notes -> special notes (build on newData)
+      if (qResponse.additionalNotes) {
+        newData.specialNotes = newData.specialNotes 
+          ? `${newData.specialNotes}\n\nPatient notes: ${qResponse.additionalNotes}` 
+          : `Patient notes: ${qResponse.additionalNotes}`;
+      }
+      
+      return newData;
+    });
+    
+    toast({
+      title: t('anesthesia.patientDetail.questionnaireImported'),
+      description: t('anesthesia.patientDetail.questionnaireImportedDesc'),
+    });
+    
+    setIsImportQuestionnaireOpen(false);
+    setSelectedQuestionnaireForImport(null);
   };
 
   // Handle PDF download for a surgery - uses centralized PDF generation utility
@@ -1843,13 +2021,27 @@ export default function PatientDetail() {
                   </div>
                 </div>
               )}
-              <div className="flex justify-end mb-2">
+              <div className="flex justify-between items-center mb-2">
+                <div>
+                  {!isPreOpReadOnly && submittedQuestionnaires.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsImportQuestionnaireOpen(true)}
+                      className="gap-2"
+                      data-testid="button-import-questionnaire"
+                    >
+                      <Import className="h-4 w-4" />
+                      {t('anesthesia.patientDetail.importFromQuestionnaire')}
+                      <Badge variant="secondary" className="ml-1">{submittedQuestionnaires.length}</Badge>
+                    </Button>
+                  )}
+                </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
                     const allSectionIds = ["general", "medications", "heart", "lungs", "gi-kidney-metabolic", "neuro-psych-skeletal", "coagulation-infectious", "woman", "noxen", "children", "anesthesia"];
-                    // Get only filled sections
                     const filledSections = allSectionIds.filter(id => {
                       if (id === "general") return hasGeneralData();
                       if (id === "medications") return hasMedicationsData();
@@ -3810,6 +4002,133 @@ export default function PatientDetail() {
           patientEmail={patient.email}
         />
       )}
+
+      {/* Import from Questionnaire Dialog */}
+      <Dialog open={isImportQuestionnaireOpen} onOpenChange={(open) => {
+        setIsImportQuestionnaireOpen(open);
+        if (!open) setSelectedQuestionnaireForImport(null);
+      }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('anesthesia.patientDetail.importFromQuestionnaire')}</DialogTitle>
+            <DialogDescription>
+              {t('anesthesia.patientDetail.importFromQuestionnaireDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Questionnaire Selection */}
+            <div className="space-y-2">
+              <Label>{t('anesthesia.patientDetail.selectQuestionnaire')}</Label>
+              <Select
+                value={selectedQuestionnaireForImport || ''}
+                onValueChange={(value) => setSelectedQuestionnaireForImport(value)}
+              >
+                <SelectTrigger data-testid="select-questionnaire-import">
+                  <SelectValue placeholder={t('anesthesia.patientDetail.selectQuestionnairePlaceholder')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {submittedQuestionnaires.map((q) => (
+                    <SelectItem key={q.id} value={q.response?.id || q.id}>
+                      {formatDate(q.submittedAt || q.createdAt)} - {t('anesthesia.patientDetail.submitted')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Preview of data to import */}
+            {isLoadingQuestionnaireResponse && selectedQuestionnaireForImport && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
+
+            {selectedQuestionnaireResponse?.response && (
+              <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+                <h4 className="font-medium">{t('anesthesia.patientDetail.dataToImport')}</h4>
+                
+                {(selectedQuestionnaireResponse.response.height || selectedQuestionnaireResponse.response.weight) && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.measurements')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.height && `${t('anesthesia.patientDetail.heightCm')}: ${selectedQuestionnaireResponse.response.height}`}
+                    {selectedQuestionnaireResponse.response.height && selectedQuestionnaireResponse.response.weight && ', '}
+                    {selectedQuestionnaireResponse.response.weight && `${t('anesthesia.patientDetail.weightKg')}: ${selectedQuestionnaireResponse.response.weight}`}
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.allergies && selectedQuestionnaireResponse.response.allergies.length > 0 && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.allergies')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.allergies.join(', ')}
+                    {selectedQuestionnaireResponse.response.allergiesNotes && ` (${selectedQuestionnaireResponse.response.allergiesNotes})`}
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.medications && selectedQuestionnaireResponse.response.medications.length > 0 && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.medications')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.medications.map(m => m.name).join(', ')}
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.smokingStatus && selectedQuestionnaireResponse.response.smokingStatus !== 'never' && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.smoking')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.smokingStatus}
+                    {selectedQuestionnaireResponse.response.smokingDetails && ` - ${selectedQuestionnaireResponse.response.smokingDetails}`}
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.previousSurgeries && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.previousSurgeries')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.previousSurgeries.substring(0, 100)}
+                    {selectedQuestionnaireResponse.response.previousSurgeries.length > 100 && '...'}
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.previousAnesthesiaProblems && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.previousAnesthesiaProblems')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.previousAnesthesiaProblems.substring(0, 100)}
+                    {selectedQuestionnaireResponse.response.previousAnesthesiaProblems.length > 100 && '...'}
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.additionalNotes && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.additionalNotes')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.additionalNotes.substring(0, 100)}
+                    {selectedQuestionnaireResponse.response.additionalNotes.length > 100 && '...'}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsImportQuestionnaireOpen(false);
+                setSelectedQuestionnaireForImport(null);
+              }}
+              data-testid="button-cancel-import"
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleImportFromQuestionnaire}
+              disabled={!selectedQuestionnaireResponse?.response}
+              data-testid="button-confirm-import"
+            >
+              <Import className="h-4 w-4 mr-2" />
+              {t('anesthesia.patientDetail.importData')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
