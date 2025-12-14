@@ -5852,7 +5852,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const handleTciStop = (amountUsed: string) => {
     if (!managingRate || !anesthesiaRecordId) return;
     
-    const { label, sessionId, itemId, administrationUnit } = managingRate;
+    const { label, sessionId, itemId, administrationUnit, ampuleUnit } = managingRate;
     const stopTime = rateManageTime;
     
     // Validate amount input
@@ -5884,9 +5884,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return;
     }
     
-    // Format dose consistently with other medication entries (include unit if available)
-    const formattedDose = administrationUnit 
-      ? `${amountUsed} ${administrationUnit}` 
+    // For TCI, use ampuleUnit (e.g., "mg" from "200 mg" ampule content) as the dose unit
+    // This is the actual medication unit, not the TCI target concentration unit
+    const doseUnit = ampuleUnit || administrationUnit;
+    const formattedDose = doseUnit 
+      ? `${amountUsed} ${doseUnit}` 
       : amountUsed;
     
     // Close dialog immediately to show progress (user sees spinner in background)

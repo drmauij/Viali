@@ -124,17 +124,29 @@ export function transformRateInfusions(
       const nextStartRecord = startRecords[startIndex + 1];
       const nextStartTime = nextStartRecord ? new Date(nextStartRecord.timestamp).getTime() : Infinity;
       
+      // First, try to find stop record by infusionSessionId (explicit link to parent session)
+      // This is the preferred method as it guarantees correct pairing
+      let stopRecord = records.find(r => {
+        if (r.type !== 'infusion_stop') return false;
+        return r.infusionSessionId === startRecord.id;
+      });
+      
+      // Fallback: Match by timestamp if no infusionSessionId link
       // Only match a stop record if:
       // 1. It's after THIS start
       // 2. It's BEFORE the next start (so it belongs to this session, not a later one)
       // 3. It's within 24 hours of this start
-      const stopRecord = records.find(r => {
-        if (r.type !== 'infusion_stop') return false;
-        const stopTime = new Date(r.timestamp).getTime();
-        return stopTime > startTime && 
-               stopTime < nextStartTime && 
-               stopTime <= startTime + 24 * 60 * 60 * 1000;
-      });
+      if (!stopRecord) {
+        stopRecord = records.find(r => {
+          if (r.type !== 'infusion_stop') return false;
+          // Skip records that already have an infusionSessionId (they belong to specific sessions)
+          if (r.infusionSessionId) return false;
+          const stopTime = new Date(r.timestamp).getTime();
+          return stopTime > startTime && 
+                 stopTime < nextStartTime && 
+                 stopTime <= startTime + 24 * 60 * 60 * 1000;
+        });
+      }
       const hasEndTimestamp = !!startRecord.endTimestamp;
       const endTime = stopRecord 
         ? new Date(stopRecord.timestamp).getTime() 

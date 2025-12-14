@@ -1299,22 +1299,9 @@ export function MedicationsSwimlane({
                             currentRate
                           );
                         } else {
-                          // Clicked on STOPPED TCI infusion → open restart (same as rate selection for now)
-                          console.log('[TCI-CLICK] Clicked on stopped TCI infusion - auto-starting new');
-                          // Auto-start new TCI session with default dose
-                          const groupMatch = lane.id.match(/admingroup-([a-f0-9-]+)-item-([a-f0-9-]+)/);
-                          if (groupMatch && anesthesiaRecordId) {
-                            const itemId = groupMatch[2];
-                            createMedicationMutation.mutate({
-                              anesthesiaRecordId,
-                              itemId: itemId,
-                              timestamp: new Date(time),
-                              type: 'infusion_start' as const,
-                              rate: lane.defaultDose,
-                              dose: lane.defaultDose, // TCI target concentration for display
-                            });
-                            console.log('[TCI-CLICK] Auto-started new TCI session after stopped one');
-                          }
+                          // Clicked on STOPPED TCI infusion → open restart dialog
+                          console.log('[TCI-CLICK] Clicked on stopped TCI infusion - opening restart dialog');
+                          onRateRestartDialogOpen(clickedSession, time);
                         }
                         return;
                       }
