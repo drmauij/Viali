@@ -1161,17 +1161,48 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
               </div>
 
               <div className="p-4 flex-1 flex flex-col min-h-0">
-                <Button
-                  variant="outline"
-                  className="w-full justify-start gap-3 shrink-0"
-                  onClick={() => {
-                    createConversationMutation.mutate({ scopeType: 'self' });
-                  }}
-                  data-testid="button-create-self-chat"
-                >
-                  <User className="w-5 h-5" />
-                  Personal Notes
-                </Button>
+                <div className="space-y-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-3"
+                    onClick={() => {
+                      createConversationMutation.mutate({ scopeType: 'self' });
+                    }}
+                    data-testid="button-create-self-chat"
+                  >
+                    <User className="w-5 h-5" />
+                    Personal Notes
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start gap-3"
+                    onClick={() => {
+                      createConversationMutation.mutate({ 
+                        scopeType: 'unit',
+                        unitId: activeHospital?.unitId 
+                      });
+                    }}
+                    data-testid="button-create-unit-chat"
+                  >
+                    <Users className="w-5 h-5" />
+                    Message My Unit
+                  </Button>
+
+                  {activeHospital?.role === 'admin' && (
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-3"
+                      onClick={() => {
+                        createConversationMutation.mutate({ scopeType: 'hospital' });
+                      }}
+                      data-testid="button-create-hospital-chat"
+                    >
+                      <Building2 className="w-5 h-5" />
+                      Message Entire Clinic
+                    </Button>
+                  )}
+                </div>
 
                 <div className="pt-4 mt-4 border-t border-border flex-1 flex flex-col min-h-0">
                   <h3 className="text-sm font-medium text-muted-foreground mb-3">Start a conversation with:</h3>
