@@ -58,7 +58,7 @@ export function SendQuestionnaireDialog({
       return res.json();
     },
     onSuccess: (data) => {
-      setGeneratedLink({ token: data.token, linkId: data.id });
+      setGeneratedLink({ token: data.link.token, linkId: data.link.id });
       queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient', patientId, 'links'] });
     },
     onError: () => {
