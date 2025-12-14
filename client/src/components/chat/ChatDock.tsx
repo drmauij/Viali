@@ -27,8 +27,11 @@ import {
   File,
   Loader2,
   Trash2,
-  AtSign
+  AtSign,
+  Camera,
+  Command
 } from "lucide-react";
+import html2canvas from "html2canvas";
 import { format, isToday, isYesterday } from "date-fns";
 import {
   DropdownMenu,
@@ -55,6 +58,17 @@ interface InputSegment {
   content: string;
   mentionData?: MentionChip;
 }
+
+interface SlashCommand {
+  id: string;
+  name: string;
+  description: string;
+  icon: typeof Camera;
+}
+
+const SLASH_COMMANDS: SlashCommand[] = [
+  { id: 'screenshot', name: 'screenshot', description: 'Take a screenshot of current page', icon: Camera },
+];
 
 interface ChatDockProps {
   isOpen: boolean;
@@ -171,6 +185,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
     storageKey?: string;
   }>>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [showSlashCommands, setShowSlashCommands] = useState(false);
+  const [slashSearch, setSlashSearch] = useState("");
+  const [slashStartIndex, setSlashStartIndex] = useState(-1);
+  const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
+  const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -301,6 +320,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
     return [];
   }, [showMentionSuggestions, mentionType, mentionSearch, users, patients, user]);
 
+  const filteredSlashCommands = useMemo(() => {
+    if (!showSlashCommands) return [];
+    return SLASH_COMMANDS.filter(cmd => cmd.name.toLowerCase().includes(slashSearch.toLowerCase()));
+  }, [showSlashCommands, slashSearch]);
+
   const createConversationMutation = useMutation({
     mutationFn: async (data: { scopeType: string; participantIds?: string[]; title?: string }) => {
       const response = await apiRequest("POST", `/api/chat/${activeHospital?.id}/conversations`, data);
@@ -424,23 +448,35 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
     const beforeCursor = text.slice(0, cursorPos);
     const atMatch = beforeCursor.match(/@(\w*)$/);
     const hashMatch = beforeCursor.match(/#(\w*)$/);
+    const slashMatch = beforeCursor.match(/\/(\w*)$/);
     
-    if (atMatch) {
+    if (slashMatch) {
+      setSlashSearch(slashMatch[1]);
+      setSlashStartIndex(cursorPos - slashMatch[0].length);
+      setShowSlashCommands(true);
+      setSelectedSlashIndex(0);
+      setShowMentionSuggestions(false);
+      setMentionType(null);
+    } else if (atMatch) {
       setMentionType('user');
       setMentionSearch(atMatch[1]);
       setMentionStartIndex(cursorPos - atMatch[0].length);
       setShowMentionSuggestions(true);
       setSelectedMentionIndex(0);
+      setShowSlashCommands(false);
     } else if (hashMatch) {
       setMentionType('patient');
       setMentionSearch(hashMatch[1]);
       setMentionStartIndex(cursorPos - hashMatch[0].length);
       setShowMentionSuggestions(true);
       setSelectedMentionIndex(0);
+      setShowSlashCommands(false);
     } else {
       setShowMentionSuggestions(false);
       setMentionType(null);
       setMentionSearch("");
+      setShowSlashCommands(false);
+      setSlashSearch("");
     }
   }, []);
 
@@ -454,6 +490,63 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
     setMentionSearch("");
     inputRef.current?.focus();
   }, [messageText, mentionStartIndex]);
+
+  const executeSlashCommand = useCallback(async (command: SlashCommand) => {
+    setShowSlashCommands(false);
+    setSlashSearch("");
+    const currentSlashStartIndex = slashStartIndex;
+    setSlashStartIndex(-1);
+    
+    if (currentSlashStartIndex >= 0) {
+      const cursorPos = inputRef.current?.selectionStart || messageText.length;
+      const newText = messageText.slice(0, currentSlashStartIndex) + messageText.slice(cursorPos);
+      setMessageText(newText);
+    }
+    
+    if (command.id === 'screenshot') {
+      setIsCapturingScreenshot(true);
+      const chatPanel = document.querySelector('[data-testid="chat-panel"]');
+      try {
+        if (chatPanel) (chatPanel as HTMLElement).style.visibility = 'hidden';
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const canvas = await html2canvas(document.body, { useCORS: true, logging: false });
+        
+        if (chatPanel) (chatPanel as HTMLElement).style.visibility = 'visible';
+        
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+            console.error("Screenshot capture failed: toBlob returned null");
+            setIsCapturingScreenshot(false);
+            return;
+          }
+          const file = new globalThis.File([blob], `screenshot-${Date.now()}.png`, { type: 'image/png' });
+          const preview = URL.createObjectURL(blob);
+          
+          setPendingAttachments(prev => [...prev, { file, preview, uploading: true }]);
+          
+          try {
+            const uploadResponse = await apiRequest("POST", "/api/chat/upload", { filename: file.name });
+            const { uploadURL, storageKey } = await uploadResponse.json();
+            await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+            await apiRequest("POST", "/api/chat/attachments/confirm", { storageKey, filename: file.name, mimeType: file.type, sizeBytes: file.size });
+            
+            setPendingAttachments(prev => prev.map(att => att.file === file ? { ...att, uploading: false, storageKey } : att));
+          } catch (error) {
+            console.error("Screenshot upload failed:", error);
+            setPendingAttachments(prev => prev.filter(att => att.file !== file));
+            URL.revokeObjectURL(preview);
+          }
+        }, 'image/png');
+      } catch (error) {
+        console.error("Screenshot capture failed:", error);
+        if (chatPanel) (chatPanel as HTMLElement).style.visibility = 'visible';
+      } finally {
+        setIsCapturingScreenshot(false);
+      }
+    }
+    inputRef.current?.focus();
+  }, [messageText, slashStartIndex]);
 
   const parseMentions = useCallback((text: string) => {
     const mentions: Array<{ type: string; userId?: string; patientId?: string }> = [];
@@ -654,7 +747,25 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
   };
 
   const handleMessageKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (showMentionSuggestions && mentionSuggestions.length > 0) {
+    if (showSlashCommands && filteredSlashCommands.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedSlashIndex(prev => 
+          prev < filteredSlashCommands.length - 1 ? prev + 1 : 0
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedSlashIndex(prev => 
+          prev > 0 ? prev - 1 : filteredSlashCommands.length - 1
+        );
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        executeSlashCommand(filteredSlashCommands[selectedSlashIndex]);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setShowSlashCommands(false);
+      }
+    } else if (showMentionSuggestions && mentionSuggestions.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedMentionIndex(prev => 
@@ -1164,6 +1275,39 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                   </div>
                 )}
                 <div className="relative">
+                  {showSlashCommands && filteredSlashCommands.length > 0 && (
+                    <div 
+                      className="absolute bottom-full left-0 right-0 mb-2 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto z-10"
+                      data-testid="slash-command-suggestions"
+                    >
+                      <div className="px-3 py-1.5 text-xs text-muted-foreground border-b border-border">
+                        Commands
+                      </div>
+                      {filteredSlashCommands.map((command, index) => {
+                        const IconComponent = command.icon;
+                        return (
+                          <button
+                            key={command.id}
+                            className={`w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-accent ${
+                              index === selectedSlashIndex ? 'bg-accent' : ''
+                            }`}
+                            onClick={() => executeSlashCommand(command)}
+                            data-testid={`slash-command-${command.id}`}
+                            disabled={isCapturingScreenshot}
+                          >
+                            <IconComponent className="w-5 h-5 text-primary" />
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm">/{command.name}</p>
+                              <p className="text-xs text-muted-foreground">{command.description}</p>
+                            </div>
+                            {isCapturingScreenshot && command.id === 'screenshot' && (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                   {showMentionSuggestions && mentionSuggestions.length > 0 && (
                     <div 
                       className="absolute bottom-full left-0 right-0 mb-2 bg-card border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto z-10"
