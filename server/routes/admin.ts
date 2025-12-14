@@ -332,6 +332,8 @@ router.get('/api/hospitals/:hospitalId/users-by-module', isAuthenticated, async 
     const allUsers = await storage.getHospitalUsers(hospitalId);
     
     const filteredUsers = allUsers.filter(u => {
+      // Only include users who can log in (not staff-only members)
+      if (u.user.canLogin === false) return false;
       if (module === 'anesthesia' && !u.unit.isAnesthesiaModule) return false;
       if (module === 'surgery' && !u.unit.isSurgeryModule) return false;
       if (role && u.role !== role) return false;
