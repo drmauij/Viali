@@ -372,6 +372,7 @@ export interface IStorage {
     roomId?: string;
     dateFrom?: Date;
     dateTo?: Date;
+    includeArchived?: boolean;
   }): Promise<Surgery[]>;
   getSurgery(id: string): Promise<Surgery | undefined>;
   createSurgery(surgery: InsertSurgery): Promise<Surgery>;
@@ -2314,11 +2315,16 @@ export class DatabaseStorage implements IStorage {
     roomId?: string;
     dateFrom?: Date;
     dateTo?: Date;
+    includeArchived?: boolean;
   }): Promise<Surgery[]> {
     const conditions = [
       eq(surgeries.hospitalId, hospitalId),
       isNull(patients.deletedAt)
     ];
+    
+    if (!filters?.includeArchived) {
+      conditions.push(eq(surgeries.isArchived, false));
+    }
     
     if (filters?.caseId) conditions.push(eq(surgeries.caseId, filters.caseId));
     if (filters?.patientId) conditions.push(eq(surgeries.patientId, filters.patientId));

@@ -3066,7 +3066,9 @@
       "invalidatedDesc": "The questionnaire link has been invalidated",
       "invalidateError": "Failed to invalidate link",
       "expiryDays": "Link Expiry (days)",
-      "expiryDaysHint": "The link will expire after this many days (1-30)"
+      "expiryDaysHint": "The link will expire after this many days (1-30)",
+      "showExpired": "Show {{count}} expired link(s)",
+      "hideExpired": "Hide {{count}} expired link(s)"
     },
     "send": {
       "title": "Send Questionnaire",

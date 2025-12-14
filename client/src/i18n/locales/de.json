@@ -3080,7 +3080,9 @@
       "invalidatedDesc": "Der Fragebogen-Link wurde ungültig gemacht",
       "invalidateError": "Link konnte nicht ungültig gemacht werden",
       "expiryDays": "Link-Ablauf (Tage)",
-      "expiryDaysHint": "Der Link läuft nach dieser Anzahl von Tagen ab (1-30)"
+      "expiryDaysHint": "Der Link läuft nach dieser Anzahl von Tagen ab (1-30)",
+      "showExpired": "{{count}} abgelaufene Links anzeigen",
+      "hideExpired": "{{count}} abgelaufene Links ausblenden"
     },
     "send": {
       "title": "Fragebogen senden",

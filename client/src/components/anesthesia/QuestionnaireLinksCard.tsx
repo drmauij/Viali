@@ -215,7 +215,11 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
   };
 
   const activeLinks = links.filter(l => l.status !== 'expired' && l.status !== 'reviewed');
+  const expiredLinks = links.filter(l => l.status === 'expired');
   const hasActiveLink = activeLinks.length > 0;
+  const [showExpired, setShowExpired] = useState(false);
+
+  const visibleLinks = showExpired ? links : links.filter(l => l.status !== 'expired');
 
   return (
     <>
@@ -253,7 +257,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
             </div>
           ) : (
             <div className="space-y-3">
-              {links.map((link) => (
+              {visibleLinks.map((link) => (
                 <div 
                   key={link.id} 
                   className="flex items-center justify-between p-3 rounded-lg border bg-card"
@@ -320,6 +324,20 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
                   </div>
                 </div>
               ))}
+              {expiredLinks.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-muted-foreground"
+                  onClick={() => setShowExpired(!showExpired)}
+                  data-testid="button-toggle-expired"
+                >
+                  {showExpired 
+                    ? t('questionnaire.links.hideExpired', { count: expiredLinks.length })
+                    : t('questionnaire.links.showExpired', { count: expiredLinks.length })
+                  }
+                </Button>
+              )}
             </div>
           )}
         </CardContent>
