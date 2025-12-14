@@ -261,10 +261,9 @@ export default function PreOpList() {
     }
   };
 
-  // Handle walk-in patient form link
+  // Handle walk-in patient form link - navigate to questionnaire reviews
   const handleWalkInForm = () => {
-    // Open the general questionnaire page for walk-in patients
-    window.open("/questionnaire/new", "_blank");
+    setLocation("/anesthesia/questionnaires");
   };
 
   // Filter assessments by search term
