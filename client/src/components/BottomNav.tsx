@@ -117,14 +117,19 @@ export default function BottomNav() {
   const canAccessClinicalDashboard = activeHospital?.isAnesthesiaModule && 
     (activeHospital?.role === "admin" || activeHospital?.role === "doctor");
 
+  // Pre-Op tab is only visible for admin and doctor roles, not for nurse
+  const canAccessPreOp = activeHospital?.role === "admin" || activeHospital?.role === "doctor";
+
   const navItems: NavItem[] = useMemo(() => {
     if (activeModule === "anesthesia") {
       const items: NavItem[] = [
         { id: "patients", icon: "fas fa-users", label: t('bottomNav.anesthesia.patients'), path: "/anesthesia/patients" },
-        { id: "preop", icon: "fas fa-clipboard-list", label: t('bottomNav.anesthesia.preop'), path: "/anesthesia/preop" },
-        { id: "op", icon: "fas fa-heartbeat", label: t('bottomNav.anesthesia.op'), path: "/anesthesia/op" },
-        { id: "pacu", icon: "fas fa-bed-pulse", label: t('bottomNav.anesthesia.pacu'), path: "/anesthesia/pacu" },
       ];
+      if (canAccessPreOp) {
+        items.push({ id: "preop", icon: "fas fa-clipboard-list", label: t('bottomNav.anesthesia.preop'), path: "/anesthesia/preop" });
+      }
+      items.push({ id: "op", icon: "fas fa-heartbeat", label: t('bottomNav.anesthesia.op'), path: "/anesthesia/op" });
+      items.push({ id: "pacu", icon: "fas fa-bed-pulse", label: t('bottomNav.anesthesia.pacu'), path: "/anesthesia/pacu" });
       if (canAccessClinicalDashboard) {
         items.push({ id: "clinical", icon: "fas fa-chart-line", label: t('bottomNav.anesthesia.clinical'), path: "/anesthesia/clinical" });
       }
@@ -177,7 +182,7 @@ export default function BottomNav() {
       { id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists'), path: "/inventory/checklists" },
       { id: "matches", icon: "fas fa-link", label: t('bottomNav.matches'), path: "/inventory/matches" },
     ];
-  }, [t, activeModule, canAccessClinicalDashboard]);
+  }, [t, activeModule, canAccessClinicalDashboard, canAccessPreOp, activeHospital?.role]);
 
   const isActive = (path: string) => {
     if (path === "/inventory/items") {
