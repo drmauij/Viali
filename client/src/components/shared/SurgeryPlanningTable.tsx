@@ -999,7 +999,7 @@ export function SurgeryPlanningTable({
   const totalColumns = useMemo(() => {
     let count = 1; // expand button column
     if (showClinical) count += hideRoomAndAdmission ? 3 : 4; // patient, procedure, surgeon, (room) - removed date column since grouped by date
-    if (showScheduling) count += hideRoomAndAdmission ? 1 : 2; // (admission), status
+    if (showScheduling) count += hideRoomAndAdmission ? 0 : 1; // (admission) - status column hidden
     if (showScheduling && showPreOpColumn) count += 1; // pre-op column
     if (showPaidStatus) count += 1;
     if (showBusiness) count += 6; // price, quote, contract sent/received, invoice, payment
@@ -1091,7 +1091,9 @@ export function SurgeryPlanningTable({
                     {t("surgeryPlanning.columns.admissionTime")}
                   </TableHead>
                 )}
+                {/* Status column hidden for now
                 <TableHead>{t("surgeryPlanning.columns.status")}</TableHead>
+                */}
                 {showPreOpColumn && (
                   <TableHead className="text-center">
                     <Stethoscope className="h-4 w-4 inline mr-1" />
@@ -1249,6 +1251,7 @@ export function SurgeryPlanningTable({
                           />
                         </TableCell>
                       )}
+                      {/* Status cell hidden for now
                       <TableCell>
                         <Badge
                           className={cn(
@@ -1261,6 +1264,7 @@ export function SurgeryPlanningTable({
                           {t(`surgeryPlanning.planningStatus.${(surgery as any).planningStatus || "pre-registered"}`)}
                         </Badge>
                       </TableCell>
+                      */}
                       {showPreOpColumn && (
                         <TableCell className="text-center" data-testid={`cell-preop-${surgery.id}`}>
                           {renderPreOpStatusIcon(surgery.id)}
