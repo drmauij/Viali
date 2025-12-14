@@ -834,10 +834,9 @@ export default function AnesthesiaSettings() {
         </p>
       </div>
 
-      <Tabs defaultValue="items" className="w-full">
+      <Tabs defaultValue="groups" className="w-full">
         <div className="w-full overflow-x-auto mb-6 -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-7">
-            <TabsTrigger value="items" data-testid="tab-items" className="flex-shrink-0">{t('anesthesia.settings.items')}</TabsTrigger>
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-6">
             <TabsTrigger value="groups" data-testid="tab-groups" className="flex-shrink-0">{t('anesthesia.settings.groups')}</TabsTrigger>
             <TabsTrigger value="rooms" data-testid="tab-rooms" className="flex-shrink-0">{t('anesthesia.settings.rooms')}</TabsTrigger>
             <TabsTrigger value="allergies" data-testid="tab-allergies" className="flex-shrink-0">{t('anesthesia.settings.allergies')}</TabsTrigger>
@@ -846,22 +845,6 @@ export default function AnesthesiaSettings() {
             <TabsTrigger value="checklists" data-testid="tab-checklists" className="flex-shrink-0">{t('anesthesia.settings.checklists')}</TabsTrigger>
           </TabsList>
         </div>
-
-        <TabsContent value="items" className="space-y-4">
-          <div className="mb-4">
-            <p className="text-sm text-muted-foreground">
-              {t('anesthesia.settings.itemsDescription')}
-            </p>
-          </div>
-
-          <ItemTransferList
-            availableItems={availableItems}
-            selectedItems={selectedItems}
-            onMove={handleMove}
-            onItemClick={handleItemClick}
-            onReorder={handleReorder}
-          />
-        </TabsContent>
 
         <TabsContent value="groups" className="space-y-4">
           <div className="flex items-center justify-between mb-4">
