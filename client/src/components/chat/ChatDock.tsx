@@ -1158,7 +1158,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {[...messages].reverse().map((msg) => {
+                    {messages.map((msg) => {
                       const isOwnMessage = msg.senderId === (user as any)?.id;
                       const isMentioningMe = msg.mentions?.some(m => m.mentionedUserId === (user as any)?.id);
                       return (
@@ -1194,16 +1194,53 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                                   <p className="text-sm whitespace-pre-wrap break-words italic">
                                     This message was deleted
                                   </p>
-                                ) : !msg.content || msg.content.trim() === '' ? (
-                                  <p className="text-sm text-muted-foreground/50 italic">
-                                    (Empty message)
-                                  </p>
                                 ) : (
-                                  <div className="text-sm whitespace-pre-wrap break-words">
-                                    {formatMessageContent(msg.content, (patientId) => {
-                                      window.open(`/anesthesia/patients/${patientId}`, '_blank');
-                                    })}
-                                  </div>
+                                  <>
+                                    {msg.content && msg.content.trim() !== '' && (
+                                      <div className="text-sm whitespace-pre-wrap break-words">
+                                        {formatMessageContent(msg.content, (patientId) => {
+                                          window.open(`/anesthesia/patients/${patientId}`, '_blank');
+                                        })}
+                                      </div>
+                                    )}
+                                    {msg.attachments && msg.attachments.length > 0 && (
+                                      <div className={`${msg.content && msg.content.trim() !== '' ? 'mt-2' : ''} space-y-2`}>
+                                        {msg.attachments.map((attachment: any) => (
+                                          <div key={attachment.id} className="flex items-center gap-2">
+                                            {attachment.mimeType?.startsWith('image/') ? (
+                                              <a 
+                                                href={`/api/chat/attachments/${attachment.id}/download`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="block"
+                                              >
+                                                <img 
+                                                  src={`/api/chat/attachments/${attachment.id}/download`}
+                                                  alt={attachment.filename}
+                                                  className="max-w-[200px] max-h-[200px] rounded-lg object-cover"
+                                                />
+                                              </a>
+                                            ) : (
+                                              <a
+                                                href={`/api/chat/attachments/${attachment.id}/download`}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className={`flex items-center gap-2 px-3 py-2 rounded-lg ${isOwnMessage ? 'bg-primary-foreground/20' : 'bg-background/50'}`}
+                                              >
+                                                <Paperclip className="w-4 h-4" />
+                                                <span className="text-sm truncate max-w-[150px]">{attachment.filename}</span>
+                                              </a>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {(!msg.content || msg.content.trim() === '') && (!msg.attachments || msg.attachments.length === 0) && (
+                                      <p className="text-sm text-muted-foreground/50 italic">
+                                        (Empty message)
+                                      </p>
+                                    )}
+                                  </>
                                 )}
                               </div>
                               <p className={`text-xs text-muted-foreground mt-1 ${isOwnMessage ? 'text-right' : ''}`}>
