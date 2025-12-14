@@ -3059,6 +3059,25 @@
       "sent": "Sent",
       "noEmailHint": "No email on file for this patient"
     },
+    "unassociated": {
+      "title": "Unassociated Questionnaires",
+      "subtitle": "Link questionnaire submissions to patient records",
+      "searchPlaceholder": "Search by name or email...",
+      "noResponses": "No unassociated questionnaires",
+      "noResponsesDesc": "When patients submit questionnaires through the general clinic link, they will appear here for review and association.",
+      "newSubmission": "New",
+      "submittedAt": "Submitted",
+      "linkToPatient": "Link to Patient",
+      "linkDescription": "Search for an existing patient or create a new one.",
+      "questionnaireData": "Questionnaire Data",
+      "searchPatients": "Search patients...",
+      "noPatientsFound": "No patients found",
+      "createNewPatient": "Create New Patient",
+      "linkButton": "Link to Patient",
+      "associationSuccess": "Successfully linked",
+      "associationSuccessDesc": "The questionnaire has been linked to the patient.",
+      "associationError": "Failed to link questionnaire to patient."
+    },
     "review": {
       "title": "Questionnaire Reviews",
       "subtitle": "Review patient-submitted pre-op questionnaires",

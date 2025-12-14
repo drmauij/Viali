@@ -285,6 +285,85 @@ router.get('/api/questionnaire/responses', isAuthenticated, async (req: any, res
   }
 });
 
+// Get unassociated questionnaire responses (where patientId is null)
+router.get('/api/questionnaire/unassociated', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID required" });
+    }
+
+    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    const responses = await storage.getUnassociatedQuestionnaireResponsesForHospital(hospitalId);
+    
+    res.json(responses);
+  } catch (error) {
+    console.error("Error fetching unassociated questionnaire responses:", error);
+    res.status(500).json({ message: "Failed to fetch unassociated responses" });
+  }
+});
+
+// Associate a questionnaire response with a patient
+router.post('/api/questionnaire/responses/:responseId/associate', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID required" });
+    }
+
+    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    const { responseId } = req.params;
+    const { patientId } = req.body;
+
+    if (!patientId) {
+      return res.status(400).json({ message: "Patient ID is required" });
+    }
+
+    // Get the response and verify access
+    const response = await storage.getQuestionnaireResponse(responseId);
+    if (!response) {
+      return res.status(404).json({ message: "Response not found" });
+    }
+
+    // Get the link to verify hospital access
+    const link = await storage.getQuestionnaireLink(response.linkId);
+    if (!link || link.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Verify the patient exists and belongs to this hospital
+    const patient = await storage.getPatient(patientId);
+    if (!patient || patient.hospitalId !== hospitalId) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    // Associate the link with the patient
+    const updatedLink = await storage.associateQuestionnaireWithPatient(link.id, patientId);
+
+    res.json({ 
+      success: true, 
+      link: updatedLink,
+      patient: {
+        id: patient.id,
+        firstName: patient.firstName,
+        surname: patient.surname,
+        patientNumber: patient.patientNumber,
+      }
+    });
+  } catch (error) {
+    console.error("Error associating questionnaire with patient:", error);
+    res.status(500).json({ message: "Failed to associate questionnaire" });
+  }
+});
+
 // Get response details (for staff review)
 router.get('/api/questionnaire/responses/:responseId', isAuthenticated, async (req: any, res: Response) => {
   try {

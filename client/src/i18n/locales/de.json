@@ -3073,6 +3073,25 @@
       "sent": "Gesendet",
       "noEmailHint": "Keine E-Mail für diesen Patienten hinterlegt"
     },
+    "unassociated": {
+      "title": "Nicht zugeordnete Fragebögen",
+      "subtitle": "Fragebogen-Einsendungen mit Patientenakten verknüpfen",
+      "searchPlaceholder": "Nach Name oder E-Mail suchen...",
+      "noResponses": "Keine nicht zugeordneten Fragebögen",
+      "noResponsesDesc": "Wenn Patienten Fragebögen über den allgemeinen Klinik-Link einreichen, erscheinen sie hier zur Überprüfung und Zuordnung.",
+      "newSubmission": "Neu",
+      "submittedAt": "Eingereicht",
+      "linkToPatient": "Mit Patient verknüpfen",
+      "linkDescription": "Suchen Sie einen bestehenden Patienten oder erstellen Sie einen neuen.",
+      "questionnaireData": "Fragebogen-Daten",
+      "searchPatients": "Patienten suchen...",
+      "noPatientsFound": "Keine Patienten gefunden",
+      "createNewPatient": "Neuen Patienten erstellen",
+      "linkButton": "Mit Patient verknüpfen",
+      "associationSuccess": "Erfolgreich verknüpft",
+      "associationSuccessDesc": "Der Fragebogen wurde mit dem Patienten verknüpft.",
+      "associationError": "Fragebogen konnte nicht mit dem Patienten verknüpft werden."
+    },
     "review": {
       "title": "Fragebogen-Überprüfungen",
       "subtitle": "Überprüfen Sie von Patienten eingereichte Prä-OP-Fragebögen",

@@ -630,6 +630,8 @@ export interface IStorage {
   updateQuestionnaireResponse(id: string, updates: Partial<PatientQuestionnaireResponse>): Promise<PatientQuestionnaireResponse>;
   submitQuestionnaireResponse(id: string): Promise<PatientQuestionnaireResponse>;
   getQuestionnaireResponsesForHospital(hospitalId: string, status?: string): Promise<(PatientQuestionnaireResponse & { link: PatientQuestionnaireLink })[]>;
+  getUnassociatedQuestionnaireResponsesForHospital(hospitalId: string): Promise<(PatientQuestionnaireResponse & { link: PatientQuestionnaireLink })[]>;
+  associateQuestionnaireWithPatient(linkId: string, patientId: string): Promise<PatientQuestionnaireLink>;
   
   // Questionnaire Upload operations
   addQuestionnaireUpload(upload: InsertPatientQuestionnaireUpload): Promise<PatientQuestionnaireUpload>;
@@ -5731,6 +5733,33 @@ export class DatabaseStorage implements IStorage {
       ...row.patient_questionnaire_responses,
       link: row.patient_questionnaire_links
     }));
+  }
+
+  async getUnassociatedQuestionnaireResponsesForHospital(hospitalId: string): Promise<(PatientQuestionnaireResponse & { link: PatientQuestionnaireLink })[]> {
+    const results = await db
+      .select()
+      .from(patientQuestionnaireResponses)
+      .innerJoin(patientQuestionnaireLinks, eq(patientQuestionnaireResponses.linkId, patientQuestionnaireLinks.id))
+      .where(and(
+        eq(patientQuestionnaireLinks.hospitalId, hospitalId),
+        isNull(patientQuestionnaireLinks.patientId),
+        eq(patientQuestionnaireResponses.status, 'submitted')
+      ))
+      .orderBy(desc(patientQuestionnaireResponses.submittedAt));
+    
+    return results.map(row => ({
+      ...row.patient_questionnaire_responses,
+      link: row.patient_questionnaire_links
+    }));
+  }
+
+  async associateQuestionnaireWithPatient(linkId: string, patientId: string): Promise<PatientQuestionnaireLink> {
+    const [updated] = await db
+      .update(patientQuestionnaireLinks)
+      .set({ patientId })
+      .where(eq(patientQuestionnaireLinks.id, linkId))
+      .returning();
+    return updated;
   }
 
   async addQuestionnaireUpload(upload: InsertPatientQuestionnaireUpload): Promise<PatientQuestionnaireUpload> {
