@@ -211,6 +211,8 @@ export default function PreOpList() {
     // If patient has no email, open dialog to enter one
     if (!surgery.patientEmail) {
       setSelectedSurgeryForEmail(surgery);
+      setEmailInput(""); // Reset email input for new dialog
+      setSaveEmailToPatient(true); // Default to save since patient has no email
       setEmailDialogOpen(true);
       return;
     }
