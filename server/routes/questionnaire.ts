@@ -186,7 +186,30 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    // Generate unique token
+    // Check for existing active link (not expired, not submitted, not reviewed)
+    const existingLinks = await storage.getQuestionnaireLinksForPatient(patientId);
+    const now = new Date();
+    const activeLink = existingLinks.find(l => 
+      l.hospitalId === hospitalId &&
+      l.status !== 'expired' && 
+      l.status !== 'submitted' &&
+      l.status !== 'reviewed' &&
+      l.expiresAt && new Date(l.expiresAt) > now
+    );
+
+    if (activeLink) {
+      // Return existing active link instead of creating new one
+      const baseUrl = process.env.PUBLIC_URL || `https://${req.headers.host}`;
+      const questionnaireUrl = `${baseUrl}/questionnaire/${activeLink.token}`;
+      return res.json({ 
+        link: activeLink, 
+        url: questionnaireUrl,
+        expiresAt: activeLink.expiresAt,
+        reused: true,
+      });
+    }
+
+    // Generate unique token for new link
     const token = nanoid(32);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + expiresInDays);
@@ -210,6 +233,7 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
       link, 
       url: questionnaireUrl,
       expiresAt,
+      reused: false,
     });
   } catch (error) {
     console.error("Error generating questionnaire link:", error);
