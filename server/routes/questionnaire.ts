@@ -163,7 +163,7 @@ interface AuthenticatedRequest extends Request {
 // Generate a questionnaire link for a patient
 router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = req.headers['x-hospital-id'] as string;
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
     if (!hospitalId) {
       return res.status(400).json({ message: "Hospital ID required" });
     }
@@ -220,7 +220,7 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
 // Get all questionnaire links for a patient
 router.get('/api/questionnaire/patient/:patientId/links', isAuthenticated, async (req: any, res: Response) => {
   try {
-    const hospitalId = req.headers['x-hospital-id'] as string;
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
     if (!hospitalId) {
       return res.status(400).json({ message: "Hospital ID required" });
     }
@@ -246,7 +246,7 @@ router.get('/api/questionnaire/patient/:patientId/links', isAuthenticated, async
 // Get all submitted questionnaire responses for hospital
 router.get('/api/questionnaire/responses', isAuthenticated, async (req: any, res: Response) => {
   try {
-    const hospitalId = req.headers['x-hospital-id'] as string;
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
     if (!hospitalId) {
       return res.status(400).json({ message: "Hospital ID required" });
     }
@@ -288,7 +288,7 @@ router.get('/api/questionnaire/responses', isAuthenticated, async (req: any, res
 // Get response details (for staff review)
 router.get('/api/questionnaire/responses/:responseId', isAuthenticated, async (req: any, res: Response) => {
   try {
-    const hospitalId = req.headers['x-hospital-id'] as string;
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
     if (!hospitalId) {
       return res.status(400).json({ message: "Hospital ID required" });
     }
@@ -347,7 +347,7 @@ router.get('/api/questionnaire/responses/:responseId', isAuthenticated, async (r
 // Save review/mapping of questionnaire data
 router.post('/api/questionnaire/responses/:responseId/review', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = req.headers['x-hospital-id'] as string;
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
     if (!hospitalId) {
       return res.status(400).json({ message: "Hospital ID required" });
     }
@@ -446,7 +446,7 @@ router.post('/api/questionnaire/responses/:responseId/review', isAuthenticated, 
 // Send questionnaire link via email
 router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = req.headers['x-hospital-id'] as string;
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
     if (!hospitalId) {
       return res.status(400).json({ message: "Hospital ID required" });
     }
@@ -533,7 +533,7 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
 // Invalidate/expire a questionnaire link
 router.post('/api/questionnaire/links/:linkId/invalidate', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
   try {
-    const hospitalId = req.headers['x-hospital-id'] as string;
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
     if (!hospitalId) {
       return res.status(400).json({ message: "Hospital ID required" });
     }
