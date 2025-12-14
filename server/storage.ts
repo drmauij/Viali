@@ -2690,6 +2690,8 @@ export class DatabaseStorage implements IStorage {
         // Include patient allergies for pre-op summary display
         patientAllergies: patient?.allergies || [],
         patientOtherAllergies: patient?.otherAllergies || null,
+        // Include patient email for sending pre-op form
+        patientEmail: patient?.email || null,
       };
 
       return {
