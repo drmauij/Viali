@@ -839,6 +839,7 @@
       "noPreOpRequiredError": "Fehler beim Aktualisieren der Operation",
       "walkInForm": "Laufkunden-Formular",
       "sendForm": "Formular senden",
+      "formSent": "Formular gesendet",
       "enterEmail": "Patienten-E-Mail eingeben",
       "noEmailForPatient": "Patient {{name}} hat keine E-Mail-Adresse hinterlegt.",
       "patientEmail": "E-Mail-Adresse",

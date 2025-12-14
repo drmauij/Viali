@@ -157,6 +157,9 @@ export default function PreOpList() {
   const [emailInput, setEmailInput] = useState("");
   const [saveEmailToPatient, setSaveEmailToPatient] = useState(true);
   const [selectedSurgeryForEmail, setSelectedSurgeryForEmail] = useState<any>(null);
+  
+  // Track surgeries that have had forms sent in this session
+  const [sentForms, setSentForms] = useState<Set<string>>(new Set());
 
   // Mutation to generate questionnaire link
   const generateLinkMutation = useMutation({
@@ -229,6 +232,9 @@ export default function PreOpList() {
         linkId: linkData.link.id,
         email: surgery.patientEmail,
       });
+      
+      // Track that form was sent for this surgery
+      setSentForms(prev => new Set(prev).add(surgery.id));
     } catch (error) {
       console.error("Failed to send form:", error);
       toast({
@@ -265,6 +271,9 @@ export default function PreOpList() {
         linkId: linkData.link.id,
         email: emailInput,
       });
+      
+      // Track that form was sent for this surgery
+      setSentForms(prev => new Set(prev).add(selectedSurgeryForEmail.id));
     } catch (error) {
       console.error("Failed to send form:", error);
       toast({
@@ -582,24 +591,50 @@ export default function PreOpList() {
                     )}
                     {/* Button to send pre-op form to patient (only for planned items) */}
                     {item.status === 'planned' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-7 px-2 text-xs"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSendFormToPatient(surgery);
-                        }}
-                        disabled={generateLinkMutation.isPending || sendEmailMutation.isPending}
-                        data-testid={`button-send-form-${surgery.id}`}
-                      >
-                        {(generateLinkMutation.isPending || sendEmailMutation.isPending) ? (
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        ) : (
-                          <Mail className="h-3 w-3 mr-1" />
-                        )}
-                        {t('anesthesia.preop.sendForm')}
-                      </Button>
+                      sentForms.has(surgery.id) ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {t('anesthesia.preop.formSent')}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSendFormToPatient(surgery);
+                            }}
+                            disabled={generateLinkMutation.isPending || sendEmailMutation.isPending}
+                            data-testid={`button-resend-form-${surgery.id}`}
+                          >
+                            {(generateLinkMutation.isPending || sendEmailMutation.isPending) ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Send className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSendFormToPatient(surgery);
+                          }}
+                          disabled={generateLinkMutation.isPending || sendEmailMutation.isPending}
+                          data-testid={`button-send-form-${surgery.id}`}
+                        >
+                          {(generateLinkMutation.isPending || sendEmailMutation.isPending) ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <Mail className="h-3 w-3 mr-1" />
+                          )}
+                          {t('anesthesia.preop.sendForm')}
+                        </Button>
+                      )
                     )}
                     {/* Button to mark surgery as not requiring pre-op (only for planned items without assessment) */}
                     {item.status === 'planned' && !item.assessment && (

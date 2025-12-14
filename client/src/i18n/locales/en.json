@@ -839,6 +839,7 @@
       "noPreOpRequiredError": "Failed to update surgery",
       "walkInForm": "Walk-in Form",
       "sendForm": "Send Form",
+      "formSent": "Form sent",
       "enterEmail": "Enter Patient Email",
       "noEmailForPatient": "Patient {{name}} has no email address on file.",
       "patientEmail": "Email Address",
