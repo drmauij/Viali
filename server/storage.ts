@@ -605,6 +605,7 @@ export interface IStorage {
   createAttachment(attachment: InsertChatAttachment): Promise<ChatAttachment>;
   updateAttachment(id: string, updates: Partial<ChatAttachment>): Promise<ChatAttachment>;
   getAttachment(id: string): Promise<ChatAttachment | undefined>;
+  getConversationAttachments(conversationId: string): Promise<ChatAttachment[]>;
   
   // Chat Notification operations
   createNotification(notification: InsertChatNotification): Promise<ChatNotification>;
@@ -5543,6 +5544,24 @@ export class DatabaseStorage implements IStorage {
       .from(chatAttachments)
       .where(eq(chatAttachments.id, id));
     return attachment;
+  }
+
+  async getConversationAttachments(conversationId: string): Promise<ChatAttachment[]> {
+    return await db
+      .select({
+        id: chatAttachments.id,
+        messageId: chatAttachments.messageId,
+        storageKey: chatAttachments.storageKey,
+        filename: chatAttachments.filename,
+        mimeType: chatAttachments.mimeType,
+        sizeBytes: chatAttachments.sizeBytes,
+        thumbnailKey: chatAttachments.thumbnailKey,
+        savedToPatientId: chatAttachments.savedToPatientId,
+        createdAt: chatAttachments.createdAt,
+      })
+      .from(chatAttachments)
+      .innerJoin(chatMessages, eq(chatAttachments.messageId, chatMessages.id))
+      .where(eq(chatMessages.conversationId, conversationId));
   }
 
   async createNotification(notification: InsertChatNotification): Promise<ChatNotification> {

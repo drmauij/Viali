@@ -222,6 +222,28 @@ router.delete('/api/chat/conversations/:conversationId', isAuthenticated, verify
       return res.status(403).json({ message: "Only the conversation owner can delete it" });
     }
     
+    // Clean up attachments from object storage before deleting conversation
+    try {
+      const attachments = await storage.getConversationAttachments(conversationId);
+      if (attachments.length > 0) {
+        const objectStorageService = new ObjectStorageService();
+        for (const attachment of attachments) {
+          try {
+            await objectStorageService.deleteObject(attachment.storageKey);
+            if (attachment.thumbnailKey) {
+              await objectStorageService.deleteObject(attachment.thumbnailKey);
+            }
+          } catch (deleteError) {
+            // Log but continue - don't fail the whole delete if a file is already gone
+            console.warn(`Failed to delete attachment ${attachment.storageKey}:`, deleteError);
+          }
+        }
+      }
+    } catch (cleanupError) {
+      console.error("Error cleaning up attachments:", cleanupError);
+      // Continue with conversation deletion even if cleanup fails
+    }
+    
     await storage.deleteConversation(conversationId);
     res.json({ success: true });
   } catch (error) {
