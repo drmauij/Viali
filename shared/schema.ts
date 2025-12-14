@@ -64,6 +64,7 @@ export const hospitals = pgTable("hospitals", {
   companyFax: varchar("company_fax"),
   companyEmail: varchar("company_email"),
   companyLogoUrl: varchar("company_logo_url"),
+  questionnaireToken: varchar("questionnaire_token").unique(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -553,6 +553,97 @@ router.post('/api/questionnaire/links/:linkId/invalidate', isAuthenticated, requ
   }
 });
 
+// ========== OPEN HOSPITAL LINK ROUTES (for public access without patient association) ==========
+
+// Rate limiter for hospital open link
+const hospitalLinkFetchLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 30,
+  keyPrefix: 'hlink'
+});
+
+// Get hospital info for open questionnaire (public)
+router.get('/api/public/questionnaire/hospital/:token', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    
+    if (!token || token.length < 10) {
+      return res.status(400).json({ message: "Invalid questionnaire link" });
+    }
+    
+    const hospital = await storage.getHospitalByQuestionnaireToken(token);
+    if (!hospital) {
+      return res.status(404).json({ message: "Invalid questionnaire link" });
+    }
+
+    // Get hospital settings for form configuration
+    const hospitalSettings = await storage.getHospitalAnesthesiaSettings(hospital.id);
+
+    // Flatten illness lists and filter for patient-visible items
+    const flatIllnessList = flattenIllnessLists(hospitalSettings?.illnessLists);
+    const patientVisibleConditions = flatIllnessList
+      .filter((item: any) => item.patientVisible !== false)
+      .map((item: any) => ({
+        id: item.id,
+        label: item.patientLabel || item.label,
+        helpText: item.patientHelpText,
+        category: item.category,
+      }));
+
+    res.json({
+      hospitalId: hospital.id,
+      hospitalName: hospital.name,
+      isOpenLink: true,
+      language: 'de', // Default language for open links
+      conditions: patientVisibleConditions,
+    });
+  } catch (error) {
+    console.error("Error fetching hospital questionnaire info:", error);
+    res.status(500).json({ message: "Failed to load questionnaire" });
+  }
+});
+
+// Start a new questionnaire from open hospital link (creates link + response)
+router.post('/api/public/questionnaire/hospital/:token/start', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    
+    if (!token || token.length < 10) {
+      return res.status(400).json({ message: "Invalid questionnaire link" });
+    }
+    
+    const hospital = await storage.getHospitalByQuestionnaireToken(token);
+    if (!hospital) {
+      return res.status(404).json({ message: "Invalid questionnaire link" });
+    }
+
+    // Create a new questionnaire link without patient association
+    const linkToken = nanoid(32);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30); // 30 days expiry for open links
+
+    const link = await storage.createQuestionnaireLink({
+      token: linkToken,
+      hospitalId: hospital.id,
+      patientId: null, // No patient association
+      surgeryId: null,
+      createdBy: null, // System-generated
+      expiresAt,
+      status: 'pending',
+      language: 'de',
+    });
+
+    // Return the new questionnaire token for redirect
+    res.json({
+      questionnaireToken: linkToken,
+      redirectUrl: `/questionnaire/${linkToken}`,
+    });
+  } catch (error) {
+    console.error("Error starting hospital questionnaire:", error);
+    res.status(500).json({ message: "Failed to start questionnaire" });
+  }
+});
+
 // ========== PUBLIC ROUTES (for patients) ==========
 
 // Helper to validate link is still usable (not expired/submitted/reviewed)

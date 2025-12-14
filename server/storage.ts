@@ -192,6 +192,8 @@ export interface IStorage {
   getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean })[]>;
   createHospital(name: string): Promise<Hospital>;
   updateHospital(id: string, updates: Partial<Hospital>): Promise<Hospital>;
+  getHospitalByQuestionnaireToken(token: string): Promise<Hospital | undefined>;
+  setHospitalQuestionnaireToken(hospitalId: string, token: string | null): Promise<Hospital>;
   
   // Folder operations
   getFolders(hospitalId: string, unitId: string): Promise<Folder[]>;
@@ -702,6 +704,23 @@ export class DatabaseStorage implements IStorage {
       .update(hospitals)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(hospitals.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getHospitalByQuestionnaireToken(token: string): Promise<Hospital | undefined> {
+    const [hospital] = await db
+      .select()
+      .from(hospitals)
+      .where(eq(hospitals.questionnaireToken, token));
+    return hospital;
+  }
+
+  async setHospitalQuestionnaireToken(hospitalId: string, token: string | null): Promise<Hospital> {
+    const [updated] = await db
+      .update(hospitals)
+      .set({ questionnaireToken: token, updatedAt: new Date() })
+      .where(eq(hospitals.id, hospitalId))
       .returning();
     return updated;
   }
