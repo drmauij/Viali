@@ -89,6 +89,7 @@
     },
     "clinic": {
       "patients": "Patienten",
+      "questionnaires": "Fragebögen",
       "invoices": "Rechnungen",
       "settings": "Firma"
     },

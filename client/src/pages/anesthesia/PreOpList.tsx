@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2, Stethoscope, EyeOff, Mail, ExternalLink, Send } from "lucide-react";
+import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2, Stethoscope, EyeOff, Mail, Send } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -284,11 +284,6 @@ export default function PreOpList() {
     }
   };
 
-  // Handle walk-in patient form link - navigate to questionnaire reviews
-  const handleWalkInForm = () => {
-    setLocation("/anesthesia/questionnaires");
-  };
-
   // Filter assessments by search term
   const filteredAssessments = (assessments || []).filter((item) => {
     if (!item.surgery) return false;
@@ -416,15 +411,6 @@ export default function PreOpList() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-2xl font-bold">{t('anesthesia.preop.title')}</h1>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleWalkInForm}
-            data-testid="button-walkin-form"
-          >
-            <ExternalLink className="h-4 w-4 mr-2" />
-            {t('anesthesia.preop.walkInForm')}
-          </Button>
         </div>
         <p className="text-sm text-muted-foreground">
           {t('anesthesia.preop.subtitle')}
