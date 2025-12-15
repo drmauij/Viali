@@ -596,6 +596,48 @@ router.get('/api/chat/:hospitalId/mentions', isAuthenticated, async (req: any, r
   }
 });
 
+router.get('/api/chat/attachments/:attachmentId/download', isAuthenticated, async (req: any, res) => {
+  try {
+    const { attachmentId } = req.params;
+    const userId = req.user.id;
+    
+    const attachment = await storage.getAttachment(attachmentId);
+    if (!attachment) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+    
+    const message = await storage.getMessage(attachment.messageId);
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+    
+    const conversation = await storage.getConversation(message.conversationId);
+    if (!conversation) {
+      return res.status(404).json({ message: "Conversation not found" });
+    }
+    
+    const isParticipant = conversation.participants.some(p => p.userId === userId);
+    if (!isParticipant) {
+      return res.status(403).json({ message: "Access denied to this attachment" });
+    }
+    
+    const objectStorageService = new ObjectStorageService();
+    
+    res.setHeader('Content-Disposition', `inline; filename="${attachment.filename}"`);
+    if (attachment.mimeType) {
+      res.setHeader('Content-Type', attachment.mimeType);
+    }
+    
+    await objectStorageService.downloadObject(attachment.storageKey, res);
+  } catch (error) {
+    console.error("Error downloading attachment:", error);
+    if (error instanceof ObjectNotFoundError) {
+      return res.status(404).json({ message: "File not found in storage" });
+    }
+    res.status(500).json({ message: "Failed to download attachment" });
+  }
+});
+
 router.patch('/api/chat/attachments/:attachmentId/save-to-patient', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { attachmentId } = req.params;
