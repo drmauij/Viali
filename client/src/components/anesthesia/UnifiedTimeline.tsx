@@ -6767,8 +6767,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       </div>
 
       {/* Fixed right-side panel for cumulative dose badges */}
+      {/* z-50 ensures pills are above medication swimlane elements (z-40) for click capture */}
       <div 
-        className="absolute right-0 z-30 pointer-events-none"
+        className="absolute right-0 z-50 pointer-events-none"
         style={{ 
           top: `${VITALS_TOP_POS + VITALS_HEIGHT}px`,
           width: '70px',
