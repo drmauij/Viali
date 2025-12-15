@@ -19,6 +19,7 @@ interface SurgerySummaryDialogProps {
   onOpenPreOp: () => void;
   onOpenAnesthesia: () => void;
   onOpenSurgeryDocumentation?: () => void;
+  onOpenSurgeryPreOp?: () => void;
   onEditPatient?: () => void;
   activeModule?: Module;
 }
@@ -31,6 +32,7 @@ export default function SurgerySummaryDialog({
   onOpenPreOp,
   onOpenAnesthesia,
   onOpenSurgeryDocumentation,
+  onOpenSurgeryPreOp,
   onEditPatient,
   activeModule,
 }: SurgerySummaryDialogProps) {
@@ -71,6 +73,35 @@ export default function SurgerySummaryDialog({
   
   // Treat 404 as "no data" rather than an error
   const isRealError = isPreOpError && (preOpError as any)?.status !== 404;
+
+  // Fetch surgery pre-op assessment data (for surgery module)
+  const { data: surgeryPreOpAssessment, isLoading: isLoadingSurgeryPreOp, isError: isSurgeryPreOpError, error: surgeryPreOpError } = useQuery<any>({
+    queryKey: [`/api/surgery/preop/surgery/${surgeryId}`],
+    enabled: !!surgeryId && open && activeModule === 'surgery',
+    retry: (failureCount, error: any) => {
+      if (error?.status === 404) return false;
+      return failureCount < 3;
+    },
+  });
+  
+  const isSurgeryPreOpRealError = isSurgeryPreOpError && (surgeryPreOpError as any)?.status !== 404;
+  
+  const hasSurgeryPreOpData = surgeryPreOpAssessment && (
+    surgeryPreOpAssessment.height != null ||
+    surgeryPreOpAssessment.weight != null ||
+    surgeryPreOpAssessment.cave != null ||
+    surgeryPreOpAssessment.specialNotes != null ||
+    surgeryPreOpAssessment.heartRate != null ||
+    surgeryPreOpAssessment.bloodPressureSystolic != null ||
+    surgeryPreOpAssessment.lastSolids != null ||
+    surgeryPreOpAssessment.lastClear != null ||
+    surgeryPreOpAssessment.medicationsNotes != null ||
+    surgeryPreOpAssessment.heartNotes != null ||
+    surgeryPreOpAssessment.lungNotes != null ||
+    surgeryPreOpAssessment.standBy != null ||
+    surgeryPreOpAssessment.status === 'completed' ||
+    surgeryPreOpAssessment.status === 'draft'
+  );
   
   // Check if pre-op assessment has any meaningful data (check for presence, not truthiness)
   const hasPreOpData = preOpAssessment && (
@@ -432,6 +463,71 @@ export default function SurgerySummaryDialog({
                       </div>
                     </div>
                     <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Surgery Pre-Op Assessment - Only shown in surgery module */}
+            {activeModule === 'surgery' && onOpenSurgeryPreOp && (
+              <Card 
+                className="cursor-pointer hover:bg-accent transition-colors"
+                onClick={onOpenSurgeryPreOp}
+                data-testid="card-open-surgery-preop"
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3 flex-1">
+                      <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg shrink-0">
+                        <ClipboardList className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold mb-2">{t('surgery.preop.title')}</div>
+                        {isLoadingSurgeryPreOp ? (
+                          <div className="text-sm text-muted-foreground">
+                            {t('anesthesia.surgerySummary.loading')}
+                          </div>
+                        ) : isSurgeryPreOpRealError ? (
+                          <div className="text-sm text-destructive">
+                            {t('anesthesia.surgerySummary.errorLoading')}
+                          </div>
+                        ) : hasSurgeryPreOpData ? (
+                          <div className="text-sm">
+                            {(() => {
+                              const parts = [];
+                              if (surgeryPreOpAssessment.weight != null && surgeryPreOpAssessment.weight !== '' && surgeryPreOpAssessment.weight !== 0) {
+                                parts.push(`${surgeryPreOpAssessment.weight}kg`);
+                              }
+                              if (surgeryPreOpAssessment.height != null && surgeryPreOpAssessment.height !== '' && surgeryPreOpAssessment.height !== 0) {
+                                parts.push(`${surgeryPreOpAssessment.height}cm`);
+                              }
+                              if (surgeryPreOpAssessment.heartRate != null && surgeryPreOpAssessment.heartRate !== '' && surgeryPreOpAssessment.heartRate !== 0) {
+                                parts.push(`HR ${surgeryPreOpAssessment.heartRate}`);
+                              }
+                              if (surgeryPreOpAssessment.bloodPressureSystolic != null && surgeryPreOpAssessment.bloodPressureDiastolic != null &&
+                                  surgeryPreOpAssessment.bloodPressureSystolic !== 0 && surgeryPreOpAssessment.bloodPressureDiastolic !== 0) {
+                                parts.push(`BP ${surgeryPreOpAssessment.bloodPressureSystolic}/${surgeryPreOpAssessment.bloodPressureDiastolic}`);
+                              }
+                              if (surgeryPreOpAssessment.cave != null && surgeryPreOpAssessment.cave !== '') {
+                                parts.push(`CAVE: ${surgeryPreOpAssessment.cave}`);
+                              }
+                              if (surgeryPreOpAssessment.specialNotes != null && surgeryPreOpAssessment.specialNotes !== '') {
+                                parts.push(surgeryPreOpAssessment.specialNotes);
+                              }
+                              if (surgeryPreOpAssessment.status === 'completed') {
+                                parts.push(`✓ ${t('common.completed')}`);
+                              }
+                              return parts.join(', ');
+                            })()}
+                          </div>
+                        ) : (
+                          <div className="text-sm text-muted-foreground">
+                            {t('anesthesia.surgerySummary.notYetCompleted')}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0 mt-1" />
                   </div>
                 </CardContent>
               </Card>

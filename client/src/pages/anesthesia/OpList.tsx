@@ -228,6 +228,18 @@ export default function OpList() {
     }
   };
 
+  const handleOpenSurgeryPreOp = () => {
+    if (selectedSurgeryId) {
+      // Save context before navigating away
+      sessionStorage.setItem(SURGERY_CONTEXT_KEY, JSON.stringify({
+        surgeryId: selectedSurgeryId,
+        patientId: selectedPatientId
+      }));
+      setSummaryOpen(false);
+      setLocation(`/surgery/preop/${selectedSurgeryId}`);
+    }
+  };
+
   const handleEditPatient = () => {
     if (selectedPatientId) {
       // Save context before navigating away
@@ -346,6 +358,7 @@ export default function OpList() {
           onOpenPreOp={handleOpenPreOp}
           onOpenAnesthesia={handleOpenAnesthesia}
           onOpenSurgeryDocumentation={handleOpenSurgeryDocumentation}
+          onOpenSurgeryPreOp={handleOpenSurgeryPreOp}
           onEditPatient={handleEditPatient}
           activeModule={activeModule}
         />
