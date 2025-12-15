@@ -248,7 +248,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
     enabled: !!activeHospital?.id && (view === 'new' || view === 'conversation'),
   });
 
-  const { data: patients = [] } = useQuery<Array<{id: string; firstName?: string; lastName?: string; dateOfBirth?: string}>>({
+  const { data: patients = [] } = useQuery<Array<{id: string; firstName?: string; surname?: string; birthday?: string}>>({
     queryKey: ['/api/patients', activeHospital?.id],
     queryFn: async () => {
       const response = await fetch(`/api/patients?hospitalId=${activeHospital?.id}&limit=100`, {
@@ -295,24 +295,41 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
     } else if (mentionType === 'patient') {
       return patients
         .filter(p => {
-          const fullName = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase();
-          return fullName.includes(searchLower);
+          const surname = (p.surname || '').toLowerCase();
+          const firstName = (p.firstName || '').toLowerCase();
+          let formattedBirthday = '';
+          if (p.birthday) {
+            try {
+              formattedBirthday = format(new Date(p.birthday), 'dd.MM.yyyy');
+            } catch {
+              formattedBirthday = p.birthday;
+            }
+          }
+          // Allow searching by surname, firstName, or birthday
+          return surname.includes(searchLower) || 
+                 firstName.includes(searchLower) || 
+                 formattedBirthday.includes(searchLower) ||
+                 (p.birthday || '').includes(searchLower);
         })
         .slice(0, 5)
         .map(p => {
           let formattedDob = '';
-          if (p.dateOfBirth) {
+          if (p.birthday) {
             try {
-              formattedDob = format(new Date(p.dateOfBirth), 'dd.MM.yyyy');
+              formattedDob = format(new Date(p.birthday), 'dd.MM.yyyy');
             } catch {
-              formattedDob = p.dateOfBirth;
+              formattedDob = p.birthday;
             }
           }
+          // Display format: "Surname, FirstName (birthday)"
+          const displayName = p.surname 
+            ? `${p.surname}${p.firstName ? ', ' + p.firstName : ''}${formattedDob ? ' (' + formattedDob + ')' : ''}`
+            : p.firstName || 'Unknown Patient';
           return {
             type: 'patient' as const,
             id: p.id,
-            display: `${p.firstName || ''} ${p.lastName || ''}`.trim() || 'Unknown Patient',
-            subtext: formattedDob ? `* ${formattedDob}` : undefined
+            display: displayName,
+            subtext: undefined // Birthday is now in the display name
           };
         });
     }
