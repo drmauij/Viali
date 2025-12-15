@@ -25,7 +25,7 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useAuth } from "@/hooks/useAuth";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useModule } from "@/contexts/ModuleContext";
-import { formatDate, formatDateTimeForInput } from "@/lib/dateUtils";
+import { formatDate, formatDateTimeForInput, toProperCase, parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import SignaturePad from "@/components/SignaturePad";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
@@ -3296,17 +3296,27 @@ export default function PatientDetail() {
                     <div className="space-y-2">
                       <Label>{t('anesthesia.patientDetail.assessmentDate')}</Label>
                       <Input
-                        type="date"
-                        value={assessmentData.assessmentDate}
-                        onChange={(e) => setAssessmentData({...assessmentData, assessmentDate: e.target.value})}
+                        type="text"
+                        placeholder="dd.MM.yyyy"
+                        value={assessmentData.assessmentDate ? isoToDisplayDate(assessmentData.assessmentDate) : ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          const parsed = parseFlexibleDate(value);
+                          if (parsed) {
+                            setAssessmentData({...assessmentData, assessmentDate: parsed.isoDate});
+                          } else {
+                            setAssessmentData({...assessmentData, assessmentDate: value});
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const parsed = parseFlexibleDate(e.target.value);
+                          if (parsed) {
+                            setAssessmentData({...assessmentData, assessmentDate: parsed.isoDate});
+                          }
+                        }}
                         disabled={isPreOpReadOnly}
                         data-testid="input-assessment-date"
                       />
-                      {assessmentData.assessmentDate && (
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(assessmentData.assessmentDate)}
-                        </p>
-                      )}
                     </div>
                     <div className="space-y-2">
                       <Label>{t('anesthesia.patientDetail.doctorName')}</Label>
@@ -3513,17 +3523,27 @@ export default function PatientDetail() {
                     <div className="space-y-2">
                       <Label>{t('anesthesia.patientDetail.date')}</Label>
                       <Input
-                        type="date"
-                        value={consentData.date}
-                        onChange={(e) => setConsentData({...consentData, date: e.target.value})}
+                        type="text"
+                        placeholder="dd.MM.yyyy"
+                        value={consentData.date ? isoToDisplayDate(consentData.date) : ''}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          const parsed = parseFlexibleDate(value);
+                          if (parsed) {
+                            setConsentData({...consentData, date: parsed.isoDate});
+                          } else {
+                            setConsentData({...consentData, date: value});
+                          }
+                        }}
+                        onBlur={(e) => {
+                          const parsed = parseFlexibleDate(e.target.value);
+                          if (parsed) {
+                            setConsentData({...consentData, date: parsed.isoDate});
+                          }
+                        }}
                         disabled={isPreOpReadOnly}
                         data-testid="input-consent-date"
                       />
-                      {consentData.date && (
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(consentData.date)}
-                        </p>
-                      )}
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3698,9 +3718,25 @@ export default function PatientDetail() {
                   <Label htmlFor="edit-birthday">{t('anesthesia.patients.dateOfBirth')} *</Label>
                   <Input
                     id="edit-birthday"
-                    type="date"
-                    value={editForm.birthday}
-                    onChange={(e) => setEditForm({ ...editForm, birthday: e.target.value })}
+                    type="text"
+                    placeholder="dd.MM.yyyy"
+                    value={editForm.birthday ? isoToDisplayDate(editForm.birthday) : ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const parsed = parseFlexibleDate(value);
+                      if (parsed) {
+                        setEditForm({ ...editForm, birthday: parsed.isoDate });
+                      } else {
+                        // Keep the raw value for typing, will be validated on save
+                        setEditForm({ ...editForm, birthday: value });
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const parsed = parseFlexibleDate(e.target.value);
+                      if (parsed) {
+                        setEditForm({ ...editForm, birthday: parsed.isoDate });
+                      }
+                    }}
                     data-testid="input-edit-birthday"
                   />
                 </div>
@@ -3889,10 +3925,20 @@ export default function PatientDetail() {
                   });
                   return;
                 }
+                // Parse and validate birthday
+                const parsedBirthday = parseFlexibleDate(editForm.birthday);
+                if (!parsedBirthday) {
+                  toast({
+                    title: t('anesthesia.patients.invalidDate', 'Invalid date'),
+                    description: t('anesthesia.patients.invalidDateFormat', 'Please enter a valid date (e.g., 02.07.2027 or 020727)'),
+                    variant: "destructive",
+                  });
+                  return;
+                }
                 updatePatientMutation.mutate({
-                  surname: editForm.surname,
-                  firstName: editForm.firstName,
-                  birthday: editForm.birthday,
+                  surname: toProperCase(editForm.surname),
+                  firstName: toProperCase(editForm.firstName),
+                  birthday: parsedBirthday.isoDate,
                   sex: editForm.sex,
                   email: editForm.email || null,
                   phone: editForm.phone || null,

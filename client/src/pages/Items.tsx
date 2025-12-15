@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UpgradeDialog from "@/components/UpgradeDialog";
+import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
 import type { Item, StockLevel, InsertItem, Vendor, Folder, Lot } from "@shared/schema";
 import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X } from "lucide-react";
@@ -3862,11 +3863,10 @@ export default function Items() {
                             </div>
                             <div>
                               <Label htmlFor="add-expiry" className="text-xs text-muted-foreground">Expiry Date</Label>
-                              <Input 
+                              <FlexibleDateInput 
                                 id="add-expiry"
-                                type="date"
                                 value={formData.expiryDate}
-                                onChange={(e) => setFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                                onChange={(value) => setFormData(prev => ({ ...prev, expiryDate: value }))}
                                 data-testid="input-add-expiry"
                                 className="h-8"
                               />
@@ -4693,11 +4693,10 @@ export default function Items() {
                                   onChange={(e) => setNewLot(prev => ({ ...prev, lotNumber: e.target.value }))}
                                   data-testid="input-new-lot-number"
                                 />
-                                <Input
+                                <FlexibleDateInput
                                   placeholder="Expiry date"
-                                  type="date"
                                   value={newLot.expiryDate}
-                                  onChange={(e) => setNewLot(prev => ({ ...prev, expiryDate: e.target.value }))}
+                                  onChange={(value) => setNewLot(prev => ({ ...prev, expiryDate: value }))}
                                   data-testid="input-new-lot-expiry"
                                 />
                               </div>

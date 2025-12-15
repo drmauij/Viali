@@ -1,6 +1,111 @@
 import { format as dateFnsFormat } from "date-fns";
 import { enGB, enUS, de, fr, es, it, Locale } from "date-fns/locale";
 
+/**
+ * Convert a string to proper case (first letter of each word capitalized)
+ * Handles comma-separated names like "MAURIZIO PAOL, BETTI" => "Maurizio Paol, Betti"
+ */
+export const toProperCase = (str: string): string => {
+  if (!str) return str;
+  
+  return str
+    .split(/(\s+|,)/) // Split by spaces and commas, keeping delimiters
+    .map(part => {
+      if (part.trim() === '' || part === ',') return part;
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    })
+    .join('');
+};
+
+/**
+ * Parse flexible date input formats and convert to YYYY-MM-DD format
+ * Supports formats like:
+ * - 02.07.2027 => 2027-07-02
+ * - 2727 => 27.07.2027 (ddMM format, current year assumed)
+ * - 270727 => 27.07.2027 (ddMMyy format)
+ * - 27072027 => 27.07.2027 (ddMMyyyy format)
+ * - 130124 => 13.01.2024 (ddMMyy format)
+ * - 13/1/24 => 13.01.2024
+ * - 13-1-24 => 13.01.2024
+ * Also returns the display format (dd.MM.yyyy) for UI
+ */
+export const parseFlexibleDate = (input: string): { isoDate: string; displayDate: string } | null => {
+  if (!input) return null;
+  
+  const cleaned = input.trim();
+  if (!cleaned) return null;
+  
+  let day: number, month: number, year: number;
+  const currentYear = new Date().getFullYear();
+  
+  // Try parsing different formats
+  // Format: dd.MM.yyyy or dd/MM/yyyy or dd-MM-yyyy
+  const separatorMatch = cleaned.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
+  if (separatorMatch) {
+    day = parseInt(separatorMatch[1], 10);
+    month = parseInt(separatorMatch[2], 10);
+    year = parseInt(separatorMatch[3], 10);
+    if (year < 100) {
+      year = year > 50 ? 1900 + year : 2000 + year;
+    }
+  }
+  // Format: ddMMyyyy (8 digits)
+  else if (/^\d{8}$/.test(cleaned)) {
+    day = parseInt(cleaned.substring(0, 2), 10);
+    month = parseInt(cleaned.substring(2, 4), 10);
+    year = parseInt(cleaned.substring(4, 8), 10);
+  }
+  // Format: ddMMyy (6 digits)
+  else if (/^\d{6}$/.test(cleaned)) {
+    day = parseInt(cleaned.substring(0, 2), 10);
+    month = parseInt(cleaned.substring(2, 4), 10);
+    year = parseInt(cleaned.substring(4, 6), 10);
+    year = year > 50 ? 1900 + year : 2000 + year;
+  }
+  // Format: ddMM (4 digits) - assume current year
+  else if (/^\d{4}$/.test(cleaned)) {
+    day = parseInt(cleaned.substring(0, 2), 10);
+    month = parseInt(cleaned.substring(2, 4), 10);
+    year = currentYear;
+  }
+  // Format: yyyy-MM-dd (ISO format from date picker)
+  else if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+    const parts = cleaned.split('-');
+    year = parseInt(parts[0], 10);
+    month = parseInt(parts[1], 10);
+    day = parseInt(parts[2], 10);
+  }
+  else {
+    return null;
+  }
+  
+  // Validate the date
+  if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900 || year > 2100) {
+    return null;
+  }
+  
+  // Check if the date is valid
+  const testDate = new Date(year, month - 1, day);
+  if (testDate.getDate() !== day || testDate.getMonth() !== month - 1 || testDate.getFullYear() !== year) {
+    return null;
+  }
+  
+  const isoDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const displayDate = `${String(day).padStart(2, '0')}.${String(month).padStart(2, '0')}.${year}`;
+  
+  return { isoDate, displayDate };
+};
+
+/**
+ * Format ISO date (YYYY-MM-DD) to display format (dd.MM.yyyy)
+ */
+export const isoToDisplayDate = (isoDate: string): string => {
+  if (!isoDate) return '';
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return isoDate;
+  return `${match[3]}.${match[2]}.${match[1]}`;
+};
+
 export interface DateFormatConfig {
   locale: string;
   dateFormat: string;

@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
 import { 
   User, 
   Heart, 
@@ -870,11 +871,10 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
 
       <div>
         <Label htmlFor="birthday">{t("questionnaire.personal.birthday")}</Label>
-        <Input
+        <FlexibleDateInput
           id="birthday"
-          type="date"
           value={formData.patientBirthday}
-          onChange={(e) => updateField("patientBirthday", e.target.value)}
+          onChange={(value) => updateField("patientBirthday", value)}
           data-testid="input-birthday"
         />
       </div>

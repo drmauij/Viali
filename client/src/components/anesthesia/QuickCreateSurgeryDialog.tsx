@@ -14,6 +14,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Loader2, Check, ChevronsUpDown, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
 
 interface QuickCreateSurgeryDialogProps {
   open: boolean;
@@ -527,9 +528,24 @@ export default function QuickCreateSurgeryDialog({
             <Label htmlFor="surgery-date">{t('anesthesia.quickSchedule.date', 'Date')} *</Label>
             <Input
               id="surgery-date"
-              type="date"
-              value={surgeryDate}
-              onChange={(e) => setSurgeryDate(e.target.value)}
+              type="text"
+              placeholder="dd.MM.yyyy"
+              value={surgeryDate ? isoToDisplayDate(surgeryDate) : ''}
+              onChange={(e) => {
+                const value = e.target.value;
+                const parsed = parseFlexibleDate(value);
+                if (parsed) {
+                  setSurgeryDate(parsed.isoDate);
+                } else {
+                  setSurgeryDate(value);
+                }
+              }}
+              onBlur={(e) => {
+                const parsed = parseFlexibleDate(e.target.value);
+                if (parsed) {
+                  setSurgeryDate(parsed.isoDate);
+                }
+              }}
               data-testid="input-surgery-date"
             />
           </div>

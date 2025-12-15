@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
@@ -13,6 +13,7 @@ import { Loader2, Save, CheckCircle2, Eye, Upload, Trash2, FileImage } from "luc
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
+import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
 import {
   VitalsSection,
   CaveSection,
@@ -398,12 +399,18 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="assessmentDate">{t('surgery.preop.assessmentDate')}</Label>
-                  <Input
-                    id="assessmentDate"
-                    type="date"
-                    {...form.register("assessmentDate")}
-                    disabled={isReadOnly}
-                    data-testid="input-assessment-date"
+                  <Controller
+                    name="assessmentDate"
+                    control={form.control}
+                    render={({ field }) => (
+                      <FlexibleDateInput
+                        id="assessmentDate"
+                        value={field.value || ""}
+                        onChange={field.onChange}
+                        disabled={isReadOnly}
+                        data-testid="input-assessment-date"
+                      />
+                    )}
                   />
                 </div>
                 <div className="space-y-2">

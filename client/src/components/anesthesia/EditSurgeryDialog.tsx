@@ -16,6 +16,7 @@ import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit } from "lucide-
 import { useTranslation } from "react-i18next";
 import { SurgeonChecklistTab } from "./SurgeonChecklistTab";
 import type { SurgeryContext } from "@shared/checklistPlaceholders";
+import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
 
 interface EditSurgeryDialogProps {
   surgeryId: string | null;
@@ -326,9 +327,24 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 <Label htmlFor="edit-surgery-date">{t('anesthesia.editSurgery.date', 'Date')} *</Label>
                 <Input
                   id="edit-surgery-date"
-                  type="date"
-                  value={surgeryDate}
-                  onChange={(e) => setSurgeryDate(e.target.value)}
+                  type="text"
+                  placeholder="dd.MM.yyyy"
+                  value={surgeryDate ? isoToDisplayDate(surgeryDate) : ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const parsed = parseFlexibleDate(value);
+                    if (parsed) {
+                      setSurgeryDate(parsed.isoDate);
+                    } else {
+                      setSurgeryDate(value);
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const parsed = parseFlexibleDate(e.target.value);
+                    if (parsed) {
+                      setSurgeryDate(parsed.isoDate);
+                    }
+                  }}
                   disabled={!canWrite}
                   data-testid="input-edit-surgery-date"
                 />

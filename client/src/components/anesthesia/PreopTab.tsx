@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import { Loader2, Save, CheckCircle2, AlertCircle, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
+import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
 import type { PreOpAssessment } from "@shared/schema";
 
 interface PreopTabProps {
@@ -886,12 +887,18 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="assessmentDate">Assessment Date</Label>
-                <Input
-                  id="assessmentDate"
-                  type="date"
-                  {...form.register("assessmentDate")}
-                  disabled={isReadOnly}
-                  data-testid="input-assessment-date"
+                <Controller
+                  name="assessmentDate"
+                  control={form.control}
+                  render={({ field }) => (
+                    <FlexibleDateInput
+                      id="assessmentDate"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      disabled={isReadOnly}
+                      data-testid="input-assessment-date"
+                    />
+                  )}
                 />
               </div>
               <div className="space-y-2">
@@ -967,12 +974,18 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
 
                   <div className="space-y-2">
                     <Label htmlFor="consentDate">Consent Date</Label>
-                    <Input
-                      id="consentDate"
-                      type="date"
-                      {...form.register("consentDate")}
-                      disabled={isReadOnly}
-                      data-testid="input-consent-date"
+                    <Controller
+                      name="consentDate"
+                      control={form.control}
+                      render={({ field }) => (
+                        <FlexibleDateInput
+                          id="consentDate"
+                          value={field.value || ""}
+                          onChange={field.onChange}
+                          disabled={isReadOnly}
+                          data-testid="input-consent-date"
+                        />
+                      )}
                     />
                   </div>
 
