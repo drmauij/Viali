@@ -177,7 +177,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingAttachments, setPendingAttachments] = useState<Array<{
     file: globalThis.File;
@@ -620,6 +620,32 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   }, []);
 
   const inputSegments = useMemo(() => parseInputSegments(messageText), [messageText, parseInputSegments]);
+
+  // Smart backspace: delete entire mention if cursor is at end of one
+  const handleSmartBackspace = useCallback(() => {
+    if (messageText.length === 0) return;
+    
+    // Check if the text ends with a complete mention pattern
+    const userMentionEnd = messageText.match(/@\[[^\]]+\]\([^)]+\)\s*$/);
+    const patientMentionEnd = messageText.match(/#\[[^\]]+\]\([^)]+\)\s*$/);
+    
+    if (userMentionEnd) {
+      // Delete the entire mention
+      const newText = messageText.slice(0, messageText.length - userMentionEnd[0].length);
+      setMessageText(newText);
+      detectMentionTrigger(newText, newText.length);
+    } else if (patientMentionEnd) {
+      // Delete the entire mention
+      const newText = messageText.slice(0, messageText.length - patientMentionEnd[0].length);
+      setMessageText(newText);
+      detectMentionTrigger(newText, newText.length);
+    } else {
+      // Regular single character delete
+      const newText = messageText.slice(0, -1);
+      setMessageText(newText);
+      detectMentionTrigger(newText, newText.length);
+    }
+  }, [messageText, detectMentionTrigger]);
 
   useEffect(() => {
     if (selectedConversation && socket && isConnected) {
@@ -1447,11 +1473,12 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 </span>
                               );
                             }
-                            return <span key={idx}>{segment.content}</span>;
+                            return <span key={idx} className="whitespace-pre-wrap">{segment.content}</span>;
                           })}
-                          <input
+                          <textarea
                             ref={inputRef}
-                            className="flex-1 min-w-[50px] bg-transparent outline-none"
+                            className="flex-1 min-w-[100px] bg-transparent outline-none resize-none text-sm"
+                            rows={1}
                             value=""
                             onChange={(e) => {
                               const newText = messageText + e.target.value;
@@ -1462,25 +1489,40 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                             onKeyDown={(e) => {
                               if (e.key === 'Backspace' || e.key === 'Delete') {
                                 e.preventDefault();
-                                if (messageText.length > 0) {
-                                  const newText = messageText.slice(0, -1);
-                                  setMessageText(newText);
-                                  detectMentionTrigger(newText, newText.length);
-                                }
+                                handleSmartBackspace();
+                              } else if (e.key === 'Enter' && !e.shiftKey && !showMentionSuggestions && !showSlashCommands) {
+                                e.preventDefault();
+                                handleSendMessage();
                               } else {
-                                handleMessageKeyDown(e);
+                                handleMessageKeyDown(e as any);
                               }
                             }}
                             data-testid="input-message"
                           />
                         </div>
                       ) : (
-                        <Input
+                        <textarea
                           ref={inputRef}
                           placeholder="Type @ to mention, # for patient..."
                           value={messageText}
-                          onChange={handleMessageInputChange}
-                          onKeyDown={handleMessageKeyDown}
+                          rows={1}
+                          className="w-full min-h-10 max-h-32 px-3 py-2 rounded-md border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                          onChange={(e) => {
+                            setMessageText(e.target.value);
+                            handleTyping();
+                            detectMentionTrigger(e.target.value, e.target.selectionStart || e.target.value.length);
+                            // Auto-resize
+                            e.target.style.height = 'auto';
+                            e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey && !showMentionSuggestions && !showSlashCommands) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            } else {
+                              handleMessageKeyDown(e as any);
+                            }
+                          }}
                           data-testid="input-message"
                         />
                       )}
