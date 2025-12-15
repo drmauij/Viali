@@ -157,43 +157,41 @@ export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
       columnStyles,
       margin: { left: 10, right: 10 },
       didParseCell: (data) => {
-        // Check if cell content contains "Chirurg:" - we'll handle this specially
+        // Check if cell content contains "Chirurg:" - store metadata for didDrawCell
         if (data.section === 'body' && typeof data.cell.text === 'object') {
           const textArr = data.cell.text as string[];
           const surgeonLineIndex = textArr.findIndex(line => line.startsWith('Chirurg:'));
           if (surgeonLineIndex !== -1) {
-            // Store metadata for willDrawCell
             (data.cell as any).hasSurgeonLine = true;
             (data.cell as any).surgeonLineIndex = surgeonLineIndex;
+            (data.cell as any).surgeonLineText = textArr[surgeonLineIndex];
           }
         }
       },
-      willDrawCell: (data) => {
+      didDrawCell: (data) => {
+        // After autoTable draws the cell, overdraw the surgeon line in bold
         if (data.section === 'body' && (data.cell as any).hasSurgeonLine) {
           const cell = data.cell;
-          const textArr = cell.text as string[];
           const surgeonLineIndex = (cell as any).surgeonLineIndex;
+          const surgeonLineText = (cell as any).surgeonLineText;
+          const textPos = cell.textPos;
           
-          // Draw all lines manually with custom styling
-          const x = cell.x + cell.padding('left');
-          let y = cell.y + cell.padding('top') + doc.getFontSize() * 0.35;
-          const lineHeight = doc.getFontSize() * 1.15;
-          
-          textArr.forEach((line, idx) => {
-            if (idx === surgeonLineIndex) {
-              doc.setFont('helvetica', 'bold');
-            } else {
-              doc.setFont('helvetica', 'normal');
-            }
-            doc.text(line, x, y);
-            y += lineHeight;
-          });
-          
-          // Reset font
-          doc.setFont('helvetica', 'normal');
-          
-          // Return false to prevent default cell text drawing
-          return false;
+          if (textPos && surgeonLineText) {
+            // Calculate the Y position for the surgeon line
+            const lineHeight = cell.styles.fontSize * (cell.styles.lineWidth || 1.15);
+            const surgeonY = textPos.y + (surgeonLineIndex * lineHeight);
+            
+            // Draw a white rectangle to cover the normal text first
+            doc.setFillColor(255, 255, 255);
+            const textWidth = doc.getTextWidth(surgeonLineText);
+            doc.rect(textPos.x, surgeonY - cell.styles.fontSize * 0.8, textWidth + 1, cell.styles.fontSize * 1.2, 'F');
+            
+            // Draw the surgeon line in bold
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(cell.styles.fontSize);
+            doc.text(surgeonLineText, textPos.x, surgeonY);
+            doc.setFont('helvetica', 'normal');
+          }
         }
       },
     });
