@@ -43,6 +43,8 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -145,70 +147,84 @@ interface EditableCurrencyCellProps {
   isPending: boolean;
 }
 
-interface EditableTextCellProps {
+interface AdminNoteCellProps {
   value: string | null | undefined;
   surgeryId: string;
-  field: string;
   onUpdate: (id: string, field: string, value: string | null) => void;
   isPending: boolean;
-  placeholder?: string;
 }
 
-function EditableTextCell({ value, surgeryId, field, onUpdate, isPending, placeholder }: EditableTextCellProps) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [inputValue, setInputValue] = useState("");
+function AdminNoteCell({ value, surgeryId, onUpdate, isPending }: AdminNoteCellProps) {
+  const { t } = useTranslation();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [noteValue, setNoteValue] = useState(value || "");
 
-  const handleStartEdit = () => {
-    setInputValue(value || "");
-    setIsEditing(true);
+  const handleOpen = () => {
+    setNoteValue(value || "");
+    setDialogOpen(true);
   };
 
   const handleSave = () => {
-    onUpdate(surgeryId, field, inputValue.trim() || null);
-    setIsEditing(false);
+    onUpdate(surgeryId, "administrativeNote", noteValue.trim() || null);
+    setDialogOpen(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleSave();
-    } else if (e.key === "Escape") {
-      setIsEditing(false);
-    }
-  };
-
-  if (isEditing) {
-    return (
-      <Input
-        type="text"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        onBlur={handleSave}
-        onKeyDown={handleKeyDown}
-        className="h-8 w-full min-w-[120px]"
-        autoFocus
-        placeholder={placeholder}
-        data-testid={`input-${field}-${surgeryId}`}
-      />
-    );
-  }
+  const hasNote = !!value && value.trim().length > 0;
 
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      className="h-8 px-2 justify-start font-normal w-full text-left truncate"
-      disabled={isPending}
-      onClick={handleStartEdit}
-      data-testid={`button-edit-${field}-${surgeryId}`}
-    >
-      {isPending ? (
-        <Loader2 className="h-3 w-3 animate-spin" />
-      ) : (
-        <span className={value ? "" : "text-muted-foreground"}>
-          {value || placeholder || "-"}
-        </span>
-      )}
-    </Button>
+    <>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0"
+              disabled={isPending}
+              onClick={handleOpen}
+              data-testid={`button-admin-note-${surgeryId}`}
+            >
+              {isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileEdit className={cn("h-4 w-4", hasNote ? "text-primary" : "text-muted-foreground")} />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="max-w-[300px]">
+            {hasNote ? (
+              <p className="whitespace-pre-wrap">{value}</p>
+            ) : (
+              <p className="text-muted-foreground">{t("surgeryPlanning.noAdminNote", "No admin note")}</p>
+            )}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("surgeryPlanning.adminNoteTitle", "Administrative Note")}</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={noteValue}
+            onChange={(e) => setNoteValue(e.target.value)}
+            placeholder={t("surgeryPlanning.adminNotePlaceholder", "E.g., Patient contacted about payment, waiting for insurance confirmation...")}
+            rows={4}
+            className="resize-none"
+            data-testid={`textarea-admin-note-${surgeryId}`}
+          />
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              {t("common.cancel", "Cancel")}
+            </Button>
+            <Button onClick={handleSave} data-testid={`button-save-admin-note-${surgeryId}`}>
+              {t("common.save", "Save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -1410,14 +1426,12 @@ export function SurgeryPlanningTable({
                           isPending={isFieldPending(surgery.id, "paymentDate")}
                         />
                       </TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <EditableTextCell
+                      <TableCell onClick={(e) => e.stopPropagation()} className="text-center">
+                        <AdminNoteCell
                           value={(surgery as any).administrativeNote}
                           surgeryId={surgery.id}
-                          field="administrativeNote"
                           onUpdate={handleUpdate}
                           isPending={isFieldPending(surgery.id, "administrativeNote")}
-                          placeholder={t("surgeryPlanning.adminNotePlaceholder", "Add note...")}
                         />
                       </TableCell>
                     </>
@@ -1485,12 +1499,19 @@ export function SurgeryPlanningTable({
                           </div>
                         </div>
                         
-                        {showBusiness && surgery.paymentNotes && (
+                        {showBusiness && (surgery.paymentNotes || (surgery as any).administrativeNote) && (
                           <div>
                             <h4 className="font-semibold mb-2">{t("surgeryPlanning.paymentInfo")}</h4>
                             <div className="space-y-1">
-                              <p><span className="text-muted-foreground">{t("surgeryPlanning.paymentMethod")}:</span> {surgery.paymentMethod ?? "-"}</p>
-                              <p><span className="text-muted-foreground">{t("surgeryPlanning.paymentNotes")}:</span> {surgery.paymentNotes}</p>
+                              {surgery.paymentNotes && (
+                                <>
+                                  <p><span className="text-muted-foreground">{t("surgeryPlanning.paymentMethod")}:</span> {surgery.paymentMethod ?? "-"}</p>
+                                  <p><span className="text-muted-foreground">{t("surgeryPlanning.paymentNotes")}:</span> {surgery.paymentNotes}</p>
+                                </>
+                              )}
+                              {(surgery as any).administrativeNote && (
+                                <p><span className="text-muted-foreground">{t("surgeryPlanning.adminNote", "Admin Note")}:</span> <span className="whitespace-pre-wrap">{(surgery as any).administrativeNote}</span></p>
+                              )}
                             </div>
                           </div>
                         )}
