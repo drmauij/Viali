@@ -156,6 +156,46 @@ export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
       },
       columnStyles,
       margin: { left: 10, right: 10 },
+      didParseCell: (data) => {
+        // Check if cell content contains "Chirurg:" - we'll handle this specially
+        if (data.section === 'body' && typeof data.cell.text === 'object') {
+          const textArr = data.cell.text as string[];
+          const surgeonLineIndex = textArr.findIndex(line => line.startsWith('Chirurg:'));
+          if (surgeonLineIndex !== -1) {
+            // Store metadata for willDrawCell
+            (data.cell as any).hasSurgeonLine = true;
+            (data.cell as any).surgeonLineIndex = surgeonLineIndex;
+          }
+        }
+      },
+      willDrawCell: (data) => {
+        if (data.section === 'body' && (data.cell as any).hasSurgeonLine) {
+          const cell = data.cell;
+          const textArr = cell.text as string[];
+          const surgeonLineIndex = (cell as any).surgeonLineIndex;
+          
+          // Draw all lines manually with custom styling
+          const x = cell.x + cell.padding('left');
+          let y = cell.y + cell.padding('top') + doc.getFontSize() * 0.35;
+          const lineHeight = doc.getFontSize() * 1.15;
+          
+          textArr.forEach((line, idx) => {
+            if (idx === surgeonLineIndex) {
+              doc.setFont('helvetica', 'bold');
+            } else {
+              doc.setFont('helvetica', 'normal');
+            }
+            doc.text(line, x, y);
+            y += lineHeight;
+          });
+          
+          // Reset font
+          doc.setFont('helvetica', 'normal');
+          
+          // Return false to prevent default cell text drawing
+          return false;
+        }
+      },
     });
     
     const finalY = (doc as any).lastAutoTable?.finalY || currentY;
