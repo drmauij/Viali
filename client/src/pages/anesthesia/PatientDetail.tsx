@@ -1794,10 +1794,19 @@ export default function PatientDetail() {
                 {/* Surgery detail navigation - hidden for clinic users */}
                 {canViewSurgeryDetails && (
                   isSurgeryModule ? (
-                    <div className="pt-2">
+                    <div className="grid grid-cols-2 gap-3 pt-2">
                       <Button
                         variant="outline"
-                        className="w-full h-auto py-4 flex-col gap-2"
+                        className="h-auto py-4 flex-col gap-2"
+                        onClick={() => setLocation(`/surgery/preop/${surgery.id}`)}
+                        data-testid={`button-surgery-preop-${surgery.id}`}
+                      >
+                        <ClipboardList className="h-10 w-10 text-primary" />
+                        <span className="text-sm font-medium">{t('surgery.preop.title')}</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-auto py-4 flex-col gap-2"
                         onClick={() => setLocation(`${moduleBasePath}/op/${surgery.id}`)}
                         data-testid={`button-surgery-doc-${surgery.id}`}
                       >
