@@ -789,7 +789,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
     }
   };
 
-  const formatMessageContent = (content: string, onPatientClick?: (patientId: string) => void): JSX.Element => {
+  const formatMessageContent = (content: string, onPatientClick?: (patientId: string) => void, isOwnMessage?: boolean): JSX.Element => {
     const userMentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
     const patientMentionRegex = /#\[([^\]]+)\]\(([^)]+)\)/g;
     
@@ -810,7 +810,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
         parts.push(
           <span 
             key={key++}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium"
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+              isOwnMessage 
+                ? 'bg-primary-foreground/20 text-primary-foreground' 
+                : 'bg-primary/10 text-primary'
+            }`}
           >
             <UserCircle className="w-3 h-3" />
             {userName}
@@ -826,7 +830,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
               e.stopPropagation();
               onPatientClick?.(patientId);
             }}
-            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-xs font-medium hover:bg-amber-500/20 transition-colors cursor-pointer"
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium transition-colors cursor-pointer ${
+              isOwnMessage
+                ? 'bg-primary-foreground/20 text-primary-foreground hover:bg-primary-foreground/30'
+                : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20'
+            }`}
             data-testid={`mention-patient-pill-${patientId}`}
           >
             <Hash className="w-3 h-3" />
@@ -1200,7 +1208,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                                       <div className="text-sm whitespace-pre-wrap break-words">
                                         {formatMessageContent(msg.content, (patientId) => {
                                           window.open(`/anesthesia/patients/${patientId}`, '_blank');
-                                        })}
+                                        }, isOwnMessage)}
                                       </div>
                                     )}
                                     {msg.attachments && msg.attachments.length > 0 && (
