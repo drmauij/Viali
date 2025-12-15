@@ -299,6 +299,32 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     enabled: !!activeHospital?.id,
   });
 
+  // Get surgery IDs for pre-op assessment fetch
+  const surgeryIds = useMemo(() => surgeries.map((s: any) => s.id), [surgeries]);
+
+  // Fetch pre-op assessments for surgeries (for PDF generation)
+  const { data: preOpAssessments = [] } = useQuery<any[]>({
+    queryKey: ["/api/anesthesia/preop-assessments/bulk", surgeryIds],
+    queryFn: async () => {
+      if (surgeryIds.length === 0) return [];
+      const response = await fetch(`/api/anesthesia/preop-assessments/bulk?surgeryIds=${surgeryIds.join(",")}`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: surgeryIds.length > 0,
+  });
+
+  // Map pre-op assessments by surgery ID
+  const preOpMap = useMemo(() => {
+    const map = new Map<string, any>();
+    preOpAssessments.forEach((item) => {
+      if (item.surgeryId) {
+        map.set(item.surgeryId, { assessment: item, status: item.status });
+      }
+    });
+    return map;
+  }, [preOpAssessments]);
+
   // Transform surgeries into calendar events
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     return surgeries.map((surgery: any) => {
@@ -359,6 +385,85 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     return map;
   }, [allPatients]);
 
+  // Helper function to format pre-op summary for PDF
+  const formatPreOpSummaryForPdf = useCallback((surgeryId: string): string => {
+    const preOpData = preOpMap.get(surgeryId);
+    if (!preOpData || !preOpData.assessment) return '-';
+    
+    const assessment = preOpData.assessment;
+    const parts: string[] = [];
+    
+    // ASA classification
+    if (assessment.asa != null && assessment.asa !== '') {
+      parts.push(`ASA ${assessment.asa}`);
+    }
+    
+    // Weight and height
+    if (assessment.weight != null && assessment.weight !== '' && assessment.weight !== 0) {
+      parts.push(`${assessment.weight}kg`);
+    }
+    if (assessment.height != null && assessment.height !== '' && assessment.height !== 0) {
+      parts.push(`${assessment.height}cm`);
+    }
+    
+    // Anesthesia techniques
+    if (assessment.anesthesiaTechniques) {
+      const techniques: string[] = [];
+      const at = assessment.anesthesiaTechniques;
+      
+      if (at.general) {
+        const generalSubs = at.generalOptions ? Object.entries(at.generalOptions)
+          .filter(([_, value]) => value)
+          .map(([key]) => key.toUpperCase())
+          : [];
+        techniques.push(generalSubs.length > 0 ? `ITN (${generalSubs.join(', ')})` : 'ITN');
+      }
+      if (at.spinal) techniques.push('SPA');
+      if (at.epidural) techniques.push('PDA');
+      if (at.regional) {
+        const regionalSubs = at.regionalOptions ? Object.entries(at.regionalOptions)
+          .filter(([_, value]) => value)
+          .map(([key]) => key.replace(/([A-Z])/g, ' $1').trim())
+          : [];
+        techniques.push(regionalSubs.length > 0 ? `Regional (${regionalSubs.join(', ')})` : 'Regional');
+      }
+      if (at.sedation) techniques.push('Sedierung');
+      if (at.combined) techniques.push('Kombiniert');
+      
+      if (techniques.length > 0) {
+        parts.push(techniques.join(', '));
+      }
+    }
+    
+    // Installations (airway management)
+    if (assessment.installations && Object.keys(assessment.installations).length > 0) {
+      const installations = Object.entries(assessment.installations)
+        .filter(([_, value]) => value)
+        .map(([key]) => {
+          if (key === 'ett') return 'ETT';
+          if (key === 'lma') return 'LMA';
+          if (key === 'mask') return 'Maske';
+          return key.replace(/([A-Z])/g, ' $1').trim();
+        })
+        .join(', ');
+      if (installations) {
+        parts.push(installations);
+      }
+    }
+    
+    // Post-op ICU
+    if (assessment.postOpICU) {
+      parts.push('IMC geplant');
+    }
+    
+    // CAVE (important warnings)
+    if (assessment.cave != null && assessment.cave !== '') {
+      parts.push(`CAVE: ${assessment.cave}`);
+    }
+    
+    return parts.length > 0 ? parts.join('\n') : '-';
+  }, [preOpMap]);
+
   // Generate PDF for the current day's surgeries
   const generateDayPdf = useCallback(() => {
     const dayStart = new Date(selectedDate);
@@ -396,10 +501,10 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     const displayDate = format(selectedDate, 'dd.MM.yyyy');
     const columns: DayPlanPdfColumn[] = [
       { ...defaultColumns.datum(displayDate), width: 30 },
-      { ...defaultColumns.operator(), width: 30 },
       { ...defaultColumns.patient(), width: 40 },
       { ...defaultColumns.eingriff(), width: 80 },
-      { ...defaultColumns.note(), width: 80 },
+      { ...defaultColumns.note(), width: 60 },
+      { ...defaultColumns.preOp(formatPreOpSummaryForPdf), width: 50 },
     ];
 
     generateDayPlanPdf({
@@ -411,7 +516,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       columns,
       roomStaffByRoom,
     });
-  }, [selectedDate, surgeries, activeHospital, roomMap, patientMap, toast, roomStaff]);
+  }, [selectedDate, surgeries, activeHospital, roomMap, patientMap, toast, roomStaff, formatPreOpSummaryForPdf]);
 
   // Helper to invalidate all room staff related queries
   const invalidateRoomStaffQueries = useCallback(() => {

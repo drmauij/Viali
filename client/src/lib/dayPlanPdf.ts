@@ -207,7 +207,17 @@ export const defaultColumns = {
   eingriff: (): DayPlanPdfColumn => ({
     header: 'Eingriff',
     width: 42,
-    getValue: (surgery) => surgery.plannedSurgery || '-',
+    getValue: (surgery) => {
+      const surgeryText = surgery.plannedSurgery || '-';
+      const surgeonText = surgery.surgeon ? `\nChirurg: ${surgery.surgeon}` : '';
+      return surgeryText + surgeonText;
+    },
+  }),
+  
+  preOp: (formatPreOpSummary: (surgeryId: string) => string): DayPlanPdfColumn => ({
+    header: 'Anästhesie',
+    width: 50,
+    getValue: (surgery) => formatPreOpSummary(surgery.id),
   }),
   
   note: (): DayPlanPdfColumn => ({
