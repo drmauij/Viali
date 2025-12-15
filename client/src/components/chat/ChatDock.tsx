@@ -1454,7 +1454,18 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                               handleTyping();
                               detectMentionTrigger(newText, newText.length);
                             }}
-                            onKeyDown={handleMessageKeyDown}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Backspace' || e.key === 'Delete') {
+                                e.preventDefault();
+                                if (messageText.length > 0) {
+                                  const newText = messageText.slice(0, -1);
+                                  setMessageText(newText);
+                                  detectMentionTrigger(newText, newText.length);
+                                }
+                              } else {
+                                handleMessageKeyDown(e);
+                              }
+                            }}
                             data-testid="input-message"
                           />
                         </div>
