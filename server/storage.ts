@@ -2699,7 +2699,8 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(surgeries.hospitalId, hospitalId),
           isNull(patients.deletedAt),
-          eq(surgeries.noPreOpRequired, false)
+          eq(surgeries.noPreOpRequired, false),
+          eq(surgeries.isArchived, false)
         )
       )
       .orderBy(desc(surgeries.plannedDate));
@@ -2733,19 +2734,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPreOpAssessment(surgeryId: string): Promise<PreOpAssessment | undefined> {
-    const [assessment] = await db
-      .select()
+    // Join with surgeries to exclude assessments for archived surgeries
+    const [result] = await db
+      .select({ assessment: preOpAssessments })
       .from(preOpAssessments)
-      .where(eq(preOpAssessments.surgeryId, surgeryId));
-    return assessment;
+      .innerJoin(surgeries, eq(preOpAssessments.surgeryId, surgeries.id))
+      .where(
+        and(
+          eq(preOpAssessments.surgeryId, surgeryId),
+          eq(surgeries.isArchived, false)
+        )
+      );
+    return result?.assessment;
   }
 
   async getPreOpAssessmentById(id: string): Promise<PreOpAssessment | undefined> {
-    const [assessment] = await db
-      .select()
+    // Join with surgeries to exclude assessments for archived surgeries
+    const [result] = await db
+      .select({ assessment: preOpAssessments })
       .from(preOpAssessments)
-      .where(eq(preOpAssessments.id, id));
-    return assessment;
+      .innerJoin(surgeries, eq(preOpAssessments.surgeryId, surgeries.id))
+      .where(
+        and(
+          eq(preOpAssessments.id, id),
+          eq(surgeries.isArchived, false)
+        )
+      );
+    return result?.assessment;
   }
 
   async getPreOpAssessmentsBySurgeryIds(surgeryIds: string[], authorizedHospitalIds: string[]): Promise<PreOpAssessment[]> {
@@ -2761,7 +2776,8 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           inArray(preOpAssessments.surgeryId, surgeryIds),
-          inArray(surgeries.hospitalId, authorizedHospitalIds)
+          inArray(surgeries.hospitalId, authorizedHospitalIds),
+          eq(surgeries.isArchived, false)
         )
       );
     
