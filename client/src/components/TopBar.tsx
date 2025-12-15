@@ -1,13 +1,14 @@
 import { useTheme } from "./ThemeProvider";
 import { useLanguage } from "./LanguageProvider";
 import { useAuth } from "@/hooks/useAuth";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import { useModule } from "@/contexts/ModuleContext";
 import { MessageCircle, AtSign } from "lucide-react";
 import ChatDock from "./chat/ChatDock";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 interface Hospital {
   id: string;
@@ -33,10 +34,15 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const { t } = useTranslation();
   const { user } = useAuth();
   const { setIsDrawerOpen } = useModule();
+  const [, setLocation] = useLocation();
   const [showHospitalDropdown, setShowHospitalDropdown] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showChatPanel, setShowChatPanel] = useState(false);
+
+  const handleOpenPatientInline = useCallback((patientId: string) => {
+    setLocation(`/anesthesia/patients/${patientId}`);
+  }, [setLocation]);
   
   const hospitalDropdownRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -271,6 +277,7 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
         isOpen={showChatPanel}
         onClose={() => setShowChatPanel(false)}
         activeHospital={activeHospital}
+        onOpenPatientInline={handleOpenPatientInline}
       />
     </div>
   );

@@ -79,6 +79,7 @@ interface ChatDockProps {
     unitId: string;
     unitName: string;
   };
+  onOpenPatientInline?: (patientId: string) => void;
 }
 
 interface Conversation {
@@ -159,7 +160,7 @@ interface MentionItem {
   };
 }
 
-export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockProps) {
+export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatientInline }: ChatDockProps) {
   const { user } = useAuth();
   const { socket, isConnected } = useSocket();
   const { toast } = useToast();
@@ -1224,7 +1225,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital }: ChatDockPr
                                     {msg.content && msg.content.trim() !== '' && (
                                       <div className="text-sm whitespace-pre-wrap break-words">
                                         {formatMessageContent(msg.content, (patientId) => {
-                                          window.open(`/anesthesia/patients/${patientId}`, '_blank');
+                                          if (onOpenPatientInline) {
+                                            onOpenPatientInline(patientId);
+                                          } else {
+                                            window.open(`/anesthesia/patients/${patientId}`, '_blank');
+                                          }
                                         }, isOwnMessage)}
                                       </div>
                                     )}

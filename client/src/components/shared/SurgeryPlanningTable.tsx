@@ -145,6 +145,73 @@ interface EditableCurrencyCellProps {
   isPending: boolean;
 }
 
+interface EditableTextCellProps {
+  value: string | null | undefined;
+  surgeryId: string;
+  field: string;
+  onUpdate: (id: string, field: string, value: string | null) => void;
+  isPending: boolean;
+  placeholder?: string;
+}
+
+function EditableTextCell({ value, surgeryId, field, onUpdate, isPending, placeholder }: EditableTextCellProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [inputValue, setInputValue] = useState("");
+
+  const handleStartEdit = () => {
+    setInputValue(value || "");
+    setIsEditing(true);
+  };
+
+  const handleSave = () => {
+    onUpdate(surgeryId, field, inputValue.trim() || null);
+    setIsEditing(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      handleSave();
+    } else if (e.key === "Escape") {
+      setIsEditing(false);
+    }
+  };
+
+  if (isEditing) {
+    return (
+      <Input
+        type="text"
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={handleKeyDown}
+        className="h-8 w-full min-w-[120px]"
+        autoFocus
+        placeholder={placeholder}
+        data-testid={`input-${field}-${surgeryId}`}
+      />
+    );
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-8 px-2 justify-start font-normal w-full text-left truncate"
+      disabled={isPending}
+      onClick={handleStartEdit}
+      data-testid={`button-edit-${field}-${surgeryId}`}
+    >
+      {isPending ? (
+        <Loader2 className="h-3 w-3 animate-spin" />
+      ) : (
+        <span className={value ? "" : "text-muted-foreground"}>
+          {value || placeholder || "-"}
+        </span>
+      )}
+    </Button>
+  );
+}
+
 function EditableCurrencyCell({ value, surgeryId, field, onUpdate, isPending }: EditableCurrencyCellProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [inputValue, setInputValue] = useState("");
@@ -1124,6 +1191,10 @@ export function SurgeryPlanningTable({
                 <TableHead>{t("surgeryPlanning.columns.contractReceived")}</TableHead>
                 <TableHead>{t("surgeryPlanning.columns.invoiceSent")}</TableHead>
                 <TableHead>{t("surgeryPlanning.columns.paymentDate")}</TableHead>
+                <TableHead>
+                  <FileEdit className="h-4 w-4 inline mr-1" />
+                  {t("surgeryPlanning.columns.adminNote", "Admin Note")}
+                </TableHead>
               </>
             )}
             
@@ -1337,6 +1408,16 @@ export function SurgeryPlanningTable({
                           field="paymentDate"
                           onUpdate={handleUpdate}
                           isPending={isFieldPending(surgery.id, "paymentDate")}
+                        />
+                      </TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <EditableTextCell
+                          value={(surgery as any).administrativeNote}
+                          surgeryId={surgery.id}
+                          field="administrativeNote"
+                          onUpdate={handleUpdate}
+                          isPending={isFieldPending(surgery.id, "administrativeNote")}
+                          placeholder={t("surgeryPlanning.adminNotePlaceholder", "Add note...")}
                         />
                       </TableCell>
                     </>

@@ -736,6 +736,9 @@ export const surgeries = pgTable("surgeries", {
   implantVendor: varchar("implant_vendor"), // Motiva, Albin Group, Polytech, etc.
   implantDetails: text("implant_details"), // Free text for specifics
   
+  // Administrative notes (for business tracking - e.g., payment issues, patient contact status)
+  administrativeNote: text("administrative_note"),
+  
   // Actual execution
   actualStartTime: timestamp("actual_start_time"),
   actualEndTime: timestamp("actual_end_time"),
