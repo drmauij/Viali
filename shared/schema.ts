@@ -1318,6 +1318,78 @@ export const preOpAssessments = pgTable("preop_assessments", {
   index("idx_preop_assessments_surgery").on(table.surgeryId),
 ]);
 
+// Surgery Pre-Op Assessments (for surgery module - simpler than anesthesia, file-based consent)
+export const surgeryPreOpAssessments = pgTable("surgery_preop_assessments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  surgeryId: varchar("surgery_id").notNull().references(() => surgeries.id).unique(),
+  
+  // Basic vitals
+  height: varchar("height"),
+  weight: varchar("weight"),
+  heartRate: varchar("heart_rate"),
+  bloodPressureSystolic: varchar("blood_pressure_systolic"),
+  bloodPressureDiastolic: varchar("blood_pressure_diastolic"),
+  
+  // CAVE notes
+  cave: text("cave"),
+  specialNotes: text("special_notes"),
+  
+  // Medications (JSONB arrays for flexibility)
+  anticoagulationMeds: text("anticoagulation_meds").array(),
+  anticoagulationMedsOther: text("anticoagulation_meds_other"),
+  generalMeds: text("general_meds").array(),
+  generalMedsOther: text("general_meds_other"),
+  medicationsNotes: text("medications_notes"),
+  
+  // Medical History (JSONB - references hospital's custom illness lists)
+  heartIllnesses: jsonb("heart_illnesses").$type<Record<string, boolean>>(),
+  heartNotes: text("heart_notes"),
+  lungIllnesses: jsonb("lung_illnesses").$type<Record<string, boolean>>(),
+  lungNotes: text("lung_notes"),
+  giIllnesses: jsonb("gi_illnesses").$type<Record<string, boolean>>(),
+  kidneyIllnesses: jsonb("kidney_illnesses").$type<Record<string, boolean>>(),
+  metabolicIllnesses: jsonb("metabolic_illnesses").$type<Record<string, boolean>>(),
+  giKidneyMetabolicNotes: text("gi_kidney_metabolic_notes"),
+  neuroIllnesses: jsonb("neuro_illnesses").$type<Record<string, boolean>>(),
+  psychIllnesses: jsonb("psych_illnesses").$type<Record<string, boolean>>(),
+  skeletalIllnesses: jsonb("skeletal_illnesses").$type<Record<string, boolean>>(),
+  neuroPsychSkeletalNotes: text("neuro_psych_skeletal_notes"),
+  womanIssues: jsonb("woman_issues").$type<Record<string, boolean>>(),
+  womanNotes: text("woman_notes"),
+  noxen: jsonb("noxen").$type<Record<string, boolean>>(),
+  noxenNotes: text("noxen_notes"),
+  childrenIssues: jsonb("children_issues").$type<Record<string, boolean>>(),
+  childrenNotes: text("children_notes"),
+  
+  // Fasting
+  lastSolids: varchar("last_solids"),
+  lastClear: varchar("last_clear"),
+  
+  // Stand-By Status
+  standBy: boolean("stand_by").default(false),
+  standByReason: varchar("stand_by_reason"), // 'consent_required' | 'waiting_exams' | 'other'
+  standByReasonNote: text("stand_by_reason_note"),
+  
+  // Assessment metadata
+  assessmentDate: varchar("assessment_date"),
+  doctorName: varchar("doctor_name"),
+  doctorSignature: text("doctor_signature"),
+  
+  // Status tracking: 'draft' (partially filled), 'completed' (signed and finalized)
+  status: varchar("status").default("draft"), // draft | completed
+  
+  // File-based Informed Consent (upload paper consent photo/scan)
+  consentFileUrl: varchar("consent_file_url"),
+  consentFileName: varchar("consent_file_name"),
+  consentUploadedAt: timestamp("consent_uploaded_at"),
+  consentNotes: text("consent_notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_surgery_preop_assessments_surgery").on(table.surgeryId),
+]);
+
 // Types for clinical data points with IDs
 export type VitalPointWithId = {
   id: string;
@@ -2245,6 +2317,13 @@ export const insertPreOpAssessmentSchema = createInsertSchema(preOpAssessments).
   updatedAt: true,
 });
 
+export const insertSurgeryPreOpAssessmentSchema = createInsertSchema(surgeryPreOpAssessments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  consentUploadedAt: true,
+});
+
 // Zod schemas for point types
 export const vitalPointWithIdSchema = z.object({
   id: z.string(),
@@ -2684,6 +2763,8 @@ export type AnesthesiaRecord = typeof anesthesiaRecords.$inferSelect;
 export type InsertAnesthesiaRecord = z.infer<typeof insertAnesthesiaRecordSchema>;
 export type PreOpAssessment = typeof preOpAssessments.$inferSelect;
 export type InsertPreOpAssessment = z.infer<typeof insertPreOpAssessmentSchema>;
+export type SurgeryPreOpAssessment = typeof surgeryPreOpAssessments.$inferSelect;
+export type InsertSurgeryPreOpAssessment = z.infer<typeof insertSurgeryPreOpAssessmentSchema>;
 export type ClinicalSnapshot = typeof clinicalSnapshots.$inferSelect;
 export type InsertClinicalSnapshot = z.infer<typeof insertClinicalSnapshotSchema>;
 

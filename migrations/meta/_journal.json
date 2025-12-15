@@ -169,6 +169,13 @@
       "when": 1765714697877,
       "tag": "0023_lethal_gressill",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1765783926409,
+      "tag": "0024_third_punisher",
+      "breakpoints": true
     }
   ]
 }
