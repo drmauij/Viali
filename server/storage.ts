@@ -32,6 +32,7 @@ import {
   surgeries,
   anesthesiaRecords,
   preOpAssessments,
+  surgeryPreOpAssessments,
   vitalsSnapshots,
   clinicalSnapshots,
   anesthesiaMedications,
@@ -117,6 +118,8 @@ import {
   type InsertAnesthesiaRecord,
   type PreOpAssessment,
   type InsertPreOpAssessment,
+  type SurgeryPreOpAssessment,
+  type InsertSurgeryPreOpAssessment,
   type VitalsSnapshot,
   type InsertVitalsSnapshot,
   type ClinicalSnapshot,
@@ -406,13 +409,20 @@ export interface IStorage {
     statusTimestamp: number;
   }>>;
   
-  // Pre-Op Assessment operations
+  // Pre-Op Assessment operations (Anesthesia module)
   getPreOpAssessments(hospitalId: string): Promise<Array<any>>;
   getPreOpAssessment(surgeryId: string): Promise<PreOpAssessment | undefined>;
   getPreOpAssessmentById(id: string): Promise<PreOpAssessment | undefined>;
   getPreOpAssessmentsBySurgeryIds(surgeryIds: string[], authorizedHospitalIds: string[]): Promise<PreOpAssessment[]>;
   createPreOpAssessment(assessment: InsertPreOpAssessment): Promise<PreOpAssessment>;
   updatePreOpAssessment(id: string, updates: Partial<PreOpAssessment>): Promise<PreOpAssessment>;
+  
+  // Surgery Pre-Op Assessment operations (Surgery module - simpler, file-based consent)
+  getSurgeryPreOpAssessments(hospitalId: string): Promise<Array<any>>;
+  getSurgeryPreOpAssessment(surgeryId: string): Promise<SurgeryPreOpAssessment | undefined>;
+  getSurgeryPreOpAssessmentById(id: string): Promise<SurgeryPreOpAssessment | undefined>;
+  createSurgeryPreOpAssessment(assessment: InsertSurgeryPreOpAssessment): Promise<SurgeryPreOpAssessment>;
+  updateSurgeryPreOpAssessment(id: string, updates: Partial<SurgeryPreOpAssessment>): Promise<SurgeryPreOpAssessment>;
   
   // Clinical Snapshots operations (NEW: Point-based CRUD)
   getClinicalSnapshot(anesthesiaRecordId: string): Promise<ClinicalSnapshot>;
@@ -2794,6 +2804,88 @@ export class DatabaseStorage implements IStorage {
       .update(preOpAssessments)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(preOpAssessments.id, id))
+      .returning();
+    return updated;
+  }
+
+  // Surgery Pre-Op Assessment operations (Surgery module - simpler, file-based consent)
+  async getSurgeryPreOpAssessments(hospitalId: string): Promise<Array<any>> {
+    const results = await db
+      .select()
+      .from(surgeries)
+      .leftJoin(surgeryPreOpAssessments, eq(surgeries.id, surgeryPreOpAssessments.surgeryId))
+      .innerJoin(patients, eq(surgeries.patientId, patients.id))
+      .where(
+        and(
+          eq(surgeries.hospitalId, hospitalId),
+          isNull(patients.deletedAt),
+          eq(surgeries.isArchived, false)
+        )
+      )
+      .orderBy(desc(surgeries.plannedDate));
+
+    return results.map(row => {
+      const patient = row.patients;
+      const surgery = row.surgeries;
+      
+      const surgeryWithPatient = {
+        ...surgery,
+        patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown Patient',
+        patientMRN: patient?.patientNumber || '',
+        patientBirthday: patient?.birthday || null,
+        patientSex: patient?.sex || null,
+        procedureName: surgery.plannedSurgery,
+        patientAllergies: patient?.allergies || [],
+        patientOtherAllergies: patient?.otherAllergies || null,
+        patientEmail: patient?.email || null,
+      };
+
+      return {
+        surgery: surgeryWithPatient,
+        assessment: row.surgery_preop_assessments,
+        status: !row.surgery_preop_assessments ? 'planned' : row.surgery_preop_assessments.status || 'draft',
+      };
+    });
+  }
+
+  async getSurgeryPreOpAssessment(surgeryId: string): Promise<SurgeryPreOpAssessment | undefined> {
+    const [result] = await db
+      .select({ assessment: surgeryPreOpAssessments })
+      .from(surgeryPreOpAssessments)
+      .innerJoin(surgeries, eq(surgeryPreOpAssessments.surgeryId, surgeries.id))
+      .where(
+        and(
+          eq(surgeryPreOpAssessments.surgeryId, surgeryId),
+          eq(surgeries.isArchived, false)
+        )
+      );
+    return result?.assessment;
+  }
+
+  async getSurgeryPreOpAssessmentById(id: string): Promise<SurgeryPreOpAssessment | undefined> {
+    const [result] = await db
+      .select({ assessment: surgeryPreOpAssessments })
+      .from(surgeryPreOpAssessments)
+      .innerJoin(surgeries, eq(surgeryPreOpAssessments.surgeryId, surgeries.id))
+      .where(
+        and(
+          eq(surgeryPreOpAssessments.id, id),
+          eq(surgeries.isArchived, false)
+        )
+      );
+    return result?.assessment;
+  }
+
+  async createSurgeryPreOpAssessment(assessment: InsertSurgeryPreOpAssessment): Promise<SurgeryPreOpAssessment> {
+    const [created] = await db.insert(surgeryPreOpAssessments).values(assessment).returning();
+    return created;
+  }
+
+  async updateSurgeryPreOpAssessment(id: string, updates: Partial<SurgeryPreOpAssessment>): Promise<SurgeryPreOpAssessment> {
+    const [updated] = await db
+      .update(surgeryPreOpAssessments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(surgeryPreOpAssessments.id, id))
       .returning();
     return updated;
   }

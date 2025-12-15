@@ -9,6 +9,7 @@ import {
   insertSurgerySchema,
   insertAnesthesiaRecordSchema,
   insertPreOpAssessmentSchema,
+  insertSurgeryPreOpAssessmentSchema,
   insertVitalsSnapshotSchema,
   addVitalPointSchema,
   addBPPointSchema,
@@ -5482,6 +5483,123 @@ router.delete('/api/room-staff/by-pool/:roomId/:dailyStaffPoolId/:date', isAuthe
   } catch (error) {
     console.error("Error removing room staff assignment:", error);
     res.status(500).json({ message: "Failed to remove room staff assignment" });
+  }
+});
+
+// ========== SURGERY PRE-OP ASSESSMENT ROUTES (Surgery Module) ==========
+
+router.get('/api/surgery/preop', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.query;
+    const userId = req.user.id;
+
+    if (!hospitalId) {
+      return res.status(400).json({ message: "hospitalId is required" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    const assessments = await storage.getSurgeryPreOpAssessments(hospitalId as string);
+    
+    res.json(assessments);
+  } catch (error) {
+    console.error("Error fetching surgery pre-op assessments:", error);
+    res.status(500).json({ message: "Failed to fetch surgery pre-op assessments" });
+  }
+});
+
+router.get('/api/surgery/preop/surgery/:surgeryId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { surgeryId } = req.params;
+    const userId = req.user.id;
+
+    const surgery = await storage.getSurgery(surgeryId);
+    
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const assessment = await storage.getSurgeryPreOpAssessment(surgeryId);
+    
+    res.json(assessment || null);
+  } catch (error) {
+    console.error("Error fetching surgery pre-op assessment:", error);
+    res.status(500).json({ message: "Failed to fetch surgery pre-op assessment" });
+  }
+});
+
+router.post('/api/surgery/preop', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+
+    const validatedData = insertSurgeryPreOpAssessmentSchema.parse(req.body);
+
+    const surgery = await storage.getSurgery(validatedData.surgeryId);
+    
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const newAssessment = await storage.createSurgeryPreOpAssessment(validatedData);
+    
+    res.status(201).json(newAssessment);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error creating surgery pre-op assessment:", error);
+    res.status(500).json({ message: "Failed to create surgery pre-op assessment" });
+  }
+});
+
+router.patch('/api/surgery/preop/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const assessment = await storage.getSurgeryPreOpAssessmentById(id);
+    
+    if (!assessment) {
+      return res.status(404).json({ message: "Surgery pre-op assessment not found" });
+    }
+
+    const surgery = await storage.getSurgery(assessment.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedAssessment = await storage.updateSurgeryPreOpAssessment(id, req.body);
+    
+    res.json(updatedAssessment);
+  } catch (error) {
+    console.error("Error updating surgery pre-op assessment:", error);
+    res.status(500).json({ message: "Failed to update surgery pre-op assessment" });
   }
 });
 

@@ -40,6 +40,8 @@ import AnesthesiaSettings from "@/pages/anesthesia/Settings";
 import ClinicalDashboard from "@/pages/anesthesia/ClinicalDashboard";
 import QuestionnaireReviews from "@/pages/anesthesia/QuestionnaireReviews";
 import SurgerySettings from "@/pages/surgery/SurgerySettings";
+import SurgeryPreOpList from "@/pages/surgery/SurgeryPreOpList";
+import SurgeryPreOpDetail from "@/pages/surgery/SurgeryPreOpDetail";
 import BusinessDashboard from "@/pages/business/Dashboard";
 import CostAnalytics from "@/pages/business/CostAnalytics";
 import TimeAnalytics from "@/pages/business/TimeAnalytics";
@@ -186,6 +188,8 @@ function Router() {
             <Route path="/surgery/op">{() => <ProtectedRoute requireSurgery><OpList /></ProtectedRoute>}</Route>
             <Route path="/surgery/op/:id">{() => <ProtectedRoute requireSurgery><Op /></ProtectedRoute>}</Route>
             <Route path="/surgery/settings">{() => <ProtectedRoute requireSurgery><SurgerySettings /></ProtectedRoute>}</Route>
+            <Route path="/surgery/preop">{() => <ProtectedRoute requireSurgery><SurgeryPreOpList /></ProtectedRoute>}</Route>
+            <Route path="/surgery/preop/:surgeryId">{() => <ProtectedRoute requireSurgery><SurgeryPreOpDetail /></ProtectedRoute>}</Route>
             {/* Admin Module - requires admin role */}
             <Route path="/admin">{() => <ProtectedRoute requireAdmin><AdminHospital /></ProtectedRoute>}</Route>
             <Route path="/admin/users">{() => <ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>}</Route>
