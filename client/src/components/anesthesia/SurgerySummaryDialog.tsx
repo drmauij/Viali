@@ -79,12 +79,18 @@ export default function SurgerySummaryDialog({
     queryKey: [`/api/surgery/preop/surgery/${surgeryId}`],
     enabled: !!surgeryId && open && activeModule === 'surgery',
     retry: (failureCount, error: any) => {
-      if (error?.status === 404) return false;
+      // Don't retry on 404 - check both error.status and error.message for 404
+      const errorMessage = error?.message || '';
+      if (error?.status === 404 || errorMessage.includes('404')) return false;
       return failureCount < 3;
     },
   });
   
-  const isSurgeryPreOpRealError = isSurgeryPreOpError && (surgeryPreOpError as any)?.status !== 404;
+  // Treat 404 as "no data" rather than an error - check both status and message
+  const surgeryPreOpErrorMessage = (surgeryPreOpError as any)?.message || '';
+  const isSurgeryPreOpRealError = isSurgeryPreOpError && 
+    (surgeryPreOpError as any)?.status !== 404 && 
+    !surgeryPreOpErrorMessage.includes('404');
   
   const hasSurgeryPreOpData = surgeryPreOpAssessment && (
     surgeryPreOpAssessment.height != null ||
