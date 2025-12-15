@@ -191,6 +191,8 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const [slashStartIndex, setSlashStartIndex] = useState(-1);
   const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
+  const [selectedContacts, setSelectedContacts] = useState<Array<{id: string; name: string}>>([]);
+  const [contactSearchQuery, setContactSearchQuery] = useState("");
 
   useEffect(() => {
     if (isOpen) {
@@ -938,24 +940,14 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
             <>
               <div className="flex items-center justify-between p-4 border-b border-border">
                 <h2 className="text-lg font-semibold text-foreground">Chat</h2>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setView('new')}
-                    data-testid="button-new-conversation"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onClose}
-                    data-testid="button-close-chat"
-                  >
-                    <X className="w-5 h-5" />
-                  </Button>
-                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onClose}
+                  data-testid="button-close-chat"
+                >
+                  <X className="w-5 h-5" />
+                </Button>
               </div>
 
               <div className="flex border-b border-border">
@@ -1115,6 +1107,19 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                   )}
                 </ScrollArea>
               )}
+
+              {/* Floating Action Button - WhatsApp style */}
+              <Button
+                className="absolute bottom-6 right-6 w-14 h-14 rounded-full shadow-lg"
+                onClick={() => {
+                  setSelectedContacts([]);
+                  setContactSearchQuery("");
+                  setView('new');
+                }}
+                data-testid="button-new-conversation-fab"
+              >
+                <Plus className="w-6 h-6" />
+              </Button>
             </>
           )}
 
@@ -1500,12 +1505,16 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => setView('list')}
+                  onClick={() => {
+                    setView('list');
+                    setSelectedContacts([]);
+                    setContactSearchQuery("");
+                  }}
                   data-testid="button-back-from-new"
                 >
                   <ArrowLeft className="w-5 h-5" />
                 </Button>
-                <h2 className="text-lg font-semibold text-foreground">New Conversation</h2>
+                <h2 className="text-lg font-semibold text-foreground">New Chat</h2>
                 <div className="flex-1" />
                 <Button
                   variant="ghost"
@@ -1516,23 +1525,46 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                 </Button>
               </div>
 
-              <div className="p-4 flex-1 flex flex-col min-h-0">
-                <div className="space-y-2 shrink-0">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start gap-3"
+              {/* Selected contacts chips - WhatsApp style To: line */}
+              {selectedContacts.length > 0 && (
+                <div className="px-4 py-2 border-b border-border flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-muted-foreground">To:</span>
+                  {selectedContacts.map((contact) => (
+                    <span
+                      key={contact.id}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
+                    >
+                      {contact.name}
+                      <button
+                        onClick={() => setSelectedContacts(prev => prev.filter(c => c.id !== contact.id))}
+                        className="ml-1 hover:bg-primary/20 rounded-full p-0.5"
+                        data-testid={`remove-contact-${contact.id}`}
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex-1 flex flex-col min-h-0 relative">
+                {/* Quick Actions */}
+                <div className="p-3 space-y-1 border-b border-border shrink-0">
+                  <button
+                    className="w-full p-2.5 hover:bg-accent/50 rounded-lg text-left flex items-center gap-3"
                     onClick={() => {
                       createConversationMutation.mutate({ scopeType: 'self' });
                     }}
                     data-testid="button-create-self-chat"
                   >
-                    <User className="w-5 h-5" />
-                    Personal Notes
-                  </Button>
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <User className="w-5 h-5 text-primary" />
+                    </div>
+                    <span className="font-medium">Personal Notes</span>
+                  </button>
 
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start gap-3"
+                  <button
+                    className="w-full p-2.5 hover:bg-accent/50 rounded-lg text-left flex items-center gap-3"
                     onClick={() => {
                       createConversationMutation.mutate({ 
                         scopeType: 'unit',
@@ -1541,66 +1573,141 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                     }}
                     data-testid="button-create-unit-chat"
                   >
-                    <Users className="w-5 h-5" />
-                    Message My Unit
-                  </Button>
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Users className="w-5 h-5 text-primary" />
+                    </div>
+                    <span className="font-medium">Message My Unit</span>
+                  </button>
 
                   {activeHospital?.role === 'admin' && (
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start gap-3"
+                    <button
+                      className="w-full p-2.5 hover:bg-accent/50 rounded-lg text-left flex items-center gap-3"
                       onClick={() => {
                         createConversationMutation.mutate({ scopeType: 'hospital' });
                       }}
                       data-testid="button-create-hospital-chat"
                     >
-                      <Building2 className="w-5 h-5" />
-                      Message Entire Clinic
-                    </Button>
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Building2 className="w-5 h-5 text-primary" />
+                      </div>
+                      <span className="font-medium">Message Entire Clinic</span>
+                    </button>
                   )}
                 </div>
 
-                <div className="pt-4 mt-4 border-t border-border flex-1 flex flex-col min-h-0">
-                  <h3 className="text-sm font-medium text-muted-foreground mb-3">Start a conversation with:</h3>
-                  <ScrollArea className="flex-1">
-                    {users
-                      .filter((u, idx, arr) => u.id !== (user as any)?.id && arr.findIndex(x => x.id === u.id) === idx)
-                      .sort((a, b) => {
-                        const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim().toLowerCase() || (a.email || '').toLowerCase();
-                        const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim().toLowerCase() || (b.email || '').toLowerCase();
-                        return nameA.localeCompare(nameB);
-                      })
-                      .map((u) => (
-                      <button
-                        key={u.id}
-                        className="w-full p-3 hover:bg-accent/50 rounded-lg text-left flex items-center gap-3"
-                        onClick={() => {
+                {/* Search */}
+                <div className="p-3 border-b border-border shrink-0">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search contacts..."
+                      value={contactSearchQuery}
+                      onChange={(e) => setContactSearchQuery(e.target.value)}
+                      className="pl-9"
+                      data-testid="input-search-contacts"
+                    />
+                  </div>
+                </div>
+
+                {/* Contacts List with checkmarks */}
+                <div className="text-xs font-medium text-muted-foreground px-4 py-2 bg-muted/30">
+                  Contacts
+                </div>
+                <ScrollArea className="flex-1">
+                  {users
+                    .filter((u, idx, arr) => u.id !== (user as any)?.id && arr.findIndex(x => x.id === u.id) === idx)
+                    .filter((u) => {
+                      if (!contactSearchQuery) return true;
+                      const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+                      const email = (u.email || '').toLowerCase();
+                      return fullName.includes(contactSearchQuery.toLowerCase()) || email.includes(contactSearchQuery.toLowerCase());
+                    })
+                    .sort((a, b) => {
+                      const nameA = `${a.firstName || ''} ${a.lastName || ''}`.trim().toLowerCase() || (a.email || '').toLowerCase();
+                      const nameB = `${b.firstName || ''} ${b.lastName || ''}`.trim().toLowerCase() || (b.email || '').toLowerCase();
+                      return nameA.localeCompare(nameB);
+                    })
+                    .map((u) => {
+                      const userName = u.firstName || u.lastName 
+                        ? `${u.firstName || ''} ${u.lastName || ''}`.trim()
+                        : u.email || 'Unknown';
+                      const isSelected = selectedContacts.some(c => c.id === u.id);
+                      
+                      return (
+                        <button
+                          key={u.id}
+                          className="w-full p-3 hover:bg-accent/50 text-left flex items-center gap-3"
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedContacts(prev => prev.filter(c => c.id !== u.id));
+                            } else {
+                              setSelectedContacts(prev => [...prev, { id: u.id, name: userName }]);
+                            }
+                          }}
+                          data-testid={`contact-${u.id}`}
+                        >
+                          <Avatar>
+                            <AvatarFallback>
+                              {getInitials(u.firstName, u.lastName, u.email)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{userName}</p>
+                            {(u.firstName || u.lastName) && u.email && (
+                              <p className="text-sm text-muted-foreground truncate">{u.email}</p>
+                            )}
+                          </div>
+                          {/* Checkbox indicator */}
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
+                            isSelected 
+                              ? 'bg-primary border-primary' 
+                              : 'border-muted-foreground/30'
+                          }`}>
+                            {isSelected && (
+                              <svg className="w-4 h-4 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })}
+                </ScrollArea>
+
+                {/* Floating Message Button - WhatsApp style */}
+                {selectedContacts.length > 0 && (
+                  <div className="absolute bottom-6 right-6">
+                    <Button
+                      className="h-12 px-6 rounded-full shadow-lg gap-2"
+                      onClick={() => {
+                        if (selectedContacts.length === 1) {
                           createConversationMutation.mutate({
                             scopeType: 'direct',
-                            participantIds: [u.id]
+                            participantIds: [selectedContacts[0].id]
                           });
-                        }}
-                        data-testid={`user-${u.id}`}
-                      >
-                        <Avatar>
-                          <AvatarFallback>
-                            {getInitials(u.firstName, u.lastName, u.email)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium">
-                            {u.firstName || u.lastName 
-                              ? `${u.firstName || ''} ${u.lastName || ''}`.trim()
-                              : u.email}
-                          </p>
-                          {(u.firstName || u.lastName) && u.email && (
-                            <p className="text-sm text-muted-foreground">{u.email}</p>
-                          )}
-                        </div>
-                      </button>
-                    ))}
-                  </ScrollArea>
-                </div>
+                        } else {
+                          const groupTitle = selectedContacts.map(c => c.name.split(' ')[0]).join(', ');
+                          createConversationMutation.mutate({
+                            scopeType: 'direct',
+                            participantIds: selectedContacts.map(c => c.id),
+                            title: groupTitle
+                          });
+                        }
+                      }}
+                      disabled={createConversationMutation.isPending}
+                      data-testid="button-start-conversation"
+                    >
+                      {createConversationMutation.isPending ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <>
+                          <Send className="w-5 h-5" />
+                          Message
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </div>
             </>
           )}
