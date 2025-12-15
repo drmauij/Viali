@@ -931,15 +931,10 @@ export function SurgeryPlanningTable({
     
     const columns: DayPlanPdfColumn[] = [
       defaultColumns.datum(displayDate),
-      defaultColumns.operator(),
       defaultColumns.patient(),
       defaultColumns.eingriff(),
       defaultColumns.note(),
-      {
-        header: 'Anästhesie',
-        width: 38,
-        getValue: (surgery) => formatPreOpSummaryForPdf(surgery.id),
-      },
+      { ...defaultColumns.preOp(formatPreOpSummaryForPdf), width: 50 },
     ];
 
     generateDayPlanPdf({
