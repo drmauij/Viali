@@ -3103,12 +3103,16 @@
       "implantVendor": "Lieferant",
       "preOp": "Präop",
       "paid": "Bezahlt",
-      "adminNote": "Notizen"
+      "adminNote": "Notizen",
+      "caseNotes": "Notizen"
     },
     "adminNote": "Notizen",
     "noAdminNote": "Keine Notizen",
-    "adminNoteTitle": "Administrative Notizen",
-    "adminNotePlaceholder": "z.B. Patient wegen Zahlung kontaktiert, warte auf Versicherungsbestätigung...",
+    "noCaseNotes": "Keine Notizen",
+    "caseNotesTitle": "Fallnotizen",
+    "adminNoteTitle": "Fallnotizen",
+    "caseNotesPlaceholder": "z.B. Offerte gesendet, Vertrag unterschrieben, Zahlung erhalten, Patient kontaktiert...",
+    "adminNotePlaceholder": "z.B. Offerte gesendet, Vertrag unterschrieben, Zahlung erhalten, Patient kontaktiert...",
     "preOp": {
       "statusPlanned": "Präoperative Beurteilung noch nicht begonnen",
       "statusInProgress": "Präoperative Beurteilung in Bearbeitung",

@@ -195,7 +195,7 @@ function AdminNoteCell({ value, surgeryId, onUpdate, isPending }: AdminNoteCellP
             {hasNote ? (
               <p className="whitespace-pre-wrap">{value}</p>
             ) : (
-              <p className="text-muted-foreground">{t("surgeryPlanning.noAdminNote", "No admin note")}</p>
+              <p className="text-muted-foreground">{t("surgeryPlanning.noCaseNotes", "No notes")}</p>
             )}
           </TooltipContent>
         </Tooltip>
@@ -204,12 +204,12 @@ function AdminNoteCell({ value, surgeryId, onUpdate, isPending }: AdminNoteCellP
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{t("surgeryPlanning.adminNoteTitle", "Administrative Note")}</DialogTitle>
+            <DialogTitle>{t("surgeryPlanning.caseNotesTitle", "Case Notes")}</DialogTitle>
           </DialogHeader>
           <Textarea
             value={noteValue}
             onChange={(e) => setNoteValue(e.target.value)}
-            placeholder={t("surgeryPlanning.adminNotePlaceholder", "E.g., Patient contacted about payment, waiting for insurance confirmation...")}
+            placeholder={t("surgeryPlanning.caseNotesPlaceholder", "E.g., Quote sent, contract signed, payment received, patient contacted...")}
             rows={4}
             className="resize-none"
             data-testid={`textarea-admin-note-${surgeryId}`}
@@ -1204,7 +1204,7 @@ export function SurgeryPlanningTable({
                 <TableHead>{t("surgeryPlanning.columns.paymentDate")}</TableHead>
                 <TableHead>
                   <FileEdit className="h-4 w-4 inline mr-1" />
-                  {t("surgeryPlanning.columns.adminNote", "Admin Note")}
+                  {t("surgeryPlanning.columns.caseNotes", "Notes")}
                 </TableHead>
               </>
             )}
@@ -1494,20 +1494,20 @@ export function SurgeryPlanningTable({
                           </div>
                         </div>
                         
-                        {showBusiness && (surgery.paymentNotes || (surgery as any).administrativeNote) && (
+                        {showBusiness && surgery.paymentNotes && (
                           <div>
                             <h4 className="font-semibold mb-2">{t("surgeryPlanning.paymentInfo")}</h4>
                             <div className="space-y-1">
-                              {surgery.paymentNotes && (
-                                <>
-                                  <p><span className="text-muted-foreground">{t("surgeryPlanning.paymentMethod")}:</span> {surgery.paymentMethod ?? "-"}</p>
-                                  <p><span className="text-muted-foreground">{t("surgeryPlanning.paymentNotes")}:</span> {surgery.paymentNotes}</p>
-                                </>
-                              )}
-                              {(surgery as any).administrativeNote && (
-                                <p><span className="text-muted-foreground">{t("surgeryPlanning.adminNote", "Admin Note")}:</span> <span className="whitespace-pre-wrap">{(surgery as any).administrativeNote}</span></p>
-                              )}
+                              <p><span className="text-muted-foreground">{t("surgeryPlanning.paymentMethod")}:</span> {surgery.paymentMethod ?? "-"}</p>
+                              <p><span className="text-muted-foreground">{t("surgeryPlanning.paymentNotes")}:</span> {surgery.paymentNotes}</p>
                             </div>
+                          </div>
+                        )}
+                        
+                        {(surgery as any).administrativeNote && (
+                          <div>
+                            <h4 className="font-semibold mb-2">{t("surgeryPlanning.caseNotesTitle", "Case Notes")}</h4>
+                            <p className="text-sm whitespace-pre-wrap">{(surgery as any).administrativeNote}</p>
                           </div>
                         )}
                         
