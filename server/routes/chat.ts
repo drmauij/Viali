@@ -7,7 +7,7 @@ import { insertChatConversationSchema, insertChatMessageSchema, insertChatMentio
 import { z } from "zod";
 import { broadcastChatMessage, broadcastChatMessageDeleted, broadcastChatMessageEdited, notifyUserOfNewMessage } from "../socket";
 import { ObjectStorageService, ObjectNotFoundError, ObjectPermission } from "../objectStorage";
-import { sendNewMessageEmail, sendMentionEmail } from "../email";
+import { sendNewMessageEmail, sendMentionEmail, sendNewConversationEmail } from "../email";
 
 const createConversationSchema = z.object({
   scopeType: z.enum(['self', 'direct', 'unit', 'hospital']),
@@ -159,6 +159,11 @@ router.post('/api/chat/:hospitalId/conversations', isAuthenticated, requireWrite
     });
     
     if (participantIds && Array.isArray(participantIds)) {
+      const creatorUser = await storage.getUser(userId);
+      const creatorName = creatorUser?.firstName && creatorUser?.lastName 
+        ? `${creatorUser.firstName} ${creatorUser.lastName}`.trim()
+        : creatorUser?.email || 'Someone';
+      
       for (const participantId of participantIds) {
         if (participantId !== userId) {
           await storage.addParticipant(conversation.id, participantId, "member");
@@ -171,6 +176,13 @@ router.post('/api/chat/:hospitalId/conversations', isAuthenticated, requireWrite
             emailSent: false,
             read: false
           });
+          
+          // Send email notification for new conversation
+          const participantUser = await storage.getUser(participantId);
+          if (participantUser?.email) {
+            sendNewConversationEmail(participantUser.email, creatorName, title || undefined)
+              .catch(err => console.error('Failed to send new conversation email:', err));
+          }
         }
       }
     }
@@ -279,6 +291,17 @@ router.post('/api/chat/conversations/:conversationId/participants', isAuthentica
       emailSent: false,
       read: false
     });
+    
+    // Send email notification for being added to conversation
+    const adderUser = await storage.getUser(req.user.id);
+    const adderName = adderUser?.firstName && adderUser?.lastName 
+      ? `${adderUser.firstName} ${adderUser.lastName}`.trim()
+      : adderUser?.email || 'Someone';
+    const participantUser = await storage.getUser(newUserId);
+    if (participantUser?.email) {
+      sendNewConversationEmail(participantUser.email, adderName, conversation.title || undefined)
+        .catch(err => console.error('Failed to send new conversation email:', err));
+    }
     
     const fullConversation = await storage.getConversation(conversationId);
     res.status(201).json(fullConversation);

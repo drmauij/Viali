@@ -79,6 +79,40 @@ export async function sendNewMessageEmail(
   }
 }
 
+export async function sendNewConversationEmail(
+  toEmail: string,
+  senderName: string,
+  conversationTitle?: string
+): Promise<boolean> {
+  try {
+    const { client, fromEmail } = await getUncachableResendClient();
+    
+    const subject = `${senderName} started a conversation with you`;
+    
+    await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject: subject,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">New Conversation</h2>
+          <p style="color: #666;">
+            <strong>${senderName}</strong> started a conversation with you${conversationTitle ? ` titled "${conversationTitle}"` : ''}.
+          </p>
+          <p style="color: #999; font-size: 12px;">
+            Log in to view and reply to this message.
+          </p>
+        </div>
+      `
+    });
+    
+    return true;
+  } catch (error) {
+    console.error('Failed to send new conversation email notification:', error);
+    return false;
+  }
+}
+
 export async function sendMentionEmail(
   toEmail: string,
   senderName: string,
