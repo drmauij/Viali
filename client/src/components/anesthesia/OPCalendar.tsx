@@ -54,9 +54,10 @@ type CalendarResource = {
   title: string;
 };
 
-// Configure moment for European format (British English locale for DD/MM/YYYY, 24-hour time, English labels)
-moment.locale('en-gb');
-const localizer = momentLocalizer(moment);
+// Helper to get moment locale from i18n language
+function getMomentLocale(lang: string): string {
+  return lang.startsWith('de') ? 'de' : 'en-gb';
+}
 
 // Explicitly type DragAndDropCalendar with CalendarEvent and CalendarResource
 const DragAndDropCalendar = withDragAndDrop<CalendarEvent, CalendarResource>(
@@ -171,11 +172,10 @@ function DroppableRoomHeader({
 export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const { t, i18n } = useTranslation();
   
-  // Set moment locale based on i18n language
-  useEffect(() => {
-    const locale = i18n.language === 'de' ? 'de' : 'en-gb';
-    moment.locale(locale);
-  }, [i18n.language]);
+  // Set moment locale based on i18n language and create localizer
+  const momentLocale = getMomentLocale(i18n.language);
+  moment.locale(momentLocale);
+  const localizer = useMemo(() => momentLocalizer(moment), [momentLocale]);
   
   // Restore calendar view and date from sessionStorage
   const [currentView, setCurrentView] = useState<ViewType>(() => {
