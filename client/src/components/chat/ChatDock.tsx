@@ -29,7 +29,12 @@ import {
   Trash2,
   AtSign,
   Camera,
-  Command
+  Command,
+  CheckSquare,
+  Circle,
+  Play,
+  CheckCircle2,
+  GripVertical
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { format, isToday, isYesterday } from "date-fns";
@@ -171,7 +176,16 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const [view, setView] = useState<ChatView>('list');
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [listTab, setListTab] = useState<'messages' | 'mentions'>('messages');
+  const [listTab, setListTab] = useState<'messages' | 'todos'>('messages');
+  
+  // Mock todo data for UI preview
+  const [todos, setTodos] = useState([
+    { id: '1', title: 'Review patient records', status: 'todo' as const },
+    { id: '2', title: 'Update medication list', status: 'todo' as const },
+    { id: '3', title: 'Schedule follow-up appointment', status: 'running' as const },
+    { id: '4', title: 'Complete discharge summary', status: 'completed' as const },
+    { id: '5', title: 'Order lab tests', status: 'running' as const },
+  ]);
   const [messageText, setMessageText] = useState("");
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
@@ -1069,18 +1083,18 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                 </button>
                 <button
                   className={`flex-1 py-2.5 px-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${
-                    listTab === 'mentions' 
+                    listTab === 'todos' 
                       ? 'text-primary border-b-2 border-primary' 
                       : 'text-muted-foreground hover:text-foreground'
                   }`}
-                  onClick={() => setListTab('mentions')}
-                  data-testid="tab-mentions"
+                  onClick={() => setListTab('todos')}
+                  data-testid="tab-todos"
                 >
-                  <AtSign className="w-4 h-4" />
-                  Mentions
-                  {myMentions.length > 0 && (
+                  <CheckSquare className="w-4 h-4" />
+                  To-Do
+                  {todos.filter(t => t.status !== 'completed').length > 0 && (
                     <span className="bg-primary text-primary-foreground text-xs font-medium px-1.5 py-0.5 rounded-full min-w-[20px]">
-                      {myMentions.length}
+                      {todos.filter(t => t.status !== 'completed').length}
                     </span>
                   )}
                 </button>
@@ -1151,64 +1165,99 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                 </>
               )}
 
-              {listTab === 'mentions' && (
+              {listTab === 'todos' && (
                 <ScrollArea className="flex-1">
-                  {mentionsLoading ? (
-                    <div className="p-4 text-center text-muted-foreground">Loading...</div>
-                  ) : myMentions.length === 0 ? (
-                    <div className="p-8 text-center text-muted-foreground">
-                      <AtSign className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                      <p>No mentions yet</p>
-                      <p className="text-sm mt-1">When someone @mentions you, it will appear here</p>
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-border">
-                      {myMentions.map((mention) => {
-                        const sender = mention.message?.sender;
-                        const senderName = sender?.firstName || sender?.lastName 
-                          ? `${sender?.firstName || ''} ${sender?.lastName || ''}`.trim()
-                          : sender?.email || 'Someone';
-                        const messageTime = mention.message?.createdAt || mention.createdAt;
-                        const messageContent = mention.message?.content || '';
-                        return (
-                          <button
-                            key={mention.id}
-                            className="w-full p-3 hover:bg-accent/50 text-left flex items-start gap-3"
-                            onClick={() => {
-                              const convo = conversations.find(c => c.id === mention.message?.conversationId);
-                              if (convo) {
-                                setSelectedConversation(convo);
-                                setView('conversation');
-                              }
-                            }}
-                            data-testid={`mention-${mention.id}`}
+                  <div className="p-3 space-y-4">
+                    {/* Todo Column */}
+                    <div className="bg-muted/30 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Circle className="w-4 h-4 text-muted-foreground" />
+                        <span className="font-medium text-sm text-foreground">To Do</span>
+                        <span className="bg-muted text-muted-foreground text-xs px-1.5 py-0.5 rounded-full">
+                          {todos.filter(t => t.status === 'todo').length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {todos.filter(t => t.status === 'todo').map(todo => (
+                          <div
+                            key={todo.id}
+                            className="bg-card border border-border rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                            data-testid={`todo-item-${todo.id}`}
                           >
-                            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                              <AtSign className="w-4 h-4 text-primary" />
+                            <div className="flex items-center gap-2">
+                              <GripVertical className="w-4 h-4 text-muted-foreground/50" />
+                              <span className="text-sm text-foreground flex-1">{todo.title}</span>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <span className="font-medium text-foreground truncate">
-                                  {senderName}
-                                </span>
-                                {messageTime && (
-                                  <span className="text-xs text-muted-foreground">
-                                    {formatMessageTime(messageTime)}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-sm text-muted-foreground line-clamp-2">
-                                {messageContent ? messageContent.replace(/@\[[^\]]+\]\([^)]+\)/g, (match) => {
-                                  const displayMatch = match.match(/@\[([^\]]+)\]/);
-                                  return displayMatch ? `@${displayMatch[1]}` : match;
-                                }) : 'Mentioned you'}
-                              </p>
-                            </div>
-                          </button>
-                        );
-                      })}
+                          </div>
+                        ))}
+                        {todos.filter(t => t.status === 'todo').length === 0 && (
+                          <div className="text-center py-4 text-sm text-muted-foreground">
+                            No tasks to do
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
+
+                    {/* Running Column */}
+                    <div className="bg-blue-500/5 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Play className="w-4 h-4 text-blue-500" />
+                        <span className="font-medium text-sm text-foreground">Running</span>
+                        <span className="bg-blue-500/20 text-blue-500 text-xs px-1.5 py-0.5 rounded-full">
+                          {todos.filter(t => t.status === 'running').length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {todos.filter(t => t.status === 'running').map(todo => (
+                          <div
+                            key={todo.id}
+                            className="bg-card border border-blue-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                            data-testid={`todo-item-${todo.id}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <GripVertical className="w-4 h-4 text-muted-foreground/50" />
+                              <span className="text-sm text-foreground flex-1">{todo.title}</span>
+                            </div>
+                          </div>
+                        ))}
+                        {todos.filter(t => t.status === 'running').length === 0 && (
+                          <div className="text-center py-4 text-sm text-muted-foreground">
+                            No tasks in progress
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Completed Column */}
+                    <div className="bg-green-500/5 rounded-lg p-3">
+                      <div className="flex items-center gap-2 mb-3">
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        <span className="font-medium text-sm text-foreground">Completed</span>
+                        <span className="bg-green-500/20 text-green-500 text-xs px-1.5 py-0.5 rounded-full">
+                          {todos.filter(t => t.status === 'completed').length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {todos.filter(t => t.status === 'completed').map(todo => (
+                          <div
+                            key={todo.id}
+                            className="bg-card border border-green-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer opacity-70"
+                            data-testid={`todo-item-${todo.id}`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <GripVertical className="w-4 h-4 text-muted-foreground/50" />
+                              <span className="text-sm text-foreground flex-1 line-through">{todo.title}</span>
+                            </div>
+                          </div>
+                        ))}
+                        {todos.filter(t => t.status === 'completed').length === 0 && (
+                          <div className="text-center py-4 text-sm text-muted-foreground">
+                            No completed tasks
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </ScrollArea>
               )}
 
