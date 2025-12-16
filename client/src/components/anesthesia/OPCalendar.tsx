@@ -846,15 +846,15 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
   const formatDateHeader = () => {
     if (currentView === "month") {
-      return moment(selectedDate).format('MMMM YYYY');
+      return moment(selectedDate).locale(momentLocale).format('MMMM YYYY');
     }
     if (currentView === "week") {
-      const start = moment(selectedDate).startOf('week');
-      const end = moment(selectedDate).endOf('week');
+      const start = moment(selectedDate).locale(momentLocale).startOf('week');
+      const end = moment(selectedDate).locale(momentLocale).endOf('week');
       return `${start.format('DD/MM/YYYY')} - ${end.format('DD/MM/YYYY')}`;
     }
     // Day view: show day name followed by date
-    return moment(selectedDate).format('dddd, DD/MM/YYYY');
+    return moment(selectedDate).locale(momentLocale).format('dddd, DD/MM/YYYY');
   };
 
   return (
