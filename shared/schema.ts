@@ -961,9 +961,11 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
     stickerDocs?: Array<{
       id: string;
       type: 'photo' | 'pdf';
-      data: string;  // base64
+      data?: string | null;  // Legacy: base64 (optional for backward compatibility)
+      storageKey?: string | null;  // New: object storage key
       filename?: string;
       mimeType?: string;
+      size?: number | null;  // File size in bytes
       createdAt?: number;
       createdBy?: string;
     }>;
@@ -2299,15 +2301,22 @@ export const updateCountsSterileDataSchema = z.object({
   stickerDocs: z.array(z.object({
     id: z.string(),
     type: z.enum(['photo', 'pdf']),
-    data: z.string().max(MAX_BASE64_SIZE, 'File too large (max 5MB)'), // base64 with size limit
+    // Legacy: base64 data (optional - for backward compatibility)
+    data: z.string().max(MAX_BASE64_SIZE, 'File too large (max 5MB)').optional().nullable(),
+    // New: object storage key (optional - for new uploads)
+    storageKey: z.string().optional().nullable(),
     filename: z.string().optional().nullable(),
     mimeType: z.string().refine(
       (val) => !val || ALLOWED_MIME_TYPES.includes(val),
       { message: 'Invalid file type. Allowed: JPEG, PNG, GIF, PDF' }
     ).optional().nullable(),
+    size: z.number().optional().nullable(), // File size in bytes
     createdAt: z.number().optional(),
     createdBy: z.string().optional().nullable(),
-  })).optional(),
+  }).refine(
+    (doc) => doc.data || doc.storageKey,
+    { message: 'Either data (base64) or storageKey must be provided' }
+  )).optional(),
   signatures: z.object({
     instrumenteur: z.string().optional().nullable(),
     circulating: z.string().optional().nullable(),

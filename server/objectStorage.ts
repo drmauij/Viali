@@ -285,6 +285,62 @@ export class ObjectStorageService {
     return false;
   }
 
+  /**
+   * Generate upload URL for sticker documentation photos/PDFs
+   * Files are stored in: anesthesia/sticker-docs/{recordId}/{uuid}.{ext}
+   */
+  async getStickerDocUploadURL(
+    recordId: string,
+    filename?: string,
+    contentType?: string
+  ): Promise<{ uploadURL: string; storageKey: string }> {
+    if (!this.s3Client) {
+      throw new Error("S3 storage not configured. Please set S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY, and S3_BUCKET environment variables.");
+    }
+
+    const objectId = randomUUID();
+    const extension = filename ? filename.split('.').pop() : '';
+    const objectName = extension ? `${objectId}.${extension}` : objectId;
+    const key = `anesthesia/sticker-docs/${recordId}/${objectName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: contentType || 'application/octet-stream',
+    });
+
+    const uploadURL = await getSignedUrl(this.s3Client, command, { expiresIn: 900 }); // 15 min
+
+    return {
+      uploadURL,
+      storageKey: `/objects/${key}`
+    };
+  }
+
+  /**
+   * Upload a base64 blob directly to S3 (for migration of legacy sticker docs)
+   */
+  async uploadBase64ToS3(
+    base64Data: string,
+    key: string,
+    contentType: string
+  ): Promise<void> {
+    if (!this.s3Client) {
+      throw new Error("S3 storage not configured");
+    }
+
+    // Remove data URL prefix if present
+    const base64Content = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+    const buffer = Buffer.from(base64Content, 'base64');
+
+    await this.s3Client.send(new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      Body: buffer,
+      ContentType: contentType,
+    }));
+  }
+
   private storageKeyToS3Key(storageKey: string): string {
     if (storageKey.startsWith("/objects/")) {
       return storageKey.slice("/objects/".length);
