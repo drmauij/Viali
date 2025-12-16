@@ -708,14 +708,14 @@ export default function Hospital() {
           <div>
             <h3 className="font-semibold text-foreground text-lg">
               <i className="fas fa-database mr-2 text-primary"></i>
-              Default Data Setup
+              {t("admin.defaultDataSetup", "Default Data Setup")}
             </h3>
             <p className="text-sm text-muted-foreground">
-              Populate hospital with default units, surgery rooms, administration groups, and medications
+              {t("admin.defaultDataSetupDescription", "Populate hospital with default units, surgery rooms, administration groups, and medications")}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               <i className="fas fa-info-circle mr-1"></i>
-              Only adds missing items - never replaces existing data
+              {t("admin.defaultDataSetupNote", "Only adds missing items - never replaces existing data")}
             </p>
           </div>
           <Button
@@ -728,12 +728,12 @@ export default function Hospital() {
             {seedHospitalMutation.isPending ? (
               <>
                 <i className="fas fa-spinner fa-spin mr-2"></i>
-                Seeding...
+                {t("admin.seeding", "Seeding...")}
               </>
             ) : (
               <>
                 <i className="fas fa-seedling mr-2"></i>
-                Seed Default Data
+                {t("admin.seedDefaultData", "Seed Default Data")}
               </>
             )}
           </Button>
@@ -746,14 +746,14 @@ export default function Hospital() {
           <div>
             <h3 className="font-semibold text-foreground text-lg">
               <i className="fas fa-rotate-right mr-2 text-destructive"></i>
-              Reset Lists
+              {t("admin.resetLists", "Reset Lists")}
             </h3>
             <p className="text-sm text-muted-foreground">
-              Reset allergies, medications, and checklists to default values
+              {t("admin.resetListsDescription", "Reset allergies, medications, and checklists to default values")}
             </p>
             <p className="text-xs text-destructive mt-1">
               <i className="fas fa-exclamation-triangle mr-1"></i>
-              Warning: This will replace all customizations with defaults
+              {t("admin.resetListsWarning", "Warning: This will replace all customizations with defaults")}
             </p>
           </div>
           <Button
@@ -767,12 +767,12 @@ export default function Hospital() {
             {resetListsMutation.isPending ? (
               <>
                 <i className="fas fa-spinner fa-spin mr-2"></i>
-                Resetting...
+                {t("admin.resetting", "Resetting...")}
               </>
             ) : (
               <>
                 <i className="fas fa-rotate-right mr-2"></i>
-                Reset Lists
+                {t("admin.resetLists", "Reset Lists")}
               </>
             )}
           </Button>
@@ -1798,29 +1798,29 @@ export default function Hospital() {
       <AlertDialog open={seedDialogOpen} onOpenChange={setSeedDialogOpen}>
         <AlertDialogContent data-testid="dialog-seed-confirm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Seed Hospital with Default Data?</AlertDialogTitle>
+            <AlertDialogTitle>{t("admin.seedDialogTitle", "Seed Hospital with Default Data?")}</AlertDialogTitle>
             <AlertDialogDescription className="space-y-2">
-              <p>This will add the following default data to your hospital:</p>
+              <p>{t("admin.seedDialogDescription", "This will add the following default data to your hospital:")}</p>
               <ul className="list-disc pl-5 space-y-1 text-sm">
-                <li><strong>4 Units:</strong> Anesthesia, OR, ER, ICU</li>
-                <li><strong>3 Surgery Rooms:</strong> OP1, OP2, OP3</li>
-                <li><strong>5 Administration Groups:</strong> Infusions, Pumps, Bolus, Short IVs, Antibiotics</li>
-                <li><strong>13 Medications:</strong> Common anesthesia medications with complete configuration</li>
+                <li><strong>{t("admin.seedUnits", "4 Units:")}</strong> {t("admin.seedUnitsDetail", "Anesthesia, OR, ER, ICU")}</li>
+                <li><strong>{t("admin.seedRooms", "3 Surgery Rooms:")}</strong> OP1, OP2, OP3</li>
+                <li><strong>{t("admin.seedGroups", "5 Administration Groups:")}</strong> {t("admin.seedGroupsDetail", "Infusions, Pumps, Bolus, Short IVs, Antibiotics")}</li>
+                <li><strong>{t("admin.seedMeds", "13 Medications:")}</strong> {t("admin.seedMedsDetail", "Common anesthesia medications with complete configuration")}</li>
               </ul>
               <p className="text-xs mt-2 text-muted-foreground">
                 <i className="fas fa-shield-check mr-1"></i>
-                <strong>Safe operation:</strong> Only adds items that don't already exist. Your existing data will not be modified or deleted.
+                <strong>{t("admin.safeOperation", "Safe operation:")}</strong> {t("admin.safeOperationDetail", "Only adds items that don't already exist. Your existing data will not be modified or deleted.")}
               </p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-seed">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-seed">{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => seedHospitalMutation.mutate()}
               disabled={seedHospitalMutation.isPending}
               data-testid="button-confirm-seed"
             >
-              {seedHospitalMutation.isPending ? "Seeding..." : "Seed Default Data"}
+              {seedHospitalMutation.isPending ? t("admin.seeding", "Seeding...") : t("admin.seedDefaultData", "Seed Default Data")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1835,29 +1835,29 @@ export default function Hospital() {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive">
               <i className="fas fa-exclamation-triangle mr-2"></i>
-              Reset Lists to Defaults?
+              {t("admin.resetDialogTitle", "Reset Lists to Defaults?")}
             </AlertDialogTitle>
             <AlertDialogDescription className="space-y-3">
-              <p className="font-medium text-destructive">This is a destructive action that cannot be undone!</p>
-              <p>This will <strong>replace</strong> the following with default values:</p>
+              <p className="font-medium text-destructive">{t("admin.resetDestructiveWarning", "This is a destructive action that cannot be undone!")}</p>
+              <p>{t("admin.resetDialogDescription", "This will replace the following with default values:")}</p>
               <ul className="list-disc pl-5 space-y-1 text-sm">
-                <li><strong>Allergies:</strong> 9 common allergies (Penicillin, Latex, etc.)</li>
-                <li><strong>Anticoagulation medications:</strong> 6 items (Aspirin, Warfarin, etc.)</li>
-                <li><strong>General medications:</strong> 8 items (Metformin, Insulin, etc.)</li>
-                <li><strong>WHO Checklists:</strong> Sign-In, Time-Out, and Sign-Out items</li>
+                <li><strong>{t("admin.resetAllergies", "Allergies:")}</strong> {t("admin.resetAllergiesDetail", "9 common allergies (Penicillin, Latex, etc.)")}</li>
+                <li><strong>{t("admin.resetAnticoag", "Anticoagulation medications:")}</strong> {t("admin.resetAnticoagDetail", "6 items (Aspirin, Warfarin, etc.)")}</li>
+                <li><strong>{t("admin.resetGeneralMeds", "General medications:")}</strong> {t("admin.resetGeneralMedsDetail", "8 items (Metformin, Insulin, etc.)")}</li>
+                <li><strong>{t("admin.resetChecklists", "WHO Checklists:")}</strong> {t("admin.resetChecklistsDetail", "Sign-In, Time-Out, and Sign-Out items")}</li>
               </ul>
               <p className="text-sm mt-3">
-                <strong>Medical History will NOT be affected.</strong>
+                <strong>{t("admin.medHistoryNotAffected", "Medical History will NOT be affected.")}</strong>
               </p>
               <div className="mt-4 p-3 bg-destructive/10 rounded-lg border border-destructive/30">
                 <Label htmlFor="confirm-reset" className="text-sm font-medium">
-                  Type <span className="font-mono bg-muted px-1 rounded">RESET</span> to confirm:
+                  {t("admin.typeResetConfirm", "Type")} <span className="font-mono bg-muted px-1 rounded">RESET</span> {t("admin.toConfirm", "to confirm:")}
                 </Label>
                 <Input
                   id="confirm-reset"
                   value={resetListsConfirmText}
                   onChange={(e) => setResetListsConfirmText(e.target.value)}
-                  placeholder="Type RESET to confirm"
+                  placeholder={t("admin.typeResetPlaceholder", "Type RESET to confirm")}
                   className="mt-2"
                   data-testid="input-confirm-reset"
                 />
@@ -1865,14 +1865,14 @@ export default function Hospital() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-testid="button-cancel-reset-lists">Cancel</AlertDialogCancel>
+            <AlertDialogCancel data-testid="button-cancel-reset-lists">{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction 
               onClick={() => resetListsMutation.mutate()}
               disabled={resetListsMutation.isPending || resetListsConfirmText !== "RESET"}
               className="bg-destructive hover:bg-destructive/90"
               data-testid="button-confirm-reset-lists"
             >
-              {resetListsMutation.isPending ? "Resetting..." : "Reset Lists"}
+              {resetListsMutation.isPending ? t("admin.resetting", "Resetting...") : t("admin.resetLists", "Reset Lists")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -146,6 +146,7 @@ function Router() {
       <Switch>
         {/* Public routes accessible regardless of auth */}
         <Route path="/questionnaire/:token" component={PatientQuestionnaire} />
+        <Route path="/questionnaire/hospital/:token" component={PatientQuestionnaire} />
         
         {!isAuthenticated ? (
           <>
