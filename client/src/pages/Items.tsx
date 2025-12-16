@@ -35,6 +35,48 @@ interface ItemWithStock extends Item {
 
 type UnitType = "Pack" | "Single unit";
 
+// Parse currency-formatted values like "CHF 12,34" or "€ 45,67" to clean numeric string
+function parseCurrencyValue(value: string | number | null | undefined): string | undefined {
+  if (value === null || value === undefined || value === '') return undefined;
+  
+  // If already a number, return as string
+  if (typeof value === 'number') {
+    return isNaN(value) ? undefined : value.toString();
+  }
+  
+  let str = String(value).trim();
+  
+  // Remove common currency symbols and codes
+  str = str.replace(/^(CHF|EUR|USD|€|\$|Fr\.|SFr\.?)\s*/i, '');
+  str = str.replace(/\s*(CHF|EUR|USD|€|\$|Fr\.|SFr\.?)$/i, '');
+  
+  // Remove thousands separators and normalize decimal
+  // European format: 1'234,56 or 1.234,56 → 1234.56
+  // US format: 1,234.56 → 1234.56
+  
+  // Check if comma is used as decimal separator (European format)
+  // Pattern: has comma followed by exactly 2 digits at the end
+  const europeanDecimal = /,\d{2}$/.test(str);
+  
+  if (europeanDecimal) {
+    // European format: remove apostrophe/dot thousands separators, convert comma to dot
+    str = str.replace(/['.\s]/g, '').replace(',', '.');
+  } else {
+    // US format or no decimal: remove comma/apostrophe thousands separators
+    str = str.replace(/[',\s]/g, '');
+  }
+  
+  // Remove any remaining non-numeric characters except dot and minus
+  str = str.replace(/[^\d.\-]/g, '');
+  
+  // Validate it's a valid number
+  const num = parseFloat(str);
+  if (isNaN(num)) return undefined;
+  
+  // Return with 2 decimal places for currency
+  return num.toFixed(2);
+}
+
 // Draggable item wrapper
 function DraggableItem({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
   const { t } = useTranslation();
@@ -2125,13 +2167,18 @@ export default function Items() {
           // Supplier fields
           case 'preferredSupplier':
           case 'supplierArticleCode':
-          case 'supplierPrice':
             if (!item.supplierInfo) item.supplierInfo = {};
             item.supplierInfo[targetField] = value ? String(value) : undefined;
             break;
+          case 'supplierPrice':
+            if (!item.supplierInfo) item.supplierInfo = {};
+            // Parse currency-formatted values like "CHF 12,34" or "€ 45,67"
+            item.supplierInfo[targetField] = parseCurrencyValue(value);
+            break;
           // Patient price (final dispensing price)
           case 'patientPrice':
-            item.patientPrice = value ? String(value) : undefined;
+            // Parse currency-formatted values like "CHF 12,34" or "€ 45,67"
+            item.patientPrice = parseCurrencyValue(value);
             break;
         }
       });
