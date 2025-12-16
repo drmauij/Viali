@@ -159,12 +159,12 @@ export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps
               </div>
             </div>
 
-            {/* Controls */}
-            <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-center gap-4">
+            {/* Controls - Cancel left, Capture right for easy thumb access */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between">
               <Button
                 variant="outline"
                 onClick={handleClose}
-                className="bg-white/10 text-white border-white hover:bg-white/20"
+                className="bg-white/10 text-white border-white hover:bg-white/20 px-6"
                 data-testid="close-camera"
               >
                 <i className="fas fa-times mr-2"></i>
@@ -172,7 +172,7 @@ export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps
               </Button>
               <Button
                 onClick={capturePhoto}
-                className="bg-accent hover:bg-accent/90"
+                className="bg-accent hover:bg-accent/90 px-6"
                 data-testid="capture-photo"
               >
                 <i className="fas fa-camera mr-2"></i>

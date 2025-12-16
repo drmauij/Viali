@@ -588,21 +588,21 @@ export function StickyTimelineHeader({
             />
           </div>
 
-          {/* Controls - Positioned differently for portrait/landscape */}
-          <div className="portrait:mt-6 landscape:absolute landscape:bottom-4 landscape:left-1/2 landscape:-translate-x-1/2 flex gap-3 portrait:gap-4 portrait:mb-8 landscape:mb-0 z-10">
-            <button
-              onClick={capturePhoto}
-              className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 portrait:px-8 py-2.5 portrait:py-3 rounded-md font-medium text-base portrait:text-lg shadow-lg"
-              data-testid="button-capture-photo"
-            >
-              Capture
-            </button>
+          {/* Controls - Cancel left, Capture right for easy thumb access */}
+          <div className="portrait:mt-6 landscape:absolute landscape:bottom-4 landscape:left-0 landscape:right-0 landscape:px-6 flex justify-between portrait:w-full portrait:px-6 portrait:mb-8 landscape:mb-0 z-10">
             <button
               onClick={closeCamera}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 px-6 portrait:px-8 py-2.5 portrait:py-3 rounded-md font-medium text-base portrait:text-lg shadow-lg"
               data-testid="button-close-camera"
             >
               Cancel
+            </button>
+            <button
+              onClick={capturePhoto}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 px-6 portrait:px-8 py-2.5 portrait:py-3 rounded-md font-medium text-base portrait:text-lg shadow-lg"
+              data-testid="button-capture-photo"
+            >
+              Capture
             </button>
           </div>
         </div>
