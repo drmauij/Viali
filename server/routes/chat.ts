@@ -159,11 +159,6 @@ router.post('/api/chat/:hospitalId/conversations', isAuthenticated, requireWrite
     });
     
     if (participantIds && Array.isArray(participantIds)) {
-      const creatorUser = await storage.getUser(userId);
-      const creatorName = creatorUser?.firstName && creatorUser?.lastName 
-        ? `${creatorUser.firstName} ${creatorUser.lastName}`.trim()
-        : creatorUser?.email || 'Someone';
-      
       for (const participantId of participantIds) {
         if (participantId !== userId) {
           await storage.addParticipant(conversation.id, participantId, "member");
@@ -176,13 +171,7 @@ router.post('/api/chat/:hospitalId/conversations', isAuthenticated, requireWrite
             emailSent: false,
             read: false
           });
-          
-          // Send email notification for new conversation
-          const participantUser = await storage.getUser(participantId);
-          if (participantUser?.email) {
-            sendNewConversationEmail(participantUser.email, creatorName, title || undefined)
-              .catch(err => console.error('Failed to send new conversation email:', err));
-          }
+          // Email will be sent with the first message, not here
         }
       }
     }
@@ -291,17 +280,7 @@ router.post('/api/chat/conversations/:conversationId/participants', isAuthentica
       emailSent: false,
       read: false
     });
-    
-    // Send email notification for being added to conversation
-    const adderUser = await storage.getUser(req.user.id);
-    const adderName = adderUser?.firstName && adderUser?.lastName 
-      ? `${adderUser.firstName} ${adderUser.lastName}`.trim()
-      : adderUser?.email || 'Someone';
-    const participantUser = await storage.getUser(newUserId);
-    if (participantUser?.email) {
-      sendNewConversationEmail(participantUser.email, adderName, conversation.title || undefined)
-        .catch(err => console.error('Failed to send new conversation email:', err));
-    }
+    // Email will be sent with the first message the user receives, not here
     
     const fullConversation = await storage.getConversation(conversationId);
     res.status(201).json(fullConversation);
@@ -395,22 +374,33 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
         });
         
         if (mention.type === 'user' && mention.userId && mention.userId !== userId) {
+          // Check if this user has already received a mention email in this conversation
+          const existingMentionNotifications = await storage.getUserNotificationsForConversation(
+            mention.userId, 
+            conversationId, 
+            "mention"
+          );
+          const hasReceivedMentionEmail = existingMentionNotifications.some(n => n.emailSent);
+          
           await storage.createNotification({
             userId: mention.userId,
             conversationId,
             messageId: message.id,
             notificationType: "mention",
-            emailSent: false,
+            emailSent: !hasReceivedMentionEmail, // Only mark as sent if we're sending now
             read: false
           });
           
-          const mentionedUser = await storage.getUser(mention.userId);
-          if (mentionedUser?.email) {
-            const senderName = req.user.firstName 
-              ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() 
-              : 'Someone';
-            sendMentionEmail(mentionedUser.email, senderName, content.substring(0, 200), req.conversation?.title || undefined)
-              .catch(err => console.error('Failed to send mention email:', err));
+          // Only send email for the FIRST mention in this conversation
+          if (!hasReceivedMentionEmail) {
+            const mentionedUser = await storage.getUser(mention.userId);
+            if (mentionedUser?.email) {
+              const senderName = req.user.firstName 
+                ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() 
+                : 'Someone';
+              sendMentionEmail(mentionedUser.email, senderName, content.substring(0, 200), req.conversation?.title || undefined)
+                .catch(err => console.error('Failed to send mention email:', err));
+            }
           }
         }
       }
@@ -437,19 +427,36 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
     
     for (const participant of conversation.participants) {
       if (participant.userId !== userId) {
+        // Check if this user has already received an email for this conversation (first message)
+        const existingNotifications = await storage.getUserNotificationsForConversation(
+          participant.userId, 
+          conversationId, 
+          "new_message"
+        );
+        const existingConvoNotifications = await storage.getUserNotificationsForConversation(
+          participant.userId, 
+          conversationId, 
+          "new_conversation"
+        );
+        const hasReceivedEmail = existingNotifications.some(n => n.emailSent) || 
+                                  existingConvoNotifications.some(n => n.emailSent);
+        
         await storage.createNotification({
           userId: participant.userId,
           conversationId,
           messageId: message.id,
           notificationType: "new_message",
-          emailSent: false,
+          emailSent: !hasReceivedEmail, // Only mark as sent if we're sending now
           read: false
         });
         
-        const participantUser = participant.user || await storage.getUser(participant.userId);
-        if (participantUser?.email) {
-          sendNewMessageEmail(participantUser.email, senderName, content.substring(0, 200), conversation?.title || undefined)
-            .catch(err => console.error('Failed to send new message email:', err));
+        // Only send email for the FIRST message in this conversation
+        if (!hasReceivedEmail) {
+          const participantUser = participant.user || await storage.getUser(participant.userId);
+          if (participantUser?.email) {
+            sendNewMessageEmail(participantUser.email, senderName, content.substring(0, 200), conversation?.title || undefined)
+              .catch(err => console.error('Failed to send new message email:', err));
+          }
         }
       }
     }

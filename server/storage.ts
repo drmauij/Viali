@@ -620,6 +620,7 @@ export interface IStorage {
   // Chat Notification operations
   createNotification(notification: InsertChatNotification): Promise<ChatNotification>;
   getUnreadNotifications(userId: string, hospitalId?: string): Promise<ChatNotification[]>;
+  getUserNotificationsForConversation(userId: string, conversationId: string, notificationType?: string): Promise<ChatNotification[]>;
   markNotificationRead(id: string): Promise<ChatNotification>;
   markNotificationEmailSent(id: string): Promise<ChatNotification>;
   getUnsentEmailNotifications(limit?: number): Promise<(ChatNotification & { user: User; conversation: ChatConversation })[]>;
@@ -5711,6 +5712,20 @@ export class DatabaseStorage implements IStorage {
         eq(chatNotifications.read, false)
       ))
       .orderBy(desc(chatNotifications.createdAt));
+  }
+
+  async getUserNotificationsForConversation(userId: string, conversationId: string, notificationType?: string): Promise<ChatNotification[]> {
+    const conditions = [
+      eq(chatNotifications.userId, userId),
+      eq(chatNotifications.conversationId, conversationId)
+    ];
+    if (notificationType) {
+      conditions.push(eq(chatNotifications.notificationType, notificationType));
+    }
+    return await db
+      .select()
+      .from(chatNotifications)
+      .where(and(...conditions));
   }
 
   async markNotificationRead(id: string): Promise<ChatNotification> {
