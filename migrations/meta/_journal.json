@@ -183,6 +183,13 @@
       "when": 1765797729715,
       "tag": "0025_material_champions",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1765883112573,
+      "tag": "0026_wonderful_captain_cross",
+      "breakpoints": true
     }
   ]
 }
