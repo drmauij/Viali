@@ -840,22 +840,69 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   };
 
   const formatMessageContent = (content: string, onPatientClick?: (patientId: string) => void, isOwnMessage?: boolean): JSX.Element => {
-    const userMentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
-    const patientMentionRegex = /#\[([^\]]+)\]\(([^)]+)\)/g;
-    
     const parts: (string | JSX.Element)[] = [];
-    let lastIndex = 0;
     let key = 0;
     
-    const combinedRegex = /(@\[([^\]]+)\]\(([^)]+)\))|(#\[([^\]]+)\]\(([^)]+)\))/g;
+    // Combined regex for user mentions, patient mentions, and URLs
+    // URL regex matches http://, https://, and www. URLs
+    const combinedRegex = /(@\[([^\]]+)\]\(([^)]+)\))|(#\[([^\]]+)\]\(([^)]+)\))|(https?:\/\/[^\s<>\"']+|www\.[^\s<>\"']+)/g;
+    let lastIndex = 0;
     let match;
+    
+    // Helper function to process text parts and convert URLs in plain text
+    const processTextPart = (text: string): (string | JSX.Element)[] => {
+      const urlRegex = /(https?:\/\/[^\s<>\"']+|www\.[^\s<>\"']+)/g;
+      const textParts: (string | JSX.Element)[] = [];
+      let textLastIndex = 0;
+      let urlMatch;
+      
+      while ((urlMatch = urlRegex.exec(text)) !== null) {
+        if (urlMatch.index > textLastIndex) {
+          textParts.push(text.slice(textLastIndex, urlMatch.index));
+        }
+        
+        let url = urlMatch[0];
+        // Ensure URL has protocol for www. URLs
+        const href = url.startsWith('www.') ? `https://${url}` : url;
+        // Truncate display URL if too long
+        const displayUrl = url.length > 50 ? url.substring(0, 47) + '...' : url;
+        
+        textParts.push(
+          <a
+            key={key++}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`underline hover:opacity-80 ${
+              isOwnMessage 
+                ? 'text-primary-foreground' 
+                : 'text-blue-600 dark:text-blue-400'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+            data-testid="link-external"
+          >
+            {displayUrl}
+          </a>
+        );
+        
+        textLastIndex = urlMatch.index + urlMatch[0].length;
+      }
+      
+      if (textLastIndex < text.length) {
+        textParts.push(text.slice(textLastIndex));
+      }
+      
+      return textParts.length > 0 ? textParts : [text];
+    };
     
     while ((match = combinedRegex.exec(content)) !== null) {
       if (match.index > lastIndex) {
-        parts.push(content.slice(lastIndex, match.index));
+        const textBefore = content.slice(lastIndex, match.index);
+        parts.push(...processTextPart(textBefore));
       }
       
       if (match[1]) {
+        // User mention @[name](id)
         const userName = match[2];
         parts.push(
           <span 
@@ -871,6 +918,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
           </span>
         );
       } else if (match[4]) {
+        // Patient mention #[name](id)
         const patientName = match[5];
         const patientId = match[6];
         parts.push(
@@ -893,13 +941,37 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
             {patientName}
           </button>
         );
+      } else if (match[7]) {
+        // URL match
+        let url = match[7];
+        const href = url.startsWith('www.') ? `https://${url}` : url;
+        const displayUrl = url.length > 50 ? url.substring(0, 47) + '...' : url;
+        
+        parts.push(
+          <a
+            key={key++}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={`underline hover:opacity-80 ${
+              isOwnMessage 
+                ? 'text-primary-foreground' 
+                : 'text-blue-600 dark:text-blue-400'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+            data-testid="link-external"
+          >
+            {displayUrl}
+          </a>
+        );
       }
       
       lastIndex = match.index + match[0].length;
     }
     
     if (lastIndex < content.length) {
-      parts.push(content.slice(lastIndex));
+      const textAfter = content.slice(lastIndex);
+      parts.push(...processTextPart(textAfter));
     }
     
     return <>{parts}</>;
