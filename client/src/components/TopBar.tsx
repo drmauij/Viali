@@ -1,7 +1,7 @@
 import { useTheme } from "./ThemeProvider";
 import { useLanguage } from "./LanguageProvider";
 import { useAuth } from "@/hooks/useAuth";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import ChangePasswordDialog from "./ChangePasswordDialog";
 import { useModule } from "@/contexts/ModuleContext";
@@ -46,6 +46,28 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   
   const hospitalDropdownRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Group hospitals by hospital ID for multi-hospital users
+  const groupedHospitals = useMemo(() => {
+    const grouped = new Map<string, { hospitalName: string; hospitalId: string; roles: Hospital[] }>();
+    
+    hospitals.forEach(hospital => {
+      const key = hospital.id;
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          hospitalName: hospital.name,
+          hospitalId: hospital.id,
+          roles: []
+        });
+      }
+      grouped.get(key)!.roles.push(hospital);
+    });
+    
+    return Array.from(grouped.values());
+  }, [hospitals]);
+
+  // Check if user has multiple hospitals (not just multiple roles in same hospital)
+  const hasMultipleHospitals = groupedHospitals.length > 1;
 
   const { data: notifications = [] } = useQuery<Array<{ id: string }>>({
     queryKey: ['/api/chat', activeHospital?.id, 'notifications'],
@@ -144,21 +166,62 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
             </button>
             
             {showHospitalDropdown && hospitals.length > 1 && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[60vh] overflow-y-auto">
-                {hospitals.map((hospital) => (
-                  <button
-                    key={hospital.id}
-                    className="w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground border-b border-border last:border-b-0"
-                    onClick={() => {
-                      onHospitalChange?.(hospital);
-                      setShowHospitalDropdown(false);
-                    }}
-                    data-testid={`hospital-option-${hospital.id}`}
-                  >
-                    <div className="font-medium">{hospital.name}</div>
-                    <div className="text-xs text-muted-foreground">{hospital.unitName} • {hospital.role}</div>
-                  </button>
-                ))}
+              <div className="absolute top-full left-0 mt-2 w-72 bg-card border border-border rounded-lg shadow-lg z-50 max-h-[60vh] overflow-y-auto">
+                {hasMultipleHospitals ? (
+                  // Grouped view for multi-hospital users
+                  groupedHospitals.map((group, groupIndex) => (
+                    <div key={group.hospitalId}>
+                      {/* Hospital header */}
+                      <div className="px-4 py-2 bg-muted/50 border-b border-border sticky top-0">
+                        <div className="font-semibold text-sm text-foreground flex items-center gap-2">
+                          <i className="fas fa-hospital text-xs text-primary"></i>
+                          {group.hospitalName}
+                        </div>
+                      </div>
+                      {/* Roles within this hospital */}
+                      {group.roles.map((hospital, roleIndex) => {
+                        const isActive = activeHospital?.id === hospital.id && 
+                                        activeHospital?.unitId === hospital.unitId && 
+                                        activeHospital?.role === hospital.role;
+                        return (
+                          <button
+                            key={`${hospital.id}-${hospital.unitId}-${hospital.role}`}
+                            className={`w-full px-4 py-2.5 pl-8 text-left hover:bg-accent hover:text-accent-foreground border-b border-border last:border-b-0 ${isActive ? 'bg-accent/50' : ''}`}
+                            onClick={() => {
+                              onHospitalChange?.(hospital);
+                              setShowHospitalDropdown(false);
+                            }}
+                            data-testid={`hospital-option-${hospital.id}-${hospital.unitId}`}
+                          >
+                            <div className="text-sm font-medium">{hospital.unitName}</div>
+                            <div className="text-xs text-muted-foreground">{hospital.role}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))
+                ) : (
+                  // Simple view for single hospital with multiple roles
+                  hospitals.map((hospital) => {
+                    const isActive = activeHospital?.id === hospital.id && 
+                                    activeHospital?.unitId === hospital.unitId && 
+                                    activeHospital?.role === hospital.role;
+                    return (
+                      <button
+                        key={`${hospital.id}-${hospital.unitId}-${hospital.role}`}
+                        className={`w-full px-4 py-3 text-left hover:bg-accent hover:text-accent-foreground border-b border-border last:border-b-0 ${isActive ? 'bg-accent/50' : ''}`}
+                        onClick={() => {
+                          onHospitalChange?.(hospital);
+                          setShowHospitalDropdown(false);
+                        }}
+                        data-testid={`hospital-option-${hospital.id}-${hospital.unitId}`}
+                      >
+                        <div className="font-medium">{hospital.unitName}</div>
+                        <div className="text-xs text-muted-foreground">{hospital.role}</div>
+                      </button>
+                    );
+                  })
+                )}
               </div>
             )}
           </div>

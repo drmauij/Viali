@@ -553,12 +553,56 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
       const userHospitals = await storage.getUserHospitals(existingUser.id);
       const alreadyInHospital = userHospitals.some(h => h.id === hospitalId);
       
+      // If user already exists in THIS hospital, return error
+      if (alreadyInHospital) {
+        return res.status(409).json({ 
+          code: "USER_ALREADY_IN_HOSPITAL",
+          message: "User is already a member of this hospital"
+        });
+      }
+      
+      // User exists but NOT in this hospital - silently add them
+      await storage.createUserHospitalRole({
+        userId: existingUser.id,
+        hospitalId,
+        unitId,
+        role,
+      });
+
+      const hospital = await storage.getHospital(hospitalId);
+      const adminUser = req.user as any;
+      const adminName = `${adminUser.firstName || ''} ${adminUser.lastName || ''}`.trim() || adminUser.email || 'An administrator';
+      
+      const loginUrl = process.env.PRODUCTION_URL 
+        || (process.env.REPLIT_DOMAINS?.split(',')?.[0] 
+          ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}/` 
+          : 'https://use.viali.app/');
+      
+      // Send notification email to existing user
+      try {
+        const { sendHospitalAddedNotification } = await import('../resend');
+        console.log('[User Creation] User exists, adding to hospital and sending notification:', existingUser.email);
+        const result = await sendHospitalAddedNotification(
+          existingUser.email!,
+          existingUser.firstName || 'User',
+          hospital?.name || 'a hospital',
+          adminName,
+          loginUrl
+        );
+        if (result.success) {
+          console.log('[User Creation] Hospital added notification sent successfully');
+        } else {
+          console.error('[User Creation] Failed to send notification:', result.error);
+        }
+      } catch (emailError) {
+        console.error('[User Creation] Exception sending notification:', emailError);
+      }
+
       const { passwordHash: _, ...sanitizedUser } = existingUser;
-      return res.status(409).json({ 
-        code: "USER_EXISTS",
-        message: "User with this email already exists",
-        existingUser: sanitizedUser,
-        alreadyInHospital
+      return res.status(201).json({ 
+        ...sanitizedUser, 
+        addedToHospital: true,
+        hospitalName: hospital?.name 
       });
     }
 
