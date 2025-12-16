@@ -845,16 +845,19 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   };
 
   const formatDateHeader = () => {
+    const dateLocale = i18n.language.startsWith('de') ? de : enGB;
     if (currentView === "month") {
-      return moment(selectedDate).locale(momentLocale).format('MMMM YYYY');
+      return format(selectedDate, 'MMMM yyyy', { locale: dateLocale });
     }
     if (currentView === "week") {
-      const start = moment(selectedDate).locale(momentLocale).startOf('week');
-      const end = moment(selectedDate).locale(momentLocale).endOf('week');
-      return `${start.format('DD/MM/YYYY')} - ${end.format('DD/MM/YYYY')}`;
+      const start = new Date(selectedDate);
+      start.setDate(start.getDate() - start.getDay() + 1); // Monday
+      const end = new Date(start);
+      end.setDate(end.getDate() + 6); // Sunday
+      return `${format(start, 'dd/MM/yyyy')} - ${format(end, 'dd/MM/yyyy')}`;
     }
     // Day view: show day name followed by date
-    return moment(selectedDate).locale(momentLocale).format('dddd, DD/MM/YYYY');
+    return format(selectedDate, 'EEEE, dd/MM/yyyy', { locale: dateLocale });
   };
 
   return (
