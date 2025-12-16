@@ -69,6 +69,7 @@ Core design decisions include:
 - **Comprehensive PDF Export with Visual Charts**: Complete anesthesia record PDF generation system featuring native jsPDF chart rendering for comprehensive surgical documentation. Includes five visual timeline sections: Vital Signs, Medications & Infusions, Ventilation Parameters, Fluid Balance & Output, and Heart Rhythm.
 - **Historical Record Viewport Centering**: The timeline automatically detects historical records and centers the viewport on the actual data range.
 - **Record Locking System**: Anesthesia records are automatically locked when the PACU End (A2) marker is set.
+- **Sticker Documentation Object Storage**: Sticker documentation photos are now stored in Exoscale S3-compatible object storage for improved performance. The system maintains backward compatibility with legacy base64-encoded images. New uploads use presigned URLs for direct browser-to-S3 uploads with pattern `anesthesia/sticker-docs/${recordId}/${uuid}`. Frontend handles both formats transparently.
 
 ## Planned Features
 
