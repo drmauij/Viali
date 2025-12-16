@@ -34,7 +34,8 @@ import {
   Upload,
   FileText,
   Image as ImageIcon,
-  Trash2
+  Trash2,
+  Globe
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n/config";
@@ -100,12 +101,16 @@ interface QuestionnaireConfig {
   conditionsList: Array<{
     id: string;
     label: string;
+    labelDe?: string;
+    labelEn?: string;
     helpText?: string;
     category: string;
   }>;
   allergyList: Array<{
     id: string;
     label: string;
+    labelDe?: string;
+    labelEn?: string;
     helpText?: string;
   }>;
   existingUploads?: Array<{
@@ -741,8 +746,36 @@ export default function PatientQuestionnaire() {
       <div className="max-w-2xl mx-auto p-4 pb-24">
         <Card className="mb-4">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xl">{t("questionnaire.title")}</CardTitle>
-            <CardDescription>{t("questionnaire.subtitle")}</CardDescription>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle className="text-xl">{t("questionnaire.title")}</CardTitle>
+                <CardDescription>{t("questionnaire.subtitle")}</CardDescription>
+              </div>
+              <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+                <button
+                  onClick={() => setLanguage("de")}
+                  className={`px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors ${
+                    language === "de" 
+                      ? "bg-white dark:bg-gray-700 shadow-sm font-medium" 
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                  data-testid="button-lang-de"
+                >
+                  🇩🇪 DE
+                </button>
+                <button
+                  onClick={() => setLanguage("en")}
+                  className={`px-2 py-1 text-xs rounded flex items-center gap-1 transition-colors ${
+                    language === "en" 
+                      ? "bg-white dark:bg-gray-700 shadow-sm font-medium" 
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                  data-testid="button-lang-en"
+                >
+                  🇬🇧 EN
+                </button>
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <Progress value={progress} className="h-2 mb-2" />
@@ -815,6 +848,7 @@ export default function PatientQuestionnaire() {
                 updateField={updateField}
                 conditions={config.conditionsList}
                 t={t}
+                language={language}
               />
             )}
             {currentStep === 2 && (
@@ -830,6 +864,7 @@ export default function PatientQuestionnaire() {
                 updateField={updateField}
                 allergyList={config.allergyList}
                 t={t}
+                language={language}
               />
             )}
             {currentStep === 4 && (
@@ -1010,10 +1045,16 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
 }
 
 interface ConditionsStepProps extends StepProps {
-  conditions: Array<{ id: string; label: string; helpText?: string; category: string }>;
+  conditions: Array<{ id: string; label: string; labelDe?: string; labelEn?: string; helpText?: string; category: string }>;
+  language: string;
 }
 
-function ConditionsStep({ formData, updateField, conditions, t }: ConditionsStepProps) {
+function ConditionsStep({ formData, updateField, conditions, t, language }: ConditionsStepProps) {
+  const getLabel = (item: { label: string; labelDe?: string; labelEn?: string }) => {
+    if (language === "en" && item.labelEn) return item.labelEn;
+    if (language === "de" && item.labelDe) return item.labelDe;
+    return item.label;
+  };
   const groupedConditions = conditions.reduce((acc, condition) => {
     if (!acc[condition.category]) {
       acc[condition.category] = [];
@@ -1066,7 +1107,7 @@ function ConditionsStep({ formData, updateField, conditions, t }: ConditionsStep
                         htmlFor={`condition-${condition.id}`}
                         className="font-normal cursor-pointer"
                       >
-                        {condition.label}
+                        {getLabel(condition)}
                       </Label>
                       {condition.helpText && (
                         <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
@@ -1202,10 +1243,16 @@ function MedicationsStep({ formData, updateField, t }: StepProps) {
 }
 
 interface AllergiesStepProps extends StepProps {
-  allergyList: Array<{ id: string; label: string; helpText?: string }>;
+  allergyList: Array<{ id: string; label: string; labelDe?: string; labelEn?: string; helpText?: string }>;
+  language: string;
 }
 
-function AllergiesStep({ formData, updateField, allergyList, t }: AllergiesStepProps) {
+function AllergiesStep({ formData, updateField, allergyList, t, language }: AllergiesStepProps) {
+  const getLabel = (item: { label: string; labelDe?: string; labelEn?: string }) => {
+    if (language === "en" && item.labelEn) return item.labelEn;
+    if (language === "de" && item.labelDe) return item.labelDe;
+    return item.label;
+  };
   const toggleAllergy = (id: string) => {
     const current = formData.allergies;
     if (current.includes(id)) {
@@ -1236,7 +1283,7 @@ function AllergiesStep({ formData, updateField, allergyList, t }: AllergiesStepP
               />
               <div>
                 <Label htmlFor={`allergy-${allergy.id}`} className="font-normal cursor-pointer">
-                  {allergy.label}
+                  {getLabel(allergy)}
                 </Label>
                 {allergy.helpText && (
                   <p className="text-xs text-gray-500">{allergy.helpText}</p>

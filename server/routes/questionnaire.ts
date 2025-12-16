@@ -689,6 +689,8 @@ router.get('/api/public/questionnaire/hospital/:token', async (req: Request, res
       .map((item: any) => ({
         id: item.id,
         label: item.patientLabel || item.label,
+        labelDe: item.patientLabelDe || item.patientLabel || item.label,
+        labelEn: item.patientLabelEn || item.label,
         helpText: item.patientHelpText,
         category: item.category,
       }));
@@ -830,6 +832,8 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
       .map((item: any) => ({
         id: item.id,
         label: item.patientLabel || item.label,
+        labelDe: item.patientLabelDe || item.patientLabel || item.label,
+        labelEn: item.patientLabelEn || item.label,
         helpText: item.patientHelpText,
         category: item.category,
       }));
@@ -884,6 +888,8 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
         .map((item: any) => ({
           id: item.id,
           label: item.patientLabel || item.label,
+          labelDe: item.patientLabelDe || item.patientLabel || item.label,
+          labelEn: item.patientLabelEn || item.label,
           helpText: item.patientHelpText,
         })) || [],
     });
