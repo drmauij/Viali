@@ -770,6 +770,28 @@ export const surgeries = pgTable("surgeries", {
   index("idx_surgeries_archived").on(table.isArchived),
 ]);
 
+// Surgery Notes - Multiple notes per surgery with author tracking
+export const surgeryNotes = pgTable("surgery_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  surgeryId: varchar("surgery_id").notNull().references(() => surgeries.id, { onDelete: 'cascade' }),
+  authorId: varchar("author_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_surgery_notes_surgery").on(table.surgeryId),
+  index("idx_surgery_notes_author").on(table.authorId),
+  index("idx_surgery_notes_created").on(table.createdAt),
+]);
+
+export const insertSurgeryNoteSchema = createInsertSchema(surgeryNotes).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertSurgeryNote = z.infer<typeof insertSurgeryNoteSchema>;
+export type SurgeryNote = typeof surgeryNotes.$inferSelect;
+
 // Anesthesia Records - Main perioperative anesthesia data
 export const anesthesiaRecords = pgTable("anesthesia_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
