@@ -1080,8 +1080,9 @@ export function SurgeryPlanningTable({
     if (showScheduling) count += hideRoomAndAdmission ? 0 : 1; // (admission) - status column hidden
     if (showScheduling && showPreOpColumn) count += 1; // pre-op column
     if (showPaidStatus) count += 1;
-    if (showBusiness) count += 6; // price, quote, contract sent/received, invoice, payment
+    if (showBusiness) count += 7; // price, quote, contract sent/received, invoice, payment, notes
     if (showContracts && !showBusiness) count += 1; // contract received icon only
+    if (!showBusiness) count += 1; // notes column for non-business views
     if (showImplants) count += 3;
     return count;
   }, [showClinical, showScheduling, showBusiness, showContracts, showImplants, showPaidStatus, showPreOpColumn, hideRoomAndAdmission]);
@@ -1213,6 +1214,14 @@ export function SurgeryPlanningTable({
               <TableHead className="text-center">
                 <FileText className="h-4 w-4 inline mr-1" />
                 {t("surgeryPlanning.columns.contractReceived")}
+              </TableHead>
+            )}
+            
+            {/* Notes column for non-business views */}
+            {!showBusiness && (
+              <TableHead className="text-center">
+                <FileEdit className="h-4 w-4 inline mr-1" />
+                {t("surgeryPlanning.columns.caseNotes", "Notes")}
               </TableHead>
             )}
             
@@ -1439,6 +1448,18 @@ export function SurgeryPlanningTable({
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
+                    </TableCell>
+                  )}
+                  
+                  {/* Notes column for non-business views */}
+                  {!showBusiness && (
+                    <TableCell onClick={(e) => e.stopPropagation()} className="text-center">
+                      <AdminNoteCell
+                        value={(surgery as any).administrativeNote}
+                        surgeryId={surgery.id}
+                        onUpdate={handleUpdate}
+                        isPending={isFieldPending(surgery.id, "administrativeNote")}
+                      />
                     </TableCell>
                   )}
                   
