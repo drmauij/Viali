@@ -8,6 +8,13 @@ Preferred communication style: Simple, everyday language.
 
 Deployment Environment: The application is deployed to a custom server on **Exoscale** (Ubuntu-based VPS), NOT on Replit. Do not search Replit documentation for deployment-related issues. The user has sudo access and full control over the server environment.
 
+**CRITICAL - No Replit-Specific Features:**
+- NEVER use Replit Connectors for API integrations (e.g., Resend, OpenAI, etc.)
+- NEVER use Replit-specific storage or object storage solutions
+- ALWAYS use standard environment variables for API keys and configuration
+- ALWAYS use standard libraries and SDKs directly (e.g., `RESEND_API_KEY` env var, not Replit connector)
+- All integrations must work in a standard Node.js/Linux environment without Replit dependencies
+
 ### Database Migration Workflow (CRITICAL)
 **NEVER manually create migration files without updating the journal!**
 
