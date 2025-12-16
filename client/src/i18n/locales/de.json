@@ -3243,5 +3243,49 @@
         "other": "Sonstiges"
       }
     }
+  },
+  "opCalendar": {
+    "today": "Heute",
+    "day": "Tag",
+    "week": "Woche",
+    "month": "Monat",
+    "pdf": "PDF",
+    "planStaff": "Personal planen",
+    "noHospitalSelected": "Kein Krankenhaus ausgewählt",
+    "selectHospitalToViewSchedule": "Bitte wählen Sie ein Krankenhaus aus der oberen Leiste, um den OP-Plan anzuzeigen.",
+    "noSurgeryRooms": "Keine OP-Säle konfiguriert",
+    "noSurgeryRoomsDesc": "Um den OP-Plan-Kalender zu nutzen, müssen Sie zuerst OP-Säle konfigurieren.",
+    "configureRooms": "Räume konfigurieren",
+    "dropStaffHere": "Personal hierher ziehen",
+    "cancelled": "ABGESAGT",
+    "surgeryRescheduled": "OP verschoben",
+    "surgeryRescheduledDesc": "Die OP wurde erfolgreich verschoben.",
+    "rescheduleFailed": "Verschiebung fehlgeschlagen",
+    "rescheduleFailedDesc": "OP konnte nicht verschoben werden. Bitte versuchen Sie es erneut.",
+    "staffAssignedToRoom": "Personal dem Saal zugewiesen",
+    "staffAssignedToRoomDesc": "Mitarbeiter wurde dem OP-Saal zugewiesen.",
+    "assignmentFailed": "Zuweisung fehlgeschlagen",
+    "staffAlreadyAssigned": "Dieses Personal ist bereits diesem Saal zugewiesen.",
+    "staffRemoved": "Personal entfernt",
+    "staffRemovedDesc": "Mitarbeiter wurde aus dem Saal entfernt.",
+    "removalFailed": "Entfernung fehlgeschlagen",
+    "removalFailedDesc": "Personal konnte nicht aus dem Saal entfernt werden.",
+    "noSurgeries": "Keine OPs",
+    "noSurgeriesDesc": "Für diesen Tag sind keine OPs geplant."
+  },
+  "staffPool": {
+    "planStaff": "Personal planen",
+    "searchStaff": "Personal suchen...",
+    "newStaffName": "Neuer Mitarbeitername...",
+    "noStaffFound": "Kein Personal gefunden",
+    "alreadyPlanned": "Geplant",
+    "noSelection": "Kein Personal ausgewählt",
+    "selectStaff": "Bitte wählen Sie mindestens einen Mitarbeiter aus",
+    "staffPlanned": "Personal wurde für diesen Tag eingeplant",
+    "planError": "Personal konnte nicht eingeplant werden",
+    "planSelected": "Planen",
+    "createChoice": "Wie möchten Sie \"{{name}}\" hinzufügen?",
+    "createAsUser": "Als Benutzer",
+    "createAsText": "Nur Text"
   }
 }

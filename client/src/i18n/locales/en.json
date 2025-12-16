@@ -3224,5 +3224,49 @@
         "other": "Other"
       }
     }
+  },
+  "opCalendar": {
+    "today": "Today",
+    "day": "Day",
+    "week": "Week",
+    "month": "Month",
+    "pdf": "PDF",
+    "planStaff": "Plan Staff",
+    "noHospitalSelected": "No Hospital Selected",
+    "selectHospitalToViewSchedule": "Please select a hospital from the top bar to view the OP Schedule.",
+    "noSurgeryRooms": "No Surgery Rooms Configured",
+    "noSurgeryRoomsDesc": "To use the OP Schedule calendar, you need to configure surgery rooms first.",
+    "configureRooms": "Configure Rooms",
+    "dropStaffHere": "Drop staff here",
+    "cancelled": "CANCELLED",
+    "surgeryRescheduled": "Surgery Rescheduled",
+    "surgeryRescheduledDesc": "Surgery has been successfully rescheduled.",
+    "rescheduleFailed": "Reschedule Failed",
+    "rescheduleFailedDesc": "Failed to reschedule surgery. Please try again.",
+    "staffAssignedToRoom": "Staff Assigned to Room",
+    "staffAssignedToRoomDesc": "Staff member has been assigned to the operating room.",
+    "assignmentFailed": "Assignment Failed",
+    "staffAlreadyAssigned": "This staff is already assigned to this room.",
+    "staffRemoved": "Staff Removed",
+    "staffRemovedDesc": "Staff member has been removed from the room.",
+    "removalFailed": "Removal Failed",
+    "removalFailedDesc": "Failed to remove staff from room.",
+    "noSurgeries": "No surgeries",
+    "noSurgeriesDesc": "There are no surgeries planned for this day."
+  },
+  "staffPool": {
+    "planStaff": "Plan Staff",
+    "searchStaff": "Search staff...",
+    "newStaffName": "New staff name...",
+    "noStaffFound": "No staff found",
+    "alreadyPlanned": "Planned",
+    "noSelection": "No staff selected",
+    "selectStaff": "Please select at least one staff member",
+    "staffPlanned": "Staff has been planned for this day",
+    "planError": "Failed to plan staff",
+    "planSelected": "Plan",
+    "createChoice": "How would you like to add \"{{name}}\"?",
+    "createAsUser": "As User",
+    "createAsText": "Text Only"
   }
 }

@@ -62,7 +62,7 @@ const ROLE_CONFIG: Record<StaffRole, { icon: typeof User; labelKey: string; colo
 };
 
 export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hospitalId }: PlanStaffDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
   const queryClient = useQueryClient();
@@ -265,7 +265,7 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
             {t('staffPool.planStaff', 'Plan Staff')}
           </DialogTitle>
           <DialogDescription>
-            {selectedDate.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
+            {selectedDate.toLocaleDateString(i18n.language === 'de' ? 'de-DE' : 'en-GB', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' })}
           </DialogDescription>
         </DialogHeader>
         

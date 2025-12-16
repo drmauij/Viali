@@ -3,12 +3,15 @@ import { Calendar, momentLocalizer, View, SlotInfo, CalendarProps, EventProps, E
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 import moment from "moment";
 import "moment/locale/en-gb";
+import "moment/locale/de";
 import { DndContext, DragEndEvent, DragOverlay, useSensor, useSensors, PointerSensor, useDroppable } from "@dnd-kit/core";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download } from "lucide-react";
 import { format } from "date-fns";
+import { de, enGB } from "date-fns/locale";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -95,12 +98,14 @@ function DroppableRoomHeader({
   resource, 
   label, 
   roomStaff,
-  onRemoveStaff
+  onRemoveStaff,
+  dropStaffText
 }: { 
   resource: CalendarResource; 
   label: string;
   roomStaff: RoomStaffAssignment[];
   onRemoveStaff: (assignmentId: string) => void;
+  dropStaffText: string;
 }) {
   const { isOver, setNodeRef } = useDroppable({
     id: `room-${resource.id}`,
@@ -155,7 +160,7 @@ function DroppableRoomHeader({
           </div>
         ) : (
           <div className="text-[10px] text-muted-foreground pt-1 italic">
-            Drop staff here
+            {dropStaffText}
           </div>
         )}
       </div>
@@ -164,6 +169,14 @@ function DroppableRoomHeader({
 }
 
 export default function OPCalendar({ onEventClick }: OPCalendarProps) {
+  const { t, i18n } = useTranslation();
+  
+  // Set moment locale based on i18n language
+  useEffect(() => {
+    const locale = i18n.language === 'de' ? 'de' : 'en-gb';
+    moment.locale(locale);
+  }, [i18n.language]);
+  
   // Restore calendar view and date from sessionStorage
   const [currentView, setCurrentView] = useState<ViewType>(() => {
     const saved = sessionStorage.getItem(CALENDAR_VIEW_KEY);
@@ -478,8 +491,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
 
     if (daySurgeries.length === 0) {
       toast({
-        title: "No surgeries",
-        description: "There are no surgeries planned for this day.",
+        title: t('opCalendar.noSurgeries'),
+        description: t('opCalendar.noSurgeriesDesc'),
         variant: "destructive",
       });
       return;
@@ -538,15 +551,21 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     onSuccess: () => {
       invalidateRoomStaffQueries();
       toast({
-        title: "Staff Assigned to Room",
-        description: "Staff member has been assigned to the operating room.",
+        title: t('opCalendar.staffAssignedToRoom'),
+        description: t('opCalendar.staffAssignedToRoomDesc'),
       });
     },
     onError: (error: any) => {
-      const message = error?.message || 'Failed to assign staff to room';
+      const message = error?.message || '';
+      let description = t('opCalendar.assignmentFailed');
+      if (message.includes('already assigned')) {
+        description = t('opCalendar.staffAlreadyAssigned');
+      } else if (message) {
+        description = message;
+      }
       toast({
-        title: "Assignment Failed",
-        description: message.includes('already assigned') ? 'This staff is already assigned to this room.' : message,
+        title: t('opCalendar.assignmentFailed'),
+        description,
         variant: "destructive",
       });
     },
@@ -560,14 +579,14 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     onSuccess: () => {
       invalidateRoomStaffQueries();
       toast({
-        title: "Staff Removed",
-        description: "Staff member has been removed from the room.",
+        title: t('opCalendar.staffRemoved'),
+        description: t('opCalendar.staffRemovedDesc'),
       });
     },
     onError: () => {
       toast({
-        title: "Removal Failed",
-        description: "Failed to remove staff from room.",
+        title: t('opCalendar.removalFailed'),
+        description: t('opCalendar.removalFailedDesc'),
         variant: "destructive",
       });
     },
@@ -625,14 +644,14 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
       
       toast({
-        title: "Surgery Rescheduled",
-        description: "Surgery has been successfully rescheduled.",
+        title: t('opCalendar.surgeryRescheduled'),
+        description: t('opCalendar.surgeryRescheduledDesc'),
       });
     } catch (error) {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
       toast({
-        title: "Reschedule Failed",
-        description: "Failed to reschedule surgery. Please try again.",
+        title: t('opCalendar.rescheduleFailed'),
+        description: t('opCalendar.rescheduleFailedDesc'),
         variant: "destructive",
       });
     }
@@ -743,7 +762,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           {event.patientBirthday && ` ${event.patientBirthday}`}
         </div>
         {event.isCancelled && (
-          <div className="text-xs font-semibold mt-0.5">CANCELLED</div>
+          <div className="text-xs font-semibold mt-0.5">{t('opCalendar.cancelled')}</div>
         )}
       </div>
     );
@@ -866,7 +885,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             data-testid="button-calendar-today"
             className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
           >
-            Today
+            {t('opCalendar.today')}
           </Button>
           <Button
             variant="outline"
@@ -894,7 +913,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
           >
             <CalendarIcon className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-            <span className="hidden sm:inline">Day</span>
+            <span className="hidden sm:inline">{t('opCalendar.day')}</span>
           </Button>
           <Button
             variant={currentView === "week" ? "default" : "outline"}
@@ -904,7 +923,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
           >
             <CalendarDays className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-            <span className="hidden sm:inline">Week</span>
+            <span className="hidden sm:inline">{t('opCalendar.week')}</span>
           </Button>
           <Button
             variant={currentView === "month" ? "default" : "outline"}
@@ -914,7 +933,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
           >
             <CalendarRange className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-            <span className="hidden sm:inline">Month</span>
+            <span className="hidden sm:inline">{t('opCalendar.month')}</span>
           </Button>
           {activeHospital && currentView === "day" && (
             <Button
@@ -925,7 +944,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
               className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
             >
               <Download className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-              <span className="hidden sm:inline">PDF</span>
+              <span className="hidden sm:inline">{t('opCalendar.pdf')}</span>
             </Button>
           )}
           {activeHospital && currentView === "day" && (
@@ -937,7 +956,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
               className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
             >
               <Users className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-              <span className="hidden sm:inline">Plan Staff</span>
+              <span className="hidden sm:inline">{t('opCalendar.planStaff')}</span>
             </Button>
           )}
         </div>
@@ -949,9 +968,9 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           <Card className="max-w-md w-full">
             <CardContent className="py-12 text-center">
               <Building2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">No Hospital Selected</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('opCalendar.noHospitalSelected')}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                Please select a hospital from the top bar to view the OP Schedule.
+                {t('opCalendar.selectHospitalToViewSchedule')}
               </p>
             </CardContent>
           </Card>
@@ -964,16 +983,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           <Card className="max-w-md w-full">
             <CardContent className="py-12 text-center">
               <Building2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h3 className="text-lg font-semibold mb-2">No Surgery Rooms Configured</h3>
+              <h3 className="text-lg font-semibold mb-2">{t('opCalendar.noSurgeryRooms')}</h3>
               <p className="text-sm text-muted-foreground mb-4">
-                To use the OP Schedule calendar, you need to configure surgery rooms first.
+                {t('opCalendar.noSurgeryRoomsDesc')}
               </p>
               <Button 
                 onClick={() => setLocation("/anesthesia/settings")}
                 data-testid="button-configure-rooms"
               >
                 <i className="fas fa-cog mr-2"></i>
-                Configure Rooms
+                {t('opCalendar.configureRooms')}
               </Button>
             </CardContent>
           </Card>
@@ -1015,15 +1034,15 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
                   });
                   queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
                   toast({
-                    title: "Surgery Rescheduled",
-                    description: "Surgery has been successfully rescheduled.",
+                    title: t('opCalendar.surgeryRescheduled'),
+                    description: t('opCalendar.surgeryRescheduledDesc'),
                   });
                 } catch (error) {
                   console.error('Failed to update surgery:', error);
                   queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
                   toast({
-                    title: "Error",
-                    description: "Failed to reschedule surgery. Please try again.",
+                    title: t('common.error'),
+                    description: t('opCalendar.rescheduleFailedDesc'),
                     variant: "destructive",
                   });
                 }
@@ -1072,6 +1091,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
                     label={String(label)} 
                     roomStaff={roomStaff}
                     onRemoveStaff={handleRemoveRoomStaff}
+                    dropStaffText={t('opCalendar.dropStaffHere')}
                   />
                 ),
               }}
