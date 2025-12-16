@@ -1421,9 +1421,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Return the merged order
       const mergedOrder = await storage.getOrder(targetOrder.id);
       res.json(mergedOrder);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error merging orders:", error);
-      res.status(500).json({ message: "Failed to merge orders" });
+      console.error("Error stack:", error?.stack);
+      res.status(500).json({ message: "Failed to merge orders", error: error?.message || String(error) });
     }
   });
 
