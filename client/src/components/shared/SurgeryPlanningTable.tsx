@@ -24,7 +24,8 @@ import {
   Stethoscope,
   CheckCircle2,
   XCircle,
-  StickyNote
+  StickyNote,
+  Plus
 } from "lucide-react";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import {
@@ -174,6 +175,281 @@ interface AdminNoteCellProps {
   surgeryId: string;
 }
 
+// Shared utilities for notes
+const renderNoteContent = (content: string) => {
+  const parts: Array<{ type: 'text' | 'mention'; content: string; display?: string }> = [];
+  const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
+  let lastIndex = 0;
+  let match;
+  
+  while ((match = mentionRegex.exec(content)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({ type: 'text', content: content.slice(lastIndex, match.index) });
+    }
+    parts.push({ type: 'mention', content: match[2], display: match[1] });
+    lastIndex = match.index + match[0].length;
+  }
+  if (lastIndex < content.length) {
+    parts.push({ type: 'text', content: content.slice(lastIndex) });
+  }
+
+  return parts.map((part, i) => 
+    part.type === 'mention' 
+      ? <span key={i} className="bg-primary/20 text-primary rounded px-1">@{part.display}</span>
+      : <span key={i}>{part.content}</span>
+  );
+};
+
+const formatNoteAuthor = (author: SurgeryNoteWithAuthor['author']) => {
+  if (author.firstName || author.lastName) {
+    return `${author.firstName || ''} ${author.lastName || ''}`.trim();
+  }
+  return author.email || 'Unknown';
+};
+
+const formatNoteDate = (dateStr: string) => {
+  try {
+    return format(parseISO(dateStr), 'dd.MM.yyyy HH:mm');
+  } catch {
+    return dateStr;
+  }
+};
+
+// Inline Case Notes component for expanded row detail
+function InlineCaseNotes({ surgeryId }: { surgeryId: string }) {
+  const { t } = useTranslation();
+  const activeHospital = useActiveHospital();
+  const [showAllNotes, setShowAllNotes] = useState(false);
+  const [newNoteContent, setNewNoteContent] = useState("");
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState("");
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { data: notes = [], isLoading } = useQuery<SurgeryNoteWithAuthor[]>({
+    queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'],
+    queryFn: async () => {
+      const response = await fetch(`/api/anesthesia/surgeries/${surgeryId}/notes`);
+      if (!response.ok) throw new Error('Failed to fetch notes');
+      return response.json();
+    },
+  });
+
+  const { data: mentionableUsers = [] } = useQuery<MentionableUser[]>({
+    queryKey: ['/api/anesthesia/hospitals', activeHospital?.id, 'users'],
+    queryFn: async () => {
+      const response = await fetch(`/api/anesthesia/hospitals/${activeHospital?.id}/users`);
+      if (!response.ok) throw new Error('Failed to fetch users');
+      return response.json();
+    },
+    enabled: !!activeHospital?.id,
+  });
+
+  const mentionSuggestions = useMemo(() => {
+    if (!showMentionSuggestions) return [];
+    const searchLower = mentionSearch.toLowerCase();
+    return mentionableUsers
+      .filter(user => {
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase();
+        const email = (user.email || '').toLowerCase();
+        return name.includes(searchLower) || email.includes(searchLower);
+      })
+      .slice(0, 5)
+      .map(user => ({
+        id: user.id,
+        display: user.firstName && user.lastName 
+          ? `${user.firstName} ${user.lastName}` 
+          : user.email || user.id,
+      }));
+  }, [showMentionSuggestions, mentionSearch, mentionableUsers]);
+
+  const createNoteMutation = useMutation({
+    mutationFn: async (content: string) => {
+      return apiRequest('POST', `/api/anesthesia/surgeries/${surgeryId}/notes`, { content });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'] });
+      setNewNoteContent("");
+    },
+  });
+
+  const deleteNoteMutation = useMutation({
+    mutationFn: async (noteId: string) => {
+      return apiRequest('DELETE', `/api/anesthesia/surgery-notes/${noteId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'] });
+    },
+  });
+
+  const handleAddNote = () => {
+    if (newNoteContent.trim()) {
+      createNoteMutation.mutate(newNoteContent.trim());
+    }
+  };
+
+  const handleNoteInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setNewNoteContent(value);
+
+    const cursorPos = e.target.selectionStart;
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (atMatch) {
+      setShowMentionSuggestions(true);
+      setMentionSearch(atMatch[1]);
+      setMentionStartIndex(cursorPos - atMatch[0].length);
+      setSelectedMentionIndex(0);
+    } else {
+      setShowMentionSuggestions(false);
+      setMentionSearch("");
+      setMentionStartIndex(-1);
+    }
+  };
+
+  const insertMention = (suggestion: { id: string; display: string }) => {
+    const mentionText = `@[${suggestion.display}](${suggestion.id}) `;
+    const newText = newNoteContent.slice(0, mentionStartIndex) + mentionText + newNoteContent.slice(textareaRef.current?.selectionStart || newNoteContent.length);
+    setNewNoteContent(newText);
+    setShowMentionSuggestions(false);
+    setMentionSearch("");
+    setMentionStartIndex(-1);
+    textareaRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (showMentionSuggestions && mentionSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex(prev => (prev < mentionSuggestions.length - 1 ? prev + 1 : 0));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex(prev => (prev > 0 ? prev - 1 : mentionSuggestions.length - 1));
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertMention(mentionSuggestions[selectedMentionIndex]);
+      } else if (e.key === 'Escape') {
+        setShowMentionSuggestions(false);
+      }
+    } else if (e.key === 'Enter' && !e.shiftKey && newNoteContent.trim()) {
+      e.preventDefault();
+      handleAddNote();
+    }
+  };
+
+  const PREVIEW_COUNT = 3;
+  const displayedNotes = showAllNotes ? notes : notes.slice(0, PREVIEW_COUNT);
+  const hasMoreNotes = notes.length > PREVIEW_COUNT;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>{t("common.loading", "Loading...")}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {notes.length === 0 ? (
+        <p className="text-sm text-muted-foreground italic">
+          {t("surgeryPlanning.noNotesYet", "No notes yet")}
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {displayedNotes.map((note) => (
+            <div key={note.id} className="border rounded-md p-2 bg-background text-sm group">
+              <div className="flex items-start justify-between gap-2">
+                <p className="flex-1 whitespace-pre-wrap break-words">{renderNoteContent(note.content)}</p>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 w-5 p-0 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  onClick={() => deleteNoteMutation.mutate(note.id)}
+                  disabled={deleteNoteMutation.isPending}
+                  data-testid={`button-delete-inline-note-${note.id}`}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {formatNoteAuthor(note.author)} · {formatNoteDate(note.createdAt)}
+              </div>
+            </div>
+          ))}
+          
+          {hasMoreNotes && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-auto py-1 px-2"
+              onClick={() => setShowAllNotes(!showAllNotes)}
+              data-testid={`button-toggle-notes-${surgeryId}`}
+            >
+              {showAllNotes 
+                ? t("surgeryPlanning.showLessNotes", "Show less") 
+                : t("surgeryPlanning.showAllNotes", "Show all {{count}} notes", { count: notes.length })}
+              {showAllNotes ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />}
+            </Button>
+          )}
+        </div>
+      )}
+      
+      {/* Quick add input */}
+      <div className="relative">
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <Textarea
+              ref={textareaRef}
+              value={newNoteContent}
+              onChange={handleNoteInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder={t("surgeryPlanning.quickAddNote", "Add note... (@ to mention, Enter to save)")}
+              rows={1}
+              className="resize-none text-sm min-h-[36px] py-2"
+              data-testid={`textarea-inline-note-${surgeryId}`}
+            />
+            {showMentionSuggestions && mentionSuggestions.length > 0 && (
+              <div className="absolute bottom-full left-0 mb-1 w-full bg-popover border rounded-md shadow-lg z-50 max-h-[150px] overflow-y-auto">
+                {mentionSuggestions.map((suggestion, index) => (
+                  <button
+                    key={suggestion.id}
+                    type="button"
+                    className={cn(
+                      "w-full px-3 py-2 text-left text-sm hover:bg-muted cursor-pointer",
+                      index === selectedMentionIndex && "bg-muted"
+                    )}
+                    onClick={() => insertMention(suggestion)}
+                  >
+                    {suggestion.display}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <Button 
+            size="sm"
+            onClick={handleAddNote} 
+            disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+            className="shrink-0"
+            data-testid={`button-inline-add-note-${surgeryId}`}
+          >
+            {createNoteMutation.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Column icon cell - just shows icon with badge, opens dialog for management
 function AdminNoteCell({ surgeryId }: AdminNoteCellProps) {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
@@ -295,45 +571,6 @@ function AdminNoteCell({ surgeryId }: AdminNoteCellProps) {
     }
   };
 
-  const renderNoteContent = (content: string) => {
-    const parts: Array<{ type: 'text' | 'mention'; content: string; display?: string }> = [];
-    const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
-    let lastIndex = 0;
-    let match;
-    
-    while ((match = mentionRegex.exec(content)) !== null) {
-      if (match.index > lastIndex) {
-        parts.push({ type: 'text', content: content.slice(lastIndex, match.index) });
-      }
-      parts.push({ type: 'mention', content: match[2], display: match[1] });
-      lastIndex = match.index + match[0].length;
-    }
-    if (lastIndex < content.length) {
-      parts.push({ type: 'text', content: content.slice(lastIndex) });
-    }
-
-    return parts.map((part, i) => 
-      part.type === 'mention' 
-        ? <span key={i} className="bg-primary/20 text-primary rounded px-1">@{part.display}</span>
-        : <span key={i}>{part.content}</span>
-    );
-  };
-
-  const formatAuthor = (author: SurgeryNoteWithAuthor['author']) => {
-    if (author.firstName || author.lastName) {
-      return `${author.firstName || ''} ${author.lastName || ''}`.trim();
-    }
-    return author.email || 'Unknown';
-  };
-
-  const formatNoteDate = (dateStr: string) => {
-    try {
-      return format(parseISO(dateStr), 'dd.MM.yyyy HH:mm');
-    } catch {
-      return dateStr;
-    }
-  };
-
   const [previewLoaded, setPreviewLoaded] = useState(false);
   const [noteCount, setNoteCount] = useState(0);
 
@@ -418,7 +655,7 @@ function AdminNoteCell({ surgeryId }: AdminNoteCellProps) {
                     </Button>
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
-                    <span className="font-medium">{formatAuthor(note.author)}</span>
+                    <span className="font-medium">{formatNoteAuthor(note.author)}</span>
                     <span>·</span>
                     <span>{formatNoteDate(note.createdAt)}</span>
                   </div>
@@ -1767,12 +2004,12 @@ export function SurgeryPlanningTable({
                           </div>
                         )}
                         
-                        <div>
+                        <div className="lg:col-span-2">
                           <h4 className="font-semibold mb-2 flex items-center gap-2">
                             <StickyNote className="h-4 w-4" />
                             {t("surgeryPlanning.caseNotesTitle", "Case Notes")}
                           </h4>
-                          <AdminNoteCell surgeryId={surgery.id} />
+                          <InlineCaseNotes surgeryId={surgery.id} />
                         </div>
                         
                         {showImplants && surgery.implantDetails && (
