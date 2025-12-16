@@ -1272,6 +1272,16 @@ export default function Hospital() {
                                     {s.totalItemsInHospital} total items, {s.itemsWithSupplierCode} with Galexis codes configured
                                   </p>
                                 )}
+                                {s.galexisApiDebug && (
+                                  <details className="mt-2">
+                                    <summary className="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline">
+                                      Show API Debug Info
+                                    </summary>
+                                    <pre className="mt-2 p-2 bg-muted rounded text-xs overflow-auto max-h-64 whitespace-pre-wrap">
+                                      {JSON.stringify(s.galexisApiDebug, null, 2)}
+                                    </pre>
+                                  </details>
+                                )}
                               </>
                             );
                           } catch { return <p>{job.summary}</p>; }

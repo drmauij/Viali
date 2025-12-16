@@ -163,6 +163,8 @@ export class GalexisClient {
           debugInfo: {
             responseType: 'nothingFound',
             message: 'Die Galexis API hat "nothingFound" zurückgegeben - keine kundenspezifischen Konditionen hinterlegt',
+            explanation: 'Der Galexis-Account benötigt aktivierte Produktkonditionen. Bitte kontaktieren Sie Galexis Support.',
+            rawXmlPreview: responseXml.substring(0, 1000),
             parsedResponse: conditionsResponse,
             apiEndpoint: this.baseUrl,
             customerNumber: this.customerNumber,
