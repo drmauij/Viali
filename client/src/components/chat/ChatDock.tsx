@@ -1567,27 +1567,6 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                 </Button>
               </div>
 
-              {/* Selected contacts chips - WhatsApp style To: line */}
-              {selectedContacts.length > 0 && (
-                <div className="px-4 py-2 border-b border-border flex flex-wrap items-center gap-2">
-                  <span className="text-sm text-muted-foreground">To:</span>
-                  {selectedContacts.map((contact) => (
-                    <span
-                      key={contact.id}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
-                    >
-                      {contact.name}
-                      <button
-                        onClick={() => setSelectedContacts(prev => prev.filter(c => c.id !== contact.id))}
-                        className="ml-1 hover:bg-primary/20 rounded-full p-0.5"
-                        data-testid={`remove-contact-${contact.id}`}
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
 
               <div className="flex-1 flex flex-col min-h-0 relative">
                 {/* Quick Actions */}
@@ -1678,7 +1657,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                       return (
                         <button
                           key={u.id}
-                          className="w-full p-3 hover:bg-accent/50 text-left flex items-center gap-3"
+                          className={`w-full p-3 text-left flex items-center gap-3 ${
+                            isSelected 
+                              ? 'bg-primary/15 hover:bg-primary/20' 
+                              : 'hover:bg-accent/50'
+                          }`}
                           onClick={() => {
                             if (isSelected) {
                               setSelectedContacts(prev => prev.filter(c => c.id !== u.id));
