@@ -2590,7 +2590,9 @@
       "invalidFileType": "Ungültiger Dateityp",
       "allowedFormats": "Bitte JPEG, PNG, GIF Bilder oder PDF Dateien hochladen",
       "fileTooLarge": "Datei zu groß",
-      "maxFileSize": "Maximale Dateigröße ist 5MB"
+      "maxFileSize": "Maximale Dateigröße ist 20MB",
+      "docUploaded": "Dokument erfolgreich hochgeladen",
+      "uploadFailed": "Dokument konnte nicht hochgeladen werden"
     }
   },
   "clinic": {

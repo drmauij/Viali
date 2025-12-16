@@ -2591,7 +2591,9 @@
       "invalidFileType": "Invalid File Type",
       "allowedFormats": "Please upload JPEG, PNG, GIF images or PDF files",
       "fileTooLarge": "File Too Large",
-      "maxFileSize": "Maximum file size is 5MB"
+      "maxFileSize": "Maximum file size is 20MB",
+      "docUploaded": "Document uploaded successfully",
+      "uploadFailed": "Failed to upload document"
     }
   },
   "clinic": {

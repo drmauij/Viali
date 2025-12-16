@@ -1726,6 +1726,96 @@ router.patch('/api/anesthesia/records/:id/counts-sterile', isAuthenticated, requ
   }
 });
 
+// Get presigned upload URL for sticker documentation
+router.post('/api/anesthesia/records/:id/sticker-doc/upload-url', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { filename, contentType } = req.body;
+    const userId = req.user.id;
+
+    const record = await storage.getAnesthesiaRecordById(id);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Check if record is locked
+    if (record.caseStatus === 'closed' || record.caseStatus === 'amended') {
+      return res.status(400).json({ message: "Cannot add documents to a closed record" });
+    }
+
+    const { objectStorageService } = await import('../objectStorage');
+    
+    if (!objectStorageService.isConfigured()) {
+      return res.status(503).json({ message: "Object storage not configured" });
+    }
+
+    const { uploadURL, storageKey } = await objectStorageService.getStickerDocUploadURL(id, filename, contentType);
+
+    res.json({ uploadURL, storageKey });
+  } catch (error) {
+    console.error("Error getting sticker doc upload URL:", error);
+    res.status(500).json({ message: "Failed to get upload URL" });
+  }
+});
+
+// Get presigned download URL for sticker documentation
+router.get('/api/anesthesia/records/:id/sticker-doc/:docId/download-url', isAuthenticated, async (req: any, res) => {
+  try {
+    const { id, docId } = req.params;
+    const userId = req.user.id;
+
+    const record = await storage.getAnesthesiaRecordById(id);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Find the sticker doc in the record
+    const stickerDoc = (record.countsSterileData?.stickerDocs || []).find(doc => doc.id === docId);
+    if (!stickerDoc) {
+      return res.status(404).json({ message: "Sticker document not found" });
+    }
+
+    if (!stickerDoc.storageKey) {
+      return res.status(400).json({ message: "Document is stored in legacy format" });
+    }
+
+    const { objectStorageService } = await import('../objectStorage');
+    
+    if (!objectStorageService.isConfigured()) {
+      return res.status(503).json({ message: "Object storage not configured" });
+    }
+
+    const downloadURL = await objectStorageService.getObjectDownloadURL(stickerDoc.storageKey, 3600);
+
+    res.json({ downloadURL });
+  } catch (error) {
+    console.error("Error getting sticker doc download URL:", error);
+    res.status(500).json({ message: "Failed to get download URL" });
+  }
+});
+
 router.post('/api/anesthesia/records/:id/close', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { id } = req.params;

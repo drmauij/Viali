@@ -592,10 +592,13 @@ export default function Op() {
     countsSterileAutoSave.mutate(updated);
   };
 
-  // Handle sticker documentation file upload
-  const handleStickerFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // State for sticker doc upload progress
+  const [stickerUploadProgress, setStickerUploadProgress] = useState<string | null>(null);
+
+  // Handle sticker documentation file upload - uses object storage
+  const handleStickerFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file || !anesthesiaRecord?.id) return;
 
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'application/pdf'];
@@ -608,8 +611,8 @@ export default function Op() {
       return;
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024;
+    // Validate file size (max 20MB for object storage)
+    const maxSize = 20 * 1024 * 1024;
     if (file.size > maxSize) {
       toast({
         title: t('surgery.sterile.fileTooLarge'),
@@ -619,15 +622,73 @@ export default function Op() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
+    // Reset input early
+    if (event.target) {
+      event.target.value = '';
+    }
+
+    try {
+      setStickerUploadProgress('uploading');
+      
+      // Step 1: Get presigned upload URL from backend
+      const urlRes = await fetch(`/api/anesthesia/records/${anesthesiaRecord.id}/sticker-doc/upload-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ filename: file.name, contentType: file.type }),
+      });
+
+      if (!urlRes.ok) {
+        const err = await urlRes.json();
+        // Fall back to base64 if object storage not configured
+        if (urlRes.status === 503) {
+          console.log('Object storage not configured, falling back to base64');
+          const reader = new FileReader();
+          reader.onload = () => {
+            const base64 = reader.result as string;
+            const newDoc = {
+              id: `sticker-${Date.now()}`,
+              type: (file.type === 'application/pdf' ? 'pdf' : 'photo') as 'photo' | 'pdf',
+              data: base64,
+              filename: file.name,
+              mimeType: file.type,
+              size: file.size,
+              createdAt: Date.now(),
+              createdBy: user ? getUserDisplayName(user) : undefined,
+            };
+            const updatedDocs = [...(countsSterileData.stickerDocs || []), newDoc];
+            const updated = { ...countsSterileData, stickerDocs: updatedDocs };
+            setCountsSterileData(updated);
+            countsSterileAutoSave.mutate(updated);
+            setStickerUploadProgress(null);
+          };
+          reader.readAsDataURL(file);
+          return;
+        }
+        throw new Error(err.message || 'Failed to get upload URL');
+      }
+
+      const { uploadURL, storageKey } = await urlRes.json();
+
+      // Step 2: Upload file directly to S3
+      const uploadRes = await fetch(uploadURL, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type },
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error('Failed to upload file to storage');
+      }
+
+      // Step 3: Save metadata with storageKey
       const newDoc = {
         id: `sticker-${Date.now()}`,
         type: (file.type === 'application/pdf' ? 'pdf' : 'photo') as 'photo' | 'pdf',
-        data: base64,
+        storageKey,
         filename: file.name,
         mimeType: file.type,
+        size: file.size,
         createdAt: Date.now(),
         createdBy: user ? getUserDisplayName(user) : undefined,
       };
@@ -636,12 +697,20 @@ export default function Op() {
       const updated = { ...countsSterileData, stickerDocs: updatedDocs };
       setCountsSterileData(updated);
       countsSterileAutoSave.mutate(updated);
-    };
-    reader.readAsDataURL(file);
+      setStickerUploadProgress(null);
 
-    // Reset input
-    if (event.target) {
-      event.target.value = '';
+      toast({
+        title: t('common.success'),
+        description: t('surgery.sterile.docUploaded'),
+      });
+    } catch (error: any) {
+      console.error('Sticker doc upload error:', error);
+      setStickerUploadProgress(null);
+      toast({
+        title: t('common.error'),
+        description: error.message || t('surgery.sterile.uploadFailed'),
+        variant: 'destructive',
+      });
     }
   };
 
@@ -651,6 +720,33 @@ export default function Op() {
     const updated = { ...countsSterileData, stickerDocs: updatedDocs };
     setCountsSterileData(updated);
     countsSterileAutoSave.mutate(updated);
+  };
+
+  // State for cached sticker doc URLs (for storage-backed docs)
+  const [stickerDocUrls, setStickerDocUrls] = useState<Record<string, string>>({});
+
+  // Fetch download URL for storage-backed sticker doc
+  const fetchStickerDocUrl = async (docId: string) => {
+    if (!anesthesiaRecord?.id || stickerDocUrls[docId]) return;
+    
+    try {
+      const res = await fetch(`/api/anesthesia/records/${anesthesiaRecord.id}/sticker-doc/${docId}/download-url`, {
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const { downloadURL } = await res.json();
+        setStickerDocUrls(prev => ({ ...prev, [docId]: downloadURL }));
+      }
+    } catch (error) {
+      console.error('Error fetching sticker doc URL:', error);
+    }
+  };
+
+  // Get display URL for a sticker doc (handles both legacy and storage-backed)
+  const getStickerDocSrc = (doc: { id: string; data?: string | null; storageKey?: string | null }) => {
+    if (doc.data) return doc.data; // Legacy base64
+    if (doc.storageKey && stickerDocUrls[doc.id]) return stickerDocUrls[doc.id]; // Cached storage URL
+    return null; // Need to fetch
   };
 
   // Update allergies from patient table and CAVE from preOp assessment
@@ -867,7 +963,7 @@ export default function Op() {
     surgicalCounts?: Array<{ id: string; name: string; count1?: number | null; count2?: number | null; countFinal?: number | null }>;
     sterileItems?: Array<{ id: string; name: string; lotNumber?: string; quantity: number }>;
     sutures?: Record<string, string>;
-    stickerDocs?: Array<{ id: string; type: 'photo' | 'pdf'; data: string; filename?: string; mimeType?: string; createdAt?: number; createdBy?: string }>;
+    stickerDocs?: Array<{ id: string; type: 'photo' | 'pdf'; data?: string | null; storageKey?: string | null; filename?: string; mimeType?: string; size?: number | null; createdAt?: number; createdBy?: string }>;
     signatures?: { instrumenteur?: string; circulating?: string };
   }>({});
 
@@ -3086,28 +3182,48 @@ export default function Op() {
                             {t('surgery.sterile.uploadFile')}
                           </Button>
                         </div>
+                        {stickerUploadProgress && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                            {t('common.uploading')}...
+                          </div>
+                        )}
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                          {(countsSterileData.stickerDocs || []).map((doc) => (
-                            <div key={doc.id} className="relative aspect-[4/3] border rounded-lg overflow-hidden group">
-                              {doc.type === 'photo' ? (
-                                <img src={doc.data} alt={doc.filename || 'Sticker'} className="w-full h-full object-cover" />
-                              ) : (
-                                <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
-                                  <FileText className="h-8 w-8 mb-2 text-muted-foreground" />
-                                  <span className="text-xs text-muted-foreground truncate max-w-full px-2">{doc.filename || 'PDF'}</span>
-                                </div>
-                              )}
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => handleRemoveStickerDoc(doc.id)}
-                                data-testid={`button-remove-sticker-${doc.id}`}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
-                          ))}
+                          {(countsSterileData.stickerDocs || []).map((doc) => {
+                            const imgSrc = getStickerDocSrc(doc);
+                            // Fetch URL for storage-backed docs that aren't cached yet
+                            if (doc.storageKey && !doc.data && !stickerDocUrls[doc.id]) {
+                              fetchStickerDocUrl(doc.id);
+                            }
+                            
+                            return (
+                              <div key={doc.id} className="relative aspect-[4/3] border rounded-lg overflow-hidden group">
+                                {doc.type === 'photo' ? (
+                                  imgSrc ? (
+                                    <img src={imgSrc} alt={doc.filename || 'Sticker'} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center bg-muted">
+                                      <div className="animate-pulse h-4 w-4 border-2 border-muted-foreground border-t-transparent rounded-full" />
+                                    </div>
+                                  )
+                                ) : (
+                                  <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
+                                    <FileText className="h-8 w-8 mb-2 text-muted-foreground" />
+                                    <span className="text-xs text-muted-foreground truncate max-w-full px-2">{doc.filename || 'PDF'}</span>
+                                  </div>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="absolute top-1 right-1 h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  onClick={() => handleRemoveStickerDoc(doc.id)}
+                                  data-testid={`button-remove-sticker-${doc.id}`}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            );
+                          })}
                           {(!countsSterileData.stickerDocs || countsSterileData.stickerDocs.length === 0) && (
                             <div 
                               className="relative aspect-[4/3] border-2 border-dashed rounded-lg flex flex-col items-center justify-center text-muted-foreground bg-muted/30 cursor-pointer hover:bg-muted/50 transition-colors"
