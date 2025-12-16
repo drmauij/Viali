@@ -41,8 +41,19 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const [showChatPanel, setShowChatPanel] = useState(false);
 
   const handleOpenPatientInline = useCallback((patientId: string) => {
-    setLocation(`/anesthesia/patients/${patientId}`);
-  }, [setLocation]);
+    // Navigate to the patient detail page for the current module
+    if (activeHospital?.isClinicModule) {
+      setLocation(`/clinic/patients/${patientId}`);
+    } else if (activeHospital?.isSurgeryModule) {
+      setLocation(`/surgery/patients/${patientId}`);
+    } else if (activeHospital?.isBusinessModule) {
+      // Business module can view patients via clinic route
+      setLocation(`/clinic/patients/${patientId}`);
+    } else {
+      // Default to anesthesia
+      setLocation(`/anesthesia/patients/${patientId}`);
+    }
+  }, [setLocation, activeHospital]);
   
   const hospitalDropdownRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);

@@ -78,6 +78,10 @@ interface ChatDockProps {
     name: string;
     unitId: string;
     unitName: string;
+    isAnesthesiaModule?: boolean;
+    isSurgeryModule?: boolean;
+    isBusinessModule?: boolean;
+    isClinicModule?: boolean;
   };
   onOpenPatientInline?: (patientId: string) => void;
 }
@@ -1261,7 +1265,14 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                           if (onOpenPatientInline) {
                                             onOpenPatientInline(patientId);
                                           } else {
-                                            window.open(`/anesthesia/patients/${patientId}`, '_blank');
+                                            // Fallback: determine route based on active hospital module
+                                            let route = '/anesthesia/patients';
+                                            if (activeHospital?.isClinicModule || activeHospital?.isBusinessModule) {
+                                              route = '/clinic/patients';
+                                            } else if (activeHospital?.isSurgeryModule) {
+                                              route = '/surgery/patients';
+                                            }
+                                            window.open(`${route}/${patientId}`, '_blank');
                                           }
                                         }, isOwnMessage)}
                                       </div>
