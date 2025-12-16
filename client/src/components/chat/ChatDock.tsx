@@ -1657,10 +1657,10 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                       return (
                         <button
                           key={u.id}
-                          className={`w-full p-3 text-left flex items-center gap-3 ${
+                          className={`w-full p-3 text-left flex items-center gap-3 transition-colors ${
                             isSelected 
-                              ? 'bg-primary/15 hover:bg-primary/20' 
-                              : 'hover:bg-accent/50'
+                              ? 'bg-primary/30 border-l-4 border-l-primary' 
+                              : 'hover:bg-accent/50 border-l-4 border-l-transparent'
                           }`}
                           onClick={() => {
                             if (isSelected) {
@@ -1671,27 +1671,15 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                           }}
                           data-testid={`contact-${u.id}`}
                         >
-                          <Avatar>
-                            <AvatarFallback>
+                          <Avatar className={isSelected ? 'ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}>
+                            <AvatarFallback className={isSelected ? 'bg-primary text-primary-foreground' : ''}>
                               {getInitials(u.firstName, u.lastName, u.email)}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{userName}</p>
+                            <p className={`font-medium truncate ${isSelected ? 'text-primary' : ''}`}>{userName}</p>
                             {(u.firstName || u.lastName) && u.email && (
                               <p className="text-sm text-muted-foreground truncate">{u.email}</p>
-                            )}
-                          </div>
-                          {/* Checkbox indicator */}
-                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors ${
-                            isSelected 
-                              ? 'bg-primary border-primary' 
-                              : 'border-muted-foreground/30'
-                          }`}>
-                            {isSelected && (
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={3}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
                             )}
                           </div>
                         </button>
