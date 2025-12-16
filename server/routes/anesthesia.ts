@@ -1923,7 +1923,8 @@ router.post('/api/anesthesia/records/:id/sticker-doc/upload-url', isAuthenticate
       return res.status(400).json({ message: "Cannot add documents to a closed record" });
     }
 
-    const { objectStorageService } = await import('../objectStorage');
+    const { ObjectStorageService } = await import('../objectStorage');
+    const objectStorageService = new ObjectStorageService();
     
     if (!objectStorageService.isConfigured()) {
       return res.status(503).json({ message: "Object storage not configured" });
@@ -1970,7 +1971,8 @@ router.get('/api/anesthesia/records/:id/sticker-doc/:docId/download-url', isAuth
       return res.status(400).json({ message: "Document is stored in legacy format" });
     }
 
-    const { objectStorageService } = await import('../objectStorage');
+    const { ObjectStorageService } = await import('../objectStorage');
+    const objectStorageService = new ObjectStorageService();
     
     if (!objectStorageService.isConfigured()) {
       return res.status(503).json({ message: "Object storage not configured" });
