@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment, useRef } from "react";
+import { useState, useMemo, useEffect, Fragment, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { format, parseISO } from "date-fns";
@@ -331,7 +331,7 @@ function AdminNoteCell({ surgeryId }: AdminNoteCellProps) {
     setDialogOpen(true);
   };
 
-  useMemo(() => {
+  useEffect(() => {
     if (notes.length > 0 || dialogOpen) {
       setNoteCount(notes.length);
       setPreviewLoaded(true);
