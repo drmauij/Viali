@@ -872,7 +872,9 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         parts.push(
           <button 
             key={key++}
+            type="button"
             onClick={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               onPatientClick?.(patientId);
             }}
