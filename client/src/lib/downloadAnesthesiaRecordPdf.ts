@@ -133,6 +133,62 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       });
     }
 
+    // Fetch sticker documentation photos from object storage and convert to base64
+    // This is needed because the PDF generator expects base64 data in stickerDoc.data
+    if (anesthesiaRecord?.countsSterileData?.stickerDocs?.length > 0) {
+      const stickerDocsWithData = await Promise.all(
+        anesthesiaRecord.countsSterileData.stickerDocs.map(async (doc: any) => {
+          // If already has base64 data (legacy), keep it
+          if (doc.data) {
+            return doc;
+          }
+          
+          // If has storageKey, fetch the image from object storage
+          if (doc.storageKey && doc.type === 'photo') {
+            try {
+              // Get presigned download URL
+              const urlRes = await fetch(
+                `/api/anesthesia/records/${anesthesiaRecord.id}/sticker-doc/${doc.id}/download-url`,
+                { credentials: "include" }
+              );
+              
+              if (!urlRes.ok) {
+                console.warn(`[PDF-EXPORT] Failed to get download URL for sticker doc ${doc.id}`);
+                return doc;
+              }
+              
+              const { downloadURL } = await urlRes.json();
+              
+              // Fetch the actual image
+              const imageRes = await fetch(downloadURL);
+              if (!imageRes.ok) {
+                console.warn(`[PDF-EXPORT] Failed to download sticker doc image ${doc.id}`);
+                return doc;
+              }
+              
+              // Convert to base64
+              const blob = await imageRes.blob();
+              const base64 = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
+              
+              return { ...doc, data: base64 };
+            } catch (error) {
+              console.warn(`[PDF-EXPORT] Error fetching sticker doc ${doc.id}:`, error);
+              return doc;
+            }
+          }
+          
+          return doc;
+        })
+      );
+      
+      // Update the anesthesia record with the fetched image data
+      anesthesiaRecord.countsSterileData.stickerDocs = stickerDocsWithData;
+    }
+
     const patientWithAllergyLabels = {
       ...patient,
       email: patient.email ?? null,
