@@ -46,13 +46,15 @@ export async function sendNewMessageEmail(
   conversationTitle?: string
 ): Promise<boolean> {
   try {
+    console.log(`[Email] Attempting to send new message email to: ${toEmail}`);
     const { client, fromEmail } = await getUncachableResendClient();
+    console.log(`[Email] Got Resend client, sending from: ${fromEmail}`);
     
     const subject = conversationTitle 
       ? `New message from ${senderName} in "${conversationTitle}"`
       : `New message from ${senderName}`;
     
-    await client.emails.send({
+    const result = await client.emails.send({
       from: fromEmail,
       to: toEmail,
       subject: subject,
@@ -72,9 +74,10 @@ export async function sendNewMessageEmail(
       `
     });
     
+    console.log(`[Email] Successfully sent email to ${toEmail}:`, result);
     return true;
   } catch (error) {
-    console.error('Failed to send email notification:', error);
+    console.error('[Email] Failed to send email notification:', error);
     return false;
   }
 }
@@ -85,11 +88,13 @@ export async function sendNewConversationEmail(
   conversationTitle?: string
 ): Promise<boolean> {
   try {
+    console.log(`[Email] Attempting to send new conversation email to: ${toEmail}`);
     const { client, fromEmail } = await getUncachableResendClient();
+    console.log(`[Email] Got Resend client, sending from: ${fromEmail}`);
     
     const subject = `${senderName} started a conversation with you`;
     
-    await client.emails.send({
+    const result = await client.emails.send({
       from: fromEmail,
       to: toEmail,
       subject: subject,
@@ -106,9 +111,10 @@ export async function sendNewConversationEmail(
       `
     });
     
+    console.log(`[Email] Successfully sent new conversation email to ${toEmail}:`, result);
     return true;
   } catch (error) {
-    console.error('Failed to send new conversation email notification:', error);
+    console.error('[Email] Failed to send new conversation email notification:', error);
     return false;
   }
 }
