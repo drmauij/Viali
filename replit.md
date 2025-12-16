@@ -1,5 +1,19 @@
 # Viali - Hospital Inventory Management System
 
+---
+## ⚠️ AGENT MANDATORY CHECKLIST - READ FIRST ⚠️
+
+### After ANY Database Schema Change (`shared/schema.ts`):
+1. ✅ Run `npm run db:generate` immediately after modifying schema
+2. ✅ Verify new migration file exists in `migrations/` folder
+3. ✅ Verify `migrations/meta/_journal.json` includes the new migration
+4. ✅ Convert migration SQL to **IDEMPOTENT format** (use `IF NOT EXISTS` / `IF EXISTS`)
+5. ✅ Never use `db:push` alone - always generate migrations for deployment
+
+**DO NOT** consider a database change complete until all 5 steps are verified!
+
+---
+
 ## Overview
 Viali is a mobile-first web application designed to optimize hospital operations. Its primary purpose is to provide a robust Inventory Management module to prevent stockouts, minimize waste, and automate the reordering process, including controlled substances, across multiple hospital facilities. Additionally, it features an Anesthesia Records module that streamlines patient case management with AI-assisted data extraction. The system aims to enhance healthcare efficiency and patient safety through consistent UI/UX, multi-hospital support, and granular user role management.
 
