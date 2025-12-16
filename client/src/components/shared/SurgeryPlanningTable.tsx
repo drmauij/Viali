@@ -23,7 +23,8 @@ import {
   CircleDashed,
   Stethoscope,
   CheckCircle2,
-  XCircle
+  XCircle,
+  StickyNote
 } from "lucide-react";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
 import {
@@ -187,7 +188,7 @@ function AdminNoteCell({ value, surgeryId, onUpdate, isPending }: AdminNoteCellP
               {isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <FileEdit className={cn("h-4 w-4", hasNote ? "text-primary" : "text-muted-foreground")} />
+                <StickyNote className={cn("h-4 w-4", hasNote ? "text-primary" : "text-muted-foreground")} />
               )}
             </Button>
           </TooltipTrigger>
@@ -1204,7 +1205,7 @@ export function SurgeryPlanningTable({
                 <TableHead>{t("surgeryPlanning.columns.invoiceSent")}</TableHead>
                 <TableHead>{t("surgeryPlanning.columns.paymentDate")}</TableHead>
                 <TableHead>
-                  <FileEdit className="h-4 w-4 inline mr-1" />
+                  <StickyNote className="h-4 w-4 inline mr-1" />
                   {t("surgeryPlanning.columns.caseNotes", "Notes")}
                 </TableHead>
               </>
@@ -1220,7 +1221,7 @@ export function SurgeryPlanningTable({
             {/* Notes column for non-business views */}
             {!showBusiness && (
               <TableHead className="text-center">
-                <FileEdit className="h-4 w-4 inline mr-1" />
+                <StickyNote className="h-4 w-4 inline mr-1" />
                 {t("surgeryPlanning.columns.caseNotes", "Notes")}
               </TableHead>
             )}
