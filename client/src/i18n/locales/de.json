@@ -402,7 +402,11 @@
     "submitOrder": "Bestellung absenden",
     "removeItemTitle": "Artikel aus Bestellung entfernen?",
     "removeItemDesc": "Dies entfernt den Artikel aus dieser Bestellung. Diese Aktion kann nicht rückgängig gemacht werden.",
-    "removeItem": "Artikel entfernen"
+    "removeItem": "Artikel entfernen",
+    "merge": "Zusammenführen",
+    "ordersMerged": "Bestellungen wurden erfolgreich zusammengeführt",
+    "mergeFailed": "Bestellungen konnten nicht zusammengeführt werden",
+    "selectAtLeastTwo": "Bitte wählen Sie mindestens 2 Bestellungen zum Zusammenführen"
   },
   "checklists": {
     "title": "Geräte-Checklisten",

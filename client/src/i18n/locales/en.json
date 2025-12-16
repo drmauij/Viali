@@ -402,7 +402,11 @@
     "submitOrder": "Submit Order",
     "removeItemTitle": "Remove Item from Order?",
     "removeItemDesc": "This will remove the item from this order. This action cannot be undone.",
-    "removeItem": "Remove Item"
+    "removeItem": "Remove Item",
+    "merge": "Merge",
+    "ordersMerged": "Orders have been merged successfully",
+    "mergeFailed": "Failed to merge orders",
+    "selectAtLeastTwo": "Please select at least 2 orders to merge"
   },
   "checklists": {
     "title": "Equipment Checklists",

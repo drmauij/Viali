@@ -27,7 +27,7 @@ import SignaturePad from "@/components/SignaturePad";
 import type { Order, Vendor, OrderLine, Item, StockLevel, Unit } from "@shared/schema";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Check } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Merge } from "lucide-react";
 
 interface OrderWithDetails extends Order {
   vendor: Vendor | null;
@@ -84,6 +84,38 @@ export default function Orders() {
   const [receiveNotes, setReceiveNotes] = useState("");
   const [receiveSignature, setReceiveSignature] = useState("");
   const [showReceiveSignaturePad, setShowReceiveSignaturePad] = useState(false);
+  
+  // Expand/collapse state for order preview
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  
+  // Multi-select state for merging sent orders
+  const [selectedSentOrders, setSelectedSentOrders] = useState<Set<string>>(new Set());
+  
+  const toggleOrderExpanded = (orderId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedOrders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+  
+  const toggleSentOrderSelection = (orderId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedSentOrders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
 
   // Auto-select handler for number inputs (with workaround for browser compatibility)
   const handleNumberInputFocus = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -448,6 +480,41 @@ export default function Orders() {
     },
   });
 
+  // Merge selected sent orders mutation
+  const mergeOrdersMutation = useMutation({
+    mutationFn: async (orderIds: string[]) => {
+      const response = await apiRequest("POST", `/api/orders/${activeHospital?.id}/merge`, { orderIds });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: t('common.success'),
+        description: t('orders.ordersMerged'),
+      });
+      setSelectedSentOrders(new Set());
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('orders.mergeFailed'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleMergeOrders = () => {
+    if (selectedSentOrders.size < 2) {
+      toast({
+        title: t('common.error'),
+        description: t('orders.selectAtLeastTwo'),
+        variant: "destructive",
+      });
+      return;
+    }
+    mergeOrdersMutation.mutate(Array.from(selectedSentOrders));
+  };
+
   const ordersByStatus = useMemo(() => {
     const grouped: Record<OrderStatus, OrderWithDetails[]> = {
       draft: [],
@@ -752,9 +819,26 @@ export default function Orders() {
                         {t('orders.draft')}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-3">
+                    <button 
+                      className="flex items-center gap-1 text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
+                      onClick={(e) => toggleOrderExpanded(order.id, e)}
+                      data-testid={`expand-order-${order.id}`}
+                    >
+                      {expandedOrders.has(order.id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       {t('orders.itemsCount', { count: order.orderLines.length })}
-                    </p>
+                    </button>
+                    
+                    {expandedOrders.has(order.id) && order.orderLines.length > 0 && (
+                      <div className="mb-3 space-y-1 text-xs border-t border-border pt-2">
+                        {order.orderLines.map(line => (
+                          <div key={line.id} className="flex justify-between text-muted-foreground">
+                            <span className="truncate flex-1 mr-2">{line.item?.name || 'Unknown Item'}</span>
+                            <span className="font-medium text-foreground">{line.qty}x</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
                     <div className="flex gap-2">
                       <Button 
                         variant="outline" 
@@ -792,9 +876,24 @@ export default function Orders() {
           <div className="kanban-column">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-foreground">{t('orders.sent')}</h3>
-              <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs flex items-center justify-center font-semibold">
-                {ordersByStatus.sent.length}
-              </span>
+              <div className="flex items-center gap-2">
+                {selectedSentOrders.size >= 2 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleMergeOrders}
+                    disabled={mergeOrdersMutation.isPending}
+                    className="h-6 text-xs"
+                    data-testid="merge-orders-button"
+                  >
+                    <Merge className="w-3 h-3 mr-1" />
+                    {t('orders.merge')} ({selectedSentOrders.size})
+                  </Button>
+                )}
+                <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs flex items-center justify-center font-semibold">
+                  {ordersByStatus.sent.length}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -806,21 +905,43 @@ export default function Orders() {
                 ordersByStatus.sent.map((order) => (
                   <div 
                     key={order.id} 
-                    className="kanban-card cursor-pointer" 
+                    className={`kanban-card cursor-pointer ${selectedSentOrders.has(order.id) ? 'ring-2 ring-primary' : ''}`}
                     onClick={() => handleEditOrder(order)}
                     data-testid={`sent-order-${order.id}`}
                   >
-                    <div className="flex items-start justify-between mb-3">
-                      <div>
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={selectedSentOrders.has(order.id)}
+                          onClick={(e) => toggleSentOrderSelection(order.id, e)}
+                          data-testid={`select-order-${order.id}`}
+                        />
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
                         {t('orders.sent')}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <button 
+                      className="flex items-center gap-1 text-sm text-muted-foreground mb-1 hover:text-foreground transition-colors"
+                      onClick={(e) => toggleOrderExpanded(order.id, e)}
+                      data-testid={`expand-sent-order-${order.id}`}
+                    >
+                      {expandedOrders.has(order.id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       {t('orders.itemsCount', { count: order.orderLines.length })}
-                    </p>
+                    </button>
+                    
+                    {expandedOrders.has(order.id) && order.orderLines.length > 0 && (
+                      <div className="mb-2 space-y-1 text-xs border-t border-border pt-2">
+                        {order.orderLines.map(line => (
+                          <div key={line.id} className="flex justify-between text-muted-foreground">
+                            <span className="truncate flex-1 mr-2">{line.item?.name || 'Unknown Item'}</span>
+                            <span className="font-medium text-foreground">{line.qty}x</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
                     <p className="text-xs text-muted-foreground mb-3">
                       Sent {formatDate((order.updatedAt || order.createdAt) as any)}
                     </p>
@@ -865,7 +986,7 @@ export default function Orders() {
                     onClick={() => handleEditOrder(order)}
                     data-testid={`received-order-${order.id}`}
                   >
-                    <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start justify-between mb-2">
                       <div>
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
                       </div>
@@ -873,9 +994,26 @@ export default function Orders() {
                         {t('orders.received')}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">
+                    <button 
+                      className="flex items-center gap-1 text-sm text-muted-foreground mb-1 hover:text-foreground transition-colors"
+                      onClick={(e) => toggleOrderExpanded(order.id, e)}
+                      data-testid={`expand-received-order-${order.id}`}
+                    >
+                      {expandedOrders.has(order.id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       {t('orders.itemsCount', { count: order.orderLines.length })}
-                    </p>
+                    </button>
+                    
+                    {expandedOrders.has(order.id) && order.orderLines.length > 0 && (
+                      <div className="mb-2 space-y-1 text-xs border-t border-border pt-2">
+                        {order.orderLines.map(line => (
+                          <div key={line.id} className="flex justify-between text-muted-foreground">
+                            <span className="truncate flex-1 mr-2">{line.item?.name || 'Unknown Item'}</span>
+                            <span className="font-medium text-foreground">{line.qty}x</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
                     <p className="text-xs text-muted-foreground mb-3">
                       Received {formatDate((order.updatedAt || order.createdAt) as any)}
                     </p>

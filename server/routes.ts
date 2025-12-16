@@ -1359,6 +1359,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Merge multiple sent orders into one
+  app.post('/api/orders/:hospitalId/merge', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const { orderIds } = req.body;
+      const userId = req.user.id;
+      
+      if (!orderIds || !Array.isArray(orderIds) || orderIds.length < 2) {
+        return res.status(400).json({ message: "At least 2 order IDs are required" });
+      }
+      
+      // Verify user has access to this hospital
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId);
+      if (!unitId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Get all orders and verify they are all "sent" and from the same unit
+      const ordersToMerge = await Promise.all(
+        orderIds.map(async (id: string) => {
+          const [order] = await db.select().from(orders).where(eq(orders.id, id));
+          return order;
+        })
+      );
+      
+      // Validate all orders exist, are sent status, and belong to user's unit
+      for (const order of ordersToMerge) {
+        if (!order) {
+          return res.status(404).json({ message: "One or more orders not found" });
+        }
+        if (order.status !== 'sent') {
+          return res.status(400).json({ message: "Only sent orders can be merged" });
+        }
+        if (order.hospitalId !== hospitalId) {
+          return res.status(400).json({ message: "All orders must be from the same hospital" });
+        }
+        // Security: Verify user has access to this order's unit
+        if (order.unitId !== unitId) {
+          return res.status(403).json({ message: "Access denied: you can only merge orders from your unit" });
+        }
+      }
+      
+      // Use the first order as the target, move all lines from other orders to it
+      const targetOrder = ordersToMerge[0];
+      const otherOrderIds = orderIds.slice(1);
+      
+      // Move all order lines to the target order
+      for (const otherId of otherOrderIds) {
+        await db.update(orderLines)
+          .set({ orderId: targetOrder.id })
+          .where(eq(orderLines.orderId, otherId));
+      }
+      
+      // Delete the now-empty orders
+      for (const otherId of otherOrderIds) {
+        await db.delete(orders).where(eq(orders.id, otherId));
+      }
+      
+      // Return the merged order
+      const mergedOrder = await storage.getOrder(targetOrder.id);
+      res.json(mergedOrder);
+    } catch (error) {
+      console.error("Error merging orders:", error);
+      res.status(500).json({ message: "Failed to merge orders" });
+    }
+  });
+
   app.post('/api/orders/quick-add', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { hospitalId, unitId, itemId, vendorId, qty, packSize } = req.body;
