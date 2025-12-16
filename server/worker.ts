@@ -144,7 +144,7 @@ async function processNextPriceSyncJob() {
       }
 
       console.log(`[Worker] Fetching all prices from Galexis...`);
-      const prices = await client.fetchAllPrices((processed, total) => {
+      const { prices, debugInfo: galexisDebugInfo } = await client.fetchAllPrices((processed, total) => {
         const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
         storage.updatePriceSyncJob(job.id, {
           processedItems: processed,
@@ -154,6 +154,9 @@ async function processNextPriceSyncJob() {
       });
 
       console.log(`[Worker] Fetched ${prices.length} prices, matching with inventory items...`);
+      if (galexisDebugInfo) {
+        console.log(`[Worker] Galexis API Debug Info:`, JSON.stringify(galexisDebugInfo, null, 2));
+      }
 
       await storage.updatePriceSyncJob(job.id, {
         totalItems: prices.length,
@@ -297,6 +300,8 @@ async function processNextPriceSyncJob() {
         itemsWithoutSupplierCode: allHospitalItems.length - existingSupplierCodes.length - autoCreatedCount,
         itemsWithGtinNoSupplierCode: unmatchedWithCodes.length,
         unmatchedItems: unmatchedWithCodes.slice(0, 50), // First 50 for display
+        // Include Galexis API debug info for troubleshooting
+        galexisApiDebug: galexisDebugInfo || null,
       };
 
       console.log(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched by pharmacode, ${unmatchedWithCodes.length} items still unmatched`);

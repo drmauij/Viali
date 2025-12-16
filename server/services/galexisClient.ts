@@ -108,11 +108,12 @@ export class GalexisClient {
     pageSize: number = 200,
     requestKey: string = '',
     onProgress?: (page: number, totalLines: number) => void
-  ): Promise<{ prices: PriceData[]; hasMore: boolean; nextKey: string }> {
+  ): Promise<{ prices: PriceData[]; hasMore: boolean; nextKey: string; rawResponse?: string; debugInfo?: any }> {
     try {
       const requestXml = this.buildCustomerSpecificConditionsRequest(pageSize, requestKey);
       
       console.log('[Galexis] Fetching customer conditions...');
+      console.log('[Galexis] Request XML:', requestXml);
       
       const response = await fetch(`${this.baseUrl}/`, {
         method: 'POST',
@@ -129,7 +130,7 @@ export class GalexisClient {
       }
 
       const responseXml = await response.text();
-      console.log('[Galexis] Raw XML response (first 1000 chars):', responseXml.substring(0, 1000));
+      console.log('[Galexis] Raw XML response (first 2000 chars):', responseXml.substring(0, 2000));
       
       const parsed = this.parser.parse(responseXml);
       console.log('[Galexis] Parsed response keys:', Object.keys(parsed));
@@ -154,7 +155,20 @@ export class GalexisClient {
       if (conditionsResponse.nothingFound !== undefined) {
         console.log('[Galexis] API returned nothingFound - no customer-specific conditions registered');
         console.log('[Galexis] Full response:', JSON.stringify(conditionsResponse, null, 2));
-        return { prices: [], hasMore: false, nextKey: '' };
+        return { 
+          prices: [], 
+          hasMore: false, 
+          nextKey: '',
+          rawResponse: responseXml,
+          debugInfo: {
+            responseType: 'nothingFound',
+            message: 'Die Galexis API hat "nothingFound" zurückgegeben - keine kundenspezifischen Konditionen hinterlegt',
+            parsedResponse: conditionsResponse,
+            apiEndpoint: this.baseUrl,
+            customerNumber: this.customerNumber,
+            timestamp: new Date().toISOString(),
+          }
+        };
       }
 
       const lines = conditionsResponse.customerSpecificConditionLines?.customerSpecificConditionLine || [];
@@ -203,11 +217,12 @@ export class GalexisClient {
 
   async fetchAllPrices(
     onProgress?: (processed: number, total: number) => void
-  ): Promise<PriceData[]> {
+  ): Promise<{ prices: PriceData[]; debugInfo?: any }> {
     const allPrices: PriceData[] = [];
     let hasMore = true;
     let nextKey = '';
     let page = 0;
+    let debugInfo: any = null;
 
     while (hasMore) {
       page++;
@@ -217,6 +232,11 @@ export class GalexisClient {
       allPrices.push(...result.prices);
       hasMore = result.hasMore;
       nextKey = result.nextKey;
+      
+      // Capture debug info from first request (especially for nothingFound case)
+      if (page === 1 && result.debugInfo) {
+        debugInfo = result.debugInfo;
+      }
 
       if (onProgress) {
         onProgress(allPrices.length, allPrices.length);
@@ -228,7 +248,7 @@ export class GalexisClient {
     }
 
     console.log(`[Galexis] Total prices fetched: ${allPrices.length}`);
-    return allPrices;
+    return { prices: allPrices, debugInfo };
   }
 
   async testConnection(): Promise<{ success: boolean; message: string }> {
