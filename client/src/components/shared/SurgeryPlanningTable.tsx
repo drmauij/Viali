@@ -187,11 +187,21 @@ function AdminNoteCell({ surgeryId }: AdminNoteCellProps) {
 
   const { data: notes = [], isLoading } = useQuery<SurgeryNoteWithAuthor[]>({
     queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'],
+    queryFn: async () => {
+      const response = await fetch(`/api/anesthesia/surgeries/${surgeryId}/notes`);
+      if (!response.ok) throw new Error('Failed to fetch notes');
+      return response.json();
+    },
     enabled: dialogOpen,
   });
 
   const { data: mentionableUsers = [] } = useQuery<MentionableUser[]>({
     queryKey: ['/api/anesthesia/hospitals', activeHospital?.id, 'users'],
+    queryFn: async () => {
+      const response = await fetch(`/api/anesthesia/hospitals/${activeHospital?.id}/users`);
+      if (!response.ok) throw new Error('Failed to fetch users');
+      return response.json();
+    },
     enabled: !!activeHospital?.id && dialogOpen,
   });
 
