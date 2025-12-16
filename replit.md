@@ -15,21 +15,42 @@ Deployment Environment: The application is deployed to a custom server on **Exos
 - ALWAYS use standard libraries and SDKs directly (e.g., `RESEND_API_KEY` env var, not Replit connector)
 - All integrations must work in a standard Node.js/Linux environment without Replit dependencies
 
-### Database Migration Workflow (CRITICAL)
-**NEVER manually create migration files without updating the journal!**
+### Database Migration Workflow (CRITICAL - MANDATORY FOR ALL DB CHANGES)
+**EVERY database schema change MUST follow this workflow - no exceptions!**
 
-The correct workflow for database migrations:
+**Step-by-step process:**
 1. Update the schema in `shared/schema.ts`
 2. Run `npm run db:generate` to let Drizzle create the migration file AND update the journal
-3. Convert the generated migration SQL to **idempotent format** using `IF NOT EXISTS` checks
-4. Test locally before deploying
+3. **VERIFY** the Drizzle journal (`migrations/meta/_journal.json`) is up-to-date with the new migration
+4. **ALWAYS** convert the generated migration SQL to **IDEMPOTENT format** using `IF NOT EXISTS` / `IF EXISTS` checks
+5. Test locally before deploying
 
-Example idempotent pattern:
+**Why idempotent migrations are MANDATORY:**
+- The Exoscale production server may have schema differences from development
+- Migrations may be re-run during deployment or recovery
+- Idempotent migrations prevent errors and conflicts in any scenario
+
+**Idempotent pattern examples:**
 ```sql
+-- Adding a column
 DO $$ 
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'my_table' AND column_name = 'my_column') THEN
     ALTER TABLE "my_table" ADD COLUMN "my_column" varchar;
+  END IF;
+END $$;
+
+-- Creating a table
+CREATE TABLE IF NOT EXISTS "my_table" (...);
+
+-- Creating an index
+CREATE INDEX IF NOT EXISTS "my_index" ON "my_table" ("my_column");
+
+-- Adding a constraint
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'my_constraint') THEN
+    ALTER TABLE "my_table" ADD CONSTRAINT "my_constraint" ...;
   END IF;
 END $$;
 ```
@@ -37,7 +58,8 @@ END $$;
 **Production deployment:**
 - Migration path uses `__dirname/../migrations` (absolute path) for PM2 compatibility
 - Copy `migrations` folder alongside `dist` folder when deploying
-- Idempotent migrations are safe to re-run if columns already exist
+- Idempotent migrations are safe to re-run if columns/tables already exist
+- **NEVER** deploy non-idempotent migrations to production
 
 ## System Architecture
 
