@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams } from "wouter";
+import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -161,6 +161,8 @@ const translations: Record<string, Record<string, string>> = {
   en: {
     "questionnaire.title": "Pre-Operative Questionnaire",
     "questionnaire.subtitle": "Please complete this form before your surgery",
+    "questionnaire.start": "Start Questionnaire",
+    "questionnaire.starting": "Starting...",
     "questionnaire.steps.personal": "Personal Info",
     "questionnaire.steps.conditions": "Medical Conditions",
     "questionnaire.steps.medications": "Medications",
@@ -253,6 +255,8 @@ const translations: Record<string, Record<string, string>> = {
   de: {
     "questionnaire.title": "Präoperativer Fragebogen",
     "questionnaire.subtitle": "Bitte füllen Sie dieses Formular vor Ihrer Operation aus",
+    "questionnaire.start": "Fragebogen starten",
+    "questionnaire.starting": "Wird gestartet...",
     "questionnaire.steps.personal": "Persönliche Daten",
     "questionnaire.steps.conditions": "Erkrankungen",
     "questionnaire.steps.medications": "Medikamente",
@@ -346,12 +350,15 @@ const translations: Record<string, Record<string, string>> = {
 
 export default function PatientQuestionnaire() {
   const { token } = useParams<{ token: string }>();
+  const [location] = useLocation();
+  const isHospitalToken = location.includes('/questionnaire/hospital/');
   const [currentStep, setCurrentStep] = useState(0);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [language, setLanguage] = useState<string>("de");
   const [uploads, setUploads] = useState<FileUpload[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [linkToken, setLinkToken] = useState<string | null>(null);
 
   const t = useCallback((key: string) => {
     return translations[language]?.[key] || translations["en"]?.[key] || key;
@@ -385,10 +392,21 @@ export default function PatientQuestionnaire() {
     completedSteps: [],
   });
 
+  const apiBase = linkToken 
+    ? `/api/public/questionnaire/${linkToken}` 
+    : isHospitalToken 
+      ? `/api/public/questionnaire/hospital/${token}` 
+      : `/api/public/questionnaire/${token}`;
+
   const { data: config, isLoading, error } = useQuery<QuestionnaireConfig>({
-    queryKey: ["/api/public/questionnaire", token],
+    queryKey: ["/api/public/questionnaire", linkToken || token, isHospitalToken && !linkToken ? "hospital" : "direct"],
     queryFn: async () => {
-      const res = await fetch(`/api/public/questionnaire/${token}`);
+      const endpoint = linkToken 
+        ? `/api/public/questionnaire/${linkToken}`
+        : isHospitalToken 
+          ? `/api/public/questionnaire/hospital/${token}`
+          : `/api/public/questionnaire/${token}`;
+      const res = await fetch(endpoint);
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.message || "Failed to load questionnaire");
@@ -446,9 +464,27 @@ export default function PatientQuestionnaire() {
     }
   }, [config]);
 
+  const activeToken = linkToken || token;
+
+  const startQuestionnaireMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/public/questionnaire/hospital/${token}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (!res.ok) {
+        throw new Error("Failed to start questionnaire");
+      }
+      return res.json();
+    },
+    onSuccess: (data: { questionnaireToken: string }) => {
+      setLinkToken(data.questionnaireToken);
+    },
+  });
+
   const saveMutation = useMutation({
     mutationFn: async (data: Partial<FormData>) => {
-      const res = await fetch(`/api/public/questionnaire/${token}/save`, {
+      const res = await fetch(`/api/public/questionnaire/${activeToken}/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -468,7 +504,7 @@ export default function PatientQuestionnaire() {
 
   const submitMutation = useMutation({
     mutationFn: async (data: FormData) => {
-      const res = await fetch(`/api/public/questionnaire/${token}/submit`, {
+      const res = await fetch(`/api/public/questionnaire/${activeToken}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -482,7 +518,7 @@ export default function PatientQuestionnaire() {
   });
 
   const handleFileUpload = useCallback(async (file: File, category: FileUpload['category'] = 'other') => {
-    if (!token) return;
+    if (!activeToken) return;
     
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
@@ -505,7 +541,7 @@ export default function PatientQuestionnaire() {
 
     try {
       // Step 1: Get presigned upload URL
-      const urlRes = await fetch(`/api/public/questionnaire/${token}/upload-url`, {
+      const urlRes = await fetch(`/api/public/questionnaire/${activeToken}/upload-url`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileName: file.name, mimeType: file.type }),
@@ -529,7 +565,7 @@ export default function PatientQuestionnaire() {
       }
 
       // Step 3: Register upload with backend
-      const registerRes = await fetch(`/api/public/questionnaire/${token}/upload`, {
+      const registerRes = await fetch(`/api/public/questionnaire/${activeToken}/upload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -558,13 +594,13 @@ export default function PatientQuestionnaire() {
       setUploadError(t("questionnaire.uploads.uploadError"));
       setUploads(prev => prev.filter(u => u.id !== tempId));
     }
-  }, [token, t]);
+  }, [activeToken, t]);
 
   const handleDeleteUpload = useCallback(async (uploadId: string) => {
-    if (!token) return;
+    if (!activeToken) return;
     
     try {
-      const res = await fetch(`/api/public/questionnaire/${token}/upload/${uploadId}`, {
+      const res = await fetch(`/api/public/questionnaire/${activeToken}/upload/${uploadId}`, {
         method: "DELETE",
       });
       
@@ -576,7 +612,7 @@ export default function PatientQuestionnaire() {
     } catch (err) {
       console.error("Delete error:", err);
     }
-  }, [token]);
+  }, [activeToken]);
 
   const handleNext = useCallback(() => {
     const stepId = STEPS[currentStep].id;
@@ -653,6 +689,45 @@ export default function PatientQuestionnaire() {
             <p className="text-sm text-gray-500">
               {t("questionnaire.success.close")}
             </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // For hospital tokens, show start screen until a questionnaire session is started
+  if (isHospitalToken && !linkToken && config) {
+    const hospitalConfig = config as unknown as { hospitalId: string; hospitalName: string; isOpenLink: boolean };
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <Card className="max-w-md w-full">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">{t("questionnaire.title")}</CardTitle>
+            <CardDescription>
+              {hospitalConfig.hospitalName}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="pt-2 text-center">
+            <Stethoscope className="h-16 w-16 text-primary mx-auto mb-4" />
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              {t("questionnaire.subtitle")}
+            </p>
+            <Button 
+              onClick={() => startQuestionnaireMutation.mutate()}
+              disabled={startQuestionnaireMutation.isPending}
+              size="lg"
+              className="w-full"
+              data-testid="button-start-questionnaire"
+            >
+              {startQuestionnaireMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t("questionnaire.starting") || "Starting..."}
+                </>
+              ) : (
+                t("questionnaire.start") || "Start Questionnaire"
+              )}
+            </Button>
           </CardContent>
         </Card>
       </div>
