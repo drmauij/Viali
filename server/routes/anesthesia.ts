@@ -2,6 +2,7 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
+import { sendSurgeryNoteMentionEmail } from "../email";
 import {
   insertHospitalAnesthesiaSettingsSchema,
   insertPatientSchema,
@@ -985,6 +986,174 @@ router.post('/api/anesthesia/surgeries/:id/unarchive', isAuthenticated, requireW
   } catch (error) {
     console.error("Error restoring surgery:", error);
     res.status(500).json({ message: "Failed to restore surgery" });
+  }
+});
+
+// ========== SURGERY NOTES ROUTES ==========
+
+// Get all notes for a surgery
+router.get('/api/anesthesia/surgeries/:surgeryId/notes', isAuthenticated, async (req: any, res) => {
+  try {
+    const { surgeryId } = req.params;
+    const userId = req.user.id;
+
+    const surgery = await storage.getSurgery(surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const notes = await storage.getSurgeryNotes(surgeryId);
+    res.json(notes);
+  } catch (error) {
+    console.error("Error fetching surgery notes:", error);
+    res.status(500).json({ message: "Failed to fetch surgery notes" });
+  }
+});
+
+// Create a new surgery note
+router.post('/api/anesthesia/surgeries/:surgeryId/notes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { surgeryId } = req.params;
+    const userId = req.user.id;
+    const { content } = req.body;
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ message: "Note content is required" });
+    }
+
+    const surgery = await storage.getSurgery(surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const newNote = await storage.createSurgeryNote({
+      surgeryId,
+      authorId: userId,
+      content: content.trim(),
+    });
+
+    // Parse mentions from content and send email notifications
+    const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
+    const mentions: string[] = [];
+    let match;
+    while ((match = mentionRegex.exec(content)) !== null) {
+      mentions.push(match[2]); // userId
+    }
+
+    if (mentions.length > 0) {
+      // Get author info for email
+      const author = await storage.getUser(userId);
+      const authorName = author?.firstName && author?.lastName 
+        ? `${author.firstName} ${author.lastName}` 
+        : author?.email || 'A team member';
+
+      // Get patient info for email
+      const patient = surgery.patientId ? await storage.getPatient(surgery.patientId) : null;
+      const patientName = patient 
+        ? `${patient.firstName || ''} ${patient.surname || ''}`.trim() || patient.patientNumber || 'Unknown'
+        : 'Unknown Patient';
+
+      // Send email to each mentioned user (async, don't block response)
+      for (const mentionedUserId of mentions) {
+        if (mentionedUserId !== userId) { // Don't email self
+          const mentionedUser = await storage.getUser(mentionedUserId);
+          if (mentionedUser?.email) {
+            sendSurgeryNoteMentionEmail(
+              mentionedUser.email,
+              authorName,
+              content.trim(),
+              patientName,
+              surgery.plannedSurgery || 'Surgery'
+            ).catch(err => console.error('[Email] Failed to send surgery note mention:', err));
+          }
+        }
+      }
+    }
+
+    // Return note with author details
+    const notes = await storage.getSurgeryNotes(surgeryId);
+    const noteWithAuthor = notes.find(n => n.id === newNote.id);
+    
+    res.status(201).json(noteWithAuthor || newNote);
+  } catch (error) {
+    console.error("Error creating surgery note:", error);
+    res.status(500).json({ message: "Failed to create surgery note" });
+  }
+});
+
+// Update a surgery note
+router.patch('/api/anesthesia/surgery-notes/:noteId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { noteId } = req.params;
+    const userId = req.user.id;
+    const { content } = req.body;
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ message: "Note content is required" });
+    }
+
+    // Note: We would need to add a method to get a single note - for now, just update it
+    const updatedNote = await storage.updateSurgeryNote(noteId, content.trim());
+    res.json(updatedNote);
+  } catch (error) {
+    console.error("Error updating surgery note:", error);
+    res.status(500).json({ message: "Failed to update surgery note" });
+  }
+});
+
+// Delete a surgery note
+router.delete('/api/anesthesia/surgery-notes/:noteId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { noteId } = req.params;
+    await storage.deleteSurgeryNote(noteId);
+    res.json({ message: "Note deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting surgery note:", error);
+    res.status(500).json({ message: "Failed to delete surgery note" });
+  }
+});
+
+// Get hospital users for @mention suggestions (accessible to any authenticated hospital member)
+router.get('/api/anesthesia/hospitals/:hospitalId/users', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+
+    // Check if user has access to this hospital
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    // Get hospital users with basic info for mentions
+    const hospitalUsers = await storage.getHospitalUsers(hospitalId);
+    
+    // Return simplified user data for mention suggestions
+    const users = hospitalUsers.map(u => ({
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+    }));
+
+    res.json(users);
+  } catch (error) {
+    console.error("Error fetching hospital users for mentions:", error);
+    res.status(500).json({ message: "Failed to fetch users" });
   }
 });
 

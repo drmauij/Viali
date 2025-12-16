@@ -30,6 +30,7 @@ import {
   patients,
   cases,
   surgeries,
+  surgeryNotes,
   anesthesiaRecords,
   preOpAssessments,
   surgeryPreOpAssessments,
@@ -114,6 +115,8 @@ import {
   type InsertCase,
   type Surgery,
   type InsertSurgery,
+  type SurgeryNote,
+  type InsertSurgeryNote,
   type AnesthesiaRecord,
   type InsertAnesthesiaRecord,
   type PreOpAssessment,
@@ -382,6 +385,12 @@ export interface IStorage {
   updateSurgery(id: string, updates: Partial<Surgery>): Promise<Surgery>;
   archiveSurgery(id: string, userId: string): Promise<Surgery>;
   unarchiveSurgery(id: string): Promise<Surgery>;
+  
+  // Surgery Notes operations (multi-note thread per surgery)
+  getSurgeryNotes(surgeryId: string): Promise<(SurgeryNote & { author: User })[]>;
+  createSurgeryNote(note: InsertSurgeryNote): Promise<SurgeryNote>;
+  updateSurgeryNote(id: string, content: string): Promise<SurgeryNote>;
+  deleteSurgeryNote(id: string): Promise<void>;
   
   // Anesthesia Record operations
   getAnesthesiaRecord(surgeryId: string): Promise<AnesthesiaRecord | undefined>;
@@ -2400,6 +2409,41 @@ export class DatabaseStorage implements IStorage {
       .where(eq(surgeries.id, id))
       .returning();
     return restored;
+  }
+
+  // Surgery Notes operations
+  async getSurgeryNotes(surgeryId: string): Promise<(SurgeryNote & { author: User })[]> {
+    const results = await db
+      .select({
+        note: surgeryNotes,
+        author: users,
+      })
+      .from(surgeryNotes)
+      .innerJoin(users, eq(surgeryNotes.authorId, users.id))
+      .where(eq(surgeryNotes.surgeryId, surgeryId))
+      .orderBy(desc(surgeryNotes.createdAt));
+    return results.map(r => ({ ...r.note, author: r.author }));
+  }
+
+  async createSurgeryNote(note: InsertSurgeryNote): Promise<SurgeryNote> {
+    const [created] = await db
+      .insert(surgeryNotes)
+      .values(note)
+      .returning();
+    return created;
+  }
+
+  async updateSurgeryNote(id: string, content: string): Promise<SurgeryNote> {
+    const [updated] = await db
+      .update(surgeryNotes)
+      .set({ content, updatedAt: new Date() })
+      .where(eq(surgeryNotes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteSurgeryNote(id: string): Promise<void> {
+    await db.delete(surgeryNotes).where(eq(surgeryNotes.id, id));
   }
 
   // Anesthesia Record operations

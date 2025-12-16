@@ -140,3 +140,43 @@ export async function sendMentionEmail(
     return false;
   }
 }
+
+export async function sendSurgeryNoteMentionEmail(
+  toEmail: string,
+  senderName: string,
+  noteContent: string,
+  patientName: string,
+  procedureName: string
+): Promise<boolean> {
+  try {
+    const { client, fromEmail } = await getUncachableResendClient();
+    
+    const subject = `${senderName} mentioned you in a surgery note`;
+    
+    await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject: subject,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">You were mentioned in a surgery note</h2>
+          <p style="color: #666;">
+            <strong>${senderName}</strong> mentioned you in a note for patient <strong>${patientName}</strong> (${procedureName}):
+          </p>
+          <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
+            <p style="color: #333; margin: 0;">${noteContent.replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1')}</p>
+          </div>
+          <p style="color: #999; font-size: 12px;">
+            Log in to view the surgery details.
+          </p>
+        </div>
+      `
+    });
+    
+    console.log(`[Email] Successfully sent surgery note mention email to ${toEmail}`);
+    return true;
+  } catch (error) {
+    console.error('[Email] Failed to send surgery note mention email:', error);
+    return false;
+  }
+}

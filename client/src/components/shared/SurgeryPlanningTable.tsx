@@ -1,4 +1,4 @@
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, Fragment, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { format, parseISO } from "date-fns";
@@ -148,29 +148,197 @@ interface EditableCurrencyCellProps {
   isPending: boolean;
 }
 
-interface AdminNoteCellProps {
-  value: string | null | undefined;
+interface SurgeryNoteWithAuthor {
+  id: string;
   surgeryId: string;
-  onUpdate: (id: string, field: string, value: string | null) => void;
-  isPending: boolean;
+  authorId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string | null;
+  author: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+  };
 }
 
-function AdminNoteCell({ value, surgeryId, onUpdate, isPending }: AdminNoteCellProps) {
+interface MentionableUser {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  email: string | null;
+}
+
+interface AdminNoteCellProps {
+  surgeryId: string;
+}
+
+function AdminNoteCell({ surgeryId }: AdminNoteCellProps) {
   const { t } = useTranslation();
+  const activeHospital = useActiveHospital();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [noteValue, setNoteValue] = useState(value || "");
+  const [newNoteContent, setNewNoteContent] = useState("");
+  const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState("");
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const { data: notes = [], isLoading } = useQuery<SurgeryNoteWithAuthor[]>({
+    queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'],
+    enabled: dialogOpen,
+  });
+
+  const { data: mentionableUsers = [] } = useQuery<MentionableUser[]>({
+    queryKey: ['/api/anesthesia/hospitals', activeHospital?.id, 'users'],
+    enabled: !!activeHospital?.id && dialogOpen,
+  });
+
+  const mentionSuggestions = useMemo(() => {
+    if (!showMentionSuggestions) return [];
+    const searchLower = mentionSearch.toLowerCase();
+    return mentionableUsers
+      .filter(user => {
+        const name = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase();
+        const email = (user.email || '').toLowerCase();
+        return name.includes(searchLower) || email.includes(searchLower);
+      })
+      .slice(0, 5)
+      .map(user => ({
+        id: user.id,
+        display: user.firstName && user.lastName 
+          ? `${user.firstName} ${user.lastName}` 
+          : user.email || user.id,
+      }));
+  }, [showMentionSuggestions, mentionSearch, mentionableUsers]);
+
+  const createNoteMutation = useMutation({
+    mutationFn: async (content: string) => {
+      return apiRequest('POST', `/api/anesthesia/surgeries/${surgeryId}/notes`, { content });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'] });
+      setNewNoteContent("");
+    },
+  });
+
+  const deleteNoteMutation = useMutation({
+    mutationFn: async (noteId: string) => {
+      return apiRequest('DELETE', `/api/anesthesia/surgery-notes/${noteId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'] });
+    },
+  });
+
+  const handleAddNote = () => {
+    if (newNoteContent.trim()) {
+      createNoteMutation.mutate(newNoteContent.trim());
+    }
+  };
+
+  const handleNoteInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const value = e.target.value;
+    setNewNoteContent(value);
+
+    const cursorPos = e.target.selectionStart;
+    const textBeforeCursor = value.slice(0, cursorPos);
+    const atMatch = textBeforeCursor.match(/@(\w*)$/);
+
+    if (atMatch) {
+      setShowMentionSuggestions(true);
+      setMentionSearch(atMatch[1]);
+      setMentionStartIndex(cursorPos - atMatch[0].length);
+      setSelectedMentionIndex(0);
+    } else {
+      setShowMentionSuggestions(false);
+      setMentionSearch("");
+      setMentionStartIndex(-1);
+    }
+  };
+
+  const insertMention = (suggestion: { id: string; display: string }) => {
+    const mentionText = `@[${suggestion.display}](${suggestion.id}) `;
+    const newText = newNoteContent.slice(0, mentionStartIndex) + mentionText + newNoteContent.slice(textareaRef.current?.selectionStart || newNoteContent.length);
+    setNewNoteContent(newText);
+    setShowMentionSuggestions(false);
+    setMentionSearch("");
+    setMentionStartIndex(-1);
+    textareaRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (showMentionSuggestions && mentionSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedMentionIndex(prev => (prev < mentionSuggestions.length - 1 ? prev + 1 : 0));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedMentionIndex(prev => (prev > 0 ? prev - 1 : mentionSuggestions.length - 1));
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertMention(mentionSuggestions[selectedMentionIndex]);
+      } else if (e.key === 'Escape') {
+        setShowMentionSuggestions(false);
+      }
+    }
+  };
+
+  const renderNoteContent = (content: string) => {
+    const parts: Array<{ type: 'text' | 'mention'; content: string; display?: string }> = [];
+    const mentionRegex = /@\[([^\]]+)\]\(([^)]+)\)/g;
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = mentionRegex.exec(content)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ type: 'text', content: content.slice(lastIndex, match.index) });
+      }
+      parts.push({ type: 'mention', content: match[2], display: match[1] });
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < content.length) {
+      parts.push({ type: 'text', content: content.slice(lastIndex) });
+    }
+
+    return parts.map((part, i) => 
+      part.type === 'mention' 
+        ? <span key={i} className="bg-primary/20 text-primary rounded px-1">@{part.display}</span>
+        : <span key={i}>{part.content}</span>
+    );
+  };
+
+  const formatAuthor = (author: SurgeryNoteWithAuthor['author']) => {
+    if (author.firstName || author.lastName) {
+      return `${author.firstName || ''} ${author.lastName || ''}`.trim();
+    }
+    return author.email || 'Unknown';
+  };
+
+  const formatNoteDate = (dateStr: string) => {
+    try {
+      return format(parseISO(dateStr), 'dd.MM.yyyy HH:mm');
+    } catch {
+      return dateStr;
+    }
+  };
+
+  const [previewLoaded, setPreviewLoaded] = useState(false);
+  const [noteCount, setNoteCount] = useState(0);
 
   const handleOpen = () => {
-    setNoteValue(value || "");
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    onUpdate(surgeryId, "administrativeNote", noteValue.trim() || null);
-    setDialogOpen(false);
-  };
+  useMemo(() => {
+    if (notes.length > 0 || dialogOpen) {
+      setNoteCount(notes.length);
+      setPreviewLoaded(true);
+    }
+  }, [notes, dialogOpen]);
 
-  const hasNote = !!value && value.trim().length > 0;
+  const hasNotes = previewLoaded ? noteCount > 0 : false;
 
   return (
     <>
@@ -180,49 +348,122 @@ function AdminNoteCell({ value, surgeryId, onUpdate, isPending }: AdminNoteCellP
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 w-8 p-0"
-              disabled={isPending}
+              className="h-8 w-8 p-0 relative"
               onClick={handleOpen}
               data-testid={`button-admin-note-${surgeryId}`}
             >
-              {isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <StickyNote className={cn("h-4 w-4", hasNote ? "text-primary" : "text-muted-foreground")} />
+              <StickyNote className={cn("h-4 w-4", hasNotes ? "text-primary" : "text-muted-foreground")} />
+              {hasNotes && (
+                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] font-medium rounded-full h-4 w-4 flex items-center justify-center">
+                  {noteCount > 9 ? '9+' : noteCount}
+                </span>
               )}
             </Button>
           </TooltipTrigger>
           <TooltipContent side="left" className="max-w-[300px]">
-            {hasNote ? (
-              <p className="whitespace-pre-wrap">{value}</p>
-            ) : (
-              <p className="text-muted-foreground">{t("surgeryPlanning.noCaseNotes", "No notes")}</p>
-            )}
+            <p className="text-muted-foreground">
+              {hasNotes 
+                ? t("surgeryPlanning.hasNotes", "{{count}} note(s) - click to view", { count: noteCount })
+                : t("surgeryPlanning.noCaseNotes", "No notes - click to add")}
+            </p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{t("surgeryPlanning.caseNotesTitle", "Case Notes")}</DialogTitle>
           </DialogHeader>
-          <Textarea
-            value={noteValue}
-            onChange={(e) => setNoteValue(e.target.value)}
-            placeholder={t("surgeryPlanning.caseNotesPlaceholder", "E.g., Quote sent, contract signed, payment received, patient contacted...")}
-            rows={4}
-            className="resize-none"
-            data-testid={`textarea-admin-note-${surgeryId}`}
-          />
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
-              {t("common.cancel", "Cancel")}
-            </Button>
-            <Button onClick={handleSave} data-testid={`button-save-admin-note-${surgeryId}`}>
-              {t("common.save", "Save")}
-            </Button>
-          </DialogFooter>
+          
+          <div className="flex-1 overflow-y-auto space-y-3 min-h-[200px] max-h-[300px] pr-2">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : notes.length === 0 ? (
+              <div className="text-center text-muted-foreground py-8">
+                {t("surgeryPlanning.noNotesYet", "No notes yet. Add your first note below.")}
+              </div>
+            ) : (
+              notes.map((note) => (
+                <div key={note.id} className="border rounded-md p-3 bg-muted/30">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <p className="text-sm whitespace-pre-wrap">{renderNoteContent(note.content)}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() => deleteNoteMutation.mutate(note.id)}
+                      disabled={deleteNoteMutation.isPending}
+                      data-testid={`button-delete-note-${note.id}`}
+                    >
+                      {deleteNoteMutation.isPending ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <X className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground flex items-center gap-2">
+                    <span className="font-medium">{formatAuthor(note.author)}</span>
+                    <span>·</span>
+                    <span>{formatNoteDate(note.createdAt)}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="border-t pt-4 space-y-2 relative">
+            <div className="relative">
+              <Textarea
+                ref={textareaRef}
+                value={newNoteContent}
+                onChange={handleNoteInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder={t("surgeryPlanning.caseNotesPlaceholder", "Add a new note... Use @ to mention team members")}
+                rows={2}
+                className="resize-none"
+                data-testid={`textarea-new-note-${surgeryId}`}
+              />
+              {showMentionSuggestions && mentionSuggestions.length > 0 && (
+                <div className="absolute bottom-full left-0 mb-1 w-full bg-popover border rounded-md shadow-lg z-50 max-h-[200px] overflow-y-auto">
+                  {mentionSuggestions.map((suggestion, index) => (
+                    <button
+                      key={suggestion.id}
+                      type="button"
+                      className={cn(
+                        "w-full px-3 py-2 text-left text-sm hover:bg-muted cursor-pointer flex items-center gap-2",
+                        index === selectedMentionIndex && "bg-muted"
+                      )}
+                      onClick={() => insertMention(suggestion)}
+                      data-testid={`mention-suggestion-${suggestion.id}`}
+                    >
+                      <span className="font-medium">{suggestion.display}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                {t("common.close", "Close")}
+              </Button>
+              <Button 
+                onClick={handleAddNote} 
+                disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+                data-testid={`button-add-note-${surgeryId}`}
+              >
+                {createNoteMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                {t("surgeryPlanning.addNote", "Add Note")}
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </>
@@ -1432,12 +1673,7 @@ export function SurgeryPlanningTable({
                         />
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()} className="text-center">
-                        <AdminNoteCell
-                          value={(surgery as any).administrativeNote}
-                          surgeryId={surgery.id}
-                          onUpdate={handleUpdate}
-                          isPending={isFieldPending(surgery.id, "administrativeNote")}
-                        />
+                        <AdminNoteCell surgeryId={surgery.id} />
                       </TableCell>
                     </>
                   )}
@@ -1455,12 +1691,7 @@ export function SurgeryPlanningTable({
                   {/* Notes column for non-business views */}
                   {!showBusiness && (
                     <TableCell onClick={(e) => e.stopPropagation()} className="text-center">
-                      <AdminNoteCell
-                        value={(surgery as any).administrativeNote}
-                        surgeryId={surgery.id}
-                        onUpdate={handleUpdate}
-                        isPending={isFieldPending(surgery.id, "administrativeNote")}
-                      />
+                      <AdminNoteCell surgeryId={surgery.id} />
                     </TableCell>
                   )}
                   
@@ -1526,12 +1757,13 @@ export function SurgeryPlanningTable({
                           </div>
                         )}
                         
-                        {(surgery as any).administrativeNote && (
-                          <div>
-                            <h4 className="font-semibold mb-2">{t("surgeryPlanning.caseNotesTitle", "Case Notes")}</h4>
-                            <p className="text-sm whitespace-pre-wrap">{(surgery as any).administrativeNote}</p>
-                          </div>
-                        )}
+                        <div>
+                          <h4 className="font-semibold mb-2 flex items-center gap-2">
+                            <StickyNote className="h-4 w-4" />
+                            {t("surgeryPlanning.caseNotesTitle", "Case Notes")}
+                          </h4>
+                          <AdminNoteCell surgeryId={surgery.id} />
+                        </div>
                         
                         {showImplants && surgery.implantDetails && (
                           <div>
