@@ -2256,6 +2256,7 @@
       "born": "Geboren",
       "surgeryRoom": "OP-Saal",
       "startTime": "Startzeit",
+      "admissionTime": "Eintritt",
       "duration": "Dauer (Minuten)",
       "plannedSurgery": "Geplanter Eingriff",
       "surgeon": "Chirurg",
