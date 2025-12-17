@@ -75,6 +75,7 @@ export default function Hospital() {
   const [unitForm, setUnitForm] = useState({
     name: "",
     type: "",
+    questionnairePhone: "",
   });
 
   // Checklist template states
@@ -445,7 +446,7 @@ export default function Hospital() {
   });
 
   const resetUnitForm = () => {
-    setUnitForm({ name: "", type: "" });
+    setUnitForm({ name: "", type: "", questionnairePhone: "" });
     setEditingUnit(null);
   };
 
@@ -472,6 +473,7 @@ export default function Hospital() {
     setUnitForm({
       name: unit.name,
       type: unit.type || "",
+      questionnairePhone: unit.questionnairePhone || "",
     });
     setUnitDialogOpen(true);
   };
@@ -485,6 +487,7 @@ export default function Hospital() {
     const data = {
       name: unitForm.name,
       type: unitForm.type || null,
+      questionnairePhone: unitForm.questionnairePhone || null,
     };
 
     if (editingUnit) {
@@ -1468,6 +1471,19 @@ export default function Hospital() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <Label htmlFor="questionnaire-phone">{t("admin.questionnairePhone")}</Label>
+              <Input
+                id="questionnaire-phone"
+                value={unitForm.questionnairePhone}
+                onChange={(e) => setUnitForm({ ...unitForm, questionnairePhone: e.target.value })}
+                placeholder={t("admin.questionnairePhonePlaceholder")}
+                data-testid="input-questionnaire-phone"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {t("admin.questionnairePhoneHint")}
+              </p>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>
