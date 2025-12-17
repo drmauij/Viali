@@ -1598,7 +1598,7 @@ export function SurgeryPlanningTable({
   }
   
   return (
-    <div className="h-full flex flex-col">
+    <div>
       {showCompactToggle && (
         <div className="flex justify-end">
           <Button
@@ -1622,7 +1622,7 @@ export function SurgeryPlanningTable({
           </Button>
         </div>
       )}
-      <div className="rounded-md border overflow-auto flex-1">
+      <div className="rounded-md border overflow-x-auto">
           <table className="w-full caption-bottom text-sm">
             <thead className="sticky top-0 z-20 bg-background [&_tr]:border-b">
             <TableRow>

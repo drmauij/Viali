@@ -57,8 +57,8 @@ export default function SimplifiedDashboard() {
           <CardDescription>{t('business.surgeryPlanning.descriptionWithCosts', 'Track billing, contracts, and costs for surgeries')}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="current" className="flex flex-col">
-            <TabsList className="grid w-full max-w-md grid-cols-2 flex-shrink-0">
+          <Tabs defaultValue="current">
+            <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="current" data-testid="tab-business-current-surgeries">
                 {t('surgeryPlanning.currentAndFuture')}
               </TabsTrigger>
@@ -66,7 +66,7 @@ export default function SimplifiedDashboard() {
                 {t('surgeryPlanning.past')}
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="current" className="mt-4 flex-1 min-h-0" style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
+            <TabsContent value="current" className="mt-4">
               <SurgeryPlanningTable
                 moduleContext="business"
                 dateFrom={(() => {
@@ -83,7 +83,7 @@ export default function SimplifiedDashboard() {
                 showFilters={true}
               />
             </TabsContent>
-            <TabsContent value="past" className="mt-4 flex-1 min-h-0" style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
+            <TabsContent value="past" className="mt-4">
               <SurgeryPlanningTable
                 moduleContext="business"
                 dateFrom={(() => {
