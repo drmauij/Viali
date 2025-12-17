@@ -248,7 +248,17 @@ export const defaultColumns = {
       const patientBirthday = patient?.birthday 
         ? `(${format(new Date(patient.birthday), 'dd.MM.yyyy')})`
         : '';
-      return `${patientName}\n${patientBirthday}`;
+      // Add allergies if available
+      const allergies = patient?.allergies;
+      const otherAllergies = patient?.otherAllergies;
+      let allergyText = '';
+      if (allergies && allergies.length > 0) {
+        allergyText = `\nAllergien: ${allergies.join(', ')}`;
+      }
+      if (otherAllergies) {
+        allergyText += allergyText ? `, ${otherAllergies}` : `\nAllergien: ${otherAllergies}`;
+      }
+      return `${patientName}\n${patientBirthday}${allergyText}`;
     },
   }),
   
