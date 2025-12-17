@@ -1339,38 +1339,52 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 draggable
                                 onDragStart={() => handleDragStart(todo.id)}
                                 onDragEnd={handleDragEnd}
-                                className={`bg-card border border-border rounded-lg p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group ${draggedTodo === todo.id ? 'opacity-50' : ''}`}
+                                className={`bg-card border border-border rounded-lg p-3 shadow-sm hover:shadow-md transition-all group ${draggedTodo === todo.id ? 'opacity-50' : ''}`}
                                 data-testid={`todo-item-${todo.id}`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <GripVertical className="w-4 h-4 text-muted-foreground/50" />
                                   <span className="text-sm text-foreground flex-1">{todo.title}</span>
-                                  <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setEditingTodo({ id: todo.id, title: todo.title, description: todo.description || undefined });
-                                      }}
-                                      data-testid={`button-edit-todo-${todo.id}`}
-                                    >
-                                      <MessageCircle className="w-3 h-3" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-destructive hover:text-destructive"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteTodoMutation.mutate(todo.id);
-                                      }}
-                                      data-testid={`button-delete-todo-${todo.id}`}
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </Button>
-                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
+                                    onClick={() => updateTodoMutation.mutate({ id: todo.id, updates: { status: 'running' } })}
+                                    data-testid={`button-start-todo-${todo.id}`}
+                                  >
+                                    <Play className="w-3 h-3 mr-1" />
+                                    Start
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-green-500 hover:text-green-600 hover:bg-green-500/10"
+                                    onClick={() => updateTodoMutation.mutate({ id: todo.id, updates: { status: 'completed' } })}
+                                    data-testid={`button-complete-todo-${todo.id}`}
+                                  >
+                                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                                    Done
+                                  </Button>
+                                  <div className="flex-1" />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => setEditingTodo({ id: todo.id, title: todo.title, description: todo.description || undefined })}
+                                    data-testid={`button-edit-todo-${todo.id}`}
+                                  >
+                                    <MessageCircle className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={() => deleteTodoMutation.mutate(todo.id)}
+                                    data-testid={`button-delete-todo-${todo.id}`}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
                                 </div>
                               </div>
                             ))}
@@ -1402,38 +1416,52 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 draggable
                                 onDragStart={() => handleDragStart(todo.id)}
                                 onDragEnd={handleDragEnd}
-                                className={`bg-card border border-blue-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group ${draggedTodo === todo.id ? 'opacity-50' : ''}`}
+                                className={`bg-card border border-blue-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-all group ${draggedTodo === todo.id ? 'opacity-50' : ''}`}
                                 data-testid={`todo-item-${todo.id}`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <GripVertical className="w-4 h-4 text-muted-foreground/50" />
                                   <span className="text-sm text-foreground flex-1">{todo.title}</span>
-                                  <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setEditingTodo({ id: todo.id, title: todo.title, description: todo.description || undefined });
-                                      }}
-                                      data-testid={`button-edit-todo-${todo.id}`}
-                                    >
-                                      <MessageCircle className="w-3 h-3" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-destructive hover:text-destructive"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteTodoMutation.mutate(todo.id);
-                                      }}
-                                      data-testid={`button-delete-todo-${todo.id}`}
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </Button>
-                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                    onClick={() => updateTodoMutation.mutate({ id: todo.id, updates: { status: 'todo' } })}
+                                    data-testid={`button-pause-todo-${todo.id}`}
+                                  >
+                                    <Circle className="w-3 h-3 mr-1" />
+                                    Pause
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-green-500 hover:text-green-600 hover:bg-green-500/10"
+                                    onClick={() => updateTodoMutation.mutate({ id: todo.id, updates: { status: 'completed' } })}
+                                    data-testid={`button-complete-todo-${todo.id}`}
+                                  >
+                                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                                    Done
+                                  </Button>
+                                  <div className="flex-1" />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => setEditingTodo({ id: todo.id, title: todo.title, description: todo.description || undefined })}
+                                    data-testid={`button-edit-todo-${todo.id}`}
+                                  >
+                                    <MessageCircle className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={() => deleteTodoMutation.mutate(todo.id)}
+                                    data-testid={`button-delete-todo-${todo.id}`}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
                                 </div>
                               </div>
                             ))}
@@ -1465,38 +1493,52 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 draggable
                                 onDragStart={() => handleDragStart(todo.id)}
                                 onDragEnd={handleDragEnd}
-                                className={`bg-card border border-green-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group opacity-70 ${draggedTodo === todo.id ? 'opacity-30' : ''}`}
+                                className={`bg-card border border-green-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-all group opacity-70 ${draggedTodo === todo.id ? 'opacity-30' : ''}`}
                                 data-testid={`todo-item-${todo.id}`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <GripVertical className="w-4 h-4 text-muted-foreground/50" />
                                   <span className="text-sm text-foreground flex-1 line-through">{todo.title}</span>
-                                  <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setEditingTodo({ id: todo.id, title: todo.title, description: todo.description || undefined });
-                                      }}
-                                      data-testid={`button-edit-todo-${todo.id}`}
-                                    >
-                                      <MessageCircle className="w-3 h-3" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 text-destructive hover:text-destructive"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        deleteTodoMutation.mutate(todo.id);
-                                      }}
-                                      data-testid={`button-delete-todo-${todo.id}`}
-                                    >
-                                      <Trash2 className="w-3 h-3" />
-                                    </Button>
-                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border">
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                                    onClick={() => updateTodoMutation.mutate({ id: todo.id, updates: { status: 'todo' } })}
+                                    data-testid={`button-reopen-todo-${todo.id}`}
+                                  >
+                                    <Circle className="w-3 h-3 mr-1" />
+                                    Reopen
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs text-blue-500 hover:text-blue-600 hover:bg-blue-500/10"
+                                    onClick={() => updateTodoMutation.mutate({ id: todo.id, updates: { status: 'running' } })}
+                                    data-testid={`button-restart-todo-${todo.id}`}
+                                  >
+                                    <Play className="w-3 h-3 mr-1" />
+                                    Restart
+                                  </Button>
+                                  <div className="flex-1" />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => setEditingTodo({ id: todo.id, title: todo.title, description: todo.description || undefined })}
+                                    data-testid={`button-edit-todo-${todo.id}`}
+                                  >
+                                    <MessageCircle className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={() => deleteTodoMutation.mutate(todo.id)}
+                                    data-testid={`button-delete-todo-${todo.id}`}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
                                 </div>
                               </div>
                             ))}
