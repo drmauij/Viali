@@ -181,6 +181,10 @@ import {
   type InsertPatientQuestionnaireUpload,
   type PatientQuestionnaireReview,
   type InsertPatientQuestionnaireReview,
+  // Personal todo types
+  personalTodos,
+  type PersonalTodo,
+  type InsertPersonalTodo,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -664,6 +668,14 @@ export interface IStorage {
   createQuestionnaireReview(review: InsertPatientQuestionnaireReview): Promise<PatientQuestionnaireReview>;
   getQuestionnaireReview(responseId: string): Promise<PatientQuestionnaireReview | undefined>;
   updateQuestionnaireReview(id: string, updates: Partial<PatientQuestionnaireReview>): Promise<PatientQuestionnaireReview>;
+  
+  // ========== PERSONAL TODO OPERATIONS ==========
+  getPersonalTodos(userId: string, hospitalId: string): Promise<PersonalTodo[]>;
+  getPersonalTodo(id: string): Promise<PersonalTodo | undefined>;
+  createPersonalTodo(todo: InsertPersonalTodo): Promise<PersonalTodo>;
+  updatePersonalTodo(id: string, updates: Partial<PersonalTodo>): Promise<PersonalTodo>;
+  deletePersonalTodo(id: string): Promise<void>;
+  reorderPersonalTodos(todoIds: string[], status: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6024,6 +6036,72 @@ export class DatabaseStorage implements IStorage {
       .where(eq(patientQuestionnaireReviews.id, id))
       .returning();
     return updated;
+  }
+
+  // ========== PERSONAL TODO OPERATIONS ==========
+  
+  async getPersonalTodos(userId: string, hospitalId: string): Promise<PersonalTodo[]> {
+    return await db
+      .select()
+      .from(personalTodos)
+      .where(and(
+        eq(personalTodos.userId, userId),
+        eq(personalTodos.hospitalId, hospitalId)
+      ))
+      .orderBy(asc(personalTodos.status), asc(personalTodos.position), desc(personalTodos.createdAt));
+  }
+
+  async getPersonalTodo(id: string): Promise<PersonalTodo | undefined> {
+    const [todo] = await db
+      .select()
+      .from(personalTodos)
+      .where(eq(personalTodos.id, id));
+    return todo;
+  }
+
+  async createPersonalTodo(todo: InsertPersonalTodo): Promise<PersonalTodo> {
+    // Get the max position for the status to add at the end
+    const existingTodos = await db
+      .select()
+      .from(personalTodos)
+      .where(and(
+        eq(personalTodos.userId, todo.userId),
+        eq(personalTodos.hospitalId, todo.hospitalId),
+        eq(personalTodos.status, todo.status || 'todo')
+      ));
+    
+    const maxPosition = existingTodos.reduce((max, t) => Math.max(max, t.position), -1);
+    
+    const [created] = await db
+      .insert(personalTodos)
+      .values({ ...todo, position: maxPosition + 1 })
+      .returning();
+    return created;
+  }
+
+  async updatePersonalTodo(id: string, updates: Partial<PersonalTodo>): Promise<PersonalTodo> {
+    const [updated] = await db
+      .update(personalTodos)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(personalTodos.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePersonalTodo(id: string): Promise<void> {
+    await db
+      .delete(personalTodos)
+      .where(eq(personalTodos.id, id));
+  }
+
+  async reorderPersonalTodos(todoIds: string[], status: string): Promise<void> {
+    // Update position for each todo based on its index in the array
+    for (let i = 0; i < todoIds.length; i++) {
+      await db
+        .update(personalTodos)
+        .set({ position: i, status: status as any, updatedAt: new Date() })
+        .where(eq(personalTodos.id, todoIds[i]));
+    }
   }
 }
 
