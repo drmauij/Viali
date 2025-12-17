@@ -177,15 +177,9 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [listTab, setListTab] = useState<'messages' | 'todos'>('messages');
-  
-  // Mock todo data for UI preview
-  const [todos, setTodos] = useState([
-    { id: '1', title: 'Review patient records', status: 'todo' as const },
-    { id: '2', title: 'Update medication list', status: 'todo' as const },
-    { id: '3', title: 'Schedule follow-up appointment', status: 'running' as const },
-    { id: '4', title: 'Complete discharge summary', status: 'completed' as const },
-    { id: '5', title: 'Order lab tests', status: 'running' as const },
-  ]);
+  const [editingTodo, setEditingTodo] = useState<{ id: string; title: string; description?: string } | null>(null);
+  const [newTodoTitle, setNewTodoTitle] = useState("");
+  const [draggedTodo, setDraggedTodo] = useState<string | null>(null);
   const [messageText, setMessageText] = useState("");
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
@@ -292,6 +286,93 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
     },
     enabled: !!activeHospital?.id && (isOpen || view === 'mentions'),
   });
+
+  // Personal todos query
+  interface PersonalTodo {
+    id: string;
+    userId: string;
+    hospitalId: string;
+    title: string;
+    description?: string | null;
+    status: 'todo' | 'running' | 'completed';
+    position: number;
+    createdAt?: string;
+    updatedAt?: string;
+  }
+
+  const { data: todos = [], isLoading: todosLoading } = useQuery<PersonalTodo[]>({
+    queryKey: ['/api/hospitals', activeHospital?.id, 'todos'],
+    queryFn: async () => {
+      const response = await fetch(`/api/hospitals/${activeHospital?.id}/todos`, {
+        credentials: 'include',
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!activeHospital?.id && isOpen,
+  });
+
+  const createTodoMutation = useMutation({
+    mutationFn: async (title: string) => {
+      const response = await apiRequest("POST", `/api/hospitals/${activeHospital?.id}/todos`, { title });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', activeHospital?.id, 'todos'] });
+      setNewTodoTitle("");
+    },
+  });
+
+  const updateTodoMutation = useMutation({
+    mutationFn: async ({ id, updates }: { id: string; updates: { title?: string; description?: string; status?: string } }) => {
+      const response = await apiRequest("PATCH", `/api/todos/${id}`, updates);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', activeHospital?.id, 'todos'] });
+      setEditingTodo(null);
+    },
+  });
+
+  const deleteTodoMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/todos/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', activeHospital?.id, 'todos'] });
+    },
+  });
+
+  const reorderTodosMutation = useMutation({
+    mutationFn: async ({ todoIds, status }: { todoIds: string[]; status: string }) => {
+      await apiRequest("POST", `/api/hospitals/${activeHospital?.id}/todos/reorder`, { todoIds, status });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', activeHospital?.id, 'todos'] });
+    },
+  });
+
+  const handleDragStart = (todoId: string) => {
+    setDraggedTodo(todoId);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedTodo(null);
+  };
+
+  const handleDrop = (targetStatus: 'todo' | 'running' | 'completed') => {
+    if (!draggedTodo) return;
+    
+    const todo = todos.find(t => t.id === draggedTodo);
+    if (!todo || todo.status === targetStatus) {
+      setDraggedTodo(null);
+      return;
+    }
+
+    // Update the todo status
+    updateTodoMutation.mutate({ id: draggedTodo, updates: { status: targetStatus } });
+    setDraggedTodo(null);
+  };
 
   const mentionSuggestions = useMemo((): MentionSuggestion[] => {
     if (!showMentionSuggestions || !mentionType) return [];
@@ -1168,95 +1249,266 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
               {listTab === 'todos' && (
                 <ScrollArea className="flex-1">
                   <div className="p-3 space-y-4">
-                    {/* Todo Column */}
-                    <div className="bg-muted/30 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Circle className="w-4 h-4 text-muted-foreground" />
-                        <span className="font-medium text-sm text-foreground">To Do</span>
-                        <span className="bg-muted text-muted-foreground text-xs px-1.5 py-0.5 rounded-full">
-                          {todos.filter(t => t.status === 'todo').length}
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {todos.filter(t => t.status === 'todo').map(todo => (
-                          <div
-                            key={todo.id}
-                            className="bg-card border border-border rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                            data-testid={`todo-item-${todo.id}`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <GripVertical className="w-4 h-4 text-muted-foreground/50" />
-                              <span className="text-sm text-foreground flex-1">{todo.title}</span>
-                            </div>
-                          </div>
-                        ))}
-                        {todos.filter(t => t.status === 'todo').length === 0 && (
-                          <div className="text-center py-4 text-sm text-muted-foreground">
-                            No tasks to do
-                          </div>
-                        )}
-                      </div>
+                    {/* Add new todo */}
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Add a new task..."
+                        value={newTodoTitle}
+                        onChange={(e) => setNewTodoTitle(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newTodoTitle.trim()) {
+                            createTodoMutation.mutate(newTodoTitle.trim());
+                          }
+                        }}
+                        className="flex-1"
+                        data-testid="input-new-todo"
+                      />
+                      <Button
+                        size="icon"
+                        onClick={() => {
+                          if (newTodoTitle.trim()) {
+                            createTodoMutation.mutate(newTodoTitle.trim());
+                          }
+                        }}
+                        disabled={!newTodoTitle.trim() || createTodoMutation.isPending}
+                        data-testid="button-add-todo"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
                     </div>
 
-                    {/* Running Column */}
-                    <div className="bg-blue-500/5 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-3">
-                        <Play className="w-4 h-4 text-blue-500" />
-                        <span className="font-medium text-sm text-foreground">Running</span>
-                        <span className="bg-blue-500/20 text-blue-500 text-xs px-1.5 py-0.5 rounded-full">
-                          {todos.filter(t => t.status === 'running').length}
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {todos.filter(t => t.status === 'running').map(todo => (
-                          <div
-                            key={todo.id}
-                            className="bg-card border border-blue-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                            data-testid={`todo-item-${todo.id}`}
+                    {/* Edit dialog */}
+                    {editingTodo && (
+                      <div className="bg-card border border-border rounded-lg p-3 shadow-md">
+                        <Input
+                          value={editingTodo.title}
+                          onChange={(e) => setEditingTodo({ ...editingTodo, title: e.target.value })}
+                          className="mb-2"
+                          autoFocus
+                          data-testid="input-edit-todo"
+                        />
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingTodo(null)}
+                            data-testid="button-cancel-edit"
                           >
-                            <div className="flex items-center gap-2">
-                              <GripVertical className="w-4 h-4 text-muted-foreground/50" />
-                              <span className="text-sm text-foreground flex-1">{todo.title}</span>
-                            </div>
-                          </div>
-                        ))}
-                        {todos.filter(t => t.status === 'running').length === 0 && (
-                          <div className="text-center py-4 text-sm text-muted-foreground">
-                            No tasks in progress
-                          </div>
-                        )}
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              if (editingTodo.title.trim()) {
+                                updateTodoMutation.mutate({
+                                  id: editingTodo.id,
+                                  updates: { title: editingTodo.title.trim() }
+                                });
+                              }
+                            }}
+                            disabled={!editingTodo.title.trim() || updateTodoMutation.isPending}
+                            data-testid="button-save-edit"
+                          >
+                            Save
+                          </Button>
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    {/* Completed Column */}
-                    <div className="bg-green-500/5 rounded-lg p-3">
-                      <div className="flex items-center gap-2 mb-3">
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        <span className="font-medium text-sm text-foreground">Completed</span>
-                        <span className="bg-green-500/20 text-green-500 text-xs px-1.5 py-0.5 rounded-full">
-                          {todos.filter(t => t.status === 'completed').length}
-                        </span>
-                      </div>
-                      <div className="space-y-2">
-                        {todos.filter(t => t.status === 'completed').map(todo => (
-                          <div
-                            key={todo.id}
-                            className="bg-card border border-green-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer opacity-70"
-                            data-testid={`todo-item-${todo.id}`}
-                          >
-                            <div className="flex items-center gap-2">
-                              <GripVertical className="w-4 h-4 text-muted-foreground/50" />
-                              <span className="text-sm text-foreground flex-1 line-through">{todo.title}</span>
-                            </div>
+                    {todosLoading ? (
+                      <div className="p-4 text-center text-muted-foreground">Loading...</div>
+                    ) : (
+                      <>
+                        {/* Todo Column */}
+                        <div 
+                          className={`bg-muted/30 rounded-lg p-3 transition-colors ${draggedTodo ? 'ring-2 ring-dashed ring-primary/30' : ''}`}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => handleDrop('todo')}
+                        >
+                          <div className="flex items-center gap-2 mb-3">
+                            <Circle className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-medium text-sm text-foreground">To Do</span>
+                            <span className="bg-muted text-muted-foreground text-xs px-1.5 py-0.5 rounded-full">
+                              {todos.filter(t => t.status === 'todo').length}
+                            </span>
                           </div>
-                        ))}
-                        {todos.filter(t => t.status === 'completed').length === 0 && (
-                          <div className="text-center py-4 text-sm text-muted-foreground">
-                            No completed tasks
+                          <div className="space-y-2">
+                            {todos.filter(t => t.status === 'todo').map(todo => (
+                              <div
+                                key={todo.id}
+                                draggable
+                                onDragStart={() => handleDragStart(todo.id)}
+                                onDragEnd={handleDragEnd}
+                                className={`bg-card border border-border rounded-lg p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group ${draggedTodo === todo.id ? 'opacity-50' : ''}`}
+                                data-testid={`todo-item-${todo.id}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <GripVertical className="w-4 h-4 text-muted-foreground/50" />
+                                  <span className="text-sm text-foreground flex-1">{todo.title}</span>
+                                  <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingTodo({ id: todo.id, title: todo.title, description: todo.description || undefined });
+                                      }}
+                                      data-testid={`button-edit-todo-${todo.id}`}
+                                    >
+                                      <MessageCircle className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive hover:text-destructive"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteTodoMutation.mutate(todo.id);
+                                      }}
+                                      data-testid={`button-delete-todo-${todo.id}`}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                            {todos.filter(t => t.status === 'todo').length === 0 && (
+                              <div className="text-center py-4 text-sm text-muted-foreground">
+                                No tasks to do
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </div>
+                        </div>
+
+                        {/* Running Column */}
+                        <div 
+                          className={`bg-blue-500/5 rounded-lg p-3 transition-colors ${draggedTodo ? 'ring-2 ring-dashed ring-blue-500/30' : ''}`}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => handleDrop('running')}
+                        >
+                          <div className="flex items-center gap-2 mb-3">
+                            <Play className="w-4 h-4 text-blue-500" />
+                            <span className="font-medium text-sm text-foreground">Running</span>
+                            <span className="bg-blue-500/20 text-blue-500 text-xs px-1.5 py-0.5 rounded-full">
+                              {todos.filter(t => t.status === 'running').length}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {todos.filter(t => t.status === 'running').map(todo => (
+                              <div
+                                key={todo.id}
+                                draggable
+                                onDragStart={() => handleDragStart(todo.id)}
+                                onDragEnd={handleDragEnd}
+                                className={`bg-card border border-blue-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group ${draggedTodo === todo.id ? 'opacity-50' : ''}`}
+                                data-testid={`todo-item-${todo.id}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <GripVertical className="w-4 h-4 text-muted-foreground/50" />
+                                  <span className="text-sm text-foreground flex-1">{todo.title}</span>
+                                  <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingTodo({ id: todo.id, title: todo.title, description: todo.description || undefined });
+                                      }}
+                                      data-testid={`button-edit-todo-${todo.id}`}
+                                    >
+                                      <MessageCircle className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive hover:text-destructive"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteTodoMutation.mutate(todo.id);
+                                      }}
+                                      data-testid={`button-delete-todo-${todo.id}`}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                            {todos.filter(t => t.status === 'running').length === 0 && (
+                              <div className="text-center py-4 text-sm text-muted-foreground">
+                                No tasks in progress
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Completed Column */}
+                        <div 
+                          className={`bg-green-500/5 rounded-lg p-3 transition-colors ${draggedTodo ? 'ring-2 ring-dashed ring-green-500/30' : ''}`}
+                          onDragOver={(e) => e.preventDefault()}
+                          onDrop={() => handleDrop('completed')}
+                        >
+                          <div className="flex items-center gap-2 mb-3">
+                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                            <span className="font-medium text-sm text-foreground">Completed</span>
+                            <span className="bg-green-500/20 text-green-500 text-xs px-1.5 py-0.5 rounded-full">
+                              {todos.filter(t => t.status === 'completed').length}
+                            </span>
+                          </div>
+                          <div className="space-y-2">
+                            {todos.filter(t => t.status === 'completed').map(todo => (
+                              <div
+                                key={todo.id}
+                                draggable
+                                onDragStart={() => handleDragStart(todo.id)}
+                                onDragEnd={handleDragEnd}
+                                className={`bg-card border border-green-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-all cursor-grab active:cursor-grabbing group opacity-70 ${draggedTodo === todo.id ? 'opacity-30' : ''}`}
+                                data-testid={`todo-item-${todo.id}`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <GripVertical className="w-4 h-4 text-muted-foreground/50" />
+                                  <span className="text-sm text-foreground flex-1 line-through">{todo.title}</span>
+                                  <div className="opacity-0 group-hover:opacity-100 flex gap-1 transition-opacity">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingTodo({ id: todo.id, title: todo.title, description: todo.description || undefined });
+                                      }}
+                                      data-testid={`button-edit-todo-${todo.id}`}
+                                    >
+                                      <MessageCircle className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 text-destructive hover:text-destructive"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        deleteTodoMutation.mutate(todo.id);
+                                      }}
+                                      data-testid={`button-delete-todo-${todo.id}`}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                            {todos.filter(t => t.status === 'completed').length === 0 && (
+                              <div className="text-center py-4 text-sm text-muted-foreground">
+                                No completed tasks
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </ScrollArea>
               )}
