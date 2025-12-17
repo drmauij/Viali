@@ -278,7 +278,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
       if (!response.ok) return [];
       return response.json();
     },
-    enabled: !!activeHospital?.id && view === 'conversation',
+    enabled: !!activeHospital?.id && (view === 'conversation' || (view === 'list' && listTab === 'todos')),
   });
 
   const { data: myMentions = [], isLoading: mentionsLoading } = useQuery<MentionItem[]>({
