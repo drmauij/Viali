@@ -35,7 +35,8 @@ import {
   FileText,
   Image as ImageIcon,
   Trash2,
-  Globe
+  Globe,
+  Camera
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n/config";
@@ -234,6 +235,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.uploads.deleteConfirm": "Delete this file?",
     "questionnaire.uploads.noFiles": "No files uploaded yet",
     "questionnaire.uploads.skip": "You can skip this step if you have no documents to upload",
+    "questionnaire.uploads.takePhoto": "Take Photo",
+    "questionnaire.uploads.or": "or",
     "questionnaire.steps.uploads": "Documents",
     "questionnaire.notes.additional": "Additional Notes",
     "questionnaire.notes.additionalHint": "Any other information you think is important",
@@ -328,6 +331,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.uploads.deleteConfirm": "Diese Datei löschen?",
     "questionnaire.uploads.noFiles": "Noch keine Dateien hochgeladen",
     "questionnaire.uploads.skip": "Sie können diesen Schritt überspringen, wenn Sie keine Dokumente hochladen möchten",
+    "questionnaire.uploads.takePhoto": "Foto aufnehmen",
+    "questionnaire.uploads.or": "oder",
     "questionnaire.steps.uploads": "Dokumente",
     "questionnaire.notes.additional": "Zusätzliche Hinweise",
     "questionnaire.notes.additionalHint": "Sonstige Informationen, die Sie für wichtig halten",
@@ -1506,6 +1511,7 @@ function UploadsStep({ uploads, uploadError, onUpload, onDelete, t }: UploadsSte
   const [selectedCategory, setSelectedCategory] = useState<FileUpload['category']>('other');
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -1514,6 +1520,16 @@ function UploadsStep({ uploads, uploadError, onUpload, onDelete, t }: UploadsSte
     }
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
+    }
+  };
+
+  const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach(file => onUpload(file, selectedCategory));
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = '';
     }
   };
 
@@ -1602,14 +1618,36 @@ function UploadsStep({ uploads, uploadError, onUpload, onDelete, t }: UploadsSte
           className="hidden"
           data-testid="file-input"
         />
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => fileInputRef.current?.click()}
-          data-testid="button-select-files"
-        >
-          {t("questionnaire.uploads.selectFiles")}
-        </Button>
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleCameraCapture}
+          className="hidden"
+          data-testid="camera-input"
+        />
+        <div className="flex flex-col sm:flex-row gap-2 justify-center items-center">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            data-testid="button-select-files"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            {t("questionnaire.uploads.selectFiles")}
+          </Button>
+          <span className="text-gray-400 text-sm">{t("questionnaire.uploads.or")}</span>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => cameraInputRef.current?.click()}
+            data-testid="button-take-photo"
+          >
+            <Camera className="h-4 w-4 mr-2" />
+            {t("questionnaire.uploads.takePhoto")}
+          </Button>
+        </div>
         <p className="text-sm text-gray-500 mt-2">{t("questionnaire.uploads.dragDrop")}</p>
         <p className="text-xs text-gray-400 mt-1">{t("questionnaire.uploads.supportedFormats")}</p>
         <p className="text-xs text-gray-400">{t("questionnaire.uploads.maxSize")}</p>
