@@ -1565,7 +1565,12 @@ export default function Op() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
             ) : (
-              <PreOpOverview surgeryId={surgeryId!} />
+              <PreOpOverview 
+                surgeryId={surgeryId!} 
+                hospitalId={activeHospital?.id}
+                patientId={patient?.id}
+                patientName={patient ? `${patient.surname}, ${patient.firstname}` : undefined}
+              />
             )}
           </TabsContent>
 

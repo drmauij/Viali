@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Loader2, AlertCircle, ListTodo } from "lucide-react";
 import { formatDateTime } from "@/lib/dateUtils";
+import { useCreateTodo } from "@/hooks/useCreateTodo";
 
 type PreOpAssessmentData = {
   // General Data
@@ -81,6 +83,9 @@ type PreOpAssessmentData = {
 
 interface PreOpOverviewProps {
   surgeryId: string;
+  hospitalId?: string;
+  patientId?: string;
+  patientName?: string;
 }
 
 const illnessLabels: Record<string, string> = {
@@ -132,7 +137,8 @@ const installationLabels: Record<string, string> = {
   drainageTube: "Drainage Tube",
 };
 
-export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
+export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName }: PreOpOverviewProps) {
+  const { createTodo, isPending: isTodoPending } = useCreateTodo(hospitalId);
   const { data: assessment, isLoading } = useQuery<PreOpAssessmentData>({
     queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
     enabled: !!surgeryId,
@@ -346,12 +352,27 @@ export function PreOpOverview({ surgeryId }: PreOpOverviewProps) {
     <div className="space-y-4 p-4">
       {/* Special Notes - Highlighted at top */}
       {data.specialNotes?.trim() && (
-        <Card className="border-blue-500 dark:border-blue-700">
+        <Card className="border-blue-500 dark:border-blue-700 group">
           <CardContent className="p-4">
             <div className="flex items-start gap-2">
               <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-              <div>
-                <div className="font-semibold text-blue-900 dark:text-blue-100 text-sm">Special Notes</div>
+              <div className="flex-1">
+                <div className="flex items-center justify-between">
+                  <div className="font-semibold text-blue-900 dark:text-blue-100 text-sm">Special Notes</div>
+                  {hospitalId && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => createTodo(data.specialNotes!, patientId, patientName)}
+                      disabled={isTodoPending}
+                      title="Add to To-Do list"
+                      data-testid="button-add-todo-from-special-notes"
+                    >
+                      <ListTodo className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
                 <div className="text-blue-800 dark:text-blue-200 mt-1 text-sm">{data.specialNotes}</div>
               </div>
             </div>
