@@ -75,7 +75,8 @@ import {
   anesthesiaPositions,
   surgeryStaffEntries,
   preOpAssessments,
-  anesthesiaAirwayManagement
+  anesthesiaAirwayManagement,
+  insertPersonalTodoSchema
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql, asc, desc } from "drizzle-orm";
@@ -2800,6 +2801,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting note:", error);
       res.status(500).json({ message: "Failed to delete note" });
+    }
+  });
+
+  // ========== PERSONAL TODO API ROUTES ==========
+
+  // Get all personal todos for the current user in a hospital
+  app.get('/api/hospitals/:hospitalId/todos', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { hospitalId } = req.params;
+
+      const todos = await storage.getPersonalTodos(userId, hospitalId);
+      res.json(todos);
+    } catch (error) {
+      console.error("Error fetching todos:", error);
+      res.status(500).json({ message: "Failed to fetch todos" });
+    }
+  });
+
+  // Create a new personal todo
+  app.post('/api/hospitals/:hospitalId/todos', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { hospitalId } = req.params;
+
+      const parsed = insertPersonalTodoSchema.safeParse({
+        ...req.body,
+        userId,
+        hospitalId
+      });
+
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Invalid todo data", errors: parsed.error.errors });
+      }
+
+      const todo = await storage.createPersonalTodo(parsed.data);
+      res.status(201).json(todo);
+    } catch (error) {
+      console.error("Error creating todo:", error);
+      res.status(500).json({ message: "Failed to create todo" });
+    }
+  });
+
+  // Update a personal todo
+  app.patch('/api/todos/:todoId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { todoId } = req.params;
+
+      // Check ownership
+      const existing = await storage.getPersonalTodo(todoId);
+      if (!existing) {
+        return res.status(404).json({ message: "Todo not found" });
+      }
+      if (existing.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      const { title, description, status } = req.body;
+      const updates: any = {};
+      if (title !== undefined) updates.title = title;
+      if (description !== undefined) updates.description = description;
+      if (status !== undefined) updates.status = status;
+
+      const updated = await storage.updatePersonalTodo(todoId, updates);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating todo:", error);
+      res.status(500).json({ message: "Failed to update todo" });
+    }
+  });
+
+  // Delete a personal todo
+  app.delete('/api/todos/:todoId', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { todoId } = req.params;
+
+      // Check ownership
+      const existing = await storage.getPersonalTodo(todoId);
+      if (!existing) {
+        return res.status(404).json({ message: "Todo not found" });
+      }
+      if (existing.userId !== userId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      await storage.deletePersonalTodo(todoId);
+      res.json({ message: "Todo deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting todo:", error);
+      res.status(500).json({ message: "Failed to delete todo" });
+    }
+  });
+
+  // Reorder todos (for drag-and-drop)
+  app.post('/api/hospitals/:hospitalId/todos/reorder', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      const { hospitalId } = req.params;
+      const { todoIds, status } = req.body;
+
+      if (!Array.isArray(todoIds) || !status) {
+        return res.status(400).json({ message: "Invalid reorder data" });
+      }
+
+      // Verify all todos belong to this user
+      for (const todoId of todoIds) {
+        const todo = await storage.getPersonalTodo(todoId);
+        if (!todo || todo.userId !== userId) {
+          return res.status(403).json({ message: "Access denied to one or more todos" });
+        }
+      }
+
+      await storage.reorderPersonalTodos(todoIds, status);
+      res.json({ message: "Todos reordered successfully" });
+    } catch (error) {
+      console.error("Error reordering todos:", error);
+      res.status(500).json({ message: "Failed to reorder todos" });
     }
   });
 
