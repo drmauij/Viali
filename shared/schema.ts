@@ -3227,3 +3227,29 @@ export type InsertPatientQuestionnaireReview = z.infer<typeof insertPatientQuest
 
 // Extended illness list type with patient visibility metadata (alias for IllnessListItem)
 export type IllnessItemWithPatientMetadata = IllnessListItem;
+
+// Personal To-Do Items (Kanban style)
+export const personalTodos = pgTable("personal_todos", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  title: varchar("title", { length: 500 }).notNull(),
+  description: text("description"),
+  status: varchar("status", { enum: ["todo", "running", "completed"] }).default("todo").notNull(),
+  position: integer("position").default(0).notNull(), // For ordering within status column
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_personal_todos_user").on(table.userId),
+  index("idx_personal_todos_hospital").on(table.hospitalId),
+  index("idx_personal_todos_status").on(table.status),
+]);
+
+export const insertPersonalTodoSchema = createInsertSchema(personalTodos).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type PersonalTodo = typeof personalTodos.$inferSelect;
+export type InsertPersonalTodo = z.infer<typeof insertPersonalTodoSchema>;
