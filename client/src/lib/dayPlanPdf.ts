@@ -133,29 +133,39 @@ export function generateDayPlanPdf(options: DayPlanPdfOptions): void {
       columns.map((col) => col.getValue(surgery, helpers))
     );
     
-    const columnStyles: Record<number, { cellWidth: number }> = {};
-    columns.forEach((col, idx) => {
-      columnStyles[idx] = { cellWidth: col.width };
-    });
+    // Calculate total defined width to proportionally scale columns to full page width
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const marginLeft = 10;
+    const marginRight = 10;
+    const availableWidth = pageWidth - marginLeft - marginRight;
+    const totalDefinedWidth = columns.reduce((sum, col) => sum + col.width, 0);
+    const scaleFactor = availableWidth / totalDefinedWidth;
     
+    // Apply scaled widths
+    const scaledColumnStyles: Record<number, { cellWidth: number }> = {};
+    columns.forEach((col, idx) => {
+      scaledColumnStyles[idx] = { cellWidth: col.width * scaleFactor };
+    });
+
     autoTable(doc, {
       startY: currentY,
       head: [columns.map((col) => col.header)],
       body: tableData,
       theme: 'grid',
       styles: { 
-        fontSize: 9, 
-        cellPadding: 2,
+        fontSize: 10, 
+        cellPadding: 3,
         overflow: 'linebreak',
         valign: 'top'
       },
       headStyles: {
         fillColor: [66, 66, 66],
-        fontSize: 10,
+        fontSize: 11,
         fontStyle: 'bold'
       },
-      columnStyles,
-      margin: { left: 10, right: 10 },
+      columnStyles: scaledColumnStyles,
+      margin: { left: marginLeft, right: marginRight },
+      tableWidth: 'auto',
       didParseCell: (data) => {
         // Check if cell content contains "Chirurg:" - store metadata for didDrawCell
         if (data.section === 'body' && typeof data.cell.text === 'object') {
