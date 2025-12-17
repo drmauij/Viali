@@ -3350,5 +3350,20 @@
     "createChoice": "Wie möchten Sie \"{{name}}\" hinzufügen?",
     "createAsUser": "Als Benutzer",
     "createAsText": "Nur Text"
+  },
+  "todoList": {
+    "title": "To-Do",
+    "addPlaceholder": "Aufgabe hinzufügen... (# für Patient)",
+    "toDo": "Zu erledigen",
+    "running": "In Bearbeitung",
+    "completed": "Erledigt",
+    "noTasksToDo": "Keine Aufgaben zu erledigen",
+    "noTasksInProgress": "Keine Aufgaben in Bearbeitung",
+    "noCompletedTasks": "Keine erledigten Aufgaben",
+    "start": "Starten",
+    "done": "Fertig",
+    "reopen": "Wiedereröffnen",
+    "deleteTask": "Aufgabe löschen",
+    "editTask": "Aufgabe bearbeiten"
   }
 }

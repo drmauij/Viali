@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -171,6 +172,7 @@ interface MentionItem {
 }
 
 export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatientInline }: ChatDockProps) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { socket, isConnected } = useSocket();
   const { toast } = useToast();
@@ -278,7 +280,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
       if (!response.ok) return [];
       return response.json();
     },
-    enabled: !!activeHospital?.id && (view === 'conversation' || (view === 'list' && listTab === 'todos')),
+    enabled: !!activeHospital?.id && isOpen,
   });
 
   const { data: myMentions = [], isLoading: mentionsLoading } = useQuery<MentionItem[]>({
@@ -1394,7 +1396,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                       <div className="flex gap-2">
                         <Input
                           ref={todoInputRef}
-                          placeholder="Add a task... (use # for patient)"
+                          placeholder={t('todoList.addPlaceholder')}
                           value={newTodoTitle}
                           onChange={handleTodoInputChange}
                           onKeyDown={handleTodoInputKeyDown}
@@ -1486,7 +1488,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                         >
                           <div className="flex items-center gap-2 mb-3">
                             <Circle className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium text-sm text-foreground">To Do</span>
+                            <span className="font-medium text-sm text-foreground">{t('todoList.toDo')}</span>
                             <span className="bg-muted text-muted-foreground text-xs px-1.5 py-0.5 rounded-full">
                               {todos.filter(t => t.status === 'todo').length}
                             </span>
@@ -1513,7 +1515,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                     data-testid={`button-start-todo-${todo.id}`}
                                   >
                                     <Play className="w-3 h-3 mr-1" />
-                                    Start
+                                    {t('todoList.start')}
                                   </Button>
                                   <Button
                                     variant="ghost"
@@ -1523,7 +1525,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                     data-testid={`button-complete-todo-${todo.id}`}
                                   >
                                     <CheckCircle2 className="w-3 h-3 mr-1" />
-                                    Done
+                                    {t('todoList.done')}
                                   </Button>
                                   <div className="flex-1" />
                                   <Button
@@ -1549,7 +1551,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                             ))}
                             {todos.filter(t => t.status === 'todo').length === 0 && (
                               <div className="text-center py-4 text-sm text-muted-foreground">
-                                No tasks to do
+                                {t('todoList.noTasksToDo')}
                               </div>
                             )}
                           </div>
@@ -1563,7 +1565,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                         >
                           <div className="flex items-center gap-2 mb-3">
                             <Play className="w-4 h-4 text-blue-500" />
-                            <span className="font-medium text-sm text-foreground">Running</span>
+                            <span className="font-medium text-sm text-foreground">{t('todoList.running')}</span>
                             <span className="bg-blue-500/20 text-blue-500 text-xs px-1.5 py-0.5 rounded-full">
                               {todos.filter(t => t.status === 'running').length}
                             </span>
@@ -1600,7 +1602,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                     data-testid={`button-complete-todo-${todo.id}`}
                                   >
                                     <CheckCircle2 className="w-3 h-3 mr-1" />
-                                    Done
+                                    {t('todoList.done')}
                                   </Button>
                                   <div className="flex-1" />
                                   <Button
@@ -1626,7 +1628,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                             ))}
                             {todos.filter(t => t.status === 'running').length === 0 && (
                               <div className="text-center py-4 text-sm text-muted-foreground">
-                                No tasks in progress
+                                {t('todoList.noTasksInProgress')}
                               </div>
                             )}
                           </div>
@@ -1640,7 +1642,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                         >
                           <div className="flex items-center gap-2 mb-3">
                             <CheckCircle2 className="w-4 h-4 text-green-500" />
-                            <span className="font-medium text-sm text-foreground">Completed</span>
+                            <span className="font-medium text-sm text-foreground">{t('todoList.completed')}</span>
                             <span className="bg-green-500/20 text-green-500 text-xs px-1.5 py-0.5 rounded-full">
                               {todos.filter(t => t.status === 'completed').length}
                             </span>
@@ -1667,7 +1669,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                     data-testid={`button-reopen-todo-${todo.id}`}
                                   >
                                     <Circle className="w-3 h-3 mr-1" />
-                                    Reopen
+                                    {t('todoList.reopen')}
                                   </Button>
                                   <Button
                                     variant="ghost"
@@ -1677,7 +1679,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                     data-testid={`button-restart-todo-${todo.id}`}
                                   >
                                     <Play className="w-3 h-3 mr-1" />
-                                    Restart
+                                    {t('todoList.start')}
                                   </Button>
                                   <div className="flex-1" />
                                   <Button
@@ -1703,7 +1705,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                             ))}
                             {todos.filter(t => t.status === 'completed').length === 0 && (
                               <div className="text-center py-4 text-sm text-muted-foreground">
-                                No completed tasks
+                                {t('todoList.noCompletedTasks')}
                               </div>
                             )}
                           </div>

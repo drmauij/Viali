@@ -3326,5 +3326,20 @@
     "createChoice": "How would you like to add \"{{name}}\"?",
     "createAsUser": "As User",
     "createAsText": "Text Only"
+  },
+  "todoList": {
+    "title": "To-Do",
+    "addPlaceholder": "Add a task... (use # for patient)",
+    "toDo": "To Do",
+    "running": "Running",
+    "completed": "Completed",
+    "noTasksToDo": "No tasks to do",
+    "noTasksInProgress": "No tasks in progress",
+    "noCompletedTasks": "No completed tasks",
+    "start": "Start",
+    "done": "Done",
+    "reopen": "Reopen",
+    "deleteTask": "Delete task",
+    "editTask": "Edit task"
   }
 }
