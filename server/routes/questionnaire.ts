@@ -579,6 +579,10 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
     // Get hospital info for the email
     const hospital = await storage.getHospital(hospitalId);
     
+    // Get unit info for the help line phone number
+    const unit = await storage.getUnit(unitId);
+    const helpPhone = unit?.questionnairePhone || hospital?.companyPhone || null;
+    
     // Get patient info if linked
     let patientName = "Patient";
     if (link.patientId) {
@@ -590,37 +594,66 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
 
     const baseUrl = process.env.PUBLIC_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
     const questionnaireUrl = `${baseUrl}/questionnaire/${link.token}`;
+    const expiryDate = link.expiresAt ? new Date(link.expiresAt).toLocaleDateString('de-DE') : '';
     
-    // Send email using Resend
+    // Build help contact section based on available phone
+    const helpContactEN = helpPhone 
+      ? `If you have any questions or need assistance, please call us at <strong>${helpPhone}</strong>.`
+      : `If you have any questions, please contact our office.`;
+    const helpContactDE = helpPhone 
+      ? `Bei Fragen oder wenn Sie Hilfe benötigen, rufen Sie uns bitte an unter <strong>${helpPhone}</strong>.`
+      : `Bei Fragen kontaktieren Sie bitte unser Büro.`;
+    
+    // Send bilingual email using Resend
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);
     
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
       to: email,
-      subject: `Pre-Op Questionnaire - ${hospital?.name || 'Hospital'}`,
+      subject: `Pre-Op Questionnaire / Präoperativer Fragebogen - ${hospital?.name || 'Hospital'}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Pre-Operative Questionnaire</h2>
-          <p>Dear ${patientName},</p>
-          <p>You have been invited to complete a pre-operative questionnaire for your upcoming procedure at ${hospital?.name || 'our facility'}.</p>
-          <p>Please click the button below to access and complete the questionnaire:</p>
-          <p style="margin: 30px 0;">
-            <a href="${questionnaireUrl}" style="background-color: #0066cc; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px;">
-              Complete Questionnaire
-            </a>
-          </p>
-          <p>Or copy and paste this link into your browser:</p>
-          <p style="color: #666; word-break: break-all;">${questionnaireUrl}</p>
-          <p style="margin-top: 30px; color: #666; font-size: 14px;">
-            This link will expire on ${link.expiresAt ? new Date(link.expiresAt).toLocaleDateString() : 'the scheduled date'}.
-          </p>
-          <p style="color: #666; font-size: 14px;">
-            If you have any questions, please contact our office.
-          </p>
+          <!-- English Section -->
+          <div style="margin-bottom: 40px;">
+            <h2 style="color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">🇬🇧 Pre-Operative Questionnaire</h2>
+            <p>Dear ${patientName},</p>
+            <p>You have been invited to complete a pre-operative questionnaire for your upcoming procedure at ${hospital?.name || 'our facility'}.</p>
+            <p>Please click the button below to access and complete the questionnaire:</p>
+            <p style="margin: 25px 0; text-align: center;">
+              <a href="${questionnaireUrl}" style="background-color: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Complete Questionnaire
+              </a>
+            </p>
+            <p style="font-size: 13px; color: #666;">Or copy and paste this link into your browser:</p>
+            <p style="color: #0066cc; word-break: break-all; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">${questionnaireUrl}</p>
+            ${expiryDate ? `<p style="color: #666; font-size: 14px;">⏰ This link will expire on <strong>${expiryDate}</strong>.</p>` : ''}
+            <p style="color: #666; font-size: 14px;">${helpContactEN}</p>
+          </div>
+
+          <hr style="border: none; border-top: 2px solid #eee; margin: 30px 0;" />
+
+          <!-- German Section -->
+          <div>
+            <h2 style="color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">🇩🇪 Präoperativer Fragebogen</h2>
+            <p>Guten Tag ${patientName},</p>
+            <p>Sie wurden eingeladen, einen präoperativen Fragebogen für Ihren bevorstehenden Eingriff bei ${hospital?.name || 'unserer Einrichtung'} auszufüllen.</p>
+            <p>Bitte klicken Sie auf die Schaltfläche unten, um den Fragebogen aufzurufen und auszufüllen:</p>
+            <p style="margin: 25px 0; text-align: center;">
+              <a href="${questionnaireUrl}" style="background-color: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Fragebogen ausfüllen
+              </a>
+            </p>
+            <p style="font-size: 13px; color: #666;">Oder kopieren Sie diesen Link in Ihren Browser:</p>
+            <p style="color: #0066cc; word-break: break-all; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">${questionnaireUrl}</p>
+            ${expiryDate ? `<p style="color: #666; font-size: 14px;">⏰ Dieser Link ist gültig bis <strong>${expiryDate}</strong>.</p>` : ''}
+            <p style="color: #666; font-size: 14px;">${helpContactDE}</p>
+          </div>
+
           <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;" />
-          <p style="color: #999; font-size: 12px;">
-            This is an automated message from ${hospital?.name || 'Viali'}.
+          <p style="color: #999; font-size: 12px; text-align: center;">
+            This is an automated message from ${hospital?.name || 'Viali'}.<br/>
+            Dies ist eine automatische Nachricht von ${hospital?.name || 'Viali'}.
           </p>
         </div>
       `,

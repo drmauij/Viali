@@ -289,6 +289,7 @@ export interface IStorage {
   
   // Admin - Unit management
   getUnits(hospitalId: string): Promise<Unit[]>;
+  getUnit(id: string): Promise<Unit | undefined>;
   createUnit(unit: Omit<Unit, 'id' | 'createdAt'>): Promise<Unit>;
   updateUnit(id: string, updates: Partial<Unit>): Promise<Unit>;
   deleteUnit(id: string): Promise<void>;
@@ -1482,6 +1483,15 @@ export class DatabaseStorage implements IStorage {
       .from(units)
       .where(eq(units.hospitalId, hospitalId))
       .orderBy(asc(units.name));
+  }
+
+  async getUnit(id: string): Promise<Unit | undefined> {
+    const [unit] = await db
+      .select()
+      .from(units)
+      .where(eq(units.id, id))
+      .limit(1);
+    return unit;
   }
 
   async createUnit(unit: Omit<Unit, 'id' | 'createdAt'>): Promise<Unit> {

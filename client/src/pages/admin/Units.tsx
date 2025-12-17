@@ -56,6 +56,7 @@ export default function Units() {
     isSurgeryModule: false,
     isBusinessModule: false,
     isClinicModule: false,
+    questionnairePhone: "",
   });
 
   // Check if user is admin
@@ -168,6 +169,7 @@ export default function Units() {
       isSurgeryModule: false,
       isBusinessModule: false,
       isClinicModule: false,
+      questionnairePhone: "",
     });
     setEditingUnit(null);
   };
@@ -186,6 +188,7 @@ export default function Units() {
       isSurgeryModule: (unit as any).isSurgeryModule || false,
       isBusinessModule: (unit as any).isBusinessModule || false,
       isClinicModule: (unit as any).isClinicModule || false,
+      questionnairePhone: (unit as any).questionnairePhone || "",
     });
     setUnitDialogOpen(true);
   };
@@ -203,6 +206,7 @@ export default function Units() {
       isSurgeryModule: unitForm.isSurgeryModule,
       isBusinessModule: unitForm.isBusinessModule,
       isClinicModule: unitForm.isClinicModule,
+      questionnairePhone: unitForm.questionnairePhone || null,
     };
 
     if (editingUnit) {
@@ -424,6 +428,20 @@ export default function Units() {
                   </Label>
                 </div>
               </div>
+            </div>
+            <Separator />
+            <div>
+              <Label htmlFor="questionnaire-phone">{t("admin.questionnairePhone")}</Label>
+              <Input
+                id="questionnaire-phone"
+                value={unitForm.questionnairePhone}
+                onChange={(e) => setUnitForm({ ...unitForm, questionnairePhone: e.target.value })}
+                placeholder={t("admin.questionnairePhonePlaceholder")}
+                data-testid="input-questionnaire-phone"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {t("admin.questionnairePhoneHint")}
+              </p>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>

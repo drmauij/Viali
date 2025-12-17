@@ -233,7 +233,7 @@ router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req
 router.patch('/api/admin/units/:unitId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { unitId } = req.params;
-    const { name, type, parentId, isAnesthesiaModule, isSurgeryModule, isBusinessModule, isClinicModule } = req.body;
+    const { name, type, parentId, isAnesthesiaModule, isSurgeryModule, isBusinessModule, isClinicModule, questionnairePhone } = req.body;
     
     const units = await storage.getUnits(req.body.hospitalId);
     const unit = units.find(l => l.id === unitId);
@@ -258,6 +258,9 @@ router.patch('/api/admin/units/:unitId', isAuthenticated, requireWriteAccess, as
     if (isSurgeryModule !== undefined) updates.isSurgeryModule = isSurgeryModule;
     if (isBusinessModule !== undefined) updates.isBusinessModule = isBusinessModule;
     if (isClinicModule !== undefined) updates.isClinicModule = isClinicModule;
+    
+    // Accept questionnaire help phone
+    if (questionnairePhone !== undefined) updates.questionnairePhone = questionnairePhone;
     
     const updated = await storage.updateUnit(unitId, updates);
     res.json(updated);
