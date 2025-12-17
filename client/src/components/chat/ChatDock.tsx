@@ -34,7 +34,8 @@ import {
   Circle,
   Play,
   CheckCircle2,
-  GripVertical
+  GripVertical,
+  ListTodo
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { format, isToday, isYesterday } from "date-fns";
@@ -1803,7 +1804,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                           className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                           data-testid={`message-${msg.id}`}
                         >
-                          <div className={`flex items-end gap-2 max-w-[80%] ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
+                          <div className={`flex items-end gap-2 max-w-[80%] group ${isOwnMessage ? 'flex-row-reverse' : ''}`}>
                             {!isOwnMessage && (
                               <Avatar className="w-7 h-7">
                                 <AvatarFallback className="text-xs">
@@ -1890,10 +1891,28 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                   </>
                                 )}
                               </div>
-                              <p className={`text-xs text-muted-foreground mt-1 ${isOwnMessage ? 'text-right' : ''}`}>
-                                {formatMessageTime(msg.createdAt)}
-                                {msg.isEdited && ' (edited)'}
-                              </p>
+                              <div className={`flex items-center gap-2 mt-1 ${isOwnMessage ? 'justify-end' : ''}`}>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatMessageTime(msg.createdAt)}
+                                  {msg.isEdited && ' (edited)'}
+                                </p>
+                                {!msg.isDeleted && msg.content && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    onClick={() => {
+                                      const plainText = msg.content.replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1').replace(/#\[([^\]]+)\]\([^)]+\)/g, '#$1');
+                                      createTodoMutation.mutate(plainText.slice(0, 200));
+                                      toast({ title: "Added to To-Do", description: "Message converted to a task" });
+                                    }}
+                                    title="Add to To-Do list"
+                                    data-testid={`button-add-todo-from-message-${msg.id}`}
+                                  >
+                                    <ListTodo className="w-3 h-3" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
