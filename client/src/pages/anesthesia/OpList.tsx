@@ -65,6 +65,23 @@ export default function OpList() {
   useEffect(() => {
     sessionStorage.setItem(VIEW_MODE_KEY, viewMode);
   }, [viewMode]);
+
+  // Toggle full-height mode on screen-container to prevent double scrollbars in table view
+  useEffect(() => {
+    const screenContainer = document.querySelector('.screen-container');
+    if (screenContainer) {
+      if (viewMode === 'table') {
+        screenContainer.classList.add('full-height-mode');
+      } else {
+        screenContainer.classList.remove('full-height-mode');
+      }
+    }
+    return () => {
+      // Cleanup when component unmounts
+      const container = document.querySelector('.screen-container');
+      container?.classList.remove('full-height-mode');
+    };
+  }, [viewMode]);
   
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
