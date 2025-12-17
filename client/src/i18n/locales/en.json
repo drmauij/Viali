@@ -1940,7 +1940,8 @@
       "errorLoadingRecord": "Error loading anesthesia record",
       "viewManage": "View and manage operative anesthesia monitoring",
       "notes": "Notes:",
-      "editPatient": "Edit Patient"
+      "editPatient": "Edit Patient",
+      "viewPatientDetail": "View Patient"
     },
     "documentation": {
       "noRecord": "No anesthesia record available",

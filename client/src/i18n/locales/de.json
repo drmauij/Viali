@@ -1939,7 +1939,9 @@
       "errorLoading": "Fehler beim Laden der Bewertungsdaten",
       "errorLoadingRecord": "Fehler beim Laden des Anästhesieprotokolls",
       "viewManage": "Intraoperative Anästhesie-Überwachung anzeigen und verwalten",
-      "notes": "Notizen:"
+      "notes": "Notizen:",
+      "editPatient": "Patient bearbeiten",
+      "viewPatientDetail": "Patient anzeigen"
     },
     "documentation": {
       "noRecord": "Kein Anästhesieprotokoll verfügbar",

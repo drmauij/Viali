@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, UserRoundCog, UserCog } from "lucide-react";
+import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, UserRoundCog, UserCog, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
@@ -234,19 +235,36 @@ export default function SurgerySummaryDialog({
                   </div>
                 )}
               </div>
+              <div className="flex flex-col gap-2 shrink-0 ml-2">
+              {/* View Patient Detail Link */}
+              <Link 
+                href={activeModule === 'surgery' ? `/surgery/patients/${patient.id}` : `/anesthesia/patients/${patient.id}`}
+                onClick={() => onOpenChange(false)}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  data-testid="button-view-patient-detail"
+                >
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  {t('anesthesia.surgerySummary.viewPatientDetail')}
+                </Button>
+              </Link>
               {/* Edit Patient Button - available to admin, doctor, and nurse roles */}
               {['admin', 'doctor', 'nurse'].includes(activeHospital?.role || '') && onEditPatient && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={onEditPatient}
-                  className="shrink-0 ml-2"
+                  className="w-full"
                   data-testid="button-edit-patient"
                 >
                   <UserCog className="h-4 w-4 mr-1" />
                   {t('anesthesia.surgerySummary.editPatient')}
                 </Button>
               )}
+            </div>
             </div>
             
             {/* Patient Allergies from Patient Record */}
