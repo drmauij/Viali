@@ -188,6 +188,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const [todoMentionStartIndex, setTodoMentionStartIndex] = useState(-1);
   const [selectedTodoMentionIndex, setSelectedTodoMentionIndex] = useState(0);
   const todoInputRef = useRef<HTMLTextAreaElement>(null);
+  const editTodoInputRef = useRef<HTMLTextAreaElement>(null);
+  const [editMentionActive, setEditMentionActive] = useState(false);
+  const [editMentionSearch, setEditMentionSearch] = useState("");
+  const [editMentionStartIndex, setEditMentionStartIndex] = useState(-1);
+  const [selectedEditMentionIndex, setSelectedEditMentionIndex] = useState(0);
   const [messageText, setMessageText] = useState("");
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
@@ -443,6 +448,70 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
     setTodoMentionSearch("");
     todoInputRef.current?.focus();
   }, [newTodoTitle, todoMentionStartIndex]);
+
+  // Edit todo patient mention support
+  const editPatientSuggestions = useMemo(() => {
+    if (!editMentionActive) return [];
+    
+    const searchLower = editMentionSearch.toLowerCase();
+    return patients
+      .filter(p => {
+        const surname = (p.surname || '').toLowerCase();
+        const firstName = (p.firstName || '').toLowerCase();
+        let formattedBirthday = '';
+        if (p.birthday) {
+          try {
+            formattedBirthday = format(new Date(p.birthday), 'dd.MM.yyyy');
+          } catch {
+            formattedBirthday = p.birthday;
+          }
+        }
+        return surname.includes(searchLower) || 
+               firstName.includes(searchLower) || 
+               formattedBirthday.includes(searchLower);
+      })
+      .slice(0, 5)
+      .map(p => {
+        let formattedDob = '';
+        if (p.birthday) {
+          try {
+            formattedDob = format(new Date(p.birthday), 'dd.MM.yyyy');
+          } catch {
+            formattedDob = p.birthday;
+          }
+        }
+        const displayName = p.surname 
+          ? `${p.surname}${p.firstName ? ', ' + p.firstName : ''}${formattedDob ? ' (' + formattedDob + ')' : ''}`
+          : p.firstName || 'Unknown Patient';
+        return { id: p.id, display: displayName };
+      });
+  }, [editMentionActive, editMentionSearch, patients]);
+
+  const detectEditMention = useCallback((text: string, cursorPos: number) => {
+    const beforeCursor = text.slice(0, cursorPos);
+    const hashMatch = beforeCursor.match(/#(\w*)$/);
+    
+    if (hashMatch) {
+      setEditMentionActive(true);
+      setEditMentionSearch(hashMatch[1]);
+      setEditMentionStartIndex(cursorPos - hashMatch[0].length);
+      setSelectedEditMentionIndex(0);
+    } else {
+      setEditMentionActive(false);
+      setEditMentionSearch("");
+    }
+  }, []);
+
+  const insertEditPatientMention = useCallback((patient: { id: string; display: string }) => {
+    if (!editingTodo) return;
+    const mentionText = `#[${patient.display}](${patient.id}) `;
+    const cursorPos = editTodoInputRef.current?.selectionStart || editingTodo.title.length;
+    const newText = editingTodo.title.slice(0, editMentionStartIndex) + mentionText + editingTodo.title.slice(cursorPos);
+    setEditingTodo({ ...editingTodo, title: newText });
+    setEditMentionActive(false);
+    setEditMentionSearch("");
+    editTodoInputRef.current?.focus();
+  }, [editingTodo, editMentionStartIndex]);
 
   const handleTodoInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
@@ -1446,16 +1515,36 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
 
                     {/* Edit dialog */}
                     {editingTodo && (
-                      <div className="bg-card border border-border rounded-lg p-3 shadow-md">
+                      <div className="bg-card border border-border rounded-lg p-3 shadow-md relative">
                         <textarea
+                          ref={editTodoInputRef}
                           value={editingTodo.title}
                           onChange={(e) => {
                             setEditingTodo({ ...editingTodo, title: e.target.value });
+                            detectEditMention(e.target.value, e.target.selectionStart || e.target.value.length);
                             e.target.style.height = 'auto';
                             e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
                           }}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey && editingTodo.title.trim()) {
+                            if (editMentionActive && editPatientSuggestions.length > 0) {
+                              if (e.key === 'ArrowDown') {
+                                e.preventDefault();
+                                setSelectedEditMentionIndex(prev => 
+                                  prev < editPatientSuggestions.length - 1 ? prev + 1 : 0
+                                );
+                              } else if (e.key === 'ArrowUp') {
+                                e.preventDefault();
+                                setSelectedEditMentionIndex(prev => 
+                                  prev > 0 ? prev - 1 : editPatientSuggestions.length - 1
+                                );
+                              } else if (e.key === 'Enter' || e.key === 'Tab') {
+                                e.preventDefault();
+                                insertEditPatientMention(editPatientSuggestions[selectedEditMentionIndex]);
+                              } else if (e.key === 'Escape') {
+                                e.preventDefault();
+                                setEditMentionActive(false);
+                              }
+                            } else if (e.key === 'Enter' && !e.shiftKey && editingTodo.title.trim()) {
                               e.preventDefault();
                               updateTodoMutation.mutate({
                                 id: editingTodo.id,
@@ -1468,11 +1557,33 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                           autoFocus
                           data-testid="input-edit-todo"
                         />
+                        {/* Patient mention suggestions for edit */}
+                        {editMentionActive && editPatientSuggestions.length > 0 && (
+                          <div className="absolute left-3 right-3 top-24 bg-card border border-border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                            {editPatientSuggestions.map((patient, index) => (
+                              <button
+                                key={patient.id}
+                                type="button"
+                                className={`w-full flex items-center gap-2 p-2 text-left hover:bg-muted transition-colors ${
+                                  index === selectedEditMentionIndex ? 'bg-muted' : ''
+                                }`}
+                                onClick={() => insertEditPatientMention(patient)}
+                                data-testid={`edit-mention-patient-${patient.id}`}
+                              >
+                                <Hash className="w-4 h-4 text-amber-500" />
+                                <span className="text-sm truncate">{patient.display}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
                         <div className="flex gap-2 justify-end">
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => setEditingTodo(null)}
+                            onClick={() => {
+                              setEditingTodo(null);
+                              setEditMentionActive(false);
+                            }}
                             data-testid="button-cancel-edit"
                           >
                             Cancel
@@ -1520,13 +1631,13 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 draggable
                                 onDragStart={() => handleDragStart(todo.id)}
                                 onDragEnd={handleDragEnd}
-                                className={`bg-card border border-border rounded-lg p-3 shadow-sm hover:shadow-md transition-all group ${draggedTodo === todo.id ? 'opacity-50' : ''}`}
+                                className={`bg-card border border-border rounded-lg p-3 shadow-sm hover:shadow-md transition-all group overflow-hidden ${draggedTodo === todo.id ? 'opacity-50' : ''}`}
                                 data-testid={`todo-item-${todo.id}`}
                               >
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-foreground flex-1">{formatTodoTitle(todo.title)}</span>
+                                <div className="flex items-start gap-2 overflow-hidden">
+                                  <span className="text-sm text-foreground flex-1 break-words overflow-hidden whitespace-pre-wrap">{formatTodoTitle(todo.title)}</span>
                                 </div>
-                                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border">
+                                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border flex-wrap">
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -1597,13 +1708,13 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 draggable
                                 onDragStart={() => handleDragStart(todo.id)}
                                 onDragEnd={handleDragEnd}
-                                className={`bg-card border border-blue-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-all group ${draggedTodo === todo.id ? 'opacity-50' : ''}`}
+                                className={`bg-card border border-blue-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-all group overflow-hidden ${draggedTodo === todo.id ? 'opacity-50' : ''}`}
                                 data-testid={`todo-item-${todo.id}`}
                               >
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-foreground flex-1">{formatTodoTitle(todo.title)}</span>
+                                <div className="flex items-start gap-2 overflow-hidden">
+                                  <span className="text-sm text-foreground flex-1 break-words overflow-hidden whitespace-pre-wrap">{formatTodoTitle(todo.title)}</span>
                                 </div>
-                                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border">
+                                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border flex-wrap">
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -1674,13 +1785,13 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 draggable
                                 onDragStart={() => handleDragStart(todo.id)}
                                 onDragEnd={handleDragEnd}
-                                className={`bg-card border border-green-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-all group opacity-70 ${draggedTodo === todo.id ? 'opacity-30' : ''}`}
+                                className={`bg-card border border-green-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-all group opacity-70 overflow-hidden ${draggedTodo === todo.id ? 'opacity-30' : ''}`}
                                 data-testid={`todo-item-${todo.id}`}
                               >
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-foreground flex-1">{formatTodoTitle(todo.title, true)}</span>
+                                <div className="flex items-start gap-2 overflow-hidden">
+                                  <span className="text-sm text-foreground flex-1 break-words overflow-hidden whitespace-pre-wrap">{formatTodoTitle(todo.title, true)}</span>
                                 </div>
-                                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border">
+                                <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border flex-wrap">
                                   <Button
                                     variant="ghost"
                                     size="sm"
@@ -1736,18 +1847,20 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                 </ScrollArea>
               )}
 
-              {/* Floating Action Button - WhatsApp style */}
-              <Button
-                className="absolute bottom-6 right-6 w-14 h-14 rounded-full shadow-lg"
-                onClick={() => {
-                  setSelectedContacts([]);
-                  setContactSearchQuery("");
-                  setView('new');
-                }}
-                data-testid="button-new-conversation-fab"
-              >
-                <Plus className="w-6 h-6" />
-              </Button>
+              {/* Floating Action Button - WhatsApp style - Only show on messages tab */}
+              {listTab === 'messages' && (
+                <Button
+                  className="absolute bottom-6 right-6 w-14 h-14 rounded-full shadow-lg"
+                  onClick={() => {
+                    setSelectedContacts([]);
+                    setContactSearchQuery("");
+                    setView('new');
+                  }}
+                  data-testid="button-new-conversation-fab"
+                >
+                  <Plus className="w-6 h-6" />
+                </Button>
+              )}
             </>
           )}
 
