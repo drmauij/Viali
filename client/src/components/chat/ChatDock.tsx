@@ -180,6 +180,11 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const [editingTodo, setEditingTodo] = useState<{ id: string; title: string; description?: string } | null>(null);
   const [newTodoTitle, setNewTodoTitle] = useState("");
   const [draggedTodo, setDraggedTodo] = useState<string | null>(null);
+  const [todoMentionActive, setTodoMentionActive] = useState(false);
+  const [todoMentionSearch, setTodoMentionSearch] = useState("");
+  const [todoMentionStartIndex, setTodoMentionStartIndex] = useState(-1);
+  const [selectedTodoMentionIndex, setSelectedTodoMentionIndex] = useState(0);
+  const todoInputRef = useRef<HTMLInputElement>(null);
   const [messageText, setMessageText] = useState("");
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
@@ -373,6 +378,140 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
     updateTodoMutation.mutate({ id: draggedTodo, updates: { status: targetStatus } });
     setDraggedTodo(null);
   };
+
+  // Todo patient mention suggestions
+  const todoPatientSuggestions = useMemo(() => {
+    if (!todoMentionActive) return [];
+    
+    const searchLower = todoMentionSearch.toLowerCase();
+    return patients
+      .filter(p => {
+        const surname = (p.surname || '').toLowerCase();
+        const firstName = (p.firstName || '').toLowerCase();
+        let formattedBirthday = '';
+        if (p.birthday) {
+          try {
+            formattedBirthday = format(new Date(p.birthday), 'dd.MM.yyyy');
+          } catch {
+            formattedBirthday = p.birthday;
+          }
+        }
+        return surname.includes(searchLower) || 
+               firstName.includes(searchLower) || 
+               formattedBirthday.includes(searchLower);
+      })
+      .slice(0, 5)
+      .map(p => {
+        let formattedDob = '';
+        if (p.birthday) {
+          try {
+            formattedDob = format(new Date(p.birthday), 'dd.MM.yyyy');
+          } catch {
+            formattedDob = p.birthday;
+          }
+        }
+        const displayName = p.surname 
+          ? `${p.surname}${p.firstName ? ', ' + p.firstName : ''}${formattedDob ? ' (' + formattedDob + ')' : ''}`
+          : p.firstName || 'Unknown Patient';
+        return { id: p.id, display: displayName };
+      });
+  }, [todoMentionActive, todoMentionSearch, patients]);
+
+  const detectTodoMention = useCallback((text: string, cursorPos: number) => {
+    const beforeCursor = text.slice(0, cursorPos);
+    const hashMatch = beforeCursor.match(/#(\w*)$/);
+    
+    if (hashMatch) {
+      setTodoMentionActive(true);
+      setTodoMentionSearch(hashMatch[1]);
+      setTodoMentionStartIndex(cursorPos - hashMatch[0].length);
+      setSelectedTodoMentionIndex(0);
+    } else {
+      setTodoMentionActive(false);
+      setTodoMentionSearch("");
+    }
+  }, []);
+
+  const insertTodoPatientMention = useCallback((patient: { id: string; display: string }) => {
+    const mentionText = `#[${patient.display}](${patient.id}) `;
+    const newText = newTodoTitle.slice(0, todoMentionStartIndex) + mentionText + newTodoTitle.slice(todoInputRef.current?.selectionStart || newTodoTitle.length);
+    setNewTodoTitle(newText);
+    setTodoMentionActive(false);
+    setTodoMentionSearch("");
+    todoInputRef.current?.focus();
+  }, [newTodoTitle, todoMentionStartIndex]);
+
+  const handleTodoInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setNewTodoTitle(newValue);
+    detectTodoMention(newValue, e.target.selectionStart || newValue.length);
+  }, [detectTodoMention]);
+
+  const handleTodoInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (todoMentionActive && todoPatientSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedTodoMentionIndex(prev => 
+          prev < todoPatientSuggestions.length - 1 ? prev + 1 : 0
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedTodoMentionIndex(prev => 
+          prev > 0 ? prev - 1 : todoPatientSuggestions.length - 1
+        );
+      } else if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        insertTodoPatientMention(todoPatientSuggestions[selectedTodoMentionIndex]);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        setTodoMentionActive(false);
+      }
+    } else if (e.key === 'Enter' && newTodoTitle.trim()) {
+      createTodoMutation.mutate(newTodoTitle.trim());
+    }
+  }, [todoMentionActive, todoPatientSuggestions, selectedTodoMentionIndex, insertTodoPatientMention, newTodoTitle, createTodoMutation]);
+
+  const formatTodoTitle = useCallback((title: string, strikethrough?: boolean): JSX.Element => {
+    const parts: (string | JSX.Element)[] = [];
+    const patientMentionRegex = /#\[([^\]]+)\]\(([^)]+)\)/g;
+    let lastIndex = 0;
+    let match;
+    let key = 0;
+
+    while ((match = patientMentionRegex.exec(title)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(title.slice(lastIndex, match.index));
+      }
+      const displayName = match[1];
+      const patientId = match[2];
+      parts.push(
+        <button
+          key={key++}
+          type="button"
+          className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/30 text-xs font-medium"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onOpenPatientInline) onOpenPatientInline(patientId);
+          }}
+          data-testid={`todo-patient-link-${patientId}`}
+        >
+          <Hash className="w-3 h-3" />
+          {displayName}
+        </button>
+      );
+      lastIndex = match.index + match[0].length;
+    }
+
+    if (lastIndex < title.length) {
+      parts.push(title.slice(lastIndex));
+    }
+
+    return (
+      <span className={strikethrough ? 'line-through' : ''}>
+        {parts.length > 0 ? parts : title}
+      </span>
+    );
+  }, [onOpenPatientInline]);
 
   const mentionSuggestions = useMemo((): MentionSuggestion[] => {
     if (!showMentionSuggestions || !mentionType) return [];
@@ -1250,31 +1389,50 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                 <ScrollArea className="flex-1">
                   <div className="p-3 space-y-4">
                     {/* Add new todo */}
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Add a new task..."
-                        value={newTodoTitle}
-                        onChange={(e) => setNewTodoTitle(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && newTodoTitle.trim()) {
-                            createTodoMutation.mutate(newTodoTitle.trim());
-                          }
-                        }}
-                        className="flex-1"
-                        data-testid="input-new-todo"
-                      />
-                      <Button
-                        size="icon"
-                        onClick={() => {
-                          if (newTodoTitle.trim()) {
-                            createTodoMutation.mutate(newTodoTitle.trim());
-                          }
-                        }}
-                        disabled={!newTodoTitle.trim() || createTodoMutation.isPending}
-                        data-testid="button-add-todo"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
+                    <div className="relative">
+                      <div className="flex gap-2">
+                        <Input
+                          ref={todoInputRef}
+                          placeholder="Add a task... (use # for patient)"
+                          value={newTodoTitle}
+                          onChange={handleTodoInputChange}
+                          onKeyDown={handleTodoInputKeyDown}
+                          className="flex-1"
+                          data-testid="input-new-todo"
+                        />
+                        <Button
+                          size="icon"
+                          onClick={() => {
+                            if (newTodoTitle.trim()) {
+                              createTodoMutation.mutate(newTodoTitle.trim());
+                            }
+                          }}
+                          disabled={!newTodoTitle.trim() || createTodoMutation.isPending}
+                          data-testid="button-add-todo"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      
+                      {/* Patient mention suggestions for todo */}
+                      {todoMentionActive && todoPatientSuggestions.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-card border border-border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                          {todoPatientSuggestions.map((patient, index) => (
+                            <button
+                              key={patient.id}
+                              type="button"
+                              className={`w-full flex items-center gap-2 p-2 text-left hover:bg-muted transition-colors ${
+                                index === selectedTodoMentionIndex ? 'bg-muted' : ''
+                              }`}
+                              onClick={() => insertTodoPatientMention(patient)}
+                              data-testid={`todo-mention-patient-${patient.id}`}
+                            >
+                              <Hash className="w-4 h-4 text-amber-500" />
+                              <span className="text-sm truncate">{patient.display}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     {/* Edit dialog */}
@@ -1343,7 +1501,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 data-testid={`todo-item-${todo.id}`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm text-foreground flex-1">{todo.title}</span>
+                                  <span className="text-sm text-foreground flex-1">{formatTodoTitle(todo.title)}</span>
                                 </div>
                                 <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border">
                                   <Button
@@ -1420,7 +1578,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 data-testid={`todo-item-${todo.id}`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm text-foreground flex-1">{todo.title}</span>
+                                  <span className="text-sm text-foreground flex-1">{formatTodoTitle(todo.title)}</span>
                                 </div>
                                 <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border">
                                   <Button
@@ -1497,7 +1655,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 data-testid={`todo-item-${todo.id}`}
                               >
                                 <div className="flex items-center gap-2">
-                                  <span className="text-sm text-foreground flex-1 line-through">{todo.title}</span>
+                                  <span className="text-sm text-foreground flex-1">{formatTodoTitle(todo.title, true)}</span>
                                 </div>
                                 <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border">
                                   <Button
