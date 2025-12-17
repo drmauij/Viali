@@ -296,7 +296,7 @@ export default function Items() {
     supplierName: string;
     articleCode?: string;
     catalogUrl?: string;
-    pricePerPack?: string;
+    basispreis?: string;
     isPreferred: boolean;
   }>>([]);
   const [isLoadingCodes, setIsLoadingCodes] = useState(false);
@@ -304,7 +304,7 @@ export default function Items() {
     supplierName: "",
     articleCode: "",
     catalogUrl: "",
-    pricePerPack: "",
+    basispreis: "",
   });
   const [codesScanner, setCodesScanner] = useState(false);
   const [itemLots, setItemLots] = useState<Lot[]>([]);
@@ -711,7 +711,7 @@ export default function Items() {
     setItemCodes(null);
     setSupplierCodes([]);
     setItemLots([]);
-    setNewSupplier({ supplierName: "", articleCode: "", catalogUrl: "", pricePerPack: "" });
+    setNewSupplier({ supplierName: "", articleCode: "", catalogUrl: "", basispreis: "" });
     setNewLot({ lotNumber: "", expiryDate: "" });
     setEditDialogOpen(true);
     
@@ -4502,9 +4502,10 @@ export default function Items() {
                                       <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">Preferred</span>
                                     )}
                                   </div>
-                                  <div className="text-sm text-muted-foreground">
+                                  <div className="text-sm text-muted-foreground space-x-3">
                                     {supplier.articleCode && <span>Art: {supplier.articleCode}</span>}
-                                    {supplier.pricePerPack && <span className="ml-3">CHF {supplier.pricePerPack}/pack</span>}
+                                    {supplier.basispreis && <span>CHF {supplier.basispreis}</span>}
+                                    {supplier.catalogUrl && <span className="text-xs truncate max-w-[150px] inline-block align-bottom">{supplier.catalogUrl}</span>}
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-1">
@@ -4594,8 +4595,8 @@ export default function Items() {
                               placeholder="Price per pack (CHF)"
                               type="number"
                               step="0.01"
-                              value={newSupplier.pricePerPack}
-                              onChange={(e) => setNewSupplier(prev => ({ ...prev, pricePerPack: e.target.value }))}
+                              value={newSupplier.basispreis}
+                              onChange={(e) => setNewSupplier(prev => ({ ...prev, basispreis: e.target.value }))}
                               data-testid="input-new-supplier-price"
                             />
                           </div>
@@ -4612,12 +4613,12 @@ export default function Items() {
                                   supplierName: newSupplier.supplierName,
                                   articleCode: newSupplier.articleCode || null,
                                   catalogUrl: newSupplier.catalogUrl || null,
-                                  pricePerPack: newSupplier.pricePerPack || null,
+                                  basispreis: newSupplier.basispreis || null,
                                   isPreferred: supplierCodes.length === 0, // First supplier is auto-preferred
                                 });
                                 const created = await res.json();
                                 setSupplierCodes(prev => [...prev, created]);
-                                setNewSupplier({ supplierName: "", articleCode: "", catalogUrl: "", pricePerPack: "" });
+                                setNewSupplier({ supplierName: "", articleCode: "", catalogUrl: "", basispreis: "" });
                                 toast({ title: t('common.success'), description: "Supplier added" });
                               } catch (error: any) {
                                 toast({ title: t('common.error'), description: error.message, variant: "destructive" });
