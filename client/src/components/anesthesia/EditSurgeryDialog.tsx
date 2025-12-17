@@ -12,7 +12,10 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useState, useEffect } from "react";
-import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit } from "lucide-react";
+import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo } from "lucide-react";
+import { useCreateTodo } from "@/hooks/useCreateTodo";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { SurgeonChecklistTab } from "./SurgeonChecklistTab";
 import type { SurgeryContext } from "@shared/checklistPlaceholders";
@@ -29,6 +32,9 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const canWrite = useCanWrite();
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
+  const [newNoteContent, setNewNoteContent] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteContent, setEditingNoteContent] = useState("");
 
   // Form state
   const [surgeryDate, setSurgeryDate] = useState("");
@@ -72,6 +78,74 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     },
     enabled: !!surgery?.hospitalId,
   });
+
+  // Fetch case notes
+  const { data: caseNotes = [], isLoading: isNotesLoading } = useQuery<any[]>({
+    queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'],
+    queryFn: async () => {
+      const response = await fetch(`/api/anesthesia/surgeries/${surgeryId}/notes`, { credentials: 'include' });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!surgeryId,
+  });
+
+  // Create todo hook
+  const { createTodo, isPending: isTodoPending } = useCreateTodo(surgery?.hospitalId);
+
+  // Create case note mutation
+  const createNoteMutation = useMutation({
+    mutationFn: async (content: string) => {
+      const response = await apiRequest("POST", `/api/anesthesia/surgeries/${surgeryId}/notes`, { content });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'] });
+      setNewNoteContent("");
+      toast({ title: t('anesthesia.caseNotes.noteAdded', 'Note added') });
+    },
+    onError: () => {
+      toast({ title: t('common.error'), description: t('anesthesia.caseNotes.errorCreating', 'Failed to add note'), variant: "destructive" });
+    },
+  });
+
+  // Update case note mutation
+  const updateNoteMutation = useMutation({
+    mutationFn: async ({ noteId, content }: { noteId: string; content: string }) => {
+      const response = await apiRequest("PATCH", `/api/anesthesia/surgery-notes/${noteId}`, { content });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'] });
+      setEditingNoteId(null);
+      setEditingNoteContent("");
+      toast({ title: t('anesthesia.caseNotes.noteUpdated', 'Note updated') });
+    },
+    onError: () => {
+      toast({ title: t('common.error'), description: t('anesthesia.caseNotes.errorUpdating', 'Failed to update note'), variant: "destructive" });
+    },
+  });
+
+  // Delete case note mutation
+  const deleteNoteMutation = useMutation({
+    mutationFn: async (noteId: string) => {
+      const response = await apiRequest("DELETE", `/api/anesthesia/surgery-notes/${noteId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/surgeries', surgeryId, 'notes'] });
+      toast({ title: t('anesthesia.caseNotes.noteDeleted', 'Note deleted') });
+    },
+    onError: () => {
+      toast({ title: t('common.error'), description: t('anesthesia.caseNotes.errorDeleting', 'Failed to delete note'), variant: "destructive" });
+    },
+  });
+
+  const getInitials = (firstName?: string, lastName?: string) => {
+    const first = firstName?.charAt(0)?.toUpperCase() || '';
+    const last = lastName?.charAt(0)?.toUpperCase() || '';
+    return first + last || '?';
+  };
 
   // Initialize form when surgery data loads
   useEffect(() => {
@@ -269,6 +343,17 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   >
                     <ClipboardList className="h-4 w-4" />
                     {t('anesthesia.editSurgery.checklist', 'Checklist')}
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="casenotes" 
+                    className="flex items-center gap-2 data-[state=active]:border-b-2 data-[state=active]:border-primary rounded-none pb-2"
+                    data-testid="tab-casenotes"
+                  >
+                    <StickyNote className="h-4 w-4" />
+                    {t('anesthesia.caseNotes.title', 'Case Notes')}
+                    {caseNotes.length > 0 && (
+                      <span className="ml-1 text-xs bg-muted rounded-full px-1.5 py-0.5">{caseNotes.length}</span>
+                    )}
                   </TabsTrigger>
                 </TabsList>
               </div>
@@ -567,6 +652,158 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     canWrite={canWrite}
                   />
                 )}
+              </TabsContent>
+
+              <TabsContent value="casenotes" className="px-6 py-4 overflow-y-auto flex-1 min-h-0 mt-0">
+                <div className="space-y-4">
+                  {/* Add new note */}
+                  {canWrite && (
+                    <div className="space-y-2">
+                      <Textarea
+                        placeholder={t('anesthesia.caseNotes.placeholder', 'Add a case note...')}
+                        value={newNoteContent}
+                        onChange={(e) => setNewNoteContent(e.target.value)}
+                        rows={3}
+                        data-testid="textarea-new-case-note"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (newNoteContent.trim()) {
+                            createNoteMutation.mutate(newNoteContent.trim());
+                          }
+                        }}
+                        disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+                        data-testid="button-add-case-note"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        {t('anesthesia.caseNotes.addNote', 'Add Note')}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Notes list */}
+                  {isNotesLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : caseNotes.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <StickyNote className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>{t('anesthesia.caseNotes.noNotes', 'No case notes yet')}</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {caseNotes.map((note: any) => (
+                        <div
+                          key={note.id}
+                          className="border rounded-lg p-3 space-y-2 group"
+                          data-testid={`case-note-${note.id}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-6 w-6">
+                                <AvatarFallback className="text-xs">
+                                  {getInitials(note.author?.firstName, note.author?.lastName)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="text-xs text-muted-foreground">
+                                <span className="font-medium text-foreground">
+                                  {note.author?.firstName} {note.author?.lastName}
+                                </span>
+                                <span className="mx-1">•</span>
+                                {note.createdAt && format(new Date(note.createdAt), 'dd.MM.yyyy HH:mm')}
+                                {note.updatedAt && note.updatedAt !== note.createdAt && (
+                                  <span className="ml-1 italic">({t('common.edited', 'edited')})</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={() => createTodo(note.content, patient?.id, patient ? `${patient.surname}, ${patient.firstName}` : undefined)}
+                                disabled={isTodoPending}
+                                title={t('anesthesia.caseNotes.addToTodo', 'Add to To-Do')}
+                                data-testid={`button-note-to-todo-${note.id}`}
+                              >
+                                <ListTodo className="h-3.5 w-3.5" />
+                              </Button>
+                              {canWrite && (
+                                <>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => {
+                                      setEditingNoteId(note.id);
+                                      setEditingNoteContent(note.content);
+                                    }}
+                                    title={t('common.edit', 'Edit')}
+                                    data-testid={`button-edit-note-${note.id}`}
+                                  >
+                                    <Pencil className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                    onClick={() => deleteNoteMutation.mutate(note.id)}
+                                    disabled={deleteNoteMutation.isPending}
+                                    title={t('common.delete', 'Delete')}
+                                    data-testid={`button-delete-note-${note.id}`}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {editingNoteId === note.id ? (
+                            <div className="space-y-2">
+                              <Textarea
+                                value={editingNoteContent}
+                                onChange={(e) => setEditingNoteContent(e.target.value)}
+                                rows={3}
+                                data-testid="textarea-edit-case-note"
+                              />
+                              <div className="flex gap-2">
+                                <Button
+                                  size="sm"
+                                  onClick={() => {
+                                    if (editingNoteContent.trim()) {
+                                      updateNoteMutation.mutate({ noteId: note.id, content: editingNoteContent.trim() });
+                                    }
+                                  }}
+                                  disabled={!editingNoteContent.trim() || updateNoteMutation.isPending}
+                                  data-testid="button-save-note-edit"
+                                >
+                                  <Save className="h-4 w-4 mr-2" />
+                                  {t('common.save', 'Save')}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => {
+                                    setEditingNoteId(null);
+                                    setEditingNoteContent("");
+                                  }}
+                                  data-testid="button-cancel-note-edit"
+                                >
+                                  {t('common.cancel', 'Cancel')}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-sm whitespace-pre-wrap">{note.content}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </TabsContent>
             </Tabs>
           )}

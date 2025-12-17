@@ -2280,7 +2280,22 @@
       "planningStatus": "Planungsstatus",
       "implantDetails": "Implantatdetails",
       "optional": "opt.",
-      "implantDetailsPlaceholder": "z.B. Hüftprothese Modell XYZ, Seriennr. 12345"
+      "implantDetailsPlaceholder": "z.B. Hüftprothese Modell XYZ, Seriennr. 12345",
+      "checklist": "Checkliste",
+      "details": "Details"
+    },
+    "caseNotes": {
+      "title": "Fallnotizen",
+      "placeholder": "Fallnotiz hinzufügen...",
+      "addNote": "Notiz hinzufügen",
+      "noNotes": "Noch keine Fallnotizen",
+      "noteAdded": "Notiz hinzugefügt",
+      "noteUpdated": "Notiz aktualisiert",
+      "noteDeleted": "Notiz gelöscht",
+      "errorCreating": "Notiz konnte nicht hinzugefügt werden",
+      "errorUpdating": "Notiz konnte nicht aktualisiert werden",
+      "errorDeleting": "Notiz konnte nicht gelöscht werden",
+      "addToTodo": "Zu To-Do hinzufügen"
     },
     "quickSchedule": {
       "title": "OP Schnellplanung",

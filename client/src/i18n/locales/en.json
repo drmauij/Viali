@@ -2281,7 +2281,22 @@
       "planningStatus": "Planning Status",
       "implantDetails": "Implant Details",
       "optional": "opt.",
-      "implantDetailsPlaceholder": "e.g., Hip prosthesis model XYZ, Serial #12345"
+      "implantDetailsPlaceholder": "e.g., Hip prosthesis model XYZ, Serial #12345",
+      "checklist": "Checklist",
+      "details": "Details"
+    },
+    "caseNotes": {
+      "title": "Case Notes",
+      "placeholder": "Add a case note...",
+      "addNote": "Add Note",
+      "noNotes": "No case notes yet",
+      "noteAdded": "Note added",
+      "noteUpdated": "Note updated",
+      "noteDeleted": "Note deleted",
+      "errorCreating": "Failed to add note",
+      "errorUpdating": "Failed to update note",
+      "errorDeleting": "Failed to delete note",
+      "addToTodo": "Add to To-Do"
     },
     "quickSchedule": {
       "title": "Quick Schedule Surgery",
