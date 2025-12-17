@@ -354,10 +354,11 @@ export default function Units() {
 
       {/* Unit Dialog */}
       <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>{editingUnit ? t("admin.editUnit") : t("admin.addUnit")}</DialogTitle>
           </DialogHeader>
+          <ScrollArea className="max-h-[70vh] pr-4">
           <div className="space-y-4">
             <div>
               <Label htmlFor="unit-name">{t("admin.unitName")} *</Label>
@@ -443,18 +444,19 @@ export default function Units() {
                 {t("admin.questionnairePhoneHint")}
               </p>
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>
-                {t("common.cancel")}
-              </Button>
-              <Button
-                onClick={handleSaveUnit}
-                disabled={createUnitMutation.isPending || updateUnitMutation.isPending}
-                data-testid="button-save-unit"
-              >
-                {editingUnit ? t("common.edit") : t("common.save")}
-              </Button>
-            </div>
+          </div>
+          </ScrollArea>
+          <div className="flex gap-2 justify-end pt-4">
+            <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={handleSaveUnit}
+              disabled={createUnitMutation.isPending || updateUnitMutation.isPending}
+              data-testid="button-save-unit"
+            >
+              {editingUnit ? t("common.edit") : t("common.save")}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
