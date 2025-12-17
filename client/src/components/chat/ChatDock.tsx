@@ -187,7 +187,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const [todoMentionSearch, setTodoMentionSearch] = useState("");
   const [todoMentionStartIndex, setTodoMentionStartIndex] = useState(-1);
   const [selectedTodoMentionIndex, setSelectedTodoMentionIndex] = useState(0);
-  const todoInputRef = useRef<HTMLInputElement>(null);
+  const todoInputRef = useRef<HTMLTextAreaElement>(null);
   const [messageText, setMessageText] = useState("");
   const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
   const [showMentionSuggestions, setShowMentionSuggestions] = useState(false);
@@ -444,13 +444,16 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
     todoInputRef.current?.focus();
   }, [newTodoTitle, todoMentionStartIndex]);
 
-  const handleTodoInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleTodoInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newValue = e.target.value;
     setNewTodoTitle(newValue);
     detectTodoMention(newValue, e.target.selectionStart || newValue.length);
+    // Auto-resize textarea
+    e.target.style.height = 'auto';
+    e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
   }, [detectTodoMention]);
 
-  const handleTodoInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleTodoInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (todoMentionActive && todoPatientSuggestions.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -469,7 +472,9 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         e.preventDefault();
         setTodoMentionActive(false);
       }
-    } else if (e.key === 'Enter' && newTodoTitle.trim()) {
+    } else if (e.key === 'Enter' && !e.shiftKey && newTodoTitle.trim()) {
+      // Enter submits, Shift+Enter adds newline
+      e.preventDefault();
       createTodoMutation.mutate(newTodoTitle.trim());
     }
   }, [todoMentionActive, todoPatientSuggestions, selectedTodoMentionIndex, insertTodoPatientMention, newTodoTitle, createTodoMutation]);
@@ -1393,14 +1398,15 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                   <div className="p-3 space-y-4">
                     {/* Add new todo */}
                     <div className="relative">
-                      <div className="flex gap-2">
-                        <Input
+                      <div className="flex gap-2 items-end">
+                        <textarea
                           ref={todoInputRef}
                           placeholder={t('todoList.addPlaceholder')}
                           value={newTodoTitle}
                           onChange={handleTodoInputChange}
                           onKeyDown={handleTodoInputKeyDown}
-                          className="flex-1"
+                          rows={1}
+                          className="flex-1 min-h-10 max-h-32 px-3 py-2 rounded-md border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                           data-testid="input-new-todo"
                         />
                         <Button
@@ -1441,10 +1447,24 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                     {/* Edit dialog */}
                     {editingTodo && (
                       <div className="bg-card border border-border rounded-lg p-3 shadow-md">
-                        <Input
+                        <textarea
                           value={editingTodo.title}
-                          onChange={(e) => setEditingTodo({ ...editingTodo, title: e.target.value })}
-                          className="mb-2"
+                          onChange={(e) => {
+                            setEditingTodo({ ...editingTodo, title: e.target.value });
+                            e.target.style.height = 'auto';
+                            e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey && editingTodo.title.trim()) {
+                              e.preventDefault();
+                              updateTodoMutation.mutate({
+                                id: editingTodo.id,
+                                updates: { title: editingTodo.title.trim() }
+                              });
+                            }
+                          }}
+                          rows={2}
+                          className="w-full mb-2 min-h-10 max-h-32 px-3 py-2 rounded-md border border-input bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                           autoFocus
                           data-testid="input-edit-todo"
                         />
