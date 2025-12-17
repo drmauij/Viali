@@ -88,11 +88,11 @@
   background: var(--background);
 }
 
-/* Full-height mode for table views - prevents double scrollbars */
+/* Full-height mode for table views - allows table to fill viewport */
 .screen-container.full-height-mode {
   height: 100vh;
   min-height: unset;
-  overflow: hidden;
+  overflow: auto;
   padding-bottom: 0;
 }
 
