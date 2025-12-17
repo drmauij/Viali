@@ -1616,6 +1616,7 @@
       "selectSurgeryRoom": "Select surgery room (optional)",
       "selectSurgeryRoomOptional": "Select surgery room (optional)",
       "plannedDate": "Planned Date",
+      "notScheduled": "Not scheduled",
       "duration": "Duration (minutes)",
       "notes": "Notes",
       "notesPlaceholder": "Enter notes about antibiotics, patient position, etc.",

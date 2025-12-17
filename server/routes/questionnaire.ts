@@ -260,7 +260,37 @@ router.get('/api/questionnaire/patient/:patientId/links', isAuthenticated, async
     // Filter to only links for this hospital
     const hospitalLinks = links.filter(l => l.hospitalId === hospitalId);
     
-    res.json(hospitalLinks);
+    // Enrich links with their response data (including response ID)
+    const enrichedLinks = await Promise.all(
+      hospitalLinks.map(async (link) => {
+        const response = await storage.getQuestionnaireResponseByLinkId(link.id);
+        return {
+          ...link,
+          response: response ? {
+            id: response.id,
+            allergies: response.allergies,
+            allergiesNotes: response.allergiesNotes,
+            medications: response.medications,
+            medicationsNotes: response.medicationsNotes,
+            conditions: response.conditions,
+            smokingStatus: response.smokingStatus,
+            smokingDetails: response.smokingDetails,
+            alcoholStatus: response.alcoholStatus,
+            alcoholDetails: response.alcoholDetails,
+            height: response.height,
+            weight: response.weight,
+            previousSurgeries: response.previousSurgeries,
+            previousAnesthesiaProblems: response.previousAnesthesiaProblems,
+            pregnancyStatus: response.pregnancyStatus,
+            breastfeeding: response.breastfeeding,
+            womanHealthNotes: response.womanHealthNotes,
+            additionalNotes: response.additionalNotes,
+          } : undefined,
+        };
+      })
+    );
+    
+    res.json(enrichedLinks);
   } catch (error) {
     console.error("Error fetching questionnaire links:", error);
     res.status(500).json({ message: "Failed to fetch questionnaire links" });

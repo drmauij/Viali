@@ -1616,6 +1616,7 @@
       "selectSurgeryRoom": "OP-Saal auswählen (optional)",
       "selectSurgeryRoomOptional": "OP-Saal auswählen (optional)",
       "plannedDate": "Geplantes Datum",
+      "notScheduled": "Nicht geplant",
       "duration": "Dauer (Minuten)",
       "notes": "Notizen",
       "notesPlaceholder": "Notizen zu Antibiotika, Patientenlagerung usw. eingeben",

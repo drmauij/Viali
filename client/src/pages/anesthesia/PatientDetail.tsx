@@ -211,8 +211,8 @@ export default function PatientDetail() {
     enabled: !!selectedQuestionnaireForImport && !!activeHospital?.id,
   });
   
-  // Filter to only submitted questionnaires
-  const submittedQuestionnaires = questionnaireLinks.filter(q => q.status === 'submitted');
+  // Filter to only submitted questionnaires that have responses with IDs
+  const submittedQuestionnaires = questionnaireLinks.filter(q => q.status === 'submitted' && q.response?.id);
 
   // Fetch hospital anesthesia settings
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
@@ -4073,7 +4073,7 @@ export default function PatientDetail() {
                 </SelectTrigger>
                 <SelectContent>
                   {submittedQuestionnaires.map((q) => (
-                    <SelectItem key={q.id} value={q.response?.id || q.id}>
+                    <SelectItem key={q.id} value={q.response!.id}>
                       {formatDate(q.submittedAt || q.createdAt)} - {t('anesthesia.patientDetail.submitted')}
                     </SelectItem>
                   ))}
