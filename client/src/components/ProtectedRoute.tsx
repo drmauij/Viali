@@ -9,6 +9,7 @@ interface ProtectedRouteProps {
   requireAdmin?: boolean;
   requireBusiness?: boolean;
   requireClinic?: boolean;
+  requireDoctorOrAdmin?: boolean;
 }
 
 export function ProtectedRoute({ 
@@ -17,7 +18,8 @@ export function ProtectedRoute({
   requireSurgery,
   requireAdmin,
   requireBusiness,
-  requireClinic
+  requireClinic,
+  requireDoctorOrAdmin
 }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const activeHospital = useActiveHospital();
@@ -27,6 +29,7 @@ export function ProtectedRoute({
   const hasAnesthesiaAccess = activeHospital?.isAnesthesiaModule === true;
   const hasSurgeryAccess = activeHospital?.isSurgeryModule === true;
   const hasAdminAccess = activeHospital?.role === "admin";
+  const hasDoctorAccess = activeHospital?.role === "doctor";
   const hasBusinessAccess = activeHospital?.isBusinessModule === true;
   const hasClinicAccess = activeHospital?.isClinicModule === true;
 
@@ -95,6 +98,11 @@ export function ProtectedRoute({
 
   // Check clinic module access - active unit must be clinic module
   if (requireClinic && !hasClinicAccess) {
+    return <Redirect to={defaultRedirect} />;
+  }
+
+  // Check doctor or admin role access
+  if (requireDoctorOrAdmin && !hasDoctorAccess && !hasAdminAccess) {
     return <Redirect to={defaultRedirect} />;
   }
 
