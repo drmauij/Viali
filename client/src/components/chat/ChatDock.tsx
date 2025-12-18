@@ -596,7 +596,9 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
     const searchLower = mentionSearch.toLowerCase();
     
     if (mentionType === 'user') {
-      return users
+      // Deduplicate users by ID first, then filter
+      const uniqueUsers = users.filter((u, idx, arr) => arr.findIndex(x => x.id === u.id) === idx);
+      return uniqueUsers
         .filter(u => {
           if (u.id === (user as any)?.id) return false;
           const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
