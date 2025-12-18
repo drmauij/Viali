@@ -1032,14 +1032,53 @@ export default function PatientDetail() {
           : qResponse.allergiesNotes;
       }
       
-      // Medications - add to notes (build on newData, not prev)
+      // Medications - match against predefined lists and auto-select, others go to notes
       if (qResponse.medications && qResponse.medications.length > 0) {
-        const medsText = qResponse.medications.map(m => 
-          `${m.name}${m.dosage ? ` (${m.dosage})` : ''}${m.frequency ? ` - ${m.frequency}` : ''}`
-        ).join('; ');
-        newData.generalMedsOther = newData.generalMedsOther 
-          ? `${newData.generalMedsOther}; Patient: ${medsText}` 
-          : `Patient: ${medsText}`;
+        const anticoagulationList = anesthesiaSettings?.medicationLists?.anticoagulation || [];
+        const generalList = anesthesiaSettings?.medicationLists?.general || [];
+        
+        const matchedAnticoag: string[] = [...(newData.anticoagulationMeds || [])];
+        const matchedGeneral: string[] = [...(newData.generalMeds || [])];
+        const unmatchedMeds: string[] = [];
+        
+        for (const med of qResponse.medications) {
+          const medNameLower = med.name.toLowerCase().trim();
+          
+          // Check if it matches anticoagulation list
+          const anticoagMatch = anticoagulationList.find(
+            (item: { id: string; label: string }) => item.label.toLowerCase() === medNameLower
+          );
+          if (anticoagMatch && !matchedAnticoag.includes(anticoagMatch.id)) {
+            matchedAnticoag.push(anticoagMatch.id);
+            continue;
+          }
+          
+          // Check if it matches general list
+          const generalMatch = generalList.find(
+            (item: { id: string; label: string }) => item.label.toLowerCase() === medNameLower
+          );
+          if (generalMatch && !matchedGeneral.includes(generalMatch.id)) {
+            matchedGeneral.push(generalMatch.id);
+            continue;
+          }
+          
+          // Not matched - add to unmatched list with details
+          unmatchedMeds.push(
+            `${med.name}${med.dosage ? ` (${med.dosage})` : ''}${med.frequency ? ` - ${med.frequency}` : ''}`
+          );
+        }
+        
+        // Update the medication arrays
+        newData.anticoagulationMeds = matchedAnticoag;
+        newData.generalMeds = matchedGeneral;
+        
+        // Add unmatched medications to the "Other" field
+        if (unmatchedMeds.length > 0) {
+          const medsText = unmatchedMeds.join('; ');
+          newData.generalMedsOther = newData.generalMedsOther 
+            ? `${newData.generalMedsOther}; Patient: ${medsText}` 
+            : `Patient: ${medsText}`;
+        }
       }
       if (qResponse.medicationsNotes) {
         newData.medicationsNotes = newData.medicationsNotes 
