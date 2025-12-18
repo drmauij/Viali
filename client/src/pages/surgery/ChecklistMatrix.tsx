@@ -61,6 +61,7 @@ export default function ChecklistMatrix() {
   const [cellStates, setCellStates] = useState<Record<string, MatrixCellState>>({});
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState("");
+  const [savingCell, setSavingCell] = useState<string | null>(null);
   
   const { data: templatesData, isLoading: templatesLoading } = useQuery<SurgeonChecklistTemplate[]>({
     queryKey: ['/api/surgeon-checklists/templates', hospitalId],
@@ -162,9 +163,11 @@ export default function ChecklistMatrix() {
           isDirty: false,
         },
       }));
+      setSavingCell(null);
       queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/matrix', selectedTemplateId, hospitalId] });
     },
     onError: () => {
+      setSavingCell(null);
       toast({ title: t('checklistMatrix.saveFailed', 'Failed to save'), variant: "destructive" });
     },
   });
@@ -204,8 +207,10 @@ export default function ChecklistMatrix() {
   });
 
   const handleCellCheck = (surgeryId: string, itemId: string) => {
+    const cellKey = `${surgeryId}-${itemId}`;
     const current = getCellState(surgeryId, itemId);
     const newChecked = !current.checked;
+    setSavingCell(cellKey);
     updateCellState(surgeryId, itemId, { checked: newChecked });
     saveCellMutation.mutate({
       surgeryId,
@@ -477,7 +482,7 @@ export default function ChecklistMatrix() {
                                   <Checkbox
                                     checked={cellState.checked}
                                     onCheckedChange={() => handleCellCheck(surgery.id, item.id)}
-                                    disabled={saveCellMutation.isPending}
+                                    disabled={savingCell === cellKey}
                                     data-testid={`checkbox-${surgery.id}-${item.id}`}
                                   />
                                   <Popover 
