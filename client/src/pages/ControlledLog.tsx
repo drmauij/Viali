@@ -68,6 +68,7 @@ interface RoutineCheckItem {
   expectedQty: number;
   actualQty: number;
   match: boolean;
+  selected: boolean;
 }
 
 type PatientMethod = "text" | "barcode" | "photo";
@@ -104,6 +105,7 @@ export default function ControlledLog() {
   
   const [selectedActivity, setSelectedActivity] = useState<ControlledActivity | null>(null);
   const [selectedCheck, setSelectedCheck] = useState<ControlledCheckWithUser | null>(null);
+  const [checkToDelete, setCheckToDelete] = useState<ControlledCheckWithUser | null>(null);
   
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().getMonth().toString());
   const [selectedYear, setSelectedYear] = useState(() => new Date().getFullYear().toString());
@@ -322,6 +324,41 @@ export default function ControlledLog() {
     },
   });
 
+  const deleteCheckMutation = useMutation({
+    mutationFn: async (checkId: string) => {
+      const response = await apiRequest("DELETE", `/api/controlled/checks/${checkId}`, {
+        reason: "Verification check deleted by user",
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/controlled/checks/${activeHospital?.id}`, activeHospital?.unitId] });
+      toast({
+        title: t('common.deleted'),
+        description: "Verification check has been deleted.",
+      });
+      setCheckToDelete(null);
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Delete Failed",
+        description: "Failed to delete verification check.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const resetAdministrationForm = () => {
     setSelectedDrugs(controlledItems.map(item => {
       const normalizedUnit = item.unit.toLowerCase();
@@ -360,6 +397,7 @@ export default function ControlledLog() {
         expectedQty,
         actualQty: 0,
         match: false,
+        selected: true,
       };
     }));
     setCheckNotes("");
@@ -408,9 +446,25 @@ export default function ControlledLog() {
         expectedQty,
         actualQty: 0,
         match: false,
+        selected: true,
       };
     }));
     setShowRoutineCheckModal(true);
+  };
+
+  const handleRoutineItemSelection = (itemId: string, selected: boolean) => {
+    setRoutineCheckItems(prev =>
+      prev.map(item =>
+        item.itemId === itemId
+          ? { 
+              ...item, 
+              selected,
+              actualQty: selected ? item.actualQty : 0,
+              match: selected ? item.match : false,
+            }
+          : item
+      )
+    );
   };
 
   const handleDrugSelection = (itemId: string, selected: boolean) => {
@@ -508,22 +562,30 @@ export default function ControlledLog() {
       return;
     }
 
-    if (routineCheckItems.length === 0) {
+    const selectedItems = routineCheckItems.filter(item => item.selected);
+
+    if (selectedItems.length === 0) {
       toast({
-        title: "No Items",
-        description: "No controlled items to check.",
+        title: "No Items Selected",
+        description: "Please select at least one controlled item to verify.",
         variant: "destructive",
       });
       return;
     }
 
-    const allMatch = routineCheckItems.every(item => item.match);
+    const allMatch = selectedItems.every(item => item.match);
 
     routineCheckMutation.mutate({
       hospitalId: activeHospital.id,
       unitId: activeHospital.unitId,
       signature: checkSignature,
-      checkItems: routineCheckItems,
+      checkItems: selectedItems.map(item => ({
+        itemId: item.itemId,
+        name: item.name,
+        expectedQty: item.expectedQty,
+        actualQty: item.actualQty,
+        match: item.match,
+      })),
       allMatch,
       notes: checkNotes || undefined,
     });
@@ -1194,6 +1256,17 @@ export default function ControlledLog() {
                     >
                       {t('controlled.viewDetails')}
                     </Button>
+                    {canWrite && (
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setCheckToDelete(check)}
+                        data-testid={`delete-check-${check.id}`}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <i className="fas fa-trash"></i>
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))
@@ -1483,21 +1556,55 @@ export default function ControlledLog() {
 
             <div className="space-y-4">
               <div>
-                <Label className="block text-sm font-medium mb-2">{t('controlled.controlledSubstances')}</Label>
+                <div className="flex items-center justify-between mb-2">
+                  <Label className="block text-sm font-medium">{t('controlled.controlledSubstances')}</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setRoutineCheckItems(prev => prev.map(item => ({ ...item, selected: true })))}
+                      data-testid="select-all-items"
+                    >
+                      {t('common.selectAll')}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setRoutineCheckItems(prev => prev.map(item => ({ 
+                        ...item, 
+                        selected: false,
+                        actualQty: 0,
+                        match: false,
+                      })))}
+                      data-testid="deselect-all-items"
+                    >
+                      {t('common.deselectAll')}
+                    </Button>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   {routineCheckItems.map((item) => (
                     <div
                       key={item.itemId}
                       className={`bg-muted rounded-lg p-3 ${
-                        item.actualQty > 0 && !item.match ? "border-2 border-destructive" : ""
+                        !item.selected ? 'opacity-50' : ''
+                      } ${
+                        item.selected && item.actualQty > 0 && !item.match ? "border-2 border-destructive" : ""
                       }`}
                     >
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3 mb-2">
+                        <Checkbox
+                          checked={item.selected}
+                          onCheckedChange={(checked) => handleRoutineItemSelection(item.itemId, !!checked)}
+                          data-testid={`routine-item-checkbox-${item.itemId}`}
+                        />
                         <div className="flex-1">
                           <p className="font-medium text-foreground">{item.name}</p>
                           <p className="text-xs text-muted-foreground">Expected: {item.expectedQty} units</p>
                         </div>
-                        {item.actualQty > 0 && (
+                        {item.selected && item.actualQty > 0 && (
                           item.match ? (
                             <i className="fas fa-check-circle text-success text-lg"></i>
                           ) : (
@@ -1505,21 +1612,23 @@ export default function ControlledLog() {
                           )
                         )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor={`actual-${item.itemId}`} className="text-sm whitespace-nowrap">
-                          Actual Count:
-                        </Label>
-                        <Input
-                          id={`actual-${item.itemId}`}
-                          type="number"
-                          placeholder="0"
-                          value={item.actualQty || ""}
-                          onChange={(e) => handleActualQtyChange(item.itemId, parseInt(e.target.value) || 0)}
-                          className="flex-1"
-                          min="0"
-                          data-testid={`actual-qty-${item.itemId}`}
-                        />
-                      </div>
+                      {item.selected && (
+                        <div className="flex items-center gap-2 ml-7">
+                          <Label htmlFor={`actual-${item.itemId}`} className="text-sm whitespace-nowrap">
+                            Actual Count:
+                          </Label>
+                          <Input
+                            id={`actual-${item.itemId}`}
+                            type="number"
+                            placeholder="0"
+                            value={item.actualQty || ""}
+                            onChange={(e) => handleActualQtyChange(item.itemId, parseInt(e.target.value) || 0)}
+                            className="flex-1"
+                            min="0"
+                            data-testid={`actual-qty-${item.itemId}`}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2148,6 +2257,63 @@ export default function ControlledLog() {
           });
         }}
       />
+
+      {/* Delete Check Confirmation Modal */}
+      {checkToDelete && (
+        <div className="modal-overlay" onClick={() => setCheckToDelete(null)}>
+          <div className="modal-content max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-destructive/10 flex items-center justify-center">
+                <i className="fas fa-exclamation-triangle text-destructive text-xl"></i>
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-foreground">{t('common.confirmDelete')}</h3>
+                <p className="text-sm text-muted-foreground">{t('common.actionCannotBeUndone')}</p>
+              </div>
+            </div>
+            
+            <div className="bg-muted rounded-lg p-3 mb-4">
+              <p className="text-sm text-foreground mb-2">
+                <strong>{t('controlled.routineVerificationCheck')}</strong>
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t('controlled.performedBy')} {checkToDelete.user.firstName} {checkToDelete.user.lastName}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {checkToDelete.timestamp ? formatDateTime(checkToDelete.timestamp) : 'Unknown'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {checkToDelete.checkItems?.length || 0} {t('controlled.itemsVerified')}
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setCheckToDelete(null)}
+                data-testid="cancel-delete-check"
+              >
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={() => deleteCheckMutation.mutate(checkToDelete.id)}
+                disabled={deleteCheckMutation.isPending}
+                data-testid="confirm-delete-check"
+              >
+                {deleteCheckMutation.isPending ? (
+                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                ) : (
+                  <i className="fas fa-trash mr-2"></i>
+                )}
+                {t('common.delete')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
