@@ -114,6 +114,11 @@ interface QuestionnaireConfig {
     labelEn?: string;
     helpText?: string;
   }>;
+  medicationsList?: Array<{
+    id: string;
+    label: string;
+    category: string;
+  }>;
   existingUploads?: Array<{
     id: string;
     fileName: string;
@@ -187,11 +192,14 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.conditions.notes": "Additional details",
     "questionnaire.medications.title": "Current Medications",
     "questionnaire.medications.subtitle": "List all medications you are currently taking",
+    "questionnaire.medications.selectFromList": "Select from common medications",
+    "questionnaire.medications.orAddCustom": "Or add a custom medication",
     "questionnaire.medications.name": "Medication Name",
     "questionnaire.medications.dosage": "Dosage",
     "questionnaire.medications.frequency": "How often",
     "questionnaire.medications.reason": "Reason/Condition",
     "questionnaire.medications.add": "Add Medication",
+    "questionnaire.medications.addCustom": "Add Custom Medication",
     "questionnaire.medications.notes": "Additional notes about medications",
     "questionnaire.allergies.title": "Allergies",
     "questionnaire.allergies.subtitle": "Do you have any allergies to medications, foods, or other substances?",
@@ -283,11 +291,14 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.conditions.notes": "Zusätzliche Details",
     "questionnaire.medications.title": "Aktuelle Medikamente",
     "questionnaire.medications.subtitle": "Listen Sie alle Medikamente auf, die Sie derzeit einnehmen",
+    "questionnaire.medications.selectFromList": "Aus häufigen Medikamenten auswählen",
+    "questionnaire.medications.orAddCustom": "Oder ein anderes Medikament hinzufügen",
     "questionnaire.medications.name": "Medikamentenname",
     "questionnaire.medications.dosage": "Dosierung",
     "questionnaire.medications.frequency": "Wie oft",
     "questionnaire.medications.reason": "Grund/Erkrankung",
     "questionnaire.medications.add": "Medikament hinzufügen",
+    "questionnaire.medications.addCustom": "Anderes Medikament hinzufügen",
     "questionnaire.medications.notes": "Zusätzliche Hinweise zu Medikamenten",
     "questionnaire.allergies.title": "Allergien",
     "questionnaire.allergies.subtitle": "Haben Sie Allergien gegen Medikamente, Nahrungsmittel oder andere Substanzen?",
@@ -861,6 +872,7 @@ export default function PatientQuestionnaire() {
                 formData={formData}
                 updateField={updateField}
                 t={t}
+                medicationsList={config?.medicationsList}
               />
             )}
             {currentStep === 3 && config && (
@@ -1143,11 +1155,15 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
   );
 }
 
-function MedicationsStep({ formData, updateField, t }: StepProps) {
-  const addMedication = () => {
+interface MedicationsStepProps extends StepProps {
+  medicationsList?: Array<{ id: string; label: string; category: string }>;
+}
+
+function MedicationsStep({ formData, updateField, t, medicationsList }: MedicationsStepProps) {
+  const addMedication = (name?: string) => {
     updateField("medications", [
       ...formData.medications,
-      { name: "", dosage: "", frequency: "", reason: "" },
+      { name: name || "", dosage: "", frequency: "", reason: "" },
     ]);
   };
 
@@ -1164,6 +1180,25 @@ function MedicationsStep({ formData, updateField, t }: StepProps) {
     updateField("medications", updated);
   };
 
+  const togglePredefinedMedication = (medLabel: string) => {
+    const existingIndex = formData.medications.findIndex(
+      (m) => m.name.toLowerCase() === medLabel.toLowerCase()
+    );
+    if (existingIndex >= 0) {
+      removeMedication(existingIndex);
+    } else {
+      addMedication(medLabel);
+    }
+  };
+
+  const isMedicationSelected = (medLabel: string) => {
+    return formData.medications.some(
+      (m) => m.name.toLowerCase() === medLabel.toLowerCase()
+    );
+  };
+
+  const hasPredefinedMedications = medicationsList && medicationsList.length > 0;
+
   return (
     <div className="space-y-4">
       <div>
@@ -1173,17 +1208,42 @@ function MedicationsStep({ formData, updateField, t }: StepProps) {
         </p>
       </div>
 
-      {formData.medications.length === 0 ? (
-        <div className="text-center py-6 border-2 border-dashed rounded-lg">
-          <Pill className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-          <p className="text-sm text-gray-500 mb-3">No medications added</p>
-          <Button variant="outline" onClick={addMedication} data-testid="button-add-medication">
-            <Plus className="h-4 w-4 mr-1" />
-            {t("questionnaire.medications.add")}
-          </Button>
+      {hasPredefinedMedications && (
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {t("questionnaire.medications.selectFromList")}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {medicationsList.map((med) => {
+              const isSelected = isMedicationSelected(med.label);
+              return (
+                <Button
+                  key={med.id}
+                  type="button"
+                  variant={isSelected ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => togglePredefinedMedication(med.label)}
+                  className={isSelected ? "bg-primary text-primary-foreground" : ""}
+                  data-testid={`button-predefined-medication-${med.id}`}
+                >
+                  {isSelected && <Check className="h-3 w-3 mr-1" />}
+                  {med.label}
+                </Button>
+              );
+            })}
+          </div>
         </div>
-      ) : (
+      )}
+
+      {hasPredefinedMedications && (
+        <Separator className="my-4" />
+      )}
+
+      {formData.medications.length > 0 && (
         <div className="space-y-4">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            {hasPredefinedMedications ? t("questionnaire.medications.orAddCustom") : ""}
+          </p>
           {formData.medications.map((med, index) => (
             <div key={index} className="border rounded-lg p-3 space-y-3">
               <div className="flex justify-between items-start">
@@ -1226,12 +1286,18 @@ function MedicationsStep({ formData, updateField, t }: StepProps) {
               </div>
             </div>
           ))}
-          <Button variant="outline" onClick={addMedication} className="w-full" data-testid="button-add-medication">
-            <Plus className="h-4 w-4 mr-1" />
-            {t("questionnaire.medications.add")}
-          </Button>
         </div>
       )}
+
+      <Button 
+        variant="outline" 
+        onClick={() => addMedication()} 
+        className="w-full" 
+        data-testid="button-add-medication"
+      >
+        <Plus className="h-4 w-4 mr-1" />
+        {hasPredefinedMedications ? t("questionnaire.medications.addCustom") : t("questionnaire.medications.add")}
+      </Button>
 
       <div>
         <Label htmlFor="medicationsNotes">{t("questionnaire.medications.notes")}</Label>

@@ -764,6 +764,18 @@ router.get('/api/public/questionnaire/hospital/:token', async (req: Request, res
       isOpenLink: true,
       language: 'de', // Default language for open links
       conditions: patientVisibleConditions,
+      medicationsList: [
+        ...(hospitalSettings?.medicationLists?.anticoagulation?.map((item: any) => ({
+          id: item.id,
+          label: item.label,
+          category: 'anticoagulation',
+        })) || []),
+        ...(hospitalSettings?.medicationLists?.general?.map((item: any) => ({
+          id: item.id,
+          label: item.label,
+          category: 'general',
+        })) || []),
+      ],
     });
   } catch (error) {
     console.error("Error fetching hospital questionnaire info:", error);
@@ -955,6 +967,18 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
           labelEn: item.patientLabelEn || item.label,
           helpText: item.patientHelpText,
         })) || [],
+      medicationsList: [
+        ...(hospitalSettings?.medicationLists?.anticoagulation?.map((item: any) => ({
+          id: item.id,
+          label: item.label,
+          category: 'anticoagulation',
+        })) || []),
+        ...(hospitalSettings?.medicationLists?.general?.map((item: any) => ({
+          id: item.id,
+          label: item.label,
+          category: 'general',
+        })) || []),
+      ],
     });
   } catch (error) {
     console.error("Error fetching questionnaire config:", error);
