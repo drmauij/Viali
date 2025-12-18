@@ -25,7 +25,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarIcon, Plus, Trash2, Save, X, Search, UserPlus, Pencil, Check, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CalendarIcon, Plus, Trash2, Save, X, Search, UserPlus, Pencil, Check, Loader2, Package, Briefcase } from "lucide-react";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -66,6 +67,14 @@ interface InventoryItem {
   pharmacode: string | null;
 }
 
+interface Service {
+  id: string;
+  name: string;
+  description: string | null;
+  price: string;
+  isShared: boolean;
+}
+
 interface InvoiceFormProps {
   hospitalId: string;
   unitId?: string;
@@ -80,10 +89,13 @@ const invoiceFormSchema = z.object({
   vatRate: z.coerce.number().min(0).max(100).default(2.6),
   comments: z.string().optional(),
   items: z.array(z.object({
+    lineType: z.enum(["item", "service"]).default("item"),
     itemId: z.string().optional(),
+    serviceId: z.string().optional(),
     description: z.string().min(1, "Description is required"),
     quantity: z.coerce.number().int().positive("Quantity must be positive"),
     unitPrice: z.coerce.number().min(0, "Price must be non-negative"),
+    taxRate: z.coerce.number().min(0).max(100).default(0),
   })).min(1, "At least one item is required"),
 });
 
@@ -107,8 +119,10 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
   
   // Item search state - per item row
   const [itemSearches, setItemSearches] = useState<Record<number, string>>({});
+  const [serviceSearches, setServiceSearches] = useState<Record<number, string>>({});
   const [openItemPopovers, setOpenItemPopovers] = useState<Record<number, boolean>>({});
   const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [pickerTab, setPickerTab] = useState<"products" | "services">("products");
 
   const { data: patients = [], refetch: refetchPatients } = useQuery<Patient[]>({
     queryKey: ['/api/patients', hospitalId],
@@ -136,6 +150,19 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
     },
     enabled: !!hospitalId,
   });
+
+  const { data: services = [] } = useQuery<Service[]>({
+    queryKey: ['/api/clinic', hospitalId, 'services', unitId],
+    queryFn: async () => {
+      const url = `/api/clinic/${hospitalId}/services?unitId=${unitId}&includeShared=true`;
+      const res = await fetch(url, {
+        credentials: 'include'
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!hospitalId && !!unitId,
+  });
   
   // Filter items based on search for a specific row
   const getFilteredItems = (index: number) => {
@@ -146,6 +173,16 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
       (item.description && item.description.toLowerCase().includes(search)) ||
       (item.gtin && item.gtin.includes(search)) ||
       (item.pharmacode && item.pharmacode.includes(search))
+    );
+  };
+
+  // Filter services based on search
+  const getFilteredServices = (index: number) => {
+    const search = (serviceSearches[index] || '').toLowerCase().trim();
+    if (!search) return services;
+    return services.filter(service => 
+      service.name.toLowerCase().includes(search) ||
+      (service.description && service.description.toLowerCase().includes(search))
     );
   };
 
@@ -224,12 +261,19 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
 
   // Calculate totals - recomputes whenever watchedItems changes
   const totals = useMemo(() => {
-    const subtotal = (watchedItems || []).reduce((sum, item) => {
-      return sum + (Number(item?.quantity) || 0) * (Number(item?.unitPrice) || 0);
-    }, 0);
-    const vatAmount = subtotal * (FIXED_VAT_RATE / 100);
-    const total = subtotal + vatAmount;
-    return { subtotal, vatAmount, total };
+    let subtotal = 0;
+    let taxAmount = 0;
+    
+    (watchedItems || []).forEach(item => {
+      const lineSubtotal = (Number(item?.quantity) || 0) * (Number(item?.unitPrice) || 0);
+      const lineTaxRate = Number(item?.taxRate) || 0;
+      const lineTax = lineSubtotal * (lineTaxRate / 100);
+      subtotal += lineSubtotal;
+      taxAmount += lineTax;
+    });
+    
+    const total = subtotal + taxAmount;
+    return { subtotal, vatAmount: taxAmount, total };
   }, [watchedItems]);
 
   const filteredPatients = useMemo(() => {
@@ -604,7 +648,7 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
         <div>
           <FormLabel className="mb-2 block">{t('clinic.invoices.lineItems')}</FormLabel>
           
-          {/* Single search dropdown to add items */}
+          {/* Search dropdown with tabs for Products and Services */}
           <Popover 
             open={openItemPopovers[0] || false} 
             onOpenChange={(open) => setOpenItemPopovers(prev => ({ ...prev, [0]: open }))}
@@ -618,52 +662,116 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
               >
                 <Plus className="h-4 w-4 mr-2" />
                 <Search className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span className="text-muted-foreground">{t('clinic.invoices.searchAndAddItem', 'Search and add item...')}</span>
+                <span className="text-muted-foreground">{t('clinic.invoices.searchAndAddItem', 'Search and add item or service...')}</span>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-full min-w-[350px] p-0" align="start">
-              <Command shouldFilter={false}>
-                <CommandInput 
-                  placeholder={t('clinic.invoices.searchItem', 'Search item...')}
-                  value={itemSearches[0] || ''}
-                  onValueChange={(value) => setItemSearches(prev => ({ ...prev, [0]: value }))}
-                  data-testid="input-item-search"
-                />
-                <CommandList>
-                  <CommandEmpty>
-                    {t('clinic.invoices.noItemFound', 'No item found')}
-                  </CommandEmpty>
-                  <CommandGroup>
-                    {getFilteredItems(0).map((item) => (
-                      <CommandItem
-                        key={item.id}
-                        value={item.id}
-                        onSelect={() => {
-                          // Add new line with this item
-                          append({
-                            itemId: item.id,
-                            description: item.name,
-                            quantity: 1,
-                            unitPrice: item.patientPrice ? parseFloat(item.patientPrice) : 0
-                          });
-                          setOpenItemPopovers(prev => ({ ...prev, [0]: false }));
-                          setItemSearches(prev => ({ ...prev, [0]: '' }));
-                        }}
-                        data-testid={`item-option-${item.id}`}
-                      >
-                        <div className="flex flex-col">
-                          <span>{item.name} {item.patientPrice && `(CHF ${item.patientPrice})`}</span>
-                          {(item.pharmacode || item.gtin) && (
-                            <span className="text-xs text-muted-foreground">
-                              {[item.pharmacode && `PC: ${item.pharmacode}`, item.gtin && `GTIN: ${item.gtin}`].filter(Boolean).join(' | ')}
-                            </span>
-                          )}
-                        </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
+            <PopoverContent className="w-full min-w-[380px] p-0" align="start">
+              <Tabs value={pickerTab} onValueChange={(v) => setPickerTab(v as "products" | "services")} className="w-full">
+                <TabsList className="w-full grid grid-cols-2 rounded-none border-b">
+                  <TabsTrigger value="products" className="flex items-center gap-2" data-testid="tab-products">
+                    <Package className="h-4 w-4" />
+                    {t('clinic.invoices.products', 'Products')}
+                  </TabsTrigger>
+                  <TabsTrigger value="services" className="flex items-center gap-2" data-testid="tab-services">
+                    <Briefcase className="h-4 w-4" />
+                    {t('clinic.invoices.services', 'Services')}
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="products" className="m-0">
+                  <Command shouldFilter={false}>
+                    <CommandInput 
+                      placeholder={t('clinic.invoices.searchItem', 'Search product...')}
+                      value={itemSearches[0] || ''}
+                      onValueChange={(value) => setItemSearches(prev => ({ ...prev, [0]: value }))}
+                      data-testid="input-item-search"
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        {t('clinic.invoices.noItemFound', 'No product found')}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {getFilteredItems(0).map((item) => (
+                          <CommandItem
+                            key={item.id}
+                            value={item.id}
+                            onSelect={() => {
+                              append({
+                                lineType: "item",
+                                itemId: item.id,
+                                description: item.name,
+                                quantity: 1,
+                                unitPrice: item.patientPrice ? parseFloat(item.patientPrice) : 0,
+                                taxRate: 2.6,
+                              });
+                              setOpenItemPopovers(prev => ({ ...prev, [0]: false }));
+                              setItemSearches(prev => ({ ...prev, [0]: '' }));
+                            }}
+                            data-testid={`item-option-${item.id}`}
+                          >
+                            <div className="flex flex-col">
+                              <span>{item.name} {item.patientPrice && `(CHF ${item.patientPrice})`}</span>
+                              {(item.pharmacode || item.gtin) && (
+                                <span className="text-xs text-muted-foreground">
+                                  {[item.pharmacode && `PC: ${item.pharmacode}`, item.gtin && `GTIN: ${item.gtin}`].filter(Boolean).join(' | ')}
+                                </span>
+                              )}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </TabsContent>
+                <TabsContent value="services" className="m-0">
+                  <Command shouldFilter={false}>
+                    <CommandInput 
+                      placeholder={t('clinic.invoices.searchService', 'Search service...')}
+                      value={serviceSearches[0] || ''}
+                      onValueChange={(value) => setServiceSearches(prev => ({ ...prev, [0]: value }))}
+                      data-testid="input-service-search"
+                    />
+                    <CommandList>
+                      <CommandEmpty>
+                        {t('clinic.invoices.noServiceFound', 'No service found')}
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {getFilteredServices(0).map((service) => (
+                          <CommandItem
+                            key={service.id}
+                            value={service.id}
+                            onSelect={() => {
+                              append({
+                                lineType: "service",
+                                serviceId: service.id,
+                                description: service.name,
+                                quantity: 1,
+                                unitPrice: parseFloat(service.price),
+                                taxRate: 0,
+                              });
+                              setOpenItemPopovers(prev => ({ ...prev, [0]: false }));
+                              setServiceSearches(prev => ({ ...prev, [0]: '' }));
+                            }}
+                            data-testid={`service-option-${service.id}`}
+                          >
+                            <div className="flex flex-col">
+                              <div className="flex items-center gap-2">
+                                <span>{service.name}</span>
+                                <span className="text-primary font-medium">CHF {service.price}</span>
+                                {service.isShared && (
+                                  <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{t('clinic.services.shared', 'Shared')}</span>
+                                )}
+                              </div>
+                              {service.description && (
+                                <span className="text-xs text-muted-foreground">{service.description}</span>
+                              )}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </TabsContent>
+              </Tabs>
             </PopoverContent>
           </Popover>
 
@@ -671,21 +779,40 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
           {fields.length > 0 && (
             <div className="space-y-2">
               {fields.map((field, index) => {
+                const lineType = form.watch(`items.${index}.lineType`);
+                const isService = lineType === "service";
                 const item = inventoryItems.find(i => i.id === form.watch(`items.${index}.itemId`));
+                const taxRate = Number(form.watch(`items.${index}.taxRate`)) || 0;
                 return (
                   <Card key={field.id}>
                     <CardContent className="p-3">
                       <div className="flex items-center gap-3">
-                        {/* Item name */}
+                        {/* Item name with type indicator */}
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate" data-testid={`item-name-${index}`}>
-                            {form.watch(`items.${index}.description`) || t('clinic.invoices.customItem', 'Custom item')}
-                          </div>
-                          {item?.patientPrice && (
-                            <div className="text-xs text-muted-foreground">
-                              CHF {item.patientPrice} / {t('clinic.invoices.unit', 'unit')}
+                          <div className="flex items-center gap-2">
+                            <div className="font-medium truncate" data-testid={`item-name-${index}`}>
+                              {form.watch(`items.${index}.description`) || t('clinic.invoices.customItem', 'Custom item')}
                             </div>
-                          )}
+                            {isService ? (
+                              <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <Briefcase className="h-3 w-3" />
+                                {t('clinic.invoices.service', 'Service')}
+                              </span>
+                            ) : (
+                              <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                <Package className="h-3 w-3" />
+                                {t('clinic.invoices.product', 'Product')}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-muted-foreground flex items-center gap-2">
+                            {item?.patientPrice && (
+                              <span>CHF {item.patientPrice} / {t('clinic.invoices.unit', 'unit')}</span>
+                            )}
+                            <span className={taxRate > 0 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"}>
+                              {taxRate > 0 ? `+${taxRate}% ${t('clinic.invoices.vat', 'VAT')}` : t('clinic.invoices.taxExempt', 'Tax-exempt')}
+                            </span>
+                          </div>
                         </div>
                         
                         {/* Quantity input */}
@@ -740,14 +867,14 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
           )}
         </div>
 
-        {/* Totals section - VAT fixed at 2.6% */}
+        {/* Totals section - per-line tax calculation */}
         <div className="flex justify-end">
           <div className="space-y-1 text-right">
             <div className="text-sm text-muted-foreground">
               {t('clinic.invoices.subtotal')}: CHF {totals.subtotal.toFixed(2)}
             </div>
             <div className="text-sm text-muted-foreground">
-              {t('clinic.invoices.vat')} (2.6%): CHF {totals.vatAmount.toFixed(2)}
+              {t('clinic.invoices.taxTotal', 'Tax total')}: CHF {totals.vatAmount.toFixed(2)}
             </div>
             <div className="text-lg font-bold">
               {t('clinic.invoices.total')}: CHF {totals.total.toFixed(2)}
