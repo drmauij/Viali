@@ -135,6 +135,7 @@ export default function BottomNav() {
       return [
         { id: "patients", icon: "fas fa-users", label: t('bottomNav.surgery.patients'), path: "/surgery/patients" },
         { id: "op", icon: "fas fa-user-nurse", label: t('bottomNav.surgery.op'), path: "/surgery/op" },
+        { id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.surgery.checklists'), path: "/surgery/checklists" },
         { id: "settings", icon: "fas fa-cog", label: t('bottomNav.surgery.settings'), path: "/surgery/settings" },
       ];
     }

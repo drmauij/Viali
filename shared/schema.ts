@@ -2977,6 +2977,7 @@ export const surgeonChecklistTemplates = pgTable("surgeon_checklist_templates", 
   ownerUserId: varchar("owner_user_id").notNull().references(() => users.id),
   title: varchar("title").notNull(),
   isShared: boolean("is_shared").default(false).notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -3040,6 +3041,7 @@ export type InsertSurgeryPreOpChecklistEntry = z.infer<typeof insertSurgeryPreOp
 export const updateSurgeonChecklistTemplateSchema = z.object({
   title: z.string().optional(),
   isShared: z.boolean().optional(),
+  isDefault: z.boolean().optional(),
   items: z.array(z.object({
     id: z.string().optional(),
     label: z.string(),

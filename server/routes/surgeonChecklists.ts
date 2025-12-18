@@ -151,4 +151,119 @@ router.put("/api/surgeries/:surgeryId/checklist", isAuthenticated, requireWriteA
   }
 });
 
+router.put("/api/surgeries/:surgeryId/checklist/entry", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { templateId, itemId, checked, note } = req.body;
+    if (!templateId || !itemId) {
+      return res.status(400).json({ error: "templateId and itemId are required" });
+    }
+
+    const saved = await storage.saveSurgeryPreOpChecklistEntry(
+      req.params.surgeryId,
+      templateId,
+      itemId,
+      checked,
+      note
+    );
+    res.json(saved);
+  } catch (error) {
+    console.error("Error saving surgery checklist entry:", error);
+    res.status(500).json({ error: "Failed to save checklist entry" });
+  }
+});
+
+router.get("/api/surgeries/future", isAuthenticated, async (req: any, res) => {
+  try {
+    const hospitalId = req.query.hospitalId as string;
+    const userId = req.user?.id as string;
+    
+    if (!hospitalId) {
+      return res.status(400).json({ error: "hospitalId is required" });
+    }
+
+    const hasAccess = await userHasHospitalAccess(userId, hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ error: "No access to this hospital" });
+    }
+
+    const surgeries = await storage.getFutureSurgeriesWithPatients(hospitalId);
+    res.json(surgeries);
+  } catch (error) {
+    console.error("Error fetching future surgeries:", error);
+    res.status(500).json({ error: "Failed to fetch future surgeries" });
+  }
+});
+
+router.get("/api/surgeon-checklists/matrix", isAuthenticated, async (req: any, res) => {
+  try {
+    const { templateId, hospitalId } = req.query;
+    const userId = req.user?.id as string;
+    
+    if (!templateId || !hospitalId) {
+      return res.status(400).json({ error: "templateId and hospitalId are required" });
+    }
+
+    const hasAccess = await userHasHospitalAccess(userId, hospitalId as string);
+    if (!hasAccess) {
+      return res.status(403).json({ error: "No access to this hospital" });
+    }
+
+    const entries = await storage.getChecklistMatrixEntries(templateId as string, hospitalId as string);
+    res.json({ entries });
+  } catch (error) {
+    console.error("Error fetching checklist matrix:", error);
+    res.status(500).json({ error: "Failed to fetch matrix data" });
+  }
+});
+
+router.put("/api/surgeon-checklists/templates/:id/default", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const templateId = req.params.id;
+    const userId = req.user?.id as string;
+    
+    const template = await storage.getSurgeonChecklistTemplate(templateId);
+    if (!template) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+
+    if (template.ownerUserId !== userId) {
+      return res.status(403).json({ error: "Only the template owner can set it as default" });
+    }
+
+    const updated = await storage.toggleSurgeonChecklistTemplateDefault(templateId, userId);
+    res.json(updated);
+  } catch (error) {
+    console.error("Error toggling template default:", error);
+    res.status(500).json({ error: "Failed to toggle default" });
+  }
+});
+
+router.post("/api/surgeon-checklists/templates/:id/apply-to-future", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const templateId = req.params.id;
+    const { hospitalId } = req.body;
+    const userId = req.user?.id as string;
+    
+    if (!hospitalId) {
+      return res.status(400).json({ error: "hospitalId is required" });
+    }
+
+    const hasAccess = await userHasHospitalAccess(userId, hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ error: "No access to this hospital" });
+    }
+
+    const template = await storage.getSurgeonChecklistTemplate(templateId);
+    if (!template) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+
+    const applied = await storage.applyTemplateToFutureSurgeries(templateId, hospitalId);
+    res.json({ applied });
+  } catch (error) {
+    console.error("Error applying template to future surgeries:", error);
+    res.status(500).json({ error: "Failed to apply template" });
+  }
+});
+
 export default router;

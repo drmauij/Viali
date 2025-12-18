@@ -1,0 +1,567 @@
+import { useState, useEffect, useMemo } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useTranslation } from "react-i18next";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { 
+  ClipboardCheck, 
+  Loader2, 
+  MessageSquare, 
+  Star, 
+  StarOff,
+  CheckCircle2,
+  Circle,
+  AlertCircle,
+  Wand2,
+  Save
+} from "lucide-react";
+import { resolvePlaceholders, type SurgeryContext } from "@shared/checklistPlaceholders";
+import type { SurgeonChecklistTemplate, SurgeonChecklistTemplateItem, Surgery, Patient } from "@shared/schema";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
+
+interface SurgeryWithPatient extends Surgery {
+  patient?: Patient;
+}
+
+interface ChecklistEntryData {
+  surgeryId: string;
+  itemId: string;
+  checked: boolean;
+  note: string | null;
+}
+
+interface MatrixCellState {
+  checked: boolean;
+  note: string;
+  isDirty: boolean;
+}
+
+export default function ChecklistMatrix() {
+  const { t, i18n } = useTranslation();
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const activeHospital = useActiveHospital();
+  const hospitalId = activeHospital?.id;
+  const userId = user?.id;
+  
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [cellStates, setCellStates] = useState<Record<string, MatrixCellState>>({});
+  const [editingCell, setEditingCell] = useState<string | null>(null);
+  const [editingNote, setEditingNote] = useState("");
+  
+  const { data: templates = [], isLoading: templatesLoading } = useQuery<SurgeonChecklistTemplate[]>({
+    queryKey: ['/api/surgeon-checklists/templates', hospitalId],
+    queryFn: async () => {
+      const res = await fetch(`/api/surgeon-checklists/templates?hospitalId=${hospitalId}`);
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
+  const { data: selectedTemplate, isLoading: templateLoading } = useQuery<SurgeonChecklistTemplate & { items: SurgeonChecklistTemplateItem[] }>({
+    queryKey: ['/api/surgeon-checklists/templates', selectedTemplateId],
+    queryFn: async () => {
+      const res = await fetch(`/api/surgeon-checklists/templates/${selectedTemplateId}`);
+      return res.json();
+    },
+    enabled: !!selectedTemplateId,
+  });
+
+  const { data: futureSurgeries = [], isLoading: surgeriesLoading } = useQuery<SurgeryWithPatient[]>({
+    queryKey: ['/api/surgeries/future', hospitalId],
+    queryFn: async () => {
+      const res = await fetch(`/api/surgeries/future?hospitalId=${hospitalId}`);
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
+  const { data: matrixData, isLoading: matrixLoading } = useQuery<{ entries: ChecklistEntryData[] }>({
+    queryKey: ['/api/surgeon-checklists/matrix', selectedTemplateId, hospitalId],
+    queryFn: async () => {
+      const res = await fetch(`/api/surgeon-checklists/matrix?templateId=${selectedTemplateId}&hospitalId=${hospitalId}`);
+      return res.json();
+    },
+    enabled: !!selectedTemplateId && !!hospitalId,
+  });
+
+  useEffect(() => {
+    if (templates.length > 0 && !selectedTemplateId) {
+      const defaultTemplate = templates.find(t => t.isDefault && t.ownerUserId === userId);
+      const fallbackTemplate = templates.find(t => t.ownerUserId === userId) || templates[0];
+      setSelectedTemplateId(defaultTemplate?.id || fallbackTemplate?.id || null);
+    }
+  }, [templates, selectedTemplateId, userId]);
+
+  useEffect(() => {
+    if (matrixData?.entries) {
+      const newStates: Record<string, MatrixCellState> = {};
+      matrixData.entries.forEach(entry => {
+        const key = `${entry.surgeryId}-${entry.itemId}`;
+        newStates[key] = {
+          checked: entry.checked,
+          note: entry.note || "",
+          isDirty: false,
+        };
+      });
+      setCellStates(newStates);
+    }
+  }, [matrixData]);
+
+  const getCellState = (surgeryId: string, itemId: string): MatrixCellState => {
+    const key = `${surgeryId}-${itemId}`;
+    return cellStates[key] || { checked: false, note: "", isDirty: false };
+  };
+
+  const updateCellState = (surgeryId: string, itemId: string, updates: Partial<MatrixCellState>) => {
+    const key = `${surgeryId}-${itemId}`;
+    setCellStates(prev => ({
+      ...prev,
+      [key]: {
+        ...getCellState(surgeryId, itemId),
+        ...updates,
+        isDirty: true,
+      },
+    }));
+  };
+
+  const saveCellMutation = useMutation({
+    mutationFn: async ({ surgeryId, itemId, checked, note }: { surgeryId: string; itemId: string; checked: boolean; note: string }) => {
+      if (!selectedTemplateId) throw new Error("No template selected");
+      const res = await apiRequest("PUT", `/api/surgeries/${surgeryId}/checklist/entry`, {
+        templateId: selectedTemplateId,
+        itemId,
+        checked,
+        note: note || null,
+      });
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      const key = `${variables.surgeryId}-${variables.itemId}`;
+      setCellStates(prev => ({
+        ...prev,
+        [key]: {
+          ...prev[key],
+          isDirty: false,
+        },
+      }));
+      queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/matrix', selectedTemplateId, hospitalId] });
+    },
+    onError: () => {
+      toast({ title: t('checklistMatrix.saveFailed', 'Failed to save'), variant: "destructive" });
+    },
+  });
+
+  const toggleDefaultMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      const res = await apiRequest("PUT", `/api/surgeon-checklists/templates/${templateId}/default`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/templates', hospitalId] });
+      toast({ title: t('checklistMatrix.defaultSet', 'Default template updated') });
+    },
+    onError: () => {
+      toast({ title: t('checklistMatrix.defaultFailed', 'Failed to set default'), variant: "destructive" });
+    },
+  });
+
+  const bulkApplyMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedTemplateId) throw new Error("No template selected");
+      const res = await apiRequest("POST", `/api/surgeon-checklists/templates/${selectedTemplateId}/apply-to-future`, {
+        hospitalId,
+      });
+      return res.json();
+    },
+    onSuccess: (data: { applied: number }) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/matrix', selectedTemplateId, hospitalId] });
+      toast({ 
+        title: t('checklistMatrix.bulkApplied', 'Template applied'),
+        description: t('checklistMatrix.bulkAppliedDesc', 'Applied to {{count}} surgeries', { count: data.applied }),
+      });
+    },
+    onError: () => {
+      toast({ title: t('checklistMatrix.bulkApplyFailed', 'Failed to apply template'), variant: "destructive" });
+    },
+  });
+
+  const handleCellCheck = (surgeryId: string, itemId: string) => {
+    const current = getCellState(surgeryId, itemId);
+    const newChecked = !current.checked;
+    updateCellState(surgeryId, itemId, { checked: newChecked });
+    saveCellMutation.mutate({
+      surgeryId,
+      itemId,
+      checked: newChecked,
+      note: current.note,
+    });
+  };
+
+  const handleNoteSubmit = (surgeryId: string, itemId: string) => {
+    const current = getCellState(surgeryId, itemId);
+    saveCellMutation.mutate({
+      surgeryId,
+      itemId,
+      checked: current.checked,
+      note: editingNote,
+    });
+    updateCellState(surgeryId, itemId, { note: editingNote });
+    setEditingCell(null);
+    setEditingNote("");
+  };
+
+  const openNoteEditor = (surgeryId: string, itemId: string) => {
+    const current = getCellState(surgeryId, itemId);
+    setEditingCell(`${surgeryId}-${itemId}`);
+    setEditingNote(current.note);
+  };
+
+  const getSurgeryContext = (surgery: SurgeryWithPatient): SurgeryContext => ({
+    price: surgery.price || null,
+    admissionTime: surgery.admissionTime || null,
+    plannedDate: surgery.plannedDate || null,
+    plannedSurgery: surgery.plannedSurgery || null,
+    surgeonName: surgery.surgeon || null,
+    patientName: surgery.patient ? `${surgery.patient.firstName} ${surgery.patient.surname}` : null,
+    patientDob: surgery.patient?.birthday || null,
+    surgeryRoom: surgery.surgeryRoomId || null,
+    notes: surgery.notes || null,
+    implantDetails: surgery.implantDetails || null,
+  });
+
+  const getCompletionStats = (surgeryId: string, items: SurgeonChecklistTemplateItem[]) => {
+    let checked = 0;
+    items.forEach(item => {
+      if (getCellState(surgeryId, item.id).checked) {
+        checked++;
+      }
+    });
+    return { checked, total: items.length };
+  };
+
+  const isLoading = templatesLoading || templateLoading || surgeriesLoading || matrixLoading;
+
+  const currentTemplate = templates.find(t => t.id === selectedTemplateId);
+  const isCurrentDefault = currentTemplate?.isDefault && currentTemplate?.ownerUserId === userId;
+
+  if (!hospitalId) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <p className="text-muted-foreground">{t('checklistMatrix.noHospital', 'Please select a hospital')}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col h-full">
+      <div className="p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2">
+            <ClipboardCheck className="h-5 w-5 text-primary" />
+            <h1 className="text-lg font-semibold">{t('checklistMatrix.title', 'Checklist Matrix')}</h1>
+          </div>
+          
+          <div className="flex items-center gap-2 flex-wrap">
+            <Select
+              value={selectedTemplateId || ""}
+              onValueChange={setSelectedTemplateId}
+            >
+              <SelectTrigger className="w-[200px]" data-testid="select-matrix-template">
+                <SelectValue placeholder={t('checklistMatrix.selectTemplate', 'Select template...')} />
+              </SelectTrigger>
+              <SelectContent>
+                {templates.map((tpl) => (
+                  <SelectItem key={tpl.id} value={tpl.id}>
+                    <div className="flex items-center gap-2">
+                      {tpl.isDefault && tpl.ownerUserId === userId && (
+                        <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                      )}
+                      <span>{tpl.title}</span>
+                      {tpl.isShared && (
+                        <Badge variant="secondary" className="text-[10px] px-1">shared</Badge>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {selectedTemplateId && (
+              <>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant={isCurrentDefault ? "secondary" : "outline"}
+                        size="icon"
+                        onClick={() => toggleDefaultMutation.mutate(selectedTemplateId)}
+                        disabled={toggleDefaultMutation.isPending}
+                        data-testid="button-toggle-default"
+                      >
+                        {isCurrentDefault ? (
+                          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                        ) : (
+                          <StarOff className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {isCurrentDefault 
+                        ? t('checklistMatrix.removeDefault', 'Remove as default')
+                        : t('checklistMatrix.setDefault', 'Set as default template')
+                      }
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => bulkApplyMutation.mutate()}
+                  disabled={bulkApplyMutation.isPending}
+                  data-testid="button-bulk-apply"
+                >
+                  {bulkApplyMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Wand2 className="h-4 w-4 mr-2" />
+                  )}
+                  {t('checklistMatrix.applyToAll', 'Apply to all')}
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto">
+        {isLoading ? (
+          <div className="p-4 space-y-4">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+        ) : !selectedTemplate || !selectedTemplate.items.length ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center text-muted-foreground">
+              <ClipboardCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>{t('checklistMatrix.noTemplate', 'Select a template to view the matrix')}</p>
+            </div>
+          </div>
+        ) : futureSurgeries.length === 0 ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center text-muted-foreground">
+              <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>{t('checklistMatrix.noSurgeries', 'No future surgeries found')}</p>
+            </div>
+          </div>
+        ) : (
+          <ScrollArea className="h-full">
+            <div className="p-4">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-sm">
+                  <thead>
+                    <tr className="border-b bg-muted/50">
+                      <th className="sticky left-0 bg-muted/50 z-10 px-3 py-2 text-left font-medium min-w-[200px]">
+                        {t('checklistMatrix.patient', 'Patient')}
+                      </th>
+                      <th className="px-3 py-2 text-left font-medium min-w-[100px]">
+                        {t('checklistMatrix.date', 'Date')}
+                      </th>
+                      <th className="px-3 py-2 text-left font-medium min-w-[150px]">
+                        {t('checklistMatrix.surgery', 'Surgery')}
+                      </th>
+                      <th className="px-3 py-2 text-center font-medium min-w-[80px]">
+                        {t('checklistMatrix.status', 'Status')}
+                      </th>
+                      {selectedTemplate.items.map((item, index) => (
+                        <th 
+                          key={item.id} 
+                          className="px-2 py-2 text-center font-medium min-w-[120px] max-w-[150px]"
+                          title={item.label}
+                        >
+                          <div className="truncate text-xs">
+                            {item.label.length > 20 ? `${item.label.slice(0, 20)}...` : item.label}
+                          </div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {futureSurgeries.map((surgery) => {
+                      const stats = getCompletionStats(surgery.id, selectedTemplate.items);
+                      const isComplete = stats.checked === stats.total;
+                      const surgeryContext = getSurgeryContext(surgery);
+                      
+                      return (
+                        <tr key={surgery.id} className="border-b hover:bg-muted/30">
+                          <td className="sticky left-0 bg-background z-10 px-3 py-2 font-medium">
+                            <div className="flex flex-col">
+                              <span className="truncate max-w-[180px]">
+                                {surgery.patient 
+                                  ? `${surgery.patient.surname}, ${surgery.patient.firstName}`
+                                  : t('checklistMatrix.unknownPatient', 'Unknown Patient')
+                                }
+                              </span>
+                              {surgery.patient?.birthday && (
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(surgery.patient.birthday), 'dd.MM.yyyy')}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2">
+                            {surgery.plannedDate ? (
+                              <div className="flex flex-col">
+                                <span>{format(new Date(surgery.plannedDate), 'dd.MM.yyyy', { locale: i18n.language === 'de' ? de : undefined })}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(surgery.plannedDate), 'HH:mm')}
+                                </span>
+                              </div>
+                            ) : '-'}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="truncate block max-w-[140px]" title={surgery.plannedSurgery || ''}>
+                              {surgery.plannedSurgery || '-'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-center">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Badge variant={isComplete ? "default" : "secondary"} className="gap-1">
+                                    {isComplete ? (
+                                      <CheckCircle2 className="h-3 w-3" />
+                                    ) : (
+                                      <Circle className="h-3 w-3" />
+                                    )}
+                                    {stats.checked}/{stats.total}
+                                  </Badge>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  {isComplete 
+                                    ? t('checklistMatrix.complete', 'All items complete')
+                                    : t('checklistMatrix.incomplete', '{{remaining}} items remaining', { remaining: stats.total - stats.checked })
+                                  }
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </td>
+                          {selectedTemplate.items.map((item) => {
+                            const cellKey = `${surgery.id}-${item.id}`;
+                            const cellState = getCellState(surgery.id, item.id);
+                            const resolvedLabel = resolvePlaceholders(item.label, surgeryContext);
+                            const hasNote = cellState.note && cellState.note.length > 0;
+                            const isEditing = editingCell === cellKey;
+                            
+                            return (
+                              <td key={item.id} className="px-2 py-2 text-center">
+                                <div className="flex items-center justify-center gap-1">
+                                  <Checkbox
+                                    checked={cellState.checked}
+                                    onCheckedChange={() => handleCellCheck(surgery.id, item.id)}
+                                    disabled={saveCellMutation.isPending}
+                                    data-testid={`checkbox-${surgery.id}-${item.id}`}
+                                  />
+                                  <Popover 
+                                    open={isEditing} 
+                                    onOpenChange={(open) => {
+                                      if (!open) {
+                                        setEditingCell(null);
+                                        setEditingNote("");
+                                      }
+                                    }}
+                                  >
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6"
+                                        onClick={() => openNoteEditor(surgery.id, item.id)}
+                                        data-testid={`button-note-${surgery.id}-${item.id}`}
+                                      >
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <MessageSquare 
+                                                className={`h-3 w-3 ${hasNote ? 'text-primary fill-primary/20' : 'text-muted-foreground'}`} 
+                                              />
+                                            </TooltipTrigger>
+                                            {hasNote && (
+                                              <TooltipContent className="max-w-[300px]">
+                                                <p className="whitespace-pre-wrap">{resolvePlaceholders(cellState.note, surgeryContext)}</p>
+                                              </TooltipContent>
+                                            )}
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-80" align="center">
+                                      <div className="space-y-2">
+                                        <h4 className="font-medium text-sm">{resolvedLabel}</h4>
+                                        <Textarea
+                                          value={editingNote}
+                                          onChange={(e) => setEditingNote(e.target.value)}
+                                          placeholder={t('checklistMatrix.addNote', 'Add a note... Use # for placeholders')}
+                                          rows={3}
+                                          className="text-sm"
+                                          data-testid={`textarea-note-${surgery.id}-${item.id}`}
+                                        />
+                                        <div className="flex justify-end gap-2">
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => {
+                                              setEditingCell(null);
+                                              setEditingNote("");
+                                            }}
+                                          >
+                                            {t('common.cancel', 'Cancel')}
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            onClick={() => handleNoteSubmit(surgery.id, item.id)}
+                                            disabled={saveCellMutation.isPending}
+                                          >
+                                            {saveCellMutation.isPending ? (
+                                              <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                            ) : (
+                                              <Save className="h-4 w-4 mr-1" />
+                                            )}
+                                            {t('common.save', 'Save')}
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        )}
+      </div>
+    </div>
+  );
+}

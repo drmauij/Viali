@@ -42,6 +42,7 @@ import QuestionnaireReviews from "@/pages/anesthesia/QuestionnaireReviews";
 import SurgerySettings from "@/pages/surgery/SurgerySettings";
 import SurgeryPreOpList from "@/pages/surgery/SurgeryPreOpList";
 import SurgeryPreOpDetail from "@/pages/surgery/SurgeryPreOpDetail";
+import SurgeryChecklistMatrix from "@/pages/surgery/ChecklistMatrix";
 import BusinessDashboard from "@/pages/business/Dashboard";
 import CostAnalytics from "@/pages/business/CostAnalytics";
 import TimeAnalytics from "@/pages/business/TimeAnalytics";
@@ -189,6 +190,7 @@ function Router() {
             <Route path="/surgery/op">{() => <ProtectedRoute requireSurgery><OpList /></ProtectedRoute>}</Route>
             <Route path="/surgery/op/:id">{() => <ProtectedRoute requireSurgery><Op /></ProtectedRoute>}</Route>
             <Route path="/surgery/settings">{() => <ProtectedRoute requireSurgery><SurgerySettings /></ProtectedRoute>}</Route>
+            <Route path="/surgery/checklists">{() => <ProtectedRoute requireSurgery><SurgeryChecklistMatrix /></ProtectedRoute>}</Route>
             <Route path="/surgery/preop">{() => <ProtectedRoute requireSurgery><SurgeryPreOpList /></ProtectedRoute>}</Route>
             <Route path="/surgery/preop/:surgeryId">{() => <ProtectedRoute requireSurgery><SurgeryPreOpDetail /></ProtectedRoute>}</Route>
             {/* Admin Module - requires admin role */}

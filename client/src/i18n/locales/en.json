@@ -79,6 +79,7 @@
     "surgery": {
       "patients": "Patients",
       "op": "OP",
+      "checklists": "Checklists",
       "settings": "Settings"
     },
     "business": {

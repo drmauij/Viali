@@ -586,6 +586,13 @@ export interface IStorage {
   // Surgery Pre-Op Checklist operations
   getSurgeryPreOpChecklist(surgeryId: string): Promise<{ templateId: string | null; entries: SurgeryPreOpChecklistEntry[] }>;
   saveSurgeryPreOpChecklist(surgeryId: string, templateId: string, entries: { itemId: string; checked: boolean; note?: string | null }[]): Promise<SurgeryPreOpChecklistEntry[]>;
+  saveSurgeryPreOpChecklistEntry(surgeryId: string, templateId: string, itemId: string, checked: boolean, note?: string | null): Promise<SurgeryPreOpChecklistEntry>;
+  
+  // Checklist Matrix operations
+  getFutureSurgeriesWithPatients(hospitalId: string): Promise<(Surgery & { patient?: Patient })[]>;
+  getChecklistMatrixEntries(templateId: string, hospitalId: string): Promise<SurgeryPreOpChecklistEntry[]>;
+  toggleSurgeonChecklistTemplateDefault(templateId: string, userId: string): Promise<SurgeonChecklistTemplate>;
+  applyTemplateToFutureSurgeries(templateId: string, hospitalId: string): Promise<number>;
   
   // ========== CHAT MODULE OPERATIONS ==========
   
@@ -5363,6 +5370,172 @@ export class DatabaseStorage implements IStorage {
     }
 
     return results;
+  }
+
+  async saveSurgeryPreOpChecklistEntry(
+    surgeryId: string,
+    templateId: string,
+    itemId: string,
+    checked: boolean,
+    note?: string | null
+  ): Promise<SurgeryPreOpChecklistEntry> {
+    const [existing] = await db
+      .select()
+      .from(surgeryPreOpChecklistEntries)
+      .where(and(
+        eq(surgeryPreOpChecklistEntries.surgeryId, surgeryId),
+        eq(surgeryPreOpChecklistEntries.itemId, itemId)
+      ));
+
+    if (existing) {
+      const [updated] = await db
+        .update(surgeryPreOpChecklistEntries)
+        .set({ 
+          checked, 
+          note: note ?? null,
+          templateId,
+          updatedAt: new Date() 
+        })
+        .where(eq(surgeryPreOpChecklistEntries.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(surgeryPreOpChecklistEntries)
+        .values({
+          surgeryId,
+          templateId,
+          itemId,
+          checked,
+          note: note ?? null,
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  async getFutureSurgeriesWithPatients(hospitalId: string): Promise<(Surgery & { patient?: Patient })[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const surgeriesWithPatients = await db
+      .select()
+      .from(surgeries)
+      .leftJoin(patients, eq(surgeries.patientId, patients.id))
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        gte(surgeries.plannedDate, today),
+        isNull(surgeries.deletedAt)
+      ))
+      .orderBy(asc(surgeries.plannedDate));
+
+    return surgeriesWithPatients.map(row => ({
+      ...row.surgeries,
+      patient: row.patients || undefined,
+    }));
+  }
+
+  async getChecklistMatrixEntries(templateId: string, hospitalId: string): Promise<SurgeryPreOpChecklistEntry[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const entries = await db
+      .select({
+        entry: surgeryPreOpChecklistEntries,
+      })
+      .from(surgeryPreOpChecklistEntries)
+      .innerJoin(surgeries, eq(surgeryPreOpChecklistEntries.surgeryId, surgeries.id))
+      .where(and(
+        eq(surgeryPreOpChecklistEntries.templateId, templateId),
+        eq(surgeries.hospitalId, hospitalId),
+        gte(surgeries.plannedDate, today),
+        isNull(surgeries.deletedAt)
+      ));
+
+    return entries.map(row => row.entry);
+  }
+
+  async toggleSurgeonChecklistTemplateDefault(templateId: string, userId: string): Promise<SurgeonChecklistTemplate> {
+    const [template] = await db
+      .select()
+      .from(surgeonChecklistTemplates)
+      .where(eq(surgeonChecklistTemplates.id, templateId));
+
+    if (!template) {
+      throw new Error("Template not found");
+    }
+
+    const newDefaultValue = !template.isDefault;
+
+    // If setting as default, first unset all other defaults for this user
+    if (newDefaultValue) {
+      await db
+        .update(surgeonChecklistTemplates)
+        .set({ isDefault: false, updatedAt: new Date() })
+        .where(and(
+          eq(surgeonChecklistTemplates.ownerUserId, userId),
+          eq(surgeonChecklistTemplates.hospitalId, template.hospitalId)
+        ));
+    }
+
+    const [updated] = await db
+      .update(surgeonChecklistTemplates)
+      .set({ isDefault: newDefaultValue, updatedAt: new Date() })
+      .where(eq(surgeonChecklistTemplates.id, templateId))
+      .returning();
+
+    return updated;
+  }
+
+  async applyTemplateToFutureSurgeries(templateId: string, hospitalId: string): Promise<number> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get the template with its items
+    const template = await this.getSurgeonChecklistTemplate(templateId);
+    if (!template || !template.items.length) {
+      return 0;
+    }
+
+    // Get future surgeries that don't already have entries for this template
+    const futureSurgeries = await db
+      .select()
+      .from(surgeries)
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        gte(surgeries.plannedDate, today),
+        isNull(surgeries.deletedAt)
+      ));
+
+    let appliedCount = 0;
+
+    for (const surgery of futureSurgeries) {
+      // Check if this surgery already has entries for this template
+      const existingEntries = await db
+        .select()
+        .from(surgeryPreOpChecklistEntries)
+        .where(and(
+          eq(surgeryPreOpChecklistEntries.surgeryId, surgery.id),
+          eq(surgeryPreOpChecklistEntries.templateId, templateId)
+        ));
+
+      // Only apply if no entries exist for this surgery+template combination
+      if (existingEntries.length === 0) {
+        // Create empty entries for all template items
+        for (const item of template.items) {
+          await db.insert(surgeryPreOpChecklistEntries).values({
+            surgeryId: surgery.id,
+            templateId,
+            itemId: item.id,
+            checked: false,
+            note: null,
+          });
+        }
+        appliedCount++;
+      }
+    }
+
+    return appliedCount;
   }
 
   // ========== CHAT MODULE OPERATIONS ==========
