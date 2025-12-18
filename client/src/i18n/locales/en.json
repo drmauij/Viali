@@ -2663,6 +2663,7 @@
       "noServiceFound": "No service found",
       "taxExempt": "Tax-exempt",
       "taxTotal": "Tax total",
+      "vatOnProducts": "VAT on products",
       "description": "Description",
       "quantity": "Quantity",
       "unitPrice": "Unit Price",

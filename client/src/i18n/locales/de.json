@@ -2664,6 +2664,7 @@
       "noServiceFound": "Keine Leistung gefunden",
       "taxExempt": "Steuerfrei",
       "taxTotal": "Steuer gesamt",
+      "vatOnProducts": "MwSt. auf Produkte",
       "description": "Beschreibung",
       "quantity": "Menge",
       "unitPrice": "Einzelpreis",

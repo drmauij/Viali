@@ -336,16 +336,20 @@ router.get('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, isCli
     
     const invoice = invoiceResult[0];
     
-    // Get invoice items with item codes (pharmacode, GTIN)
+    // Get invoice items with item codes (pharmacode, GTIN) and tax data
     const invoiceItems = await db
       .select({
         id: clinicInvoiceItems.id,
         invoiceId: clinicInvoiceItems.invoiceId,
+        lineType: clinicInvoiceItems.lineType,
         itemId: clinicInvoiceItems.itemId,
+        serviceId: clinicInvoiceItems.serviceId,
         description: clinicInvoiceItems.description,
         quantity: clinicInvoiceItems.quantity,
         unitPrice: clinicInvoiceItems.unitPrice,
         total: clinicInvoiceItems.total,
+        taxRate: clinicInvoiceItems.taxRate,
+        taxAmount: clinicInvoiceItems.taxAmount,
         itemName: items.name,
         pharmacode: itemCodes.pharmacode,
         gtin: itemCodes.gtin,
@@ -365,21 +369,24 @@ router.get('/api/clinic/:hospitalId/invoices/:invoiceId', isAuthenticated, isCli
   }
 });
 
-// Create invoice schema with items
+// Create invoice schema with items - supports per-line tax
 const createInvoiceWithItemsSchema = z.object({
   hospitalId: z.string(),
   patientId: z.string().nullable().optional(),
   customerName: z.string().min(1),
   customerAddress: z.string().nullable().optional(),
   date: z.coerce.date().optional(),
-  vatRate: z.coerce.number().default(7.7),
+  vatRate: z.coerce.number().default(2.6),
   comments: z.string().nullable().optional(),
   status: z.enum(["draft", "sent", "paid", "cancelled"]).default("draft"),
   items: z.array(z.object({
+    lineType: z.enum(["item", "service"]).default("item"),
     itemId: z.string().nullable().optional(),
+    serviceId: z.string().nullable().optional(),
     description: z.string().min(1),
     quantity: z.number().int().positive(),
     unitPrice: z.coerce.number().min(0),
+    taxRate: z.coerce.number().min(0).max(100).default(0),
   })).min(1),
 });
 
@@ -403,18 +410,23 @@ router.post('/api/clinic/:hospitalId/invoices', isAuthenticated, isClinicAccess,
     
     const invoiceNumber = (numberResult[0]?.maxNumber || 0) + 1;
     
-    // Calculate totals
+    // Calculate totals with per-line tax (services are tax-exempt, items have VAT)
     let subtotal = 0;
+    let totalTax = 0;
     const itemsWithTotals = validatedData.items.map(item => {
-      const itemTotal = item.quantity * item.unitPrice;
-      subtotal += itemTotal;
+      const lineSubtotal = item.quantity * item.unitPrice;
+      const lineTaxRate = item.taxRate || 0;
+      const lineTaxAmount = lineSubtotal * (lineTaxRate / 100);
+      subtotal += lineSubtotal;
+      totalTax += lineTaxAmount;
       return {
         ...item,
-        total: itemTotal,
+        total: lineSubtotal,
+        taxAmount: lineTaxAmount,
       };
     });
     
-    const vatAmount = subtotal * (validatedData.vatRate / 100);
+    const vatAmount = totalTax; // VAT is sum of per-line taxes (only items, not services)
     const total = subtotal + vatAmount;
     
     // Create invoice
@@ -437,17 +449,21 @@ router.post('/api/clinic/:hospitalId/invoices', isAuthenticated, isClinicAccess,
       })
       .returning();
     
-    // Create invoice items
+    // Create invoice items with per-line tax data
     for (const item of itemsWithTotals) {
       await db
         .insert(clinicInvoiceItems)
         .values({
           invoiceId: invoice.id,
+          lineType: item.lineType || 'item',
           itemId: item.itemId || null,
+          serviceId: item.serviceId || null,
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice.toFixed(2),
           total: item.total.toFixed(2),
+          taxRate: (item.taxRate || 0).toFixed(2),
+          taxAmount: item.taxAmount.toFixed(2),
         });
     }
     

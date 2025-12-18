@@ -260,20 +260,28 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
   });
 
   // Calculate totals - recomputes whenever watchedItems changes
+  // Services are tax-exempt (0%), items have VAT (2.6%)
   const totals = useMemo(() => {
-    let subtotal = 0;
+    let servicesSubtotal = 0;
+    let itemsSubtotal = 0;
     let taxAmount = 0;
     
     (watchedItems || []).forEach(item => {
       const lineSubtotal = (Number(item?.quantity) || 0) * (Number(item?.unitPrice) || 0);
       const lineTaxRate = Number(item?.taxRate) || 0;
       const lineTax = lineSubtotal * (lineTaxRate / 100);
-      subtotal += lineSubtotal;
+      
+      if (item?.lineType === 'service') {
+        servicesSubtotal += lineSubtotal;
+      } else {
+        itemsSubtotal += lineSubtotal;
+      }
       taxAmount += lineTax;
     });
     
+    const subtotal = servicesSubtotal + itemsSubtotal;
     const total = subtotal + taxAmount;
-    return { subtotal, vatAmount: taxAmount, total };
+    return { subtotal, servicesSubtotal, itemsSubtotal, vatAmount: taxAmount, total };
   }, [watchedItems]);
 
   const filteredPatients = useMemo(() => {
@@ -867,17 +875,41 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
           )}
         </div>
 
-        {/* Totals section - per-line tax calculation */}
+        {/* Totals section - per-line tax calculation with breakdown */}
         <div className="flex justify-end">
-          <div className="space-y-1 text-right">
-            <div className="text-sm text-muted-foreground">
-              {t('clinic.invoices.subtotal')}: CHF {totals.subtotal.toFixed(2)}
+          <div className="space-y-1 text-right w-72">
+            {/* Show breakdown if there are both services and items */}
+            {totals.servicesSubtotal > 0 && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Briefcase className="h-3 w-3" />
+                  {t('clinic.invoices.services', 'Services')} ({t('clinic.invoices.taxExempt', 'Tax-exempt')}):
+                </span>
+                <span>CHF {totals.servicesSubtotal.toFixed(2)}</span>
+              </div>
+            )}
+            {totals.itemsSubtotal > 0 && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Package className="h-3 w-3" />
+                  {t('clinic.invoices.products', 'Products')}:
+                </span>
+                <span>CHF {totals.itemsSubtotal.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm text-muted-foreground border-t pt-1">
+              <span>{t('clinic.invoices.subtotal')}:</span>
+              <span>CHF {totals.subtotal.toFixed(2)}</span>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {t('clinic.invoices.taxTotal', 'Tax total')}: CHF {totals.vatAmount.toFixed(2)}
-            </div>
-            <div className="text-lg font-bold">
-              {t('clinic.invoices.total')}: CHF {totals.total.toFixed(2)}
+            {totals.vatAmount > 0 && (
+              <div className="flex justify-between text-sm text-amber-600 dark:text-amber-400">
+                <span>{t('clinic.invoices.vatOnProducts', 'VAT on products')} (2.6%):</span>
+                <span>CHF {totals.vatAmount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-lg font-bold border-t pt-1">
+              <span>{t('clinic.invoices.total')}:</span>
+              <span>CHF {totals.total.toFixed(2)}</span>
             </div>
           </div>
         </div>
