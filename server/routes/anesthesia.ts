@@ -1143,12 +1143,19 @@ router.get('/api/anesthesia/hospitals/:hospitalId/users', isAuthenticated, async
     const hospitalUsers = await storage.getHospitalUsers(hospitalId);
     
     // Return simplified user data for mention suggestions
-    const users = hospitalUsers.map(u => ({
-      id: u.id,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      email: u.email,
-    }));
+    // Deduplicate by user ID since a user can have multiple roles/units
+    const userMap = new Map<string, { id: string; firstName: string | null; lastName: string | null; email: string | null }>();
+    for (const u of hospitalUsers) {
+      if (!userMap.has(u.user.id)) {
+        userMap.set(u.user.id, {
+          id: u.user.id,
+          firstName: u.user.firstName,
+          lastName: u.user.lastName,
+          email: u.user.email,
+        });
+      }
+    }
+    const users = Array.from(userMap.values());
 
     res.json(users);
   } catch (error) {
