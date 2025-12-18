@@ -5278,6 +5278,9 @@ export class DatabaseStorage implements IStorage {
           .where(inArray(surgeonChecklistTemplateItems.id, idsToDelete));
       }
 
+      // Track newly created item IDs for propagation
+      const newItemIds: string[] = [];
+
       for (const item of items) {
         if (item.id && existingIds.includes(item.id)) {
           await db
@@ -5285,13 +5288,40 @@ export class DatabaseStorage implements IStorage {
             .set({ label: item.label, sortOrder: item.sortOrder })
             .where(eq(surgeonChecklistTemplateItems.id, item.id));
         } else {
-          await db
+          const [created] = await db
             .insert(surgeonChecklistTemplateItems)
             .values({
               templateId: id,
               label: item.label,
               sortOrder: item.sortOrder,
+            })
+            .returning();
+          newItemIds.push(created.id);
+        }
+      }
+
+      // Propagate new items to all surgeries that already use this template
+      if (newItemIds.length > 0) {
+        // Find all unique surgery IDs that have entries for this template
+        const existingEntries = await db
+          .select({ surgeryId: surgeryPreOpChecklistEntries.surgeryId })
+          .from(surgeryPreOpChecklistEntries)
+          .where(eq(surgeryPreOpChecklistEntries.templateId, id))
+          .groupBy(surgeryPreOpChecklistEntries.surgeryId);
+
+        const surgeryIds = existingEntries.map(e => e.surgeryId);
+
+        // Create unchecked entries for new items in all surgeries using this template
+        for (const surgeryId of surgeryIds) {
+          for (const newItemId of newItemIds) {
+            await db.insert(surgeryPreOpChecklistEntries).values({
+              surgeryId,
+              templateId: id,
+              itemId: newItemId,
+              checked: false,
+              note: null,
             });
+          }
         }
       }
     }
