@@ -96,6 +96,7 @@
     "clinic": {
       "patients": "Patienten",
       "questionnaires": "Fragebögen",
+      "services": "Leistungen",
       "invoices": "Rechnungen",
       "settings": "Firma"
     },
@@ -2677,6 +2678,28 @@
       "emailSent": "E-Mail gesendet",
       "emailSentDescription": "Die Rechnung wurde erfolgreich per E-Mail gesendet",
       "emailError": "E-Mail konnte nicht gesendet werden"
+    },
+    "services": {
+      "title": "Leistungen",
+      "create": "Leistung hinzufügen",
+      "edit": "Leistung bearbeiten",
+      "searchPlaceholder": "Leistungen suchen...",
+      "noResults": "Keine Leistungen gefunden",
+      "empty": "Noch keine Leistungen. Fügen Sie eine Leistung hinzu.",
+      "name": "Leistungsname",
+      "namePlaceholder": "z.B. Beratung, Behandlung...",
+      "description": "Beschreibung",
+      "descriptionPlaceholder": "Optionale Beschreibung der Leistung...",
+      "price": "Preis",
+      "shared": "Geteilt",
+      "shareWithOtherUnits": "Mit anderen Einheiten teilen",
+      "shareDescription": "Andere Praxiseinheiten können diese Leistung auf ihren Rechnungen verwenden",
+      "requiredFields": "Name und Preis sind erforderlich",
+      "created": "Leistung erstellt",
+      "updated": "Leistung aktualisiert",
+      "deleted": "Leistung gelöscht",
+      "deleteConfirmTitle": "Leistung löschen",
+      "deleteConfirmDescription": "Möchten Sie \"{{name}}\" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
     }
   },
   "business": {

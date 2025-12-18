@@ -96,6 +96,7 @@
     "clinic": {
       "patients": "Patients",
       "questionnaires": "Questionnaires",
+      "services": "Services",
       "invoices": "Invoices",
       "settings": "Company"
     },
@@ -2676,6 +2677,28 @@
       "emailSent": "Email Sent",
       "emailSentDescription": "The invoice has been sent via email successfully",
       "emailError": "Failed to send email"
+    },
+    "services": {
+      "title": "Services",
+      "create": "Add Service",
+      "edit": "Edit Service",
+      "searchPlaceholder": "Search services...",
+      "noResults": "No services found matching your search",
+      "empty": "No services yet. Add a service to get started.",
+      "name": "Service Name",
+      "namePlaceholder": "e.g., Consultation, Treatment...",
+      "description": "Description",
+      "descriptionPlaceholder": "Optional description of the service...",
+      "price": "Price",
+      "shared": "Shared",
+      "shareWithOtherUnits": "Share with other units",
+      "shareDescription": "Allow other clinic units to use this service on their invoices",
+      "requiredFields": "Name and price are required",
+      "created": "Service created",
+      "updated": "Service updated",
+      "deleted": "Service deleted",
+      "deleteConfirmTitle": "Delete Service",
+      "deleteConfirmDescription": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
     }
   },
   "business": {

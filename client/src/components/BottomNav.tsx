@@ -168,6 +168,7 @@ export default function BottomNav() {
       const clinicItems: NavItem[] = [
         { id: "clinic-patients", icon: "fas fa-users", label: t('bottomNav.clinic.patients'), path: "/clinic/patients" },
         { id: "clinic-questionnaires", icon: "fas fa-clipboard-list", label: t('bottomNav.clinic.questionnaires'), path: "/clinic/questionnaires" },
+        { id: "clinic-services", icon: "fas fa-briefcase-medical", label: t('bottomNav.clinic.services'), path: "/clinic/services" },
         { id: "clinic-invoices", icon: "fas fa-file-invoice-dollar", label: t('bottomNav.clinic.invoices'), path: "/clinic" },
       ];
       return clinicItems;
