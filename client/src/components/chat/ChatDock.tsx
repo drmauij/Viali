@@ -963,6 +963,8 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   }, [messageText, detectMentionTrigger]);
 
   useEffect(() => {
+    setTypingUsers(new Map());
+    
     if (selectedConversation && socket && isConnected) {
       socket.emit('chat:join', selectedConversation.id);
       socket.emit('chat:read', { conversationId: selectedConversation.id });
@@ -2058,7 +2060,10 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                 )}
                 {typingUsers.size > 0 && (
                   <div className="text-sm text-muted-foreground italic mt-2">
-                    {Array.from(typingUsers.values()).join(', ')} {typingUsers.size === 1 ? 'is' : 'are'} typing...
+                    {(() => {
+                      const uniqueNames = Array.from(new Set(Array.from(typingUsers.values())));
+                      return `${uniqueNames.join(', ')} ${uniqueNames.length === 1 ? 'is' : 'are'} typing...`;
+                    })()}
                   </div>
                 )}
               </ScrollArea>
