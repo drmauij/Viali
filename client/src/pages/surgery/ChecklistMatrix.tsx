@@ -62,14 +62,16 @@ export default function ChecklistMatrix() {
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState("");
   
-  const { data: templates = [], isLoading: templatesLoading } = useQuery<SurgeonChecklistTemplate[]>({
+  const { data: templatesData, isLoading: templatesLoading } = useQuery<SurgeonChecklistTemplate[]>({
     queryKey: ['/api/surgeon-checklists/templates', hospitalId],
     queryFn: async () => {
       const res = await fetch(`/api/surgeon-checklists/templates?hospitalId=${hospitalId}`);
-      return res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!hospitalId,
   });
+  const templates = templatesData || [];
 
   const { data: selectedTemplate, isLoading: templateLoading } = useQuery<SurgeonChecklistTemplate & { items: SurgeonChecklistTemplateItem[] }>({
     queryKey: ['/api/surgeon-checklists/templates', selectedTemplateId],
@@ -80,14 +82,16 @@ export default function ChecklistMatrix() {
     enabled: !!selectedTemplateId,
   });
 
-  const { data: futureSurgeries = [], isLoading: surgeriesLoading } = useQuery<SurgeryWithPatient[]>({
+  const { data: futureSurgeriesData, isLoading: surgeriesLoading } = useQuery<SurgeryWithPatient[]>({
     queryKey: ['/api/surgeries/future', hospitalId],
     queryFn: async () => {
       const res = await fetch(`/api/surgeries/future?hospitalId=${hospitalId}`);
-      return res.json();
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!hospitalId,
   });
+  const futureSurgeries = futureSurgeriesData || [];
 
   const { data: matrixData, isLoading: matrixLoading } = useQuery<{ entries: ChecklistEntryData[] }>({
     queryKey: ['/api/surgeon-checklists/matrix', selectedTemplateId, hospitalId],

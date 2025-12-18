@@ -5424,8 +5424,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(patients, eq(surgeries.patientId, patients.id))
       .where(and(
         eq(surgeries.hospitalId, hospitalId),
-        gte(surgeries.plannedDate, today),
-        isNull(surgeries.deletedAt)
+        gte(surgeries.plannedDate, today)
       ))
       .orderBy(asc(surgeries.plannedDate));
 
@@ -5448,8 +5447,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(surgeryPreOpChecklistEntries.templateId, templateId),
         eq(surgeries.hospitalId, hospitalId),
-        gte(surgeries.plannedDate, today),
-        isNull(surgeries.deletedAt)
+        gte(surgeries.plannedDate, today)
       ));
 
     return entries.map(row => row.entry);
