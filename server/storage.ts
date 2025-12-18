@@ -308,6 +308,8 @@ export interface IStorage {
   // Controlled Checks
   createControlledCheck(check: InsertControlledCheck): Promise<ControlledCheck>;
   getControlledChecks(hospitalId: string, unitId: string, limit?: number): Promise<(ControlledCheck & { user: User })[]>;
+  getControlledCheck(id: string): Promise<ControlledCheck | undefined>;
+  deleteControlledCheck(id: string): Promise<void>;
   
   // Checklist operations
   createChecklistTemplate(template: InsertChecklistTemplate): Promise<ChecklistTemplate>;
@@ -1632,6 +1634,18 @@ export class DatabaseStorage implements IStorage {
       .limit(limit);
     
     return checks as (ControlledCheck & { user: User })[];
+  }
+
+  async getControlledCheck(id: string): Promise<ControlledCheck | undefined> {
+    const [check] = await db
+      .select()
+      .from(controlledChecks)
+      .where(eq(controlledChecks.id, id));
+    return check;
+  }
+
+  async deleteControlledCheck(id: string): Promise<void> {
+    await db.delete(controlledChecks).where(eq(controlledChecks.id, id));
   }
 
   async createImportJob(job: Omit<ImportJob, 'id' | 'createdAt' | 'startedAt' | 'completedAt'>): Promise<ImportJob> {

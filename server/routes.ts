@@ -2374,6 +2374,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.delete('/api/controlled/checks/:checkId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { checkId } = req.params;
+      const { reason } = req.body;
+      const userId = req.user.id;
+      
+      const check = await storage.getControlledCheck(checkId);
+      if (!check) {
+        return res.status(404).json({ message: "Verification check not found" });
+      }
+      
+      const unitId = await getUserUnitForHospital(userId, check.hospitalId);
+      if (!unitId || unitId !== check.unitId) {
+        return res.status(403).json({ message: "Access denied to this check" });
+      }
+      
+      await storage.deleteControlledCheck(checkId);
+      
+      await storage.createAuditLog({
+        recordType: 'controlled_check',
+        recordId: checkId,
+        hospitalId: check.hospitalId,
+        userId,
+        action: 'delete',
+        oldData: check,
+        newData: null,
+        reason: reason || 'Routine verification check deleted',
+      });
+      
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting controlled check:", error);
+      res.status(500).json({ message: "Failed to delete controlled check" });
+    }
+  });
+
   app.post('/api/controlled/verify/:activityId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { activityId } = req.params;
