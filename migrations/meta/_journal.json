@@ -211,6 +211,13 @@
       "when": 1766054753264,
       "tag": "0029_wealthy_robbie_robertson",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1766065293347,
+      "tag": "0030_skinny_hitman",
+      "breakpoints": true
     }
   ]
 }

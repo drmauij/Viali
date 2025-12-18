@@ -2885,19 +2885,48 @@ export const clinicInvoices = pgTable("clinic_invoices", {
   index("idx_clinic_invoices_date").on(table.date),
 ]);
 
-// Clinic Invoice Items - Line items for each invoice
+// Clinic Services - Billable services (not physical inventory items)
+export const clinicServices = pgTable("clinic_services", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  isShared: boolean("is_shared").default(false).notNull(),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_clinic_services_hospital").on(table.hospitalId),
+  index("idx_clinic_services_unit").on(table.unitId),
+]);
+
+// Clinic Invoice Items - Line items for each invoice (supports both items and services)
 export const clinicInvoiceItems = pgTable("clinic_invoice_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   invoiceId: varchar("invoice_id").notNull().references(() => clinicInvoices.id, { onDelete: 'cascade' }),
+  lineType: varchar("line_type", { enum: ["item", "service"] }).default("item").notNull(),
   itemId: varchar("item_id").references(() => items.id),
+  serviceId: varchar("service_id").references(() => clinicServices.id),
   description: text("description").notNull(),
   quantity: integer("quantity").notNull().default(1),
   unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).notNull().default("0"),
+  taxAmount: decimal("tax_amount", { precision: 10, scale: 2 }).notNull().default("0"),
   total: decimal("total", { precision: 10, scale: 2 }).notNull(),
 }, (table) => [
   index("idx_clinic_invoice_items_invoice").on(table.invoiceId),
   index("idx_clinic_invoice_items_item").on(table.itemId),
+  index("idx_clinic_invoice_items_service").on(table.serviceId),
 ]);
+
+// Clinic Services Insert Schema
+export const insertClinicServiceSchema = createInsertSchema(clinicServices).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
 
 // Clinic Invoice Insert Schemas
 export const insertClinicInvoiceSchema = createInsertSchema(clinicInvoices, {
@@ -2910,6 +2939,10 @@ export const insertClinicInvoiceSchema = createInsertSchema(clinicInvoices, {
 export const insertClinicInvoiceItemSchema = createInsertSchema(clinicInvoiceItems).omit({
   id: true,
 });
+
+// Clinic Services Types
+export type ClinicService = typeof clinicServices.$inferSelect;
+export type InsertClinicService = z.infer<typeof insertClinicServiceSchema>;
 
 // Clinic Invoice Types
 export type ClinicInvoice = typeof clinicInvoices.$inferSelect;
