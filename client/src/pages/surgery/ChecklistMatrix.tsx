@@ -83,6 +83,9 @@ export default function ChecklistMatrix() {
     enabled: !!selectedTemplateId,
   });
 
+  const userRole = activeHospital?.role;
+  const isSurgeon = userRole === 'surgeon';
+  
   const { data: futureSurgeriesData, isLoading: surgeriesLoading } = useQuery<SurgeryWithPatient[]>({
     queryKey: ['/api/surgeries/future', hospitalId],
     queryFn: async () => {
@@ -92,7 +95,14 @@ export default function ChecklistMatrix() {
     },
     enabled: !!hospitalId,
   });
-  const futureSurgeries = futureSurgeriesData || [];
+  
+  const futureSurgeries = useMemo(() => {
+    const allSurgeries = futureSurgeriesData || [];
+    if (isSurgeon && userId) {
+      return allSurgeries.filter(surgery => surgery.surgeonId === userId);
+    }
+    return allSurgeries;
+  }, [futureSurgeriesData, isSurgeon, userId]);
 
   const { data: matrixData, isLoading: matrixLoading } = useQuery<{ entries: ChecklistEntryData[] }>({
     queryKey: ['/api/surgeon-checklists/matrix', selectedTemplateId, hospitalId],
