@@ -5259,6 +5259,13 @@ export class DatabaseStorage implements IStorage {
       const idsToDelete = existingIds.filter(eid => !incomingIds.includes(eid));
 
       if (idsToDelete.length > 0) {
+        // First, delete any surgery checklist entries that reference these items
+        // This is necessary because surgery_preop_checklist_entries has a foreign key to template items
+        await db
+          .delete(surgeryPreOpChecklistEntries)
+          .where(inArray(surgeryPreOpChecklistEntries.itemId, idsToDelete));
+        
+        // Now we can safely delete the template items
         await db
           .delete(surgeonChecklistTemplateItems)
           .where(inArray(surgeonChecklistTemplateItems.id, idsToDelete));
