@@ -1148,6 +1148,78 @@ export default function PatientDetail() {
           : `Patient notes: ${qResponse.additionalNotes}`;
       }
       
+      // Conditions/Illnesses - match against predefined lists and auto-select
+      if (qResponse.conditions && Object.keys(qResponse.conditions).length > 0) {
+        const illnessLists = anesthesiaSettings?.illnessLists || {};
+        
+        // Create mappings from illness ID to category
+        const categoryMappings: Record<string, { category: string; dataKey: keyof typeof newData }> = {};
+        
+        const categoryToDataKey: Record<string, keyof typeof newData> = {
+          cardiovascular: 'heartIllnesses',
+          pulmonary: 'lungIllnesses',
+          gastrointestinal: 'giIllnesses',
+          kidney: 'kidneyIllnesses',
+          metabolic: 'metabolicIllnesses',
+          neurological: 'neuroIllnesses',
+          psychiatric: 'psychIllnesses',
+          skeletal: 'skeletalIllnesses',
+        };
+        
+        // Build a lookup of all illness IDs to their categories
+        Object.entries(illnessLists).forEach(([category, illnesses]) => {
+          if (Array.isArray(illnesses)) {
+            illnesses.forEach((illness: { id: string; label: string }) => {
+              categoryMappings[illness.id] = {
+                category,
+                dataKey: categoryToDataKey[category] || 'heartIllnesses',
+              };
+            });
+          }
+        });
+        
+        // Process each condition from the questionnaire
+        const unmatchedConditions: string[] = [];
+        
+        for (const [conditionId, conditionData] of Object.entries(qResponse.conditions)) {
+          if (!(conditionData as { checked?: boolean }).checked) continue;
+          
+          const mapping = categoryMappings[conditionId];
+          if (mapping) {
+            // Found a matching illness - auto-select it
+            const dataKey = mapping.dataKey;
+            if (newData[dataKey] && typeof newData[dataKey] === 'object') {
+              (newData[dataKey] as Record<string, boolean>)[conditionId] = true;
+            }
+            
+            // Add notes if provided
+            if ((conditionData as { notes?: string }).notes) {
+              const notesKey = `${dataKey.replace('Illnesses', 'Notes')}` as keyof typeof newData;
+              if (typeof newData[notesKey] === 'string') {
+                const conditionNotes = (conditionData as { notes?: string }).notes;
+                (newData as any)[notesKey] = (newData[notesKey] as string)
+                  ? `${newData[notesKey]}; ${conditionId}: ${conditionNotes}`
+                  : `${conditionId}: ${conditionNotes}`;
+              }
+            }
+          } else {
+            // Unmatched condition - add to special notes
+            const conditionNotes = (conditionData as { notes?: string }).notes;
+            unmatchedConditions.push(
+              conditionNotes ? `${conditionId} (${conditionNotes})` : conditionId
+            );
+          }
+        }
+        
+        // Add unmatched conditions to special notes
+        if (unmatchedConditions.length > 0) {
+          const conditionsText = unmatchedConditions.join(', ');
+          newData.specialNotes = newData.specialNotes
+            ? `${newData.specialNotes}\n\nPatient conditions: ${conditionsText}`
+            : `Patient conditions: ${conditionsText}`;
+        }
+      }
+      
       return newData;
     });
     
