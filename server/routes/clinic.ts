@@ -6,13 +6,16 @@ import { requireWriteAccess } from "../utils";
 import { 
   clinicInvoices, 
   clinicInvoiceItems,
+  clinicServices,
   insertClinicInvoiceSchema,
   insertClinicInvoiceItemSchema,
+  insertClinicServiceSchema,
   patients,
   items,
   itemCodes,
+  units,
 } from "@shared/schema";
-import { eq, and, desc, sql, max, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, max, inArray, or } from "drizzle-orm";
 import { z } from "zod";
 
 const router = Router();
@@ -40,6 +43,188 @@ async function isClinicAccess(req: any, res: Response, next: any) {
     res.status(500).json({ message: "Failed to verify access" });
   }
 }
+
+// ========================================
+// Clinic Services CRUD
+// ========================================
+
+// List services for a hospital (optionally filtered by unit)
+router.get('/api/clinic/:hospitalId/services', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { unitId, includeShared } = req.query;
+    
+    let conditions: any[] = [eq(clinicServices.hospitalId, hospitalId)];
+    
+    if (unitId && typeof unitId === 'string') {
+      if (includeShared === 'true') {
+        conditions.push(
+          or(
+            eq(clinicServices.unitId, unitId),
+            eq(clinicServices.isShared, true)
+          )
+        );
+      } else {
+        conditions.push(eq(clinicServices.unitId, unitId));
+      }
+    }
+    
+    const services = await db
+      .select({
+        id: clinicServices.id,
+        hospitalId: clinicServices.hospitalId,
+        unitId: clinicServices.unitId,
+        name: clinicServices.name,
+        description: clinicServices.description,
+        price: clinicServices.price,
+        isShared: clinicServices.isShared,
+        sortOrder: clinicServices.sortOrder,
+        createdAt: clinicServices.createdAt,
+        updatedAt: clinicServices.updatedAt,
+        unitName: units.name,
+      })
+      .from(clinicServices)
+      .leftJoin(units, eq(clinicServices.unitId, units.id))
+      .where(and(...conditions))
+      .orderBy(clinicServices.sortOrder, clinicServices.name);
+    
+    res.json(services);
+  } catch (error) {
+    console.error("Error fetching services:", error);
+    res.status(500).json({ message: "Failed to fetch services" });
+  }
+});
+
+// Get single service
+router.get('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId, serviceId } = req.params;
+    
+    const result = await db
+      .select()
+      .from(clinicServices)
+      .where(
+        and(
+          eq(clinicServices.hospitalId, hospitalId),
+          eq(clinicServices.id, serviceId)
+        )
+      )
+      .limit(1);
+    
+    if (result.length === 0) {
+      return res.status(404).json({ message: "Service not found" });
+    }
+    
+    res.json(result[0]);
+  } catch (error) {
+    console.error("Error fetching service:", error);
+    res.status(500).json({ message: "Failed to fetch service" });
+  }
+});
+
+// Create service
+router.post('/api/clinic/:hospitalId/services', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    const validatedData = insertClinicServiceSchema.parse({
+      ...req.body,
+      hospitalId,
+    });
+    
+    const [service] = await db
+      .insert(clinicServices)
+      .values(validatedData)
+      .returning();
+    
+    res.status(201).json(service);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error creating service:", error);
+    res.status(500).json({ message: "Failed to create service" });
+  }
+});
+
+// Update service
+router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { hospitalId, serviceId } = req.params;
+    
+    // Verify service belongs to hospital
+    const existing = await db
+      .select()
+      .from(clinicServices)
+      .where(
+        and(
+          eq(clinicServices.hospitalId, hospitalId),
+          eq(clinicServices.id, serviceId)
+        )
+      )
+      .limit(1);
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ message: "Service not found" });
+    }
+    
+    const { name, description, price, isShared, sortOrder } = req.body;
+    
+    const updateData: any = { updatedAt: new Date() };
+    if (name !== undefined) updateData.name = name;
+    if (description !== undefined) updateData.description = description;
+    if (price !== undefined) updateData.price = price.toString();
+    if (isShared !== undefined) updateData.isShared = isShared;
+    if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+    
+    const [updated] = await db
+      .update(clinicServices)
+      .set(updateData)
+      .where(eq(clinicServices.id, serviceId))
+      .returning();
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating service:", error);
+    res.status(500).json({ message: "Failed to update service" });
+  }
+});
+
+// Delete service
+router.delete('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { hospitalId, serviceId } = req.params;
+    
+    // Verify service belongs to hospital
+    const existing = await db
+      .select()
+      .from(clinicServices)
+      .where(
+        and(
+          eq(clinicServices.hospitalId, hospitalId),
+          eq(clinicServices.id, serviceId)
+        )
+      )
+      .limit(1);
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ message: "Service not found" });
+    }
+    
+    await db
+      .delete(clinicServices)
+      .where(eq(clinicServices.id, serviceId));
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting service:", error);
+    res.status(500).json({ message: "Failed to delete service" });
+  }
+});
+
+// ========================================
+// Invoice Number
+// ========================================
 
 // Get next invoice number for a hospital
 router.get('/api/clinic/:hospitalId/next-invoice-number', isAuthenticated, isClinicAccess, async (req, res) => {
