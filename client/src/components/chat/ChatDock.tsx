@@ -864,7 +864,40 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         if (chatPanel) (chatPanel as HTMLElement).style.visibility = 'hidden';
         
         await new Promise(resolve => setTimeout(resolve, 100));
-        const canvas = await html2canvas(document.body, { useCORS: true, logging: false });
+        
+        const canvas = await html2canvas(document.body, {
+          useCORS: true,
+          logging: false,
+          allowTaint: true,
+          scale: window.devicePixelRatio || 1,
+          width: window.innerWidth,
+          height: window.innerHeight,
+          x: window.scrollX,
+          y: window.scrollY,
+          scrollX: -window.scrollX,
+          scrollY: -window.scrollY,
+          windowWidth: document.documentElement.scrollWidth,
+          windowHeight: document.documentElement.scrollHeight,
+          backgroundColor: '#ffffff',
+          removeContainer: true,
+          imageTimeout: 15000,
+          onclone: (clonedDoc) => {
+            // Remove any problematic transforms or shadows that cause rendering issues
+            const elements = clonedDoc.querySelectorAll('*');
+            elements.forEach((el) => {
+              const htmlEl = el as HTMLElement;
+              const style = window.getComputedStyle(htmlEl);
+              // Fix elements with problematic box-shadows
+              if (style.boxShadow && style.boxShadow !== 'none') {
+                htmlEl.style.boxShadow = 'none';
+              }
+              // Fix elements with transforms that may cause misalignment
+              if (style.transform && style.transform !== 'none') {
+                htmlEl.style.transform = 'none';
+              }
+            });
+          }
+        });
         
         if (chatPanel) (chatPanel as HTMLElement).style.visibility = 'visible';
         
