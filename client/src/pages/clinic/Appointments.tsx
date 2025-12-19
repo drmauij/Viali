@@ -2,8 +2,7 @@ import { useState, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
-import { useLocation } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -27,8 +26,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Calendar,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Plus,
   User,
@@ -37,13 +34,12 @@ import {
   X,
   Check,
   AlertCircle,
-  Edit2,
-  Settings,
 } from "lucide-react";
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, addMinutes } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import ClinicCalendar from "@/components/clinic/ClinicCalendar";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 type AppointmentWithDetails = ClinicAppointment & {
@@ -61,19 +57,14 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }
   no_show: { bg: "bg-purple-100 dark:bg-purple-900/30", text: "text-purple-800 dark:text-purple-300", border: "border-purple-300 dark:border-purple-700" },
 };
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 7); // 7 AM to 6 PM
-
 export default function ClinicAppointments() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [viewMode, setViewMode] = useState<"day" | "week">("week");
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
-  const [selectedProviderId, setSelectedProviderId] = useState<string>("all");
+  const [bookingDefaults, setBookingDefaults] = useState<{ providerId?: string; date?: Date; endDate?: Date }>({});
 
   const activeHospital = useMemo(() => {
     const userHospitals = (user as any)?.hospitals;
@@ -94,28 +85,11 @@ export default function ClinicAppointments() {
   const unitId = activeHospital?.unitId;
   const dateLocale = i18n.language === 'de' ? de : enUS;
 
-  // Get week dates
-  const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
-  const weekEnd = endOfWeek(selectedDate, { weekStartsOn: 1 });
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-
-  // Fetch appointments
-  const { data: appointments = [], isLoading: appointmentsLoading } = useQuery<AppointmentWithDetails[]>({
-    queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'appointments', { 
-      startDate: format(weekStart, 'yyyy-MM-dd'),
-      endDate: format(weekEnd, 'yyyy-MM-dd'),
-      providerId: selectedProviderId !== 'all' ? selectedProviderId : undefined,
-    }],
-    enabled: !!hospitalId && !!unitId,
-  });
-
-  // Fetch providers
   const { data: providers = [] } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
     queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'providers'],
     enabled: !!hospitalId && !!unitId,
   });
 
-  // Update appointment status mutation
   const updateAppointmentMutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       return apiRequest("PATCH", `/api/clinic/${hospitalId}/appointments/${id}`, { status });
@@ -130,22 +104,12 @@ export default function ClinicAppointments() {
     },
   });
 
-  // Navigate dates
-  const navigateDate = (direction: "prev" | "next") => {
-    const days = viewMode === "week" ? 7 : 1;
-    setSelectedDate(prev => addDays(prev, direction === "next" ? days : -days));
+  const handleBookAppointment = (data: { providerId: string; date: Date; endDate?: Date }) => {
+    setBookingDefaults(data);
+    setBookingDialogOpen(true);
   };
 
-  // Get appointments for a specific day and hour
-  const getAppointmentsForSlot = (date: Date, hour: number) => {
-    return appointments.filter(apt => {
-      const aptDate = parseISO(apt.appointmentDate);
-      const [aptHour] = apt.startTime.split(':').map(Number);
-      return isSameDay(aptDate, date) && aptHour === hour;
-    });
-  };
-
-  const handleAppointmentClick = (appointment: AppointmentWithDetails) => {
+  const handleEventClick = (appointment: AppointmentWithDetails) => {
     setSelectedAppointment(appointment);
     setDetailDialogOpen(true);
   };
@@ -176,169 +140,37 @@ export default function ClinicAppointments() {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-4" data-testid="appointments-page">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col h-[calc(100vh-120px)]" data-testid="appointments-page">
+      <div className="flex items-center justify-between p-4 border-b bg-background">
         <div className="flex items-center gap-2">
           <Calendar className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold" data-testid="text-page-title">
+          <h1 className="text-xl font-bold" data-testid="text-page-title">
             {t('appointments.title', 'Appointments')}
           </h1>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={selectedProviderId} onValueChange={setSelectedProviderId}>
-            <SelectTrigger className="w-[180px]" data-testid="select-provider-filter">
-              <SelectValue placeholder={t('appointments.allProviders', 'All Providers')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('appointments.allProviders', 'All Providers')}</SelectItem>
-              {providers.map((provider) => (
-                <SelectItem key={provider.id} value={provider.id}>
-                  {provider.firstName} {provider.lastName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={() => setLocation('/clinic/availability')}
-            data-testid="button-manage-availability"
-          >
-            <Settings className="h-4 w-4 mr-1" />
-            {t('appointments.manageAvailability', 'Availability')}
-          </Button>
-
-          <Button 
-            onClick={() => setBookingDialogOpen(true)}
-            data-testid="button-new-appointment"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            {t('appointments.new', 'New Appointment')}
-          </Button>
-        </div>
+        <Button 
+          onClick={() => {
+            setBookingDefaults({});
+            setBookingDialogOpen(true);
+          }}
+          data-testid="button-new-appointment"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          {t('appointments.new', 'New Appointment')}
+        </Button>
       </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" onClick={() => navigateDate("prev")} data-testid="button-prev-date">
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={() => navigateDate("next")} data-testid="button-next-date">
-                <ChevronRight className="h-5 w-5" />
-              </Button>
-              <span className="text-lg font-medium" data-testid="text-date-range">
-                {viewMode === "week" 
-                  ? `${format(weekStart, 'MMM d', { locale: dateLocale })} - ${format(weekEnd, 'MMM d, yyyy', { locale: dateLocale })}`
-                  : format(selectedDate, 'EEEE, MMMM d, yyyy', { locale: dateLocale })
-                }
-              </span>
-            </div>
+      <div className="flex-1 overflow-hidden">
+        <ClinicCalendar
+          hospitalId={hospitalId}
+          unitId={unitId}
+          onBookAppointment={handleBookAppointment}
+          onEventClick={handleEventClick}
+        />
+      </div>
 
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedDate(new Date())}
-                data-testid="button-today"
-              >
-                {t('appointments.today', 'Today')}
-              </Button>
-              <Select value={viewMode} onValueChange={(v) => setViewMode(v as "day" | "week")}>
-                <SelectTrigger className="w-[100px]" data-testid="select-view-mode">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="day">{t('appointments.viewDay', 'Day')}</SelectItem>
-                  <SelectItem value="week">{t('appointments.viewWeek', 'Week')}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          {appointmentsLoading ? (
-            <div className="space-y-2">
-              {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <div className="min-w-[800px]">
-                <div className="grid" style={{ gridTemplateColumns: `80px repeat(${viewMode === "week" ? 7 : 1}, 1fr)` }}>
-                  <div className="border-b border-r p-2 bg-muted/50" />
-                  {(viewMode === "week" ? weekDays : [selectedDate]).map((date, idx) => (
-                    <div
-                      key={idx}
-                      className={`border-b p-2 text-center font-medium ${
-                        isSameDay(date, new Date()) ? 'bg-primary/10' : 'bg-muted/50'
-                      }`}
-                      data-testid={`header-day-${idx}`}
-                    >
-                      <div className="text-sm text-muted-foreground">
-                        {format(date, 'EEE', { locale: dateLocale })}
-                      </div>
-                      <div className={`text-lg ${isSameDay(date, new Date()) ? 'text-primary font-bold' : ''}`}>
-                        {format(date, 'd')}
-                      </div>
-                    </div>
-                  ))}
-
-                  {HOURS.map((hour) => (
-                    <>
-                      <div
-                        key={`hour-${hour}`}
-                        className="border-r p-2 text-sm text-muted-foreground text-right"
-                      >
-                        {`${hour.toString().padStart(2, '0')}:00`}
-                      </div>
-                      {(viewMode === "week" ? weekDays : [selectedDate]).map((date, dayIdx) => {
-                        const slotAppointments = getAppointmentsForSlot(date, hour);
-                        return (
-                          <div
-                            key={`${dayIdx}-${hour}`}
-                            className={`border-b border-r min-h-[60px] p-1 ${
-                              isSameDay(date, new Date()) ? 'bg-primary/5' : ''
-                            }`}
-                            data-testid={`slot-${dayIdx}-${hour}`}
-                          >
-                            {slotAppointments.map((apt) => {
-                              const colors = STATUS_COLORS[apt.status] || STATUS_COLORS.scheduled;
-                              return (
-                                <button
-                                  key={apt.id}
-                                  onClick={() => handleAppointmentClick(apt)}
-                                  className={`w-full text-left p-1.5 mb-1 rounded text-xs border ${colors.bg} ${colors.text} ${colors.border} hover:opacity-90 transition-opacity`}
-                                  data-testid={`appointment-${apt.id}`}
-                                >
-                                  <div className="font-medium truncate">
-                                    {apt.patient ? `${apt.patient.firstName} ${apt.patient.surname}` : t('appointments.unknownPatient', 'Unknown')}
-                                  </div>
-                                  <div className="flex items-center gap-1 text-[10px] opacity-80">
-                                    <Clock className="h-3 w-3" />
-                                    {apt.startTime} - {apt.endTime}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        );
-                      })}
-                    </>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <div className="flex flex-wrap gap-3 text-sm">
+      <div className="flex flex-wrap gap-3 p-4 border-t bg-muted/30 text-sm">
         {Object.entries(STATUS_COLORS).map(([status, colors]) => (
           <div key={status} className="flex items-center gap-1.5">
             <div className={`w-3 h-3 rounded ${colors.bg} border ${colors.border}`} />
@@ -481,6 +313,7 @@ export default function ClinicAppointments() {
         hospitalId={hospitalId}
         unitId={unitId}
         providers={providers}
+        defaults={bookingDefaults}
       />
     </div>
   );
@@ -492,24 +325,43 @@ function BookingDialog({
   hospitalId,
   unitId,
   providers,
+  defaults,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   hospitalId: string;
   unitId: string;
   providers: { id: string; firstName: string; lastName: string }[];
+  defaults?: { providerId?: string; date?: Date; endDate?: Date };
 }) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const dateLocale = i18n.language === 'de' ? de : enUS;
 
   const [selectedPatientId, setSelectedPatientId] = useState<string>("");
-  const [selectedProviderId, setSelectedProviderId] = useState<string>("");
+  const [selectedProviderId, setSelectedProviderId] = useState<string>(defaults?.providerId || "");
   const [selectedServiceId, setSelectedServiceId] = useState<string>("");
-  const [selectedDate, setSelectedDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const [selectedSlot, setSelectedSlot] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<string>(
+    defaults?.date ? format(defaults.date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
+  );
+  const [selectedSlot, setSelectedSlot] = useState<string>(
+    defaults?.date && defaults?.endDate 
+      ? `${format(defaults.date, 'HH:mm')}-${format(defaults.endDate, 'HH:mm')}`
+      : ""
+  );
   const [patientSearch, setPatientSearch] = useState("");
   const [notes, setNotes] = useState("");
+
+  // Update state when defaults change (from calendar slot selection)
+  useMemo(() => {
+    if (defaults?.providerId) setSelectedProviderId(defaults.providerId);
+    if (defaults?.date) {
+      setSelectedDate(format(defaults.date, 'yyyy-MM-dd'));
+      if (defaults.endDate) {
+        setSelectedSlot(`${format(defaults.date, 'HH:mm')}-${format(defaults.endDate, 'HH:mm')}`);
+      }
+    }
+  }, [defaults]);
 
   const { data: patients = [] } = useQuery<Patient[]>({
     queryKey: ['/api/patients', hospitalId, { search: patientSearch }],
