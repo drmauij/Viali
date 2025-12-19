@@ -25,8 +25,10 @@ import {
   Circle,
   AlertCircle,
   Wand2,
-  Save
+  Save,
+  Pencil
 } from "lucide-react";
+import { SurgeonChecklistTemplateEditor } from "@/components/anesthesia/SurgeonChecklistTemplateEditor";
 import { resolvePlaceholders, type SurgeryContext } from "@shared/checklistPlaceholders";
 import type { SurgeonChecklistTemplate, SurgeonChecklistTemplateItem, Surgery, Patient } from "@shared/schema";
 import { format } from "date-fns";
@@ -62,6 +64,7 @@ export default function ChecklistMatrix() {
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState("");
   const [savingCell, setSavingCell] = useState<string | null>(null);
+  const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
   
   const { data: templatesData, isLoading: templatesLoading } = useQuery<SurgeonChecklistTemplate[]>({
     queryKey: ['/api/surgeon-checklists/templates', hospitalId],
@@ -325,6 +328,24 @@ export default function ChecklistMatrix() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setTemplateEditorOpen(true)}
+                        data-testid="button-edit-template"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {t('checklistMatrix.editTemplate', 'Edit template')}
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
                         variant={isCurrentDefault ? "secondary" : "outline"}
                         size="icon"
                         onClick={() => toggleDefaultMutation.mutate(selectedTemplateId)}
@@ -581,6 +602,16 @@ export default function ChecklistMatrix() {
           </ScrollArea>
         )}
       </div>
+
+      {/* Template Editor Dialog */}
+      {hospitalId && (
+        <SurgeonChecklistTemplateEditor
+          open={templateEditorOpen}
+          onClose={() => setTemplateEditorOpen(false)}
+          hospitalId={hospitalId}
+          templateId={selectedTemplateId}
+        />
+      )}
     </div>
   );
 }
