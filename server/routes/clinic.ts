@@ -843,4 +843,494 @@ router.get('/api/clinic/:hospitalId/invoices/:invoiceId/patient-email', isAuthen
   }
 });
 
+// ========================================
+// Clinic Appointments CRUD
+// ========================================
+
+import {
+  clinicAppointments,
+  providerAvailability,
+  providerTimeOff,
+  providerAbsences,
+  timebutlerConfig,
+  insertClinicAppointmentSchema,
+  insertProviderAvailabilitySchema,
+  insertProviderTimeOffSchema,
+  users,
+} from "@shared/schema";
+
+// List appointments for a unit
+router.get('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticated, isClinicAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, unitId } = req.params;
+    const { providerId, patientId, startDate, endDate, status } = req.query;
+    
+    const appointments = await storage.getClinicAppointments(unitId, {
+      providerId: providerId as string,
+      patientId: patientId as string,
+      startDate: startDate as string,
+      endDate: endDate as string,
+      status: status as string,
+    });
+    
+    res.json(appointments);
+  } catch (error) {
+    console.error("Error fetching appointments:", error);
+    res.status(500).json({ message: "Failed to fetch appointments" });
+  }
+});
+
+// Get single appointment
+router.get('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { appointmentId } = req.params;
+    
+    const appointment = await storage.getClinicAppointment(appointmentId);
+    
+    if (!appointment) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+    
+    res.json(appointment);
+  } catch (error) {
+    console.error("Error fetching appointment:", error);
+    res.status(500).json({ message: "Failed to fetch appointment" });
+  }
+});
+
+// Create appointment
+router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, unitId } = req.params;
+    const userId = req.user.id;
+    
+    const validatedData = insertClinicAppointmentSchema.parse({
+      ...req.body,
+      hospitalId,
+      unitId,
+      createdBy: userId,
+    });
+    
+    const appointment = await storage.createClinicAppointment(validatedData);
+    
+    res.status(201).json(appointment);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error creating appointment:", error);
+    res.status(500).json({ message: "Failed to create appointment" });
+  }
+});
+
+// Schema for updating appointments - only allow safe fields
+const updateAppointmentSchema = z.object({
+  status: z.enum(["scheduled", "confirmed", "in_progress", "completed", "cancelled", "no_show"]).optional(),
+  appointmentDate: z.string().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  notes: z.string().nullable().optional(),
+  serviceId: z.string().nullable().optional(),
+});
+
+// Update appointment
+router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { hospitalId, appointmentId } = req.params;
+    
+    const existing = await storage.getClinicAppointment(appointmentId);
+    if (!existing) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+    
+    // Security: Verify appointment belongs to this hospital
+    if (existing.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Access denied to this appointment" });
+    }
+    
+    // Validate update payload with Zod schema
+    const validatedData = updateAppointmentSchema.parse(req.body);
+    
+    const updated = await storage.updateClinicAppointment(appointmentId, validatedData);
+    
+    res.json(updated);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error updating appointment:", error);
+    res.status(500).json({ message: "Failed to update appointment" });
+  }
+});
+
+// Delete appointment
+router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { hospitalId, appointmentId } = req.params;
+    
+    const existing = await storage.getClinicAppointment(appointmentId);
+    if (!existing) {
+      return res.status(404).json({ message: "Appointment not found" });
+    }
+    
+    // Security: Verify appointment belongs to this hospital
+    if (existing.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Access denied to this appointment" });
+    }
+    
+    await storage.deleteClinicAppointment(appointmentId);
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting appointment:", error);
+    res.status(500).json({ message: "Failed to delete appointment" });
+  }
+});
+
+// Get available slots for a provider on a specific date
+router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/available-slots', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { unitId, providerId } = req.params;
+    const { date, duration } = req.query;
+    
+    if (!date) {
+      return res.status(400).json({ message: "Date is required" });
+    }
+    
+    const durationMinutes = parseInt(duration as string) || 30;
+    
+    const slots = await storage.getAvailableSlots(providerId, unitId, date as string, durationMinutes);
+    
+    res.json(slots);
+  } catch (error) {
+    console.error("Error fetching available slots:", error);
+    res.status(500).json({ message: "Failed to fetch available slots" });
+  }
+});
+
+// ========================================
+// Provider Availability Management
+// ========================================
+
+// Get provider availability
+router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { unitId, providerId } = req.params;
+    
+    const availability = await storage.getProviderAvailability(providerId, unitId);
+    
+    res.json(availability);
+  } catch (error) {
+    console.error("Error fetching provider availability:", error);
+    res.status(500).json({ message: "Failed to fetch availability" });
+  }
+});
+
+// Set provider availability (replaces all for this provider/unit)
+router.put('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { unitId, providerId } = req.params;
+    const { availability } = req.body;
+    
+    if (!Array.isArray(availability)) {
+      return res.status(400).json({ message: "Availability must be an array" });
+    }
+    
+    const result = await storage.setProviderAvailability(providerId, unitId, availability);
+    
+    res.json(result);
+  } catch (error) {
+    console.error("Error setting provider availability:", error);
+    res.status(500).json({ message: "Failed to set availability" });
+  }
+});
+
+// ========================================
+// Provider Time Off Management
+// ========================================
+
+// Get provider time off
+router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-off', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { unitId, providerId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    const timeOff = await storage.getProviderTimeOff(
+      providerId, 
+      unitId, 
+      startDate as string, 
+      endDate as string
+    );
+    
+    res.json(timeOff);
+  } catch (error) {
+    console.error("Error fetching provider time off:", error);
+    res.status(500).json({ message: "Failed to fetch time off" });
+  }
+});
+
+// Create time off
+router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-off', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { unitId, providerId } = req.params;
+    const userId = req.user.id;
+    
+    const validatedData = insertProviderTimeOffSchema.parse({
+      ...req.body,
+      providerId,
+      unitId,
+      createdBy: userId,
+    });
+    
+    const timeOff = await storage.createProviderTimeOff(validatedData);
+    
+    res.status(201).json(timeOff);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error creating time off:", error);
+    res.status(500).json({ message: "Failed to create time off" });
+  }
+});
+
+// Delete time off
+router.delete('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { timeOffId } = req.params;
+    
+    await storage.deleteProviderTimeOff(timeOffId);
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting time off:", error);
+    res.status(500).json({ message: "Failed to delete time off" });
+  }
+});
+
+// ========================================
+// Provider Absences (Timebutler sync)
+// ========================================
+
+// Get provider absences
+router.get('/api/clinic/:hospitalId/absences', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    const absences = await storage.getProviderAbsences(
+      hospitalId,
+      startDate as string,
+      endDate as string
+    );
+    
+    res.json(absences);
+  } catch (error) {
+    console.error("Error fetching absences:", error);
+    res.status(500).json({ message: "Failed to fetch absences" });
+  }
+});
+
+// ========================================
+// Timebutler Configuration
+// ========================================
+
+// Get Timebutler config
+router.get('/api/clinic/:hospitalId/timebutler-config', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    const config = await storage.getTimebutlerConfig(hospitalId);
+    
+    // Don't expose the API token in the response
+    if (config) {
+      res.json({
+        ...config,
+        apiToken: config.apiToken ? '********' : null,
+        hasApiToken: !!config.apiToken,
+      });
+    } else {
+      res.json(null);
+    }
+  } catch (error) {
+    console.error("Error fetching Timebutler config:", error);
+    res.status(500).json({ message: "Failed to fetch Timebutler config" });
+  }
+});
+
+// Update Timebutler config
+router.put('/api/clinic/:hospitalId/timebutler-config', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { apiToken, userMapping, isEnabled } = req.body;
+    
+    // Get existing config to preserve token if not changed
+    const existing = await storage.getTimebutlerConfig(hospitalId);
+    
+    const config = await storage.upsertTimebutlerConfig({
+      hospitalId,
+      apiToken: apiToken === '********' ? existing?.apiToken : apiToken,
+      userMapping: userMapping || existing?.userMapping || {},
+      isEnabled: isEnabled ?? existing?.isEnabled ?? false,
+    });
+    
+    res.json({
+      ...config,
+      apiToken: config.apiToken ? '********' : null,
+      hasApiToken: !!config.apiToken,
+    });
+  } catch (error) {
+    console.error("Error updating Timebutler config:", error);
+    res.status(500).json({ message: "Failed to update Timebutler config" });
+  }
+});
+
+// Trigger Timebutler sync
+router.post('/api/clinic/:hospitalId/timebutler-sync', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    const config = await storage.getTimebutlerConfig(hospitalId);
+    
+    if (!config?.apiToken || !config.isEnabled) {
+      return res.status(400).json({ message: "Timebutler is not configured or enabled" });
+    }
+    
+    // Call Timebutler API
+    const currentYear = new Date().getFullYear();
+    const response = await fetch('https://timebutler.de/api/v1/absences', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: `auth=${config.apiToken}&year=${currentYear}`,
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Timebutler API error:", errorText);
+      
+      // Update config with error status
+      await storage.upsertTimebutlerConfig({
+        hospitalId,
+        apiToken: config.apiToken,
+        userMapping: config.userMapping,
+        isEnabled: config.isEnabled,
+        lastSyncAt: new Date(),
+        lastSyncStatus: 'failed',
+        lastSyncMessage: `API error: ${response.status}`,
+      });
+      
+      return res.status(502).json({ message: "Timebutler API error" });
+    }
+    
+    const csvData = await response.text();
+    
+    // Parse CSV data
+    const lines = csvData.split('\n');
+    const headers = lines[0]?.split(';') || [];
+    
+    // Find column indices
+    const emailIdx = headers.findIndex(h => h.toLowerCase().includes('email') || h.toLowerCase().includes('e-mail'));
+    const startIdx = headers.findIndex(h => h.toLowerCase().includes('start') || h.toLowerCase().includes('von'));
+    const endIdx = headers.findIndex(h => h.toLowerCase().includes('end') || h.toLowerCase().includes('bis'));
+    const typeIdx = headers.findIndex(h => h.toLowerCase().includes('type') || h.toLowerCase().includes('art'));
+    
+    if (emailIdx === -1 || startIdx === -1 || endIdx === -1) {
+      console.error("Could not parse Timebutler CSV headers:", headers);
+      return res.status(500).json({ message: "Could not parse Timebutler response" });
+    }
+    
+    const absences: any[] = [];
+    const userMapping = config.userMapping || {};
+    
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!line.trim()) continue;
+      
+      const cols = line.split(';');
+      const email = cols[emailIdx]?.trim();
+      const startDate = cols[startIdx]?.trim();
+      const endDate = cols[endIdx]?.trim();
+      const absenceType = cols[typeIdx]?.trim() || 'vacation';
+      
+      if (!email || !startDate || !endDate) continue;
+      
+      // Map email to provider ID
+      const providerId = userMapping[email];
+      if (!providerId) continue; // Skip unmapped users
+      
+      absences.push({
+        providerId,
+        hospitalId,
+        absenceType,
+        startDate,
+        endDate,
+        externalId: `${email}-${startDate}-${endDate}`,
+      });
+    }
+    
+    // Sync absences to database
+    if (absences.length > 0) {
+      await storage.syncProviderAbsences(hospitalId, absences);
+    }
+    
+    // Update config with success status
+    await storage.upsertTimebutlerConfig({
+      hospitalId,
+      apiToken: config.apiToken,
+      userMapping: config.userMapping,
+      isEnabled: config.isEnabled,
+      lastSyncAt: new Date(),
+      lastSyncStatus: 'success',
+      lastSyncMessage: `Synced ${absences.length} absences`,
+    });
+    
+    res.json({ 
+      success: true, 
+      message: `Synced ${absences.length} absences`,
+      syncedCount: absences.length,
+    });
+  } catch (error) {
+    console.error("Error syncing Timebutler:", error);
+    res.status(500).json({ message: "Failed to sync Timebutler" });
+  }
+});
+
+// ========================================
+// Providers (users who can have appointments)
+// ========================================
+
+// Get providers for a unit (staff members)
+router.get('/api/clinic/:hospitalId/units/:unitId/providers', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId, unitId } = req.params;
+    
+    // Get users with roles in this unit (doctors, etc.)
+    const providers = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        email: users.email,
+        profileImageUrl: users.profileImageUrl,
+      })
+      .from(users)
+      .innerJoin(
+        (await import("@shared/schema")).userHospitalRoles,
+        and(
+          eq(users.id, (await import("@shared/schema")).userHospitalRoles.userId),
+          eq((await import("@shared/schema")).userHospitalRoles.hospitalId, hospitalId),
+          eq((await import("@shared/schema")).userHospitalRoles.unitId, unitId)
+        )
+      )
+      .orderBy(users.lastName, users.firstName);
+    
+    res.json(providers);
+  } catch (error) {
+    console.error("Error fetching providers:", error);
+    res.status(500).json({ message: "Failed to fetch providers" });
+  }
+});
+
 export default router;

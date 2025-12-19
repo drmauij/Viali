@@ -185,6 +185,24 @@ import {
   personalTodos,
   type PersonalTodo,
   type InsertPersonalTodo,
+  // Clinic appointment scheduling tables
+  providerAvailability,
+  providerTimeOff,
+  providerAbsences,
+  clinicAppointments,
+  timebutlerConfig,
+  clinicServices,
+  type ProviderAvailability,
+  type InsertProviderAvailability,
+  type ProviderTimeOff,
+  type InsertProviderTimeOff,
+  type ProviderAbsence,
+  type InsertProviderAbsence,
+  type ClinicAppointment,
+  type InsertClinicAppointment,
+  type TimebutlerConfig,
+  type InsertTimebutlerConfig,
+  type ClinicService,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -686,6 +704,46 @@ export interface IStorage {
   updatePersonalTodo(id: string, updates: Partial<PersonalTodo>): Promise<PersonalTodo>;
   deletePersonalTodo(id: string): Promise<void>;
   reorderPersonalTodos(todoIds: string[], status: string): Promise<void>;
+  
+  // ========== CLINIC APPOINTMENT SCHEDULING ==========
+  
+  // Provider Availability
+  getProviderAvailability(providerId: string, unitId: string): Promise<ProviderAvailability[]>;
+  setProviderAvailability(providerId: string, unitId: string, availability: InsertProviderAvailability[]): Promise<ProviderAvailability[]>;
+  updateProviderAvailability(id: string, updates: Partial<ProviderAvailability>): Promise<ProviderAvailability>;
+  
+  // Provider Time Off
+  getProviderTimeOff(providerId: string, unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]>;
+  createProviderTimeOff(timeOff: InsertProviderTimeOff): Promise<ProviderTimeOff>;
+  updateProviderTimeOff(id: string, updates: Partial<ProviderTimeOff>): Promise<ProviderTimeOff>;
+  deleteProviderTimeOff(id: string): Promise<void>;
+  
+  // Provider Absences (Timebutler sync)
+  getProviderAbsences(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderAbsence[]>;
+  syncProviderAbsences(hospitalId: string, absences: InsertProviderAbsence[]): Promise<void>;
+  
+  // Timebutler Config
+  getTimebutlerConfig(hospitalId: string): Promise<TimebutlerConfig | undefined>;
+  upsertTimebutlerConfig(config: InsertTimebutlerConfig): Promise<TimebutlerConfig>;
+  
+  // Clinic Appointments
+  getClinicAppointments(unitId: string, filters?: {
+    providerId?: string;
+    patientId?: string;
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+  }): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService })[]>;
+  getClinicAppointment(id: string): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService }) | undefined>;
+  createClinicAppointment(appointment: InsertClinicAppointment): Promise<ClinicAppointment>;
+  updateClinicAppointment(id: string, updates: Partial<ClinicAppointment>): Promise<ClinicAppointment>;
+  deleteClinicAppointment(id: string): Promise<void>;
+  
+  // Available Slots Calculator
+  getAvailableSlots(providerId: string, unitId: string, date: string, durationMinutes: number): Promise<{ startTime: string; endTime: string }[]>;
+  
+  // Clinic Services (for appointment booking)
+  getClinicServices(unitId: string): Promise<ClinicService[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6334,6 +6392,361 @@ export class DatabaseStorage implements IStorage {
         .set({ position: i, status: status as any, updatedAt: new Date() })
         .where(eq(personalTodos.id, todoIds[i]));
     }
+  }
+
+  // ========== CLINIC APPOINTMENT SCHEDULING ==========
+
+  async getProviderAvailability(providerId: string, unitId: string): Promise<ProviderAvailability[]> {
+    return await db
+      .select()
+      .from(providerAvailability)
+      .where(and(
+        eq(providerAvailability.providerId, providerId),
+        eq(providerAvailability.unitId, unitId)
+      ))
+      .orderBy(asc(providerAvailability.dayOfWeek));
+  }
+
+  async setProviderAvailability(providerId: string, unitId: string, availability: InsertProviderAvailability[]): Promise<ProviderAvailability[]> {
+    // Delete existing availability for this provider/unit
+    await db
+      .delete(providerAvailability)
+      .where(and(
+        eq(providerAvailability.providerId, providerId),
+        eq(providerAvailability.unitId, unitId)
+      ));
+    
+    if (availability.length === 0) {
+      return [];
+    }
+    
+    // Insert new availability
+    const inserted = await db
+      .insert(providerAvailability)
+      .values(availability.map(a => ({ ...a, providerId, unitId })))
+      .returning();
+    
+    return inserted;
+  }
+
+  async updateProviderAvailability(id: string, updates: Partial<ProviderAvailability>): Promise<ProviderAvailability> {
+    const [updated] = await db
+      .update(providerAvailability)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(providerAvailability.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getProviderTimeOff(providerId: string, unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]> {
+    let conditions = [
+      eq(providerTimeOff.providerId, providerId),
+      eq(providerTimeOff.unitId, unitId)
+    ];
+    
+    if (startDate) {
+      conditions.push(gte(providerTimeOff.endDate, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(providerTimeOff.startDate, endDate));
+    }
+    
+    return await db
+      .select()
+      .from(providerTimeOff)
+      .where(and(...conditions))
+      .orderBy(asc(providerTimeOff.startDate));
+  }
+
+  async createProviderTimeOff(timeOff: InsertProviderTimeOff): Promise<ProviderTimeOff> {
+    const [created] = await db
+      .insert(providerTimeOff)
+      .values(timeOff)
+      .returning();
+    return created;
+  }
+
+  async updateProviderTimeOff(id: string, updates: Partial<ProviderTimeOff>): Promise<ProviderTimeOff> {
+    const [updated] = await db
+      .update(providerTimeOff)
+      .set(updates)
+      .where(eq(providerTimeOff.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteProviderTimeOff(id: string): Promise<void> {
+    await db
+      .delete(providerTimeOff)
+      .where(eq(providerTimeOff.id, id));
+  }
+
+  async getProviderAbsences(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderAbsence[]> {
+    let conditions = [eq(providerAbsences.hospitalId, hospitalId)];
+    
+    if (startDate) {
+      conditions.push(gte(providerAbsences.endDate, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(providerAbsences.startDate, endDate));
+    }
+    
+    return await db
+      .select()
+      .from(providerAbsences)
+      .where(and(...conditions))
+      .orderBy(asc(providerAbsences.startDate));
+  }
+
+  async syncProviderAbsences(hospitalId: string, absences: InsertProviderAbsence[]): Promise<void> {
+    // Upsert absences based on externalId
+    for (const absence of absences) {
+      await db
+        .insert(providerAbsences)
+        .values({ ...absence, hospitalId })
+        .onConflictDoUpdate({
+          target: [providerAbsences.hospitalId, providerAbsences.externalId],
+          set: {
+            absenceType: absence.absenceType,
+            startDate: absence.startDate,
+            endDate: absence.endDate,
+            isHalfDayStart: absence.isHalfDayStart,
+            isHalfDayEnd: absence.isHalfDayEnd,
+            syncedAt: new Date(),
+          },
+        });
+    }
+  }
+
+  async getTimebutlerConfig(hospitalId: string): Promise<TimebutlerConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(timebutlerConfig)
+      .where(eq(timebutlerConfig.hospitalId, hospitalId));
+    return config;
+  }
+
+  async upsertTimebutlerConfig(config: InsertTimebutlerConfig): Promise<TimebutlerConfig> {
+    const [upserted] = await db
+      .insert(timebutlerConfig)
+      .values(config)
+      .onConflictDoUpdate({
+        target: timebutlerConfig.hospitalId,
+        set: {
+          apiToken: config.apiToken,
+          userMapping: config.userMapping,
+          isEnabled: config.isEnabled,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return upserted;
+  }
+
+  async getClinicAppointments(unitId: string, filters?: {
+    providerId?: string;
+    patientId?: string;
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+  }): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService })[]> {
+    let conditions = [eq(clinicAppointments.unitId, unitId)];
+    
+    if (filters?.providerId) {
+      conditions.push(eq(clinicAppointments.providerId, filters.providerId));
+    }
+    if (filters?.patientId) {
+      conditions.push(eq(clinicAppointments.patientId, filters.patientId));
+    }
+    if (filters?.startDate) {
+      conditions.push(gte(clinicAppointments.appointmentDate, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(clinicAppointments.appointmentDate, filters.endDate));
+    }
+    if (filters?.status) {
+      conditions.push(eq(clinicAppointments.status, filters.status as any));
+    }
+    
+    const results = await db
+      .select()
+      .from(clinicAppointments)
+      .leftJoin(patients, eq(clinicAppointments.patientId, patients.id))
+      .leftJoin(users, eq(clinicAppointments.providerId, users.id))
+      .leftJoin(clinicServices, eq(clinicAppointments.serviceId, clinicServices.id))
+      .where(and(...conditions))
+      .orderBy(asc(clinicAppointments.appointmentDate), asc(clinicAppointments.startTime));
+    
+    return results.map(row => ({
+      ...row.clinic_appointments,
+      patient: row.patients || undefined,
+      provider: row.users || undefined,
+      service: row.clinic_services || undefined,
+    }));
+  }
+
+  async getClinicAppointment(id: string): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService }) | undefined> {
+    const [result] = await db
+      .select()
+      .from(clinicAppointments)
+      .leftJoin(patients, eq(clinicAppointments.patientId, patients.id))
+      .leftJoin(users, eq(clinicAppointments.providerId, users.id))
+      .leftJoin(clinicServices, eq(clinicAppointments.serviceId, clinicServices.id))
+      .where(eq(clinicAppointments.id, id));
+    
+    if (!result) return undefined;
+    
+    return {
+      ...result.clinic_appointments,
+      patient: result.patients || undefined,
+      provider: result.users || undefined,
+      service: result.clinic_services || undefined,
+    };
+  }
+
+  async createClinicAppointment(appointment: InsertClinicAppointment): Promise<ClinicAppointment> {
+    const [created] = await db
+      .insert(clinicAppointments)
+      .values(appointment)
+      .returning();
+    return created;
+  }
+
+  async updateClinicAppointment(id: string, updates: Partial<ClinicAppointment>): Promise<ClinicAppointment> {
+    const [updated] = await db
+      .update(clinicAppointments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(clinicAppointments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteClinicAppointment(id: string): Promise<void> {
+    await db
+      .delete(clinicAppointments)
+      .where(eq(clinicAppointments.id, id));
+  }
+
+  async getAvailableSlots(providerId: string, unitId: string, date: string, durationMinutes: number): Promise<{ startTime: string; endTime: string }[]> {
+    const dateObj = new Date(date);
+    const dayOfWeek = dateObj.getDay(); // 0-6, Sunday = 0
+    
+    // 1. Get provider availability for this day
+    const [availability] = await db
+      .select()
+      .from(providerAvailability)
+      .where(and(
+        eq(providerAvailability.providerId, providerId),
+        eq(providerAvailability.unitId, unitId),
+        eq(providerAvailability.dayOfWeek, dayOfWeek),
+        eq(providerAvailability.isActive, true)
+      ));
+    
+    if (!availability) {
+      return []; // Provider doesn't work this day
+    }
+    
+    // 2. Check for time off on this date
+    const timeOffList = await db
+      .select()
+      .from(providerTimeOff)
+      .where(and(
+        eq(providerTimeOff.providerId, providerId),
+        eq(providerTimeOff.unitId, unitId),
+        lte(providerTimeOff.startDate, date),
+        gte(providerTimeOff.endDate, date)
+      ));
+    
+    // 3. Check for Timebutler absences
+    const absenceList = await db
+      .select()
+      .from(providerAbsences)
+      .where(and(
+        eq(providerAbsences.providerId, providerId),
+        lte(providerAbsences.startDate, date),
+        gte(providerAbsences.endDate, date)
+      ));
+    
+    // 4. Check for existing surgeries (from OP calendar)
+    const surgeryList = await db
+      .select()
+      .from(surgeries)
+      .where(and(
+        eq(surgeries.surgeonId, providerId),
+        sql`DATE(${surgeries.plannedDate}) = ${date}`
+      ));
+    
+    // 5. Get existing appointments for this day
+    const existingAppointments = await db
+      .select()
+      .from(clinicAppointments)
+      .where(and(
+        eq(clinicAppointments.providerId, providerId),
+        eq(clinicAppointments.appointmentDate, date),
+        sql`${clinicAppointments.status} NOT IN ('cancelled', 'no_show')`
+      ));
+    
+    // Generate available slots
+    const slots: { startTime: string; endTime: string }[] = [];
+    const startMinutes = this.timeToMinutes(availability.startTime);
+    const endMinutes = this.timeToMinutes(availability.endTime);
+    
+    // Check if provider has full-day time off
+    const hasFullDayOff = timeOffList.some(t => !t.startTime && !t.endTime);
+    const hasAbsence = absenceList.length > 0;
+    
+    if (hasFullDayOff || hasAbsence) {
+      return []; // Provider is off this day
+    }
+    
+    // Generate slots based on availability
+    for (let mins = startMinutes; mins + durationMinutes <= endMinutes; mins += availability.slotDurationMinutes) {
+      const slotStart = this.minutesToTime(mins);
+      const slotEnd = this.minutesToTime(mins + durationMinutes);
+      
+      // Check if slot conflicts with time off
+      const conflictsWithTimeOff = timeOffList.some(t => {
+        if (!t.startTime || !t.endTime) return false;
+        const offStart = this.timeToMinutes(t.startTime);
+        const offEnd = this.timeToMinutes(t.endTime);
+        return mins < offEnd && mins + durationMinutes > offStart;
+      });
+      
+      // Check if slot conflicts with existing appointments
+      const conflictsWithAppointment = existingAppointments.some(a => {
+        const apptStart = this.timeToMinutes(a.startTime);
+        const apptEnd = this.timeToMinutes(a.endTime);
+        return mins < apptEnd && mins + durationMinutes > apptStart;
+      });
+      
+      // Check if slot conflicts with surgeries (assume surgeries block all day for simplicity)
+      const conflictsWithSurgery = surgeryList.length > 0;
+      
+      if (!conflictsWithTimeOff && !conflictsWithAppointment && !conflictsWithSurgery) {
+        slots.push({ startTime: slotStart, endTime: slotEnd });
+      }
+    }
+    
+    return slots;
+  }
+
+  private timeToMinutes(time: string): number {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+
+  private minutesToTime(minutes: number): string {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  }
+
+  async getClinicServices(unitId: string): Promise<ClinicService[]> {
+    return await db
+      .select()
+      .from(clinicServices)
+      .where(eq(clinicServices.unitId, unitId))
+      .orderBy(asc(clinicServices.sortOrder), asc(clinicServices.name));
   }
 }
 

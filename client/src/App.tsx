@@ -53,6 +53,8 @@ import EditableValuesDemo from "@/pages/EditableValuesDemo";
 import ClinicInvoices from "@/pages/clinic/Invoices";
 import ClinicServices from "@/pages/clinic/Services";
 import ClinicQuestionnaires from "@/pages/clinic/UnassociatedQuestionnaires";
+import ClinicAppointments from "@/pages/clinic/Appointments";
+import ClinicAvailability from "@/pages/clinic/Availability";
 import PatientQuestionnaire from "@/pages/PatientQuestionnaire";
 import "@/i18n/config";
 
@@ -206,6 +208,8 @@ function Router() {
             <Route path="/business/dashboard-full">{() => <ProtectedRoute requireBusiness><BusinessDashboard /></ProtectedRoute>}</Route>
             {/* Clinic Module - ambulatory invoicing */}
             <Route path="/clinic">{() => <ProtectedRoute requireClinic><ClinicInvoices /></ProtectedRoute>}</Route>
+            <Route path="/clinic/appointments">{() => <ProtectedRoute requireClinic><ClinicAppointments /></ProtectedRoute>}</Route>
+            <Route path="/clinic/availability">{() => <ProtectedRoute requireClinic><ClinicAvailability /></ProtectedRoute>}</Route>
             <Route path="/clinic/invoices">{() => <ProtectedRoute requireClinic><ClinicInvoices /></ProtectedRoute>}</Route>
             <Route path="/clinic/services">{() => <ProtectedRoute requireClinic><ClinicServices /></ProtectedRoute>}</Route>
             <Route path="/clinic/questionnaires">{() => <ProtectedRoute requireClinic><ClinicQuestionnaires /></ProtectedRoute>}</Route>

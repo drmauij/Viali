@@ -2893,6 +2893,7 @@ export const clinicServices = pgTable("clinic_services", {
   name: varchar("name").notNull(),
   description: text("description"),
   price: decimal("price", { precision: 10, scale: 2 }).notNull(),
+  durationMinutes: integer("duration_minutes").default(30),
   isShared: boolean("is_shared").default(false).notNull(),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
@@ -3289,3 +3290,198 @@ export const insertPersonalTodoSchema = createInsertSchema(personalTodos).omit({
 
 export type PersonalTodo = typeof personalTodos.$inferSelect;
 export type InsertPersonalTodo = z.infer<typeof insertPersonalTodoSchema>;
+
+// ============================================
+// CLINIC APPOINTMENT SCHEDULING
+// ============================================
+
+// Provider Availability - Weekly schedule patterns
+export const providerAvailability = pgTable("provider_availability", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  
+  // Day of week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+  dayOfWeek: integer("day_of_week").notNull(),
+  
+  // Time slots (stored as HH:MM strings for simplicity)
+  startTime: varchar("start_time").notNull(), // e.g., "08:00"
+  endTime: varchar("end_time").notNull(), // e.g., "17:00"
+  
+  // Slot configuration
+  slotDurationMinutes: integer("slot_duration_minutes").default(30).notNull(), // 30, 60, or 90
+  
+  // Whether this day is active
+  isActive: boolean("is_active").default(true).notNull(),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_provider_availability_provider").on(table.providerId),
+  index("idx_provider_availability_unit").on(table.unitId),
+  index("idx_provider_availability_day").on(table.dayOfWeek),
+]);
+
+// Provider Time Off - Manual holidays and blocked dates
+export const providerTimeOff = pgTable("provider_time_off", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  
+  // Date range (inclusive)
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  
+  // Optional time range for partial day blocks (null = full day)
+  startTime: varchar("start_time"), // e.g., "14:00"
+  endTime: varchar("end_time"), // e.g., "17:00"
+  
+  reason: varchar("reason"), // holiday, personal, training, etc.
+  notes: text("notes"),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_provider_time_off_provider").on(table.providerId),
+  index("idx_provider_time_off_dates").on(table.startDate, table.endDate),
+]);
+
+// Provider Absences - Synced from Timebutler
+export const providerAbsences = pgTable("provider_absences", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  
+  // Timebutler sync data
+  timebutlerUserId: varchar("timebutler_user_id"), // External ID from Timebutler
+  absenceType: varchar("absence_type").notNull(), // vacation, sick, training, etc.
+  
+  // Date range
+  startDate: date("start_date").notNull(),
+  endDate: date("end_date").notNull(),
+  
+  // Half-day indicators
+  isHalfDayStart: boolean("is_half_day_start").default(false),
+  isHalfDayEnd: boolean("is_half_day_end").default(false),
+  
+  // Sync metadata
+  syncedAt: timestamp("synced_at").defaultNow(),
+  externalId: varchar("external_id"), // Original ID from Timebutler for deduplication
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_provider_absences_provider").on(table.providerId),
+  index("idx_provider_absences_hospital").on(table.hospitalId),
+  index("idx_provider_absences_dates").on(table.startDate, table.endDate),
+  unique("unique_external_absence").on(table.hospitalId, table.externalId),
+]);
+
+// Clinic Appointments - The main appointments table
+export const clinicAppointments = pgTable("clinic_appointments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
+  
+  // Who
+  patientId: varchar("patient_id").notNull().references(() => patients.id),
+  providerId: varchar("provider_id").notNull().references(() => users.id),
+  
+  // What
+  serviceId: varchar("service_id").references(() => clinicServices.id), // Optional - can be general appointment
+  
+  // When
+  appointmentDate: date("appointment_date").notNull(),
+  startTime: varchar("start_time").notNull(), // e.g., "09:00"
+  endTime: varchar("end_time").notNull(), // e.g., "09:30"
+  durationMinutes: integer("duration_minutes").notNull(),
+  
+  // Status workflow
+  status: varchar("status", { 
+    enum: ["scheduled", "confirmed", "arrived", "in_progress", "completed", "cancelled", "no_show"] 
+  }).default("scheduled").notNull(),
+  
+  // Notes
+  notes: text("notes"),
+  cancellationReason: text("cancellation_reason"),
+  
+  // Reminders
+  reminderSent: boolean("reminder_sent").default(false),
+  reminderSentAt: timestamp("reminder_sent_at"),
+  
+  // Audit
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_clinic_appointments_hospital").on(table.hospitalId),
+  index("idx_clinic_appointments_unit").on(table.unitId),
+  index("idx_clinic_appointments_patient").on(table.patientId),
+  index("idx_clinic_appointments_provider").on(table.providerId),
+  index("idx_clinic_appointments_date").on(table.appointmentDate),
+  index("idx_clinic_appointments_status").on(table.status),
+]);
+
+// Timebutler Sync Configuration - Per hospital settings
+export const timebutlerConfig = pgTable("timebutler_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }).unique(),
+  
+  // API credentials (token stored encrypted or as secret)
+  apiToken: varchar("api_token"), // Consider storing in secrets instead
+  
+  // User mapping - maps Timebutler user emails to local user IDs
+  userMapping: jsonb("user_mapping").$type<Record<string, string>>(), // { "timebutler_email": "local_user_id" }
+  
+  // Sync settings
+  isEnabled: boolean("is_enabled").default(false).notNull(),
+  lastSyncAt: timestamp("last_sync_at"),
+  lastSyncStatus: varchar("last_sync_status"), // success, failed
+  lastSyncMessage: text("last_sync_message"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_timebutler_config_hospital").on(table.hospitalId),
+]);
+
+// Insert schemas for appointment scheduling
+export const insertProviderAvailabilitySchema = createInsertSchema(providerAvailability).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertProviderTimeOffSchema = createInsertSchema(providerTimeOff).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertProviderAbsenceSchema = createInsertSchema(providerAbsences).omit({
+  id: true,
+  createdAt: true,
+  syncedAt: true,
+});
+
+export const insertClinicAppointmentSchema = createInsertSchema(clinicAppointments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertTimebutlerConfigSchema = createInsertSchema(timebutlerConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+// Types for appointment scheduling
+export type ProviderAvailability = typeof providerAvailability.$inferSelect;
+export type InsertProviderAvailability = z.infer<typeof insertProviderAvailabilitySchema>;
+export type ProviderTimeOff = typeof providerTimeOff.$inferSelect;
+export type InsertProviderTimeOff = z.infer<typeof insertProviderTimeOffSchema>;
+export type ProviderAbsence = typeof providerAbsences.$inferSelect;
+export type InsertProviderAbsence = z.infer<typeof insertProviderAbsenceSchema>;
+export type ClinicAppointment = typeof clinicAppointments.$inferSelect;
+export type InsertClinicAppointment = z.infer<typeof insertClinicAppointmentSchema>;
+export type TimebutlerConfig = typeof timebutlerConfig.$inferSelect;
+export type InsertTimebutlerConfig = z.infer<typeof insertTimebutlerConfigSchema>;
