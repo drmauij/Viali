@@ -92,22 +92,22 @@ export default function ClinicAvailability() {
   const dateLocale = i18n.language === 'de' ? de : enUS;
 
   const { data: providers = [] } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
-    queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'providers'],
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers`],
     enabled: !!hospitalId && !!unitId,
   });
 
   const { data: availability = [], isLoading: availabilityLoading } = useQuery<ProviderAvailability[]>({
-    queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'providers', selectedProviderId, 'availability'],
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/availability`],
     enabled: !!hospitalId && !!unitId && !!selectedProviderId,
   });
 
   const { data: timeOff = [] } = useQuery<ProviderTimeOff[]>({
-    queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'providers', selectedProviderId, 'time-off'],
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/time-off`],
     enabled: !!hospitalId && !!unitId && !!selectedProviderId,
   });
 
   const { data: timebutlerConfig } = useQuery<TimebutlerConfig & { hasApiToken?: boolean }>({
-    queryKey: ['/api/clinic', hospitalId, 'timebutler-config'],
+    queryKey: [`/api/clinic/${hospitalId}/timebutler-config`],
     enabled: !!hospitalId,
   });
 
@@ -138,7 +138,7 @@ export default function ClinicAvailability() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'providers', selectedProviderId, 'availability'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/availability`] });
       toast({ title: t('availability.saved', 'Availability saved successfully') });
     },
     onError: () => {
@@ -151,7 +151,7 @@ export default function ClinicAvailability() {
       return apiRequest("POST", `/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/time-off`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'providers', selectedProviderId, 'time-off'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/time-off`] });
       toast({ title: t('availability.timeOffCreated', 'Time off created') });
       setTimeOffDialogOpen(false);
     },
@@ -165,7 +165,7 @@ export default function ClinicAvailability() {
       return apiRequest("DELETE", `/api/clinic/${hospitalId}/time-off/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'providers', selectedProviderId, 'time-off'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/time-off`] });
       toast({ title: t('availability.timeOffDeleted', 'Time off deleted') });
     },
   });
@@ -175,7 +175,7 @@ export default function ClinicAvailability() {
       return apiRequest("POST", `/api/clinic/${hospitalId}/timebutler-sync`);
     },
     onSuccess: (res) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'absences'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/absences`] });
       toast({ title: t('availability.timebutlerSynced', 'Timebutler absences synced') });
     },
     onError: () => {

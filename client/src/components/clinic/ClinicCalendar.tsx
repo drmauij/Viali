@@ -145,15 +145,12 @@ export default function ClinicCalendar({
   }, [selectedDate, currentView]);
 
   const { data: providers = [], isLoading: providersLoading } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
-    queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'providers'],
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers`],
     enabled: !!hospitalId && !!unitId,
   });
 
   const { data: appointments = [] } = useQuery<AppointmentWithDetails[]>({
-    queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'appointments', { 
-      startDate: format(dateRange.start, 'yyyy-MM-dd'),
-      endDate: format(dateRange.end, 'yyyy-MM-dd'),
-    }],
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`],
     enabled: !!hospitalId && !!unitId,
     refetchInterval: 30000,
   });
@@ -211,11 +208,11 @@ export default function ClinicCalendar({
       return apiRequest("PATCH", `/api/clinic/${hospitalId}/appointments/${appointmentId}`, body);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'appointments'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments`] });
       toast({ title: t('appointments.rescheduled', 'Appointment rescheduled successfully') });
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'appointments'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments`] });
       toast({ title: t('appointments.rescheduleFailed', 'Failed to reschedule appointment'), variant: "destructive" });
     },
   });

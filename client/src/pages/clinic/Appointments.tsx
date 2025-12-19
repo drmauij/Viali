@@ -86,7 +86,7 @@ export default function ClinicAppointments() {
   const dateLocale = i18n.language === 'de' ? de : enUS;
 
   const { data: providers = [] } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
-    queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'providers'],
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers`],
     enabled: !!hospitalId && !!unitId,
   });
 
@@ -95,7 +95,7 @@ export default function ClinicAppointments() {
       return apiRequest("PATCH", `/api/clinic/${hospitalId}/appointments/${id}`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'appointments'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments`] });
       toast({ title: t('appointments.statusUpdated', 'Appointment status updated') });
       setDetailDialogOpen(false);
     },
@@ -364,12 +364,12 @@ function BookingDialog({
   }, [defaults]);
 
   const { data: patients = [] } = useQuery<Patient[]>({
-    queryKey: ['/api/patients', hospitalId, { search: patientSearch }],
+    queryKey: [`/api/patients/${hospitalId}?search=${encodeURIComponent(patientSearch)}`],
     enabled: !!hospitalId && patientSearch.length >= 2,
   });
 
   const { data: services = [] } = useQuery<ClinicService[]>({
-    queryKey: ['/api/clinic', hospitalId, 'services', { unitId }],
+    queryKey: [`/api/clinic/${hospitalId}/services?unitId=${unitId}`],
     enabled: !!hospitalId && !!unitId,
   });
 
@@ -377,10 +377,7 @@ function BookingDialog({
   const duration = selectedService?.durationMinutes || 30;
 
   const { data: availableSlots = [], isLoading: slotsLoading } = useQuery<{ startTime: string; endTime: string }[]>({
-    queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'providers', selectedProviderId, 'available-slots', { 
-      date: selectedDate,
-      duration,
-    }],
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/available-slots?date=${selectedDate}&duration=${duration}`],
     enabled: !!hospitalId && !!unitId && !!selectedProviderId && !!selectedDate,
   });
 
@@ -389,7 +386,7 @@ function BookingDialog({
       return apiRequest("POST", `/api/clinic/${hospitalId}/units/${unitId}/appointments`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'units', unitId, 'appointments'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments`] });
       toast({ title: t('appointments.created', 'Appointment created successfully') });
       onOpenChange(false);
       resetForm();
