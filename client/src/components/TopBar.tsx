@@ -39,6 +39,27 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showChatPanel, setShowChatPanel] = useState(false);
+  const [initialConversationId, setInitialConversationId] = useState<string | null>(null);
+
+  // Handle deep link URL params for opening chat
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const openChat = urlParams.get('openChat');
+    const conversationId = urlParams.get('conversationId');
+    
+    if (openChat === '1') {
+      setShowChatPanel(true);
+      if (conversationId) {
+        setInitialConversationId(conversationId);
+      }
+      // Clean up only chat-specific params while preserving others
+      urlParams.delete('openChat');
+      urlParams.delete('conversationId');
+      const remainingParams = urlParams.toString();
+      const newUrl = window.location.pathname + (remainingParams ? `?${remainingParams}` : '');
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, []);
 
   const handleOpenPatientInline = useCallback((patientId: string) => {
     // Navigate to the patient detail page for the current module
@@ -352,6 +373,8 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
         onClose={() => setShowChatPanel(false)}
         activeHospital={activeHospital}
         onOpenPatientInline={handleOpenPatientInline}
+        initialConversationId={initialConversationId}
+        onInitialConversationHandled={() => setInitialConversationId(null)}
       />
     </div>
   );

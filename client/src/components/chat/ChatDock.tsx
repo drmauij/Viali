@@ -91,6 +91,8 @@ interface ChatDockProps {
     isClinicModule?: boolean;
   };
   onOpenPatientInline?: (patientId: string) => void;
+  initialConversationId?: string | null;
+  onInitialConversationHandled?: () => void;
 }
 
 interface Conversation {
@@ -171,7 +173,7 @@ interface MentionItem {
   };
 }
 
-export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatientInline }: ChatDockProps) {
+export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatientInline, initialConversationId, onInitialConversationHandled }: ChatDockProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { socket, isConnected } = useSocket();
@@ -251,6 +253,21 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
     enabled: !!activeHospital?.id && isOpen,
     refetchInterval: 30000,
   });
+
+  // Handle initial conversation from deep link
+  useEffect(() => {
+    if (isOpen && initialConversationId && conversations.length > 0 && !selectedConversation) {
+      const targetConversation = conversations.find(c => c.id === initialConversationId);
+      if (targetConversation) {
+        setSelectedConversation(targetConversation);
+        setView('conversation');
+        // Clear the initial conversation ID after handling
+        if (onInitialConversationHandled) {
+          onInitialConversationHandled();
+        }
+      }
+    }
+  }, [isOpen, initialConversationId, conversations, selectedConversation, onInitialConversationHandled]);
 
   const { data: messages = [], isLoading: messagesLoading, refetch: refetchMessages } = useQuery<Message[]>({
     queryKey: ['/api/chat/conversations', selectedConversation?.id, 'messages'],

@@ -23,11 +23,48 @@ export async function getUncachableResendClient() {
   return getResendClient();
 }
 
+function getAppBaseUrl(): string {
+  // Use APP_URL for production, fall back to Replit domains for development
+  if (process.env.APP_URL) {
+    return process.env.APP_URL;
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  }
+  if (process.env.REPLIT_DOMAINS) {
+    const domains = process.env.REPLIT_DOMAINS.split(',');
+    if (domains.length > 0) {
+      return `https://${domains[0]}`;
+    }
+  }
+  return 'https://viali.app';
+}
+
+function buildChatDeepLink(conversationId?: string): string {
+  const baseUrl = getAppBaseUrl();
+  if (conversationId) {
+    return `${baseUrl}/?openChat=1&conversationId=${conversationId}`;
+  }
+  return `${baseUrl}/?openChat=1`;
+}
+
+function getEmailButton(link: string, text: string): string {
+  return `
+    <a href="${link}" 
+       style="display: inline-block; background: #2563eb; color: white; 
+              padding: 12px 24px; text-decoration: none; border-radius: 6px; 
+              font-weight: 500; margin: 16px 0;">
+      ${text}
+    </a>
+  `;
+}
+
 export async function sendNewMessageEmail(
   toEmail: string,
   senderName: string,
   messagePreview: string,
-  conversationTitle?: string
+  conversationTitle?: string,
+  conversationId?: string
 ): Promise<boolean> {
   try {
     console.log(`[Email] Attempting to send new message email to: ${toEmail}`);
@@ -37,6 +74,8 @@ export async function sendNewMessageEmail(
     const subject = conversationTitle 
       ? `New message from ${senderName} in "${conversationTitle}"`
       : `New message from ${senderName}`;
+    
+    const chatLink = buildChatDeepLink(conversationId);
     
     const result = await client.emails.send({
       from: fromEmail,
@@ -51,8 +90,9 @@ export async function sendNewMessageEmail(
           <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
             <p style="color: #333; margin: 0;">${messagePreview}</p>
           </div>
+          ${getEmailButton(chatLink, 'View Conversation')}
           <p style="color: #999; font-size: 12px;">
-            Log in to view and reply to this message.
+            Or copy this link: <a href="${chatLink}" style="color: #2563eb;">${chatLink}</a>
           </p>
         </div>
       `
@@ -69,7 +109,8 @@ export async function sendNewMessageEmail(
 export async function sendNewConversationEmail(
   toEmail: string,
   senderName: string,
-  conversationTitle?: string
+  conversationTitle?: string,
+  conversationId?: string
 ): Promise<boolean> {
   try {
     console.log(`[Email] Attempting to send new conversation email to: ${toEmail}`);
@@ -77,6 +118,7 @@ export async function sendNewConversationEmail(
     console.log(`[Email] Got Resend client, sending from: ${fromEmail}`);
     
     const subject = `${senderName} started a conversation with you`;
+    const chatLink = buildChatDeepLink(conversationId);
     
     const result = await client.emails.send({
       from: fromEmail,
@@ -88,8 +130,9 @@ export async function sendNewConversationEmail(
           <p style="color: #666;">
             <strong>${senderName}</strong> started a conversation with you${conversationTitle ? ` titled "${conversationTitle}"` : ''}.
           </p>
+          ${getEmailButton(chatLink, 'View Conversation')}
           <p style="color: #999; font-size: 12px;">
-            Log in to view and reply to this message.
+            Or copy this link: <a href="${chatLink}" style="color: #2563eb;">${chatLink}</a>
           </p>
         </div>
       `
@@ -107,12 +150,14 @@ export async function sendMentionEmail(
   toEmail: string,
   senderName: string,
   messagePreview: string,
-  conversationTitle?: string
+  conversationTitle?: string,
+  conversationId?: string
 ): Promise<boolean> {
   try {
     const { client, fromEmail } = await getUncachableResendClient();
     
     const subject = `${senderName} mentioned you`;
+    const chatLink = buildChatDeepLink(conversationId);
     
     await client.emails.send({
       from: fromEmail,
@@ -127,8 +172,9 @@ export async function sendMentionEmail(
           <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
             <p style="color: #333; margin: 0;">${messagePreview}</p>
           </div>
+          ${getEmailButton(chatLink, 'View Conversation')}
           <p style="color: #999; font-size: 12px;">
-            Log in to view and reply to this message.
+            Or copy this link: <a href="${chatLink}" style="color: #2563eb;">${chatLink}</a>
           </p>
         </div>
       `
@@ -146,12 +192,18 @@ export async function sendSurgeryNoteMentionEmail(
   senderName: string,
   noteContent: string,
   patientName: string,
-  procedureName: string
+  procedureName: string,
+  surgeryId?: string
 ): Promise<boolean> {
   try {
     const { client, fromEmail } = await getUncachableResendClient();
     
     const subject = `${senderName} mentioned you in a surgery note`;
+    const baseUrl = getAppBaseUrl();
+    // Deep link to the surgery in OP calendar (if surgeryId provided)
+    const surgeryLink = surgeryId 
+      ? `${baseUrl}/?openSurgery=${surgeryId}` 
+      : baseUrl;
     
     await client.emails.send({
       from: fromEmail,
@@ -166,8 +218,9 @@ export async function sendSurgeryNoteMentionEmail(
           <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0;">
             <p style="color: #333; margin: 0;">${noteContent.replace(/@\[([^\]]+)\]\([^)]+\)/g, '@$1')}</p>
           </div>
+          ${getEmailButton(surgeryLink, 'View Surgery')}
           <p style="color: #999; font-size: 12px;">
-            Log in to view the surgery details.
+            Or copy this link: <a href="${surgeryLink}" style="color: #2563eb;">${surgeryLink}</a>
           </p>
         </div>
       `

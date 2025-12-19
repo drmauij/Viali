@@ -398,7 +398,7 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
               const senderName = req.user.firstName 
                 ? `${req.user.firstName} ${req.user.lastName || ''}`.trim() 
                 : 'Someone';
-              sendMentionEmail(mentionedUser.email, senderName, content.substring(0, 200), req.conversation?.title || undefined)
+              sendMentionEmail(mentionedUser.email, senderName, content.substring(0, 200), req.conversation?.title || undefined, conversationId)
                 .catch(err => console.error('Failed to send mention email:', err));
             }
           }
@@ -454,7 +454,7 @@ router.post('/api/chat/conversations/:conversationId/messages', isAuthenticated,
         if (!hasReceivedEmail) {
           const participantUser = participant.user || await storage.getUser(participant.userId);
           if (participantUser?.email) {
-            sendNewMessageEmail(participantUser.email, senderName, content.substring(0, 200), conversation?.title || undefined)
+            sendNewMessageEmail(participantUser.email, senderName, content.substring(0, 200), conversation?.title || undefined, conversationId)
               .catch(err => console.error('Failed to send new message email:', err));
           }
         }
