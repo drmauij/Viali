@@ -498,6 +498,7 @@ export default function ClinicCalendar({
             onSelectEvent={handleSelectEvent}
             selectable
             resizable
+            toolbar={false}
             step={15}
             timeslots={4}
             min={new Date(2024, 0, 1, 7, 0, 0)}
