@@ -208,7 +208,7 @@ export function SurgeonChecklistTemplateEditor({
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
         ) : (
-          <div className="space-y-4 overflow-y-auto flex-1">
+          <div className="space-y-4 flex-1">
             <div className="space-y-2">
               <Label htmlFor="template-title">{t('surgeonChecklist.templateTitle', 'Template Title')}</Label>
               <Input
