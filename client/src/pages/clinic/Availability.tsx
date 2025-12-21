@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
@@ -111,7 +111,7 @@ export default function ClinicAvailability() {
     enabled: !!hospitalId,
   });
 
-  useMemo(() => {
+  useEffect(() => {
     if (availability.length > 0) {
       setEditAvailability(availability.map(a => ({
         dayOfWeek: a.dayOfWeek,
