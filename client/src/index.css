@@ -903,6 +903,59 @@
   transform: scale(1.02);
 }
 
+/* Appointment Timeline Status Colors */
+.react-calendar-timeline .rct-item.timeline-item-scheduled {
+  background-color: hsl(217, 91%, 60%) !important;
+  border: none !important;
+  border-radius: 4px !important;
+}
+.react-calendar-timeline .rct-item.timeline-item-scheduled .rct-item-content {
+  background-color: hsl(217, 91%, 60%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-confirmed {
+  background-color: hsl(160, 84%, 39%) !important;
+  border: none !important;
+  border-radius: 4px !important;
+}
+.react-calendar-timeline .rct-item.timeline-item-confirmed .rct-item-content {
+  background-color: hsl(160, 84%, 39%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-in-progress {
+  background-color: hsl(38, 92%, 50%) !important;
+  border: none !important;
+  border-radius: 4px !important;
+}
+.react-calendar-timeline .rct-item.timeline-item-in-progress .rct-item-content {
+  background-color: hsl(38, 92%, 50%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-no-show {
+  background-color: hsl(270, 60%, 55%) !important;
+  border: none !important;
+  border-radius: 4px !important;
+}
+.react-calendar-timeline .rct-item.timeline-item-no-show .rct-item-content {
+  background-color: hsl(270, 60%, 55%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+}
+
 /* Dark mode for timeline */
 [data-theme="dark"] .react-calendar-timeline .rct-header-root {
   background-color: hsl(215, 28%, 12%);

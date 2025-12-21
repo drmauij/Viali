@@ -17,6 +17,7 @@ import { useLocation } from "wouter";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
+import AppointmentsTimelineWeekView from "./AppointmentsTimelineWeekView";
 
 const CALENDAR_VIEW_KEY = "clinic_calendar_view";
 const CALENDAR_DATE_KEY = "clinic_calendar_date";
@@ -479,6 +480,26 @@ export default function ClinicCalendar({
               <p className="text-muted-foreground mb-4">{t('appointments.addProviders', 'Add staff members to your hospital to schedule appointments')}</p>
             </CardContent>
           </Card>
+        ) : currentView === "week" ? (
+          <AppointmentsTimelineWeekView
+            providers={providers}
+            appointments={appointments}
+            selectedDate={selectedDate}
+            onEventClick={(appt) => onEventClick?.(appt)}
+            onEventDrop={(appointmentId, newStart, newEnd, newProviderId) => {
+              rescheduleAppointmentMutation.mutate({
+                appointmentId,
+                appointmentDate: format(newStart, 'yyyy-MM-dd'),
+                startTime: format(newStart, 'HH:mm'),
+                endTime: format(newEnd, 'HH:mm'),
+                providerId: newProviderId,
+              });
+            }}
+            onCanvasClick={(providerId, time) => {
+              const endTime = new Date(time.getTime() + 30 * 60 * 1000);
+              onBookAppointment?.({ providerId, date: time, endDate: endTime });
+            }}
+          />
         ) : (
           <DragAndDropCalendar
             localizer={localizer}
