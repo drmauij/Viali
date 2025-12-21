@@ -223,7 +223,7 @@ export function SurgeonChecklistTemplateEditor({
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
         ) : (
-          <div className="space-y-4 flex-1">
+          <div className="space-y-4 flex-1 overflow-y-auto">
             <div className="space-y-2">
               <Label htmlFor="template-title">{t('surgeonChecklist.templateTitle', 'Template Title')}</Label>
               <Input
@@ -256,7 +256,7 @@ export function SurgeonChecklistTemplateEditor({
                 </div>
               </div>
               
-              <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="space-y-2">
                 {items.map((item, index) => (
                   <div key={index} className="flex items-start gap-2 group relative">
                     <GripVertical className="h-4 w-4 mt-2 text-muted-foreground cursor-move shrink-0" />
