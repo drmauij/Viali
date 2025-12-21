@@ -1307,8 +1307,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers', isAuthenticated, i
     const { hospitalId } = req.params;
     const { userHospitalRoles } = await import("@shared/schema");
     
-    // Get all users with any role at this hospital (they can all be appointment providers)
-    // This includes both users with app access (canLogin=true) and staff-only members (canLogin=false)
+    // Get all users with app access (canLogin=true) at this hospital
     const providers = await db
       .selectDistinct({
         id: users.id,
@@ -1316,7 +1315,6 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers', isAuthenticated, i
         lastName: users.lastName,
         email: users.email,
         profileImageUrl: users.profileImageUrl,
-        canLogin: users.canLogin,
       })
       .from(users)
       .innerJoin(
@@ -1326,6 +1324,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers', isAuthenticated, i
           eq(userHospitalRoles.hospitalId, hospitalId)
         )
       )
+      .where(eq(users.canLogin, true))
       .orderBy(users.lastName, users.firstName);
     
     res.json(providers);
