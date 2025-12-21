@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -103,6 +104,20 @@ export function SurgeonChecklistTemplateEditor({
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/surgeon-checklists/templates/${templateId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/templates'] });
+      toast({ title: t('surgeonChecklist.templateDeleted', 'Template deleted') });
+      onClose();
+    },
+    onError: () => {
+      toast({ title: t('surgeonChecklist.deleteFailed', 'Failed to delete template'), variant: "destructive" });
+    },
+  });
+
   const handleSave = () => {
     if (!title.trim()) {
       toast({ title: t('surgeonChecklist.titleRequired', 'Title is required'), variant: "destructive" });
@@ -192,7 +207,7 @@ export function SurgeonChecklistTemplateEditor({
          p.label.toLowerCase().includes(placeholderQuery.toLowerCase())
   );
 
-  const isPending = createMutation.isPending || updateMutation.isPending;
+  const isPending = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
@@ -305,6 +320,29 @@ export function SurgeonChecklistTemplateEditor({
               <Button variant="outline" onClick={onClose} disabled={isPending} className="flex-1" data-testid="button-cancel-template">
                 {t('common.cancel', 'Cancel')}
               </Button>
+              {templateId && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="icon" disabled={isPending} data-testid="button-delete-template">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t('surgeonChecklist.deleteTemplate', 'Delete Template')}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {t('surgeonChecklist.deleteTemplateConfirm', 'Are you sure you want to delete this template? This action cannot be undone.')}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => deleteMutation.mutate()} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        {t('common.delete', 'Delete')}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
             </div>
           </div>
         )}
