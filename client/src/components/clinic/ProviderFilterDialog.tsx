@@ -185,7 +185,7 @@ export default function ProviderFilterDialog({
           </span>
         </div>
         
-        <ScrollArea className="flex-1 min-h-[150px] max-h-[40vh] border rounded-md">
+        <ScrollArea className="flex-1 min-h-[200px] max-h-[50vh] border rounded-md">
           <div className="p-2 space-y-1">
             {filteredProviders.length === 0 ? (
               <div className="text-center py-8 text-sm text-muted-foreground">
