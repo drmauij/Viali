@@ -32,6 +32,7 @@ import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButton";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 type Patient = {
   id: string;
@@ -3897,39 +3898,20 @@ export default function PatientDetail() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="edit-street">{t('anesthesia.patients.street', 'Street, Nr')}</Label>
-                <Input
-                  id="edit-street"
-                  value={editForm.street}
-                  onChange={(e) => setEditForm({ ...editForm, street: e.target.value })}
-                  data-testid="input-edit-street"
-                  placeholder="Musterstraße 123"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-postalCode">{t('anesthesia.patients.postalCode', 'PLZ')}</Label>
-                  <Input
-                    id="edit-postalCode"
-                    value={editForm.postalCode}
-                    onChange={(e) => setEditForm({ ...editForm, postalCode: e.target.value })}
-                    data-testid="input-edit-postalCode"
-                    placeholder="8000"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-city">{t('anesthesia.patients.city', 'City')}</Label>
-                  <Input
-                    id="edit-city"
-                    value={editForm.city}
-                    onChange={(e) => setEditForm({ ...editForm, city: e.target.value })}
-                    data-testid="input-edit-city"
-                    placeholder="Zürich"
-                  />
-                </div>
-              </div>
+              <AddressAutocomplete
+                values={{
+                  street: editForm.street,
+                  postalCode: editForm.postalCode,
+                  city: editForm.city,
+                }}
+                onChange={(values) => setEditForm({ 
+                  ...editForm, 
+                  street: values.street, 
+                  postalCode: values.postalCode, 
+                  city: values.city 
+                })}
+                showLabels
+              />
 
               <div className="space-y-2">
                 <Label htmlFor="edit-emergencyContact">{t('anesthesia.patients.emergencyContact', 'Emergency Contact')}</Label>

@@ -48,6 +48,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 interface Patient {
   id: string;
@@ -609,29 +610,10 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
               </div>
 
               {editingAddress ? (
-                <div className="space-y-2">
-                  <Input
-                    placeholder={t('clinic.invoices.street', 'Street, Nr.')}
-                    value={addressForm.street}
-                    onChange={(e) => setAddressForm({ ...addressForm, street: e.target.value })}
-                    data-testid="input-address-street"
-                  />
-                  <div className="grid grid-cols-3 gap-2">
-                    <Input
-                      placeholder={t('clinic.invoices.postalCode', 'PLZ')}
-                      value={addressForm.postalCode}
-                      onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
-                      data-testid="input-address-postal-code"
-                    />
-                    <Input
-                      className="col-span-2"
-                      placeholder={t('clinic.invoices.city', 'City')}
-                      value={addressForm.city}
-                      onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
-                      data-testid="input-address-city"
-                    />
-                  </div>
-                </div>
+                <AddressAutocomplete
+                  values={addressForm}
+                  onChange={setAddressForm}
+                />
               ) : (
                 <div className="text-sm">
                   {hasAddressData ? (
