@@ -1304,10 +1304,10 @@ router.post('/api/clinic/:hospitalId/timebutler-sync', isAuthenticated, isClinic
 // Get providers for a hospital (all staff members who can receive appointments)
 router.get('/api/clinic/:hospitalId/units/:unitId/providers', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
-    const { hospitalId, unitId } = req.params;
+    const { hospitalId } = req.params;
     const { userHospitalRoles } = await import("@shared/schema");
     
-    // Get all users with a role at this hospital and unit (they can all be appointment providers)
+    // Get all users with any role at this hospital (they can all be appointment providers)
     // This includes both users with app access (canLogin=true) and staff-only members (canLogin=false)
     const providers = await db
       .selectDistinct({
@@ -1323,8 +1323,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers', isAuthenticated, i
         userHospitalRoles,
         and(
           eq(users.id, userHospitalRoles.userId),
-          eq(userHospitalRoles.hospitalId, hospitalId),
-          eq(userHospitalRoles.unitId, unitId)
+          eq(userHospitalRoles.hospitalId, hospitalId)
         )
       )
       .orderBy(users.lastName, users.firstName);
