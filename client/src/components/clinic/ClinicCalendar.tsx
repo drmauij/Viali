@@ -482,7 +482,7 @@ export default function ClinicCalendar({
         ) : (
           <DragAndDropCalendar
             localizer={localizer}
-            events={calendarEvents}
+            events={currentView === "month" ? [] : calendarEvents}
             resources={currentView === "day" ? resources : undefined}
             resourceIdAccessor="id"
             resourceTitleAccessor="title"
@@ -522,7 +522,8 @@ export default function ClinicCalendar({
               agenda: t('opCalendar.agenda', 'Agenda'),
               noEventsInRange: t('appointments.noAppointments', 'No appointments in this range'),
             }}
-            style={{ height: '100%' }}
+            style={{ minHeight: '600px' }}
+            popup
           />
         )}
       </div>
