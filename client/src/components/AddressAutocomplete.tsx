@@ -41,7 +41,14 @@ export default function AddressAutocomplete({
     onChange({ ...values, city: e.target.value });
   };
 
+  const handleSearchChange = useCallback((newValue: string) => {
+    setSearchValue(newValue);
+    // Also update the street field as user types
+    onChange({ ...values, street: newValue });
+  }, [onChange, values]);
+
   const handleRetrieve = useCallback((res: any) => {
+    console.log('Mapbox retrieve result:', res);
     const feature = res.features?.[0];
     if (!feature?.properties) return;
 
@@ -52,6 +59,7 @@ export default function AddressAutocomplete({
     let postalCode = '';
     let city = '';
     
+    // Extract street address
     if (props.address) {
       street = `${props.address} ${props.name || ''}`.trim();
     } else if (props.name) {
@@ -60,10 +68,12 @@ export default function AddressAutocomplete({
       street = props.full_address.split(',')[0] || '';
     }
     
+    // Extract postal code
     if (context.postcode) {
       postalCode = context.postcode.name || '';
     }
     
+    // Extract city
     if (context.place) {
       city = context.place.name || '';
     } else if (context.locality) {
@@ -79,6 +89,15 @@ export default function AddressAutocomplete({
     setSearchValue(street);
   }, [onChange, values]);
 
+  const handleSuggestError = useCallback((error: Error) => {
+    console.error('Mapbox suggest error:', error);
+  }, []);
+
+  const handleSuggest = useCallback((res: any) => {
+    console.log('Mapbox suggestions:', res);
+  }, []);
+
+  // Fallback if no access token
   if (!accessToken) {
     return (
       <div className={`space-y-2 ${className}`}>
@@ -119,12 +138,14 @@ export default function AddressAutocomplete({
   return (
     <div className={`space-y-2 ${className}`}>
       {showLabels && <Label>{t('clinic.invoices.street', 'Street, Nr.')}</Label>}
-      <div className="mapbox-search-container">
+      <div className="mapbox-search-container" data-testid="input-address-street">
         <SearchBox
           accessToken={accessToken}
           value={searchValue}
-          onChange={setSearchValue}
+          onChange={handleSearchChange}
           onRetrieve={handleRetrieve}
+          onSuggest={handleSuggest}
+          onSuggestError={handleSuggestError}
           options={{
             language: 'de',
             country: 'CH',
@@ -138,10 +159,6 @@ export default function AddressAutocomplete({
               padding: '0.5em',
               borderRadius: '6px',
               boxShadow: 'none',
-              colorText: 'hsl(var(--foreground))',
-              colorBackground: 'hsl(var(--background))',
-              colorBackgroundHover: 'hsl(var(--accent))',
-              colorPrimary: 'hsl(var(--primary))',
             },
           }}
         />
