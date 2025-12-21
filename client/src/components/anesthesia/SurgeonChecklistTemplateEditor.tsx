@@ -211,8 +211,9 @@ export function SurgeonChecklistTemplateEditor({
 
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 gap-0">
+        {/* Sticky Header */}
+        <DialogHeader className="shrink-0 px-6 py-4 border-b">
           <DialogTitle>
             {templateId ? t('surgeonChecklist.editTemplate', 'Edit Checklist Template') : t('surgeonChecklist.createTemplate', 'Create Checklist Template')}
           </DialogTitle>
@@ -223,96 +224,100 @@ export function SurgeonChecklistTemplateEditor({
             <Loader2 className="h-6 w-6 animate-spin" />
           </div>
         ) : (
-          <div className="space-y-4 flex-1 overflow-y-auto">
-            <div className="space-y-2">
-              <Label htmlFor="template-title">{t('surgeonChecklist.templateTitle', 'Template Title')}</Label>
-              <Input
-                id="template-title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={t('surgeonChecklist.templateTitlePlaceholder', 'e.g., Standard Pre-Op Checklist')}
-                data-testid="input-template-title"
-              />
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="template-shared"
-                checked={isShared}
-                onCheckedChange={(checked) => setIsShared(checked === true)}
-                data-testid="checkbox-template-shared"
-              />
-              <Label htmlFor="template-shared" className="text-sm font-normal cursor-pointer">
-                {t('surgeonChecklist.shareWithTeam', 'Share with team')}
-              </Label>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label>{t('surgeonChecklist.checklistItems', 'Checklist Items')}</Label>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Hash className="h-3 w-3" />
-                  <span>{t('surgeonChecklist.placeholderHint', 'Type # for dynamic values')}</span>
-                </div>
-              </div>
-              
+          <>
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
               <div className="space-y-2">
-                {items.map((item, index) => (
-                  <div key={index} className="flex items-start gap-2 group relative">
-                    <GripVertical className="h-4 w-4 mt-2 text-muted-foreground cursor-move shrink-0" />
-                    <div className="flex-1 flex items-start gap-2">
-                      <Textarea
-                        ref={(el) => { inputRefs.current[index] = el; }}
-                        value={item.label}
-                        onChange={(e) => handleInputChange(index, e.target.value)}
-                        onKeyDown={(e) => handleKeyDown(e, index)}
-                        placeholder={t('surgeonChecklist.itemPlaceholder', 'Checklist item (use #price, #admissionTime, etc.)')}
-                        rows={2}
-                        className="resize-none flex-1"
-                        data-testid={`textarea-checklist-item-${index}`}
-                      />
-                      {showPlaceholderPopover && activeItemIndex === index && filteredPlaceholders.length > 0 && (
-                        <div className="shrink-0 flex flex-wrap gap-1 max-w-[140px]">
-                          {filteredPlaceholders.slice(0, 4).map((p) => (
-                            <button
-                              key={p.token}
-                              onClick={() => insertPlaceholder(p)}
-                              className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary rounded border border-primary/20 transition-colors"
-                              title={p.description}
-                              data-testid={`placeholder-option-${p.token}`}
-                            >
-                              #{p.token}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeItem(index)}
-                      className="shrink-0 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                      data-testid={`button-remove-item-${index}`}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                ))}
+                <Label htmlFor="template-title">{t('surgeonChecklist.templateTitle', 'Template Title')}</Label>
+                <Input
+                  id="template-title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder={t('surgeonChecklist.templateTitlePlaceholder', 'e.g., Standard Pre-Op Checklist')}
+                  data-testid="input-template-title"
+                />
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={addItem}
-                className="w-full"
-                data-testid="button-add-item"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                {t('surgeonChecklist.addItem', 'Add Item')}
-              </Button>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="template-shared"
+                  checked={isShared}
+                  onCheckedChange={(checked) => setIsShared(checked === true)}
+                  data-testid="checkbox-template-shared"
+                />
+                <Label htmlFor="template-shared" className="text-sm font-normal cursor-pointer">
+                  {t('surgeonChecklist.shareWithTeam', 'Share with team')}
+                </Label>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>{t('surgeonChecklist.checklistItems', 'Checklist Items')}</Label>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Hash className="h-3 w-3" />
+                    <span>{t('surgeonChecklist.placeholderHint', 'Type # for dynamic values')}</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  {items.map((item, index) => (
+                    <div key={index} className="flex items-start gap-2 group relative">
+                      <GripVertical className="h-4 w-4 mt-2 text-muted-foreground cursor-move shrink-0" />
+                      <div className="flex-1 flex items-start gap-2">
+                        <Textarea
+                          ref={(el) => { inputRefs.current[index] = el; }}
+                          value={item.label}
+                          onChange={(e) => handleInputChange(index, e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(e, index)}
+                          placeholder={t('surgeonChecklist.itemPlaceholder', 'Checklist item (use #price, #admissionTime, etc.)')}
+                          rows={2}
+                          className="resize-none flex-1"
+                          data-testid={`textarea-checklist-item-${index}`}
+                        />
+                        {showPlaceholderPopover && activeItemIndex === index && filteredPlaceholders.length > 0 && (
+                          <div className="shrink-0 flex flex-wrap gap-1 max-w-[140px]">
+                            {filteredPlaceholders.slice(0, 4).map((p) => (
+                              <button
+                                key={p.token}
+                                onClick={() => insertPlaceholder(p)}
+                                className="px-2 py-1 text-xs bg-primary/10 hover:bg-primary/20 text-primary rounded border border-primary/20 transition-colors"
+                                title={p.description}
+                                data-testid={`placeholder-option-${p.token}`}
+                              >
+                                #{p.token}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeItem(index)}
+                        className="shrink-0 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        data-testid={`button-remove-item-${index}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addItem}
+                  className="w-full"
+                  data-testid="button-add-item"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t('surgeonChecklist.addItem', 'Add Item')}
+                </Button>
+              </div>
             </div>
 
-            <div className="flex gap-2 pt-4">
+            {/* Sticky Footer */}
+            <div className="shrink-0 px-6 py-4 border-t bg-background flex gap-2">
               <Button onClick={handleSave} disabled={isPending} className="flex-1" data-testid="button-save-template">
                 {isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
                 {t('common.save', 'Save')}
@@ -344,7 +349,7 @@ export function SurgeonChecklistTemplateEditor({
                 </AlertDialog>
               )}
             </div>
-          </div>
+          </>
         )}
       </DialogContent>
     </Dialog>
