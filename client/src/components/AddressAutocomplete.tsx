@@ -1,5 +1,5 @@
-import { ChangeEvent } from 'react';
-import { AddressAutofill } from '@mapbox/search-js-react';
+import { useState, useCallback, ChangeEvent } from 'react';
+import { SearchBox } from '@mapbox/search-js-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +26,8 @@ export default function AddressAutocomplete({
   showLabels = false,
 }: AddressAutocompleteProps) {
   const { t } = useTranslation();
-  const accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+  const accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string;
+  const [searchValue, setSearchValue] = useState(values.street || '');
 
   const handleStreetChange = (e: ChangeEvent<HTMLInputElement>) => {
     onChange({ ...values, street: e.target.value });
@@ -40,19 +41,43 @@ export default function AddressAutocomplete({
     onChange({ ...values, city: e.target.value });
   };
 
-  const handleRetrieve = (res: any) => {
+  const handleRetrieve = useCallback((res: any) => {
     const feature = res.features?.[0];
     if (!feature?.properties) return;
 
     const props = feature.properties;
-    const newValues: AddressFormValues = {
-      street: props.address_line1 || props.full_address?.split(',')[0] || values.street,
-      postalCode: props.postcode || '',
-      city: props.address_level2 || props.place || '',
-    };
+    const context = props.context || {};
     
-    onChange(newValues);
-  };
+    let street = '';
+    let postalCode = '';
+    let city = '';
+    
+    if (props.address) {
+      street = `${props.address} ${props.name || ''}`.trim();
+    } else if (props.name) {
+      street = props.name;
+    } else if (props.full_address) {
+      street = props.full_address.split(',')[0] || '';
+    }
+    
+    if (context.postcode) {
+      postalCode = context.postcode.name || '';
+    }
+    
+    if (context.place) {
+      city = context.place.name || '';
+    } else if (context.locality) {
+      city = context.locality.name || '';
+    }
+    
+    onChange({
+      street: street || values.street,
+      postalCode: postalCode || values.postalCode,
+      city: city || values.city,
+    });
+    
+    setSearchValue(street);
+  }, [onChange, values]);
 
   if (!accessToken) {
     return (
@@ -93,56 +118,56 @@ export default function AddressAutocomplete({
 
   return (
     <div className={`space-y-2 ${className}`}>
-      <AddressAutofill
-        accessToken={accessToken}
-        onRetrieve={handleRetrieve}
-        options={{
-          language: 'de',
-          country: 'CH',
-        }}
-      >
-        <div className="space-y-2">
-          {showLabels && <Label htmlFor="address-street">{t('clinic.invoices.street', 'Street, Nr.')}</Label>}
+      {showLabels && <Label>{t('clinic.invoices.street', 'Street, Nr.')}</Label>}
+      <div className="mapbox-search-container">
+        <SearchBox
+          accessToken={accessToken}
+          value={searchValue}
+          onChange={setSearchValue}
+          onRetrieve={handleRetrieve}
+          options={{
+            language: 'de',
+            country: 'CH',
+            types: 'address',
+          }}
+          placeholder={t('clinic.invoices.street', 'Street, Nr.')}
+          theme={{
+            variables: {
+              fontFamily: 'inherit',
+              unit: '14px',
+              padding: '0.5em',
+              borderRadius: '6px',
+              boxShadow: 'none',
+              colorText: 'hsl(var(--foreground))',
+              colorBackground: 'hsl(var(--background))',
+              colorBackgroundHover: 'hsl(var(--accent))',
+              colorPrimary: 'hsl(var(--primary))',
+            },
+          }}
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          {showLabels && <Label>{t('clinic.invoices.postalCode', 'PLZ')}</Label>}
           <Input
-            id="address-street"
-            name="address"
-            placeholder={t('clinic.invoices.street', 'Street, Nr.')}
-            value={values.street}
-            onChange={handleStreetChange}
+            placeholder={t('clinic.invoices.postalCode', 'PLZ')}
+            value={values.postalCode}
+            onChange={handlePostalCodeChange}
             disabled={disabled}
-            autoComplete="address-line1"
-            data-testid="input-address-street"
+            data-testid="input-address-postal-code"
           />
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              {showLabels && <Label htmlFor="address-postal-code">{t('clinic.invoices.postalCode', 'PLZ')}</Label>}
-              <Input
-                id="address-postal-code"
-                name="postal-code"
-                placeholder={t('clinic.invoices.postalCode', 'PLZ')}
-                value={values.postalCode}
-                onChange={handlePostalCodeChange}
-                disabled={disabled}
-                autoComplete="postal-code"
-                data-testid="input-address-postal-code"
-              />
-            </div>
-            <div className="col-span-2">
-              {showLabels && <Label htmlFor="address-city">{t('clinic.invoices.city', 'City')}</Label>}
-              <Input
-                id="address-city"
-                name="city"
-                placeholder={t('clinic.invoices.city', 'City')}
-                value={values.city}
-                onChange={handleCityChange}
-                disabled={disabled}
-                autoComplete="address-level2"
-                data-testid="input-address-city"
-              />
-            </div>
-          </div>
         </div>
-      </AddressAutofill>
+        <div className="col-span-2">
+          {showLabels && <Label>{t('clinic.invoices.city', 'City')}</Label>}
+          <Input
+            placeholder={t('clinic.invoices.city', 'City')}
+            value={values.city}
+            onChange={handleCityChange}
+            disabled={disabled}
+            data-testid="input-address-city"
+          />
+        </div>
+      </div>
     </div>
   );
 }
