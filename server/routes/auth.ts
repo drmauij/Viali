@@ -325,4 +325,58 @@ router.post('/api/signup', isAuthenticated, async (req: any, res) => {
   }
 });
 
+router.get('/api/user/preferences', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const user = await db.select({ preferences: users.preferences })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    
+    if (!user || user.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    res.json(user[0].preferences || {});
+  } catch (error) {
+    console.error("Error fetching user preferences:", error);
+    res.status(500).json({ message: "Failed to fetch preferences" });
+  }
+});
+
+router.patch('/api/user/preferences', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const newPreferences = req.body;
+    
+    const user = await db.select({ preferences: users.preferences })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+    
+    if (!user || user.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    const currentPreferences = (user[0].preferences as Record<string, any>) || {};
+    const mergedPreferences = { ...currentPreferences, ...newPreferences };
+    
+    if (newPreferences.clinicProviderFilter) {
+      mergedPreferences.clinicProviderFilter = {
+        ...(currentPreferences.clinicProviderFilter || {}),
+        ...newPreferences.clinicProviderFilter,
+      };
+    }
+    
+    await db.update(users)
+      .set({ preferences: mergedPreferences, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+    
+    res.json(mergedPreferences);
+  } catch (error) {
+    console.error("Error updating user preferences:", error);
+    res.status(500).json({ message: "Failed to update preferences" });
+  }
+});
+
 export default router;

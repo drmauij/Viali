@@ -8,7 +8,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { de, enGB } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -18,6 +19,7 @@ import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 import AppointmentsTimelineWeekView from "./AppointmentsTimelineWeekView";
+import ProviderFilterDialog from "./ProviderFilterDialog";
 
 const CALENDAR_VIEW_KEY = "clinic_calendar_view";
 const CALENDAR_DATE_KEY = "clinic_calendar_date";
@@ -112,6 +114,10 @@ export default function ClinicCalendar({
     return saved ? new Date(saved) : new Date();
   });
 
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
+  const [selectedProviderIds, setSelectedProviderIds] = useState<Set<string>>(new Set());
+  const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
+
   useEffect(() => {
     sessionStorage.setItem(CALENDAR_VIEW_KEY, currentView);
   }, [currentView]);
@@ -145,10 +151,36 @@ export default function ClinicCalendar({
     return { start, end };
   }, [selectedDate, currentView]);
 
-  const { data: providers = [], isLoading: providersLoading } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
+  const { data: providers = [], isLoading: providersLoading } = useQuery<{ id: string; firstName: string; lastName: string; email?: string; role?: string }[]>({
     queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers`],
     enabled: !!hospitalId && !!unitId,
   });
+
+  const { data: userPreferences } = useQuery<{ clinicProviderFilter?: Record<string, string[]> }>({
+    queryKey: ['/api/user/preferences'],
+    staleTime: 1000 * 60 * 5,
+  });
+
+  useEffect(() => {
+    if (providers.length > 0 && !hasLoadedPreferences) {
+      const savedFilter = userPreferences?.clinicProviderFilter?.[hospitalId];
+      if (savedFilter && savedFilter.length > 0) {
+        const validIds = new Set(providers.map(p => p.id));
+        const filteredIds = savedFilter.filter(id => validIds.has(id));
+        setSelectedProviderIds(new Set(filteredIds));
+      } else {
+        setSelectedProviderIds(new Set(providers.map(p => p.id)));
+      }
+      setHasLoadedPreferences(true);
+    }
+  }, [providers, userPreferences, hospitalId, hasLoadedPreferences]);
+
+  const filteredProviders = useMemo(() => {
+    if (selectedProviderIds.size === 0) return providers;
+    return providers.filter(p => selectedProviderIds.has(p.id));
+  }, [providers, selectedProviderIds]);
+
+  const isFiltered = selectedProviderIds.size > 0 && selectedProviderIds.size < providers.length;
 
   const { data: appointments = [] } = useQuery<AppointmentWithDetails[]>({
     queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`],
@@ -190,11 +222,11 @@ export default function ClinicCalendar({
   }, [appointments]);
 
   const resources: CalendarResource[] = useMemo(() => {
-    return providers.map((provider) => ({
+    return filteredProviders.map((provider) => ({
       id: provider.id,
       title: `${provider.firstName} ${provider.lastName}`,
     }));
-  }, [providers]);
+  }, [filteredProviders]);
 
   const rescheduleAppointmentMutation = useMutation({
     mutationFn: async ({ appointmentId, appointmentDate, startTime, endTime, providerId }: {
@@ -424,6 +456,21 @@ export default function ClinicCalendar({
 
         <div className="flex gap-1.5 sm:gap-2 ml-auto flex-wrap">
           <Button
+            variant={isFiltered ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilterDialogOpen(true)}
+            data-testid="button-filter-providers"
+            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm relative"
+          >
+            <Filter className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+            <span className="hidden sm:inline">{t('appointments.filter', 'Filter')}</span>
+            {isFiltered && (
+              <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">
+                {selectedProviderIds.size}
+              </Badge>
+            )}
+          </Button>
+          <Button
             variant={currentView === "day" ? "default" : "outline"}
             size="sm"
             onClick={() => setCurrentView("day")}
@@ -482,7 +529,7 @@ export default function ClinicCalendar({
           </Card>
         ) : currentView === "week" ? (
           <AppointmentsTimelineWeekView
-            providers={providers}
+            providers={filteredProviders}
             appointments={appointments}
             selectedDate={selectedDate}
             onEventClick={(appt) => onEventClick?.(appt)}
@@ -548,6 +595,17 @@ export default function ClinicCalendar({
           />
         )}
       </div>
+
+      <ProviderFilterDialog
+        open={filterDialogOpen}
+        onOpenChange={setFilterDialogOpen}
+        hospitalId={hospitalId}
+        providers={providers}
+        selectedProviderIds={selectedProviderIds}
+        onApplyFilter={(newSelectedIds) => {
+          setSelectedProviderIds(newSelectedIds);
+        }}
+      />
     </div>
   );
 }
