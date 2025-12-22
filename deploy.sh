@@ -76,6 +76,16 @@ npm ci
 
 # Step 5: Build application
 echo -e "${YELLOW}[5/6] Building application...${NC}"
+# Load VITE_ environment variables from ecosystem.config.cjs for build-time embedding
+eval $(node -e "
+const c = require('$APP_DIR/ecosystem.config.cjs');
+const env = c.apps[0].env || {};
+Object.keys(env).forEach(key => {
+  if (key.startsWith('VITE_')) {
+    console.log('export ' + key + '=\"' + env[key] + '\"');
+  }
+});
+")
 NODE_OPTIONS='--max-old-space-size=1536' npm run build
 
 # Step 6: Restart application (migrations run on startup)
