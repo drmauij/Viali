@@ -2433,8 +2433,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const baseSwimlanes: SwimlaneConfig[] = [
     { id: "zeiten", label: t("anesthesia.timeline.times"), height: 50, colorLight: "rgba(243, 232, 255, 0.8)", colorDark: "hsl(270, 55%, 20%)" },
     { id: "ereignisse", label: t("anesthesia.timeline.events"), height: 48, colorLight: "rgba(219, 234, 254, 0.8)", colorDark: "hsl(210, 60%, 18%)" },
+    { id: "tof", label: "TOF", height: 38, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
+    // Administration group lanes will be inserted dynamically after herzrhythmus
     { id: "herzrhythmus", label: t("anesthesia.timeline.heartRhythm"), height: 48, colorLight: "rgba(252, 231, 243, 0.8)", colorDark: "hsl(330, 50%, 20%)" },
-    // Administration group lanes will be inserted dynamically here
     { id: "position", label: t("anesthesia.timeline.position"), height: 48, colorLight: "rgba(226, 232, 240, 0.8)", colorDark: "hsl(215, 20%, 25%)" },
     { id: "ventilation", label: t("anesthesia.timeline.ventilation"), height: 48, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
     { id: "output", label: t("anesthesia.timeline.output"), height: 48, colorLight: "rgba(254, 226, 226, 0.8)", colorDark: "hsl(0, 60%, 25%)" },
@@ -2452,8 +2453,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     for (const lane of baseSwimlanes) {
       lanes.push(lane);
       
-      // Insert single "Medications" parent lane after Heart Rhythm (before Position)
-      if (lane.id === "herzrhythmus") {
+      // Insert single "Medications" parent lane after TOF (before Heart Rhythm)
+      if (lane.id === "tof") {
         // Add single "Medications" parent lane
         lanes.push({
           id: "medikamente",
@@ -2543,10 +2544,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         });
       }
 
-      // Insert BIS and TOF children after Others parent (if not collapsed)
+      // Insert BIS child after Others parent (if not collapsed)
+      // Note: TOF is now a standalone swimlane after Events
       if (lane.id === "others" && !collapsedSwimlanes.has("others")) {
         const othersColor = { colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" };
-        const othersParams = ["BIS", "TOF"];
+        const othersParams = ["BIS"];
         othersParams.forEach((paramName) => {
           lanes.push({
             id: paramName.toLowerCase(),
@@ -6447,14 +6449,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           const isOthersParent = lane.id === "others";
           const isVentChild = lane.id.startsWith("ventilation-");
           const isOutputChild = lane.id.startsWith("output-");
-          const isOthersChild = lane.id === "bis" || lane.id === "tof";
+          const isOthersChild = lane.id === "bis";
+          const isTofLane = lane.id === "tof";
           
           // Only the main parent swimlanes are collapsible
           const isCollapsibleParent = isMedParent || isVentParent || isOutputParent || isOthersParent;
           
           // Determine styling based on hierarchyLevel field
           let labelClass = "";
-          if (swimlaneConfig?.hierarchyLevel === 'parent' || isCollapsibleParent || lane.id === "zeiten" || lane.id === "ereignisse" || lane.id === "herzrhythmus" || lane.id === "position") {
+          if (swimlaneConfig?.hierarchyLevel === 'parent' || isCollapsibleParent || lane.id === "zeiten" || lane.id === "ereignisse" || isTofLane || lane.id === "herzrhythmus" || lane.id === "position") {
             // Level 1: Main parent swimlanes (collapsible)
             labelClass = "text-sm font-semibold";
           } else if (swimlaneConfig?.hierarchyLevel === 'group') {
