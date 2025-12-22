@@ -155,28 +155,25 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
           </Button>
         </div>
 
-        {peripheralInstallations.map((inst, index) => {
-          const current = getCurrentState(inst.id) || inst;
-          return (
-          <div key={inst.id} className="border rounded-lg p-4 space-y-3 bg-slate-50 dark:bg-slate-900">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">{t('anesthesia.documentation.entry')} #{index + 1}</span>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          {peripheralInstallations.map((inst, index) => {
+            const current = getCurrentState(inst.id) || inst;
+            return (
+            <div key={inst.id} className="border rounded-lg p-3 space-y-2 bg-slate-50 dark:bg-slate-900 relative">
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 w-8 p-0"
+                className="h-6 w-6 p-0 absolute top-2 right-2"
                 onClick={() => handleDelete(inst.id)}
                 disabled={deleteMutation.isPending}
                 data-testid={`button-remove-pv-${index + 1}`}
               >
-                <X className="h-4 w-4" />
+                <X className="h-3 w-3" />
               </Button>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t('anesthesia.documentation.location')}</Label>
+              <div className="space-y-1">
+                <Label className="text-xs">{t('anesthesia.documentation.location')}</Label>
                 <select
-                  className="w-full border rounded-md p-2 bg-background"
+                  className="w-full border rounded-md p-1.5 text-sm bg-background"
                   value={current.location || ""}
                   onChange={(e) => handleUpdate(inst.id, { location: e.target.value })}
                   data-testid={`select-pv-location-${index + 1}`}
@@ -190,10 +187,10 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                   <option value="left-ac-fossa">{t('anesthesia.documentation.peripheralLocations.leftAcFossa')}</option>
                 </select>
               </div>
-              <div className="space-y-2">
-                <Label>{t('anesthesia.documentation.gauge')}</Label>
+              <div className="space-y-1">
+                <Label className="text-xs">{t('anesthesia.documentation.gauge')}</Label>
                 <select
-                  className="w-full border rounded-md p-2 bg-background"
+                  className="w-full border rounded-md p-1.5 text-sm bg-background"
                   value={current.metadata?.gauge || ""}
                   onChange={(e) => handleUpdate(inst.id, { metadata: { gauge: e.target.value } })}
                   data-testid={`select-pv-gauge-${index + 1}`}
@@ -207,20 +204,20 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                   <option value="24G">{t('anesthesia.documentation.gauges.24g')}</option>
                 </select>
               </div>
+              <label className="flex items-center gap-2 cursor-pointer py-1 rounded hover:bg-muted/50">
+                <input
+                  type="checkbox"
+                  checked={current.isPreExisting || false}
+                  onChange={(e) => handleUpdate(inst.id, { isPreExisting: e.target.checked })}
+                  className="h-4 w-4"
+                  data-testid={`checkbox-pv-preexisting-${index + 1}`}
+                />
+                <span className="text-xs font-medium">{t('anesthesia.documentation.preExistingInstallation')}</span>
+              </label>
             </div>
-            <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
-              <input
-                type="checkbox"
-                checked={current.isPreExisting || false}
-                onChange={(e) => handleUpdate(inst.id, { isPreExisting: e.target.checked })}
-                className="h-4 w-4"
-                data-testid={`checkbox-pv-preexisting-${index + 1}`}
-              />
-              <span className="text-sm font-medium">{t('anesthesia.documentation.preExistingInstallation')}</span>
-            </label>
-          </div>
-        );
-        })}
+          );
+          })}
+        </div>
       </div>
 
       {/* Arterial Line */}
