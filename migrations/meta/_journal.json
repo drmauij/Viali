@@ -232,6 +232,13 @@
       "when": 1766321062632,
       "tag": "0032_nice_punisher",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1766390310700,
+      "tag": "0033_boring_menace",
+      "breakpoints": true
     }
   ]
 }
