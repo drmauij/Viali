@@ -1167,67 +1167,27 @@
 /* Mapbox Search Box Styles */
 .mapbox-search-container {
   position: relative;
-}
-
-.mapbox-search-container [class*="SearchBox"] {
   width: 100%;
 }
 
-.mapbox-search-container input {
+.mapbox-search-container > div {
   width: 100%;
-  height: 40px;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid hsl(var(--input));
-  border-radius: var(--radius);
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-size: 0.875rem;
 }
 
-.mapbox-search-container input:focus {
-  outline: none;
-  border-color: hsl(var(--ring));
-  box-shadow: 0 0 0 2px hsla(var(--ring), 0.2);
+/* Style the Mapbox search box wrapper */
+.mapbox-search-container mapbox-search-box {
+  width: 100%;
+  --color-background: hsl(var(--background));
+  --color-text: hsl(var(--foreground));
+  --color-background-hover: hsl(var(--muted));
+  --color-primary: hsl(var(--primary));
+  --border-radius: var(--radius);
+  --box-shadow: none;
 }
 
-.mapbox-search-container [class*="Suggestions"],
-.mapbox-search-container [class*="ResultList"] {
-  background-color: hsl(var(--popover)) !important;
-  border: 1px solid hsl(var(--border)) !important;
-  border-radius: var(--radius) !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-  z-index: 9999 !important;
-}
-
-.mapbox-search-container [class*="Suggestion"],
-.mapbox-search-container [class*="ResultItem"] {
-  color: hsl(var(--foreground)) !important;
-  padding: 0.5rem 0.75rem !important;
-}
-
-.mapbox-search-container [class*="Suggestion"]:hover,
-.mapbox-search-container [class*="ResultItem"]:hover {
-  background-color: hsl(var(--accent)) !important;
-}
-
-[data-theme="dark"] .mapbox-search-container input {
-  background-color: hsl(215, 25%, 16%);
-  border-color: hsl(215, 25%, 24%);
-  color: hsl(210, 20%, 92%);
-}
-
-[data-theme="dark"] .mapbox-search-container [class*="Suggestions"],
-[data-theme="dark"] .mapbox-search-container [class*="ResultList"] {
-  background-color: hsl(215, 25%, 16%) !important;
-  border-color: hsl(215, 25%, 24%) !important;
-}
-
-[data-theme="dark"] .mapbox-search-container [class*="Suggestion"],
-[data-theme="dark"] .mapbox-search-container [class*="ResultItem"] {
-  color: hsl(210, 20%, 92%) !important;
-}
-
-[data-theme="dark"] .mapbox-search-container [class*="Suggestion"]:hover,
-[data-theme="dark"] .mapbox-search-container [class*="ResultItem"]:hover {
-  background-color: hsl(215, 25%, 24%) !important;
+/* Dark theme for Mapbox search box */
+[data-theme="dark"] .mapbox-search-container mapbox-search-box {
+  --color-background: hsl(215, 25%, 16%);
+  --color-text: hsl(210, 20%, 92%);
+  --color-background-hover: hsl(215, 25%, 24%);
 }

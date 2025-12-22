@@ -1,8 +1,30 @@
-import { useState, useCallback, ChangeEvent } from 'react';
+import { useState, useCallback, useEffect, ChangeEvent } from 'react';
 import { SearchBox } from '@mapbox/search-js-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTranslation } from 'react-i18next';
+
+// Hook to detect dark mode
+function useTheme() {
+  const [isDark, setIsDark] = useState(() => {
+    return document.documentElement.getAttribute('data-theme') === 'dark';
+  });
+
+  useEffect(() => {
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === 'data-theme') {
+          setIsDark(document.documentElement.getAttribute('data-theme') === 'dark');
+        }
+      });
+    });
+
+    observer.observe(document.documentElement, { attributes: true });
+    return () => observer.disconnect();
+  }, []);
+
+  return isDark;
+}
 
 interface AddressFormValues {
   street: string;
@@ -28,6 +50,36 @@ export default function AddressAutocomplete({
   const { t } = useTranslation();
   const accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string;
   const [searchValue, setSearchValue] = useState(values.street || '');
+  const isDark = useTheme();
+
+  // Theme colors based on dark/light mode
+  const themeConfig = isDark ? {
+    variables: {
+      fontFamily: 'inherit',
+      unit: '14px',
+      padding: '0.5em',
+      borderRadius: '6px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+      colorText: 'hsl(210, 20%, 92%)',
+      colorBackground: 'hsl(215, 25%, 16%)',
+      colorBackgroundHover: 'hsl(215, 25%, 24%)',
+      colorPrimary: 'hsl(215, 65%, 55%)',
+      border: '1px solid hsl(215, 25%, 24%)',
+    },
+  } : {
+    variables: {
+      fontFamily: 'inherit',
+      unit: '14px',
+      padding: '0.5em',
+      borderRadius: '6px',
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+      colorText: 'hsl(215, 25%, 15%)',
+      colorBackground: 'hsl(0, 0%, 100%)',
+      colorBackgroundHover: 'hsl(215, 20%, 94%)',
+      colorPrimary: 'hsl(215, 70%, 50%)',
+      border: '1px solid hsl(215, 20%, 88%)',
+    },
+  };
 
   const handleStreetChange = (e: ChangeEvent<HTMLInputElement>) => {
     onChange({ ...values, street: e.target.value });
@@ -151,15 +203,7 @@ export default function AddressAutocomplete({
             country: 'CH',
           }}
           placeholder={t('clinic.invoices.street', 'Street, Nr.')}
-          theme={{
-            variables: {
-              fontFamily: 'inherit',
-              unit: '14px',
-              padding: '0.5em',
-              borderRadius: '6px',
-              boxShadow: 'none',
-            },
-          }}
+          theme={themeConfig}
         />
       </div>
       <div className="grid grid-cols-3 gap-2">
