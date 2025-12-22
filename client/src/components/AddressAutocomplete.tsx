@@ -1,30 +1,8 @@
-import { useState, useCallback, useEffect, ChangeEvent } from 'react';
-import { SearchBox } from '@mapbox/search-js-react';
+import { useState, useCallback, useRef, useEffect, ChangeEvent } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTranslation } from 'react-i18next';
-
-// Hook to detect dark mode
-function useTheme() {
-  const [isDark, setIsDark] = useState(() => {
-    return document.documentElement.getAttribute('data-theme') === 'dark';
-  });
-
-  useEffect(() => {
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.attributeName === 'data-theme') {
-          setIsDark(document.documentElement.getAttribute('data-theme') === 'dark');
-        }
-      });
-    });
-
-    observer.observe(document.documentElement, { attributes: true });
-    return () => observer.disconnect();
-  }, []);
-
-  return isDark;
-}
+import { MapPin, X } from 'lucide-react';
 
 interface AddressFormValues {
   street: string;
@@ -40,6 +18,23 @@ interface AddressAutocompleteProps {
   showLabels?: boolean;
 }
 
+interface Suggestion {
+  mapbox_id: string;
+  name: string;
+  full_address?: string;
+  place_formatted?: string;
+  context?: {
+    postcode?: { name: string };
+    place?: { name: string };
+    locality?: { name: string };
+    address?: { 
+      name?: string;
+      address_number?: string;
+      street_name?: string;
+    };
+  };
+}
+
 export default function AddressAutocomplete({
   values,
   onChange,
@@ -49,43 +44,122 @@ export default function AddressAutocomplete({
 }: AddressAutocompleteProps) {
   const { t } = useTranslation();
   const accessToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN as string;
-  const [searchValue, setSearchValue] = useState(values.street || '');
-  const isDark = useTheme();
+  const [inputValue, setInputValue] = useState(values.street || '');
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [sessionToken, setSessionToken] = useState(() => crypto.randomUUID());
+  const inputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
-  // Theme colors based on dark/light mode
-  const themeConfig = isDark ? {
-    variables: {
-      fontFamily: 'inherit',
-      unit: '14px',
-      padding: '0.5em',
-      borderRadius: '6px',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
-      colorText: '#e8eaed',
-      colorBackground: '#262f3d',
-      colorBackgroundHover: '#343d4d',
-      colorPrimary: '#5b8def',
-      border: '1px solid #3d4654',
-      colorInputText: '#e8eaed',
-    },
-  } : {
-    variables: {
-      fontFamily: 'inherit',
-      unit: '14px',
-      padding: '0.5em',
-      borderRadius: '6px',
-      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-      colorText: '#1a2536',
-      colorBackground: '#ffffff',
-      colorBackgroundHover: '#eef1f5',
-      colorPrimary: '#2563eb',
-      border: '1px solid #d1d5db',
-      colorInputText: '#1a2536',
-    },
-  };
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current && 
+        !suggestionsRef.current.contains(event.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
 
-  const handleStreetChange = (e: ChangeEvent<HTMLInputElement>) => {
-    onChange({ ...values, street: e.target.value });
-  };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Fetch suggestions from Mapbox
+  const fetchSuggestions = useCallback(async (query: string) => {
+    if (!accessToken || query.length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        q: query,
+        access_token: accessToken,
+        language: 'de',
+        country: 'CH',
+        types: 'address,street',
+        session_token: sessionToken,
+        limit: '5',
+      });
+
+      const response = await fetch(
+        `https://api.mapbox.com/search/searchbox/v1/suggest?${params}`
+      );
+      const data = await response.json();
+      setSuggestions(data.suggestions || []);
+      setShowSuggestions(true);
+    } catch (error) {
+      console.error('Mapbox suggest error:', error);
+      setSuggestions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [accessToken, sessionToken]);
+
+  // Retrieve full address details when user selects
+  const retrieveAddress = useCallback(async (suggestion: Suggestion) => {
+    if (!accessToken) return;
+
+    try {
+      const params = new URLSearchParams({
+        access_token: accessToken,
+        session_token: sessionToken,
+      });
+
+      const response = await fetch(
+        `https://api.mapbox.com/search/searchbox/v1/retrieve/${suggestion.mapbox_id}?${params}`
+      );
+      const data = await response.json();
+      const feature = data.features?.[0];
+      
+      if (feature?.properties) {
+        const props = feature.properties;
+        const context = props.context || {};
+        
+        let street = props.name || props.address || '';
+        let postalCode = context.postcode?.name || '';
+        let city = context.place?.name || context.locality?.name || '';
+
+        onChange({
+          street,
+          postalCode,
+          city,
+        });
+        setInputValue(street);
+      }
+    } catch (error) {
+      console.error('Mapbox retrieve error:', error);
+      // Fallback to suggestion data
+      const context = suggestion.context || {};
+      onChange({
+        street: suggestion.name || '',
+        postalCode: context.postcode?.name || '',
+        city: context.place?.name || context.locality?.name || '',
+      });
+      setInputValue(suggestion.name || '');
+    }
+
+    setShowSuggestions(false);
+    // Generate new session token for next search
+    setSessionToken(crypto.randomUUID());
+  }, [accessToken, sessionToken, onChange]);
+
+  const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setInputValue(value);
+    onChange({ ...values, street: value });
+    fetchSuggestions(value);
+  }, [onChange, values, fetchSuggestions]);
+
+  const handleSuggestionClick = useCallback((suggestion: Suggestion) => {
+    retrieveAddress(suggestion);
+  }, [retrieveAddress]);
 
   const handlePostalCodeChange = (e: ChangeEvent<HTMLInputElement>) => {
     onChange({ ...values, postalCode: e.target.value });
@@ -95,61 +169,12 @@ export default function AddressAutocomplete({
     onChange({ ...values, city: e.target.value });
   };
 
-  const handleSearchChange = useCallback((newValue: string) => {
-    setSearchValue(newValue);
-    // Also update the street field as user types
-    onChange({ ...values, street: newValue });
-  }, [onChange, values]);
-
-  const handleRetrieve = useCallback((res: any) => {
-    console.log('Mapbox retrieve result:', res);
-    const feature = res.features?.[0];
-    if (!feature?.properties) return;
-
-    const props = feature.properties;
-    const context = props.context || {};
-    
-    let street = '';
-    let postalCode = '';
-    let city = '';
-    
-    // Extract street address
-    if (props.address) {
-      street = `${props.address} ${props.name || ''}`.trim();
-    } else if (props.name) {
-      street = props.name;
-    } else if (props.full_address) {
-      street = props.full_address.split(',')[0] || '';
-    }
-    
-    // Extract postal code
-    if (context.postcode) {
-      postalCode = context.postcode.name || '';
-    }
-    
-    // Extract city
-    if (context.place) {
-      city = context.place.name || '';
-    } else if (context.locality) {
-      city = context.locality.name || '';
-    }
-    
-    onChange({
-      street: street || values.street,
-      postalCode: postalCode || values.postalCode,
-      city: city || values.city,
-    });
-    
-    setSearchValue(street);
-  }, [onChange, values]);
-
-  const handleSuggestError = useCallback((error: Error) => {
-    console.error('Mapbox suggest error:', error);
-  }, []);
-
-  const handleSuggest = useCallback((res: any) => {
-    console.log('Mapbox suggestions:', res);
-  }, []);
+  const clearInput = () => {
+    setInputValue('');
+    onChange({ ...values, street: '' });
+    setSuggestions([]);
+    inputRef.current?.focus();
+  };
 
   // Fallback if no access token
   if (!accessToken) {
@@ -159,7 +184,7 @@ export default function AddressAutocomplete({
         <Input
           placeholder={t('clinic.invoices.street', 'Street, Nr.')}
           value={values.street}
-          onChange={handleStreetChange}
+          onChange={(e) => onChange({ ...values, street: e.target.value })}
           disabled={disabled}
           data-testid="input-address-street"
         />
@@ -192,23 +217,58 @@ export default function AddressAutocomplete({
   return (
     <div className={`space-y-2 ${className}`}>
       {showLabels && <Label>{t('clinic.invoices.street', 'Street, Nr.')}</Label>}
-      <div className="mapbox-search-container" data-testid="input-address-street">
-        <SearchBox
-          accessToken={accessToken}
-          value={searchValue}
-          onChange={handleSearchChange}
-          onRetrieve={handleRetrieve}
-          onSuggest={handleSuggest}
-          onSuggestError={handleSuggestError}
-          options={{
-            language: 'de',
-            country: 'CH',
-            types: 'address,street',
-          }}
-          placeholder={t('clinic.invoices.street', 'Street, Nr.')}
-          theme={themeConfig}
-        />
+      <div className="relative">
+        <div className="relative">
+          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            ref={inputRef}
+            placeholder={t('clinic.invoices.street', 'Street, Nr.')}
+            value={inputValue}
+            onChange={handleInputChange}
+            onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+            disabled={disabled}
+            className="pl-9 pr-9"
+            data-testid="input-address-street"
+          />
+          {inputValue && (
+            <button
+              type="button"
+              onClick={clearInput}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        
+        {showSuggestions && suggestions.length > 0 && (
+          <div
+            ref={suggestionsRef}
+            className="absolute z-50 w-full mt-1 bg-card border border-border rounded-md shadow-lg max-h-60 overflow-auto"
+          >
+            {suggestions.map((suggestion, index) => (
+              <button
+                key={suggestion.mapbox_id || index}
+                type="button"
+                onClick={() => handleSuggestionClick(suggestion)}
+                className="w-full px-3 py-2 text-left hover:bg-accent focus:bg-accent focus:outline-none transition-colors"
+              >
+                <div className="font-medium text-foreground">{suggestion.name}</div>
+                <div className="text-sm text-muted-foreground">
+                  {suggestion.place_formatted || suggestion.full_address}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+        
+        {isLoading && (
+          <div className="absolute right-10 top-1/2 -translate-y-1/2">
+            <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+          </div>
+        )}
       </div>
+      
       <div className="grid grid-cols-3 gap-2">
         <div>
           {showLabels && <Label>{t('clinic.invoices.postalCode', 'PLZ')}</Label>}
