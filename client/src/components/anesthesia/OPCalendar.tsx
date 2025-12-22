@@ -339,6 +339,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   }, [preOpAssessments]);
 
   // Transform surgeries into calendar events
+  // Uses actual O1 (Surgical Incision) time as start and O2-O1 for duration when available
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     return surgeries.map((surgery: any) => {
       const patient = allPatients.find((p: any) => p.id === surgery.patientId);
@@ -348,9 +349,52 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         : "";
       
       const plannedDate = new Date(surgery.plannedDate);
-      const endTime = surgery.actualEndTime 
-        ? new Date(surgery.actualEndTime)
-        : new Date(plannedDate.getTime() + 3 * 60 * 60 * 1000); // Default 3 hours
+      
+      // Check for O1 (Surgical Incision) and O2 (Surgical Suture) times from anesthesia record
+      const timeMarkers = surgery.timeMarkers || [];
+      const o1Marker = timeMarkers.find((m: any) => m.code === 'O1' && m.time !== null);
+      const o2Marker = timeMarkers.find((m: any) => m.code === 'O2' && m.time !== null);
+      
+      // Safely parse marker time (handles both ISO strings and timestamps)
+      const parseMarkerTime = (time: any): Date | null => {
+        if (!time) return null;
+        const parsed = new Date(time);
+        return isNaN(parsed.getTime()) ? null : parsed;
+      };
+      
+      const o1Time = o1Marker ? parseMarkerTime(o1Marker.time) : null;
+      const o2Time = o2Marker ? parseMarkerTime(o2Marker.time) : null;
+      
+      // Use O1 time as start if available, otherwise use planned date
+      let displayStart = plannedDate;
+      if (o1Time) {
+        displayStart = o1Time;
+      }
+      
+      // Calculate end time:
+      // 1. If O1 and O2 both exist: use O2 as end time
+      // 2. If only O1 exists: prefer actualEndTime if available, then planned duration from O1 start
+      // 3. Otherwise: use planned date + actualEndTime or planned duration
+      let displayEnd: Date;
+      if (o1Time && o2Time) {
+        // Both O1 and O2 available - use actual surgery end
+        displayEnd = o2Time;
+      } else if (o1Time) {
+        // Only O1 available - prefer actualEndTime, then fall back to planned duration
+        if (surgery.actualEndTime) {
+          displayEnd = new Date(surgery.actualEndTime);
+        } else {
+          const durationMs = surgery.duration 
+            ? surgery.duration * 60 * 1000 
+            : 3 * 60 * 60 * 1000; // Default 3 hours
+          displayEnd = new Date(displayStart.getTime() + durationMs);
+        }
+      } else {
+        // No O1 - use original logic with planned date
+        displayEnd = surgery.actualEndTime 
+          ? new Date(surgery.actualEndTime)
+          : new Date(plannedDate.getTime() + (surgery.duration ? surgery.duration * 60 * 1000 : 3 * 60 * 60 * 1000));
+      }
       
       const isCancelled = surgery.status === "cancelled";
       const title = `${surgery.plannedSurgery || 'No surgery specified'} - ${patientName}`;
@@ -358,8 +402,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       return {
         id: surgery.id,
         title,
-        start: plannedDate,
-        end: endTime,
+        start: displayStart,
+        end: displayEnd,
         resource: surgery.surgeryRoomId || (surgeryRooms[0]?.id || "unassigned"),
         surgeryId: surgery.id,
         patientId: surgery.patientId,
