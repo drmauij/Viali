@@ -149,7 +149,6 @@ export default function AddressAutocomplete({
           options={{
             language: 'de',
             country: 'CH',
-            types: 'address',
           }}
           placeholder={t('clinic.invoices.street', 'Street, Nr.')}
           theme={{
