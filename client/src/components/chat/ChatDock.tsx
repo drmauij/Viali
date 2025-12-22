@@ -860,8 +860,10 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
     if (command.id === 'screenshot') {
       setIsCapturingScreenshot(true);
       const chatPanel = document.querySelector('[data-testid="chat-panel"]');
+      const chatOverlay = document.querySelector('[data-testid="chat-overlay"]');
       try {
         if (chatPanel) (chatPanel as HTMLElement).style.visibility = 'hidden';
+        if (chatOverlay) (chatOverlay as HTMLElement).style.visibility = 'hidden';
         
         await new Promise(resolve => setTimeout(resolve, 100));
         
@@ -900,6 +902,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
         });
         
         if (chatPanel) (chatPanel as HTMLElement).style.visibility = 'visible';
+        if (chatOverlay) (chatOverlay as HTMLElement).style.visibility = 'visible';
         
         canvas.toBlob(async (blob) => {
           if (!blob) {
@@ -928,6 +931,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
       } catch (error) {
         console.error("Screenshot capture failed:", error);
         if (chatPanel) (chatPanel as HTMLElement).style.visibility = 'visible';
+        if (chatOverlay) (chatOverlay as HTMLElement).style.visibility = 'visible';
       } finally {
         setIsCapturingScreenshot(false);
       }
