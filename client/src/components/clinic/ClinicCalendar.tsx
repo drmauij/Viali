@@ -42,6 +42,22 @@ interface CalendarEvent {
   serviceName: string;
   status: string;
   notes: string | null;
+  isSurgeryBlock?: boolean;
+  surgeryName?: string;
+}
+
+interface ProviderSurgery {
+  id: string;
+  patientId: string;
+  surgeonId: string | null;
+  surgeon: string | null;
+  plannedDate: string;
+  plannedSurgery: string;
+  actualEndTime: string | null;
+  status: string | null;
+  surgeryRoomId: string | null;
+  patientFirstName: string | null;
+  patientSurname: string | null;
 }
 
 type CalendarResource = {
@@ -81,6 +97,7 @@ const STATUS_COLORS: Record<string, { bg: string; border: string }> = {
   completed: { bg: '#6b7280', border: '#4b5563' },
   cancelled: { bg: '#ef4444', border: '#dc2626' },
   no_show: { bg: '#8b5cf6', border: '#7c3aed' },
+  surgery_block: { bg: '#9ca3af', border: '#6b7280' },
 };
 
 interface ClinicCalendarProps {
@@ -188,8 +205,29 @@ export default function ClinicCalendar({
     refetchInterval: 30000,
   });
 
+  // Fetch surgeries where filtered providers are assigned as surgeons
+  const providerIdsParam = useMemo(() => {
+    return filteredProviders.map(p => p.id).join(',');
+  }, [filteredProviders]);
+
+  const { data: providerSurgeries = [] } = useQuery<ProviderSurgery[]>({
+    queryKey: [`/api/clinic/${hospitalId}/provider-surgeries`, providerIdsParam, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      if (!providerIdsParam) return [];
+      const response = await fetch(
+        `/api/clinic/${hospitalId}/provider-surgeries?providerIds=${providerIdsParam}&startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`,
+        { credentials: 'include' }
+      );
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!hospitalId && !!providerIdsParam,
+    refetchInterval: 60000,
+  });
+
   const calendarEvents: CalendarEvent[] = useMemo(() => {
-    return appointments.map((appt) => {
+    // Appointment events
+    const appointmentEvents = appointments.map((appt) => {
       const patientName = appt.patient 
         ? `${appt.patient.surname}, ${appt.patient.firstName}` 
         : "Unknown Patient";
@@ -217,9 +255,49 @@ export default function ClinicCalendar({
         serviceName,
         status: appt.status,
         notes: appt.notes,
+        isSurgeryBlock: false,
       };
     });
-  }, [appointments]);
+
+    // Surgery block events (gray, non-editable)
+    // Only include surgeries where surgeonId is in the filtered providers list
+    const providerIdSet = new Set(filteredProviders.map(p => p.id));
+    const surgeryBlockEvents = providerSurgeries
+      .filter((surgery) => surgery.surgeonId && providerIdSet.has(surgery.surgeonId))
+      .map((surgery) => {
+        const patientName = surgery.patientSurname && surgery.patientFirstName
+          ? `${surgery.patientSurname}, ${surgery.patientFirstName}`
+          : 'Patient';
+        
+        const start = new Date(surgery.plannedDate);
+        
+        // Calculate end time: use actualEndTime if available, otherwise default to 2 hours
+        let end: Date;
+        if (surgery.actualEndTime) {
+          end = new Date(surgery.actualEndTime);
+        } else {
+          end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours
+        }
+        
+        return {
+          id: `surgery-${surgery.id}`,
+          title: `🔒 ${surgery.plannedSurgery || 'Surgery'}`,
+          start,
+          end,
+          resource: surgery.surgeonId!,
+          appointmentId: surgery.id,
+          patientId: surgery.patientId,
+          patientName,
+          serviceName: surgery.plannedSurgery || '',
+          status: 'surgery_block',
+          notes: null,
+          isSurgeryBlock: true,
+          surgeryName: surgery.plannedSurgery,
+        };
+      });
+
+    return [...appointmentEvents, ...surgeryBlockEvents];
+  }, [appointments, providerSurgeries, filteredProviders]);
 
   const resources: CalendarResource[] = useMemo(() => {
     return filteredProviders.map((provider) => ({
@@ -251,6 +329,9 @@ export default function ClinicCalendar({
   });
 
   const handleEventDrop = useCallback(async ({ event, start, end, resourceId }: any) => {
+    // Don't allow dragging surgery blocks
+    if (event.isSurgeryBlock) return;
+    
     const appointmentId = event.appointmentId;
     const newProviderId = resourceId || event.resource;
     
@@ -264,6 +345,9 @@ export default function ClinicCalendar({
   }, [rescheduleAppointmentMutation]);
 
   const handleEventResize = useCallback(async ({ event, start, end }: any) => {
+    // Don't allow resizing surgery blocks
+    if (event.isSurgeryBlock) return;
+    
     rescheduleAppointmentMutation.mutate({
       appointmentId: event.appointmentId,
       appointmentDate: format(start, 'yyyy-MM-dd'),
@@ -285,6 +369,9 @@ export default function ClinicCalendar({
   }, [currentView, onBookAppointment]);
 
   const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
+    // Don't allow clicking on surgery blocks
+    if (event.isSurgeryBlock) return;
+    
     if (onEventClick) {
       const appointment = appointments.find(a => a.id === event.appointmentId);
       if (appointment) {
@@ -294,6 +381,22 @@ export default function ClinicCalendar({
   }, [onEventClick, appointments]);
 
   const eventStyleGetter: EventPropGetter<CalendarEvent> = useCallback((event: CalendarEvent) => {
+    // Surgery blocks: gray, non-interactive
+    if (event.isSurgeryBlock) {
+      return {
+        style: {
+          backgroundColor: '#9ca3af',
+          borderColor: '#6b7280',
+          color: '#ffffff',
+          borderRadius: '4px',
+          opacity: 0.8,
+          border: '1px solid',
+          display: 'block',
+          cursor: 'not-allowed',
+        },
+      };
+    }
+    
     const colors = STATUS_COLORS[event.status] || STATUS_COLORS.scheduled;
     const isCancelled = event.status === 'cancelled';
     
@@ -312,6 +415,20 @@ export default function ClinicCalendar({
   }, []);
 
   const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {
+    // Surgery block display
+    if (event.isSurgeryBlock) {
+      return (
+        <div className="flex flex-col h-full p-1" data-testid={`surgery-block-${event.appointmentId}`}>
+          <div className="font-bold text-xs">
+            🔒 {t('appointments.surgery', 'Surgery')}
+          </div>
+          <div className="text-xs">
+            {event.surgeryName || 'OP'}
+          </div>
+        </div>
+      );
+    }
+    
     const isCancelled = event.status === 'cancelled';
     return (
       <div className="flex flex-col h-full p-1" data-testid={`appointment-event-${event.appointmentId}`}>
@@ -531,6 +648,7 @@ export default function ClinicCalendar({
           <AppointmentsTimelineWeekView
             providers={filteredProviders}
             appointments={appointments}
+            providerSurgeries={providerSurgeries}
             selectedDate={selectedDate}
             onEventClick={(appt) => onEventClick?.(appt)}
             onEventDrop={(appointmentId, newStart, newEnd, newProviderId) => {

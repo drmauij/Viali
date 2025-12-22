@@ -1334,4 +1334,69 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers', isAuthenticated, i
   }
 });
 
+// ========================================
+// Provider Surgery Blocks (for blocking calendar time)
+// ========================================
+
+// Get surgeries where providers are assigned as surgeons
+router.get('/api/clinic/:hospitalId/provider-surgeries', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { providerIds, startDate, endDate } = req.query;
+    
+    if (!providerIds || !startDate || !endDate) {
+      return res.status(400).json({ message: "providerIds, startDate, and endDate are required" });
+    }
+    
+    const { surgeries, patients: patientsTable } = await import("@shared/schema");
+    
+    // Parse provider IDs (comma-separated)
+    const ids = (providerIds as string).split(',').filter(Boolean);
+    
+    if (ids.length === 0) {
+      return res.json([]);
+    }
+    
+    const start = new Date(startDate as string);
+    start.setHours(0, 0, 0, 0);
+    
+    const end = new Date(endDate as string);
+    end.setHours(23, 59, 59, 999);
+    
+    // Fetch surgeries where surgeonId is in the list and within date range
+    const result = await db
+      .select({
+        id: surgeries.id,
+        patientId: surgeries.patientId,
+        surgeonId: surgeries.surgeonId,
+        surgeon: surgeries.surgeon,
+        plannedDate: surgeries.plannedDate,
+        plannedSurgery: surgeries.plannedSurgery,
+        actualEndTime: surgeries.actualEndTime,
+        status: surgeries.status,
+        surgeryRoomId: surgeries.surgeryRoomId,
+        patientFirstName: patientsTable.firstName,
+        patientSurname: patientsTable.surname,
+      })
+      .from(surgeries)
+      .leftJoin(patientsTable, eq(surgeries.patientId, patientsTable.id))
+      .where(
+        and(
+          eq(surgeries.hospitalId, hospitalId),
+          inArray(surgeries.surgeonId, ids),
+          sql`${surgeries.plannedDate} >= ${start}`,
+          sql`${surgeries.plannedDate} <= ${end}`,
+          // Only non-cancelled and non-archived surgeries
+          sql`(${surgeries.status} IS NULL OR ${surgeries.status} NOT IN ('cancelled', 'archived'))`
+        )
+      )
+      .orderBy(surgeries.plannedDate);
+    
+    res.json(result);
+  } catch (error) {
+    console.error("Error fetching provider surgeries:", error);
+    res.status(500).json({ message: "Failed to fetch provider surgeries" });
+  }
+});
+
 export default router;

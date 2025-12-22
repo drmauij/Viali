@@ -29,9 +29,24 @@ type AppointmentWithDetails = ClinicAppointment & {
   service?: ClinicService;
 };
 
+interface ProviderSurgery {
+  id: string;
+  patientId: string;
+  surgeonId: string | null;
+  surgeon: string | null;
+  plannedDate: string;
+  plannedSurgery: string;
+  actualEndTime: string | null;
+  status: string | null;
+  surgeryRoomId: string | null;
+  patientFirstName: string | null;
+  patientSurname: string | null;
+}
+
 interface AppointmentsTimelineWeekViewProps {
   providers: Array<{ id: string; firstName: string | null; lastName: string | null }>;
   appointments: AppointmentWithDetails[];
+  providerSurgeries?: ProviderSurgery[];
   selectedDate: Date;
   onEventClick?: (appointment: AppointmentWithDetails) => void;
   onEventDrop?: (appointmentId: string, newStart: Date, newEnd: Date, newProviderId: string) => void;
@@ -45,11 +60,13 @@ const STATUS_COLORS: Record<string, string> = {
   completed: 'timeline-item-completed',
   cancelled: 'timeline-item-cancelled',
   no_show: 'timeline-item-no-show',
+  surgery_block: 'timeline-item-surgery',
 };
 
 export default function AppointmentsTimelineWeekView({
   providers,
   appointments,
+  providerSurgeries = [],
   selectedDate,
   onEventClick,
   onEventDrop,
@@ -130,7 +147,8 @@ export default function AppointmentsTimelineWeekView({
   }, [providers]);
 
   const items: TimelineItem[] = useMemo(() => {
-    return appointments.map((appt) => {
+    // Appointment items
+    const appointmentItems = appointments.map((appt) => {
       const appointmentDate = new Date(appt.appointmentDate);
       const [startHour, startMin] = (appt.startTime || "09:00").split(':').map(Number);
       const [endHour, endMin] = (appt.endTime || "09:30").split(':').map(Number);
@@ -161,12 +179,49 @@ export default function AppointmentsTimelineWeekView({
         },
       };
     });
-  }, [appointments, onEventClick]);
+
+    // Surgery block items (gray, non-draggable)
+    // Only include surgeries where surgeonId is in the providers list
+    const providerIdSet = new Set(providers.map(p => p.id));
+    const surgeryItems = providerSurgeries
+      .filter((surgery) => surgery.surgeonId && providerIdSet.has(surgery.surgeonId))
+      .map((surgery) => {
+        const start = new Date(surgery.plannedDate);
+        
+        // Calculate end time: use actualEndTime if available, otherwise default to 2 hours
+        let end: Date;
+        if (surgery.actualEndTime) {
+          end = new Date(surgery.actualEndTime);
+        } else {
+          end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours
+        }
+        
+        return {
+          id: `surgery-${surgery.id}`,
+          group: surgery.surgeonId!,
+          title: `🔒 ${surgery.plannedSurgery || 'Surgery'}`,
+          start_time: moment(start).valueOf(),
+          end_time: moment(end).valueOf(),
+          canMove: false,
+          canResize: false,
+          itemProps: {
+            className: 'timeline-item-surgery',
+            style: { cursor: 'not-allowed' },
+            'data-testid': `timeline-surgery-${surgery.id}`,
+          },
+        };
+      });
+
+    return [...appointmentItems, ...surgeryItems];
+  }, [appointments, providerSurgeries, providers, onEventClick]);
 
   const handleItemMove = (itemId: string | number, dragTime: number, newGroupOrder: number) => {
     if (!onEventDrop) return;
     
     const id = String(itemId);
+    // Don't allow moving surgery blocks
+    if (id.startsWith('surgery-')) return;
+    
     const appt = appointments.find(a => a.id === id);
     if (!appt) return;
 
@@ -193,6 +248,9 @@ export default function AppointmentsTimelineWeekView({
     if (!onEventDrop) return;
     
     const id = String(itemId);
+    // Don't allow resizing surgery blocks
+    if (id.startsWith('surgery-')) return;
+    
     const appt = appointments.find(a => a.id === id);
     if (!appt) return;
 
