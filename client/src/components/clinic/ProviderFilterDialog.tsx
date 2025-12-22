@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { 
   Search, 
@@ -185,7 +184,7 @@ export default function ProviderFilterDialog({
           </span>
         </div>
         
-        <ScrollArea className="flex-1 min-h-[200px] max-h-[50vh] border rounded-md">
+        <div className="flex-1 min-h-[200px] max-h-[40vh] border rounded-md overflow-y-auto">
           <div className="p-2 space-y-1">
             {filteredProviders.length === 0 ? (
               <div className="text-center py-8 text-sm text-muted-foreground">
@@ -226,7 +225,7 @@ export default function ProviderFilterDialog({
               })
             )}
           </div>
-        </ScrollArea>
+        </div>
 
         <div className="flex items-center gap-2 shrink-0 pt-2 border-t">
           <Checkbox
