@@ -372,28 +372,26 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       }
       
       // Calculate end time:
-      // 1. If O1 and O2 both exist: use O2 as end time
-      // 2. If only O1 exists: prefer actualEndTime if available, then planned duration from O1 start
-      // 3. Otherwise: use planned date + actualEndTime or planned duration
+      // 1. If O1 and O2 both exist: use O2 as end time (actual surgery duration)
+      // 2. If only O1 exists: use O1 + planned duration (surgery started but not finished)
+      // 3. Otherwise: use planned date + planned duration (or actualEndTime if available)
       let displayEnd: Date;
+      const plannedDurationMs = surgery.duration 
+        ? surgery.duration * 60 * 1000 
+        : 3 * 60 * 60 * 1000; // Default 3 hours
+      
       if (o1Time && o2Time) {
         // Both O1 and O2 available - use actual surgery end
         displayEnd = o2Time;
       } else if (o1Time) {
-        // Only O1 available - prefer actualEndTime, then fall back to planned duration
-        if (surgery.actualEndTime) {
-          displayEnd = new Date(surgery.actualEndTime);
-        } else {
-          const durationMs = surgery.duration 
-            ? surgery.duration * 60 * 1000 
-            : 3 * 60 * 60 * 1000; // Default 3 hours
-          displayEnd = new Date(displayStart.getTime() + durationMs);
-        }
+        // Only O1 available - use planned duration from O1 start
+        // (surgery has started but not yet finished, show expected end based on plan)
+        displayEnd = new Date(displayStart.getTime() + plannedDurationMs);
       } else {
         // No O1 - use original logic with planned date
         displayEnd = surgery.actualEndTime 
           ? new Date(surgery.actualEndTime)
-          : new Date(plannedDate.getTime() + (surgery.duration ? surgery.duration * 60 * 1000 : 3 * 60 * 60 * 1000));
+          : new Date(plannedDate.getTime() + plannedDurationMs);
       }
       
       const isCancelled = surgery.status === "cancelled";
