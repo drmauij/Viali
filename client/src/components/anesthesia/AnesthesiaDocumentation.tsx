@@ -208,15 +208,6 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                 </select>
               </div>
             </div>
-            <div className="space-y-2">
-              <Label>{t('anesthesia.documentation.numberOfAttempts')}</Label>
-              <Input
-                type="number"
-                value={current.attempts || 1}
-                onChange={(e) => handleUpdate(inst.id, { attempts: parseInt(e.target.value) || 1 })}
-                data-testid={`input-pv-attempts-${index + 1}`}
-              />
-            </div>
             <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
               <input
                 type="checkbox"
@@ -227,16 +218,6 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
               />
               <span className="text-sm font-medium">{t('anesthesia.documentation.preExistingInstallation')}</span>
             </label>
-            <div className="space-y-2">
-              <Label>{t('anesthesia.documentation.notes')}</Label>
-              <Textarea
-                rows={2}
-                value={current.notes || ""}
-                onChange={(e) => handleUpdate(inst.id, { notes: e.target.value })}
-                placeholder={t('anesthesia.documentation.additionalNotes')}
-                data-testid={`textarea-pv-notes-${index + 1}`}
-              />
-            </div>
           </div>
         );
         })}
