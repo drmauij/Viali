@@ -277,6 +277,19 @@ export default function QuestionnaireReviews() {
     }
   };
 
+  const formatConditionKey = (key: string) => {
+    const labelMap: Record<string, string> = {
+      'anesthesiaHistory': 'Anesthesia History',
+      'ponvTransfusion': 'PONV/Transfusions',
+      'dentalIssues': 'Dental Issues',
+    };
+    if (labelMap[key]) return labelMap[key];
+    return key
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/^./, str => str.toUpperCase())
+      .trim();
+  };
+
   const calculateAge = (birthday: string) => {
     if (!birthday) return null;
     const birthDate = new Date(birthday);
@@ -527,7 +540,7 @@ export default function QuestionnaireReviews() {
                               <div key={key} className="flex items-start gap-2">
                                 <CheckCircle2 className="h-4 w-4 text-green-500 mt-0.5" />
                                 <div>
-                                  <span className="font-medium">{key}</span>
+                                  <span className="font-medium">{formatConditionKey(key)}</span>
                                   {val.notes && (
                                     <p className="text-sm text-muted-foreground">{val.notes}</p>
                                   )}
