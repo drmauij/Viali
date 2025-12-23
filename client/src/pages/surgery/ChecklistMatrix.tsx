@@ -121,10 +121,18 @@ export default function ChecklistMatrix() {
   });
 
   useEffect(() => {
-    if (templates.length > 0 && !selectedTemplateId) {
-      const defaultTemplate = templates.find(t => t.isDefault && t.ownerUserId === userId);
-      const fallbackTemplate = templates.find(t => t.ownerUserId === userId) || templates[0];
-      setSelectedTemplateId(defaultTemplate?.id || fallbackTemplate?.id || null);
+    if (templates.length > 0) {
+      // Check if selected template still exists (may have been deleted)
+      const selectedExists = selectedTemplateId && templates.some(t => t.id === selectedTemplateId);
+      
+      if (!selectedTemplateId || !selectedExists) {
+        const defaultTemplate = templates.find(t => t.isDefault && t.ownerUserId === userId);
+        const fallbackTemplate = templates.find(t => t.ownerUserId === userId) || templates[0];
+        setSelectedTemplateId(defaultTemplate?.id || fallbackTemplate?.id || null);
+      }
+    } else if (templates.length === 0 && selectedTemplateId) {
+      // No templates left, clear selection
+      setSelectedTemplateId(null);
     }
   }, [templates, selectedTemplateId, userId]);
 
