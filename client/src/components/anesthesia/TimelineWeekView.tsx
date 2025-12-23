@@ -49,17 +49,21 @@ export default function TimelineWeekView({
   const [visibleTimeStart, setVisibleTimeStart] = useState<number>(0);
   const [visibleTimeEnd, setVisibleTimeEnd] = useState<number>(0);
 
-  // Calculate week start (Monday) and end (Sunday)
+  // Business hours constants
+  const BUSINESS_HOUR_START = 7;
+  const BUSINESS_HOUR_END = 22;
+
+  // Calculate week start (Monday) and end (Sunday) with business hours
   const weekRange = useMemo(() => {
-    const start = moment(selectedDate).startOf('isoWeek'); // Monday
-    const end = moment(selectedDate).endOf('isoWeek'); // Sunday
+    const start = moment(selectedDate).startOf('isoWeek').hour(BUSINESS_HOUR_START); // Monday 7:00
+    const end = moment(selectedDate).endOf('isoWeek').startOf('day').hour(BUSINESS_HOUR_END); // Sunday 22:00
     return { start, end };
   }, [selectedDate]);
 
-  // Initialize visible time to show 7:00-22:00 on the selected day (15 hours)
+  // Initialize visible time to show business hours for the selected day
   useEffect(() => {
-    const dayStart = moment(selectedDate).startOf('day').add(7, 'hours'); // 7:00
-    const dayEnd = moment(selectedDate).startOf('day').add(22, 'hours'); // 22:00
+    const dayStart = moment(selectedDate).startOf('day').hour(BUSINESS_HOUR_START); // 7:00
+    const dayEnd = moment(selectedDate).startOf('day').hour(BUSINESS_HOUR_END); // 22:00
     setVisibleTimeStart(dayStart.valueOf());
     setVisibleTimeEnd(dayEnd.valueOf());
   }, [selectedDate]);
@@ -83,9 +87,26 @@ export default function TimelineWeekView({
     setVisibleTimeEnd(newEnd);
   };
 
-  const handleTimeChange = (visibleStart: number, visibleEnd: number) => {
-    setVisibleTimeStart(visibleStart);
-    setVisibleTimeEnd(visibleEnd);
+  const handleTimeChange = (visibleStart: number, visibleEnd: number, updateScrollCanvas: (start: number, end: number) => void) => {
+    // Clamp to business hours (7:00 - 22:00) for each day
+    const startMoment = moment(visibleStart);
+    const endMoment = moment(visibleEnd);
+    
+    // For the start time, ensure it's not before 7:00 of that day
+    const startDayBusinessStart = startMoment.clone().startOf('day').hour(BUSINESS_HOUR_START);
+    const clampedStart = Math.max(visibleStart, startDayBusinessStart.valueOf());
+    
+    // For the end time, ensure it's not after 22:00 of that day
+    const endDayBusinessEnd = endMoment.clone().startOf('day').hour(BUSINESS_HOUR_END);
+    const clampedEnd = Math.min(visibleEnd, endDayBusinessEnd.valueOf());
+    
+    // Only update if values changed
+    if (clampedStart !== visibleStart || clampedEnd !== visibleEnd) {
+      updateScrollCanvas(clampedStart, clampedEnd);
+    }
+    
+    setVisibleTimeStart(clampedStart);
+    setVisibleTimeEnd(clampedEnd);
   };
 
   // Initialize state from surgeries
@@ -246,8 +267,8 @@ export default function TimelineWeekView({
         <Timeline
           groups={groups}
           items={items}
-          defaultTimeStart={weekRange.start.valueOf()}
-          defaultTimeEnd={weekRange.end.valueOf()}
+          defaultTimeStart={moment(selectedDate).startOf('day').hour(BUSINESS_HOUR_START).valueOf()}
+          defaultTimeEnd={moment(selectedDate).startOf('day').hour(BUSINESS_HOUR_END).valueOf()}
           visibleTimeStart={visibleTimeStart}
           visibleTimeEnd={visibleTimeEnd}
           onTimeChange={handleTimeChange}
