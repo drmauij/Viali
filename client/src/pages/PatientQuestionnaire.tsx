@@ -169,9 +169,9 @@ interface FormData {
 
 const STEPS = [
   { id: "personal", icon: User, labelKey: "questionnaire.steps.personal" },
+  { id: "allergies", icon: AlertTriangle, labelKey: "questionnaire.steps.allergies" },
   { id: "conditions", icon: Heart, labelKey: "questionnaire.steps.conditions" },
   { id: "medications", icon: Pill, labelKey: "questionnaire.steps.medications" },
-  { id: "allergies", icon: AlertTriangle, labelKey: "questionnaire.steps.allergies" },
   { id: "lifestyle", icon: Cigarette, labelKey: "questionnaire.steps.lifestyle" },
   { id: "history", icon: Stethoscope, labelKey: "questionnaire.steps.history" },
   { id: "uploads", icon: Paperclip, labelKey: "questionnaire.steps.uploads" },
@@ -923,6 +923,15 @@ export default function PatientQuestionnaire() {
               />
             )}
             {currentStep === 1 && config && (
+              <AllergiesStep
+                formData={formData}
+                updateField={updateField}
+                allergyList={config.allergyList}
+                t={t}
+                language={language}
+              />
+            )}
+            {currentStep === 2 && config && (
               <ConditionsStep
                 formData={formData}
                 updateField={updateField}
@@ -931,21 +940,12 @@ export default function PatientQuestionnaire() {
                 language={language}
               />
             )}
-            {currentStep === 2 && (
+            {currentStep === 3 && (
               <MedicationsStep
                 formData={formData}
                 updateField={updateField}
                 t={t}
                 medicationsList={config?.medicationsList}
-              />
-            )}
-            {currentStep === 3 && config && (
-              <AllergiesStep
-                formData={formData}
-                updateField={updateField}
-                allergyList={config.allergyList}
-                t={t}
-                language={language}
               />
             )}
             {currentStep === 4 && (
