@@ -36,8 +36,12 @@ import {
   Image as ImageIcon,
   Trash2,
   Globe,
-  Camera
+  Camera,
+  FileCheck,
+  Calendar,
+  Shield
 } from "lucide-react";
+import SignaturePad from "@/components/SignaturePad";
 import { useTranslation } from "react-i18next";
 import i18n from "@/i18n/config";
 
@@ -146,6 +150,8 @@ interface FormData {
   smokingDetails: string;
   alcoholStatus: string;
   alcoholDetails: string;
+  drugUse: Record<string, boolean>;
+  drugUseDetails: string;
   previousSurgeries: string;
   previousAnesthesiaProblems: string;
   // Dental status (matches schema field name: dentalIssues)
@@ -163,6 +169,10 @@ interface FormData {
   womanHealthNotes: string;
   additionalNotes: string;
   questionsForDoctor: string;
+  // Submission
+  submissionDate: string;
+  signature: string;
+  privacyConsent: boolean;
   currentStep: number;
   completedSteps: string[];
 }
@@ -176,6 +186,7 @@ const STEPS = [
   { id: "history", icon: Stethoscope, labelKey: "questionnaire.steps.history" },
   { id: "uploads", icon: Paperclip, labelKey: "questionnaire.steps.uploads" },
   { id: "notes", icon: MessageSquare, labelKey: "questionnaire.steps.notes" },
+  { id: "submit", icon: FileCheck, labelKey: "questionnaire.steps.submit" },
 ];
 
 const translations: Record<string, Record<string, string>> = {
@@ -226,6 +237,14 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.lifestyle.alcohol.moderate": "Moderate (3-7 drinks/week)",
     "questionnaire.lifestyle.alcohol.heavy": "Heavy (more than 7 drinks/week)",
     "questionnaire.lifestyle.alcohol.details": "Additional details",
+    "questionnaire.lifestyle.drugs.title": "Drug Use",
+    "questionnaire.lifestyle.drugs.subtitle": "Have you ever used any of the following substances (currently or in the past)?",
+    "questionnaire.lifestyle.drugs.thc": "Cannabis (THC)",
+    "questionnaire.lifestyle.drugs.cocaine": "Cocaine",
+    "questionnaire.lifestyle.drugs.heroin": "Heroin/Opioids",
+    "questionnaire.lifestyle.drugs.mdma": "MDMA/Ecstasy",
+    "questionnaire.lifestyle.drugs.other": "Other substances",
+    "questionnaire.lifestyle.drugs.details": "Please provide details (when, how often)",
     "questionnaire.history.surgeries": "Previous Surgeries",
     "questionnaire.history.surgeriesHint": "Please list any previous surgeries with approximate dates",
     "questionnaire.history.anesthesia": "Previous Anesthesia Problems",
@@ -280,6 +299,17 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.notes.additionalHint": "Any other information you think is important",
     "questionnaire.notes.questions": "Questions for Your Doctor",
     "questionnaire.notes.questionsHint": "Do you have any questions or concerns about your procedure?",
+    "questionnaire.steps.submit": "Submit",
+    "questionnaire.submit.title": "Review and Submit",
+    "questionnaire.submit.subtitle": "Please review your information and sign to complete the questionnaire",
+    "questionnaire.submit.date": "Today's Date",
+    "questionnaire.submit.signature": "Your Signature",
+    "questionnaire.submit.signatureHint": "Please sign below to confirm the information is accurate",
+    "questionnaire.submit.addSignature": "Tap to add signature",
+    "questionnaire.submit.changeSignature": "Change signature",
+    "questionnaire.submit.privacy": "Privacy Consent",
+    "questionnaire.submit.privacyText": "I consent to the processing of my personal and health data for the purpose of my medical treatment. I confirm that the information provided is accurate to the best of my knowledge.",
+    "questionnaire.submit.privacyRequired": "You must accept the privacy consent to submit the questionnaire",
     "questionnaire.nav.back": "Back",
     "questionnaire.nav.next": "Next",
     "questionnaire.nav.submit": "Submit Questionnaire",
@@ -345,6 +375,14 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.lifestyle.alcohol.moderate": "Mäßig (3-7 Getränke/Woche)",
     "questionnaire.lifestyle.alcohol.heavy": "Viel (mehr als 7 Getränke/Woche)",
     "questionnaire.lifestyle.alcohol.details": "Zusätzliche Details",
+    "questionnaire.lifestyle.drugs.title": "Drogenkonsum",
+    "questionnaire.lifestyle.drugs.subtitle": "Haben Sie jemals folgende Substanzen konsumiert (aktuell oder in der Vergangenheit)?",
+    "questionnaire.lifestyle.drugs.thc": "Cannabis (THC)",
+    "questionnaire.lifestyle.drugs.cocaine": "Kokain",
+    "questionnaire.lifestyle.drugs.heroin": "Heroin/Opioide",
+    "questionnaire.lifestyle.drugs.mdma": "MDMA/Ecstasy",
+    "questionnaire.lifestyle.drugs.other": "Andere Substanzen",
+    "questionnaire.lifestyle.drugs.details": "Bitte geben Sie Details an (wann, wie oft)",
     "questionnaire.history.surgeries": "Frühere Operationen",
     "questionnaire.history.surgeriesHint": "Bitte listen Sie frühere Operationen mit ungefährem Datum auf",
     "questionnaire.history.anesthesia": "Frühere Narkoseprobleme",
@@ -399,6 +437,17 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.notes.additionalHint": "Sonstige Informationen, die Sie für wichtig halten",
     "questionnaire.notes.questions": "Fragen an Ihren Arzt",
     "questionnaire.notes.questionsHint": "Haben Sie Fragen oder Bedenken zu Ihrem Eingriff?",
+    "questionnaire.steps.submit": "Absenden",
+    "questionnaire.submit.title": "Überprüfen und Absenden",
+    "questionnaire.submit.subtitle": "Bitte überprüfen Sie Ihre Angaben und unterschreiben Sie, um den Fragebogen abzuschließen",
+    "questionnaire.submit.date": "Heutiges Datum",
+    "questionnaire.submit.signature": "Ihre Unterschrift",
+    "questionnaire.submit.signatureHint": "Bitte unterschreiben Sie unten, um die Richtigkeit der Angaben zu bestätigen",
+    "questionnaire.submit.addSignature": "Tippen zum Unterschreiben",
+    "questionnaire.submit.changeSignature": "Unterschrift ändern",
+    "questionnaire.submit.privacy": "Datenschutz-Einwilligung",
+    "questionnaire.submit.privacyText": "Ich willige in die Verarbeitung meiner persönlichen und gesundheitlichen Daten zum Zweck meiner medizinischen Behandlung ein. Ich bestätige, dass die gemachten Angaben nach bestem Wissen korrekt sind.",
+    "questionnaire.submit.privacyRequired": "Sie müssen der Datenschutzerklärung zustimmen, um den Fragebogen abzusenden",
     "questionnaire.nav.back": "Zurück",
     "questionnaire.nav.next": "Weiter",
     "questionnaire.nav.submit": "Fragebogen absenden",
@@ -430,6 +479,7 @@ export default function PatientQuestionnaire() {
   const [uploads, setUploads] = useState<FileUpload[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [linkToken, setLinkToken] = useState<string | null>(null);
+  const [signatureOpen, setSignatureOpen] = useState(false);
 
   const t = useCallback((key: string) => {
     return translations[language]?.[key] || translations["en"]?.[key] || key;
@@ -452,6 +502,8 @@ export default function PatientQuestionnaire() {
     smokingDetails: "",
     alcoholStatus: "",
     alcoholDetails: "",
+    drugUse: {},
+    drugUseDetails: "",
     previousSurgeries: "",
     previousAnesthesiaProblems: "",
     dentalIssues: {},
@@ -466,6 +518,9 @@ export default function PatientQuestionnaire() {
     womanHealthNotes: "",
     additionalNotes: "",
     questionsForDoctor: "",
+    submissionDate: new Date().toISOString().split('T')[0],
+    signature: "",
+    privacyConsent: false,
     currentStep: 0,
     completedSteps: [],
   });
@@ -518,6 +573,8 @@ export default function PatientQuestionnaire() {
         smokingDetails: existing?.smokingDetails || "",
         alcoholStatus: existing?.alcoholStatus || "",
         alcoholDetails: existing?.alcoholDetails || "",
+        drugUse: (existing as any)?.drugUse || {},
+        drugUseDetails: (existing as any)?.drugUseDetails || "",
         previousSurgeries: existing?.previousSurgeries || "",
         previousAnesthesiaProblems: existing?.previousAnesthesiaProblems || "",
         dentalIssues: (existing as any)?.dentalIssues || {},
@@ -532,6 +589,9 @@ export default function PatientQuestionnaire() {
         womanHealthNotes: existing?.womanHealthNotes || "",
         additionalNotes: existing?.additionalNotes || "",
         questionsForDoctor: existing?.questionsForDoctor || "",
+        submissionDate: (existing as any)?.submissionDate || new Date().toISOString().split('T')[0],
+        signature: (existing as any)?.signature || "",
+        privacyConsent: (existing as any)?.privacyConsent || false,
         currentStep: existing?.currentStep || 0,
         completedSteps: existing?.completedSteps || [],
       });
@@ -978,8 +1038,26 @@ export default function PatientQuestionnaire() {
                 t={t}
               />
             )}
+            {currentStep === 8 && (
+              <SubmitStep
+                formData={formData}
+                updateField={updateField}
+                t={t}
+                onOpenSignature={() => setSignatureOpen(true)}
+              />
+            )}
           </CardContent>
         </Card>
+
+        <SignaturePad
+          isOpen={signatureOpen}
+          onClose={() => setSignatureOpen(false)}
+          onSave={(sig) => {
+            updateField("signature", sig);
+            setSignatureOpen(false);
+          }}
+          title={t("questionnaire.submit.signature")}
+        />
 
         <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-800 border-t p-4 shadow-lg">
           <div className="max-w-2xl mx-auto flex gap-3">
@@ -1007,7 +1085,7 @@ export default function PatientQuestionnaire() {
               <Button
                 onClick={handleSubmit}
                 className="flex-1 bg-green-600 hover:bg-green-700"
-                disabled={submitMutation.isPending}
+                disabled={submitMutation.isPending || !formData.privacyConsent}
                 data-testid="button-submit"
               >
                 {submitMutation.isPending ? (
@@ -1136,6 +1214,13 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
     if (language === "de" && item.labelDe) return item.labelDe;
     return item.label;
   };
+  
+  const categoryOrder = [
+    "cardiovascular", "heart", "pulmonary", "lung", "gi", "gastrointestinal", 
+    "kidney", "renal", "metabolic", "neurological", "neuro", "psychiatry", "psych",
+    "skeletal", "musculoskeletal", "woman", "gynecology", "pediatric", "children", "dental"
+  ];
+  
   const groupedConditions = conditions
     .filter((condition) => condition.category !== "noxen")
     .reduce((acc, condition) => {
@@ -1145,6 +1230,17 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
       acc[condition.category].push(condition);
       return acc;
     }, {} as Record<string, typeof conditions>);
+  
+  const sortedCategories = Object.keys(groupedConditions).sort((a, b) => {
+    const aLower = a.toLowerCase();
+    const bLower = b.toLowerCase();
+    const aIndex = categoryOrder.findIndex(cat => aLower.includes(cat) || cat.includes(aLower));
+    const bIndex = categoryOrder.findIndex(cat => bLower.includes(cat) || cat.includes(bLower));
+    if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
+    if (aIndex === -1) return 1;
+    if (bIndex === -1) return -1;
+    return aIndex - bIndex;
+  });
 
   const toggleCondition = (id: string) => {
     const current = formData.conditions[id] || { checked: false };
@@ -1168,55 +1264,58 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
         {t("questionnaire.conditions.title")}
       </p>
 
-      {Object.entries(groupedConditions).map(([category, items]) => (
-        <div key={category}>
-          <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2 capitalize">
-            {category}
-          </h3>
-          <div className="space-y-2">
-            {items.map((condition) => {
-              const state = formData.conditions[condition.id];
-              return (
-                <div key={condition.id} className="border rounded-lg p-3">
-                  <div className="flex items-start gap-3">
-                    <Checkbox
-                      id={`condition-${condition.id}`}
-                      checked={state?.checked || false}
-                      onCheckedChange={() => toggleCondition(condition.id)}
-                      data-testid={`checkbox-condition-${condition.id}`}
-                    />
-                    <div className="flex-1">
-                      <Label
-                        htmlFor={`condition-${condition.id}`}
-                        className="font-normal cursor-pointer"
-                      >
-                        {getLabel(condition)}
-                      </Label>
-                      {condition.helpText && (
-                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                          <Info className="h-3 w-3" />
-                          {condition.helpText}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  {state?.checked && (
-                    <div className="mt-2 pl-6">
-                      <Input
-                        placeholder={t("questionnaire.conditions.notes")}
-                        value={state.notes || ""}
-                        onChange={(e) => updateConditionNotes(condition.id, e.target.value)}
-                        className="text-sm"
-                        data-testid={`input-condition-notes-${condition.id}`}
+      {sortedCategories.map((category) => {
+        const items = groupedConditions[category];
+        return (
+          <div key={category}>
+            <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2 capitalize">
+              {category}
+            </h3>
+            <div className="space-y-2">
+              {items.map((condition) => {
+                const state = formData.conditions[condition.id];
+                return (
+                  <div key={condition.id} className="border rounded-lg p-3">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        id={`condition-${condition.id}`}
+                        checked={state?.checked || false}
+                        onCheckedChange={() => toggleCondition(condition.id)}
+                        data-testid={`checkbox-condition-${condition.id}`}
                       />
+                      <div className="flex-1">
+                        <Label
+                          htmlFor={`condition-${condition.id}`}
+                          className="font-normal cursor-pointer"
+                        >
+                          {getLabel(condition)}
+                        </Label>
+                        {condition.helpText && (
+                          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                            <Info className="h-3 w-3" />
+                            {condition.helpText}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              );
-            })}
+                    {state?.checked && (
+                      <div className="mt-2 pl-6">
+                        <Input
+                          placeholder={t("questionnaire.conditions.notes")}
+                          value={state.notes || ""}
+                          onChange={(e) => updateConditionNotes(condition.id, e.target.value)}
+                          className="text-sm"
+                          data-testid={`input-condition-notes-${condition.id}`}
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -1530,6 +1629,44 @@ function LifestyleStep({ formData, updateField, t }: StepProps) {
               value={formData.alcoholDetails}
               onChange={(e) => updateField("alcoholDetails", e.target.value)}
               data-testid="input-alcohol-details"
+            />
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      <div>
+        <h3 className="font-semibold mb-2">{t("questionnaire.lifestyle.drugs.title")}</h3>
+        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.lifestyle.drugs.subtitle")}</p>
+        <div className="space-y-2">
+          {[
+            { id: "thc", label: t("questionnaire.lifestyle.drugs.thc") },
+            { id: "cocaine", label: t("questionnaire.lifestyle.drugs.cocaine") },
+            { id: "heroin", label: t("questionnaire.lifestyle.drugs.heroin") },
+            { id: "mdma", label: t("questionnaire.lifestyle.drugs.mdma") },
+            { id: "other", label: t("questionnaire.lifestyle.drugs.other") },
+          ].map((item) => (
+            <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
+              <Checkbox
+                id={`drug-${item.id}`}
+                checked={formData.drugUse[item.id] || false}
+                onCheckedChange={(checked) => updateField("drugUse", { ...formData.drugUse, [item.id]: !!checked })}
+                data-testid={`checkbox-drug-${item.id}`}
+              />
+              <Label htmlFor={`drug-${item.id}`} className="font-normal cursor-pointer">
+                {item.label}
+              </Label>
+            </div>
+          ))}
+        </div>
+        {Object.values(formData.drugUse).some(v => v) && (
+          <div className="mt-3">
+            <Input
+              placeholder={t("questionnaire.lifestyle.drugs.details")}
+              value={formData.drugUseDetails}
+              onChange={(e) => updateField("drugUseDetails", e.target.value)}
+              data-testid="input-drug-details"
             />
           </div>
         )}
@@ -1974,6 +2111,107 @@ function NotesStep({ formData, updateField, t }: StepProps) {
           data-testid="input-questions-for-doctor"
         />
       </div>
+    </div>
+  );
+}
+
+interface SubmitStepProps extends StepProps {
+  onOpenSignature: () => void;
+}
+
+function SubmitStep({ formData, updateField, t, onOpenSignature }: SubmitStepProps) {
+  return (
+    <div className="space-y-6">
+      <div className="text-center mb-4">
+        <h3 className="text-lg font-semibold">{t("questionnaire.submit.title")}</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">{t("questionnaire.submit.subtitle")}</p>
+      </div>
+
+      <div>
+        <Label className="flex items-center gap-2">
+          <Calendar className="h-4 w-4" />
+          {t("questionnaire.submit.date")}
+        </Label>
+        <Input
+          type="date"
+          value={formData.submissionDate}
+          onChange={(e) => updateField("submissionDate", e.target.value)}
+          className="mt-1"
+          data-testid="input-submission-date"
+        />
+      </div>
+
+      <Separator />
+
+      <div>
+        <Label className="flex items-center gap-2 mb-2">
+          <FileCheck className="h-4 w-4" />
+          {t("questionnaire.submit.signature")}
+        </Label>
+        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.submit.signatureHint")}</p>
+        
+        {formData.signature ? (
+          <div className="border rounded-lg p-4 bg-white dark:bg-gray-800">
+            <img 
+              src={formData.signature} 
+              alt="Signature" 
+              className="max-h-24 mx-auto mb-2"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onOpenSignature}
+              className="w-full"
+              data-testid="button-change-signature"
+            >
+              {t("questionnaire.submit.changeSignature")}
+            </Button>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onOpenSignature}
+            className="w-full h-24 border-dashed"
+            data-testid="button-add-signature"
+          >
+            <div className="text-center">
+              <FileCheck className="h-6 w-6 mx-auto mb-1 text-gray-400" />
+              <span className="text-sm text-gray-500">{t("questionnaire.submit.addSignature")}</span>
+            </div>
+          </Button>
+        )}
+      </div>
+
+      <Separator />
+
+      <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-800">
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id="privacy-consent"
+            checked={formData.privacyConsent}
+            onCheckedChange={(checked) => updateField("privacyConsent", !!checked)}
+            data-testid="checkbox-privacy-consent"
+          />
+          <div>
+            <Label htmlFor="privacy-consent" className="font-semibold cursor-pointer flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              {t("questionnaire.submit.privacy")}
+            </Label>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              {t("questionnaire.submit.privacyText")}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {!formData.privacyConsent && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{t("questionnaire.submit.privacyRequired")}</AlertDescription>
+        </Alert>
+      )}
     </div>
   );
 }
