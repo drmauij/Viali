@@ -45,6 +45,13 @@ const preOpFormSchema = z.object({
   womanNotes: z.string().optional(),
   noxenNotes: z.string().optional(),
   childrenNotes: z.string().optional(),
+  // Anesthesia & Surgical History section
+  previousSurgeries: z.string().optional(),
+  anesthesiaSurgicalHistoryNotes: z.string().optional(),
+  // Outpatient Care section
+  outpatientCaregiverFirstName: z.string().optional(),
+  outpatientCaregiverLastName: z.string().optional(),
+  outpatientCaregiverPhone: z.string().optional(),
   mallampati: z.string().optional(),
   mouthOpening: z.string().optional(),
   dentition: z.string().optional(),
@@ -105,6 +112,11 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
       womanNotes: "",
       noxenNotes: "",
       childrenNotes: "",
+      previousSurgeries: "",
+      anesthesiaSurgicalHistoryNotes: "",
+      outpatientCaregiverFirstName: "",
+      outpatientCaregiverLastName: "",
+      outpatientCaregiverPhone: "",
       mallampati: "",
       mouthOpening: "",
       dentition: "",
@@ -151,6 +163,11 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         womanNotes: assessment.womanNotes || "",
         noxenNotes: assessment.noxenNotes || "",
         childrenNotes: assessment.childrenNotes || "",
+        previousSurgeries: assessment.previousSurgeries || "",
+        anesthesiaSurgicalHistoryNotes: assessment.anesthesiaSurgicalHistoryNotes || "",
+        outpatientCaregiverFirstName: assessment.outpatientCaregiverFirstName || "",
+        outpatientCaregiverLastName: assessment.outpatientCaregiverLastName || "",
+        outpatientCaregiverPhone: assessment.outpatientCaregiverPhone || "",
         mallampati: assessment.mallampati || "",
         mouthOpening: assessment.mouthOpening || "",
         dentition: assessment.dentition || "",
@@ -205,6 +222,11 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         womanNotes: data.womanNotes,
         noxenNotes: data.noxenNotes,
         childrenNotes: data.childrenNotes,
+        previousSurgeries: data.previousSurgeries,
+        anesthesiaSurgicalHistoryNotes: data.anesthesiaSurgicalHistoryNotes,
+        outpatientCaregiverFirstName: data.outpatientCaregiverFirstName,
+        outpatientCaregiverLastName: data.outpatientCaregiverLastName,
+        outpatientCaregiverPhone: data.outpatientCaregiverPhone,
         mallampati: data.mallampati,
         mouthOpening: data.mouthOpening,
         dentition: data.dentition,
@@ -269,6 +291,11 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         womanNotes: data.womanNotes,
         noxenNotes: data.noxenNotes,
         childrenNotes: data.childrenNotes,
+        previousSurgeries: data.previousSurgeries,
+        anesthesiaSurgicalHistoryNotes: data.anesthesiaSurgicalHistoryNotes,
+        outpatientCaregiverFirstName: data.outpatientCaregiverFirstName,
+        outpatientCaregiverLastName: data.outpatientCaregiverLastName,
+        outpatientCaregiverPhone: data.outpatientCaregiverPhone,
         mallampati: data.mallampati,
         mouthOpening: data.mouthOpening,
         dentition: data.dentition,
@@ -634,6 +661,77 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   placeholder="Prematurity, developmental delays, vaccinations, etc..."
                   rows={2}
                   data-testid="textarea-children-notes" 
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Anesthesia & Surgical History</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="previousSurgeries">Previous Surgeries</Label>
+                <Textarea 
+                  id="previousSurgeries" 
+                  {...form.register("previousSurgeries")}
+                  disabled={isReadOnly}
+                  placeholder="List previous surgeries with dates if known..."
+                  rows={3}
+                  data-testid="textarea-previous-surgeries" 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="anesthesiaSurgicalHistoryNotes">Anesthesia/Surgical Notes</Label>
+                <Textarea 
+                  id="anesthesiaSurgicalHistoryNotes" 
+                  {...form.register("anesthesiaSurgicalHistoryNotes")}
+                  disabled={isReadOnly}
+                  placeholder="Previous anesthesia problems, complications, difficult intubation, malignant hyperthermia family history, PONV history, dental issues, transfusion reactions..."
+                  rows={4}
+                  data-testid="textarea-anesthesia-surgical-history-notes" 
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Outpatient Care</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">For outpatient procedures, provide caregiver contact information.</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="outpatientCaregiverFirstName">Caregiver First Name</Label>
+                  <Input 
+                    id="outpatientCaregiverFirstName" 
+                    {...form.register("outpatientCaregiverFirstName")}
+                    disabled={isReadOnly}
+                    placeholder="First name"
+                    data-testid="input-caregiver-first-name" 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="outpatientCaregiverLastName">Caregiver Last Name</Label>
+                  <Input 
+                    id="outpatientCaregiverLastName" 
+                    {...form.register("outpatientCaregiverLastName")}
+                    disabled={isReadOnly}
+                    placeholder="Last name"
+                    data-testid="input-caregiver-last-name" 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="outpatientCaregiverPhone">Caregiver Phone</Label>
+                <Input 
+                  id="outpatientCaregiverPhone" 
+                  {...form.register("outpatientCaregiverPhone")}
+                  disabled={isReadOnly}
+                  placeholder="Phone number"
+                  data-testid="input-caregiver-phone" 
                 />
               </div>
             </CardContent>
