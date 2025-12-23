@@ -23,6 +23,9 @@ export type HospitalAnesthesiaSettings = {
     woman?: Array<{ id: string; label: string }>;
     noxen?: Array<{ id: string; label: string }>;
     children?: Array<{ id: string; label: string }>;
+    anesthesiaHistory?: Array<{ id: string; label: string }>;
+    dental?: Array<{ id: string; label: string }>;
+    ponvTransfusion?: Array<{ id: string; label: string }>;
   };
   checklistItems?: {
     signIn?: Array<{ id: string; label: string }>;
@@ -33,11 +36,12 @@ export type HospitalAnesthesiaSettings = {
   updatedAt: string;
 };
 
-export function useHospitalAnesthesiaSettings() {
+export function useHospitalAnesthesiaSettings(hospitalIdOverride?: string) {
   const activeHospital = useActiveHospital();
+  const hospitalId = hospitalIdOverride || activeHospital?.id;
 
   return useQuery<HospitalAnesthesiaSettings | undefined>({
-    queryKey: [`/api/anesthesia/settings/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id,
+    queryKey: [`/api/anesthesia/settings/${hospitalId}`],
+    enabled: !!hospitalId,
   });
 }

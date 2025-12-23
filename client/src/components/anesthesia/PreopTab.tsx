@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
+import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
 import type { PreOpAssessment } from "@shared/schema";
 
 interface PreopTabProps {
@@ -46,6 +47,9 @@ const preOpFormSchema = z.object({
   noxenNotes: z.string().optional(),
   childrenNotes: z.string().optional(),
   // Anesthesia & Surgical History section
+  anesthesiaHistoryIssues: z.record(z.boolean()).optional(),
+  dentalIssues: z.record(z.boolean()).optional(),
+  ponvTransfusionIssues: z.record(z.boolean()).optional(),
   previousSurgeries: z.string().optional(),
   anesthesiaSurgicalHistoryNotes: z.string().optional(),
   // Outpatient Care section
@@ -90,6 +94,8 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
     enabled: !!surgeryId,
   });
 
+  const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings(hospitalId);
+
   const form = useForm<PreOpFormData>({
     resolver: zodResolver(preOpFormSchema),
     defaultValues: {
@@ -112,6 +118,9 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
       womanNotes: "",
       noxenNotes: "",
       childrenNotes: "",
+      anesthesiaHistoryIssues: {},
+      dentalIssues: {},
+      ponvTransfusionIssues: {},
       previousSurgeries: "",
       anesthesiaSurgicalHistoryNotes: "",
       outpatientCaregiverFirstName: "",
@@ -163,6 +172,9 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         womanNotes: assessment.womanNotes || "",
         noxenNotes: assessment.noxenNotes || "",
         childrenNotes: assessment.childrenNotes || "",
+        anesthesiaHistoryIssues: assessment.anesthesiaHistoryIssues || {},
+        dentalIssues: assessment.dentalIssues || {},
+        ponvTransfusionIssues: assessment.ponvTransfusionIssues || {},
         previousSurgeries: assessment.previousSurgeries || "",
         anesthesiaSurgicalHistoryNotes: assessment.anesthesiaSurgicalHistoryNotes || "",
         outpatientCaregiverFirstName: assessment.outpatientCaregiverFirstName || "",
@@ -222,6 +234,9 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         womanNotes: data.womanNotes,
         noxenNotes: data.noxenNotes,
         childrenNotes: data.childrenNotes,
+        anesthesiaHistoryIssues: data.anesthesiaHistoryIssues || {},
+        dentalIssues: data.dentalIssues || {},
+        ponvTransfusionIssues: data.ponvTransfusionIssues || {},
         previousSurgeries: data.previousSurgeries,
         anesthesiaSurgicalHistoryNotes: data.anesthesiaSurgicalHistoryNotes,
         outpatientCaregiverFirstName: data.outpatientCaregiverFirstName,
@@ -291,6 +306,9 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
         womanNotes: data.womanNotes,
         noxenNotes: data.noxenNotes,
         childrenNotes: data.childrenNotes,
+        anesthesiaHistoryIssues: data.anesthesiaHistoryIssues,
+        dentalIssues: data.dentalIssues,
+        ponvTransfusionIssues: data.ponvTransfusionIssues,
         previousSurgeries: data.previousSurgeries,
         anesthesiaSurgicalHistoryNotes: data.anesthesiaSurgicalHistoryNotes,
         outpatientCaregiverFirstName: data.outpatientCaregiverFirstName,
@@ -670,7 +688,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
             <CardHeader>
               <CardTitle>Anesthesia & Surgical History</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="previousSurgeries">Previous Surgeries</Label>
                 <Textarea 
@@ -682,14 +700,93 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                   data-testid="textarea-previous-surgeries" 
                 />
               </div>
+              
+              {/* Anesthesia History Checkboxes */}
+              {anesthesiaSettings?.illnessLists?.anesthesiaHistory && anesthesiaSettings.illnessLists.anesthesiaHistory.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Previous Anesthesia Issues</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {anesthesiaSettings.illnessLists.anesthesiaHistory.map((item) => (
+                      <div key={item.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`anesthesia-${item.id}`}
+                          checked={form.watch("anesthesiaHistoryIssues")?.[item.id] || false}
+                          onCheckedChange={(checked) => {
+                            const current = form.getValues("anesthesiaHistoryIssues") || {};
+                            form.setValue("anesthesiaHistoryIssues", { ...current, [item.id]: checked as boolean }, { shouldDirty: true });
+                          }}
+                          disabled={isReadOnly}
+                          data-testid={`checkbox-anesthesia-${item.id}`}
+                        />
+                        <Label htmlFor={`anesthesia-${item.id}`} className="font-normal text-sm">
+                          {item.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Dental Status Checkboxes */}
+              {anesthesiaSettings?.illnessLists?.dental && anesthesiaSettings.illnessLists.dental.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Dental Status</Label>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {anesthesiaSettings.illnessLists.dental.map((item) => (
+                      <div key={item.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`dental-${item.id}`}
+                          checked={form.watch("dentalIssues")?.[item.id] || false}
+                          onCheckedChange={(checked) => {
+                            const current = form.getValues("dentalIssues") || {};
+                            form.setValue("dentalIssues", { ...current, [item.id]: checked as boolean }, { shouldDirty: true });
+                          }}
+                          disabled={isReadOnly}
+                          data-testid={`checkbox-dental-${item.id}`}
+                        />
+                        <Label htmlFor={`dental-${item.id}`} className="font-normal text-sm">
+                          {item.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* PONV & Transfusion Checkboxes */}
+              {anesthesiaSettings?.illnessLists?.ponvTransfusion && anesthesiaSettings.illnessLists.ponvTransfusion.length > 0 && (
+                <div className="space-y-2">
+                  <Label>PONV & Transfusion History</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {anesthesiaSettings.illnessLists.ponvTransfusion.map((item) => (
+                      <div key={item.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`ponv-${item.id}`}
+                          checked={form.watch("ponvTransfusionIssues")?.[item.id] || false}
+                          onCheckedChange={(checked) => {
+                            const current = form.getValues("ponvTransfusionIssues") || {};
+                            form.setValue("ponvTransfusionIssues", { ...current, [item.id]: checked as boolean }, { shouldDirty: true });
+                          }}
+                          disabled={isReadOnly}
+                          data-testid={`checkbox-ponv-${item.id}`}
+                        />
+                        <Label htmlFor={`ponv-${item.id}`} className="font-normal text-sm">
+                          {item.label}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               <div className="space-y-2">
-                <Label htmlFor="anesthesiaSurgicalHistoryNotes">Anesthesia/Surgical Notes</Label>
+                <Label htmlFor="anesthesiaSurgicalHistoryNotes">Additional Notes</Label>
                 <Textarea 
                   id="anesthesiaSurgicalHistoryNotes" 
                   {...form.register("anesthesiaSurgicalHistoryNotes")}
                   disabled={isReadOnly}
-                  placeholder="Previous anesthesia problems, complications, difficult intubation, malignant hyperthermia family history, PONV history, dental issues, transfusion reactions..."
-                  rows={4}
+                  placeholder="Any additional details about previous anesthesia or surgery..."
+                  rows={3}
                   data-testid="textarea-anesthesia-surgical-history-notes" 
                 />
               </div>
