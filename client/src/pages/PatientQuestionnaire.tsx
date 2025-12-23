@@ -1371,43 +1371,6 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
         </div>
       </div>
 
-      <Separator className="my-6" />
-
-      <div>
-        <h3 className="font-semibold mb-2">{t("questionnaire.history.outpatient.title")}</h3>
-        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.outpatient.subtitle")}</p>
-        <div className="grid gap-3">
-          <div>
-            <Label htmlFor="outpatientFirstName">{t("questionnaire.history.outpatient.firstName")}</Label>
-            <Input
-              id="outpatientFirstName"
-              value={formData.outpatientCaregiverFirstName}
-              onChange={(e) => updateField("outpatientCaregiverFirstName", e.target.value)}
-              data-testid="input-outpatient-firstname"
-            />
-          </div>
-          <div>
-            <Label htmlFor="outpatientLastName">{t("questionnaire.history.outpatient.lastName")}</Label>
-            <Input
-              id="outpatientLastName"
-              value={formData.outpatientCaregiverLastName}
-              onChange={(e) => updateField("outpatientCaregiverLastName", e.target.value)}
-              data-testid="input-outpatient-lastname"
-            />
-          </div>
-          <div>
-            <Label htmlFor="outpatientPhone">{t("questionnaire.history.outpatient.phone")}</Label>
-            <Input
-              id="outpatientPhone"
-              type="tel"
-              value={formData.outpatientCaregiverPhone}
-              onChange={(e) => updateField("outpatientCaregiverPhone", e.target.value)}
-              data-testid="input-outpatient-phone"
-            />
-          </div>
-        </div>
-      </div>
-
     </div>
   );
 }
@@ -2001,6 +1964,43 @@ function NotesStep({ formData, updateField, t }: StepProps) {
           rows={4}
           data-testid="input-questions-for-doctor"
         />
+      </div>
+
+      <Separator className="my-6" />
+
+      <div>
+        <h3 className="font-semibold mb-2">{t("questionnaire.history.outpatient.title")}</h3>
+        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.outpatient.subtitle")}</p>
+        <div className="grid gap-3">
+          <div>
+            <Label htmlFor="outpatientFirstName">{t("questionnaire.history.outpatient.firstName")}</Label>
+            <Input
+              id="outpatientFirstName"
+              value={formData.outpatientCaregiverFirstName}
+              onChange={(e) => updateField("outpatientCaregiverFirstName", e.target.value)}
+              data-testid="input-outpatient-firstname"
+            />
+          </div>
+          <div>
+            <Label htmlFor="outpatientLastName">{t("questionnaire.history.outpatient.lastName")}</Label>
+            <Input
+              id="outpatientLastName"
+              value={formData.outpatientCaregiverLastName}
+              onChange={(e) => updateField("outpatientCaregiverLastName", e.target.value)}
+              data-testid="input-outpatient-lastname"
+            />
+          </div>
+          <div>
+            <Label htmlFor="outpatientPhone">{t("questionnaire.history.outpatient.phone")}</Label>
+            <Input
+              id="outpatientPhone"
+              type="tel"
+              value={formData.outpatientCaregiverPhone}
+              onChange={(e) => updateField("outpatientCaregiverPhone", e.target.value)}
+              data-testid="input-outpatient-phone"
+            />
+          </div>
+        </div>
       </div>
     </div>
   );
