@@ -364,7 +364,12 @@ function BookingDialog({
   }, [defaults]);
 
   const { data: patients = [] } = useQuery<Patient[]>({
-    queryKey: [`/api/patients/${hospitalId}?search=${encodeURIComponent(patientSearch)}`],
+    queryKey: ['/api/patients', hospitalId, patientSearch],
+    queryFn: async () => {
+      const response = await fetch(`/api/patients?hospitalId=${hospitalId}&search=${encodeURIComponent(patientSearch)}`);
+      if (!response.ok) throw new Error('Failed to fetch patients');
+      return response.json();
+    },
     enabled: !!hospitalId && patientSearch.length >= 2,
   });
 
