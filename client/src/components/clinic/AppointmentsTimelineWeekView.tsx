@@ -92,10 +92,13 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'timeline-item-cancelled',
   no_show: 'timeline-item-no-show',
   surgery_block: 'timeline-item-surgery',
+  // All absence types use the same red style class
   absence_vacation: 'timeline-item-absence-vacation',
   absence_sick: 'timeline-item-absence-sick',
   absence_training: 'timeline-item-absence-training',
   absence_parental: 'timeline-item-absence-parental',
+  absence_homeoffice: 'timeline-item-absence-homeoffice',
+  absence_sabbatical: 'timeline-item-absence-sabbatical',
   absence_other: 'timeline-item-absence-other',
 };
 

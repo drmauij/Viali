@@ -110,12 +110,14 @@ const STATUS_COLORS: Record<string, { bg: string; border: string }> = {
   cancelled: { bg: '#ef4444', border: '#dc2626' },
   no_show: { bg: '#8b5cf6', border: '#7c3aed' },
   surgery_block: { bg: '#9ca3af', border: '#6b7280' },
-  // Absence types
-  absence_vacation: { bg: '#f97316', border: '#ea580c' },
-  absence_sick: { bg: '#ef4444', border: '#dc2626' },
-  absence_training: { bg: '#8b5cf6', border: '#7c3aed' },
-  absence_parental: { bg: '#ec4899', border: '#db2777' },
-  absence_other: { bg: '#6b7280', border: '#4b5563' },
+  // All absence types are red
+  absence_vacation: { bg: '#dc2626', border: '#b91c1c' },
+  absence_sick: { bg: '#dc2626', border: '#b91c1c' },
+  absence_training: { bg: '#dc2626', border: '#b91c1c' },
+  absence_parental: { bg: '#dc2626', border: '#b91c1c' },
+  absence_homeoffice: { bg: '#dc2626', border: '#b91c1c' },
+  absence_sabbatical: { bg: '#dc2626', border: '#b91c1c' },
+  absence_other: { bg: '#dc2626', border: '#b91c1c' },
 };
 
 const ABSENCE_TYPE_LABELS: Record<string, string> = {
@@ -498,17 +500,15 @@ export default function ClinicCalendar({
       };
     }
     
-    // Absence blocks: colored by type, non-interactive
+    // Absence blocks: all red, non-interactive
     if (event.isAbsenceBlock) {
-      const absenceStatus = `absence_${event.absenceType || 'other'}`;
-      const colors = STATUS_COLORS[absenceStatus] || STATUS_COLORS.absence_other;
       return {
         style: {
-          backgroundColor: colors.bg,
-          borderColor: colors.border,
+          backgroundColor: '#dc2626',
+          borderColor: '#b91c1c',
           color: '#ffffff',
           borderRadius: '4px',
-          opacity: 0.85,
+          opacity: 0.9,
           border: '1px solid',
           display: 'block',
           cursor: 'not-allowed',
