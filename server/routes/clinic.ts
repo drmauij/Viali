@@ -1363,7 +1363,22 @@ router.get('/api/clinic/:hospitalId/provider-surgeries', isAuthenticated, isClin
     const end = new Date(endDate as string);
     end.setHours(23, 59, 59, 999);
     
-    // Fetch surgeries where surgeonId is in the list and within date range
+    // Get provider names for fallback matching (for legacy data without surgeonId)
+    const providerData = await db
+      .select({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+      })
+      .from(users)
+      .where(inArray(users.id, ids));
+    
+    // Build array of surgeon name patterns for text matching
+    const surgeonNamePatterns = providerData.map(p => 
+      `${p.firstName} ${p.lastName}`.trim().toLowerCase()
+    );
+    
+    // Fetch surgeries where surgeonId is in the list OR surgeon name matches (for legacy data)
     const result = await db
       .select({
         id: surgeries.id,
@@ -1383,16 +1398,38 @@ router.get('/api/clinic/:hospitalId/provider-surgeries', isAuthenticated, isClin
       .where(
         and(
           eq(surgeries.hospitalId, hospitalId),
-          inArray(surgeries.surgeonId, ids),
           sql`${surgeries.plannedDate} >= ${start}`,
           sql`${surgeries.plannedDate} <= ${end}`,
           // Only non-cancelled and non-archived surgeries
-          sql`(${surgeries.status} IS NULL OR ${surgeries.status} NOT IN ('cancelled', 'archived'))`
+          sql`(${surgeries.status} IS NULL OR ${surgeries.status} NOT IN ('cancelled', 'archived'))`,
+          // Match by surgeonId OR by surgeon name (for legacy data)
+          or(
+            inArray(surgeries.surgeonId, ids),
+            sql`LOWER(TRIM(${surgeries.surgeon})) = ANY(${surgeonNamePatterns})`
+          )
         )
       )
       .orderBy(surgeries.plannedDate);
     
-    res.json(result);
+    // Map surgeon names back to provider IDs for legacy entries
+    const providerNameToId = new Map<string, string>();
+    providerData.forEach(p => {
+      providerNameToId.set(`${p.firstName} ${p.lastName}`.trim().toLowerCase(), p.id);
+    });
+    
+    const enrichedResult = result.map(surgery => {
+      // If surgeonId is missing but surgeon name matches, add the provider ID
+      if (!surgery.surgeonId && surgery.surgeon) {
+        const normalizedName = surgery.surgeon.trim().toLowerCase();
+        const matchedProviderId = providerNameToId.get(normalizedName);
+        if (matchedProviderId) {
+          return { ...surgery, surgeonId: matchedProviderId };
+        }
+      }
+      return surgery;
+    });
+    
+    res.json(enrichedResult);
   } catch (error) {
     console.error("Error fetching provider surgeries:", error);
     res.status(500).json({ message: "Failed to fetch provider surgeries" });
