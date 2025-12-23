@@ -1374,41 +1374,6 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
       <Separator className="my-6" />
 
       <div>
-        <h3 className="font-semibold mb-2">{t("questionnaire.history.ponv.title")}</h3>
-        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.ponv.subtitle")}</p>
-        <div className="space-y-2">
-          {[
-            { id: "ponvPrevious", label: t("questionnaire.history.ponv.ponvPrevious") },
-            { id: "ponvFamily", label: t("questionnaire.history.ponv.ponvFamily") },
-            { id: "bloodTransfusion", label: t("questionnaire.history.ponv.bloodTransfusion") },
-            { id: "transfusionReaction", label: t("questionnaire.history.ponv.transfusionReaction") },
-          ].map((item) => (
-            <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
-              <Checkbox
-                id={`ponv-${item.id}`}
-                checked={formData.ponvTransfusionIssues[item.id] || false}
-                onCheckedChange={(checked) => updateField("ponvTransfusionIssues", { ...formData.ponvTransfusionIssues, [item.id]: !!checked })}
-                data-testid={`checkbox-ponv-${item.id}`}
-              />
-              <Label htmlFor={`ponv-${item.id}`} className="font-normal cursor-pointer">
-                {item.label}
-              </Label>
-            </div>
-          ))}
-        </div>
-        <div className="mt-3">
-          <Input
-            placeholder={t("questionnaire.history.ponv.notes")}
-            value={formData.ponvTransfusionNotes}
-            onChange={(e) => updateField("ponvTransfusionNotes", e.target.value)}
-            data-testid="input-ponv-notes"
-          />
-        </div>
-      </div>
-
-      <Separator className="my-6" />
-
-      <div>
         <h3 className="font-semibold mb-2">{t("questionnaire.history.outpatient.title")}</h3>
         <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.outpatient.subtitle")}</p>
         <div className="grid gap-3">
