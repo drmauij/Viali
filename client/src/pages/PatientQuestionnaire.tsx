@@ -1136,13 +1136,15 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
     if (language === "de" && item.labelDe) return item.labelDe;
     return item.label;
   };
-  const groupedConditions = conditions.reduce((acc, condition) => {
-    if (!acc[condition.category]) {
-      acc[condition.category] = [];
-    }
-    acc[condition.category].push(condition);
-    return acc;
-  }, {} as Record<string, typeof conditions>);
+  const groupedConditions = conditions
+    .filter((condition) => condition.category !== "noxen")
+    .reduce((acc, condition) => {
+      if (!acc[condition.category]) {
+        acc[condition.category] = [];
+      }
+      acc[condition.category].push(condition);
+      return acc;
+    }, {} as Record<string, typeof conditions>);
 
   const toggleCondition = (id: string) => {
     const current = formData.conditions[id] || { checked: false };
