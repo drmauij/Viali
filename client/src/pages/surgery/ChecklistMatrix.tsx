@@ -413,11 +413,11 @@ export default function ChecklistMatrix() {
             </div>
           </div>
         ) : (
-          <div className="h-full overflow-x-auto overflow-y-auto p-4">
+          <div className="h-full overflow-x-auto overflow-y-auto pr-4 py-4">
             <table className="w-full border-collapse text-sm" style={{ borderSpacing: 0 }}>
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="sticky left-0 z-20 px-3 py-2 text-left font-medium min-w-[200px] bg-muted border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                      <th className="sticky left-0 z-20 pl-4 pr-3 py-2 text-left font-medium min-w-[200px] bg-muted border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                         {t('checklistMatrix.patient', 'Patient')}
                       </th>
                       <th className="px-3 py-2 text-left font-medium min-w-[100px]">
@@ -450,7 +450,7 @@ export default function ChecklistMatrix() {
                       
                       return (
                         <tr key={surgery.id} className="border-b hover:bg-muted/30 group">
-                          <td className="sticky left-0 z-20 px-3 py-2 font-medium bg-background border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted/30">
+                          <td className="sticky left-0 z-20 pl-4 pr-3 py-2 font-medium bg-background border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted/30">
                             {surgery.patient ? (
                               <Link 
                                 href={`/surgery/patients/${surgery.patient.id}`}
