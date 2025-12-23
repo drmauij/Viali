@@ -1214,7 +1214,7 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
   ];
   
   const groupedConditions = conditions
-    .filter((condition) => condition.category !== "noxen")
+    .filter((condition) => condition.category !== "noxen" && condition.category.toLowerCase() !== "dental")
     .reduce((acc, condition) => {
       if (!acc[condition.category]) {
         acc[condition.category] = [];
@@ -1443,68 +1443,6 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
         </div>
       </div>
 
-      <Separator className="my-6" />
-
-      <div>
-        <h3 className="font-semibold mb-3">{t("questionnaire.history.pregnancy")}</h3>
-        <RadioGroup
-          value={formData.pregnancyStatus}
-          onValueChange={(value) => updateField("pregnancyStatus", value)}
-        >
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="not_applicable" id="pregnancy-na" data-testid="radio-pregnancy-na" />
-              <Label htmlFor="pregnancy-na" className="font-normal cursor-pointer">
-                {t("questionnaire.history.pregnancy.notApplicable")}
-              </Label>
-            </div>
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="no" id="pregnancy-no" data-testid="radio-pregnancy-no" />
-              <Label htmlFor="pregnancy-no" className="font-normal cursor-pointer">
-                {t("questionnaire.history.pregnancy.no")}
-              </Label>
-            </div>
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="possible" id="pregnancy-possible" data-testid="radio-pregnancy-possible" />
-              <Label htmlFor="pregnancy-possible" className="font-normal cursor-pointer">
-                {t("questionnaire.history.pregnancy.possible")}
-              </Label>
-            </div>
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="yes" id="pregnancy-yes" data-testid="radio-pregnancy-yes" />
-              <Label htmlFor="pregnancy-yes" className="font-normal cursor-pointer">
-                {t("questionnaire.history.pregnancy.yes")}
-              </Label>
-            </div>
-          </div>
-        </RadioGroup>
-
-        {formData.pregnancyStatus && formData.pregnancyStatus !== "not_applicable" && (
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <Checkbox
-                id="breastfeeding"
-                checked={formData.breastfeeding}
-                onCheckedChange={(checked) => updateField("breastfeeding", !!checked)}
-                data-testid="checkbox-breastfeeding"
-              />
-              <Label htmlFor="breastfeeding" className="font-normal cursor-pointer">
-                {t("questionnaire.history.breastfeeding")}
-              </Label>
-            </div>
-            <div>
-              <Label htmlFor="womanNotes">{t("questionnaire.history.womanNotes")}</Label>
-              <Textarea
-                id="womanNotes"
-                value={formData.womanHealthNotes}
-                onChange={(e) => updateField("womanHealthNotes", e.target.value)}
-                rows={2}
-                data-testid="input-woman-notes"
-              />
-            </div>
-          </div>
-        )}
-      </div>
     </div>
   );
 }
