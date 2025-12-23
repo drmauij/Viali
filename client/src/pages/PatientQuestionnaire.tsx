@@ -148,11 +148,11 @@ interface FormData {
   alcoholDetails: string;
   previousSurgeries: string;
   previousAnesthesiaProblems: string;
-  // Dental status
-  dentalStatus: Record<string, boolean>;
+  // Dental status (matches schema field name: dentalIssues)
+  dentalIssues: Record<string, boolean>;
   dentalNotes: string;
-  // PONV & Transfusion
-  ponvTransfusion: Record<string, boolean>;
+  // PONV & Transfusion (matches schema field name: ponvTransfusionIssues)
+  ponvTransfusionIssues: Record<string, boolean>;
   ponvTransfusionNotes: string;
   // Outpatient care
   outpatientCaregiverFirstName: string;
@@ -454,9 +454,9 @@ export default function PatientQuestionnaire() {
     alcoholDetails: "",
     previousSurgeries: "",
     previousAnesthesiaProblems: "",
-    dentalStatus: {},
+    dentalIssues: {},
     dentalNotes: "",
-    ponvTransfusion: {},
+    ponvTransfusionIssues: {},
     ponvTransfusionNotes: "",
     outpatientCaregiverFirstName: "",
     outpatientCaregiverLastName: "",
@@ -520,9 +520,9 @@ export default function PatientQuestionnaire() {
         alcoholDetails: existing?.alcoholDetails || "",
         previousSurgeries: existing?.previousSurgeries || "",
         previousAnesthesiaProblems: existing?.previousAnesthesiaProblems || "",
-        dentalStatus: (existing as any)?.dentalStatus || {},
+        dentalIssues: (existing as any)?.dentalIssues || {},
         dentalNotes: (existing as any)?.dentalNotes || "",
-        ponvTransfusion: (existing as any)?.ponvTransfusion || {},
+        ponvTransfusionIssues: (existing as any)?.ponvTransfusionIssues || {},
         ponvTransfusionNotes: (existing as any)?.ponvTransfusionNotes || "",
         outpatientCaregiverFirstName: (existing as any)?.outpatientCaregiverFirstName || "",
         outpatientCaregiverLastName: (existing as any)?.outpatientCaregiverLastName || "",
@@ -1579,8 +1579,8 @@ function HistoryStep({ formData, updateField, t }: StepProps) {
             <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
               <Checkbox
                 id={`dental-${item.id}`}
-                checked={formData.dentalStatus[item.id] || false}
-                onCheckedChange={(checked) => updateField("dentalStatus", { ...formData.dentalStatus, [item.id]: !!checked })}
+                checked={formData.dentalIssues[item.id] || false}
+                onCheckedChange={(checked) => updateField("dentalIssues", { ...formData.dentalIssues, [item.id]: !!checked })}
                 data-testid={`checkbox-dental-${item.id}`}
               />
               <Label htmlFor={`dental-${item.id}`} className="font-normal cursor-pointer">
@@ -1614,8 +1614,8 @@ function HistoryStep({ formData, updateField, t }: StepProps) {
             <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
               <Checkbox
                 id={`ponv-${item.id}`}
-                checked={formData.ponvTransfusion[item.id] || false}
-                onCheckedChange={(checked) => updateField("ponvTransfusion", { ...formData.ponvTransfusion, [item.id]: !!checked })}
+                checked={formData.ponvTransfusionIssues[item.id] || false}
+                onCheckedChange={(checked) => updateField("ponvTransfusionIssues", { ...formData.ponvTransfusionIssues, [item.id]: !!checked })}
                 data-testid={`checkbox-ponv-${item.id}`}
               />
               <Label htmlFor={`ponv-${item.id}`} className="font-normal cursor-pointer">
