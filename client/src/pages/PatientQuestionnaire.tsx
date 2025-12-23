@@ -183,7 +183,6 @@ const STEPS = [
   { id: "conditions", icon: Heart, labelKey: "questionnaire.steps.conditions" },
   { id: "medications", icon: Pill, labelKey: "questionnaire.steps.medications" },
   { id: "lifestyle", icon: Cigarette, labelKey: "questionnaire.steps.lifestyle" },
-  { id: "history", icon: Stethoscope, labelKey: "questionnaire.steps.history" },
   { id: "uploads", icon: Paperclip, labelKey: "questionnaire.steps.uploads" },
   { id: "notes", icon: MessageSquare, labelKey: "questionnaire.steps.notes" },
   { id: "submit", icon: FileCheck, labelKey: "questionnaire.steps.submit" },
@@ -592,11 +591,11 @@ export default function PatientQuestionnaire() {
         submissionDate: (existing as any)?.submissionDate || new Date().toISOString().split('T')[0],
         signature: (existing as any)?.signature || "",
         privacyConsent: (existing as any)?.privacyConsent || false,
-        currentStep: existing?.currentStep || 0,
+        currentStep: Math.min(existing?.currentStep || 0, STEPS.length - 1),
         completedSteps: existing?.completedSteps || [],
       });
-      if (existing?.currentStep) {
-        setCurrentStep(existing.currentStep);
+      if (existing?.currentStep !== undefined) {
+        setCurrentStep(Math.min(existing.currentStep, STEPS.length - 1));
       }
 
       // Load existing uploads
@@ -920,7 +919,7 @@ export default function PatientQuestionnaire() {
           <CardContent>
             <Progress value={progress} className="h-2 mb-2" />
             <div className="flex justify-between text-xs text-gray-500">
-              <span>{STEPS[currentStep].id === "personal" ? t(STEPS[currentStep].labelKey) : `${currentStep + 1}/${STEPS.length}`}</span>
+              <span>{STEPS[currentStep]?.id === "personal" ? t(STEPS[currentStep].labelKey) : `${currentStep + 1}/${STEPS.length}`}</span>
               <span>
                 {saveStatus === "saving" && (
                   <span className="flex items-center gap-1">
@@ -1016,13 +1015,6 @@ export default function PatientQuestionnaire() {
               />
             )}
             {currentStep === 5 && (
-              <HistoryStep
-                formData={formData}
-                updateField={updateField}
-                t={t}
-              />
-            )}
-            {currentStep === 6 && (
               <UploadsStep
                 uploads={uploads}
                 uploadError={uploadError}
@@ -1031,14 +1023,14 @@ export default function PatientQuestionnaire() {
                 t={t}
               />
             )}
-            {currentStep === 7 && (
+            {currentStep === 6 && (
               <NotesStep
                 formData={formData}
                 updateField={updateField}
                 t={t}
               />
             )}
-            {currentStep === 8 && (
+            {currentStep === 7 && (
               <SubmitStep
                 formData={formData}
                 updateField={updateField}
@@ -1316,6 +1308,203 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
           </div>
         );
       })}
+
+      <Separator className="my-6" />
+
+      <div>
+        <Label htmlFor="previousSurgeries">{t("questionnaire.history.surgeries")}</Label>
+        <p className="text-xs text-gray-500 mb-2">{t("questionnaire.history.surgeriesHint")}</p>
+        <Textarea
+          id="previousSurgeries"
+          value={formData.previousSurgeries}
+          onChange={(e) => updateField("previousSurgeries", e.target.value)}
+          rows={4}
+          data-testid="input-previous-surgeries"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="anesthesiaProblems">{t("questionnaire.history.anesthesia")}</Label>
+        <p className="text-xs text-gray-500 mb-2">{t("questionnaire.history.anesthesiaHint")}</p>
+        <Textarea
+          id="anesthesiaProblems"
+          value={formData.previousAnesthesiaProblems}
+          onChange={(e) => updateField("previousAnesthesiaProblems", e.target.value)}
+          rows={4}
+          data-testid="input-anesthesia-problems"
+        />
+      </div>
+
+      <Separator className="my-6" />
+
+      <div>
+        <h3 className="font-semibold mb-2">{t("questionnaire.history.dental.title")}</h3>
+        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.dental.subtitle")}</p>
+        <div className="space-y-2">
+          {[
+            { id: "dentures", label: t("questionnaire.history.dental.dentures") },
+            { id: "crowns", label: t("questionnaire.history.dental.crowns") },
+            { id: "implants", label: t("questionnaire.history.dental.implants") },
+            { id: "looseTeeth", label: t("questionnaire.history.dental.looseTeeth") },
+            { id: "damagedTeeth", label: t("questionnaire.history.dental.damagedTeeth") },
+          ].map((item) => (
+            <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
+              <Checkbox
+                id={`dental-${item.id}`}
+                checked={formData.dentalIssues[item.id] || false}
+                onCheckedChange={(checked) => updateField("dentalIssues", { ...formData.dentalIssues, [item.id]: !!checked })}
+                data-testid={`checkbox-dental-${item.id}`}
+              />
+              <Label htmlFor={`dental-${item.id}`} className="font-normal cursor-pointer">
+                {item.label}
+              </Label>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3">
+          <Input
+            placeholder={t("questionnaire.history.dental.notes")}
+            value={formData.dentalNotes}
+            onChange={(e) => updateField("dentalNotes", e.target.value)}
+            data-testid="input-dental-notes"
+          />
+        </div>
+      </div>
+
+      <Separator className="my-6" />
+
+      <div>
+        <h3 className="font-semibold mb-2">{t("questionnaire.history.ponv.title")}</h3>
+        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.ponv.subtitle")}</p>
+        <div className="space-y-2">
+          {[
+            { id: "ponvPrevious", label: t("questionnaire.history.ponv.ponvPrevious") },
+            { id: "ponvFamily", label: t("questionnaire.history.ponv.ponvFamily") },
+            { id: "bloodTransfusion", label: t("questionnaire.history.ponv.bloodTransfusion") },
+            { id: "transfusionReaction", label: t("questionnaire.history.ponv.transfusionReaction") },
+          ].map((item) => (
+            <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
+              <Checkbox
+                id={`ponv-${item.id}`}
+                checked={formData.ponvTransfusionIssues[item.id] || false}
+                onCheckedChange={(checked) => updateField("ponvTransfusionIssues", { ...formData.ponvTransfusionIssues, [item.id]: !!checked })}
+                data-testid={`checkbox-ponv-${item.id}`}
+              />
+              <Label htmlFor={`ponv-${item.id}`} className="font-normal cursor-pointer">
+                {item.label}
+              </Label>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3">
+          <Input
+            placeholder={t("questionnaire.history.ponv.notes")}
+            value={formData.ponvTransfusionNotes}
+            onChange={(e) => updateField("ponvTransfusionNotes", e.target.value)}
+            data-testid="input-ponv-notes"
+          />
+        </div>
+      </div>
+
+      <Separator className="my-6" />
+
+      <div>
+        <h3 className="font-semibold mb-2">{t("questionnaire.history.outpatient.title")}</h3>
+        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.outpatient.subtitle")}</p>
+        <div className="grid gap-3">
+          <div>
+            <Label htmlFor="outpatientFirstName">{t("questionnaire.history.outpatient.firstName")}</Label>
+            <Input
+              id="outpatientFirstName"
+              value={formData.outpatientCaregiverFirstName}
+              onChange={(e) => updateField("outpatientCaregiverFirstName", e.target.value)}
+              data-testid="input-outpatient-firstname"
+            />
+          </div>
+          <div>
+            <Label htmlFor="outpatientLastName">{t("questionnaire.history.outpatient.lastName")}</Label>
+            <Input
+              id="outpatientLastName"
+              value={formData.outpatientCaregiverLastName}
+              onChange={(e) => updateField("outpatientCaregiverLastName", e.target.value)}
+              data-testid="input-outpatient-lastname"
+            />
+          </div>
+          <div>
+            <Label htmlFor="outpatientPhone">{t("questionnaire.history.outpatient.phone")}</Label>
+            <Input
+              id="outpatientPhone"
+              type="tel"
+              value={formData.outpatientCaregiverPhone}
+              onChange={(e) => updateField("outpatientCaregiverPhone", e.target.value)}
+              data-testid="input-outpatient-phone"
+            />
+          </div>
+        </div>
+      </div>
+
+      <Separator className="my-6" />
+
+      <div>
+        <h3 className="font-semibold mb-3">{t("questionnaire.history.pregnancy")}</h3>
+        <RadioGroup
+          value={formData.pregnancyStatus}
+          onValueChange={(value) => updateField("pregnancyStatus", value)}
+        >
+          <div className="space-y-2">
+            <div className="flex items-center gap-3 p-2 border rounded">
+              <RadioGroupItem value="not_applicable" id="pregnancy-na" data-testid="radio-pregnancy-na" />
+              <Label htmlFor="pregnancy-na" className="font-normal cursor-pointer">
+                {t("questionnaire.history.pregnancy.notApplicable")}
+              </Label>
+            </div>
+            <div className="flex items-center gap-3 p-2 border rounded">
+              <RadioGroupItem value="no" id="pregnancy-no" data-testid="radio-pregnancy-no" />
+              <Label htmlFor="pregnancy-no" className="font-normal cursor-pointer">
+                {t("questionnaire.history.pregnancy.no")}
+              </Label>
+            </div>
+            <div className="flex items-center gap-3 p-2 border rounded">
+              <RadioGroupItem value="possible" id="pregnancy-possible" data-testid="radio-pregnancy-possible" />
+              <Label htmlFor="pregnancy-possible" className="font-normal cursor-pointer">
+                {t("questionnaire.history.pregnancy.possible")}
+              </Label>
+            </div>
+            <div className="flex items-center gap-3 p-2 border rounded">
+              <RadioGroupItem value="yes" id="pregnancy-yes" data-testid="radio-pregnancy-yes" />
+              <Label htmlFor="pregnancy-yes" className="font-normal cursor-pointer">
+                {t("questionnaire.history.pregnancy.yes")}
+              </Label>
+            </div>
+          </div>
+        </RadioGroup>
+
+        {formData.pregnancyStatus && formData.pregnancyStatus !== "not_applicable" && (
+          <div className="mt-4 space-y-3">
+            <div className="flex items-center gap-3 p-2 border rounded">
+              <Checkbox
+                id="breastfeeding"
+                checked={formData.breastfeeding}
+                onCheckedChange={(checked) => updateField("breastfeeding", !!checked)}
+                data-testid="checkbox-breastfeeding"
+              />
+              <Label htmlFor="breastfeeding" className="font-normal cursor-pointer">
+                {t("questionnaire.history.breastfeeding")}
+              </Label>
+            </div>
+            <div>
+              <Label htmlFor="womanNotes">{t("questionnaire.history.womanNotes")}</Label>
+              <Textarea
+                id="womanNotes"
+                value={formData.womanHealthNotes}
+                onChange={(e) => updateField("womanHealthNotes", e.target.value)}
+                rows={2}
+                data-testid="input-woman-notes"
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -1668,207 +1857,6 @@ function LifestyleStep({ formData, updateField, t }: StepProps) {
               onChange={(e) => updateField("drugUseDetails", e.target.value)}
               data-testid="input-drug-details"
             />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function HistoryStep({ formData, updateField, t }: StepProps) {
-  return (
-    <div className="space-y-6">
-      <div>
-        <Label htmlFor="previousSurgeries">{t("questionnaire.history.surgeries")}</Label>
-        <p className="text-xs text-gray-500 mb-2">{t("questionnaire.history.surgeriesHint")}</p>
-        <Textarea
-          id="previousSurgeries"
-          value={formData.previousSurgeries}
-          onChange={(e) => updateField("previousSurgeries", e.target.value)}
-          rows={4}
-          data-testid="input-previous-surgeries"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="anesthesiaProblems">{t("questionnaire.history.anesthesia")}</Label>
-        <p className="text-xs text-gray-500 mb-2">{t("questionnaire.history.anesthesiaHint")}</p>
-        <Textarea
-          id="anesthesiaProblems"
-          value={formData.previousAnesthesiaProblems}
-          onChange={(e) => updateField("previousAnesthesiaProblems", e.target.value)}
-          rows={4}
-          data-testid="input-anesthesia-problems"
-        />
-      </div>
-
-      <Separator />
-
-      <div>
-        <h3 className="font-semibold mb-2">{t("questionnaire.history.dental.title")}</h3>
-        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.dental.subtitle")}</p>
-        <div className="space-y-2">
-          {[
-            { id: "dentures", label: t("questionnaire.history.dental.dentures") },
-            { id: "crowns", label: t("questionnaire.history.dental.crowns") },
-            { id: "implants", label: t("questionnaire.history.dental.implants") },
-            { id: "looseTeeth", label: t("questionnaire.history.dental.looseTeeth") },
-            { id: "damagedTeeth", label: t("questionnaire.history.dental.damagedTeeth") },
-          ].map((item) => (
-            <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
-              <Checkbox
-                id={`dental-${item.id}`}
-                checked={formData.dentalIssues[item.id] || false}
-                onCheckedChange={(checked) => updateField("dentalIssues", { ...formData.dentalIssues, [item.id]: !!checked })}
-                data-testid={`checkbox-dental-${item.id}`}
-              />
-              <Label htmlFor={`dental-${item.id}`} className="font-normal cursor-pointer">
-                {item.label}
-              </Label>
-            </div>
-          ))}
-        </div>
-        <div className="mt-3">
-          <Input
-            placeholder={t("questionnaire.history.dental.notes")}
-            value={formData.dentalNotes}
-            onChange={(e) => updateField("dentalNotes", e.target.value)}
-            data-testid="input-dental-notes"
-          />
-        </div>
-      </div>
-
-      <Separator />
-
-      <div>
-        <h3 className="font-semibold mb-2">{t("questionnaire.history.ponv.title")}</h3>
-        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.ponv.subtitle")}</p>
-        <div className="space-y-2">
-          {[
-            { id: "ponvPrevious", label: t("questionnaire.history.ponv.ponvPrevious") },
-            { id: "ponvFamily", label: t("questionnaire.history.ponv.ponvFamily") },
-            { id: "bloodTransfusion", label: t("questionnaire.history.ponv.bloodTransfusion") },
-            { id: "transfusionReaction", label: t("questionnaire.history.ponv.transfusionReaction") },
-          ].map((item) => (
-            <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
-              <Checkbox
-                id={`ponv-${item.id}`}
-                checked={formData.ponvTransfusionIssues[item.id] || false}
-                onCheckedChange={(checked) => updateField("ponvTransfusionIssues", { ...formData.ponvTransfusionIssues, [item.id]: !!checked })}
-                data-testid={`checkbox-ponv-${item.id}`}
-              />
-              <Label htmlFor={`ponv-${item.id}`} className="font-normal cursor-pointer">
-                {item.label}
-              </Label>
-            </div>
-          ))}
-        </div>
-        <div className="mt-3">
-          <Input
-            placeholder={t("questionnaire.history.ponv.notes")}
-            value={formData.ponvTransfusionNotes}
-            onChange={(e) => updateField("ponvTransfusionNotes", e.target.value)}
-            data-testid="input-ponv-notes"
-          />
-        </div>
-      </div>
-
-      <Separator />
-
-      <div>
-        <h3 className="font-semibold mb-2">{t("questionnaire.history.outpatient.title")}</h3>
-        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.outpatient.subtitle")}</p>
-        <div className="grid gap-3">
-          <div>
-            <Label htmlFor="outpatientFirstName">{t("questionnaire.history.outpatient.firstName")}</Label>
-            <Input
-              id="outpatientFirstName"
-              value={formData.outpatientCaregiverFirstName}
-              onChange={(e) => updateField("outpatientCaregiverFirstName", e.target.value)}
-              data-testid="input-outpatient-firstname"
-            />
-          </div>
-          <div>
-            <Label htmlFor="outpatientLastName">{t("questionnaire.history.outpatient.lastName")}</Label>
-            <Input
-              id="outpatientLastName"
-              value={formData.outpatientCaregiverLastName}
-              onChange={(e) => updateField("outpatientCaregiverLastName", e.target.value)}
-              data-testid="input-outpatient-lastname"
-            />
-          </div>
-          <div>
-            <Label htmlFor="outpatientPhone">{t("questionnaire.history.outpatient.phone")}</Label>
-            <Input
-              id="outpatientPhone"
-              type="tel"
-              value={formData.outpatientCaregiverPhone}
-              onChange={(e) => updateField("outpatientCaregiverPhone", e.target.value)}
-              data-testid="input-outpatient-phone"
-            />
-          </div>
-        </div>
-      </div>
-
-      <Separator />
-
-      <div>
-        <h3 className="font-semibold mb-3">{t("questionnaire.history.pregnancy")}</h3>
-        <RadioGroup
-          value={formData.pregnancyStatus}
-          onValueChange={(value) => updateField("pregnancyStatus", value)}
-        >
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="not_applicable" id="pregnancy-na" data-testid="radio-pregnancy-na" />
-              <Label htmlFor="pregnancy-na" className="font-normal cursor-pointer">
-                {t("questionnaire.history.pregnancy.notApplicable")}
-              </Label>
-            </div>
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="no" id="pregnancy-no" data-testid="radio-pregnancy-no" />
-              <Label htmlFor="pregnancy-no" className="font-normal cursor-pointer">
-                {t("questionnaire.history.pregnancy.no")}
-              </Label>
-            </div>
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="possible" id="pregnancy-possible" data-testid="radio-pregnancy-possible" />
-              <Label htmlFor="pregnancy-possible" className="font-normal cursor-pointer">
-                {t("questionnaire.history.pregnancy.possible")}
-              </Label>
-            </div>
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="yes" id="pregnancy-yes" data-testid="radio-pregnancy-yes" />
-              <Label htmlFor="pregnancy-yes" className="font-normal cursor-pointer">
-                {t("questionnaire.history.pregnancy.yes")}
-              </Label>
-            </div>
-          </div>
-        </RadioGroup>
-
-        {formData.pregnancyStatus && formData.pregnancyStatus !== "not_applicable" && (
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <Checkbox
-                id="breastfeeding"
-                checked={formData.breastfeeding}
-                onCheckedChange={(checked) => updateField("breastfeeding", !!checked)}
-                data-testid="checkbox-breastfeeding"
-              />
-              <Label htmlFor="breastfeeding" className="font-normal cursor-pointer">
-                {t("questionnaire.history.breastfeeding")}
-              </Label>
-            </div>
-            <div>
-              <Label htmlFor="womanNotes">{t("questionnaire.history.womanNotes")}</Label>
-              <Textarea
-                id="womanNotes"
-                value={formData.womanHealthNotes}
-                onChange={(e) => updateField("womanHealthNotes", e.target.value)}
-                rows={2}
-                data-testid="input-woman-notes"
-              />
-            </div>
           </div>
         )}
       </div>
