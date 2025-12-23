@@ -44,6 +44,8 @@ interface CalendarEvent {
   notes: string | null;
   isSurgeryBlock?: boolean;
   surgeryName?: string;
+  isAbsenceBlock?: boolean;
+  absenceType?: string;
 }
 
 interface ProviderSurgery {
@@ -58,6 +60,16 @@ interface ProviderSurgery {
   surgeryRoomId: string | null;
   patientFirstName: string | null;
   patientSurname: string | null;
+}
+
+interface ProviderAbsence {
+  id: string;
+  providerId: string;
+  hospitalId: string;
+  absenceType: string;
+  startDate: string;
+  endDate: string;
+  externalId: string | null;
 }
 
 type CalendarResource = {
@@ -98,6 +110,32 @@ const STATUS_COLORS: Record<string, { bg: string; border: string }> = {
   cancelled: { bg: '#ef4444', border: '#dc2626' },
   no_show: { bg: '#8b5cf6', border: '#7c3aed' },
   surgery_block: { bg: '#9ca3af', border: '#6b7280' },
+  // Absence types
+  absence_vacation: { bg: '#f97316', border: '#ea580c' },
+  absence_sick: { bg: '#ef4444', border: '#dc2626' },
+  absence_training: { bg: '#8b5cf6', border: '#7c3aed' },
+  absence_parental: { bg: '#ec4899', border: '#db2777' },
+  absence_other: { bg: '#6b7280', border: '#4b5563' },
+};
+
+const ABSENCE_TYPE_LABELS: Record<string, string> = {
+  vacation: 'Vacation',
+  sick: 'Sick Leave',
+  training: 'Training',
+  parental: 'Parental Leave',
+  homeoffice: 'Home Office',
+  sabbatical: 'Sabbatical',
+  default: 'Absent',
+};
+
+const ABSENCE_TYPE_ICONS: Record<string, string> = {
+  vacation: '🏖️',
+  sick: '🤒',
+  training: '📚',
+  parental: '👶',
+  homeoffice: '🏠',
+  sabbatical: '✈️',
+  default: '🚫',
 };
 
 interface ClinicCalendarProps {
@@ -225,6 +263,21 @@ export default function ClinicCalendar({
     refetchInterval: 60000,
   });
 
+  // Fetch provider absences (Timebutler sync)
+  const { data: providerAbsences = [] } = useQuery<ProviderAbsence[]>({
+    queryKey: [`/api/clinic/${hospitalId}/absences`, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/clinic/${hospitalId}/absences?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`,
+        { credentials: 'include' }
+      );
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!hospitalId,
+    refetchInterval: 60000,
+  });
+
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     // Appointment events
     const appointmentEvents = appointments.map((appt) => {
@@ -296,8 +349,56 @@ export default function ClinicCalendar({
         };
       });
 
-    return [...appointmentEvents, ...surgeryBlockEvents];
-  }, [appointments, providerSurgeries, filteredProviders]);
+    // Absence block events (colored by type, non-editable)
+    // Only include absences where providerId is in the filtered providers list
+    const absenceBlockEvents: CalendarEvent[] = [];
+    providerAbsences
+      .filter((absence) => providerIdSet.has(absence.providerId))
+      .forEach((absence) => {
+        const absenceStart = new Date(absence.startDate);
+        const absenceEnd = new Date(absence.endDate);
+        
+        // Create all-day events for each day in the absence range that falls within dateRange
+        const currentDate = new Date(Math.max(absenceStart.getTime(), dateRange.start.getTime()));
+        currentDate.setHours(0, 0, 0, 0);
+        
+        const rangeEnd = new Date(Math.min(absenceEnd.getTime(), dateRange.end.getTime()));
+        rangeEnd.setHours(23, 59, 59, 999);
+        
+        while (currentDate <= rangeEnd) {
+          const dayStart = new Date(currentDate);
+          dayStart.setHours(8, 0, 0, 0); // Start at 8 AM
+          
+          const dayEnd = new Date(currentDate);
+          dayEnd.setHours(18, 0, 0, 0); // End at 6 PM
+          
+          const icon = ABSENCE_TYPE_ICONS[absence.absenceType] || ABSENCE_TYPE_ICONS.default;
+          const label = ABSENCE_TYPE_LABELS[absence.absenceType] || ABSENCE_TYPE_LABELS.default;
+          
+          absenceBlockEvents.push({
+            id: `absence-${absence.id}-${format(currentDate, 'yyyy-MM-dd')}`,
+            title: `${icon} ${label}`,
+            start: dayStart,
+            end: dayEnd,
+            resource: absence.providerId,
+            appointmentId: absence.id,
+            patientId: '',
+            patientName: '',
+            serviceName: label,
+            status: `absence_${absence.absenceType}`,
+            notes: null,
+            isSurgeryBlock: false,
+            isAbsenceBlock: true,
+            absenceType: absence.absenceType,
+          });
+          
+          // Move to next day
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      });
+
+    return [...appointmentEvents, ...surgeryBlockEvents, ...absenceBlockEvents];
+  }, [appointments, providerSurgeries, providerAbsences, filteredProviders, dateRange]);
 
   const resources: CalendarResource[] = useMemo(() => {
     return filteredProviders.map((provider) => ({
@@ -329,8 +430,8 @@ export default function ClinicCalendar({
   });
 
   const handleEventDrop = useCallback(async ({ event, start, end, resourceId }: any) => {
-    // Don't allow dragging surgery blocks
-    if (event.isSurgeryBlock) return;
+    // Don't allow dragging surgery or absence blocks
+    if (event.isSurgeryBlock || event.isAbsenceBlock) return;
     
     const appointmentId = event.appointmentId;
     const newProviderId = resourceId || event.resource;
@@ -345,8 +446,8 @@ export default function ClinicCalendar({
   }, [rescheduleAppointmentMutation]);
 
   const handleEventResize = useCallback(async ({ event, start, end }: any) => {
-    // Don't allow resizing surgery blocks
-    if (event.isSurgeryBlock) return;
+    // Don't allow resizing surgery or absence blocks
+    if (event.isSurgeryBlock || event.isAbsenceBlock) return;
     
     rescheduleAppointmentMutation.mutate({
       appointmentId: event.appointmentId,
@@ -369,8 +470,8 @@ export default function ClinicCalendar({
   }, [currentView, onBookAppointment]);
 
   const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
-    // Don't allow clicking on surgery blocks
-    if (event.isSurgeryBlock) return;
+    // Don't allow clicking on surgery or absence blocks
+    if (event.isSurgeryBlock || event.isAbsenceBlock) return;
     
     if (onEventClick) {
       const appointment = appointments.find(a => a.id === event.appointmentId);
@@ -390,6 +491,24 @@ export default function ClinicCalendar({
           color: '#ffffff',
           borderRadius: '4px',
           opacity: 0.8,
+          border: '1px solid',
+          display: 'block',
+          cursor: 'not-allowed',
+        },
+      };
+    }
+    
+    // Absence blocks: colored by type, non-interactive
+    if (event.isAbsenceBlock) {
+      const absenceStatus = `absence_${event.absenceType || 'other'}`;
+      const colors = STATUS_COLORS[absenceStatus] || STATUS_COLORS.absence_other;
+      return {
+        style: {
+          backgroundColor: colors.bg,
+          borderColor: colors.border,
+          color: '#ffffff',
+          borderRadius: '4px',
+          opacity: 0.85,
           border: '1px solid',
           display: 'block',
           cursor: 'not-allowed',
@@ -424,6 +543,17 @@ export default function ClinicCalendar({
           </div>
           <div className="text-xs">
             {event.surgeryName || 'OP'}
+          </div>
+        </div>
+      );
+    }
+    
+    // Absence block display
+    if (event.isAbsenceBlock) {
+      return (
+        <div className="flex flex-col h-full p-1" data-testid={`absence-block-${event.appointmentId}`}>
+          <div className="font-bold text-xs">
+            {event.title}
           </div>
         </div>
       );
@@ -649,6 +779,7 @@ export default function ClinicCalendar({
             providers={filteredProviders}
             appointments={appointments}
             providerSurgeries={providerSurgeries}
+            providerAbsences={providerAbsences}
             selectedDate={selectedDate}
             onEventClick={(appt) => onEventClick?.(appt)}
             onEventDrop={(appointmentId, newStart, newEnd, newProviderId) => {

@@ -43,10 +43,41 @@ interface ProviderSurgery {
   patientSurname: string | null;
 }
 
+interface ProviderAbsence {
+  id: string;
+  providerId: string;
+  hospitalId: string;
+  absenceType: string;
+  startDate: string;
+  endDate: string;
+  externalId: string | null;
+}
+
+const ABSENCE_TYPE_ICONS: Record<string, string> = {
+  vacation: '🏖️',
+  sick: '🤒',
+  training: '📚',
+  parental: '👶',
+  homeoffice: '🏠',
+  sabbatical: '✈️',
+  default: '🚫',
+};
+
+const ABSENCE_TYPE_LABELS: Record<string, string> = {
+  vacation: 'Vacation',
+  sick: 'Sick Leave',
+  training: 'Training',
+  parental: 'Parental Leave',
+  homeoffice: 'Home Office',
+  sabbatical: 'Sabbatical',
+  default: 'Absent',
+};
+
 interface AppointmentsTimelineWeekViewProps {
   providers: Array<{ id: string; firstName: string | null; lastName: string | null }>;
   appointments: AppointmentWithDetails[];
   providerSurgeries?: ProviderSurgery[];
+  providerAbsences?: ProviderAbsence[];
   selectedDate: Date;
   onEventClick?: (appointment: AppointmentWithDetails) => void;
   onEventDrop?: (appointmentId: string, newStart: Date, newEnd: Date, newProviderId: string) => void;
@@ -61,12 +92,18 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled: 'timeline-item-cancelled',
   no_show: 'timeline-item-no-show',
   surgery_block: 'timeline-item-surgery',
+  absence_vacation: 'timeline-item-absence-vacation',
+  absence_sick: 'timeline-item-absence-sick',
+  absence_training: 'timeline-item-absence-training',
+  absence_parental: 'timeline-item-absence-parental',
+  absence_other: 'timeline-item-absence-other',
 };
 
 export default function AppointmentsTimelineWeekView({
   providers,
   appointments,
   providerSurgeries = [],
+  providerAbsences = [],
   selectedDate,
   onEventClick,
   onEventDrop,
@@ -212,15 +249,61 @@ export default function AppointmentsTimelineWeekView({
         };
       });
 
-    return [...appointmentItems, ...surgeryItems];
-  }, [appointments, providerSurgeries, providers, onEventClick]);
+    // Absence block items (colored by type, non-draggable)
+    // Only include absences where providerId is in the providers list
+    const absenceItems: TimelineItem[] = [];
+    providerAbsences
+      .filter((absence) => providerIdSet.has(absence.providerId))
+      .forEach((absence) => {
+        const absenceStart = new Date(absence.startDate);
+        const absenceEnd = new Date(absence.endDate);
+        
+        // Create all-day items for each day in the absence range that falls within the week
+        const currentDate = new Date(Math.max(absenceStart.getTime(), weekRange.start.valueOf()));
+        currentDate.setHours(0, 0, 0, 0);
+        
+        const rangeEnd = new Date(Math.min(absenceEnd.getTime(), weekRange.end.valueOf()));
+        rangeEnd.setHours(23, 59, 59, 999);
+        
+        while (currentDate <= rangeEnd) {
+          const dayStart = new Date(currentDate);
+          dayStart.setHours(8, 0, 0, 0);
+          
+          const dayEnd = new Date(currentDate);
+          dayEnd.setHours(18, 0, 0, 0);
+          
+          const icon = ABSENCE_TYPE_ICONS[absence.absenceType] || ABSENCE_TYPE_ICONS.default;
+          const label = ABSENCE_TYPE_LABELS[absence.absenceType] || ABSENCE_TYPE_LABELS.default;
+          const absenceStatus = `absence_${absence.absenceType}`;
+          const statusClass = STATUS_COLORS[absenceStatus] || 'timeline-item-absence-other';
+          
+          absenceItems.push({
+            id: `absence-${absence.id}-${moment(currentDate).format('YYYY-MM-DD')}`,
+            group: absence.providerId,
+            title: `${icon} ${label}`,
+            start_time: moment(dayStart).valueOf(),
+            end_time: moment(dayEnd).valueOf(),
+            canMove: false,
+            canResize: false,
+            itemProps: {
+              className: statusClass,
+              style: { cursor: 'not-allowed' },
+            },
+          });
+          
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      });
+
+    return [...appointmentItems, ...surgeryItems, ...absenceItems];
+  }, [appointments, providerSurgeries, providerAbsences, providers, weekRange, onEventClick]);
 
   const handleItemMove = (itemId: string | number, dragTime: number, newGroupOrder: number) => {
     if (!onEventDrop) return;
     
     const id = String(itemId);
-    // Don't allow moving surgery blocks
-    if (id.startsWith('surgery-')) return;
+    // Don't allow moving surgery or absence blocks
+    if (id.startsWith('surgery-') || id.startsWith('absence-')) return;
     
     const appt = appointments.find(a => a.id === id);
     if (!appt) return;
@@ -248,8 +331,8 @@ export default function AppointmentsTimelineWeekView({
     if (!onEventDrop) return;
     
     const id = String(itemId);
-    // Don't allow resizing surgery blocks
-    if (id.startsWith('surgery-')) return;
+    // Don't allow resizing surgery or absence blocks
+    if (id.startsWith('surgery-') || id.startsWith('absence-')) return;
     
     const appt = appointments.find(a => a.id === id);
     if (!appt) return;

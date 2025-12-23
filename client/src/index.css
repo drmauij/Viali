@@ -888,6 +888,142 @@
   line-height: 1.3;
 }
 
+/* Absence Block Styles */
+.timeline-item-absence-vacation {
+  background-color: hsl(25, 95%, 53%);
+  border: 1px solid hsl(25, 90%, 45%);
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: 0.85;
+  cursor: not-allowed !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-absence-vacation {
+  background-color: hsl(25, 95%, 53%) !important;
+  border: 1px solid hsl(25, 90%, 45%) !important;
+  border-radius: 4px !important;
+  cursor: not-allowed !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-absence-vacation .rct-item-content {
+  background-color: hsl(25, 95%, 53%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+  line-height: 1.3;
+}
+
+.timeline-item-absence-sick {
+  background-color: hsl(0, 84%, 60%);
+  border: 1px solid hsl(0, 84%, 50%);
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: 0.85;
+  cursor: not-allowed !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-absence-sick {
+  background-color: hsl(0, 84%, 60%) !important;
+  border: 1px solid hsl(0, 84%, 50%) !important;
+  border-radius: 4px !important;
+  cursor: not-allowed !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-absence-sick .rct-item-content {
+  background-color: hsl(0, 84%, 60%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+  line-height: 1.3;
+}
+
+.timeline-item-absence-training {
+  background-color: hsl(262, 83%, 58%);
+  border: 1px solid hsl(262, 83%, 48%);
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: 0.85;
+  cursor: not-allowed !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-absence-training {
+  background-color: hsl(262, 83%, 58%) !important;
+  border: 1px solid hsl(262, 83%, 48%) !important;
+  border-radius: 4px !important;
+  cursor: not-allowed !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-absence-training .rct-item-content {
+  background-color: hsl(262, 83%, 58%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+  line-height: 1.3;
+}
+
+.timeline-item-absence-parental {
+  background-color: hsl(330, 81%, 60%);
+  border: 1px solid hsl(330, 81%, 50%);
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: 0.85;
+  cursor: not-allowed !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-absence-parental {
+  background-color: hsl(330, 81%, 60%) !important;
+  border: 1px solid hsl(330, 81%, 50%) !important;
+  border-radius: 4px !important;
+  cursor: not-allowed !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-absence-parental .rct-item-content {
+  background-color: hsl(330, 81%, 60%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+  line-height: 1.3;
+}
+
+.timeline-item-absence-other {
+  background-color: hsl(220, 9%, 46%);
+  border: 1px solid hsl(220, 9%, 36%);
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: 0.85;
+  cursor: not-allowed !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-absence-other {
+  background-color: hsl(220, 9%, 46%) !important;
+  border: 1px solid hsl(220, 9%, 36%) !important;
+  border-radius: 4px !important;
+  cursor: not-allowed !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-absence-other .rct-item-content {
+  background-color: hsl(220, 9%, 46%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+  line-height: 1.3;
+}
+
 .timeline-item-running {
   background-color: hsl(0, 84%, 60%);
   border: none;
