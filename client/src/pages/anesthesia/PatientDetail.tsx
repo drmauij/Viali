@@ -393,6 +393,18 @@ export default function PatientDetail() {
     childrenIssues: {} as Record<string, boolean>,
     childrenNotes: "",
     
+    // Anesthesia & Surgical History - dynamically initialized from settings
+    anesthesiaHistoryIssues: {} as Record<string, boolean>,
+    dentalIssues: {} as Record<string, boolean>,
+    ponvTransfusionIssues: {} as Record<string, boolean>,
+    previousSurgeries: "",
+    anesthesiaSurgicalHistoryNotes: "",
+    
+    // Outpatient Care
+    outpatientCaregiverFirstName: "",
+    outpatientCaregiverLastName: "",
+    outpatientCaregiverPhone: "",
+    
     // Planned Anesthesia
     anesthesiaTechniques: {
       general: false,
@@ -668,6 +680,16 @@ export default function PatientDetail() {
         noxenNotes: existingAssessment.noxenNotes || "",
         childrenIssues: mergeIllnessData(existingAssessment.childrenIssues, anesthesiaSettings?.illnessLists?.children),
         childrenNotes: existingAssessment.childrenNotes || "",
+        // Anesthesia & Surgical History
+        anesthesiaHistoryIssues: mergeIllnessData(existingAssessment.anesthesiaHistoryIssues, anesthesiaSettings?.illnessLists?.anesthesiaHistory),
+        dentalIssues: mergeIllnessData(existingAssessment.dentalIssues, anesthesiaSettings?.illnessLists?.dental),
+        ponvTransfusionIssues: mergeIllnessData(existingAssessment.ponvTransfusionIssues, anesthesiaSettings?.illnessLists?.ponvTransfusion),
+        previousSurgeries: existingAssessment.previousSurgeries || "",
+        anesthesiaSurgicalHistoryNotes: existingAssessment.anesthesiaSurgicalHistoryNotes || "",
+        // Outpatient Care
+        outpatientCaregiverFirstName: existingAssessment.outpatientCaregiverFirstName || "",
+        outpatientCaregiverLastName: existingAssessment.outpatientCaregiverLastName || "",
+        outpatientCaregiverPhone: existingAssessment.outpatientCaregiverPhone || "",
         anesthesiaTechniques: {
           general: existingAssessment.anesthesiaTechniques?.general || false,
           generalOptions: existingAssessment.anesthesiaTechniques?.generalOptions || {} as Record<string, boolean>,
@@ -738,6 +760,10 @@ export default function PatientDetail() {
         womanIssues: createEmptyIllnessState(lists.woman),
         noxen: createEmptyIllnessState(lists.noxen),
         childrenIssues: createEmptyIllnessState(lists.children),
+        // Anesthesia & Surgical History
+        anesthesiaHistoryIssues: createEmptyIllnessState(lists.anesthesiaHistory),
+        dentalIssues: createEmptyIllnessState(lists.dental),
+        ponvTransfusionIssues: createEmptyIllnessState(lists.ponvTransfusion),
       }));
     }
   }, [existingAssessment, isPreOpOpen, anesthesiaSettings]);
@@ -2926,6 +2952,163 @@ export default function PatientDetail() {
                               data-testid="textarea-noxen-notes"
                             />
                           </div>
+                        </div>
+                      </CardContent>
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
+
+                {/* Anesthesia & Surgical History Section */}
+                <AccordionItem value="anesthesiaHistory">
+                  <Card>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-anesthesia-history">
+                      <CardTitle className="text-lg">Anesthesia & Surgical History</CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <CardContent className="pt-0 space-y-6">
+                        <div className="space-y-2">
+                          <Label className="text-base font-semibold">Previous Surgeries</Label>
+                          <Textarea
+                            value={assessmentData.previousSurgeries}
+                            onChange={(e) => setAssessmentData({...assessmentData, previousSurgeries: e.target.value})}
+                            placeholder="List previous surgeries with dates if known..."
+                            rows={3}
+                            disabled={isPreOpReadOnly}
+                            data-testid="textarea-previous-surgeries"
+                          />
+                        </div>
+                        
+                        {/* Anesthesia History Checkboxes */}
+                        {anesthesiaSettings?.illnessLists?.anesthesiaHistory && anesthesiaSettings.illnessLists.anesthesiaHistory.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-base font-semibold">Previous Anesthesia Issues</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {anesthesiaSettings.illnessLists.anesthesiaHistory.map(({ id, label }) => (
+                                <div key={id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`anesthesia-${id}`}
+                                    checked={(assessmentData.anesthesiaHistoryIssues as any)[id] || false}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      anesthesiaHistoryIssues: {...assessmentData.anesthesiaHistoryIssues, [id]: checked as boolean}
+                                    })}
+                                    disabled={isPreOpReadOnly}
+                                    data-testid={`checkbox-anesthesia-${id}`}
+                                  />
+                                  <Label htmlFor={`anesthesia-${id}`} className="cursor-pointer text-sm">{label}</Label>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Dental Status Checkboxes */}
+                        {anesthesiaSettings?.illnessLists?.dental && anesthesiaSettings.illnessLists.dental.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-base font-semibold">Dental Status</Label>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                              {anesthesiaSettings.illnessLists.dental.map(({ id, label }) => (
+                                <div key={id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`dental-${id}`}
+                                    checked={(assessmentData.dentalIssues as any)[id] || false}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      dentalIssues: {...assessmentData.dentalIssues, [id]: checked as boolean}
+                                    })}
+                                    disabled={isPreOpReadOnly}
+                                    data-testid={`checkbox-dental-${id}`}
+                                  />
+                                  <Label htmlFor={`dental-${id}`} className="cursor-pointer text-sm">{label}</Label>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* PONV & Transfusion Checkboxes */}
+                        {anesthesiaSettings?.illnessLists?.ponvTransfusion && anesthesiaSettings.illnessLists.ponvTransfusion.length > 0 && (
+                          <div className="space-y-2">
+                            <Label className="text-base font-semibold">PONV & Transfusion History</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {anesthesiaSettings.illnessLists.ponvTransfusion.map(({ id, label }) => (
+                                <div key={id} className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id={`ponv-${id}`}
+                                    checked={(assessmentData.ponvTransfusionIssues as any)[id] || false}
+                                    onCheckedChange={(checked) => setAssessmentData({
+                                      ...assessmentData,
+                                      ponvTransfusionIssues: {...assessmentData.ponvTransfusionIssues, [id]: checked as boolean}
+                                    })}
+                                    disabled={isPreOpReadOnly}
+                                    data-testid={`checkbox-ponv-${id}`}
+                                  />
+                                  <Label htmlFor={`ponv-${id}`} className="cursor-pointer text-sm">{label}</Label>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="space-y-2">
+                          <Label className="text-base font-semibold">Additional Notes</Label>
+                          <Textarea
+                            value={assessmentData.anesthesiaSurgicalHistoryNotes}
+                            onChange={(e) => setAssessmentData({...assessmentData, anesthesiaSurgicalHistoryNotes: e.target.value})}
+                            placeholder="Any additional details about previous anesthesia or surgery..."
+                            rows={3}
+                            disabled={isPreOpReadOnly}
+                            data-testid="textarea-anesthesia-surgical-history-notes"
+                          />
+                        </div>
+                      </CardContent>
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
+
+                {/* Outpatient Care Section */}
+                <AccordionItem value="outpatient">
+                  <Card>
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-outpatient">
+                      <CardTitle className="text-lg">Outpatient Care</CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <CardContent className="pt-0 space-y-4">
+                        <p className="text-sm text-muted-foreground">For outpatient procedures, provide caregiver contact information.</p>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="outpatientCaregiverFirstName">Caregiver First Name</Label>
+                            <Input
+                              id="outpatientCaregiverFirstName"
+                              value={assessmentData.outpatientCaregiverFirstName}
+                              onChange={(e) => setAssessmentData({...assessmentData, outpatientCaregiverFirstName: e.target.value})}
+                              disabled={isPreOpReadOnly}
+                              placeholder="First name"
+                              data-testid="input-caregiver-first-name"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="outpatientCaregiverLastName">Caregiver Last Name</Label>
+                            <Input
+                              id="outpatientCaregiverLastName"
+                              value={assessmentData.outpatientCaregiverLastName}
+                              onChange={(e) => setAssessmentData({...assessmentData, outpatientCaregiverLastName: e.target.value})}
+                              disabled={isPreOpReadOnly}
+                              placeholder="Last name"
+                              data-testid="input-caregiver-last-name"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="outpatientCaregiverPhone">Caregiver Phone</Label>
+                          <Input
+                            id="outpatientCaregiverPhone"
+                            value={assessmentData.outpatientCaregiverPhone}
+                            onChange={(e) => setAssessmentData({...assessmentData, outpatientCaregiverPhone: e.target.value})}
+                            disabled={isPreOpReadOnly}
+                            placeholder="Phone number"
+                            data-testid="input-caregiver-phone"
+                          />
                         </div>
                       </CardContent>
                     </AccordionContent>
