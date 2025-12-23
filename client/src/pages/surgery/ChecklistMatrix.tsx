@@ -14,7 +14,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { 
   ClipboardCheck, 
   Loader2, 
@@ -87,7 +86,8 @@ export default function ChecklistMatrix() {
   });
 
   const userRole = activeHospital?.role;
-  const isSurgeon = userRole === 'surgeon';
+  // Check if user is a doctor/surgeon (they should only see their own surgeries)
+  const isSurgeonOrDoctor = userRole === 'surgeon' || userRole === 'doctor';
   
   const { data: futureSurgeriesData, isLoading: surgeriesLoading } = useQuery<SurgeryWithPatient[]>({
     queryKey: ['/api/surgeries/future', hospitalId],
@@ -99,14 +99,14 @@ export default function ChecklistMatrix() {
     enabled: !!hospitalId,
   });
   
-  // Filter surgeries: surgeons only see their own surgeries, others see all
+  // Filter surgeries: doctors/surgeons only see their own surgeries, others see all
   const futureSurgeries = useMemo(() => {
     const allSurgeries = futureSurgeriesData || [];
-    if (isSurgeon && userId) {
+    if (isSurgeonOrDoctor && userId) {
       return allSurgeries.filter(surgery => surgery.surgeonId === userId);
     }
     return allSurgeries;
-  }, [futureSurgeriesData, isSurgeon, userId]);
+  }, [futureSurgeriesData, isSurgeonOrDoctor, userId]);
 
   const { data: matrixData, isLoading: matrixLoading } = useQuery<{ entries: ChecklistEntryData[] }>({
     queryKey: ['/api/surgeon-checklists/matrix', selectedTemplateId, hospitalId],
@@ -410,10 +410,8 @@ export default function ChecklistMatrix() {
             </div>
           </div>
         ) : (
-          <ScrollArea className="h-full">
-            <div className="p-4">
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm" style={{ borderSpacing: 0 }}>
+          <div className="h-full overflow-x-auto overflow-y-auto p-4">
+            <table className="w-full border-collapse text-sm" style={{ borderSpacing: 0 }}>
                   <thead>
                     <tr className="border-b bg-muted/50">
                       <th className="sticky left-0 z-20 px-3 py-2 text-left font-medium min-w-[200px] bg-muted border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
@@ -596,11 +594,8 @@ export default function ChecklistMatrix() {
                       );
                     })}
                   </tbody>
-                </table>
-              </div>
-            </div>
-            <ScrollBar orientation="horizontal" />
-          </ScrollArea>
+            </table>
+          </div>
         )}
       </div>
 
