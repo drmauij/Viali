@@ -1144,8 +1144,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
               resizable
               step={10}
               timeslots={6}
-              min={new Date(0, 0, 0, 6, 0, 0)}
-              max={new Date(0, 0, 0, 20, 0, 0)}
+              min={new Date(0, 0, 0, 7, 0, 0)}
+              max={new Date(0, 0, 0, 22, 0, 0)}
               style={{ minHeight: '600px' }}
               popup
               data-testid="calendar-main"
