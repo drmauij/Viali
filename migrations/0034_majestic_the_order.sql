@@ -1,16 +1,16 @@
-ALTER TABLE "preop_assessments" ADD COLUMN "anesthesia_history_issues" jsonb;--> statement-breakpoint
-ALTER TABLE "preop_assessments" ADD COLUMN "dental_issues" jsonb;--> statement-breakpoint
-ALTER TABLE "preop_assessments" ADD COLUMN "ponv_transfusion_issues" jsonb;--> statement-breakpoint
-ALTER TABLE "preop_assessments" ADD COLUMN "previous_surgeries" text;--> statement-breakpoint
-ALTER TABLE "preop_assessments" ADD COLUMN "anesthesia_surgical_history_notes" text;--> statement-breakpoint
-ALTER TABLE "preop_assessments" ADD COLUMN "outpatient_caregiver_first_name" varchar;--> statement-breakpoint
-ALTER TABLE "preop_assessments" ADD COLUMN "outpatient_caregiver_last_name" varchar;--> statement-breakpoint
-ALTER TABLE "preop_assessments" ADD COLUMN "outpatient_caregiver_phone" varchar;--> statement-breakpoint
-ALTER TABLE "surgery_preop_assessments" ADD COLUMN "anesthesia_history_issues" jsonb;--> statement-breakpoint
-ALTER TABLE "surgery_preop_assessments" ADD COLUMN "dental_issues" jsonb;--> statement-breakpoint
-ALTER TABLE "surgery_preop_assessments" ADD COLUMN "ponv_transfusion_issues" jsonb;--> statement-breakpoint
-ALTER TABLE "surgery_preop_assessments" ADD COLUMN "previous_surgeries" text;--> statement-breakpoint
-ALTER TABLE "surgery_preop_assessments" ADD COLUMN "anesthesia_surgical_history_notes" text;--> statement-breakpoint
-ALTER TABLE "surgery_preop_assessments" ADD COLUMN "outpatient_caregiver_first_name" varchar;--> statement-breakpoint
-ALTER TABLE "surgery_preop_assessments" ADD COLUMN "outpatient_caregiver_last_name" varchar;--> statement-breakpoint
-ALTER TABLE "surgery_preop_assessments" ADD COLUMN "outpatient_caregiver_phone" varchar;
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='preop_assessments' AND column_name='anesthesia_history_issues') THEN ALTER TABLE "preop_assessments" ADD COLUMN "anesthesia_history_issues" jsonb; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='preop_assessments' AND column_name='dental_issues') THEN ALTER TABLE "preop_assessments" ADD COLUMN "dental_issues" jsonb; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='preop_assessments' AND column_name='ponv_transfusion_issues') THEN ALTER TABLE "preop_assessments" ADD COLUMN "ponv_transfusion_issues" jsonb; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='preop_assessments' AND column_name='previous_surgeries') THEN ALTER TABLE "preop_assessments" ADD COLUMN "previous_surgeries" text; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='preop_assessments' AND column_name='anesthesia_surgical_history_notes') THEN ALTER TABLE "preop_assessments" ADD COLUMN "anesthesia_surgical_history_notes" text; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='preop_assessments' AND column_name='outpatient_caregiver_first_name') THEN ALTER TABLE "preop_assessments" ADD COLUMN "outpatient_caregiver_first_name" varchar; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='preop_assessments' AND column_name='outpatient_caregiver_last_name') THEN ALTER TABLE "preop_assessments" ADD COLUMN "outpatient_caregiver_last_name" varchar; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='preop_assessments' AND column_name='outpatient_caregiver_phone') THEN ALTER TABLE "preop_assessments" ADD COLUMN "outpatient_caregiver_phone" varchar; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surgery_preop_assessments' AND column_name='anesthesia_history_issues') THEN ALTER TABLE "surgery_preop_assessments" ADD COLUMN "anesthesia_history_issues" jsonb; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surgery_preop_assessments' AND column_name='dental_issues') THEN ALTER TABLE "surgery_preop_assessments" ADD COLUMN "dental_issues" jsonb; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surgery_preop_assessments' AND column_name='ponv_transfusion_issues') THEN ALTER TABLE "surgery_preop_assessments" ADD COLUMN "ponv_transfusion_issues" jsonb; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surgery_preop_assessments' AND column_name='previous_surgeries') THEN ALTER TABLE "surgery_preop_assessments" ADD COLUMN "previous_surgeries" text; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surgery_preop_assessments' AND column_name='anesthesia_surgical_history_notes') THEN ALTER TABLE "surgery_preop_assessments" ADD COLUMN "anesthesia_surgical_history_notes" text; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surgery_preop_assessments' AND column_name='outpatient_caregiver_first_name') THEN ALTER TABLE "surgery_preop_assessments" ADD COLUMN "outpatient_caregiver_first_name" varchar; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surgery_preop_assessments' AND column_name='outpatient_caregiver_last_name') THEN ALTER TABLE "surgery_preop_assessments" ADD COLUMN "outpatient_caregiver_last_name" varchar; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='surgery_preop_assessments' AND column_name='outpatient_caregiver_phone') THEN ALTER TABLE "surgery_preop_assessments" ADD COLUMN "outpatient_caregiver_phone" varchar; END IF; END $$;
