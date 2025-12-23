@@ -239,6 +239,13 @@
       "when": 1766390310700,
       "tag": "0033_boring_menace",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1766501979367,
+      "tag": "0034_majestic_the_order",
+      "breakpoints": true
     }
   ]
 }
