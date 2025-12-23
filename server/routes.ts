@@ -1419,9 +1419,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await db.delete(orders).where(eq(orders.id, otherId));
       }
       
-      // Return the merged order
-      const mergedOrder = await storage.getOrder(targetOrder.id);
-      res.json(mergedOrder);
+      // Return success with merged order info
+      res.json({ 
+        success: true, 
+        mergedOrderId: targetOrder.id,
+        mergedCount: otherOrderIds.length + 1
+      });
     } catch (error: any) {
       console.error("Error merging orders:", error);
       console.error("Error stack:", error?.stack);
