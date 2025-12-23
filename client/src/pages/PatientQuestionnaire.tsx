@@ -1323,18 +1323,6 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
         />
       </div>
 
-      <div>
-        <Label htmlFor="anesthesiaProblems">{t("questionnaire.history.anesthesia")}</Label>
-        <p className="text-xs text-gray-500 mb-2">{t("questionnaire.history.anesthesiaHint")}</p>
-        <Textarea
-          id="anesthesiaProblems"
-          value={formData.previousAnesthesiaProblems}
-          onChange={(e) => updateField("previousAnesthesiaProblems", e.target.value)}
-          rows={4}
-          data-testid="input-anesthesia-problems"
-        />
-      </div>
-
       <Separator className="my-6" />
 
       <div>
