@@ -56,13 +56,13 @@ export default function TimelineWeekView({
     return { start, end };
   }, [selectedDate]);
 
-  // Initialize visible time to show 2 days centered on today
+  // Initialize visible time to show 7:00-22:00 on the selected day (15 hours)
   useEffect(() => {
-    const start = weekRange.start.clone();
-    const end = start.clone().add(2, 'days');
-    setVisibleTimeStart(start.valueOf());
-    setVisibleTimeEnd(end.valueOf());
-  }, [weekRange]);
+    const dayStart = moment(selectedDate).startOf('day').add(7, 'hours'); // 7:00
+    const dayEnd = moment(selectedDate).startOf('day').add(22, 'hours'); // 22:00
+    setVisibleTimeStart(dayStart.valueOf());
+    setVisibleTimeEnd(dayEnd.valueOf());
+  }, [selectedDate]);
 
   // Zoom handlers
   const handleZoomIn = () => {
