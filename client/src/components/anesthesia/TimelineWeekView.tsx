@@ -92,22 +92,25 @@ export default function TimelineWeekView({
   };
 
   const handleTimeChange = (visibleStart: number, visibleEnd: number, updateScrollCanvas: (start: number, end: number) => void) => {
-    // Clamp to business hours (7:00 - 22:00) for each day
-    const startMoment = moment(visibleStart);
-    const endMoment = moment(visibleEnd);
+    // Clamp to week range (Monday 7:00 - Sunday 22:00)
+    const weekStart = weekRange.start.valueOf();
+    const weekEnd = weekRange.end.valueOf();
     
-    // For the start time, ensure it's not before 7:00 of that day
-    const startDayBusinessStart = startMoment.clone().startOf('day').hour(BUSINESS_HOUR_START);
-    const clampedStart = Math.max(visibleStart, startDayBusinessStart.valueOf());
+    // Calculate the current visible duration
+    const duration = visibleEnd - visibleStart;
     
-    // For the end time, ensure it's not after 22:00 of that day
-    const endDayBusinessEnd = endMoment.clone().startOf('day').hour(BUSINESS_HOUR_END);
-    const clampedEnd = Math.min(visibleEnd, endDayBusinessEnd.valueOf());
+    // Clamp start to not go before week start
+    let clampedStart = Math.max(visibleStart, weekStart);
+    let clampedEnd = clampedStart + duration;
     
-    // Only update if values changed
-    if (clampedStart !== visibleStart || clampedEnd !== visibleEnd) {
-      updateScrollCanvas(clampedStart, clampedEnd);
+    // If end exceeds week end, shift the window back
+    if (clampedEnd > weekEnd) {
+      clampedEnd = weekEnd;
+      clampedStart = Math.max(weekStart, clampedEnd - duration);
     }
+    
+    // Always call updateScrollCanvas to prevent desync (fixes half-zoom effect)
+    updateScrollCanvas(clampedStart, clampedEnd);
     
     setVisibleTimeStart(clampedStart);
     setVisibleTimeEnd(clampedEnd);
@@ -284,8 +287,8 @@ export default function TimelineWeekView({
           onCanvasClick={handleCanvasClick}
           lineHeight={60}
           itemHeightRatio={0.8}
-          minZoom={30 * 60 * 1000}
-          maxZoom={7 * 24 * 60 * 60 * 1000}
+          minZoom={60 * 60 * 1000}
+          maxZoom={weekRange.end.valueOf() - weekRange.start.valueOf()}
           sidebarWidth={100}
           stackItems={true}
           buffer={1}
