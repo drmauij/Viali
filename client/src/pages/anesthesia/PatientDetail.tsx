@@ -1247,6 +1247,59 @@ export default function PatientDetail() {
         }
       }
       
+      // Extended questionnaire fields (cast to any for additional properties)
+      const qResponseExt = qResponse as any;
+      
+      // Dental Issues -> dentalIssues checkboxes
+      if (qResponseExt.dentalIssues && Object.keys(qResponseExt.dentalIssues).length > 0) {
+        const currentDental = newData.dentalIssues || {};
+        for (const [issueId, isChecked] of Object.entries(qResponseExt.dentalIssues)) {
+          if (isChecked) {
+            currentDental[issueId] = true;
+          }
+        }
+        newData.dentalIssues = currentDental;
+      }
+      if (qResponseExt.dentalNotes) {
+        newData.specialNotes = newData.specialNotes 
+          ? `${newData.specialNotes}\n\nDental notes: ${qResponseExt.dentalNotes}` 
+          : `Dental notes: ${qResponseExt.dentalNotes}`;
+      }
+      
+      // PONV & Transfusion Issues -> ponvTransfusionIssues checkboxes
+      if (qResponseExt.ponvTransfusionIssues && Object.keys(qResponseExt.ponvTransfusionIssues).length > 0) {
+        const currentPonv = newData.ponvTransfusionIssues || {};
+        for (const [issueId, isChecked] of Object.entries(qResponseExt.ponvTransfusionIssues)) {
+          if (isChecked) {
+            currentPonv[issueId] = true;
+          }
+        }
+        newData.ponvTransfusionIssues = currentPonv;
+      }
+      if (qResponseExt.ponvTransfusionNotes) {
+        newData.specialNotes = newData.specialNotes 
+          ? `${newData.specialNotes}\n\nPONV/Transfusion notes: ${qResponseExt.ponvTransfusionNotes}` 
+          : `PONV/Transfusion notes: ${qResponseExt.ponvTransfusionNotes}`;
+      }
+      
+      // Outpatient Caregiver -> outpatient care fields
+      if (qResponseExt.outpatientCaregiverFirstName) {
+        newData.outpatientCaregiverFirstName = qResponseExt.outpatientCaregiverFirstName;
+      }
+      if (qResponseExt.outpatientCaregiverLastName) {
+        newData.outpatientCaregiverLastName = qResponseExt.outpatientCaregiverLastName;
+      }
+      if (qResponseExt.outpatientCaregiverPhone) {
+        newData.outpatientCaregiverPhone = qResponseExt.outpatientCaregiverPhone;
+      }
+      
+      // Questions for Doctor -> special notes with prominent label
+      if (qResponseExt.questionsForDoctor) {
+        newData.specialNotes = newData.specialNotes 
+          ? `${newData.specialNotes}\n\n⚠️ PATIENT QUESTIONS FOR DOCTOR:\n${qResponseExt.questionsForDoctor}` 
+          : `⚠️ PATIENT QUESTIONS FOR DOCTOR:\n${qResponseExt.questionsForDoctor}`;
+      }
+      
       return newData;
     });
     
