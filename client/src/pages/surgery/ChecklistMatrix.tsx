@@ -99,6 +99,7 @@ export default function ChecklistMatrix() {
     enabled: !!hospitalId,
   });
   
+  // Filter surgeries: surgeons only see their own surgeries, others see all
   const futureSurgeries = useMemo(() => {
     const allSurgeries = futureSurgeriesData || [];
     if (isSurgeon && userId) {
@@ -412,10 +413,10 @@ export default function ChecklistMatrix() {
           <ScrollArea className="h-full">
             <div className="p-4">
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
+                <table className="w-full border-collapse text-sm" style={{ borderSpacing: 0 }}>
                   <thead>
                     <tr className="border-b bg-muted/50">
-                      <th className="sticky left-0 bg-muted/50 z-10 px-3 py-2 text-left font-medium min-w-[200px]">
+                      <th className="sticky left-0 z-20 px-3 py-2 text-left font-medium min-w-[200px] bg-muted border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
                         {t('checklistMatrix.patient', 'Patient')}
                       </th>
                       <th className="px-3 py-2 text-left font-medium min-w-[100px]">
@@ -447,8 +448,8 @@ export default function ChecklistMatrix() {
                       const surgeryContext = getSurgeryContext(surgery);
                       
                       return (
-                        <tr key={surgery.id} className="border-b hover:bg-muted/30">
-                          <td className="sticky left-0 bg-background z-10 px-3 py-2 font-medium">
+                        <tr key={surgery.id} className="border-b hover:bg-muted/30 group">
+                          <td className="sticky left-0 z-20 px-3 py-2 font-medium bg-background border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted/30">
                             <div className="flex flex-col">
                               <span className="truncate max-w-[180px]">
                                 {surgery.patient 
@@ -516,77 +517,77 @@ export default function ChecklistMatrix() {
                                     disabled={savingCell === cellKey}
                                     data-testid={`checkbox-${surgery.id}-${item.id}`}
                                   />
-                                  <Popover 
-                                    open={isEditing} 
-                                    onOpenChange={(open) => {
-                                      if (!open) {
-                                        setEditingCell(null);
-                                        setEditingNote("");
-                                      }
-                                    }}
-                                  >
-                                    <PopoverTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6"
-                                        onClick={() => openNoteEditor(surgery.id, item.id)}
-                                        data-testid={`button-note-${surgery.id}-${item.id}`}
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <Popover 
+                                        open={isEditing} 
+                                        onOpenChange={(open) => {
+                                          if (!open) {
+                                            setEditingCell(null);
+                                            setEditingNote("");
+                                          }
+                                        }}
                                       >
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
+                                        <TooltipTrigger asChild>
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="ghost"
+                                              size="icon"
+                                              className="h-6 w-6"
+                                              onClick={() => openNoteEditor(surgery.id, item.id)}
+                                              data-testid={`button-note-${surgery.id}-${item.id}`}
+                                            >
                                               <MessageSquare 
                                                 className={`h-3 w-3 ${hasNote ? 'text-primary fill-primary/20' : 'text-muted-foreground'}`} 
                                               />
-                                            </TooltipTrigger>
-                                            {hasNote && (
-                                              <TooltipContent className="max-w-[300px]">
-                                                <p className="whitespace-pre-wrap">{resolvePlaceholders(cellState.note, surgeryContext)}</p>
-                                              </TooltipContent>
-                                            )}
-                                          </Tooltip>
-                                        </TooltipProvider>
-                                      </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-80" align="center">
-                                      <div className="space-y-2">
-                                        <h4 className="font-medium text-sm">{resolvedLabel}</h4>
-                                        <Textarea
-                                          value={editingNote}
-                                          onChange={(e) => setEditingNote(e.target.value)}
-                                          placeholder={t('checklistMatrix.addNote', 'Add a note... Use # for placeholders')}
-                                          rows={3}
-                                          className="text-sm"
-                                          data-testid={`textarea-note-${surgery.id}-${item.id}`}
-                                        />
-                                        <div className="flex justify-end gap-2">
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => {
-                                              setEditingCell(null);
-                                              setEditingNote("");
-                                            }}
-                                          >
-                                            {t('common.cancel', 'Cancel')}
-                                          </Button>
-                                          <Button
-                                            size="sm"
-                                            onClick={() => handleNoteSubmit(surgery.id, item.id)}
-                                            disabled={saveCellMutation.isPending}
-                                          >
-                                            {saveCellMutation.isPending ? (
-                                              <Loader2 className="h-4 w-4 animate-spin mr-1" />
-                                            ) : (
-                                              <Save className="h-4 w-4 mr-1" />
-                                            )}
-                                            {t('common.save', 'Save')}
-                                          </Button>
-                                        </div>
-                                      </div>
-                                    </PopoverContent>
-                                  </Popover>
+                                            </Button>
+                                          </PopoverTrigger>
+                                        </TooltipTrigger>
+                                        <PopoverContent className="w-80" align="center">
+                                          <div className="space-y-2">
+                                            <h4 className="font-medium text-sm">{resolvedLabel}</h4>
+                                            <Textarea
+                                              value={editingNote}
+                                              onChange={(e) => setEditingNote(e.target.value)}
+                                              placeholder={t('checklistMatrix.addNote', 'Add a note... Use # for placeholders')}
+                                              rows={3}
+                                              className="text-sm"
+                                              data-testid={`textarea-note-${surgery.id}-${item.id}`}
+                                            />
+                                            <div className="flex justify-end gap-2">
+                                              <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => {
+                                                  setEditingCell(null);
+                                                  setEditingNote("");
+                                                }}
+                                              >
+                                                {t('common.cancel', 'Cancel')}
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                onClick={() => handleNoteSubmit(surgery.id, item.id)}
+                                                disabled={saveCellMutation.isPending}
+                                              >
+                                                {saveCellMutation.isPending ? (
+                                                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                                ) : (
+                                                  <Save className="h-4 w-4 mr-1" />
+                                                )}
+                                                {t('common.save', 'Save')}
+                                              </Button>
+                                            </div>
+                                          </div>
+                                        </PopoverContent>
+                                      </Popover>
+                                      {hasNote && (
+                                        <TooltipContent className="max-w-[300px]" side="top">
+                                          <p className="whitespace-pre-wrap">{resolvePlaceholders(cellState.note, surgeryContext)}</p>
+                                        </TooltipContent>
+                                      )}
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 </div>
                               </td>
                             );
