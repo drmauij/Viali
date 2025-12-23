@@ -5402,6 +5402,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteSurgeonChecklistTemplate(id: string): Promise<void> {
+    // First delete all checklist entries that reference this template
+    await db.delete(surgeryPreOpChecklistEntries).where(eq(surgeryPreOpChecklistEntries.templateId, id));
+    // Template items will cascade delete automatically due to onDelete: 'cascade'
+    // Now delete the template itself
     await db.delete(surgeonChecklistTemplates).where(eq(surgeonChecklistTemplates.id, id));
   }
 
