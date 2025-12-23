@@ -27,7 +27,8 @@ import {
   AlertCircle,
   Wand2,
   Save,
-  Pencil
+  Pencil,
+  Plus
 } from "lucide-react";
 import { SurgeonChecklistTemplateEditor } from "@/components/anesthesia/SurgeonChecklistTemplateEditor";
 import { resolvePlaceholders, type SurgeryContext } from "@shared/checklistPlaceholders";
@@ -410,7 +411,15 @@ export default function ChecklistMatrix() {
           <div className="flex items-center justify-center h-64">
             <div className="text-center text-muted-foreground">
               <ClipboardCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>{t('checklistMatrix.noTemplate', 'Select a template to view the matrix')}</p>
+              <p className="mb-4">{t('checklistMatrix.noTemplate', 'Select a template to view the matrix')}</p>
+              <Button
+                variant="outline"
+                onClick={() => setTemplateEditorOpen(true)}
+                data-testid="button-create-template-empty"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {t('checklistMatrix.createTemplate', 'Create Template')}
+              </Button>
             </div>
           </div>
         ) : futureSurgeries.length === 0 ? (
