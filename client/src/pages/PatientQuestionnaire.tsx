@@ -148,6 +148,16 @@ interface FormData {
   alcoholDetails: string;
   previousSurgeries: string;
   previousAnesthesiaProblems: string;
+  // Dental status
+  dentalStatus: Record<string, boolean>;
+  dentalNotes: string;
+  // PONV & Transfusion
+  ponvTransfusion: Record<string, boolean>;
+  ponvTransfusionNotes: string;
+  // Outpatient care
+  outpatientCaregiverFirstName: string;
+  outpatientCaregiverLastName: string;
+  outpatientCaregiverPhone: string;
   pregnancyStatus: string;
   breastfeeding: boolean;
   womanHealthNotes: string;
@@ -404,6 +414,13 @@ export default function PatientQuestionnaire() {
     alcoholDetails: "",
     previousSurgeries: "",
     previousAnesthesiaProblems: "",
+    dentalStatus: {},
+    dentalNotes: "",
+    ponvTransfusion: {},
+    ponvTransfusionNotes: "",
+    outpatientCaregiverFirstName: "",
+    outpatientCaregiverLastName: "",
+    outpatientCaregiverPhone: "",
     pregnancyStatus: "",
     breastfeeding: false,
     womanHealthNotes: "",
@@ -463,6 +480,13 @@ export default function PatientQuestionnaire() {
         alcoholDetails: existing?.alcoholDetails || "",
         previousSurgeries: existing?.previousSurgeries || "",
         previousAnesthesiaProblems: existing?.previousAnesthesiaProblems || "",
+        dentalStatus: (existing as any)?.dentalStatus || {},
+        dentalNotes: (existing as any)?.dentalNotes || "",
+        ponvTransfusion: (existing as any)?.ponvTransfusion || {},
+        ponvTransfusionNotes: (existing as any)?.ponvTransfusionNotes || "",
+        outpatientCaregiverFirstName: (existing as any)?.outpatientCaregiverFirstName || "",
+        outpatientCaregiverLastName: (existing as any)?.outpatientCaregiverLastName || "",
+        outpatientCaregiverPhone: (existing as any)?.outpatientCaregiverPhone || "",
         pregnancyStatus: existing?.pregnancyStatus || "",
         breastfeeding: existing?.breastfeeding || false,
         womanHealthNotes: existing?.womanHealthNotes || "",
