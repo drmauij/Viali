@@ -45,13 +45,17 @@ export default function TimelineWeekView({
   // Track current state (room, times) to avoid race conditions
   const currentStateRef = useRef<Map<string, { roomId: string; start: Date; end: Date }>>(new Map());
 
-  // Zoom state - start with 2 days visible
-  const [visibleTimeStart, setVisibleTimeStart] = useState<number>(0);
-  const [visibleTimeEnd, setVisibleTimeEnd] = useState<number>(0);
-
   // Business hours constants
   const BUSINESS_HOUR_START = 7;
   const BUSINESS_HOUR_END = 22;
+
+  // Initialize with business hours for today to avoid race condition
+  const getInitialStart = () => moment(selectedDate).startOf('day').hour(BUSINESS_HOUR_START).valueOf();
+  const getInitialEnd = () => moment(selectedDate).startOf('day').hour(BUSINESS_HOUR_END).valueOf();
+
+  // Zoom state - initialized with business hours
+  const [visibleTimeStart, setVisibleTimeStart] = useState<number>(getInitialStart);
+  const [visibleTimeEnd, setVisibleTimeEnd] = useState<number>(getInitialEnd);
 
   // Calculate week start (Monday) and end (Sunday) with business hours
   const weekRange = useMemo(() => {
@@ -60,7 +64,7 @@ export default function TimelineWeekView({
     return { start, end };
   }, [selectedDate]);
 
-  // Initialize visible time to show business hours for the selected day
+  // Update visible time when selectedDate changes
   useEffect(() => {
     const dayStart = moment(selectedDate).startOf('day').hour(BUSINESS_HOUR_START); // 7:00
     const dayEnd = moment(selectedDate).startOf('day').hour(BUSINESS_HOUR_END); // 22:00
