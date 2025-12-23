@@ -376,6 +376,35 @@ export async function seedHospitalData(
           { id: "congenitalAnomalies", label: "Congenital Anomalies" },
           { id: "vaccinationStatus", label: "Vaccination Status" },
         ],
+        // Anesthesia & Surgical History section
+        anesthesiaHistory: [
+          { id: "previousAnesthesiaProblems", label: "Previous Anesthesia Problems" },
+          { id: "regionalAnesthesiaComplications", label: "Regional Anesthesia Complications" },
+          { id: "localAnesthesiaReactions", label: "Local Anesthesia Reactions" },
+          { id: "malignantHyperthermiaFamily", label: "Family History: Malignant Hyperthermia" },
+          { id: "anesthesiaProblemsFamily", label: "Family History: Anesthesia Problems" },
+          { id: "difficultIntubationHistory", label: "Difficult Intubation History" },
+          { id: "prolongedRecovery", label: "Prolonged Recovery from Anesthesia" },
+          { id: "postOpNauseaVomiting", label: "Post-operative Nausea/Vomiting" },
+        ],
+        dental: [
+          { id: "looseTeeth", label: "Loose Teeth" },
+          { id: "caries", label: "Caries" },
+          { id: "paradontosis", label: "Paradontosis" },
+          { id: "dentures", label: "Dentures" },
+          { id: "bridges", label: "Bridges" },
+          { id: "crowns", label: "Crowns" },
+          { id: "implants", label: "Dental Implants" },
+          { id: "braces", label: "Braces/Orthodontics" },
+        ],
+        ponvTransfusion: [
+          { id: "motionSickness", label: "Motion Sickness" },
+          { id: "ponvHistory", label: "Previous PONV (Post-op Nausea/Vomiting)" },
+          { id: "transfusionReactions", label: "Transfusion Reactions" },
+          { id: "bloodProductAllergy", label: "Blood Product Allergy" },
+          { id: "refusesBloodProducts", label: "Refuses Blood Products" },
+          { id: "previousTransfusion", label: "Previous Blood Transfusion" },
+        ],
       },
       checklistItems: {
         signIn: [

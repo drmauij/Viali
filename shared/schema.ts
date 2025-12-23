@@ -620,6 +620,10 @@ export const hospitalAnesthesiaSettings = pgTable("hospital_anesthesia_settings"
     woman?: Array<IllnessListItem>;
     noxen?: Array<IllnessListItem>;
     children?: Array<IllnessListItem>;
+    // Anesthesia & Surgical History section
+    anesthesiaHistory?: Array<IllnessListItem>;
+    dental?: Array<IllnessListItem>;
+    ponvTransfusion?: Array<IllnessListItem>;
   }>(),
   
   // Customizable WHO checklist items (JSONB for flexibility)
@@ -1283,6 +1287,18 @@ export const preOpAssessments = pgTable("preop_assessments", {
   childrenIssues: jsonb("children_issues").$type<Record<string, boolean>>(),
   childrenNotes: text("children_notes"),
   
+  // Anesthesia & Surgical History section
+  anesthesiaHistoryIssues: jsonb("anesthesia_history_issues").$type<Record<string, boolean>>(),
+  dentalIssues: jsonb("dental_issues").$type<Record<string, boolean>>(),
+  ponvTransfusionIssues: jsonb("ponv_transfusion_issues").$type<Record<string, boolean>>(),
+  previousSurgeries: text("previous_surgeries"),
+  anesthesiaSurgicalHistoryNotes: text("anesthesia_surgical_history_notes"),
+  
+  // Outpatient Care section
+  outpatientCaregiverFirstName: varchar("outpatient_caregiver_first_name"),
+  outpatientCaregiverLastName: varchar("outpatient_caregiver_last_name"),
+  outpatientCaregiverPhone: varchar("outpatient_caregiver_phone"),
+  
   // Airway Assessment
   mallampati: varchar("mallampati"),
   mouthOpening: varchar("mouth_opening"),
@@ -1392,6 +1408,18 @@ export const surgeryPreOpAssessments = pgTable("surgery_preop_assessments", {
   noxenNotes: text("noxen_notes"),
   childrenIssues: jsonb("children_issues").$type<Record<string, boolean>>(),
   childrenNotes: text("children_notes"),
+  
+  // Anesthesia & Surgical History section
+  anesthesiaHistoryIssues: jsonb("anesthesia_history_issues").$type<Record<string, boolean>>(),
+  dentalIssues: jsonb("dental_issues").$type<Record<string, boolean>>(),
+  ponvTransfusionIssues: jsonb("ponv_transfusion_issues").$type<Record<string, boolean>>(),
+  previousSurgeries: text("previous_surgeries"),
+  anesthesiaSurgicalHistoryNotes: text("anesthesia_surgical_history_notes"),
+  
+  // Outpatient Care section
+  outpatientCaregiverFirstName: varchar("outpatient_caregiver_first_name"),
+  outpatientCaregiverLastName: varchar("outpatient_caregiver_last_name"),
+  outpatientCaregiverPhone: varchar("outpatient_caregiver_phone"),
   
   // Fasting
   lastSolids: varchar("last_solids"),
