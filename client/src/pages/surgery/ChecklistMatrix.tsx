@@ -1,10 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
+import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -64,6 +66,7 @@ export default function ChecklistMatrix() {
   const [editingNote, setEditingNote] = useState("");
   const [savingCell, setSavingCell] = useState<string | null>(null);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
+  const [editingSurgeryId, setEditingSurgeryId] = useState<string | null>(null);
   
   const { data: templatesData, isLoading: templatesLoading } = useQuery<SurgeonChecklistTemplate[]>({
     queryKey: ['/api/surgeon-checklists/templates', hospitalId],
@@ -448,19 +451,26 @@ export default function ChecklistMatrix() {
                       return (
                         <tr key={surgery.id} className="border-b hover:bg-muted/30 group">
                           <td className="sticky left-0 z-20 px-3 py-2 font-medium bg-background border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted/30">
-                            <div className="flex flex-col">
-                              <span className="truncate max-w-[180px]">
-                                {surgery.patient 
-                                  ? `${surgery.patient.surname}, ${surgery.patient.firstName}`
-                                  : t('checklistMatrix.unknownPatient', 'Unknown Patient')
-                                }
-                              </span>
-                              {surgery.patient?.birthday && (
-                                <span className="text-xs text-muted-foreground">
-                                  {format(new Date(surgery.patient.birthday), 'dd.MM.yyyy')}
+                            {surgery.patient ? (
+                              <Link 
+                                href={`/surgery/patients/${surgery.patient.id}`}
+                                className="flex flex-col hover:text-primary transition-colors cursor-pointer"
+                                data-testid={`link-patient-${surgery.patient.id}`}
+                              >
+                                <span className="truncate max-w-[180px] underline-offset-2 hover:underline">
+                                  {`${surgery.patient.surname}, ${surgery.patient.firstName}`}
                                 </span>
-                              )}
-                            </div>
+                                {surgery.patient.birthday && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {format(new Date(surgery.patient.birthday), 'dd.MM.yyyy')}
+                                  </span>
+                                )}
+                              </Link>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {t('checklistMatrix.unknownPatient', 'Unknown Patient')}
+                              </span>
+                            )}
                           </td>
                           <td className="px-3 py-2">
                             {surgery.plannedDate ? (
@@ -473,9 +483,14 @@ export default function ChecklistMatrix() {
                             ) : '-'}
                           </td>
                           <td className="px-3 py-2">
-                            <span className="truncate block max-w-[140px]" title={surgery.plannedSurgery || ''}>
+                            <button
+                              onClick={() => setEditingSurgeryId(surgery.id)}
+                              className="truncate block max-w-[140px] text-left hover:text-primary hover:underline underline-offset-2 transition-colors cursor-pointer"
+                              title={surgery.plannedSurgery || t('checklistMatrix.clickToEdit', 'Click to edit')}
+                              data-testid={`button-edit-surgery-${surgery.id}`}
+                            >
                               {surgery.plannedSurgery || '-'}
-                            </span>
+                            </button>
                           </td>
                           <td className="px-3 py-2 text-center">
                             <TooltipProvider>
@@ -606,6 +621,17 @@ export default function ChecklistMatrix() {
           onClose={() => setTemplateEditorOpen(false)}
           hospitalId={hospitalId}
           templateId={selectedTemplateId}
+        />
+      )}
+
+      {/* Edit Surgery Dialog */}
+      {editingSurgeryId && (
+        <EditSurgeryDialog
+          surgeryId={editingSurgeryId}
+          onClose={() => {
+            setEditingSurgeryId(null);
+            queryClient.invalidateQueries({ queryKey: ['/api/surgeries/future', hospitalId] });
+          }}
         />
       )}
     </div>
