@@ -12,7 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link, RefreshCw, Trash2 } from "lucide-react";
+import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link, RefreshCw, Trash2, Eye, EyeOff, Settings } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { formatDateLong } from "@/lib/dateUtils";
 import type { Unit } from "@shared/schema";
@@ -36,7 +37,12 @@ export default function Hospital() {
   const { toast } = useToast();
 
   // Internal tab state
-  const [activeTab, setActiveTab] = useState<"units" | "checklists" | "suppliers">("units");
+  const [activeTab, setActiveTab] = useState<"units" | "checklists" | "suppliers" | "integrations">("units");
+  
+  // TimeButler integration states
+  const [timebutlerApiToken, setTimebutlerApiToken] = useState("");
+  const [timebutlerEnabled, setTimebutlerEnabled] = useState(false);
+  const [showApiToken, setShowApiToken] = useState(false);
 
   // Supplier catalog states
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
@@ -125,6 +131,29 @@ export default function Hospital() {
     enabled: !!activeHospital?.id && isAdmin,
   });
 
+  // TimeButler config query
+  const { data: timebutlerConfigData, isLoading: timebutlerLoading } = useQuery<{
+    isEnabled?: boolean;
+    apiToken?: string;
+    hasApiToken?: boolean;
+    lastSyncAt?: string;
+    lastSyncMessage?: string;
+  }>({
+    queryKey: [`/api/clinic/${activeHospital?.id}/timebutler-config`],
+    enabled: !!activeHospital?.id && isAdmin,
+  });
+
+  // Sync TimeButler state when data is fetched
+  useEffect(() => {
+    if (timebutlerConfigData) {
+      setTimebutlerEnabled(timebutlerConfigData.isEnabled || false);
+      // Don't overwrite token if it's masked
+      if (timebutlerConfigData.apiToken && timebutlerConfigData.apiToken !== '********') {
+        setTimebutlerApiToken(timebutlerConfigData.apiToken);
+      }
+    }
+  }, [timebutlerConfigData]);
+
   // Questionnaire link state
   const [linkCopied, setLinkCopied] = useState(false);
 
@@ -186,6 +215,23 @@ export default function Hospital() {
     },
     onError: (error: any) => {
       toast({ title: t("common.error"), description: error.message || t("admin.failedToDeleteUnit"), variant: "destructive" });
+    },
+  });
+
+  // TimeButler config mutation
+  const saveTimebutlerConfigMutation = useMutation({
+    mutationFn: async (data: { apiToken?: string; isEnabled: boolean }) => {
+      const response = await apiRequest("PUT", `/api/clinic/${activeHospital?.id}/timebutler-config`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${activeHospital?.id}/timebutler-config`] });
+      toast({ title: t("common.success"), description: t("admin.timebutlerConfigSaved", "TimeButler configuration saved") });
+      setTimebutlerApiToken(""); // Clear local token after save
+      setShowApiToken(false);
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToSaveTimebutler", "Failed to save TimeButler configuration"), variant: "destructive" });
     },
   });
 
@@ -916,6 +962,18 @@ export default function Hospital() {
           <i className="fas fa-truck mr-2"></i>
           Suppliers
         </button>
+        <button
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === "integrations"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+          onClick={() => setActiveTab("integrations")}
+          data-testid="tab-integrations"
+        >
+          <Settings className="h-4 w-4 mr-2 inline" />
+          {t("admin.integrations", "Integrations")}
+        </button>
       </div>
 
       {/* Units Tab Content */}
@@ -1299,6 +1357,133 @@ export default function Hospital() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Integrations Tab Content */}
+      {activeTab === "integrations" && (
+        <div className="space-y-6">
+          <h2 className="text-lg font-semibold text-foreground">{t("admin.integrations", "Integrations")}</h2>
+          
+          {/* TimeButler Integration Card */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                  <RefreshCw className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">TimeButler</h3>
+                  <p className="text-sm text-muted-foreground">{t("admin.timebutlerDesc", "Sync staff absences from TimeButler HR system")}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={timebutlerEnabled}
+                  onCheckedChange={setTimebutlerEnabled}
+                  data-testid="switch-timebutler-enabled"
+                />
+                <span className={`text-sm ${timebutlerEnabled ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+                  {timebutlerEnabled ? t("common.enabled", "Enabled") : t("common.disabled", "Disabled")}
+                </span>
+              </div>
+            </div>
+
+            {timebutlerLoading ? (
+              <div className="text-center py-4">
+                <i className="fas fa-spinner fa-spin text-xl text-primary"></i>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Current Status */}
+                <div className="flex items-center gap-4 text-sm">
+                  <span className="text-muted-foreground">{t("admin.status", "Status")}:</span>
+                  {timebutlerConfigData?.hasApiToken ? (
+                    <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                      <i className="fas fa-check-circle"></i>
+                      {t("admin.apiTokenConfigured", "API Token configured")}
+                    </span>
+                  ) : (
+                    <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                      <i className="fas fa-exclamation-triangle"></i>
+                      {t("admin.apiTokenNotSet", "API Token not configured")}
+                    </span>
+                  )}
+                </div>
+
+                {timebutlerConfigData?.lastSyncAt && (
+                  <div className="text-sm text-muted-foreground">
+                    <span>{t("admin.lastSync", "Last sync")}:</span>{" "}
+                    <span>{new Date(timebutlerConfigData.lastSyncAt).toLocaleString()}</span>
+                    {timebutlerConfigData.lastSyncMessage && (
+                      <span className="ml-2 text-xs">- {timebutlerConfigData.lastSyncMessage}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* API Token Input */}
+                <div className="border-t border-border pt-4">
+                  <Label htmlFor="timebutler-token">{t("admin.apiToken", "API Token")}</Label>
+                  <div className="flex gap-2 mt-1">
+                    <div className="relative flex-1">
+                      <Input
+                        id="timebutler-token"
+                        type={showApiToken ? "text" : "password"}
+                        value={timebutlerApiToken}
+                        onChange={(e) => setTimebutlerApiToken(e.target.value)}
+                        placeholder={timebutlerConfigData?.hasApiToken ? "••••••••" : t("admin.enterApiToken", "Enter TimeButler API token")}
+                        data-testid="input-timebutler-token"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                        onClick={() => setShowApiToken(!showApiToken)}
+                      >
+                        {showApiToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <Button
+                      onClick={() => saveTimebutlerConfigMutation.mutate({
+                        apiToken: timebutlerApiToken || undefined,
+                        isEnabled: timebutlerEnabled,
+                      })}
+                      disabled={saveTimebutlerConfigMutation.isPending}
+                      data-testid="button-save-timebutler"
+                    >
+                      {saveTimebutlerConfigMutation.isPending ? (
+                        <i className="fas fa-spinner fa-spin mr-2"></i>
+                      ) : (
+                        <i className="fas fa-save mr-2"></i>
+                      )}
+                      {t("common.save", "Save")}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    <i className="fas fa-lock mr-1"></i>
+                    {t("admin.tokenSecurityNote", "Your API token is stored securely. Leave blank to keep the existing token.")}
+                  </p>
+                </div>
+
+                {/* Instructions */}
+                <div className="bg-muted/50 rounded-lg p-4 text-sm">
+                  <h4 className="font-medium mb-2">{t("admin.howToGetToken", "How to get your TimeButler API token")}</h4>
+                  <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                    <li>{t("admin.timebutlerStep1", "Log in to your TimeButler account")}</li>
+                    <li>{t("admin.timebutlerStep2", "Go to Settings → API Integration")}</li>
+                    <li>{t("admin.timebutlerStep3", "Generate or copy your API token")}</li>
+                    <li>{t("admin.timebutlerStep4", "Paste it here and click Save")}</li>
+                  </ol>
+                </div>
+
+                <p className="text-xs text-muted-foreground">
+                  <i className="fas fa-info-circle mr-1"></i>
+                  {t("admin.timebutlerNote", "TimeButler API allows 12 syncs per day. Syncs happen automatically once daily. Manual syncs can be triggered from Clinic → Availability.")}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
