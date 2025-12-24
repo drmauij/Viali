@@ -472,6 +472,12 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
     // Close browser
     await client.close();
 
+    // Build a lookup map for item names
+    const itemNameMap = new Map<string, string>();
+    for (const item of allHospitalItems) {
+      itemNameMap.set(item.itemId, item.itemName);
+    }
+
     // Process match results and update database
     let matchedCount = 0;
     let updatedCount = 0;
@@ -479,6 +485,10 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
     for (const result of matchResults) {
       if (result.matchedProduct && result.confidence >= 0.6) {
         matchedCount++;
+        
+        // Get the original item name
+        const searchedName = itemNameMap.get(result.itemId) || '';
+        const matchedProductName = result.matchedProduct.name || '';
         
         // Check if supplier code already exists
         const existingCode = await db.query.supplierCodes.findFirst({
@@ -505,6 +515,10 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
                 lastPriceUpdate: new Date(),
                 lastChecked: new Date(),
                 updatedAt: new Date(),
+                lastSyncJobId: job.id,
+                matchReason: result.matchReason,
+                searchedName,
+                matchedProductName,
               })
               .where(eq(supplierCodes.id, existingCode.id));
             
@@ -514,6 +528,10 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
               .update(supplierCodes)
               .set({
                 lastChecked: new Date(),
+                lastSyncJobId: job.id,
+                matchReason: result.matchReason,
+                searchedName,
+                matchedProductName,
               })
               .where(eq(supplierCodes.id, existingCode.id));
           }
@@ -531,6 +549,10 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
             matchStatus: result.confidence >= 0.9 ? 'confirmed' : 'pending',
             lastPriceUpdate: new Date(),
             lastChecked: new Date(),
+            lastSyncJobId: job.id,
+            matchReason: result.matchReason,
+            searchedName,
+            matchedProductName,
           });
           
           updatedCount++;
