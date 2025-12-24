@@ -884,6 +884,52 @@ router.get('/api/supplier-matches/:hospitalId', isAuthenticated, async (req: any
   }
 });
 
+// Get confirmed supplier matches for a hospital
+router.get('/api/supplier-matches/:hospitalId/confirmed', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some(h => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const confirmedMatches = await storage.getConfirmedSupplierMatches(hospitalId);
+    res.json(confirmedMatches);
+  } catch (error) {
+    console.error("Error fetching confirmed matches:", error);
+    res.status(500).json({ message: "Failed to fetch confirmed matches" });
+  }
+});
+
+// Get matches for a specific sync job
+router.get('/api/price-sync-jobs/:jobId/matches', isAuthenticated, async (req: any, res) => {
+  try {
+    const { jobId } = req.params;
+    const userId = req.user.id;
+    
+    // Verify access to the job
+    const job = await storage.getPriceSyncJob(jobId);
+    if (!job) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some(h => h.id === job.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    
+    const matches = await storage.getSupplierMatchesByJobId(jobId);
+    res.json(matches);
+  } catch (error) {
+    console.error("Error fetching job matches:", error);
+    res.status(500).json({ message: "Failed to fetch job matches" });
+  }
+});
+
 router.post('/api/supplier-codes/:id/confirm', isAuthenticated, async (req: any, res) => {
   try {
     const { id } = req.params;

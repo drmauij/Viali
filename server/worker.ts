@@ -488,7 +488,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
         
         // Get the original item name
         const searchedName = itemNameMap.get(result.itemId) || '';
-        const matchedProductName = result.matchedProduct.name || '';
+        const matchedProductName = result.matchedProduct.productName || '';
         
         // Check if supplier code already exists
         const existingCode = await db.query.supplierCodes.findFirst({

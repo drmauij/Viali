@@ -266,6 +266,8 @@ export interface IStorage {
   deleteSupplierCode(id: string): Promise<void>;
   setPreferredSupplier(itemId: string, supplierId: string): Promise<void>;
   getPendingSupplierMatches(hospitalId: string): Promise<(SupplierCode & { item: Item })[]>;
+  getConfirmedSupplierMatches(hospitalId: string): Promise<(SupplierCode & { item: Item })[]>;
+  getSupplierMatchesByJobId(jobId: string): Promise<(SupplierCode & { item: Item })[]>;
   
   // Order operations
   getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]>;
@@ -1108,6 +1110,45 @@ export class DatabaseStorage implements IStorage {
           eq(supplierCodes.matchStatus, 'pending')
         )
       )
+      .orderBy(desc(supplierCodes.matchConfidence), asc(items.name));
+    
+    return matches.map(m => ({
+      ...m.supplierCode,
+      item: m.item
+    }));
+  }
+
+  async getConfirmedSupplierMatches(hospitalId: string): Promise<(SupplierCode & { item: Item })[]> {
+    const matches = await db
+      .select({
+        supplierCode: supplierCodes,
+        item: items
+      })
+      .from(supplierCodes)
+      .innerJoin(items, eq(supplierCodes.itemId, items.id))
+      .where(
+        and(
+          eq(items.hospitalId, hospitalId),
+          eq(supplierCodes.matchStatus, 'confirmed')
+        )
+      )
+      .orderBy(desc(supplierCodes.lastPriceUpdate), asc(items.name));
+    
+    return matches.map(m => ({
+      ...m.supplierCode,
+      item: m.item
+    }));
+  }
+
+  async getSupplierMatchesByJobId(jobId: string): Promise<(SupplierCode & { item: Item })[]> {
+    const matches = await db
+      .select({
+        supplierCode: supplierCodes,
+        item: items
+      })
+      .from(supplierCodes)
+      .innerJoin(items, eq(supplierCodes.itemId, items.id))
+      .where(eq(supplierCodes.lastSyncJobId, jobId))
       .orderBy(desc(supplierCodes.matchConfidence), asc(items.name));
     
     return matches.map(m => ({
