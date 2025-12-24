@@ -22,6 +22,11 @@ interface SupplierMatch {
   publikumspreis: string | null;
   matchConfidence: string | null;
   matchStatus: string;
+  matchReason: string | null;
+  searchedName: string | null;
+  matchedProductName: string | null;
+  lastPriceUpdate: string | null;
+  lastSyncJobId: string | null;
   item: {
     id: string;
     name: string;
@@ -45,6 +50,11 @@ export default function SupplierMatches() {
     enabled: !!activeHospital?.id,
   });
 
+  const { data: confirmedMatches, isLoading: confirmedLoading } = useQuery<SupplierMatch[]>({
+    queryKey: ["/api/supplier-matches", activeHospital?.id, "confirmed"],
+    enabled: !!activeHospital?.id,
+  });
+
   const confirmMatchMutation = useMutation({
     mutationFn: async (matchId: string) => {
       const response = await apiRequest("POST", `/api/supplier-codes/${matchId}/confirm`);
@@ -52,6 +62,7 @@ export default function SupplierMatches() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/supplier-matches", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/supplier-matches", activeHospital?.id, "confirmed"] });
       toast({ title: t("common.success"), description: t("supplierMatches.matchConfirmed") });
     },
     onError: (error: any) => {
@@ -80,6 +91,7 @@ export default function SupplierMatches() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/supplier-matches", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/supplier-matches", activeHospital?.id, "confirmed"] });
       toast({ title: t("common.success"), description: t("supplierMatches.matchSelected") });
     },
     onError: (error: any) => {
@@ -165,22 +177,18 @@ export default function SupplierMatches() {
         )}
       </div>
 
-      {!hasMatches ? (
-        <div className="bg-card border border-border rounded-lg p-6 text-center">
-          <Check className="w-12 h-12 mx-auto text-green-500 mb-4" />
-          <h3 className="text-lg font-semibold text-foreground mb-2">{t("supplierMatches.allReviewed")}</h3>
-          <p className="text-muted-foreground">{t("supplierMatches.noMatchesDescription")}</p>
-        </div>
-      ) : (
-        <Tabs defaultValue="direct" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="direct" data-testid="tab-direct-matches">
-              {t("supplierMatches.directMatches")} ({directMatches.length})
-            </TabsTrigger>
-            <TabsTrigger value="suggested" data-testid="tab-suggested-matches">
-              {t("supplierMatches.suggestedMatches")} ({suggestedMatches.length})
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue={hasMatches ? "direct" : "confirmed"} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="direct" data-testid="tab-direct-matches">
+            {t("supplierMatches.pendingReview", "Pending Review")} ({directMatches.length + suggestedMatches.length})
+          </TabsTrigger>
+          <TabsTrigger value="suggested" data-testid="tab-suggested-matches">
+            {t("supplierMatches.needsAttention", "Needs Attention")} ({suggestedMatches.length})
+          </TabsTrigger>
+          <TabsTrigger value="confirmed" data-testid="tab-confirmed-matches">
+            {t("supplierMatches.confirmed", "Confirmed")} ({confirmedMatches?.length || 0})
+          </TabsTrigger>
+        </TabsList>
 
           <TabsContent value="direct" className="space-y-4 mt-4">
             {directMatches.length === 0 ? (
@@ -202,6 +210,27 @@ export default function SupplierMatches() {
                         </div>
                         {getConfidenceBadge(match.matchConfidence)}
                       </div>
+
+                      {/* Match details showing how the match was made */}
+                      {(match.matchedProductName || match.matchReason) && (
+                        <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                            <div className="space-y-1">
+                              {match.matchedProductName && (
+                                <p className="text-amber-700 dark:text-amber-300">
+                                  <span className="font-medium">{t("supplierMatches.matchedTo", "Matched to")}:</span> {match.matchedProductName}
+                                </p>
+                              )}
+                              {match.matchReason && (
+                                <p className="text-amber-600 dark:text-amber-400 text-xs">
+                                  <span className="font-medium">{t("supplierMatches.matchReason", "Reason")}:</span> {match.matchReason}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="bg-muted/50 rounded-lg p-3">
                         <div className="flex items-center gap-2 mb-2">
@@ -368,8 +397,110 @@ export default function SupplierMatches() {
               ))
             )}
           </TabsContent>
+
+          <TabsContent value="confirmed" className="space-y-4 mt-4">
+            {confirmedLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-4">
+                        <Skeleton className="h-12 w-12 rounded" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-1/2" />
+                          <Skeleton className="h-3 w-1/3" />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : !confirmedMatches || confirmedMatches.length === 0 ? (
+              <div className="bg-card border border-border rounded-lg p-6 text-center">
+                <Package className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                <p className="text-muted-foreground">{t("supplierMatches.noConfirmedMatches", "No confirmed matches yet. Run a price sync to get started.")}</p>
+              </div>
+            ) : (
+              confirmedMatches.map((match) => (
+                <Card key={match.id} data-testid={`card-confirmed-match-${match.id}`}>
+                  <CardContent className="p-4">
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-foreground">{match.item.name}</h3>
+                          {match.item.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-1">{match.item.description}</p>
+                          )}
+                        </div>
+                        <Badge className="bg-green-600">{t("supplierMatches.confirmed", "Confirmed")}</Badge>
+                      </div>
+
+                      {/* Match details showing how the match was made */}
+                      {(match.matchedProductName || match.matchReason) && (
+                        <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm">
+                          <div className="flex items-start gap-2">
+                            <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                            <div className="space-y-1">
+                              {match.matchedProductName && (
+                                <p className="text-blue-700 dark:text-blue-300">
+                                  <span className="font-medium">{t("supplierMatches.matchedTo", "Matched to")}:</span> {match.matchedProductName}
+                                </p>
+                              )}
+                              {match.matchReason && (
+                                <p className="text-blue-600 dark:text-blue-400 text-xs">
+                                  <span className="font-medium">{t("supplierMatches.matchReason", "Reason")}:</span> {match.matchReason}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="bg-muted/50 rounded-lg p-3">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="secondary">{match.supplierName}</Badge>
+                          {match.articleCode && (
+                            <span className="text-xs text-muted-foreground">Art. {match.articleCode}</span>
+                          )}
+                          {match.matchConfidence && (
+                            <span className="text-xs text-muted-foreground">
+                              ({Math.round(parseFloat(match.matchConfidence) * 100)}% {t("supplierMatches.confidence", "confidence")})
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="text-sm">
+                            {match.basispreis && (
+                              <span className="font-medium text-lg">{formatPrice(match.basispreis)}</span>
+                            )}
+                            {match.lastPriceUpdate && (
+                              <span className="text-muted-foreground ml-2 text-xs">
+                                {t("supplierMatches.updated", "Updated")}: {new Date(match.lastPriceUpdate).toLocaleDateString()}
+                              </span>
+                            )}
+                          </div>
+                          {match.catalogUrl && (
+                            <a
+                              href={match.catalogUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline text-sm flex items-center gap-1"
+                              data-testid={`link-catalog-confirmed-${match.id}`}
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              {t("supplierMatches.viewCatalog")}
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </TabsContent>
         </Tabs>
-      )}
     </div>
   );
 }
