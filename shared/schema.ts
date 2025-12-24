@@ -247,6 +247,10 @@ export const supplierCodes = pgTable("supplier_codes", {
   lastChecked: timestamp("last_checked"),
   matchConfidence: decimal("match_confidence", { precision: 3, scale: 2 }), // AI matching confidence (0.00-1.00)
   matchStatus: varchar("match_status").default("pending"), // pending, confirmed, rejected
+  lastSyncJobId: varchar("last_sync_job_id"), // Reference to the sync job that created/updated this record
+  matchReason: text("match_reason"), // Explanation of how the match was made (e.g., "pharmacode match", "fuzzy name match")
+  searchedName: text("searched_name"), // The original item name that was searched
+  matchedProductName: text("matched_product_name"), // The product name from the supplier catalog that was matched
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -254,6 +258,8 @@ export const supplierCodes = pgTable("supplier_codes", {
   index("idx_supplier_codes_item").on(table.itemId),
   index("idx_supplier_codes_supplier").on(table.supplierName),
   index("idx_supplier_codes_preferred").on(table.isPreferred),
+  index("idx_supplier_codes_sync_job").on(table.lastSyncJobId),
+  index("idx_supplier_codes_match_status").on(table.matchStatus),
 ]);
 
 // Supplier Catalogs - Configuration for automated price syncing

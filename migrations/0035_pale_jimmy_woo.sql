@@ -1,0 +1,6 @@
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='supplier_codes' AND column_name='last_sync_job_id') THEN ALTER TABLE "supplier_codes" ADD COLUMN "last_sync_job_id" varchar; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='supplier_codes' AND column_name='match_reason') THEN ALTER TABLE "supplier_codes" ADD COLUMN "match_reason" text; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='supplier_codes' AND column_name='searched_name') THEN ALTER TABLE "supplier_codes" ADD COLUMN "searched_name" text; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='supplier_codes' AND column_name='matched_product_name') THEN ALTER TABLE "supplier_codes" ADD COLUMN "matched_product_name" text; END IF; END $$;--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_supplier_codes_sync_job" ON "supplier_codes" USING btree ("last_sync_job_id");--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_supplier_codes_match_status" ON "supplier_codes" USING btree ("match_status");
