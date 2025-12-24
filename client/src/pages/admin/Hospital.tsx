@@ -12,7 +12,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link, RefreshCw, Trash2, Eye, EyeOff, Settings } from "lucide-react";
+import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
 import { formatDateLong } from "@/lib/dateUtils";
@@ -834,7 +835,7 @@ export default function Hospital() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-semibold text-foreground text-lg flex items-center gap-2">
-                <Link className="h-5 w-5 text-primary" />
+                <LinkIcon className="h-5 w-5 text-primary" />
                 {t("admin.openQuestionnaireLink", "Open Questionnaire Link")}
               </h3>
               <p className="text-sm text-muted-foreground">
@@ -915,7 +916,7 @@ export default function Hospital() {
                 {generateQuestionnaireTokenMutation.isPending ? (
                   <i className="fas fa-spinner fa-spin mr-2"></i>
                 ) : (
-                  <Link className="h-4 w-4 mr-2" />
+                  <LinkIcon className="h-4 w-4 mr-2" />
                 )}
                 {t("admin.generateLink", "Generate Link")}
               </Button>
@@ -1320,9 +1321,19 @@ export default function Hospital() {
                             const s = JSON.parse(job.summary);
                             return (
                               <>
-                                <p className="text-green-600 dark:text-green-400 font-medium">
-                                  Matched {s.matchedItems} items, updated {s.updatedItems} prices
-                                </p>
+                                <div className="flex items-center justify-between">
+                                  <p className="text-green-600 dark:text-green-400 font-medium">
+                                    Matched {s.matchedItems} items, updated {s.updatedItems} prices
+                                  </p>
+                                  <Link 
+                                    href="/inventory/matches" 
+                                    className="text-primary hover:underline flex items-center gap-1"
+                                    data-testid={`link-view-matches-${job.id}`}
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                    View Matches
+                                  </Link>
+                                </div>
                                 {s.itemsWithGtinNoSupplierCode > 0 && (
                                   <p className="text-amber-600 dark:text-amber-400">
                                     {s.itemsWithGtinNoSupplierCode} items have GTIN but no Galexis code
