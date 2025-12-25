@@ -95,7 +95,12 @@ export default function ClinicAppointments() {
       return apiRequest("PATCH", `/api/clinic/${hospitalId}/appointments/${id}`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments`] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/units/${unitId}/appointments`);
+        }
+      });
       toast({ title: t('appointments.statusUpdated', 'Appointment status updated') });
       setDetailDialogOpen(false);
     },
@@ -392,7 +397,12 @@ function BookingDialog({
       return apiRequest("POST", `/api/clinic/${hospitalId}/units/${unitId}/appointments`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments`] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/units/${unitId}/appointments`);
+        }
+      });
       toast({ title: t('appointments.created', 'Appointment created successfully') });
       onOpenChange(false);
       resetForm();

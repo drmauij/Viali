@@ -477,11 +477,21 @@ export default function ClinicCalendar({
       return apiRequest("PATCH", `/api/clinic/${hospitalId}/appointments/${appointmentId}`, body);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments`] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/units/${unitId}/appointments`);
+        }
+      });
       toast({ title: t('appointments.rescheduled', 'Appointment rescheduled successfully') });
     },
     onError: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments`] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/units/${unitId}/appointments`);
+        }
+      });
       toast({ title: t('appointments.rescheduleFailed', 'Failed to reschedule appointment'), variant: "destructive" });
     },
   });
