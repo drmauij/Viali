@@ -218,6 +218,55 @@ export default function ClinicCalendar({
     staleTime: 1000 * 60 * 5,
   });
 
+  const { data: appointments = [] } = useQuery<AppointmentWithDetails[]>({
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`],
+    enabled: !!hospitalId && !!unitId,
+    refetchInterval: 30000,
+  });
+
+  // Fetch all surgeries for the hospital in the date range (to show surgery blocks)
+  interface AllSurgery extends ProviderSurgery {
+    surgeonFirstName: string | null;
+    surgeonLastName: string | null;
+  }
+  
+  const { data: allSurgeries = [] } = useQuery<AllSurgery[]>({
+    queryKey: [`/api/clinic/${hospitalId}/all-surgeries`, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/clinic/${hospitalId}/all-surgeries?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`,
+        { credentials: 'include' }
+      );
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!hospitalId,
+    refetchInterval: 60000,
+  });
+
+  // Extract surgeons from surgeries and merge them into the resources list
+  const surgeonsFromSurgeries = useMemo(() => {
+    const providerIdSet = new Set(providers.map(p => p.id));
+    const surgeonMap = new Map<string, { id: string; firstName: string; lastName: string }>();
+    
+    allSurgeries.forEach(surgery => {
+      if (surgery.surgeonId && !providerIdSet.has(surgery.surgeonId) && !surgeonMap.has(surgery.surgeonId)) {
+        surgeonMap.set(surgery.surgeonId, {
+          id: surgery.surgeonId,
+          firstName: surgery.surgeonFirstName || surgery.surgeon?.split(' ')[0] || '',
+          lastName: surgery.surgeonLastName || surgery.surgeon?.split(' ').slice(1).join(' ') || '',
+        });
+      }
+    });
+    
+    return Array.from(surgeonMap.values());
+  }, [allSurgeries, providers]);
+
+  // Merge base providers with surgeons from surgeries
+  const allProviders = useMemo(() => {
+    return [...providers, ...surgeonsFromSurgeries];
+  }, [providers, surgeonsFromSurgeries]);
+
   useEffect(() => {
     if (providers.length > 0 && !hasLoadedPreferences) {
       const savedFilter = userPreferences?.clinicProviderFilter?.[hospitalId];
@@ -233,37 +282,17 @@ export default function ClinicCalendar({
   }, [providers, userPreferences, hospitalId, hasLoadedPreferences]);
 
   const filteredProviders = useMemo(() => {
-    if (selectedProviderIds.size === 0) return providers;
-    return providers.filter(p => selectedProviderIds.has(p.id));
-  }, [providers, selectedProviderIds]);
+    if (selectedProviderIds.size === 0) return allProviders;
+    return allProviders.filter(p => selectedProviderIds.has(p.id));
+  }, [allProviders, selectedProviderIds]);
 
-  const isFiltered = selectedProviderIds.size > 0 && selectedProviderIds.size < providers.length;
+  const isFiltered = selectedProviderIds.size > 0 && selectedProviderIds.size < allProviders.length;
 
-  const { data: appointments = [] } = useQuery<AppointmentWithDetails[]>({
-    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`],
-    enabled: !!hospitalId && !!unitId,
-    refetchInterval: 30000,
-  });
-
-  // Fetch surgeries where filtered providers are assigned as surgeons
-  const providerIdsParam = useMemo(() => {
-    return filteredProviders.map(p => p.id).join(',');
-  }, [filteredProviders]);
-
-  const { data: providerSurgeries = [] } = useQuery<ProviderSurgery[]>({
-    queryKey: [`/api/clinic/${hospitalId}/provider-surgeries`, providerIdsParam, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
-    queryFn: async () => {
-      if (!providerIdsParam) return [];
-      const response = await fetch(
-        `/api/clinic/${hospitalId}/provider-surgeries?providerIds=${providerIdsParam}&startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`,
-        { credentials: 'include' }
-      );
-      if (!response.ok) return [];
-      return response.json();
-    },
-    enabled: !!hospitalId && !!providerIdsParam,
-    refetchInterval: 60000,
-  });
+  // Filter surgeries based on selected providers
+  const providerSurgeries = useMemo(() => {
+    const selectedIds = selectedProviderIds.size > 0 ? selectedProviderIds : new Set(allProviders.map(p => p.id));
+    return allSurgeries.filter(surgery => surgery.surgeonId && selectedIds.has(surgery.surgeonId));
+  }, [allSurgeries, selectedProviderIds, allProviders]);
 
   // Fetch provider absences (Timebutler sync)
   const { data: providerAbsences = [] } = useQuery<ProviderAbsence[]>({
@@ -664,7 +693,7 @@ export default function ClinicCalendar({
   }
 
   return (
-    <div className="flex flex-col min-h-screen" data-testid="clinic-calendar">
+    <div className="flex flex-col h-full min-h-0" data-testid="clinic-calendar">
       {/* Header with view switcher and navigation */}
       <div className="flex flex-wrap items-center gap-3 p-3 sm:p-4 bg-background border-b">
         <div className="flex items-center gap-1.5 sm:gap-2">

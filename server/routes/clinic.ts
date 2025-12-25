@@ -1338,6 +1338,96 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers', isAuthenticated, i
 // Provider Surgery Blocks (for blocking calendar time)
 // ========================================
 
+// Get all surgeries for a hospital in a date range (for calendar blocking)
+router.get('/api/clinic/:hospitalId/all-surgeries', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    if (!startDate || !endDate) {
+      return res.status(400).json({ message: "startDate and endDate are required" });
+    }
+    
+    const { surgeries, patients: patientsTable } = await import("@shared/schema");
+    
+    const start = new Date(startDate as string);
+    start.setHours(0, 0, 0, 0);
+    
+    const end = new Date(endDate as string);
+    end.setHours(23, 59, 59, 999);
+    
+    // Fetch all non-cancelled surgeries for the hospital in date range
+    const result = await db
+      .select({
+        id: surgeries.id,
+        patientId: surgeries.patientId,
+        surgeonId: surgeries.surgeonId,
+        surgeon: surgeries.surgeon,
+        plannedDate: surgeries.plannedDate,
+        plannedSurgery: surgeries.plannedSurgery,
+        actualEndTime: surgeries.actualEndTime,
+        status: surgeries.status,
+        surgeryRoomId: surgeries.surgeryRoomId,
+        patientFirstName: patientsTable.firstName,
+        patientSurname: patientsTable.surname,
+      })
+      .from(surgeries)
+      .leftJoin(patientsTable, eq(surgeries.patientId, patientsTable.id))
+      .where(
+        and(
+          eq(surgeries.hospitalId, hospitalId),
+          sql`${surgeries.plannedDate} >= ${start}`,
+          sql`${surgeries.plannedDate} <= ${end}`,
+          sql`(${surgeries.status} IS NULL OR ${surgeries.status} NOT IN ('cancelled', 'archived'))`
+        )
+      )
+      .orderBy(surgeries.plannedDate);
+    
+    // For surgeries with surgeonId, get surgeon names from users table
+    const surgeonIds = result
+      .map(s => s.surgeonId)
+      .filter((id): id is string => id !== null);
+    
+    let surgeonMap = new Map<string, { firstName: string; lastName: string }>();
+    if (surgeonIds.length > 0) {
+      const surgeonData = await db
+        .select({
+          id: users.id,
+          firstName: users.firstName,
+          lastName: users.lastName,
+        })
+        .from(users)
+        .where(inArray(users.id, surgeonIds));
+      
+      surgeonData.forEach(s => {
+        surgeonMap.set(s.id, { firstName: s.firstName || '', lastName: s.lastName || '' });
+      });
+    }
+    
+    // Enrich result with surgeon names
+    const enrichedResult = result.map(surgery => {
+      if (surgery.surgeonId && surgeonMap.has(surgery.surgeonId)) {
+        const surgeon = surgeonMap.get(surgery.surgeonId)!;
+        return {
+          ...surgery,
+          surgeonFirstName: surgeon.firstName,
+          surgeonLastName: surgeon.lastName,
+        };
+      }
+      return {
+        ...surgery,
+        surgeonFirstName: null,
+        surgeonLastName: null,
+      };
+    });
+    
+    res.json(enrichedResult);
+  } catch (error) {
+    console.error("Error fetching all surgeries:", error);
+    res.status(500).json({ message: "Failed to fetch surgeries" });
+  }
+});
+
 // Get surgeries where providers are assigned as surgeons
 router.get('/api/clinic/:hospitalId/provider-surgeries', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
