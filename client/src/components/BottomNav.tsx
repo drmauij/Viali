@@ -140,7 +140,6 @@ export default function BottomNav() {
       if (canAccessPreOp) {
         surgeryItems.push({ id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.surgery.checklists'), path: "/surgery/checklists" });
       }
-      surgeryItems.push({ id: "settings", icon: "fas fa-cog", label: t('bottomNav.surgery.settings'), path: "/surgery/settings" });
       return surgeryItems;
     }
     
