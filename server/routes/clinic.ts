@@ -904,10 +904,21 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
     const { hospitalId, unitId } = req.params;
     const userId = req.user.id;
     
+    // Calculate duration from start and end time
+    const { startTime, endTime } = req.body;
+    let durationMinutes = 30; // default
+    if (startTime && endTime) {
+      const [startHours, startMins] = startTime.split(':').map(Number);
+      const [endHours, endMins] = endTime.split(':').map(Number);
+      durationMinutes = (endHours * 60 + endMins) - (startHours * 60 + startMins);
+      if (durationMinutes <= 0) durationMinutes = 30;
+    }
+    
     const validatedData = insertClinicAppointmentSchema.parse({
       ...req.body,
       hospitalId,
       unitId,
+      durationMinutes,
       createdBy: userId,
     });
     
