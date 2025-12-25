@@ -664,7 +664,7 @@ export default function ClinicCalendar({
   }
 
   return (
-    <div className="flex flex-col h-full" data-testid="clinic-calendar">
+    <div className="flex flex-col min-h-screen" data-testid="clinic-calendar">
       {/* Header with view switcher and navigation */}
       <div className="flex flex-wrap items-center gap-3 p-3 sm:p-4 bg-background border-b">
         <div className="flex items-center gap-1.5 sm:gap-2">
@@ -761,7 +761,7 @@ export default function ClinicCalendar({
       </div>
 
       {/* Calendar */}
-      <div className={`flex-1 min-h-0 px-4 pb-4 ${currentView === "month" ? "overflow-auto" : "overflow-hidden"}`}>
+      <div className="flex-1 min-h-0 px-4 pb-4">
         <div className="h-full calendar-container">
         {providersLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -840,7 +840,7 @@ export default function ClinicCalendar({
               agenda: t('opCalendar.agenda', 'Agenda'),
               noEventsInRange: t('appointments.noAppointments', 'No appointments in this range'),
             }}
-            style={currentView === "month" ? { minHeight: '600px' } : { height: '100%', minHeight: '600px' }}
+            style={{ minHeight: '600px' }}
             popup
           />
         )}
