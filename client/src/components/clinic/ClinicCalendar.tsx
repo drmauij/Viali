@@ -871,6 +871,8 @@ export default function ClinicCalendar({
             onSelectEvent={handleSelectEvent}
             selectable
             resizable
+            draggableAccessor={(event: CalendarEvent) => !event.isSurgeryBlock && !event.isAbsenceBlock}
+            resizableAccessor={(event: CalendarEvent) => !event.isSurgeryBlock && !event.isAbsenceBlock}
             toolbar={false}
             step={15}
             timeslots={4}
