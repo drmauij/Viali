@@ -145,13 +145,15 @@ interface ClinicCalendarProps {
   unitId: string;
   onBookAppointment?: (data: { providerId: string; date: Date; endDate?: Date }) => void;
   onEventClick?: (appointment: AppointmentWithDetails) => void;
+  statusLegend?: React.ReactNode;
 }
 
 export default function ClinicCalendar({ 
   hospitalId, 
   unitId, 
   onBookAppointment,
-  onEventClick 
+  onEventClick,
+  statusLegend,
 }: ClinicCalendarProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
@@ -268,18 +270,23 @@ export default function ClinicCalendar({
   }, [providers, surgeonsFromSurgeries]);
 
   useEffect(() => {
-    if (providers.length > 0 && !hasLoadedPreferences) {
+    if (allProviders.length > 0 && !hasLoadedPreferences) {
       const savedFilter = userPreferences?.clinicProviderFilter?.[hospitalId];
       if (savedFilter && savedFilter.length > 0) {
-        const validIds = new Set(providers.map(p => p.id));
+        const validIds = new Set(allProviders.map(p => p.id));
         const filteredIds = savedFilter.filter(id => validIds.has(id));
-        setSelectedProviderIds(new Set(filteredIds));
+        // Include all providers by default (including surgeons from surgeries)
+        const allIds = new Set(allProviders.map(p => p.id));
+        // Merge saved filter with any new surgeons
+        filteredIds.forEach(id => allIds.has(id));
+        setSelectedProviderIds(allIds);
       } else {
-        setSelectedProviderIds(new Set(providers.map(p => p.id)));
+        // Select all providers including surgeons from surgeries
+        setSelectedProviderIds(new Set(allProviders.map(p => p.id)));
       }
       setHasLoadedPreferences(true);
     }
-  }, [providers, userPreferences, hospitalId, hasLoadedPreferences]);
+  }, [allProviders, userPreferences, hospitalId, hasLoadedPreferences]);
 
   const filteredProviders = useMemo(() => {
     if (selectedProviderIds.size === 0) return allProviders;
@@ -693,7 +700,7 @@ export default function ClinicCalendar({
   }
 
   return (
-    <div className="flex flex-col h-full min-h-0" data-testid="clinic-calendar">
+    <div className="flex flex-col min-h-screen" data-testid="clinic-calendar">
       {/* Header with view switcher and navigation */}
       <div className="flex flex-wrap items-center gap-3 p-3 sm:p-4 bg-background border-b">
         <div className="flex items-center gap-1.5 sm:gap-2">
@@ -875,6 +882,9 @@ export default function ClinicCalendar({
         )}
         </div>
       </div>
+
+      {/* Status legend passed from parent */}
+      {statusLegend}
 
       <ProviderFilterDialog
         open={filterDialogOpen}

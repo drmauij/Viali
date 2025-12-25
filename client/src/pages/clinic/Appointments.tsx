@@ -161,22 +161,23 @@ export default function ClinicAppointments() {
         </Button>
       </div>
 
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-auto">
         <ClinicCalendar
           hospitalId={hospitalId}
           unitId={unitId}
           onBookAppointment={handleBookAppointment}
           onEventClick={handleEventClick}
+          statusLegend={
+            <div className="flex flex-wrap gap-3 p-4 border-t bg-muted/30 text-sm">
+              {Object.entries(STATUS_COLORS).map(([status, colors]) => (
+                <div key={status} className="flex items-center gap-1.5">
+                  <div className={`w-3 h-3 rounded ${colors.bg} border ${colors.border}`} />
+                  <span className="text-muted-foreground">{getStatusLabel(status)}</span>
+                </div>
+              ))}
+            </div>
+          }
         />
-      </div>
-
-      <div className="flex flex-wrap gap-3 p-4 border-t bg-muted/30 text-sm">
-        {Object.entries(STATUS_COLORS).map(([status, colors]) => (
-          <div key={status} className="flex items-center gap-1.5">
-            <div className={`w-3 h-3 rounded ${colors.bg} border ${colors.border}`} />
-            <span className="text-muted-foreground">{getStatusLabel(status)}</span>
-          </div>
-        ))}
       </div>
 
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
