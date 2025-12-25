@@ -140,8 +140,8 @@ export default function ClinicAppointments() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)]" data-testid="appointments-page">
-      <div className="flex items-center justify-between p-4 border-b bg-background">
+    <div className="container mx-auto px-0 py-6 pb-24" data-testid="appointments-page">
+      <div className="flex items-center justify-between px-4 mb-6">
         <div className="flex items-center gap-2">
           <Calendar className="h-6 w-6 text-primary" />
           <h1 className="text-xl font-bold" data-testid="text-page-title">
@@ -161,7 +161,7 @@ export default function ClinicAppointments() {
         </Button>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-auto">
+      <div>
         <ClinicCalendar
           hospitalId={hospitalId}
           unitId={unitId}

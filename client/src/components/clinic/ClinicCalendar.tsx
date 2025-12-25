@@ -246,15 +246,26 @@ export default function ClinicCalendar({
     refetchInterval: 60000,
   });
 
+  // Helper to derive consistent resource ID for a surgeon
+  const getSurgeonResourceId = (surgery: AllSurgery): string | null => {
+    if (surgery.surgeonId) return surgery.surgeonId;
+    if (surgery.surgeon) {
+      // Slugify the surgeon name to create a consistent ID
+      return `surgeon-${surgery.surgeon.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`;
+    }
+    return null;
+  };
+
   // Extract surgeons from surgeries and merge them into the resources list
   const surgeonsFromSurgeries = useMemo(() => {
     const providerIdSet = new Set(providers.map(p => p.id));
     const surgeonMap = new Map<string, { id: string; firstName: string; lastName: string }>();
     
     allSurgeries.forEach(surgery => {
-      if (surgery.surgeonId && !providerIdSet.has(surgery.surgeonId) && !surgeonMap.has(surgery.surgeonId)) {
-        surgeonMap.set(surgery.surgeonId, {
-          id: surgery.surgeonId,
+      const resourceId = getSurgeonResourceId(surgery);
+      if (resourceId && !providerIdSet.has(resourceId) && !surgeonMap.has(resourceId)) {
+        surgeonMap.set(resourceId, {
+          id: resourceId,
           firstName: surgery.surgeonFirstName || surgery.surgeon?.split(' ')[0] || '',
           lastName: surgery.surgeonLastName || surgery.surgeon?.split(' ').slice(1).join(' ') || '',
         });
@@ -298,7 +309,10 @@ export default function ClinicCalendar({
   // Filter surgeries based on selected providers
   const providerSurgeries = useMemo(() => {
     const selectedIds = selectedProviderIds.size > 0 ? selectedProviderIds : new Set(allProviders.map(p => p.id));
-    return allSurgeries.filter(surgery => surgery.surgeonId && selectedIds.has(surgery.surgeonId));
+    return allSurgeries.filter(surgery => {
+      const resourceId = getSurgeonResourceId(surgery);
+      return resourceId && selectedIds.has(resourceId);
+    });
   }, [allSurgeries, selectedProviderIds, allProviders]);
 
   // Fetch provider absences (Timebutler sync)
@@ -351,10 +365,13 @@ export default function ClinicCalendar({
     });
 
     // Surgery block events (gray, non-editable)
-    // Only include surgeries where surgeonId is in the filtered providers list
+    // Only include surgeries where resourceId is in the filtered providers list
     const providerIdSet = new Set(filteredProviders.map(p => p.id));
     const surgeryBlockEvents = providerSurgeries
-      .filter((surgery) => surgery.surgeonId && providerIdSet.has(surgery.surgeonId))
+      .filter((surgery) => {
+        const resourceId = getSurgeonResourceId(surgery);
+        return resourceId && providerIdSet.has(resourceId);
+      })
       .map((surgery) => {
         const patientName = surgery.patientSurname && surgery.patientFirstName
           ? `${surgery.patientSurname}, ${surgery.patientFirstName}`
@@ -370,12 +387,14 @@ export default function ClinicCalendar({
           end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours
         }
         
+        const resourceId = getSurgeonResourceId(surgery);
+        
         return {
           id: `surgery-${surgery.id}`,
           title: `🔒 ${surgery.plannedSurgery || 'Surgery'}`,
           start,
           end,
-          resource: surgery.surgeonId!,
+          resource: resourceId!,
           appointmentId: surgery.id,
           patientId: surgery.patientId,
           patientName,

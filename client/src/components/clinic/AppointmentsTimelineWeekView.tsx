@@ -43,6 +43,16 @@ interface ProviderSurgery {
   patientSurname: string | null;
 }
 
+// Helper to derive consistent resource ID for a surgeon
+const getSurgeonResourceId = (surgery: ProviderSurgery): string | null => {
+  if (surgery.surgeonId) return surgery.surgeonId;
+  if (surgery.surgeon) {
+    // Slugify the surgeon name to create a consistent ID
+    return `surgeon-${surgery.surgeon.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')}`;
+  }
+  return null;
+};
+
 interface ProviderAbsence {
   id: string;
   providerId: string;
@@ -221,10 +231,13 @@ export default function AppointmentsTimelineWeekView({
     });
 
     // Surgery block items (gray, non-draggable)
-    // Only include surgeries where surgeonId is in the providers list
+    // Only include surgeries where resourceId is in the providers list
     const providerIdSet = new Set(providers.map(p => p.id));
     const surgeryItems = providerSurgeries
-      .filter((surgery) => surgery.surgeonId && providerIdSet.has(surgery.surgeonId))
+      .filter((surgery) => {
+        const resourceId = getSurgeonResourceId(surgery);
+        return resourceId && providerIdSet.has(resourceId);
+      })
       .map((surgery) => {
         const start = new Date(surgery.plannedDate);
         
@@ -236,9 +249,11 @@ export default function AppointmentsTimelineWeekView({
           end = new Date(start.getTime() + 2 * 60 * 60 * 1000); // Default 2 hours
         }
         
+        const resourceId = getSurgeonResourceId(surgery);
+        
         return {
           id: `surgery-${surgery.id}`,
-          group: surgery.surgeonId!,
+          group: resourceId!,
           title: `🔒 ${surgery.plannedSurgery || 'Surgery'}`,
           start_time: moment(start).valueOf(),
           end_time: moment(end).valueOf(),
