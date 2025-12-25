@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors } from "lucide-react";
 import { format } from "date-fns";
 import { de, enGB } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -391,7 +391,7 @@ export default function ClinicCalendar({
         
         return {
           id: `surgery-${surgery.id}`,
-          title: `🔒 ${surgery.plannedSurgery || 'Surgery'}`,
+          title: surgery.plannedSurgery || 'Surgery',
           start,
           end,
           resource: resourceId!,
@@ -539,13 +539,13 @@ export default function ClinicCalendar({
   }, [onEventClick, appointments]);
 
   const eventStyleGetter: EventPropGetter<CalendarEvent> = useCallback((event: CalendarEvent) => {
-    // Surgery blocks: gray, non-interactive
+    // Surgery blocks: dark slate, non-interactive with better contrast
     if (event.isSurgeryBlock) {
       return {
         style: {
-          backgroundColor: '#9ca3af',
-          borderColor: '#6b7280',
-          color: '#ffffff',
+          backgroundColor: '#475569',
+          borderColor: '#334155',
+          color: '#f1f5f9',
           borderRadius: '4px',
           opacity: 0.8,
           border: '1px solid',
@@ -593,10 +593,12 @@ export default function ClinicCalendar({
     if (event.isSurgeryBlock) {
       return (
         <div className="flex flex-col h-full p-1" data-testid={`surgery-block-${event.appointmentId}`}>
-          <div className="font-bold text-xs">
-            🔒 {t('appointments.surgery', 'Surgery')}
+          <div className="font-bold text-xs flex items-center gap-1">
+            <Scissors className="w-3 h-3" />
+            {t('appointments.surgery', 'Surgery')}
           </div>
-          <div className="text-xs">
+          <div className="text-xs flex items-center gap-1">
+            <Lock className="w-3 h-3" />
             {event.surgeryName || 'OP'}
           </div>
         </div>
