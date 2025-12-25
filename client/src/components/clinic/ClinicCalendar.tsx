@@ -859,6 +859,7 @@ export default function ClinicCalendar({
             resources={currentView === "day" ? resources : undefined}
             resourceIdAccessor="id"
             resourceTitleAccessor="title"
+            resourceAccessor="resource"
             startAccessor="start"
             endAccessor="end"
             view={currentView as View}
