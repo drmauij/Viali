@@ -761,7 +761,7 @@ export default function ClinicCalendar({
       </div>
 
       {/* Calendar */}
-      <div className="flex-1 min-h-0 px-4 pb-4">
+      <div className="flex-1 min-h-0 px-4 pb-4 overflow-hidden">
         <div className="h-full calendar-container">
         {providersLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -840,7 +840,7 @@ export default function ClinicCalendar({
               agenda: t('opCalendar.agenda', 'Agenda'),
               noEventsInRange: t('appointments.noAppointments', 'No appointments in this range'),
             }}
-            style={{ minHeight: '600px' }}
+            style={{ height: '100%', minHeight: '600px' }}
             popup
           />
         )}
