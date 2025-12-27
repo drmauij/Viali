@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -60,6 +60,23 @@ type Surgeon = {
   id: string;
   name: string;
   email: string | null;
+};
+
+type PatientInvoice = {
+  id: string;
+  hospitalId: string;
+  invoiceNumber: number;
+  date: string;
+  patientId: string | null;
+  customerName: string;
+  customerAddress: string | null;
+  subtotal: string;
+  vatRate: string;
+  vatAmount: string;
+  total: string;
+  comments: string | null;
+  status: "draft" | "sent" | "paid" | "cancelled";
+  createdAt: string;
 };
 
 export default function PatientDetail() {
@@ -134,6 +151,25 @@ export default function PatientDetail() {
     error: surgeriesError 
   } = useQuery<Surgery[]>({
     queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${params?.id}`],
+    enabled: !!params?.id && !!activeHospital?.id,
+  });
+
+  // Fetch invoices for this patient
+  const { 
+    data: patientInvoices = [], 
+    isLoading: isLoadingInvoices 
+  } = useQuery<PatientInvoice[]>({
+    queryKey: [`/api/clinic/${activeHospital?.id}/invoices`, { patientId: params?.id }],
+    queryFn: async () => {
+      const response = await fetch(`/api/clinic/${activeHospital?.id}/invoices?patientId=${params?.id}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        if (response.status === 404) return []; // No invoices module access
+        throw new Error('Failed to fetch invoices');
+      }
+      return response.json();
+    },
     enabled: !!params?.id && !!activeHospital?.id,
   });
 
@@ -1965,9 +2001,9 @@ export default function PatientDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Main Content Tabs - Surgeries and Documents */}
+      {/* Main Content Tabs - Surgeries, Documents, and Invoices */}
       <Tabs defaultValue="surgeries" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-4">
+        <TabsList className="grid w-full grid-cols-3 mb-4">
           <TabsTrigger value="surgeries" data-testid="tab-surgeries">
             {t('anesthesia.patientDetail.surgeries', 'Surgeries')}
             {surgeries && surgeries.length > 0 && (
@@ -1978,6 +2014,12 @@ export default function PatientDetail() {
             {t('anesthesia.patientDetail.documents', 'Documents')}
             {patientUploads.length > 0 && (
               <Badge variant="secondary" className="ml-2">{patientUploads.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="invoices" data-testid="tab-invoices">
+            {t('anesthesia.patientDetail.invoices', 'Invoices')}
+            {patientInvoices.length > 0 && (
+              <Badge variant="secondary" className="ml-2">{patientInvoices.length}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
@@ -2222,6 +2264,92 @@ export default function PatientDetail() {
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {t('anesthesia.patientDetail.noDocumentsDesc', 'Documents will appear here when the patient submits a questionnaire with file uploads.')}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="invoices" className="mt-0">
+          {isLoadingInvoices ? (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" data-testid="loader-invoices" />
+                  <p className="text-muted-foreground">{t('anesthesia.patientDetail.loadingInvoices', 'Loading invoices...')}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : patientInvoices.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Receipt className="h-5 w-5" />
+                  {t('anesthesia.patientDetail.patientInvoices', 'Patient Invoices')}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {t('anesthesia.patientDetail.patientInvoicesDesc', 'Invoices issued for this patient.')}
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {patientInvoices.map((invoice) => {
+                    const statusColors: Record<string, string> = {
+                      draft: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200',
+                      sent: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                      paid: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                      cancelled: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+                    };
+                    return (
+                      <div 
+                        key={invoice.id}
+                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                        data-testid={`invoice-item-${invoice.id}`}
+                      >
+                        <div className="flex items-center gap-4">
+                          <Receipt className="h-8 w-8 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">
+                              {t('anesthesia.patientDetail.invoiceNumber', 'Invoice #{{number}}', { number: invoice.invoiceNumber })}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {formatDate(invoice.date)} • {invoice.customerName}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="font-semibold">CHF {parseFloat(invoice.total).toFixed(2)}</p>
+                            <Badge className={statusColors[invoice.status] || statusColors.draft}>
+                              {t(`anesthesia.patientDetail.invoiceStatus.${invoice.status}`, invoice.status)}
+                            </Badge>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setLocation(`/clinic/invoices/${invoice.id}`)}
+                            data-testid={`button-view-invoice-${invoice.id}`}
+                          >
+                            {t('common.view', 'View')}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <Receipt className="h-12 w-12 text-muted-foreground" data-testid="icon-no-invoices" />
+                  <p className="text-foreground font-semibold" data-testid="text-no-invoices">
+                    {t('anesthesia.patientDetail.noInvoices', 'No invoices found')}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {t('anesthesia.patientDetail.noInvoicesDesc', 'Invoices for this patient will appear here once created.')}
                   </p>
                 </div>
               </CardContent>
