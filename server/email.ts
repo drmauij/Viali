@@ -24,7 +24,10 @@ export async function getUncachableResendClient() {
 }
 
 function getAppBaseUrl(): string {
-  // Use APP_URL for production, fall back to Replit domains for development
+  // Use PRODUCTION_URL or APP_URL for production, fall back to Replit domains for development
+  if (process.env.PRODUCTION_URL) {
+    return process.env.PRODUCTION_URL;
+  }
   if (process.env.APP_URL) {
     return process.env.APP_URL;
   }
@@ -37,7 +40,7 @@ function getAppBaseUrl(): string {
       return `https://${domains[0]}`;
     }
   }
-  return 'https://viali.app';
+  return 'https://use.viali.app';
 }
 
 function buildChatDeepLink(conversationId?: string): string {
