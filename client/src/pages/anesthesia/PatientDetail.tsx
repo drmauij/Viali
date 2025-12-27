@@ -1216,28 +1216,38 @@ export default function PatientDetail() {
           : qResponse.medicationsNotes;
       }
       
-      // Smoking status -> noxen (build noxenNotes on newData)
+      // Smoking status -> noxen checkboxes and notes
       if (qResponse.smokingStatus && qResponse.smokingStatus !== 'never') {
-        if (newData.noxen) {
-          newData.noxen = { ...newData.noxen, smoking: true };
+        // Initialize noxen object if it doesn't exist
+        if (!newData.noxen) {
+          newData.noxen = {};
         }
-        if (qResponse.smokingDetails) {
-          newData.noxenNotes = newData.noxenNotes 
-            ? `${newData.noxenNotes}; Smoking: ${qResponse.smokingDetails}` 
-            : `Smoking: ${qResponse.smokingDetails}`;
-        }
+        newData.noxen = { ...newData.noxen, smoking: true };
+        
+        // Add status and details to notes
+        const smokingInfo = qResponse.smokingDetails 
+          ? `Smoking: ${qResponse.smokingStatus} - ${qResponse.smokingDetails}`
+          : `Smoking: ${qResponse.smokingStatus}`;
+        newData.noxenNotes = newData.noxenNotes 
+          ? `${newData.noxenNotes}; ${smokingInfo}` 
+          : smokingInfo;
       }
       
-      // Alcohol status -> noxen (build noxenNotes on newData)
+      // Alcohol status -> noxen checkboxes and notes
       if (qResponse.alcoholStatus && qResponse.alcoholStatus !== 'never') {
-        if (newData.noxen) {
-          newData.noxen = { ...newData.noxen, alcohol: true };
+        // Initialize noxen object if it doesn't exist
+        if (!newData.noxen) {
+          newData.noxen = {};
         }
-        if (qResponse.alcoholDetails) {
-          newData.noxenNotes = newData.noxenNotes 
-            ? `${newData.noxenNotes}; Alcohol: ${qResponse.alcoholDetails}` 
-            : `Alcohol: ${qResponse.alcoholDetails}`;
-        }
+        newData.noxen = { ...newData.noxen, alcohol: true };
+        
+        // Add status and details to notes
+        const alcoholInfo = qResponse.alcoholDetails 
+          ? `Alcohol: ${qResponse.alcoholStatus} - ${qResponse.alcoholDetails}`
+          : `Alcohol: ${qResponse.alcoholStatus}`;
+        newData.noxenNotes = newData.noxenNotes 
+          ? `${newData.noxenNotes}; ${alcoholInfo}` 
+          : alcoholInfo;
       }
       
       // Previous surgeries -> special notes (build on newData)
