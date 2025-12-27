@@ -1423,7 +1423,8 @@ router.get('/api/questionnaire/uploads/:uploadId/url', isAuthenticated, async (r
 router.get('/api/questionnaire/uploads/:uploadId/file', isAuthenticated, async (req: any, res: Response) => {
   try {
     const { uploadId } = req.params;
-    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
+    // Accept hospital_id from query params (for direct URL access) or headers
+    const hospitalId = (req.query.hospital_id || req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
     
     if (!hospitalId) {
       return res.status(400).json({ message: "Hospital ID required" });

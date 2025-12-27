@@ -2213,7 +2213,7 @@ export default function PatientDetail() {
                       exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
                       other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
                     };
-                    const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file`;
+                    const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file?hospital_id=${activeHospital?.id}`;
                     return (
                       <div 
                         key={upload.id}
@@ -2774,8 +2774,8 @@ export default function PatientDetail() {
                                 exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
                                 other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
                               };
-                              // Use the authenticated API endpoint for file access
-                              const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file`;
+                              // Use the authenticated API endpoint for file access with hospital_id query param
+                              const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file?hospital_id=${activeHospital?.id}`;
                               return (
                                 <div 
                                   key={upload.id}
