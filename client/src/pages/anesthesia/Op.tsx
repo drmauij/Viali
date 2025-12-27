@@ -386,13 +386,28 @@ export default function Op() {
     return "";
   };
   
-  // Fetch surgery nurses for performedBy disinfection field
-  const { data: surgeryNurses = [] } = useQuery<{ id: string; name: string }[]>({
-    queryKey: [`/api/hospitals/${activeHospital?.id}/users-by-module`, 'surgery', 'nurse'],
+  // Fetch surgery nurses and doctors for performedBy disinfection field
+  // Surgeons sometimes perform disinfection themselves, so include both roles
+  const { data: disinfectionStaff = [] } = useQuery<{ id: string; name: string; role: string }[]>({
+    queryKey: [`/api/hospitals/${activeHospital?.id}/users-by-module`, 'surgery', 'disinfection-staff'],
     queryFn: async () => {
-      const res = await fetch(`/api/hospitals/${activeHospital?.id}/users-by-module?module=surgery&role=nurse`, { credentials: 'include' });
-      if (!res.ok) return [];
-      return res.json();
+      // Fetch both nurses and doctors in parallel
+      const [nursesRes, doctorsRes] = await Promise.all([
+        fetch(`/api/hospitals/${activeHospital?.id}/users-by-module?module=surgery&role=nurse`, { credentials: 'include' }),
+        fetch(`/api/hospitals/${activeHospital?.id}/users-by-module?module=surgery&role=doctor`, { credentials: 'include' }),
+      ]);
+      
+      const nurses = nursesRes.ok ? await nursesRes.json() : [];
+      const doctors = doctorsRes.ok ? await doctorsRes.json() : [];
+      
+      // Combine and deduplicate by id
+      const combined = [...nurses, ...doctors];
+      const seen = new Set<string>();
+      return combined.filter((u: any) => {
+        if (seen.has(u.id)) return false;
+        seen.add(u.id);
+        return true;
+      }).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
     },
     enabled: !!activeHospital?.id && isSurgeryMode,
   });
@@ -2334,7 +2349,7 @@ export default function Op() {
                                     {t('surgery.intraop.clearSelection')}
                                   </CommandItem>
                                 )}
-                                {staffSearchInput.trim() && !surgeryNurses.some(n => n.name.toLowerCase() === staffSearchInput.trim().toLowerCase()) && (
+                                {staffSearchInput.trim() && !disinfectionStaff.some(s => s.name.toLowerCase() === staffSearchInput.trim().toLowerCase()) && (
                                   <CommandItem
                                     value={`__custom__${staffSearchInput.trim()}`}
                                     onSelect={() => {
@@ -2357,16 +2372,16 @@ export default function Op() {
                                     {t('surgery.intraop.useCustomName', { name: staffSearchInput.trim() })}
                                   </CommandItem>
                                 )}
-                                {surgeryNurses.map((nurse) => (
+                                {disinfectionStaff.map((staff) => (
                                   <CommandItem
-                                    key={nurse.id}
-                                    value={nurse.name}
+                                    key={staff.id}
+                                    value={staff.name}
                                     onSelect={() => {
                                       const updated = {
                                         ...intraOpData,
                                         disinfection: {
                                           ...intraOpData.disinfection,
-                                          performedBy: nurse.name
+                                          performedBy: staff.name
                                         }
                                       };
                                       setIntraOpData(updated);
@@ -2374,15 +2389,15 @@ export default function Op() {
                                       setOpenStaffPopover(null);
                                       setStaffSearchInput("");
                                     }}
-                                    data-testid={`disinfection-by-option-${nurse.id}`}
+                                    data-testid={`disinfection-by-option-${staff.id}`}
                                   >
                                     <Check
                                       className={cn(
                                         "mr-2 h-4 w-4",
-                                        intraOpData.disinfection?.performedBy === nurse.name ? "opacity-100" : "opacity-0"
+                                        intraOpData.disinfection?.performedBy === staff.name ? "opacity-100" : "opacity-0"
                                       )}
                                     />
-                                    {nurse.name}
+                                    {staff.name}
                                   </CommandItem>
                                 ))}
                               </CommandGroup>
