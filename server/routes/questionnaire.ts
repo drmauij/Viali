@@ -1340,4 +1340,181 @@ router.delete('/api/public/questionnaire/:token/upload/:uploadId', questionnaire
   }
 });
 
+// ========== AUTHENTICATED ROUTES FOR ACCESSING QUESTIONNAIRE UPLOADS ==========
+
+// Get presigned download URL for a questionnaire upload file (authenticated)
+router.get('/api/questionnaire/uploads/:uploadId/url', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const { uploadId } = req.params;
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
+    
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID required" });
+    }
+
+    // Get the upload record
+    const upload = await storage.getQuestionnaireUploadById(uploadId);
+    if (!upload) {
+      return res.status(404).json({ message: "Upload not found" });
+    }
+
+    // Get the response to verify hospital access
+    const response = await storage.getQuestionnaireResponse(upload.responseId);
+    if (!response) {
+      return res.status(404).json({ message: "Response not found" });
+    }
+
+    // Get the link to verify hospital
+    const link = await storage.getQuestionnaireLink(response.linkId);
+    if (!link || link.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Access denied to this upload" });
+    }
+
+    // Verify user has access to this hospital
+    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    // Check S3 configuration
+    const endpoint = process.env.S3_ENDPOINT;
+    const accessKeyId = process.env.S3_ACCESS_KEY;
+    const secretAccessKey = process.env.S3_SECRET_KEY;
+    const bucket = process.env.S3_BUCKET;
+    const region = process.env.S3_REGION || "ch-dk-2";
+
+    if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
+      return res.status(500).json({ message: "S3 storage not configured" });
+    }
+
+    // Extract the S3 key from the stored fileUrl
+    // fileUrl is stored as /objects/questionnaire-uploads/hospitalId/linkId/filename
+    const fileUrl = upload.fileUrl;
+    const key = fileUrl.startsWith('/objects/') ? fileUrl.slice(9) : fileUrl;
+
+    const s3Client = new S3Client({
+      endpoint,
+      region,
+      credentials: { accessKeyId, secretAccessKey },
+      forcePathStyle: true,
+    });
+
+    const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    });
+
+    const downloadUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 }); // 1 hour
+
+    res.json({
+      downloadUrl,
+      fileName: upload.fileName,
+      mimeType: upload.mimeType,
+      fileSize: upload.fileSize,
+    });
+  } catch (error) {
+    console.error("Error generating download URL:", error);
+    res.status(500).json({ message: "Failed to generate download URL" });
+  }
+});
+
+// Stream questionnaire upload file directly (authenticated) - for embedding in UI
+router.get('/api/questionnaire/uploads/:uploadId/file', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const { uploadId } = req.params;
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
+    
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID required" });
+    }
+
+    // Get the upload record
+    const upload = await storage.getQuestionnaireUploadById(uploadId);
+    if (!upload) {
+      return res.status(404).json({ message: "Upload not found" });
+    }
+
+    // Get the response to verify hospital access
+    const response = await storage.getQuestionnaireResponse(upload.responseId);
+    if (!response) {
+      return res.status(404).json({ message: "Response not found" });
+    }
+
+    // Get the link to verify hospital
+    const link = await storage.getQuestionnaireLink(response.linkId);
+    if (!link || link.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Access denied to this upload" });
+    }
+
+    // Verify user has access to this hospital
+    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    // Check S3 configuration
+    const endpoint = process.env.S3_ENDPOINT;
+    const accessKeyId = process.env.S3_ACCESS_KEY;
+    const secretAccessKey = process.env.S3_SECRET_KEY;
+    const bucket = process.env.S3_BUCKET;
+    const region = process.env.S3_REGION || "ch-dk-2";
+
+    if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
+      return res.status(500).json({ message: "S3 storage not configured" });
+    }
+
+    // Extract the S3 key from the stored fileUrl
+    const fileUrl = upload.fileUrl;
+    const key = fileUrl.startsWith('/objects/') ? fileUrl.slice(9) : fileUrl;
+
+    const s3Client = new S3Client({
+      endpoint,
+      region,
+      credentials: { accessKeyId, secretAccessKey },
+      forcePathStyle: true,
+    });
+
+    const { GetObjectCommand } = await import("@aws-sdk/client-s3");
+    const command = new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    });
+
+    const s3Response = await s3Client.send(command);
+
+    // Set response headers
+    res.set({
+      'Content-Type': upload.mimeType || 'application/octet-stream',
+      'Content-Disposition': `inline; filename="${upload.fileName}"`,
+      'Cache-Control': 'private, max-age=3600',
+    });
+
+    if (s3Response.ContentLength) {
+      res.set('Content-Length', s3Response.ContentLength.toString());
+    }
+
+    // Stream the file
+    if (s3Response.Body) {
+      const { Readable } = await import("stream");
+      if (s3Response.Body instanceof Readable) {
+        s3Response.Body.pipe(res);
+      } else {
+        const webStream = s3Response.Body as ReadableStream;
+        const nodeStream = Readable.fromWeb(webStream as any);
+        nodeStream.pipe(res);
+      }
+    } else {
+      res.status(500).json({ message: "Error streaming file" });
+    }
+  } catch (error: any) {
+    console.error("Error streaming file:", error);
+    if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+      res.status(404).json({ message: "File not found in storage" });
+    } else if (!res.headersSent) {
+      res.status(500).json({ message: "Failed to stream file" });
+    }
+  }
+});
+
 export default router;

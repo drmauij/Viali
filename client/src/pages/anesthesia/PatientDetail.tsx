@@ -2526,21 +2526,33 @@ export default function PatientDetail() {
                                 exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
                                 other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
                               };
+                              // Use the authenticated API endpoint for file access
+                              const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file`;
                               return (
-                                <a 
+                                <div 
                                   key={upload.id}
-                                  href={upload.fileUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="flex flex-col p-3 border rounded-lg hover:bg-muted/50 transition-colors group"
+                                  className="flex flex-col p-3 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
                                   data-testid={`patient-upload-${upload.id}`}
+                                  onClick={() => {
+                                    // For now, open in new tab. Split-view will be added later.
+                                    window.open(fileStreamUrl, '_blank');
+                                  }}
                                 >
                                   {isImage ? (
-                                    <div className="w-full h-32 mb-2 overflow-hidden rounded">
+                                    <div className="w-full h-32 mb-2 overflow-hidden rounded bg-muted">
                                       <img 
-                                        src={upload.fileUrl} 
+                                        src={fileStreamUrl} 
                                         alt={upload.fileName}
                                         className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                                        onError={(e) => {
+                                          // On error, hide image and show placeholder
+                                          const target = e.target as HTMLImageElement;
+                                          target.style.display = 'none';
+                                          const parent = target.parentElement;
+                                          if (parent) {
+                                            parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
+                                          }
+                                        }}
                                       />
                                     </div>
                                   ) : (
@@ -2564,7 +2576,7 @@ export default function PatientDetail() {
                                       <p className="text-xs text-muted-foreground line-clamp-2">{upload.description}</p>
                                     )}
                                   </div>
-                                </a>
+                                </div>
                               );
                             })}
                           </div>

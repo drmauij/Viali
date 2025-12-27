@@ -692,6 +692,7 @@ export interface IStorage {
   // Questionnaire Upload operations
   addQuestionnaireUpload(upload: InsertPatientQuestionnaireUpload): Promise<PatientQuestionnaireUpload>;
   getQuestionnaireUploads(responseId: string): Promise<PatientQuestionnaireUpload[]>;
+  getQuestionnaireUploadById(id: string): Promise<PatientQuestionnaireUpload | undefined>;
   deleteQuestionnaireUpload(id: string): Promise<void>;
   
   // Questionnaire Review operations
@@ -6324,6 +6325,14 @@ export class DatabaseStorage implements IStorage {
       .from(patientQuestionnaireUploads)
       .where(eq(patientQuestionnaireUploads.responseId, responseId))
       .orderBy(asc(patientQuestionnaireUploads.createdAt));
+  }
+
+  async getQuestionnaireUploadById(id: string): Promise<PatientQuestionnaireUpload | undefined> {
+    const [upload] = await db
+      .select()
+      .from(patientQuestionnaireUploads)
+      .where(eq(patientQuestionnaireUploads.id, id));
+    return upload;
   }
 
   async deleteQuestionnaireUpload(id: string): Promise<void> {
