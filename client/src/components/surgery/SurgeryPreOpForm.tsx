@@ -47,13 +47,11 @@ const generalMedications = [
   { id: 'thyroid', label: 'Thyroid medication' },
 ];
 
+// AssessmentData matches surgeryPreOpAssessments schema fields exactly
 interface AssessmentData {
   height: string;
   weight: string;
-  allergies: string[];
-  allergiesOther: string;
   cave: string;
-  asa: string;
   specialNotes: string;
   anticoagulationMeds: string[];
   anticoagulationMedsOther: string;
@@ -72,9 +70,6 @@ interface AssessmentData {
   psychIllnesses: Record<string, boolean>;
   skeletalIllnesses: Record<string, boolean>;
   neuroPsychSkeletalNotes: string;
-  coagulationIllnesses: Record<string, boolean>;
-  infectiousIllnesses: Record<string, boolean>;
-  coagulationInfectiousNotes: string;
   womanIssues: Record<string, boolean>;
   womanNotes: string;
   noxen: Record<string, boolean>;
@@ -94,19 +89,16 @@ interface AssessmentData {
   standBy: boolean;
   standByReason: string;
   standByReasonNote: string;
-  surgicalApproval: string;
   assessmentDate: string;
   doctorName: string;
   consentNotes: string;
+  status: string;
 }
 
 const initialAssessmentData: AssessmentData = {
   height: '',
   weight: '',
-  allergies: [],
-  allergiesOther: '',
   cave: '',
-  asa: '',
   specialNotes: '',
   anticoagulationMeds: [],
   anticoagulationMedsOther: '',
@@ -125,9 +117,6 @@ const initialAssessmentData: AssessmentData = {
   psychIllnesses: {},
   skeletalIllnesses: {},
   neuroPsychSkeletalNotes: '',
-  coagulationIllnesses: {},
-  infectiousIllnesses: {},
-  coagulationInfectiousNotes: '',
   womanIssues: {},
   womanNotes: '',
   noxen: {},
@@ -147,10 +136,10 @@ const initialAssessmentData: AssessmentData = {
   standBy: false,
   standByReason: '',
   standByReasonNote: '',
-  surgicalApproval: '',
   assessmentDate: '',
   doctorName: '',
   consentNotes: '',
+  status: 'draft',
 };
 
 export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOpFormProps) {
@@ -178,10 +167,7 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
       setAssessmentData({
         height: assessment.height || '',
         weight: assessment.weight || '',
-        allergies: [],
-        allergiesOther: '',
         cave: assessment.cave || '',
-        asa: '',
         specialNotes: assessment.specialNotes || '',
         anticoagulationMeds: assessment.anticoagulationMeds || [],
         anticoagulationMedsOther: assessment.anticoagulationMedsOther || '',
@@ -200,9 +186,6 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
         psychIllnesses: assessment.psychIllnesses || {},
         skeletalIllnesses: assessment.skeletalIllnesses || {},
         neuroPsychSkeletalNotes: assessment.neuroPsychSkeletalNotes || '',
-        coagulationIllnesses: {},
-        infectiousIllnesses: {},
-        coagulationInfectiousNotes: '',
         womanIssues: assessment.womanIssues || {},
         womanNotes: assessment.womanNotes || '',
         noxen: assessment.noxen || {},
@@ -222,10 +205,10 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
         standBy: assessment.standBy || false,
         standByReason: assessment.standByReason || '',
         standByReasonNote: assessment.standByReasonNote || '',
-        surgicalApproval: assessment.status === 'completed' ? 'approved' : '',
         assessmentDate: assessment.assessmentDate || '',
         doctorName: assessment.doctorName || '',
         consentNotes: assessment.consentNotes || '',
+        status: assessment.status || 'draft',
       });
       if (assessment.consentFileUrl) {
         setConsentPreview(assessment.consentFileUrl);
@@ -330,7 +313,7 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
   };
 
   // Helper functions to check if sections have data
-  const hasGeneralData = () => assessmentData.height || assessmentData.weight || assessmentData.cave || assessmentData.allergies.length > 0 || assessmentData.allergiesOther;
+  const hasGeneralData = () => assessmentData.height || assessmentData.weight || assessmentData.cave || assessmentData.specialNotes;
   const hasMedicationsData = () => assessmentData.anticoagulationMeds.length > 0 || assessmentData.generalMeds.length > 0 || assessmentData.medicationsNotes;
   const hasHeartData = () => Object.values(assessmentData.heartIllnesses).some(v => v) || assessmentData.heartNotes;
   const hasLungData = () => Object.values(assessmentData.lungIllnesses).some(v => v) || assessmentData.lungNotes;
@@ -447,38 +430,6 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
                       placeholder={t('anesthesia.patientDetail.autoCalculated', 'Auto-calculated')}
                       className="bg-muted"
                       data-testid="input-bmi"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('anesthesia.patientDetail.allergies', 'Allergies')}</Label>
-                  <div className="border rounded-lg p-3 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      {(anesthesiaSettings?.allergyList || []).map((allergy) => (
-                        <div key={allergy.id} className="flex items-center space-x-2">
-                          <Checkbox
-                            id={`allergy-${allergy.id}`}
-                            checked={assessmentData.allergies.includes(allergy.id)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                updateAssessment({ allergies: [...assessmentData.allergies, allergy.id] });
-                              } else {
-                                updateAssessment({ allergies: assessmentData.allergies.filter(a => a !== allergy.id) });
-                              }
-                            }}
-                            disabled={isReadOnly}
-                            data-testid={`checkbox-allergy-${allergy.id}`}
-                          />
-                          <Label htmlFor={`allergy-${allergy.id}`} className="cursor-pointer font-normal text-sm">{allergy.label}</Label>
-                        </div>
-                      ))}
-                    </div>
-                    <Input
-                      value={assessmentData.allergiesOther}
-                      onChange={(e) => updateAssessment({ allergiesOther: e.target.value })}
-                      placeholder={t('anesthesia.patientDetail.otherAllergiesPlaceholder', 'Other allergies...')}
-                      disabled={isReadOnly}
-                      data-testid="input-allergies-other"
                     />
                   </div>
                 </div>
@@ -1218,18 +1169,16 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
                 <div className="space-y-2">
                   <Label>{t('surgery.preop.assessmentStatus', 'Status')}</Label>
                   <Select
-                    value={assessmentData.surgicalApproval}
-                    onValueChange={(value) => updateAssessment({ surgicalApproval: value })}
+                    value={assessmentData.status}
+                    onValueChange={(value) => updateAssessment({ status: value })}
                     disabled={isReadOnly}
                   >
-                    <SelectTrigger data-testid="select-surgical-approval">
+                    <SelectTrigger data-testid="select-status">
                       <SelectValue placeholder={t('surgery.preop.selectStatus', 'Select status...')} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="not-assessed">{t('surgery.preop.notAssessed', 'Not yet assessed')}</SelectItem>
-                      <SelectItem value="approved">{t('surgery.preop.approved', 'Approved')}</SelectItem>
-                      <SelectItem value="not-approved">{t('surgery.preop.notApproved', 'Not Approved')}</SelectItem>
-                      <SelectItem value="stand-by">{t('surgery.preop.standBy', 'Stand-by')}</SelectItem>
+                      <SelectItem value="draft">{t('surgery.preop.draft', 'Draft')}</SelectItem>
+                      <SelectItem value="completed">{t('surgery.preop.completed', 'Completed')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
