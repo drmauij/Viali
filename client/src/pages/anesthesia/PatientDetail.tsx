@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -4616,6 +4616,42 @@ export default function PatientDetail() {
                   </div>
                 )}
 
+                {/* Medical Conditions */}
+                {selectedQuestionnaireResponse.response.conditions && Object.keys(selectedQuestionnaireResponse.response.conditions).length > 0 && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.medicalConditions', 'Medical Conditions')}:</span>{' '}
+                    {Object.entries(selectedQuestionnaireResponse.response.conditions)
+                      .filter(([_, value]: [string, any]) => value?.checked)
+                      .map(([key, value]: [string, any]) => {
+                        const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                        return value?.notes ? `${label} (${value.notes})` : label;
+                      })
+                      .join(', ') || t('common.none', 'None')
+                    }
+                  </div>
+                )}
+
+                {/* Alcohol Status */}
+                {selectedQuestionnaireResponse.response.alcoholStatus && selectedQuestionnaireResponse.response.alcoholStatus !== 'never' && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.alcohol', 'Alcohol')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.alcoholStatus}
+                    {selectedQuestionnaireResponse.response.alcoholDetails && ` - ${selectedQuestionnaireResponse.response.alcoholDetails}`}
+                  </div>
+                )}
+
+                {/* Women's Health */}
+                {(selectedQuestionnaireResponse.response.pregnancyStatus || selectedQuestionnaireResponse.response.breastfeeding || selectedQuestionnaireResponse.response.womanHealthNotes) && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.womanHealth', "Women's Health")}:</span>{' '}
+                    {[
+                      selectedQuestionnaireResponse.response.pregnancyStatus && selectedQuestionnaireResponse.response.pregnancyStatus !== 'not_applicable' && `Pregnancy: ${selectedQuestionnaireResponse.response.pregnancyStatus}`,
+                      selectedQuestionnaireResponse.response.breastfeeding && 'Breastfeeding',
+                      selectedQuestionnaireResponse.response.womanHealthNotes
+                    ].filter(Boolean).join(', ')}
+                  </div>
+                )}
+
                 {selectedQuestionnaireResponse.response.additionalNotes && (
                   <div className="text-sm">
                     <span className="font-medium">{t('anesthesia.patientDetail.additionalNotes')}:</span>{' '}
@@ -4648,7 +4684,17 @@ export default function PatientDetail() {
                                   src={upload.fileUrl} 
                                   alt={upload.fileName}
                                   className="w-16 h-16 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                                  onError={(e) => {
+                                    // Hide the broken image and show placeholder
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const placeholder = target.nextElementSibling as HTMLElement;
+                                    if (placeholder) placeholder.style.display = 'flex';
+                                  }}
                                 />
+                                <div className="w-16 h-16 items-center justify-center bg-muted rounded border flex-shrink-0 hidden">
+                                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                                </div>
                               </a>
                             ) : (
                               <div className="w-16 h-16 flex items-center justify-center bg-muted rounded border flex-shrink-0">
