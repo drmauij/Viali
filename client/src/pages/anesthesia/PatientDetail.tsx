@@ -196,10 +196,24 @@ export default function PatientDetail() {
     enabled: !!params?.id && !!activeHospital?.id && isPreOpOpen,
   });
   
-  // Get the selected questionnaire response details
+  // Define type for questionnaire uploads
+  type QuestionnaireUpload = {
+    id: string;
+    responseId: string;
+    category: "medication_list" | "diagnosis" | "exam_result" | "other";
+    fileName: string;
+    fileUrl: string;
+    mimeType?: string;
+    fileSize?: number;
+    description?: string;
+    createdAt: string;
+  };
+
+  // Get the selected questionnaire response details (including uploads)
   const { data: selectedQuestionnaireResponse, isLoading: isLoadingQuestionnaireResponse } = useQuery<{
     response: QuestionnaireLink['response'];
     link: QuestionnaireLink;
+    uploads?: QuestionnaireUpload[];
   }>({
     queryKey: ['/api/questionnaire/responses', selectedQuestionnaireForImport],
     queryFn: async () => {
@@ -214,6 +228,34 @@ export default function PatientDetail() {
   
   // Filter to only submitted questionnaires that have responses with IDs
   const submittedQuestionnaires = questionnaireLinks.filter(q => q.status === 'submitted' && q.response?.id);
+
+  // Fetch all patient uploads using a dedicated query with proper dependencies
+  // The query key includes the response IDs to ensure refetch when new questionnaires are submitted
+  const submittedResponseIds = submittedQuestionnaires.map(q => q.response?.id).filter(Boolean).sort().join(',');
+  
+  const { data: patientUploads = [] } = useQuery<QuestionnaireUpload[]>({
+    queryKey: ['/api/questionnaire/patient-uploads', params?.id, submittedResponseIds],
+    queryFn: async () => {
+      // Fetch uploads from all submitted questionnaire responses in parallel
+      const responseIds = submittedQuestionnaires.map(q => q.response?.id).filter(Boolean) as string[];
+      
+      const uploadPromises = responseIds.map(async (responseId) => {
+        const response = await fetch(`/api/questionnaire/responses/${responseId}`, {
+          headers: { 'x-active-hospital-id': activeHospital?.id || '' },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return (data.uploads || []) as QuestionnaireUpload[];
+        }
+        return [];
+      });
+      
+      const results = await Promise.all(uploadPromises);
+      return results.flat();
+    },
+    enabled: !!params?.id && !!activeHospital?.id && isPreOpOpen && submittedResponseIds.length > 0,
+    staleTime: 30000, // Cache for 30 seconds to avoid redundant calls
+  });
 
   // Fetch hospital anesthesia settings
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
@@ -1046,12 +1088,37 @@ export default function PatientDetail() {
       if (qResponse.height) newData.height = qResponse.height;
       if (qResponse.weight) newData.weight = qResponse.weight;
       
-      // Allergies - combine with existing (build on newData, not prev)
+      // Allergies - match IDs against the allergyList and auto-select checkboxes
+      // The questionnaire stores allergy IDs that correspond to anesthesiaSettings.allergyList IDs
       if (qResponse.allergies && qResponse.allergies.length > 0) {
-        const allergiesText = qResponse.allergies.join(', ');
-        newData.allergiesOther = newData.allergiesOther 
-          ? `${newData.allergiesOther}; Patient: ${allergiesText}` 
-          : `Patient: ${allergiesText}`;
+        const allergyList = anesthesiaSettings?.allergyList || [];
+        const knownAllergyIds = allergyList.map((a: { id: string }) => a.id);
+        
+        const matchedAllergies: string[] = [...(newData.allergies || [])];
+        const unmatchedAllergies: string[] = [];
+        
+        for (const allergyId of qResponse.allergies) {
+          // Check if this allergy ID exists in the hospital's allergy list
+          if (knownAllergyIds.includes(allergyId)) {
+            if (!matchedAllergies.includes(allergyId)) {
+              matchedAllergies.push(allergyId);
+            }
+          } else {
+            // This is an unmatched allergy (free text or from a different config)
+            unmatchedAllergies.push(allergyId);
+          }
+        }
+        
+        // Update the allergies checkbox array
+        newData.allergies = matchedAllergies;
+        
+        // Add unmatched allergies to the "Other" field
+        if (unmatchedAllergies.length > 0) {
+          const allergiesText = unmatchedAllergies.join(', ');
+          newData.allergiesOther = newData.allergiesOther 
+            ? `${newData.allergiesOther}; Patient: ${allergiesText}` 
+            : `Patient: ${allergiesText}`;
+        }
       }
       if (qResponse.allergiesNotes) {
         newData.allergiesOther = newData.allergiesOther 
@@ -1191,6 +1258,14 @@ export default function PatientDetail() {
           neurological: 'neuroIllnesses',
           psychiatric: 'psychIllnesses',
           skeletal: 'skeletalIllnesses',
+          coagulation: 'coagulationIllnesses',
+          infectious: 'infectiousIllnesses',
+          woman: 'womanIssues',
+          noxen: 'noxen',
+          children: 'childrenIssues',
+          anesthesiaHistory: 'anesthesiaHistoryIssues',
+          dental: 'dentalIssues',
+          ponvTransfusion: 'ponvTransfusionIssues',
         };
         
         // Build a lookup of all illness IDs to their categories
@@ -2426,6 +2501,78 @@ export default function PatientDetail() {
                     </AccordionContent>
                   </Card>
                 </AccordionItem>
+
+                {/* Patient Uploaded Documents Section */}
+                {patientUploads.length > 0 && (
+                  <AccordionItem value="patient-documents">
+                    <Card className="border-blue-400 dark:border-blue-600">
+                      <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-patient-documents">
+                        <CardTitle className="text-lg text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                          <FileText className="h-5 w-5" />
+                          {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')} ({patientUploads.length})
+                        </CardTitle>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <CardContent className="pt-0">
+                          <p className="text-sm text-muted-foreground mb-4">
+                            {t('anesthesia.patientDetail.patientDocumentsDesc', 'Files uploaded by the patient through the online questionnaire.')}
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {patientUploads.map((upload) => {
+                              const isImage = upload.mimeType?.startsWith('image/');
+                              const categoryLabels: Record<string, string> = {
+                                medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
+                                diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
+                                exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
+                                other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
+                              };
+                              return (
+                                <a 
+                                  key={upload.id}
+                                  href={upload.fileUrl} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="flex flex-col p-3 border rounded-lg hover:bg-muted/50 transition-colors group"
+                                  data-testid={`patient-upload-${upload.id}`}
+                                >
+                                  {isImage ? (
+                                    <div className="w-full h-32 mb-2 overflow-hidden rounded">
+                                      <img 
+                                        src={upload.fileUrl} 
+                                        alt={upload.fileName}
+                                        className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="w-full h-32 mb-2 flex items-center justify-center bg-muted rounded">
+                                      <FileText className="h-12 w-12 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                  <div className="space-y-1">
+                                    <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                                      {upload.fileName}
+                                    </p>
+                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                      <Badge variant="secondary" className="text-xs">
+                                        {categoryLabels[upload.category] || upload.category}
+                                      </Badge>
+                                      {upload.fileSize && (
+                                        <span>{(upload.fileSize / 1024).toFixed(1)} KB</span>
+                                      )}
+                                    </div>
+                                    {upload.description && (
+                                      <p className="text-xs text-muted-foreground line-clamp-2">{upload.description}</p>
+                                    )}
+                                  </div>
+                                </a>
+                              );
+                            })}
+                          </div>
+                        </CardContent>
+                      </AccordionContent>
+                    </Card>
+                  </AccordionItem>
+                )}
 
                 {/* Medications Section */}
                 <AccordionItem value="medications">
@@ -4474,6 +4621,76 @@ export default function PatientDetail() {
                     <span className="font-medium">{t('anesthesia.patientDetail.additionalNotes')}:</span>{' '}
                     {selectedQuestionnaireResponse.response.additionalNotes.substring(0, 100)}
                     {selectedQuestionnaireResponse.response.additionalNotes.length > 100 && '...'}
+                  </div>
+                )}
+
+                {/* Patient Uploaded Files Section */}
+                {selectedQuestionnaireResponse.uploads && selectedQuestionnaireResponse.uploads.length > 0 && (
+                  <div className="mt-4 pt-3 border-t">
+                    <h5 className="font-medium text-sm mb-2 flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      {t('anesthesia.patientDetail.patientUploadedFiles', 'Patient Uploaded Files')} ({selectedQuestionnaireResponse.uploads.length})
+                    </h5>
+                    <div className="space-y-2">
+                      {selectedQuestionnaireResponse.uploads.map((upload) => {
+                        const isImage = upload.mimeType?.startsWith('image/');
+                        const categoryLabels: Record<string, string> = {
+                          medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
+                          diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
+                          exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
+                          other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
+                        };
+                        return (
+                          <div key={upload.id} className="flex items-start gap-3 p-2 bg-background rounded border" data-testid={`upload-item-${upload.id}`}>
+                            {isImage ? (
+                              <a href={upload.fileUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                                <img 
+                                  src={upload.fileUrl} 
+                                  alt={upload.fileName}
+                                  className="w-16 h-16 object-cover rounded border cursor-pointer hover:opacity-80 transition-opacity"
+                                />
+                              </a>
+                            ) : (
+                              <div className="w-16 h-16 flex items-center justify-center bg-muted rounded border flex-shrink-0">
+                                <FileText className="h-8 w-8 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <a 
+                                href={upload.fileUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-sm font-medium hover:underline text-primary truncate block"
+                                data-testid={`link-upload-${upload.id}`}
+                              >
+                                {upload.fileName}
+                              </a>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                                <Badge variant="secondary" className="text-xs">
+                                  {categoryLabels[upload.category] || upload.category}
+                                </Badge>
+                                {upload.fileSize && (
+                                  <span>{(upload.fileSize / 1024).toFixed(1)} KB</span>
+                                )}
+                              </div>
+                              {upload.description && (
+                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{upload.description}</p>
+                              )}
+                            </div>
+                            <a 
+                              href={upload.fileUrl} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="flex-shrink-0"
+                            >
+                              <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </a>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
