@@ -1809,163 +1809,6 @@ export default function PatientDetail() {
       </div>
 
 
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t('anesthesia.patientDetail.surgeries')} ({surgeries?.length || 0})</h2>
-        {canManageSurgeries && (
-          <Dialog open={isCreateCaseOpen} onOpenChange={setIsCreateCaseOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2" data-testid="button-create-case">
-                <Plus className="h-4 w-4" />
-                {t('anesthesia.patientDetail.newSurgery')}
-              </Button>
-            </DialogTrigger>
-          <DialogContent className="max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{t('anesthesia.patientDetail.createNewSurgery')}</DialogTitle>
-              <DialogDescription>{t('anesthesia.patientDetail.createNewSurgeryDesc')}</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="surgery">{t('anesthesia.patientDetail.plannedSurgery')}</Label>
-                <Input
-                  id="surgery"
-                  placeholder={t('anesthesia.patientDetail.plannedSurgeryPlaceholder')}
-                  value={newCase.plannedSurgery}
-                  onChange={(e) => setNewCase({ ...newCase, plannedSurgery: e.target.value })}
-                  data-testid="input-planned-surgery"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="surgeon">{t('anesthesia.patientDetail.surgeon')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
-                <Select 
-                  value={newCase.surgeon || "none"} 
-                  onValueChange={(value) => setNewCase({ ...newCase, surgeon: value === "none" ? "" : value })}
-                  disabled={isLoadingSurgeons}
-                >
-                  <SelectTrigger data-testid="select-surgeon">
-                    <SelectValue placeholder={isLoadingSurgeons ? t('anesthesia.patientDetail.loadingSurgeons') : t('anesthesia.patientDetail.selectSurgeonOptional')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">
-                      <span className="text-muted-foreground italic">{t('anesthesia.patientDetail.noSurgeonSelected')}</span>
-                    </SelectItem>
-                    {isLoadingSurgeons ? (
-                      <SelectItem value="loading" disabled>
-                        {t('anesthesia.patientDetail.loadingSurgeons')}
-                      </SelectItem>
-                    ) : surgeons.length === 0 ? (
-                      <SelectItem value="no-surgeons" disabled>
-                        {t('anesthesia.patientDetail.noSurgeonsAvailable')}
-                      </SelectItem>
-                    ) : (
-                      surgeons.map((surgeon) => (
-                        <SelectItem key={surgeon.id} value={surgeon.name}>
-                          {surgeon.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="surgery-room">{t('anesthesia.patientDetail.surgeryRoom')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
-                <Select 
-                  value={newCase.surgeryRoomId || "none"} 
-                  onValueChange={(value) => setNewCase({ ...newCase, surgeryRoomId: value === "none" ? "" : value })}
-                  disabled={isLoadingSurgeryRooms}
-                >
-                  <SelectTrigger data-testid="select-surgery-room">
-                    <SelectValue placeholder={isLoadingSurgeryRooms ? t('anesthesia.patientDetail.loadingRooms') : t('anesthesia.patientDetail.selectSurgeryRoomOptional')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">
-                      <span className="text-muted-foreground italic">{t('anesthesia.patientDetail.noRoomSelected')}</span>
-                    </SelectItem>
-                    {isLoadingSurgeryRooms ? (
-                      <SelectItem value="loading" disabled>
-                        {t('anesthesia.patientDetail.loadingRooms')}
-                      </SelectItem>
-                    ) : surgeryRooms.length === 0 ? (
-                      <SelectItem value="no-rooms" disabled>
-                        {t('anesthesia.patientDetail.noSurgeryRoomsAvailable')}
-                      </SelectItem>
-                    ) : (
-                      surgeryRooms.map((room) => (
-                        <SelectItem key={room.id} value={room.id}>
-                          {room.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="date">{t('anesthesia.patientDetail.plannedDate')}</Label>
-                <Input
-                  id="date"
-                  type="datetime-local"
-                  value={newCase.plannedDate}
-                  onChange={(e) => setNewCase({ ...newCase, plannedDate: e.target.value })}
-                  data-testid="input-planned-date"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="duration">{t('anesthesia.patientDetail.duration')}</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  min="1"
-                  value={newCase.duration}
-                  onChange={(e) => setNewCase({ ...newCase, duration: parseInt(e.target.value) || 0 })}
-                  data-testid="input-duration"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="notes">{t('anesthesia.patientDetail.notes')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
-                <Textarea
-                  id="notes"
-                  placeholder={t('anesthesia.patientDetail.notesPlaceholder')}
-                  value={newCase.notes}
-                  onChange={(e) => setNewCase({ ...newCase, notes: e.target.value })}
-                  data-testid="textarea-notes"
-                  rows={3}
-                />
-              </div>
-              <div className="flex items-center space-x-2 pt-2">
-                <Checkbox
-                  id="new-no-preop-required"
-                  checked={newCase.noPreOpRequired}
-                  onCheckedChange={(checked) => setNewCase({ ...newCase, noPreOpRequired: checked === true })}
-                  data-testid="checkbox-new-no-preop-required"
-                />
-                <Label 
-                  htmlFor="new-no-preop-required" 
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
-                </Label>
-              </div>
-              <Button 
-                onClick={handleCreateCase} 
-                className="w-full" 
-                data-testid="button-submit-case"
-                disabled={createSurgeryMutation.isPending}
-              >
-                {createSurgeryMutation.isPending ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t('anesthesia.patientDetail.creating')}
-                  </>
-                ) : (
-                  t('anesthesia.patientDetail.createSurgery')
-                )}
-              </Button>
-            </div>
-          </DialogContent>
-          </Dialog>
-        )}
-      </div>
-
       {/* Edit Surgery Dialog - Using shared component */}
       <EditSurgeryDialog 
         surgeryId={editingCaseId} 
@@ -2024,7 +1867,164 @@ export default function PatientDetail() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="surgeries" className="mt-0">
+        <TabsContent value="surgeries" className="mt-0 space-y-4">
+          {/* New Surgery Button */}
+          {canManageSurgeries && (
+            <div className="flex justify-end">
+              <Dialog open={isCreateCaseOpen} onOpenChange={setIsCreateCaseOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2" data-testid="button-create-case">
+                    <Plus className="h-4 w-4" />
+                    {t('anesthesia.patientDetail.newSurgery')}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-h-[90vh] overflow-y-auto">
+                  <DialogHeader>
+                    <DialogTitle>{t('anesthesia.patientDetail.createNewSurgery')}</DialogTitle>
+                    <DialogDescription>{t('anesthesia.patientDetail.createNewSurgeryDesc')}</DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="surgery">{t('anesthesia.patientDetail.plannedSurgery')}</Label>
+                      <Input
+                        id="surgery"
+                        placeholder={t('anesthesia.patientDetail.plannedSurgeryPlaceholder')}
+                        value={newCase.plannedSurgery}
+                        onChange={(e) => setNewCase({ ...newCase, plannedSurgery: e.target.value })}
+                        data-testid="input-planned-surgery"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="surgeon">{t('anesthesia.patientDetail.surgeon')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
+                      <Select 
+                        value={newCase.surgeon || "none"} 
+                        onValueChange={(value) => setNewCase({ ...newCase, surgeon: value === "none" ? "" : value })}
+                        disabled={isLoadingSurgeons}
+                      >
+                        <SelectTrigger data-testid="select-surgeon">
+                          <SelectValue placeholder={isLoadingSurgeons ? t('anesthesia.patientDetail.loadingSurgeons') : t('anesthesia.patientDetail.selectSurgeonOptional')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">
+                            <span className="text-muted-foreground italic">{t('anesthesia.patientDetail.noSurgeonSelected')}</span>
+                          </SelectItem>
+                          {isLoadingSurgeons ? (
+                            <SelectItem value="loading" disabled>
+                              {t('anesthesia.patientDetail.loadingSurgeons')}
+                            </SelectItem>
+                          ) : surgeons.length === 0 ? (
+                            <SelectItem value="no-surgeons" disabled>
+                              {t('anesthesia.patientDetail.noSurgeonsAvailable')}
+                            </SelectItem>
+                          ) : (
+                            surgeons.map((surgeon) => (
+                              <SelectItem key={surgeon.id} value={surgeon.name}>
+                                {surgeon.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="surgery-room">{t('anesthesia.patientDetail.surgeryRoom')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
+                      <Select 
+                        value={newCase.surgeryRoomId || "none"} 
+                        onValueChange={(value) => setNewCase({ ...newCase, surgeryRoomId: value === "none" ? "" : value })}
+                        disabled={isLoadingSurgeryRooms}
+                      >
+                        <SelectTrigger data-testid="select-surgery-room">
+                          <SelectValue placeholder={isLoadingSurgeryRooms ? t('anesthesia.patientDetail.loadingRooms') : t('anesthesia.patientDetail.selectSurgeryRoomOptional')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">
+                            <span className="text-muted-foreground italic">{t('anesthesia.patientDetail.noRoomSelected')}</span>
+                          </SelectItem>
+                          {isLoadingSurgeryRooms ? (
+                            <SelectItem value="loading" disabled>
+                              {t('anesthesia.patientDetail.loadingRooms')}
+                            </SelectItem>
+                          ) : surgeryRooms.length === 0 ? (
+                            <SelectItem value="no-rooms" disabled>
+                              {t('anesthesia.patientDetail.noSurgeryRoomsAvailable')}
+                            </SelectItem>
+                          ) : (
+                            surgeryRooms.map((room) => (
+                              <SelectItem key={room.id} value={room.id}>
+                                {room.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="date">{t('anesthesia.patientDetail.plannedDate')}</Label>
+                      <Input
+                        id="date"
+                        type="datetime-local"
+                        value={newCase.plannedDate}
+                        onChange={(e) => setNewCase({ ...newCase, plannedDate: e.target.value })}
+                        data-testid="input-planned-date"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="duration">{t('anesthesia.patientDetail.duration')}</Label>
+                      <Input
+                        id="duration"
+                        type="number"
+                        min="1"
+                        value={newCase.duration}
+                        onChange={(e) => setNewCase({ ...newCase, duration: parseInt(e.target.value) || 0 })}
+                        data-testid="input-duration"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="notes">{t('anesthesia.patientDetail.notes')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
+                      <Textarea
+                        id="notes"
+                        placeholder={t('anesthesia.patientDetail.notesPlaceholder')}
+                        value={newCase.notes}
+                        onChange={(e) => setNewCase({ ...newCase, notes: e.target.value })}
+                        data-testid="textarea-notes"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox
+                        id="new-no-preop-required"
+                        checked={newCase.noPreOpRequired}
+                        onCheckedChange={(checked) => setNewCase({ ...newCase, noPreOpRequired: checked === true })}
+                        data-testid="checkbox-new-no-preop-required"
+                      />
+                      <Label 
+                        htmlFor="new-no-preop-required" 
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
+                      </Label>
+                    </div>
+                    <Button 
+                      onClick={handleCreateCase} 
+                      className="w-full" 
+                      data-testid="button-submit-case"
+                      disabled={createSurgeryMutation.isPending}
+                    >
+                      {createSurgeryMutation.isPending ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {t('anesthesia.patientDetail.creating')}
+                        </>
+                      ) : (
+                        t('anesthesia.patientDetail.createSurgery')
+                      )}
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          )}
+
           {isLoadingSurgeries ? (
             <Card>
               <CardContent className="flex items-center justify-center py-12">
