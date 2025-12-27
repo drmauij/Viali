@@ -371,7 +371,7 @@ export function AssessmentCompletionSection({ form, isReadOnly = false }: BaseFo
               <SelectValue placeholder={t('preop.placeholders.selectStatus', 'Select completion status...')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">{t('preop.statuses.notAssessed', 'Not yet assessed')}</SelectItem>
+              <SelectItem value="not-assessed">{t('preop.statuses.notAssessed', 'Not yet assessed')}</SelectItem>
               <SelectItem value="approved">{t('preop.statuses.approved', 'Approved')}</SelectItem>
               <SelectItem value="not-approved">{t('preop.statuses.notApproved', 'Not Approved')}</SelectItem>
               <SelectItem value="stand-by">{t('preop.statuses.standBy', 'Stand-by')}</SelectItem>

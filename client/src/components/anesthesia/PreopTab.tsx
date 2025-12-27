@@ -999,7 +999,7 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
                     <SelectValue placeholder="Select completion status..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Not yet assessed</SelectItem>
+                    <SelectItem value="not-assessed">Not yet assessed</SelectItem>
                     <SelectItem value="approved">Approved</SelectItem>
                     <SelectItem value="not-approved">Not Approved</SelectItem>
                     <SelectItem value="stand-by">Stand-by</SelectItem>
