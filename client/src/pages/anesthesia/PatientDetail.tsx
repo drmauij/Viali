@@ -1965,18 +1965,36 @@ export default function PatientDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {isLoadingSurgeries ? (
-        <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" data-testid="loader-surgeries" />
-              <p className="text-muted-foreground">Loading surgeries...</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : surgeries && surgeries.length > 0 ? (
-        <div className="space-y-4">
-          {surgeries.map((surgery) => (
+      {/* Main Content Tabs - Surgeries and Documents */}
+      <Tabs defaultValue="surgeries" className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="surgeries" data-testid="tab-surgeries">
+            {t('anesthesia.patientDetail.surgeries', 'Surgeries')}
+            {surgeries && surgeries.length > 0 && (
+              <Badge variant="secondary" className="ml-2">{surgeries.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="documents" data-testid="tab-documents">
+            {t('anesthesia.patientDetail.documents', 'Documents')}
+            {patientUploads.length > 0 && (
+              <Badge variant="secondary" className="ml-2">{patientUploads.length}</Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="surgeries" className="mt-0">
+          {isLoadingSurgeries ? (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" data-testid="loader-surgeries" />
+                  <p className="text-muted-foreground">Loading surgeries...</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : surgeries && surgeries.length > 0 ? (
+            <div className="space-y-4">
+              {surgeries.map((surgery) => (
             <Card 
               key={surgery.id} 
               data-testid={`card-case-${surgery.id}`}
@@ -2106,19 +2124,111 @@ export default function PatientDetail() {
                 )}
               </CardContent>
             </Card>
-          ))}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="flex items-center justify-center py-12">
-            <div className="flex flex-col items-center gap-3">
-              <FileText className="h-12 w-12 text-muted-foreground" data-testid="icon-no-surgeries" />
-              <p className="text-foreground font-semibold" data-testid="text-no-surgeries">No surgeries found</p>
-              <p className="text-sm text-muted-foreground">This patient has no scheduled surgeries yet.</p>
+              ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          ) : (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <FileText className="h-12 w-12 text-muted-foreground" data-testid="icon-no-surgeries" />
+                  <p className="text-foreground font-semibold" data-testid="text-no-surgeries">No surgeries found</p>
+                  <p className="text-sm text-muted-foreground">This patient has no scheduled surgeries yet.</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-0">
+          {patientUploads.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')}
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {t('anesthesia.patientDetail.patientDocumentsDesc', 'Files uploaded by the patient through the online questionnaire.')}
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {patientUploads.map((upload) => {
+                    const isImage = upload.mimeType?.startsWith('image/');
+                    const categoryLabels: Record<string, string> = {
+                      medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
+                      diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
+                      exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
+                      other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
+                    };
+                    const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file`;
+                    return (
+                      <div 
+                        key={upload.id}
+                        className="flex flex-col p-4 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
+                        data-testid={`document-upload-${upload.id}`}
+                        onClick={() => window.open(fileStreamUrl, '_blank')}
+                      >
+                        {isImage ? (
+                          <div className="w-full h-40 mb-3 overflow-hidden rounded bg-muted">
+                            <img 
+                              src={fileStreamUrl} 
+                              alt={upload.fileName}
+                              className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
+                                }
+                              }}
+                            />
+                          </div>
+                        ) : (
+                          <div className="w-full h-40 mb-3 flex items-center justify-center bg-muted rounded">
+                            <FileText className="h-16 w-16 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="space-y-2">
+                          <p className="font-medium truncate group-hover:text-primary transition-colors">
+                            {upload.fileName}
+                          </p>
+                          <div className="flex items-center justify-between text-sm text-muted-foreground">
+                            <Badge variant="secondary">
+                              {categoryLabels[upload.category] || upload.category}
+                            </Badge>
+                            {upload.fileSize && (
+                              <span>{(upload.fileSize / 1024).toFixed(1)} KB</span>
+                            )}
+                          </div>
+                          {upload.description && (
+                            <p className="text-sm text-muted-foreground line-clamp-2">{upload.description}</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex items-center justify-center py-12">
+                <div className="flex flex-col items-center gap-3">
+                  <FileText className="h-12 w-12 text-muted-foreground" data-testid="icon-no-documents" />
+                  <p className="text-foreground font-semibold" data-testid="text-no-documents">
+                    {t('anesthesia.patientDetail.noDocuments', 'No documents found')}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {t('anesthesia.patientDetail.noDocumentsDesc', 'Documents will appear here when the patient submits a questionnaire with file uploads.')}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Pre-OP Full Screen Dialog */}
       <Dialog open={isPreOpOpen} onOpenChange={(open) => {
