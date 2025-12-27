@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import type { Surgery } from "@shared/schema";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -114,6 +115,13 @@ export default function PatientDetail() {
   const [isSendQuestionnaireOpen, setIsSendQuestionnaireOpen] = useState(false);
   const [isImportQuestionnaireOpen, setIsImportQuestionnaireOpen] = useState(false);
   const [selectedQuestionnaireForImport, setSelectedQuestionnaireForImport] = useState<string | null>(null);
+  // Split-screen document preview state
+  const [previewDocument, setPreviewDocument] = useState<{
+    id: string;
+    fileName: string;
+    mimeType: string;
+    url: string;
+  } | null>(null);
   const [editForm, setEditForm] = useState({
     surname: "",
     firstName: "",
@@ -2219,7 +2227,18 @@ export default function PatientDetail() {
                         key={upload.id}
                         className="flex flex-col p-4 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
                         data-testid={`document-upload-${upload.id}`}
-                        onClick={() => window.open(fileStreamUrl, '_blank')}
+                        onClick={() => {
+                          // Open pre-op dialog and show document in split view
+                          setPreviewDocument({
+                            id: upload.id,
+                            fileName: upload.fileName,
+                            mimeType: upload.mimeType || '',
+                            url: fileStreamUrl,
+                          });
+                          if (!isPreOpOpen) {
+                            setIsPreOpOpen(true);
+                          }
+                        }}
                       >
                         {isImage ? (
                           <div className="w-full h-40 mb-3 overflow-hidden rounded bg-muted">
@@ -2371,6 +2390,8 @@ export default function PatientDetail() {
       {/* Pre-OP Full Screen Dialog */}
       <Dialog open={isPreOpOpen} onOpenChange={(open) => {
         if (!open) {
+          // Clear document preview when closing dialog
+          setPreviewDocument(null);
           // If opened via URL navigation, use history.back() to return to previous page
           // If opened via button click, just close the dialog
           if (preOpOpenedViaUrl.current && window.history.length > 1) {
@@ -2512,7 +2533,9 @@ export default function PatientDetail() {
             </div>
           </DialogHeader>
           
-          <Tabs defaultValue="assessment" className="flex-1 flex flex-col min-h-0">
+          <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
+            <ResizablePanel defaultSize={previewDocument ? 60 : 100} minSize={40}>
+              <Tabs defaultValue="assessment" className="h-full flex flex-col">
             <div className="px-6 shrink-0">
               <div className="mb-4">
                 <TabsList className="grid w-full grid-cols-2">
@@ -2782,8 +2805,13 @@ export default function PatientDetail() {
                                   className="flex flex-col p-3 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
                                   data-testid={`patient-upload-${upload.id}`}
                                   onClick={() => {
-                                    // For now, open in new tab. Split-view will be added later.
-                                    window.open(fileStreamUrl, '_blank');
+                                    // Show document in split-screen preview
+                                    setPreviewDocument({
+                                      id: upload.id,
+                                      fileName: upload.fileName,
+                                      mimeType: upload.mimeType || '',
+                                      url: fileStreamUrl,
+                                    });
                                   }}
                                 >
                                   {isImage ? (
@@ -4428,7 +4456,81 @@ export default function PatientDetail() {
                 </CardContent>
               </Card>
             </TabsContent>
-          </Tabs>
+              </Tabs>
+            </ResizablePanel>
+            
+            {/* Document Preview Panel - shown when a file is selected */}
+            {previewDocument && (
+              <>
+                <ResizableHandle withHandle />
+                <ResizablePanel defaultSize={40} minSize={25}>
+                  <div className="h-full flex flex-col bg-muted/30">
+                    <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="text-sm font-medium truncate">{previewDocument.fileName}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => window.open(previewDocument.url, '_blank')}
+                          title={t('common.openInNewTab', 'Open in new tab')}
+                          data-testid="button-open-document-new-tab"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setPreviewDocument(null)}
+                          title={t('common.close', 'Close')}
+                          data-testid="button-close-document-preview"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex-1 overflow-hidden p-2">
+                      {previewDocument.mimeType?.startsWith('image/') ? (
+                        <img 
+                          src={previewDocument.url}
+                          alt={previewDocument.fileName}
+                          className="w-full h-full object-contain"
+                          data-testid="preview-image"
+                        />
+                      ) : previewDocument.mimeType === 'application/pdf' ? (
+                        <iframe
+                          src={previewDocument.url}
+                          className="w-full h-full border-0 rounded"
+                          title={previewDocument.fileName}
+                          data-testid="preview-pdf"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center">
+                            <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground">{t('anesthesia.patientDetail.previewNotAvailable', 'Preview not available for this file type')}</p>
+                            <Button 
+                              variant="outline" 
+                              className="mt-4"
+                              onClick={() => window.open(previewDocument.url, '_blank')}
+                              data-testid="button-download-document"
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              {t('common.download', 'Download')}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </ResizablePanel>
+              </>
+            )}
+          </ResizablePanelGroup>
         </DialogContent>
       </Dialog>
 
