@@ -511,10 +511,6 @@ export default function SurgerySummaryDialog({
                           <div className="text-sm text-muted-foreground">
                             {t('anesthesia.surgerySummary.loading')}
                           </div>
-                        ) : isSurgeryPreOpRealError ? (
-                          <div className="text-sm text-destructive">
-                            {t('anesthesia.surgerySummary.errorLoading')}
-                          </div>
                         ) : hasSurgeryPreOpData ? (
                           <div className="text-sm">
                             {(() => {
