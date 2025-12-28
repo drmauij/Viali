@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { storage } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { requireWriteAccess, userHasHospitalAccess } from "../utils";
+import { requireWriteAccess, userHasHospitalAccess, getUserRole } from "../utils";
 import { 
   insertSurgeonChecklistTemplateSchema, 
   updateSurgeonChecklistTemplateSchema,
@@ -24,7 +24,10 @@ router.get("/api/surgeon-checklists/templates", isAuthenticated, async (req: any
       return res.status(403).json({ error: "No access to this hospital" });
     }
 
-    const templates = await storage.getSurgeonChecklistTemplates(hospitalId, userId);
+    const userRole = await getUserRole(userId, hospitalId);
+    const isAdmin = userRole === 'admin';
+    
+    const templates = await storage.getSurgeonChecklistTemplates(hospitalId, isAdmin ? undefined : userId);
     res.json(templates);
   } catch (error) {
     console.error("Error fetching surgeon checklist templates:", error);
