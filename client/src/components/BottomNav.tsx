@@ -134,12 +134,12 @@ export default function BottomNav() {
     if (activeModule === "surgery") {
       const surgeryItems: NavItem[] = [
         { id: "patients", icon: "fas fa-users", label: t('bottomNav.surgery.patients'), path: "/surgery/patients" },
-        { id: "op", icon: "fas fa-user-nurse", label: t('bottomNav.surgery.op'), path: "/surgery/op" },
       ];
-      // Pre-op tab visible for admin and doctor roles
+      // Pre-op tab visible for admin and doctor roles - comes BEFORE OP
       if (canAccessPreOp) {
         surgeryItems.push({ id: "preop", icon: "fas fa-clipboard-list", label: t('bottomNav.surgery.preop', 'Pre-Op'), path: "/surgery/preop" });
       }
+      surgeryItems.push({ id: "op", icon: "fas fa-user-nurse", label: t('bottomNav.surgery.op'), path: "/surgery/op" });
       // Checklists tab only visible for admin and doctor roles
       if (canAccessPreOp) {
         surgeryItems.push({ id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.surgery.checklists'), path: "/surgery/checklists" });

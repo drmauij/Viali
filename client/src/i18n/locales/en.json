@@ -2412,6 +2412,11 @@
       "title": "Pre-Op Assessments",
       "subtitle": "Surgical pre-operative patient assessments",
       "searchPlaceholder": "Search patients...",
+      "search": "Search patients...",
+      "tabPlanned": "Planned",
+      "tabInProgress": "In Progress",
+      "tabStandBy": "Stand-By",
+      "tabCompleted": "Completed",
       "tabs": {
         "planned": "Planned",
         "draft": "In Progress",
@@ -2426,6 +2431,11 @@
       "noStandbyDesc": "Cases marked as stand-by will appear here.",
       "noCompleted": "No completed assessments",
       "noCompletedDesc": "Completed pre-op assessments will appear here.",
+      "noMatchingCases": "No matching cases found",
+      "noAssessments": "No assessments in this category",
+      "unknownPatient": "Unknown Patient",
+      "years": "years",
+      "filterAll": "All",
       "formTitle": "Pre-Op Assessment",
       "savedSuccess": "Assessment saved successfully",
       "saveError": "Failed to save assessment",
@@ -2441,14 +2451,28 @@
       "uploadConsentDesc": "Click to upload a photo or PDF of the signed consent",
       "consentNotes": "Consent Notes",
       "consentNotesPlaceholder": "Notes about the consent...",
+      "consentDate": "Consent Date",
       "assessmentDate": "Assessment Date",
       "assessedBy": "Assessed By",
       "assessedByPlaceholder": "Doctor name...",
+      "assessmentStatus": "Status",
+      "selectStatus": "Select status...",
+      "draft": "Draft",
+      "completed": "Completed",
+      "assessmentCompletion": "Assessment Completion",
+      "status": {
+        "planned": "Planned",
+        "draft": "In Progress",
+        "standBy": "Stand-By",
+        "completed": "Completed"
+      },
       "standByReasons": {
         "consent_required": "Consent Required",
         "signature_missing": "Signature Missing",
         "waiting_exams": "Waiting for Exams",
-        "other": "Other"
+        "other": "Other",
+        "consentRequired": "Consent Required",
+        "signatureMissing": "Signature Missing"
       }
     },
     "opDetail": {

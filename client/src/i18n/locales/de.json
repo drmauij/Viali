@@ -2413,6 +2413,11 @@
       "title": "Präoperative Abklärungen",
       "subtitle": "Chirurgische präoperative Patientenbeurteilungen",
       "searchPlaceholder": "Patienten suchen...",
+      "search": "Patienten suchen...",
+      "tabPlanned": "Geplant",
+      "tabInProgress": "In Bearbeitung",
+      "tabStandBy": "Stand-By",
+      "tabCompleted": "Abgeschlossen",
       "tabs": {
         "planned": "Geplant",
         "draft": "In Bearbeitung",
@@ -2427,6 +2432,11 @@
       "noStandbyDesc": "Als Stand-By markierte Fälle erscheinen hier.",
       "noCompleted": "Keine abgeschlossenen Abklärungen",
       "noCompletedDesc": "Abgeschlossene präoperative Abklärungen erscheinen hier.",
+      "noMatchingCases": "Keine passenden Fälle gefunden",
+      "noAssessments": "Keine Abklärungen in dieser Kategorie",
+      "unknownPatient": "Unbekannter Patient",
+      "years": "Jahre",
+      "filterAll": "Alle",
       "formTitle": "Präoperative Abklärung",
       "savedSuccess": "Abklärung erfolgreich gespeichert",
       "saveError": "Fehler beim Speichern der Abklärung",
@@ -2442,14 +2452,28 @@
       "uploadConsentDesc": "Klicken Sie, um ein Foto oder PDF der unterschriebenen Einwilligung hochzuladen",
       "consentNotes": "Notizen zur Einwilligung",
       "consentNotesPlaceholder": "Notizen zur Einwilligung...",
+      "consentDate": "Einwilligungsdatum",
       "assessmentDate": "Abklärungsdatum",
       "assessedBy": "Abgeklärt durch",
       "assessedByPlaceholder": "Arztname...",
+      "assessmentStatus": "Status",
+      "selectStatus": "Status auswählen...",
+      "draft": "Entwurf",
+      "completed": "Abgeschlossen",
+      "assessmentCompletion": "Abschluss der Abklärung",
+      "status": {
+        "planned": "Geplant",
+        "draft": "In Bearbeitung",
+        "standBy": "Stand-By",
+        "completed": "Abgeschlossen"
+      },
       "standByReasons": {
         "consent_required": "Einwilligung erforderlich",
         "signature_missing": "Unterschrift fehlt",
         "waiting_exams": "Warten auf Untersuchungen",
-        "other": "Anderes"
+        "other": "Anderes",
+        "consentRequired": "Einwilligung erforderlich",
+        "signatureMissing": "Unterschrift fehlt"
       }
     },
     "opDetail": {
