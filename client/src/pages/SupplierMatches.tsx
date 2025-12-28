@@ -46,12 +46,12 @@ export default function SupplierMatches() {
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
   const { data: matchesData, isLoading } = useQuery<GroupedMatches>({
-    queryKey: ["/api/supplier-matches", activeHospital?.id],
+    queryKey: [`/api/supplier-matches/${activeHospital?.id}`],
     enabled: !!activeHospital?.id,
   });
 
   const { data: confirmedMatches, isLoading: confirmedLoading } = useQuery<SupplierMatch[]>({
-    queryKey: ["/api/supplier-matches", activeHospital?.id, "confirmed"],
+    queryKey: [`/api/supplier-matches/${activeHospital?.id}/confirmed`],
     enabled: !!activeHospital?.id,
   });
 
@@ -61,8 +61,8 @@ export default function SupplierMatches() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/supplier-matches", activeHospital?.id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/supplier-matches", activeHospital?.id, "confirmed"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/supplier-matches/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/supplier-matches/${activeHospital?.id}/confirmed`] });
       toast({ title: t("common.success"), description: t("supplierMatches.matchConfirmed") });
     },
     onError: (error: any) => {
@@ -76,7 +76,7 @@ export default function SupplierMatches() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/supplier-matches", activeHospital?.id] });
+      queryClient.invalidateQueries({ queryKey: [`/api/supplier-matches/${activeHospital?.id}`] });
       toast({ title: t("common.success"), description: t("supplierMatches.matchRejected") });
     },
     onError: (error: any) => {
@@ -90,8 +90,8 @@ export default function SupplierMatches() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/supplier-matches", activeHospital?.id] });
-      queryClient.invalidateQueries({ queryKey: ["/api/supplier-matches", activeHospital?.id, "confirmed"] });
+      queryClient.invalidateQueries({ queryKey: [`/api/supplier-matches/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/supplier-matches/${activeHospital?.id}/confirmed`] });
       toast({ title: t("common.success"), description: t("supplierMatches.matchSelected") });
     },
     onError: (error: any) => {
