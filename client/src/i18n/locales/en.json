@@ -85,6 +85,7 @@
     "surgery": {
       "patients": "Patients",
       "op": "OP",
+      "preop": "Pre-Op",
       "checklists": "Checklists",
       "settings": "Settings"
     },
