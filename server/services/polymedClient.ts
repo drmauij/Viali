@@ -300,32 +300,59 @@ export class PolymedBrowserClient {
 
     try {
       // Polymed uses CSS modules with hashed class names like styles_productCard__g2_eE
-      const productCards = await this.page!.$$('[class*="productCard"], .product-card, .product-item');
+      const productCards = await this.page!.$$('[class*="productCard"], .product-card, .product-item, [class*="ProductCard"], article');
       
       if (productCards.length > 0) {
         for (const card of productCards) {
           try {
             // Title is in h4.PolymedTitle or div with title class
-            const nameEl = await card.$('h4, [class*="title"] h4, [class*="label"]');
+            const nameEl = await card.$('h4, [class*="title"] h4, [class*="label"], [class*="Title"], [class*="name"]');
             // PMC-Code follows pattern: <span>PMC-Code: </span><span>CODE</span>
             const codeSpans = await card.$$('span');
             let articleCode = '';
             for (let i = 0; i < codeSpans.length - 1; i++) {
               const text = await codeSpans[i].textContent();
-              if (text?.includes('PMC-Code')) {
+              if (text?.includes('PMC-Code') || text?.includes('Art.') || text?.includes('Artikel')) {
                 articleCode = (await codeSpans[i + 1].textContent()) ?? '';
                 break;
               }
             }
             // Product link
-            const linkEl = await card.$('a[href*="/product/"], a[href*="/artikel/"]');
+            const linkEl = await card.$('a[href*="/product/"], a[href*="/artikel/"], a[href*="/de/"]');
             // Image
             const imgEl = await card.$('img');
-            // Price - may be in various elements
-            const priceEl = await card.$('[class*="price"], [class*="Price"]');
+            
+            // Price - try multiple strategies
+            let priceText = '';
+            
+            // Strategy 1: Look for price class
+            const priceEl = await card.$('[class*="price"], [class*="Price"], [class*="Preis"]');
+            if (priceEl) {
+              priceText = (await priceEl.textContent()) ?? '';
+            }
+            
+            // Strategy 2: Look for CHF pattern in the card text
+            if (!priceText || !priceText.includes('CHF')) {
+              const cardText = await card.textContent() ?? '';
+              const chfMatch = cardText.match(/CHF\s*([\d',\.]+)/i);
+              if (chfMatch) {
+                priceText = chfMatch[0];
+              }
+            }
+            
+            // Strategy 3: Look for any element containing currency
+            if (!priceText || this.parsePrice(priceText) === 0) {
+              const allSpans = await card.$$('span, div, p');
+              for (const el of allSpans) {
+                const text = await el.textContent() ?? '';
+                if (text.includes('CHF') || /^\d+[.,]\d{2}$/.test(text.trim())) {
+                  priceText = text;
+                  break;
+                }
+              }
+            }
 
             const name = nameEl ? (await nameEl.textContent()) ?? '' : '';
-            const priceText = priceEl ? (await priceEl.textContent()) ?? '' : '';
             const catalogUrl = linkEl ? (await linkEl.getAttribute('href')) ?? '' : '';
             const imageUrl = imgEl ? (await imgEl.getAttribute('src')) ?? '' : '';
 
@@ -361,10 +388,25 @@ export class PolymedBrowserClient {
               const codeMatch = href.match(/-(\d+)$/);
               const articleCode = codeMatch ? codeMatch[1] : '';
               
+              // Try to get price from parent container
+              let price = 0;
+              try {
+                const parent = await link.evaluateHandle(el => el.closest('[class*="Card"], [class*="item"], article, div'));
+                if (parent) {
+                  const parentText = await parent.evaluate(el => el?.textContent ?? '') ?? '';
+                  const chfMatch = parentText.match(/CHF\s*([\d',\.]+)/i);
+                  if (chfMatch) {
+                    price = this.parsePrice(chfMatch[0]);
+                  }
+                }
+              } catch {
+                // Ignore price extraction errors
+              }
+              
               products.push({
                 articleCode,
                 productName: text.trim(),
-                price: 0,
+                price,
                 currency: 'CHF',
                 catalogUrl: new URL(href, this.loginUrl).href,
               });
@@ -406,17 +448,27 @@ export class PolymedBrowserClient {
       await this.page!.goto(productUrl, { waitUntil: 'networkidle' });
       await this.delay(500);
 
-      const nameEl = await this.page!.$('h1, .product-title, .product-name');
-      const priceEl = await this.page!.$('.price, .product-price, [class*="price"]');
-      const codeEl = await this.page!.$('.article-code, .product-code, .sku');
-      const descEl = await this.page!.$('.description, .product-description');
-      const imgEl = await this.page!.$('.product-image img, .main-image img');
+      const nameEl = await this.page!.$('h1, .product-title, .product-name, [class*="Title"], [class*="ProductName"]');
+      const priceEl = await this.page!.$('.price, .product-price, [class*="price"], [class*="Price"], [class*="Preis"]');
+      const codeEl = await this.page!.$('.article-code, .product-code, .sku, [class*="ArticleCode"], [class*="PMC"]');
+      const descEl = await this.page!.$('.description, .product-description, [class*="Description"]');
+      const imgEl = await this.page!.$('.product-image img, .main-image img, [class*="ProductImage"] img');
 
       const name = nameEl ? (await nameEl.textContent()) ?? '' : '';
-      const priceText = priceEl ? (await priceEl.textContent()) ?? '' : '';
+      let priceText = priceEl ? (await priceEl.textContent()) ?? '' : '';
       const code = codeEl ? (await codeEl.textContent()) ?? '' : '';
       const description = descEl ? (await descEl.textContent()) ?? '' : '';
       const imageUrl = imgEl ? (await imgEl.getAttribute('src')) ?? '' : '';
+
+      // If no price found with selectors, try to find CHF pattern in page
+      if (!priceText || this.parsePrice(priceText) === 0) {
+        const pageContent = await this.page!.textContent('body') ?? '';
+        const chfMatch = pageContent.match(/CHF\s*([\d',\.]+)/i);
+        if (chfMatch) {
+          priceText = chfMatch[0];
+          console.log(`[Polymed] Found price via text pattern: ${priceText}`);
+        }
+      }
 
       if (!name && !priceText) {
         return null;

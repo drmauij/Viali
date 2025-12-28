@@ -469,10 +469,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
       }
     );
 
-    // Close browser
-    await client.close();
-
-    // Build a lookup map for item names
+    // Build a lookup map for item names (before closing browser, as we might need to fetch product details)
     const itemNameMap = new Map<string, string>();
     for (const item of allHospitalItems) {
       itemNameMap.set(item.itemId, item.itemName);
@@ -481,6 +478,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
     // Process match results and update database
     let matchedCount = 0;
     let updatedCount = 0;
+    let pricesFetched = 0;
 
     for (const result of matchResults) {
       if (result.matchedProduct && result.confidence >= 0.6) {
@@ -488,7 +486,23 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
         
         // Get the original item name
         const searchedName = itemNameMap.get(result.itemId) || '';
-        const matchedProductName = result.matchedProduct.productName || '';
+        let matchedProductName = result.matchedProduct.productName || '';
+        let price = result.matchedProduct.price;
+        
+        // If price is 0 and we have a catalog URL, fetch the product details page
+        if (price === 0 && result.matchedProduct.catalogUrl) {
+          try {
+            console.log(`[Worker] Price is 0, fetching product details for: ${matchedProductName}`);
+            const details = await client.getProductDetails(result.matchedProduct.catalogUrl);
+            if (details && details.price > 0) {
+              price = details.price;
+              pricesFetched++;
+              console.log(`[Worker] Got price from product page: CHF ${price}`);
+            }
+          } catch (e) {
+            console.error(`[Worker] Failed to fetch product details:`, e);
+          }
+        }
         
         // Check if supplier code already exists
         const existingCode = await db.query.supplierCodes.findFirst({
@@ -498,7 +512,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
           ),
         });
 
-        const priceValue = String(result.matchedProduct.price);
+        const priceValue = String(price);
 
         if (existingCode) {
           // Update existing supplier code
@@ -560,6 +574,9 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
       }
     }
 
+    // Close browser after all product detail fetching is done
+    await client.close();
+
     const summary = {
       totalItemsSearched: totalItems,
       matchedItems: matchedCount,
@@ -576,7 +593,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
         })),
     };
 
-    console.log(`[Worker] Polymed sync complete: ${matchedCount} matched, ${updatedCount} updated`);
+    console.log(`[Worker] Polymed sync complete: ${matchedCount} matched, ${updatedCount} updated, ${pricesFetched} prices fetched from detail pages`);
 
     await storage.updatePriceSyncJob(job.id, {
       status: 'completed',
@@ -592,7 +609,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
     await storage.updateSupplierCatalog(job.catalogId, {
       lastSyncAt: new Date(),
       lastSyncStatus: 'success',
-      lastSyncMessage: `Synced ${matchedCount} items, updated ${updatedCount} prices via browser`,
+      lastSyncMessage: `Synced ${matchedCount} items, updated ${updatedCount} prices via browser (${pricesFetched} from detail pages)`,
     });
 
     return true;
