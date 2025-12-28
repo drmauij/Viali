@@ -1388,6 +1388,10 @@ export const surgeryPreOpAssessments = pgTable("surgery_preop_assessments", {
   cave: text("cave"),
   specialNotes: text("special_notes"),
   
+  // Allergies (from hospital's anesthesia settings allergyList)
+  allergies: text("allergies").array(),
+  otherAllergies: text("other_allergies"),
+  
   // Medications (JSONB arrays for flexibility)
   anticoagulationMeds: text("anticoagulation_meds").array(),
   anticoagulationMedsOther: text("anticoagulation_meds_other"),
@@ -1449,6 +1453,8 @@ export const surgeryPreOpAssessments = pgTable("surgery_preop_assessments", {
   consentFileName: varchar("consent_file_name"),
   consentUploadedAt: timestamp("consent_uploaded_at"),
   consentNotes: text("consent_notes"),
+  consentDate: varchar("consent_date"),
+  patientSignature: text("patient_signature"),
   
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

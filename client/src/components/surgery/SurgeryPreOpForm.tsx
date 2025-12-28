@@ -11,12 +11,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Loader2, Save, CheckCircle2, Eye, Upload, Trash2, FileImage } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Loader2, Save, CheckCircle2, Eye, Upload, Trash2, FileImage, Pencil, Camera, ChevronDown, ChevronUp, AlertCircle, AlertTriangle, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
+import SignaturePad from "@/components/SignaturePad";
 import type { SurgeryPreOpAssessment } from "@shared/schema";
 
 interface SurgeryPreOpFormProps {
@@ -53,6 +55,8 @@ interface AssessmentData {
   weight: string;
   cave: string;
   specialNotes: string;
+  allergies: string[];
+  otherAllergies: string;
   anticoagulationMeds: string[];
   anticoagulationMedsOther: string;
   generalMeds: string[];
@@ -91,7 +95,10 @@ interface AssessmentData {
   standByReasonNote: string;
   assessmentDate: string;
   doctorName: string;
+  doctorSignature: string;
   consentNotes: string;
+  consentDate: string;
+  patientSignature: string;
   status: string;
 }
 
@@ -100,6 +107,8 @@ const initialAssessmentData: AssessmentData = {
   weight: '',
   cave: '',
   specialNotes: '',
+  allergies: [],
+  otherAllergies: '',
   anticoagulationMeds: [],
   anticoagulationMedsOther: '',
   generalMeds: [],
@@ -138,7 +147,10 @@ const initialAssessmentData: AssessmentData = {
   standByReasonNote: '',
   assessmentDate: '',
   doctorName: '',
+  doctorSignature: '',
   consentNotes: '',
+  consentDate: '',
+  patientSignature: '',
   status: 'draft',
 };
 
@@ -153,6 +165,8 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
   const [consentPreview, setConsentPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [showDoctorSignaturePad, setShowDoctorSignaturePad] = useState(false);
+  const [showPatientSignaturePad, setShowPatientSignaturePad] = useState(false);
 
   const { data: assessment, isLoading } = useQuery<SurgeryPreOpAssessment>({
     queryKey: [`/api/surgery/preop/surgery/${surgeryId}`],
@@ -169,6 +183,8 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
         weight: assessment.weight || '',
         cave: assessment.cave || '',
         specialNotes: assessment.specialNotes || '',
+        allergies: assessment.allergies || [],
+        otherAllergies: assessment.otherAllergies || '',
         anticoagulationMeds: assessment.anticoagulationMeds || [],
         anticoagulationMedsOther: assessment.anticoagulationMedsOther || '',
         generalMeds: assessment.generalMeds || [],
@@ -207,7 +223,10 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
         standByReasonNote: assessment.standByReasonNote || '',
         assessmentDate: assessment.assessmentDate || '',
         doctorName: assessment.doctorName || '',
+        doctorSignature: assessment.doctorSignature || '',
         consentNotes: assessment.consentNotes || '',
+        consentDate: assessment.consentDate || '',
+        patientSignature: assessment.patientSignature || '',
         status: assessment.status || 'draft',
       });
       if (assessment.consentFileUrl) {
@@ -314,6 +333,7 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
 
   // Helper functions to check if sections have data
   const hasGeneralData = () => assessmentData.height || assessmentData.weight || assessmentData.cave || assessmentData.specialNotes;
+  const hasAllergiesData = () => assessmentData.allergies.length > 0 || assessmentData.otherAllergies;
   const hasMedicationsData = () => assessmentData.anticoagulationMeds.length > 0 || assessmentData.generalMeds.length > 0 || assessmentData.medicationsNotes;
   const hasHeartData = () => Object.values(assessmentData.heartIllnesses).some(v => v) || assessmentData.heartNotes;
   const hasLungData = () => Object.values(assessmentData.lungIllnesses).some(v => v) || assessmentData.lungNotes;
@@ -452,6 +472,56 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
                     rows={3}
                     disabled={isReadOnly}
                     data-testid="textarea-special-notes"
+                  />
+                </div>
+              </CardContent>
+            </AccordionContent>
+          </Card>
+        </AccordionItem>
+
+        {/* Allergies Section */}
+        <AccordionItem value="allergies">
+          <Card className={hasAllergiesData() ? "border-red-500 dark:border-red-700" : ""}>
+            <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-allergies">
+              <CardTitle className={`text-lg ${hasAllergiesData() ? "text-red-600 dark:text-red-400" : ""}`}>
+                {t('anesthesia.patientDetail.allergies', 'Allergies')}
+              </CardTitle>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="pt-0 space-y-4">
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {(anesthesiaSettings?.allergyList || []).map((allergy) => (
+                    <Badge
+                      key={allergy.id}
+                      variant={assessmentData.allergies.includes(allergy.id) ? "destructive" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        if (isReadOnly) return;
+                        if (assessmentData.allergies.includes(allergy.id)) {
+                          updateAssessment({
+                            allergies: assessmentData.allergies.filter((a) => a !== allergy.id),
+                          });
+                        } else {
+                          updateAssessment({
+                            allergies: [...assessmentData.allergies, allergy.id],
+                          });
+                        }
+                      }}
+                      data-testid={`badge-allergy-${allergy.id}`}
+                    >
+                      {allergy.label}
+                    </Badge>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  <Label>{t('anesthesia.patientDetail.otherAllergies', 'Other Allergies')}</Label>
+                  <Textarea
+                    value={assessmentData.otherAllergies}
+                    onChange={(e) => updateAssessment({ otherAllergies: e.target.value })}
+                    placeholder={t('anesthesia.patientDetail.otherAllergiesPlaceholder', 'List other allergies...')}
+                    rows={2}
+                    disabled={isReadOnly}
+                    data-testid="textarea-other-allergies"
                   />
                 </div>
               </CardContent>
@@ -1144,6 +1214,76 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
                   />
                 </div>
 
+                <div className="space-y-2">
+                  <Label>{t('surgery.preop.consentDate', 'Consent Date')}</Label>
+                  <FlexibleDateInput
+                    value={assessmentData.consentDate}
+                    onChange={(value) => updateAssessment({ consentDate: value })}
+                    disabled={isReadOnly}
+                    data-testid="input-consent-date"
+                  />
+                </div>
+
+                {/* Patient Signature */}
+                <div className="space-y-2">
+                  <Label>{t('anesthesia.patientDetail.patientSignature', 'Patient Signature')}</Label>
+                  {assessmentData.patientSignature ? (
+                    <div className="border rounded-lg p-3 bg-muted/30">
+                      <img 
+                        src={assessmentData.patientSignature} 
+                        alt={t('anesthesia.patientDetail.patientSignature')} 
+                        className="max-h-24 mx-auto"
+                      />
+                      {!isReadOnly && (
+                        <div className="flex justify-center mt-2 gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowPatientSignaturePad(true)}
+                            data-testid="button-change-patient-signature"
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            {t('common.change')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateAssessment({ patientSignature: '' })}
+                            data-testid="button-clear-patient-signature"
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            {t('common.clear')}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div 
+                      className={`border-2 border-dashed rounded-lg p-6 text-center ${!isReadOnly ? 'cursor-pointer hover:bg-muted/50' : ''} transition-colors`}
+                      onClick={() => !isReadOnly && setShowPatientSignaturePad(true)}
+                    >
+                      <Pencil className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">{t('anesthesia.patientDetail.clickToSign', 'Click to add signature')}</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </AccordionContent>
+          </Card>
+        </AccordionItem>
+
+        {/* Assessment Completion Section */}
+        <AccordionItem value="completion">
+          <Card className={assessmentData.doctorSignature ? "border-green-500 dark:border-green-700" : ""}>
+            <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-completion">
+              <CardTitle className={`text-lg ${assessmentData.doctorSignature ? "text-green-600 dark:text-green-400" : ""}`}>
+                {t('surgery.preop.assessmentCompletion', 'Assessment Completion')}
+              </CardTitle>
+            </AccordionTrigger>
+            <AccordionContent>
+              <CardContent className="pt-0 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>{t('surgery.preop.assessmentDate', 'Assessment Date')}</Label>
@@ -1166,6 +1306,52 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
                   </div>
                 </div>
 
+                {/* Doctor Signature */}
+                <div className="space-y-2">
+                  <Label>{t('anesthesia.patientDetail.doctorSignature', 'Doctor Signature')}</Label>
+                  {assessmentData.doctorSignature ? (
+                    <div className="border rounded-lg p-3 bg-muted/30">
+                      <img 
+                        src={assessmentData.doctorSignature} 
+                        alt={t('anesthesia.patientDetail.doctorSignature')} 
+                        className="max-h-24 mx-auto"
+                      />
+                      {!isReadOnly && (
+                        <div className="flex justify-center mt-2 gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowDoctorSignaturePad(true)}
+                            data-testid="button-change-doctor-signature"
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            {t('common.change')}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateAssessment({ doctorSignature: '' })}
+                            data-testid="button-clear-doctor-signature"
+                          >
+                            <X className="h-4 w-4 mr-2" />
+                            {t('common.clear')}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div 
+                      className={`border-2 border-dashed rounded-lg p-6 text-center ${!isReadOnly ? 'cursor-pointer hover:bg-muted/50' : ''} transition-colors`}
+                      onClick={() => !isReadOnly && setShowDoctorSignaturePad(true)}
+                    >
+                      <Pencil className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">{t('anesthesia.patientDetail.clickToSign', 'Click to add signature')}</p>
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label>{t('surgery.preop.assessmentStatus', 'Status')}</Label>
                   <Select
@@ -1182,11 +1368,52 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="flex justify-center pt-4">
+                  <Button 
+                    onClick={handleManualSave}
+                    disabled={isReadOnly || isSaving}
+                    data-testid="button-save-assessment-completion"
+                  >
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t('common.saving')}
+                      </>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        {t('common.save')}
+                      </>
+                    )}
+                  </Button>
+                </div>
               </CardContent>
             </AccordionContent>
           </Card>
         </AccordionItem>
       </Accordion>
+
+      {/* Signature Pads */}
+      <SignaturePad
+        isOpen={showDoctorSignaturePad}
+        onClose={() => setShowDoctorSignaturePad(false)}
+        onSave={(signature) => {
+          updateAssessment({ doctorSignature: signature });
+          setShowDoctorSignaturePad(false);
+        }}
+        title={t('anesthesia.patientDetail.doctorSignature', 'Doctor Signature')}
+      />
+
+      <SignaturePad
+        isOpen={showPatientSignaturePad}
+        onClose={() => setShowPatientSignaturePad(false)}
+        onSave={(signature) => {
+          updateAssessment({ patientSignature: signature });
+          setShowPatientSignaturePad(false);
+        }}
+        title={t('anesthesia.patientDetail.patientSignature', 'Patient Signature')}
+      />
     </div>
   );
 }
