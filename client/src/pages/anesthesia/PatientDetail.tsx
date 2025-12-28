@@ -2533,6 +2533,73 @@ export default function PatientDetail() {
             </div>
           </DialogHeader>
           
+          {/* Mobile Document Preview Overlay - shown on small screens */}
+          {previewDocument && (
+            <div className="lg:hidden fixed inset-0 z-50 bg-background/95 backdrop-blur-sm flex flex-col">
+              <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <span className="text-sm font-medium truncate">{previewDocument.fileName}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => window.open(previewDocument.url, '_blank')}
+                    title={t('common.openInNewTab', 'Open in new tab')}
+                    data-testid="button-mobile-open-document-new-tab"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => setPreviewDocument(null)}
+                    title={t('common.close', 'Close')}
+                    data-testid="button-mobile-close-document-preview"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-hidden p-2">
+                {previewDocument.mimeType?.startsWith('image/') ? (
+                  <img 
+                    src={previewDocument.url}
+                    alt={previewDocument.fileName}
+                    className="w-full h-full object-contain"
+                    data-testid="mobile-preview-image"
+                  />
+                ) : previewDocument.mimeType === 'application/pdf' ? (
+                  <iframe
+                    src={previewDocument.url}
+                    className="w-full h-full border-0 rounded"
+                    title={previewDocument.fileName}
+                    data-testid="mobile-preview-pdf"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center">
+                      <FileText className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground">{t('anesthesia.patientDetail.previewNotAvailable', 'Preview not available for this file type')}</p>
+                      <Button 
+                        variant="outline" 
+                        className="mt-4"
+                        onClick={() => window.open(previewDocument.url, '_blank')}
+                        data-testid="button-mobile-download-document"
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        {t('common.download', 'Download')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
             <ResizablePanel defaultSize={previewDocument ? 60 : 100} minSize={40}>
               <Tabs defaultValue="assessment" className="h-full flex flex-col">
@@ -4459,9 +4526,9 @@ export default function PatientDetail() {
               </Tabs>
             </ResizablePanel>
             
-            {/* Document Preview Panel - shown when a file is selected */}
+            {/* Document Preview Panel - shown on large screens when a file is selected */}
             {previewDocument && (
-              <>
+              <div className="hidden lg:contents">
                 <ResizableHandle withHandle />
                 <ResizablePanel defaultSize={40} minSize={25}>
                   <div className="h-full flex flex-col bg-muted/30">
@@ -4528,7 +4595,7 @@ export default function PatientDetail() {
                     </div>
                   </div>
                 </ResizablePanel>
-              </>
+              </div>
             )}
           </ResizablePanelGroup>
         </DialogContent>
