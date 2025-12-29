@@ -1427,6 +1427,7 @@ export default function Op() {
                   anesthesiaRecord={anesthesiaRecord}
                   openEventsPanel={openEventsPanel}
                   onEventsPanelChange={setOpenEventsPanel}
+                  isPacuMode={isPacuMode}
                 />
               )}
             </div>

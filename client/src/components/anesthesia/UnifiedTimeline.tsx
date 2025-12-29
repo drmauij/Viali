@@ -133,6 +133,10 @@ import { PositionSwimlane } from "./swimlanes/PositionSwimlane";
 import { HeartRhythmSwimlane } from "./swimlanes/HeartRhythmSwimlane";
 import { BISSwimlane } from "./swimlanes/BISSwimlane";
 import { TOFSwimlane } from "./swimlanes/TOFSwimlane";
+import { VASSwimlane } from "./swimlanes/VASSwimlane";
+import { ScoresSwimlane } from "./swimlanes/ScoresSwimlane";
+import { VASDialog } from "./dialogs/VASDialog";
+import { ScoresDialog } from "./dialogs/ScoresDialog";
 import { EventsTimesPanel } from "./EventsTimesPanel";
 
 /**
@@ -291,6 +295,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   anesthesiaRecord?: any;
   openEventsPanel?: boolean;
   onEventsPanelChange?: (open: boolean) => void;
+  isPacuMode?: boolean;
 }>(function UnifiedTimeline({
   data,
   height,
@@ -301,6 +306,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   anesthesiaRecord, // Full anesthesia record for loading saved data (time markers, etc.)
   openEventsPanel, // External trigger to open events panel
   onEventsPanelChange, // Callback when events panel state changes
+  isPacuMode = false, // PACU mode: show VAS and Scores instead of TOF
 }, ref) {
   const chartRef = useRef<any>(null);
   const activeSwimlaneRef = useRef<SwimlaneConfig[]>([]); // Stores latest swimlanes for PDF export
@@ -1784,6 +1790,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const [pendingTOF, setPendingTOF] = useState<{ time: number } | null>(null);
   const [editingTOF, setEditingTOF] = useState<{ id: string; time: number; value: string; percentage?: number; index: number } | null>(null);
 
+  // UI state for VAS dialogs and interactions (PACU mode)
+  const [showVASDialog, setShowVASDialog] = useState(false);
+  const [pendingVAS, setPendingVAS] = useState<{ time: number } | null>(null);
+  const [editingVAS, setEditingVAS] = useState<{ id: string; time: number; value: number; index: number } | null>(null);
+
+  // UI state for Scores dialogs and interactions (PACU mode)
+  const [showScoresDialog, setShowScoresDialog] = useState(false);
+  const [pendingScore, setPendingScore] = useState<{ time: number } | null>(null);
+  const [editingScore, setEditingScore] = useState<{ id: string; time: number; scoreType: 'aldrete' | 'parsap'; totalScore: number; aldreteScore?: any; parsapScore?: any; index: number } | null>(null);
+
   // UI state for position dialogs and interactions
   const [showPositionDialog, setShowPositionDialog] = useState(false);
   const [pendingPosition, setPendingPosition] = useState<{ time: number } | null>(null);
@@ -2430,11 +2446,18 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   ];
 
   // Default swimlane configuration - can be overridden via props
+  // In PACU mode, show VAS and Scores instead of TOF
   const baseSwimlanes: SwimlaneConfig[] = [
     { id: "zeiten", label: t("anesthesia.timeline.times"), height: 50, colorLight: "rgba(243, 232, 255, 0.8)", colorDark: "hsl(270, 55%, 20%)" },
     { id: "ereignisse", label: t("anesthesia.timeline.events"), height: 48, colorLight: "rgba(219, 234, 254, 0.8)", colorDark: "hsl(210, 60%, 18%)" },
-    { id: "tof", label: "TOF", height: 38, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
-    // Administration group lanes will be inserted dynamically after herzrhythmus
+    // Conditionally show TOF (OR mode) or VAS/Scores (PACU mode)
+    ...(isPacuMode ? [
+      { id: "vas", label: "VAS", height: 38, colorLight: "rgba(254, 215, 215, 0.8)", colorDark: "hsl(0, 55%, 22%)" },
+      { id: "scores", label: t("anesthesia.timeline.scores", "Scores"), height: 38, colorLight: "rgba(187, 247, 208, 0.8)", colorDark: "hsl(150, 55%, 22%)" },
+    ] : [
+      { id: "tof", label: "TOF", height: 38, colorLight: "rgba(233, 213, 255, 0.8)", colorDark: "hsl(280, 55%, 22%)" },
+    ]),
+    // Administration group lanes will be inserted dynamically after TOF or Scores
     { id: "herzrhythmus", label: t("anesthesia.timeline.heartRhythm"), height: 48, colorLight: "rgba(252, 231, 243, 0.8)", colorDark: "hsl(330, 50%, 20%)" },
     { id: "position", label: t("anesthesia.timeline.position"), height: 48, colorLight: "rgba(226, 232, 240, 0.8)", colorDark: "hsl(215, 20%, 25%)" },
     { id: "ventilation", label: t("anesthesia.timeline.ventilation"), height: 48, colorLight: "rgba(254, 243, 199, 0.8)", colorDark: "hsl(35, 70%, 22%)" },
@@ -2453,8 +2476,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     for (const lane of baseSwimlanes) {
       lanes.push(lane);
       
-      // Insert single "Medications" parent lane after TOF (before Heart Rhythm)
-      if (lane.id === "tof") {
+      // Insert single "Medications" parent lane after TOF/Scores (before Heart Rhythm)
+      // In PACU mode, insert after Scores; in OR mode, insert after TOF
+      if ((isPacuMode && lane.id === "scores") || (!isPacuMode && lane.id === "tof")) {
         // Add single "Medications" parent lane
         lanes.push({
           id: "medikamente",
@@ -7111,21 +7135,59 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }}
       />
 
-      {/* TOFSwimlane Component - Interactive layer and rendering for TOF monitoring */}
-      <TOFSwimlane
-        swimlanePositions={swimlanePositions}
-        isTouchDevice={isTouchDevice}
-        onTOFDialogOpen={(pending) => {
-          setPendingTOF(pending);
-          setEditingTOF(null);
-          setShowTOFDialog(true);
-        }}
-        onTOFEditDialogOpen={(editing) => {
-          setEditingTOF(editing);
-          setPendingTOF(null);
-          setShowTOFDialog(true);
-        }}
-      />
+      {/* TOFSwimlane Component - Interactive layer and rendering for TOF monitoring (OR mode only) */}
+      {!isPacuMode && (
+        <TOFSwimlane
+          swimlanePositions={swimlanePositions}
+          isTouchDevice={isTouchDevice}
+          onTOFDialogOpen={(pending) => {
+            setPendingTOF(pending);
+            setEditingTOF(null);
+            setShowTOFDialog(true);
+          }}
+          onTOFEditDialogOpen={(editing) => {
+            setEditingTOF(editing);
+            setPendingTOF(null);
+            setShowTOFDialog(true);
+          }}
+        />
+      )}
+
+      {/* VASSwimlane Component - Interactive layer and rendering for VAS pain scoring (PACU mode only) */}
+      {isPacuMode && (
+        <VASSwimlane
+          swimlanePositions={swimlanePositions}
+          isTouchDevice={isTouchDevice}
+          onVASDialogOpen={(pending) => {
+            setPendingVAS(pending);
+            setEditingVAS(null);
+            setShowVASDialog(true);
+          }}
+          onVASEditDialogOpen={(editing) => {
+            setEditingVAS(editing);
+            setPendingVAS(null);
+            setShowVASDialog(true);
+          }}
+        />
+      )}
+
+      {/* ScoresSwimlane Component - Interactive layer and rendering for Aldrete/PARSAP scores (PACU mode only) */}
+      {isPacuMode && (
+        <ScoresSwimlane
+          swimlanePositions={swimlanePositions}
+          isTouchDevice={isTouchDevice}
+          onScoresDialogOpen={(pending) => {
+            setPendingScore(pending);
+            setEditingScore(null);
+            setShowScoresDialog(true);
+          }}
+          onScoresEditDialogOpen={(editing) => {
+            setEditingScore(editing);
+            setPendingScore(null);
+            setShowScoresDialog(true);
+          }}
+        />
+      )}
 
       {/* Interactive overlays for collapsible parent swimlanes */}
       {swimlanePositions.map((lane) => {
@@ -9267,6 +9329,46 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }}
         onTOFDeleted={() => {
           setEditingTOF(null);
+        }}
+        readOnly={!canWrite}
+      />
+
+      {/* VAS Dialog (PACU mode) */}
+      <VASDialog
+        open={showVASDialog}
+        onOpenChange={setShowVASDialog}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
+        editingVAS={editingVAS}
+        pendingVAS={pendingVAS}
+        onVASCreated={() => {
+          setPendingVAS(null);
+          setEditingVAS(null);
+        }}
+        onVASUpdated={() => {
+          setEditingVAS(null);
+        }}
+        onVASDeleted={() => {
+          setEditingVAS(null);
+        }}
+        readOnly={!canWrite}
+      />
+
+      {/* Scores Dialog (PACU mode) */}
+      <ScoresDialog
+        open={showScoresDialog}
+        onOpenChange={setShowScoresDialog}
+        anesthesiaRecordId={anesthesiaRecordId ?? null}
+        editingScore={editingScore}
+        pendingScore={pendingScore}
+        onScoreCreated={() => {
+          setPendingScore(null);
+          setEditingScore(null);
+        }}
+        onScoreUpdated={() => {
+          setEditingScore(null);
+        }}
+        onScoreDeleted={() => {
+          setEditingScore(null);
         }}
         readOnly={!canWrite}
       />
