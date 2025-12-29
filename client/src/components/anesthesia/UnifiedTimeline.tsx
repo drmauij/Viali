@@ -2587,7 +2587,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     return lanes;
   };
 
-  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts]);
+  const activeSwimlanes = useMemo(() => buildActiveSwimlanes(), [collapsedSwimlanes, swimlanes, administrationGroups, itemsByAdminGroup, swimlaneTrackCounts, isPacuMode]);
 
   // Keep the ref updated with latest swimlanes for PDF export
   useEffect(() => {
