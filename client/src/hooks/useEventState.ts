@@ -33,6 +33,37 @@ export interface TOFPoint {
   percentage?: number; // Optional T4/T1 ratio percentage
 }
 
+export interface VASPoint {
+  id: string;
+  timestamp: number;
+  value: number; // Pain level 0-10
+}
+
+export interface AldreteScore {
+  activity: number; // 0-2
+  respiration: number; // 0-2
+  circulation: number; // 0-2
+  consciousness: number; // 0-2
+  oxygenSaturation: number; // 0-2
+}
+
+export interface PARSAPScore {
+  vitals: number; // 0-2
+  ambulation: number; // 0-2
+  nauseaVomiting: number; // 0-2
+  pain: number; // 0-2
+  surgicalBleeding: number; // 0-2
+}
+
+export interface ScorePoint {
+  id: string;
+  timestamp: number;
+  scoreType: 'aldrete' | 'parsap';
+  totalScore: number;
+  aldreteScore?: AldreteScore;
+  parsapScore?: PARSAPScore;
+}
+
 export interface StaffData {
   doctor: StaffPoint[];
   nurse: StaffPoint[];
@@ -62,6 +93,8 @@ export interface UseEventStateReturn {
   positionData: PositionPoint[];
   bisData: BISPoint[];
   tofData: TOFPoint[];
+  vasData: VASPoint[];
+  scoresData: ScorePoint[];
   eventComments: EventComment[];
   timeMarkers: AnesthesiaTimeMarker[];
   setHeartRhythmData: React.Dispatch<React.SetStateAction<HeartRhythmPoint[]>>;
@@ -69,6 +102,8 @@ export interface UseEventStateReturn {
   setPositionData: React.Dispatch<React.SetStateAction<PositionPoint[]>>;
   setBisData: React.Dispatch<React.SetStateAction<BISPoint[]>>;
   setTofData: React.Dispatch<React.SetStateAction<TOFPoint[]>>;
+  setVasData: React.Dispatch<React.SetStateAction<VASPoint[]>>;
+  setScoresData: React.Dispatch<React.SetStateAction<ScorePoint[]>>;
   setEventComments: React.Dispatch<React.SetStateAction<EventComment[]>>;
   setTimeMarkers: React.Dispatch<React.SetStateAction<AnesthesiaTimeMarker[]>>;
   addHeartRhythm: (point: HeartRhythmPoint) => void;
@@ -76,6 +111,8 @@ export interface UseEventStateReturn {
   addPosition: (point: PositionPoint) => void;
   addBIS: (point: BISPoint) => void;
   addTOF: (point: TOFPoint) => void;
+  addVAS: (point: VASPoint) => void;
+  addScore: (point: ScorePoint) => void;
   addEvent: (comment: EventComment) => void;
   resetEventData: (data: {
     heartRhythm?: HeartRhythmPoint[];
@@ -83,6 +120,8 @@ export interface UseEventStateReturn {
     position?: PositionPoint[];
     bis?: BISPoint[];
     tof?: TOFPoint[];
+    vas?: VASPoint[];
+    scores?: ScorePoint[];
     events?: EventComment[];
     timeMarkers?: AnesthesiaTimeMarker[];
   }) => void;
@@ -94,6 +133,8 @@ export function useEventState(initialData?: {
   position?: PositionPoint[];
   bis?: BISPoint[];
   tof?: TOFPoint[];
+  vas?: VASPoint[];
+  scores?: ScorePoint[];
   events?: EventComment[];
   timeMarkers?: AnesthesiaTimeMarker[];
 }): UseEventStateReturn {
@@ -119,6 +160,14 @@ export function useEventState(initialData?: {
 
   const [tofData, setTofData] = useState<TOFPoint[]>(
     initialData?.tof || []
+  );
+
+  const [vasData, setVasData] = useState<VASPoint[]>(
+    initialData?.vas || []
+  );
+
+  const [scoresData, setScoresData] = useState<ScorePoint[]>(
+    initialData?.scores || []
   );
 
   const [eventComments, setEventComments] = useState<EventComment[]>(
@@ -152,6 +201,14 @@ export function useEventState(initialData?: {
     setTofData(prev => [...prev, point]);
   }, []);
 
+  const addVAS = useCallback((point: VASPoint) => {
+    setVasData(prev => [...prev, point]);
+  }, []);
+
+  const addScore = useCallback((point: ScorePoint) => {
+    setScoresData(prev => [...prev, point]);
+  }, []);
+
   const addEvent = useCallback((comment: EventComment) => {
     setEventComments(prev => [...prev, comment]);
   }, []);
@@ -162,6 +219,8 @@ export function useEventState(initialData?: {
     position?: PositionPoint[];
     bis?: BISPoint[];
     tof?: TOFPoint[];
+    vas?: VASPoint[];
+    scores?: ScorePoint[];
     events?: EventComment[];
     timeMarkers?: AnesthesiaTimeMarker[];
   }) => {
@@ -170,6 +229,8 @@ export function useEventState(initialData?: {
     if (data.position !== undefined) setPositionData(data.position);
     if (data.bis !== undefined) setBisData(data.bis);
     if (data.tof !== undefined) setTofData(data.tof);
+    if (data.vas !== undefined) setVasData(data.vas);
+    if (data.scores !== undefined) setScoresData(data.scores);
     if (data.events !== undefined) setEventComments(data.events);
     if (data.timeMarkers !== undefined) setTimeMarkers(data.timeMarkers);
   }, []);
@@ -180,6 +241,8 @@ export function useEventState(initialData?: {
     positionData,
     bisData,
     tofData,
+    vasData,
+    scoresData,
     eventComments,
     timeMarkers,
     setHeartRhythmData,
@@ -187,6 +250,8 @@ export function useEventState(initialData?: {
     setPositionData,
     setBisData,
     setTofData,
+    setVasData,
+    setScoresData,
     setEventComments,
     setTimeMarkers,
     addHeartRhythm,
@@ -194,6 +259,8 @@ export function useEventState(initialData?: {
     addPosition,
     addBIS,
     addTOF,
+    addVAS,
+    addScore,
     addEvent,
     resetEventData,
   };
