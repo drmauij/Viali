@@ -24,6 +24,33 @@ export interface TOFPointWithId {
   percentage?: number; // Optional T4/T1 ratio percentage
 }
 
+export interface VASPointWithId {
+  id: string;
+  timestamp: string;
+  value: number; // Pain level 0-10
+}
+
+export interface ScorePointWithId {
+  id: string;
+  timestamp: string;
+  scoreType: 'aldrete' | 'parsap';
+  totalScore: number;
+  aldreteScore?: {
+    activity: number;
+    respiration: number;
+    circulation: number;
+    consciousness: number;
+    oxygenSaturation: number;
+  };
+  parsapScore?: {
+    vitals: number;
+    ambulation: number;
+    nauseaVomiting: number;
+    pain: number;
+    surgicalBleeding: number;
+  };
+}
+
 export interface ClinicalSnapshotData {
   hr?: VitalPointWithId[];
   bp?: BPPointWithId[];
@@ -43,6 +70,8 @@ export interface ClinicalSnapshotData {
   vomit?: VitalPointWithId[];
   bis?: VitalPointWithId[];
   tof?: TOFPointWithId[];
+  vas?: VASPointWithId[];
+  scores?: ScorePointWithId[];
 }
 
 export interface ClinicalSnapshot {
@@ -562,6 +591,396 @@ export function useDeleteTOFPoint(anesthesiaRecordId: string | undefined) {
         const filtered = tofPoints.filter((p: any) => p.id !== pointId);
         if (filtered.length < tofPoints.length) {
           updatedData.tof = filtered;
+        }
+
+        queryClient.setQueryData<ClinicalSnapshot>(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          {
+            ...previousSnapshot,
+            data: updatedData,
+          }
+        );
+      }
+
+      return { previousSnapshot };
+    },
+    onError: (err, pointId, context) => {
+      if (context?.previousSnapshot) {
+        queryClient.setQueryData(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          context.previousSnapshot
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+    },
+  });
+}
+
+// Hook to add a VAS point
+export function useAddVASPoint(anesthesiaRecordId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      timestamp: string;
+      value: number;
+    }) => {
+      return await apiRequest(
+        'POST',
+        `/api/anesthesia/vas`,
+        { anesthesiaRecordId, ...data }
+      );
+    },
+    onMutate: async (newPoint) => {
+      const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
+      ]);
+
+      if (previousSnapshot) {
+        const optimisticId = `temp-${Date.now()}-${Math.random()}`;
+        const newVASPoint: VASPointWithId = {
+          id: optimisticId,
+          timestamp: newPoint.timestamp,
+          value: newPoint.value,
+        };
+
+        queryClient.setQueryData<ClinicalSnapshot>(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          {
+            ...previousSnapshot,
+            data: {
+              ...previousSnapshot.data,
+              vas: [
+                ...(previousSnapshot.data.vas || []),
+                newVASPoint,
+              ].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+            },
+          }
+        );
+      }
+
+      return { previousSnapshot };
+    },
+    onError: (err, newPoint, context) => {
+      if (context?.previousSnapshot) {
+        queryClient.setQueryData(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          context.previousSnapshot
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+    },
+  });
+}
+
+// Hook to update a VAS point
+export function useUpdateVASPoint(anesthesiaRecordId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      pointId: string;
+      value?: number;
+      timestamp?: string;
+    }) => {
+      return await apiRequest(
+        'PATCH',
+        `/api/anesthesia/vas/${data.pointId}`,
+        { value: data.value, timestamp: data.timestamp }
+      );
+    },
+    onMutate: async (updatedPoint) => {
+      const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
+      ]);
+
+      if (previousSnapshot) {
+        const updatedData = { ...previousSnapshot.data };
+        const vasPoints = updatedData.vas || [];
+        const pointIndex = vasPoints.findIndex((p: any) => p.id === updatedPoint.pointId);
+        if (pointIndex !== -1) {
+          const updated = [...vasPoints];
+          updated[pointIndex] = {
+            ...updated[pointIndex],
+            ...(updatedPoint.value !== undefined && { value: updatedPoint.value }),
+            ...(updatedPoint.timestamp !== undefined && { timestamp: updatedPoint.timestamp }),
+          };
+          updatedData.vas = updated.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        }
+
+        queryClient.setQueryData<ClinicalSnapshot>(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          {
+            ...previousSnapshot,
+            data: updatedData,
+          }
+        );
+      }
+
+      return { previousSnapshot };
+    },
+    onError: (err, updatedPoint, context) => {
+      if (context?.previousSnapshot) {
+        queryClient.setQueryData(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          context.previousSnapshot
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+    },
+  });
+}
+
+// Hook to delete a VAS point
+export function useDeleteVASPoint(anesthesiaRecordId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (pointId: string) => {
+      return await apiRequest(
+        'DELETE',
+        `/api/anesthesia/vas/${pointId}`
+      );
+    },
+    onMutate: async (pointId) => {
+      const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
+      ]);
+
+      if (previousSnapshot) {
+        const updatedData = { ...previousSnapshot.data };
+        const vasPoints = updatedData.vas || [];
+        const filtered = vasPoints.filter((p: any) => p.id !== pointId);
+        if (filtered.length < vasPoints.length) {
+          updatedData.vas = filtered;
+        }
+
+        queryClient.setQueryData<ClinicalSnapshot>(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          {
+            ...previousSnapshot,
+            data: updatedData,
+          }
+        );
+      }
+
+      return { previousSnapshot };
+    },
+    onError: (err, pointId, context) => {
+      if (context?.previousSnapshot) {
+        queryClient.setQueryData(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          context.previousSnapshot
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+    },
+  });
+}
+
+// Hook to add a Score point (Aldrete or PARSAP)
+export function useAddScorePoint(anesthesiaRecordId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      timestamp: string;
+      scoreType: 'aldrete' | 'parsap';
+      totalScore: number;
+      aldreteScore?: {
+        activity: number;
+        respiration: number;
+        circulation: number;
+        consciousness: number;
+        oxygenSaturation: number;
+      };
+      parsapScore?: {
+        vitals: number;
+        ambulation: number;
+        nauseaVomiting: number;
+        pain: number;
+        surgicalBleeding: number;
+      };
+    }) => {
+      return await apiRequest(
+        'POST',
+        `/api/anesthesia/scores`,
+        { anesthesiaRecordId, ...data }
+      );
+    },
+    onMutate: async (newPoint) => {
+      const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
+      ]);
+
+      if (previousSnapshot) {
+        const optimisticId = `temp-${Date.now()}-${Math.random()}`;
+        const newScorePoint: ScorePointWithId = {
+          id: optimisticId,
+          timestamp: newPoint.timestamp,
+          scoreType: newPoint.scoreType,
+          totalScore: newPoint.totalScore,
+          aldreteScore: newPoint.aldreteScore,
+          parsapScore: newPoint.parsapScore,
+        };
+
+        queryClient.setQueryData<ClinicalSnapshot>(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          {
+            ...previousSnapshot,
+            data: {
+              ...previousSnapshot.data,
+              scores: [
+                ...(previousSnapshot.data.scores || []),
+                newScorePoint,
+              ].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+            },
+          }
+        );
+      }
+
+      return { previousSnapshot };
+    },
+    onError: (err, newPoint, context) => {
+      if (context?.previousSnapshot) {
+        queryClient.setQueryData(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          context.previousSnapshot
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+    },
+  });
+}
+
+// Hook to update a Score point
+export function useUpdateScorePoint(anesthesiaRecordId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      pointId: string;
+      timestamp?: string;
+      scoreType?: 'aldrete' | 'parsap';
+      totalScore?: number;
+      aldreteScore?: {
+        activity: number;
+        respiration: number;
+        circulation: number;
+        consciousness: number;
+        oxygenSaturation: number;
+      };
+      parsapScore?: {
+        vitals: number;
+        ambulation: number;
+        nauseaVomiting: number;
+        pain: number;
+        surgicalBleeding: number;
+      };
+    }) => {
+      return await apiRequest(
+        'PATCH',
+        `/api/anesthesia/scores/${data.pointId}`,
+        { 
+          timestamp: data.timestamp,
+          scoreType: data.scoreType,
+          totalScore: data.totalScore,
+          aldreteScore: data.aldreteScore,
+          parsapScore: data.parsapScore,
+        }
+      );
+    },
+    onMutate: async (updatedPoint) => {
+      const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
+      ]);
+
+      if (previousSnapshot) {
+        const updatedData = { ...previousSnapshot.data };
+        const scoresPoints = updatedData.scores || [];
+        const pointIndex = scoresPoints.findIndex((p: any) => p.id === updatedPoint.pointId);
+        if (pointIndex !== -1) {
+          const updated = [...scoresPoints];
+          updated[pointIndex] = {
+            ...updated[pointIndex],
+            ...(updatedPoint.timestamp !== undefined && { timestamp: updatedPoint.timestamp }),
+            ...(updatedPoint.scoreType !== undefined && { scoreType: updatedPoint.scoreType }),
+            ...(updatedPoint.totalScore !== undefined && { totalScore: updatedPoint.totalScore }),
+            ...(updatedPoint.aldreteScore !== undefined && { aldreteScore: updatedPoint.aldreteScore }),
+            ...(updatedPoint.parsapScore !== undefined && { parsapScore: updatedPoint.parsapScore }),
+          };
+          updatedData.scores = updated.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        }
+
+        queryClient.setQueryData<ClinicalSnapshot>(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          {
+            ...previousSnapshot,
+            data: updatedData,
+          }
+        );
+      }
+
+      return { previousSnapshot };
+    },
+    onError: (err, updatedPoint, context) => {
+      if (context?.previousSnapshot) {
+        queryClient.setQueryData(
+          [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+          context.previousSnapshot
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: [`/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`],
+      });
+    },
+  });
+}
+
+// Hook to delete a Score point
+export function useDeleteScorePoint(anesthesiaRecordId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (pointId: string) => {
+      return await apiRequest(
+        'DELETE',
+        `/api/anesthesia/scores/${pointId}`
+      );
+    },
+    onMutate: async (pointId) => {
+      const previousSnapshot = queryClient.getQueryData<ClinicalSnapshot>([
+        `/api/anesthesia/vitals/snapshot/${anesthesiaRecordId}`,
+      ]);
+
+      if (previousSnapshot) {
+        const updatedData = { ...previousSnapshot.data };
+        const scoresPoints = updatedData.scores || [];
+        const filtered = scoresPoints.filter((p: any) => p.id !== pointId);
+        if (filtered.length < scoresPoints.length) {
+          updatedData.scores = filtered;
         }
 
         queryClient.setQueryData<ClinicalSnapshot>(
