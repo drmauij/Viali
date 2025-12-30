@@ -12,7 +12,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Save, CheckCircle2, Eye, Upload, Trash2, FileImage, Pencil, Camera, ChevronDown, ChevronUp, AlertCircle, AlertTriangle, X } from "lucide-react";
+import { Loader2, Save, CheckCircle2, Eye, Upload, Trash2, FileImage, Pencil, Camera, ChevronDown, ChevronUp, AlertCircle, AlertTriangle, X, Import } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
@@ -24,6 +25,7 @@ import type { SurgeryPreOpAssessment } from "@shared/schema";
 interface SurgeryPreOpFormProps {
   surgeryId: string;
   hospitalId: string;
+  patientId?: string;
 }
 
 // Default medication lists (same as anesthesia)
@@ -157,7 +159,35 @@ const initialAssessmentData: AssessmentData = {
   status: 'draft',
 };
 
-export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOpFormProps) {
+type QuestionnaireLink = {
+  id: string;
+  token: string;
+  status: string;
+  submittedAt: string | null;
+  createdAt: string;
+  response?: {
+    id: string;
+    allergies?: string[];
+    allergiesNotes?: string;
+    medications?: Array<{ name: string; dosage?: string; frequency?: string; reason?: string }>;
+    medicationsNotes?: string;
+    conditions?: Record<string, { checked: boolean; notes?: string }>;
+    smokingStatus?: string;
+    smokingDetails?: string;
+    alcoholStatus?: string;
+    alcoholDetails?: string;
+    height?: string;
+    weight?: string;
+    previousSurgeries?: string;
+    previousAnesthesiaProblems?: string;
+    pregnancyStatus?: string;
+    breastfeeding?: boolean;
+    womanHealthNotes?: string;
+    additionalNotes?: string;
+  };
+};
+
+export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: SurgeryPreOpFormProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const canWrite = useCanWrite();
@@ -170,6 +200,8 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showDoctorSignaturePad, setShowDoctorSignaturePad] = useState(false);
   const [showPatientSignaturePad, setShowPatientSignaturePad] = useState(false);
+  const [isImportQuestionnaireOpen, setIsImportQuestionnaireOpen] = useState(false);
+  const [selectedQuestionnaireForImport, setSelectedQuestionnaireForImport] = useState<string | null>(null);
 
   const { data: assessment, isLoading } = useQuery<SurgeryPreOpAssessment>({
     queryKey: [`/api/surgery/preop/surgery/${surgeryId}`],
@@ -177,6 +209,40 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
   });
 
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings(hospitalId);
+
+  // Fetch questionnaire links for import functionality
+  const { data: questionnaireLinks = [] } = useQuery<QuestionnaireLink[]>({
+    queryKey: ['/api/questionnaire/patient', patientId, 'links'],
+    queryFn: async () => {
+      const response = await fetch(`/api/questionnaire/patient/${patientId}/links`, {
+        headers: { 'x-active-hospital-id': hospitalId || '' },
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!patientId && !!hospitalId,
+  });
+
+  // Get submitted questionnaires for the import dropdown
+  const submittedQuestionnaires = questionnaireLinks.filter(
+    (q) => q.status === 'submitted' && q.response?.id
+  );
+
+  // Fetch the selected questionnaire response details
+  const { data: selectedQuestionnaireResponse, isLoading: isLoadingQuestionnaireResponse } = useQuery<{
+    response: QuestionnaireLink['response'];
+    link: QuestionnaireLink;
+  }>({
+    queryKey: ['/api/questionnaire/responses', selectedQuestionnaireForImport],
+    queryFn: async () => {
+      const response = await fetch(`/api/questionnaire/responses/${selectedQuestionnaireForImport}`, {
+        headers: { 'x-active-hospital-id': hospitalId || '' },
+      });
+      if (!response.ok) throw new Error('Failed to fetch questionnaire response');
+      return response.json();
+    },
+    enabled: !!selectedQuestionnaireForImport,
+  });
 
   // Populate form from assessment data
   useEffect(() => {
@@ -335,6 +401,272 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
     }
   };
 
+  // Handle importing questionnaire data into pre-op assessment
+  const handleImportFromQuestionnaire = () => {
+    if (!selectedQuestionnaireResponse?.response) return;
+    
+    const qResponse = selectedQuestionnaireResponse.response;
+    
+    setAssessmentData(prev => {
+      const newData = { ...prev };
+      
+      // Height and weight
+      if (qResponse.height) newData.height = qResponse.height;
+      if (qResponse.weight) newData.weight = qResponse.weight;
+      
+      // Allergies - match IDs against the allergyList and auto-select checkboxes
+      if (qResponse.allergies && qResponse.allergies.length > 0) {
+        const allergyList = anesthesiaSettings?.allergyList || [];
+        const knownAllergyIds = allergyList.map((a: { id: string }) => a.id);
+        
+        const matchedAllergies: string[] = [...(newData.allergies || [])];
+        const unmatchedAllergies: string[] = [];
+        
+        for (const allergyId of qResponse.allergies) {
+          if (knownAllergyIds.includes(allergyId)) {
+            if (!matchedAllergies.includes(allergyId)) {
+              matchedAllergies.push(allergyId);
+            }
+          } else {
+            unmatchedAllergies.push(allergyId);
+          }
+        }
+        
+        newData.allergies = matchedAllergies;
+        
+        if (unmatchedAllergies.length > 0) {
+          const allergiesText = unmatchedAllergies.join(', ');
+          newData.otherAllergies = newData.otherAllergies 
+            ? `${newData.otherAllergies}; Patient: ${allergiesText}` 
+            : `Patient: ${allergiesText}`;
+        }
+      }
+      if (qResponse.allergiesNotes) {
+        newData.otherAllergies = newData.otherAllergies 
+          ? `${newData.otherAllergies}; ${qResponse.allergiesNotes}` 
+          : qResponse.allergiesNotes;
+      }
+      
+      // Medications - match against predefined lists and auto-select, others go to notes
+      if (qResponse.medications && qResponse.medications.length > 0) {
+        const anticoagulationList = anesthesiaSettings?.medicationLists?.anticoagulation || [];
+        const generalList = anesthesiaSettings?.medicationLists?.general || [];
+        
+        const matchedAnticoag: string[] = [...(newData.anticoagulationMeds || [])];
+        const matchedGeneral: string[] = [...(newData.generalMeds || [])];
+        const unmatchedMeds: string[] = [];
+        
+        for (const med of qResponse.medications) {
+          const medNameLower = med.name.toLowerCase().trim();
+          
+          const anticoagMatch = anticoagulationList.find(
+            (item: { id: string; label: string }) => item.label.toLowerCase() === medNameLower
+          );
+          if (anticoagMatch && !matchedAnticoag.includes(anticoagMatch.id)) {
+            matchedAnticoag.push(anticoagMatch.id);
+            continue;
+          }
+          
+          const generalMatch = generalList.find(
+            (item: { id: string; label: string }) => item.label.toLowerCase() === medNameLower
+          );
+          if (generalMatch && !matchedGeneral.includes(generalMatch.id)) {
+            matchedGeneral.push(generalMatch.id);
+            continue;
+          }
+          
+          unmatchedMeds.push(
+            `${med.name}${med.dosage ? ` (${med.dosage})` : ''}${med.frequency ? ` - ${med.frequency}` : ''}`
+          );
+        }
+        
+        newData.anticoagulationMeds = matchedAnticoag;
+        newData.generalMeds = matchedGeneral;
+        
+        if (unmatchedMeds.length > 0) {
+          const medsText = unmatchedMeds.join('; ');
+          newData.generalMedsOther = newData.generalMedsOther 
+            ? `${newData.generalMedsOther}; Patient: ${medsText}` 
+            : `Patient: ${medsText}`;
+        }
+      }
+      if (qResponse.medicationsNotes) {
+        newData.medicationsNotes = newData.medicationsNotes 
+          ? `${newData.medicationsNotes}; ${qResponse.medicationsNotes}` 
+          : qResponse.medicationsNotes;
+      }
+      
+      // Smoking status -> noxen checkboxes and notes
+      if (qResponse.smokingStatus && qResponse.smokingStatus !== 'never') {
+        if (!newData.noxen) {
+          newData.noxen = {};
+        }
+        newData.noxen = { ...newData.noxen, smoking: true };
+        
+        const smokingInfo = qResponse.smokingDetails 
+          ? `Smoking: ${qResponse.smokingStatus} - ${qResponse.smokingDetails}`
+          : `Smoking: ${qResponse.smokingStatus}`;
+        newData.noxenNotes = newData.noxenNotes 
+          ? `${newData.noxenNotes}; ${smokingInfo}` 
+          : smokingInfo;
+      }
+      
+      // Alcohol status -> noxen checkboxes and notes
+      if (qResponse.alcoholStatus && qResponse.alcoholStatus !== 'never') {
+        if (!newData.noxen) {
+          newData.noxen = {};
+        }
+        newData.noxen = { ...newData.noxen, alcohol: true };
+        
+        const alcoholInfo = qResponse.alcoholDetails 
+          ? `Alcohol: ${qResponse.alcoholStatus} - ${qResponse.alcoholDetails}`
+          : `Alcohol: ${qResponse.alcoholStatus}`;
+        newData.noxenNotes = newData.noxenNotes 
+          ? `${newData.noxenNotes}; ${alcoholInfo}` 
+          : alcoholInfo;
+      }
+      
+      // Previous surgeries
+      if (qResponse.previousSurgeries) {
+        newData.previousSurgeries = newData.previousSurgeries 
+          ? `${newData.previousSurgeries}\n\n${qResponse.previousSurgeries}` 
+          : qResponse.previousSurgeries;
+      }
+      
+      // Previous anesthesia problems -> special notes
+      if (qResponse.previousAnesthesiaProblems) {
+        newData.specialNotes = newData.specialNotes 
+          ? `${newData.specialNotes}\n\nPrevious anesthesia problems: ${qResponse.previousAnesthesiaProblems}` 
+          : `Previous anesthesia problems: ${qResponse.previousAnesthesiaProblems}`;
+      }
+      
+      // Woman health (pregnancy, breastfeeding)
+      if (qResponse.pregnancyStatus === 'yes' || qResponse.pregnancyStatus === 'possible') {
+        if (newData.womanIssues) {
+          newData.womanIssues = { ...newData.womanIssues, pregnancy: true };
+        }
+      }
+      if (qResponse.breastfeeding) {
+        if (newData.womanIssues) {
+          newData.womanIssues = { ...newData.womanIssues, breastfeeding: true };
+        }
+      }
+      if (qResponse.womanHealthNotes) {
+        newData.womanNotes = newData.womanNotes 
+          ? `${newData.womanNotes}; ${qResponse.womanHealthNotes}` 
+          : qResponse.womanHealthNotes;
+      }
+      
+      // Additional notes -> special notes
+      if (qResponse.additionalNotes) {
+        newData.specialNotes = newData.specialNotes 
+          ? `${newData.specialNotes}\n\nPatient notes: ${qResponse.additionalNotes}` 
+          : `Patient notes: ${qResponse.additionalNotes}`;
+      }
+      
+      // Conditions/Illnesses - match against predefined lists and auto-select
+      if (qResponse.conditions && Object.keys(qResponse.conditions).length > 0) {
+        const illnessLists = anesthesiaSettings?.illnessLists || {};
+        
+        const categoryMappings: Record<string, { category: string; dataKey: keyof typeof newData }> = {};
+        
+        const categoryToDataKey: Record<string, keyof typeof newData> = {
+          cardiovascular: 'heartIllnesses',
+          pulmonary: 'lungIllnesses',
+          gastrointestinal: 'giIllnesses',
+          kidney: 'kidneyIllnesses',
+          metabolic: 'metabolicIllnesses',
+          neurological: 'neuroIllnesses',
+          psychiatric: 'psychIllnesses',
+          skeletal: 'skeletalIllnesses',
+          woman: 'womanIssues',
+          noxen: 'noxen',
+          children: 'childrenIssues',
+          anesthesiaHistory: 'anesthesiaHistoryIssues',
+          dental: 'dentalIssues',
+          ponvTransfusion: 'ponvTransfusionIssues',
+        };
+        
+        Object.entries(illnessLists).forEach(([category, illnesses]) => {
+          if (Array.isArray(illnesses)) {
+            illnesses.forEach((illness: { id: string; label: string }) => {
+              categoryMappings[illness.id] = {
+                category,
+                dataKey: categoryToDataKey[category] || 'heartIllnesses',
+              };
+            });
+          }
+        });
+        
+        const unmatchedConditions: string[] = [];
+        
+        for (const [conditionId, conditionData] of Object.entries(qResponse.conditions)) {
+          if (!(conditionData as { checked?: boolean }).checked) continue;
+          
+          const mapping = categoryMappings[conditionId];
+          if (mapping) {
+            const dataKey = mapping.dataKey;
+            if (newData[dataKey] && typeof newData[dataKey] === 'object') {
+              (newData[dataKey] as Record<string, boolean>)[conditionId] = true;
+            }
+          } else {
+            const conditionNotes = (conditionData as { notes?: string }).notes;
+            unmatchedConditions.push(
+              conditionNotes ? `${conditionId} (${conditionNotes})` : conditionId
+            );
+          }
+        }
+        
+        if (unmatchedConditions.length > 0) {
+          const conditionsText = unmatchedConditions.join(', ');
+          newData.specialNotes = newData.specialNotes
+            ? `${newData.specialNotes}\n\nPatient conditions: ${conditionsText}`
+            : `Patient conditions: ${conditionsText}`;
+        }
+      }
+      
+      // Extended questionnaire fields
+      const qResponseExt = qResponse as any;
+      
+      // Outpatient Caregiver
+      if (qResponseExt.outpatientCaregiverFirstName) {
+        newData.outpatientCaregiverFirstName = qResponseExt.outpatientCaregiverFirstName;
+      }
+      if (qResponseExt.outpatientCaregiverLastName) {
+        newData.outpatientCaregiverLastName = qResponseExt.outpatientCaregiverLastName;
+      }
+      if (qResponseExt.outpatientCaregiverPhone) {
+        newData.outpatientCaregiverPhone = qResponseExt.outpatientCaregiverPhone;
+      }
+      
+      // Questions for Doctor
+      if (qResponseExt.questionsForDoctor) {
+        newData.specialNotes = newData.specialNotes 
+          ? `${newData.specialNotes}\n\n⚠️ PATIENT QUESTIONS FOR DOCTOR:\n${qResponseExt.questionsForDoctor}` 
+          : `⚠️ PATIENT QUESTIONS FOR DOCTOR:\n${qResponseExt.questionsForDoctor}`;
+      }
+      
+      return newData;
+    });
+    
+    toast({
+      title: t('anesthesia.patientDetail.questionnaireImported', 'Questionnaire Imported'),
+      description: t('anesthesia.patientDetail.questionnaireImportedDesc', 'Patient questionnaire data has been imported into the form'),
+    });
+    
+    setIsImportQuestionnaireOpen(false);
+    setSelectedQuestionnaireForImport(null);
+  };
+
+  // Helper to format date for display
+  const formatDateDisplay = (dateStr: string) => {
+    try {
+      return new Date(dateStr).toLocaleDateString();
+    } catch {
+      return dateStr;
+    }
+  };
+
   // Helper functions to check if sections have data
   const hasGeneralData = () => assessmentData.height || assessmentData.weight || assessmentData.cave || assessmentData.specialNotes;
   const hasAllergiesData = () => assessmentData.allergies.length > 0 || assessmentData.otherAllergies;
@@ -404,6 +736,23 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
           )}
         </div>
       </div>
+
+      {/* Import from Questionnaire Button */}
+      {!isReadOnly && patientId && submittedQuestionnaires.length > 0 && (
+        <div className="flex justify-start">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setIsImportQuestionnaireOpen(true)}
+            className="gap-2"
+            data-testid="button-import-questionnaire"
+          >
+            <Import className="h-4 w-4" />
+            {t('anesthesia.patientDetail.importFromQuestionnaire', 'Import from Questionnaire')}
+            <Badge variant="secondary" className="ml-1">{submittedQuestionnaires.length}</Badge>
+          </Button>
+        </div>
+      )}
 
       <Accordion 
         type="multiple" 
@@ -1498,6 +1847,145 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
         }}
         title={t('anesthesia.patientDetail.patientSignature', 'Patient Signature')}
       />
+
+      {/* Import from Questionnaire Dialog */}
+      <Dialog open={isImportQuestionnaireOpen} onOpenChange={(open) => {
+        setIsImportQuestionnaireOpen(open);
+        if (!open) setSelectedQuestionnaireForImport(null);
+      }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('anesthesia.patientDetail.importFromQuestionnaire', 'Import from Questionnaire')}</DialogTitle>
+            <DialogDescription>
+              {t('anesthesia.patientDetail.importFromQuestionnaireDesc', 'Select a submitted questionnaire to import patient data into this form.')}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Questionnaire Selection */}
+            <div className="space-y-2">
+              <Label>{t('anesthesia.patientDetail.selectQuestionnaire', 'Select Questionnaire')}</Label>
+              <Select
+                value={selectedQuestionnaireForImport || ''}
+                onValueChange={(value) => setSelectedQuestionnaireForImport(value)}
+              >
+                <SelectTrigger data-testid="select-questionnaire-import">
+                  <SelectValue placeholder={t('anesthesia.patientDetail.selectQuestionnairePlaceholder', 'Select a questionnaire...')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {submittedQuestionnaires.map((q) => (
+                    <SelectItem key={q.id} value={q.response!.id}>
+                      {formatDateDisplay(q.submittedAt || q.createdAt)} - {t('anesthesia.patientDetail.submitted', 'Submitted')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Preview of data to import */}
+            {isLoadingQuestionnaireResponse && selectedQuestionnaireForImport && (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            )}
+
+            {selectedQuestionnaireResponse?.response && (
+              <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+                <h4 className="font-medium">{t('anesthesia.patientDetail.dataToImport', 'Data to Import')}</h4>
+                
+                {(selectedQuestionnaireResponse.response.height || selectedQuestionnaireResponse.response.weight) && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.measurements', 'Measurements')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.height && `${t('anesthesia.patientDetail.heightCm', 'Height')}: ${selectedQuestionnaireResponse.response.height}`}
+                    {selectedQuestionnaireResponse.response.height && selectedQuestionnaireResponse.response.weight && ', '}
+                    {selectedQuestionnaireResponse.response.weight && `${t('anesthesia.patientDetail.weightKg', 'Weight')}: ${selectedQuestionnaireResponse.response.weight}`}
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.allergies && selectedQuestionnaireResponse.response.allergies.length > 0 && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.allergies', 'Allergies')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.allergies.join(', ')}
+                    {selectedQuestionnaireResponse.response.allergiesNotes && ` (${selectedQuestionnaireResponse.response.allergiesNotes})`}
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.medications && selectedQuestionnaireResponse.response.medications.length > 0 && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.medications', 'Medications')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.medications.map(m => m.name).join(', ')}
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.smokingStatus && selectedQuestionnaireResponse.response.smokingStatus !== 'never' && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.smoking', 'Smoking')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.smokingStatus}
+                    {selectedQuestionnaireResponse.response.smokingDetails && ` - ${selectedQuestionnaireResponse.response.smokingDetails}`}
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.alcoholStatus && selectedQuestionnaireResponse.response.alcoholStatus !== 'never' && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.alcohol', 'Alcohol')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.alcoholStatus}
+                    {selectedQuestionnaireResponse.response.alcoholDetails && ` - ${selectedQuestionnaireResponse.response.alcoholDetails}`}
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.previousSurgeries && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.previousSurgeries', 'Previous Surgeries')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.previousSurgeries.substring(0, 100)}
+                    {selectedQuestionnaireResponse.response.previousSurgeries.length > 100 && '...'}
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.conditions && Object.keys(selectedQuestionnaireResponse.response.conditions).length > 0 && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.medicalConditions', 'Medical Conditions')}:</span>{' '}
+                    {Object.entries(selectedQuestionnaireResponse.response.conditions)
+                      .filter(([_, value]: [string, any]) => value?.checked)
+                      .map(([key]: [string, any]) => key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))
+                      .join(', ') || t('common.none', 'None')
+                    }
+                  </div>
+                )}
+
+                {selectedQuestionnaireResponse.response.additionalNotes && (
+                  <div className="text-sm">
+                    <span className="font-medium">{t('anesthesia.patientDetail.additionalNotes', 'Additional Notes')}:</span>{' '}
+                    {selectedQuestionnaireResponse.response.additionalNotes.substring(0, 100)}
+                    {selectedQuestionnaireResponse.response.additionalNotes.length > 100 && '...'}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Import Button */}
+            <div className="flex justify-end gap-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setIsImportQuestionnaireOpen(false);
+                  setSelectedQuestionnaireForImport(null);
+                }}
+                data-testid="button-cancel-import"
+              >
+                {t('common.cancel', 'Cancel')}
+              </Button>
+              <Button
+                onClick={handleImportFromQuestionnaire}
+                disabled={!selectedQuestionnaireForImport || isLoadingQuestionnaireResponse}
+                data-testid="button-confirm-import"
+              >
+                <Import className="h-4 w-4 mr-2" />
+                {t('anesthesia.patientDetail.importData', 'Import Data')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -60,7 +60,8 @@ export default function SurgeryPreOpDetail() {
 
       <SurgeryPreOpForm 
         surgeryId={surgeryId!} 
-        hospitalId={activeHospital?.id || surgery.hospitalId} 
+        hospitalId={activeHospital?.id || surgery.hospitalId}
+        patientId={surgery?.patientId}
       />
     </div>
   );
