@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, Save, CheckCircle2, Eye, Upload, Trash2, FileImage, Pencil, Camera, ChevronDown, ChevronUp, AlertCircle, AlertTriangle, X, Import } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -201,6 +202,7 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
   const [openSections, setOpenSections] = useState<string[]>(['general']);
   const [consentPreview, setConsentPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showDoctorSignaturePad, setShowDoctorSignaturePad] = useState(false);
   const [showPatientSignaturePad, setShowPatientSignaturePad] = useState(false);
@@ -409,6 +411,9 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
     updateAssessment({ consentFileUrl: null, consentFileName: null });
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = "";
     }
   };
 
@@ -1403,180 +1408,6 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
           </Card>
         </AccordionItem>
 
-        {/* Surgical Approval Status Section (matching anesthesia form) */}
-        <AccordionItem value="approval">
-          <Card className={
-            assessmentData.surgicalApprovalStatus === "approved" ? "border-green-500 dark:border-green-700" :
-            assessmentData.surgicalApprovalStatus === "not-approved" ? "border-red-500 dark:border-red-700" :
-            assessmentData.standBy ? "border-amber-500 dark:border-amber-700" : ""
-          }>
-            <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-approval">
-              <div className="flex items-center gap-2">
-                <CardTitle className={`text-lg ${
-                  assessmentData.surgicalApprovalStatus === "approved" ? "text-green-600 dark:text-green-400" :
-                  assessmentData.surgicalApprovalStatus === "not-approved" ? "text-red-600 dark:text-red-400" :
-                  assessmentData.standBy ? "text-amber-600 dark:text-amber-400" : ""
-                }`}>
-                  {t('surgery.preop.surgicalApprovalStatus', 'Surgical Approval')}
-                </CardTitle>
-                {assessmentData.surgicalApprovalStatus === "approved" && (
-                  <Badge className="bg-green-600">{t('anesthesia.patientDetail.approvedForSurgery', 'Approved')}</Badge>
-                )}
-                {assessmentData.surgicalApprovalStatus === "not-approved" && (
-                  <Badge variant="destructive">{t('anesthesia.patientDetail.notApproved', 'Not Approved')}</Badge>
-                )}
-                {assessmentData.standBy && !assessmentData.surgicalApprovalStatus && (
-                  <Badge className="bg-amber-600">{t('anesthesia.patientDetail.standByLabel', 'Stand-By')}</Badge>
-                )}
-              </div>
-            </AccordionTrigger>
-            <AccordionContent>
-              <CardContent className="pt-0 space-y-6">
-                {/* Approved / Not Approved toggles */}
-                <div className="space-y-3">
-                  <Label className="text-base font-semibold">{t('surgery.preop.surgicalDecision', 'Surgical Decision')}</Label>
-                  
-                  <div className={`flex items-center space-x-2 p-3 rounded-lg border ${assessmentData.surgicalApprovalStatus === "approved" ? "bg-green-50 dark:bg-green-950 border-green-300" : "border-muted"}`}>
-                    <Checkbox
-                      id="approved"
-                      checked={assessmentData.surgicalApprovalStatus === "approved"}
-                      onCheckedChange={(checked) => {
-                        updateAssessment({
-                          surgicalApprovalStatus: checked ? "approved" : "",
-                          standBy: checked ? false : assessmentData.standBy,
-                          standByReason: checked ? "" : assessmentData.standByReason,
-                          standByReasonNote: checked ? "" : assessmentData.standByReasonNote
-                        });
-                      }}
-                      disabled={isReadOnly}
-                      data-testid="checkbox-approved"
-                      className={assessmentData.surgicalApprovalStatus === "approved" ? "border-green-600 data-[state=checked]:bg-green-600" : ""}
-                    />
-                    <Label htmlFor="approved" className={`cursor-pointer font-normal flex-1 ${assessmentData.surgicalApprovalStatus === "approved" ? "text-green-700 dark:text-green-300 font-semibold" : ""}`}>
-                      {t('anesthesia.patientDetail.approvedForSurgery', 'Approved for Surgery')}
-                    </Label>
-                  </div>
-                  
-                  <div className={`flex items-center space-x-2 p-3 rounded-lg border ${assessmentData.surgicalApprovalStatus === "not-approved" ? "bg-red-50 dark:bg-red-950 border-red-300" : "border-muted"}`}>
-                    <Checkbox
-                      id="not-approved"
-                      checked={assessmentData.surgicalApprovalStatus === "not-approved"}
-                      onCheckedChange={(checked) => {
-                        updateAssessment({
-                          surgicalApprovalStatus: checked ? "not-approved" : "",
-                          standBy: checked ? false : assessmentData.standBy,
-                          standByReason: checked ? "" : assessmentData.standByReason,
-                          standByReasonNote: checked ? "" : assessmentData.standByReasonNote
-                        });
-                      }}
-                      disabled={isReadOnly}
-                      data-testid="checkbox-not-approved"
-                      className={assessmentData.surgicalApprovalStatus === "not-approved" ? "border-red-600 data-[state=checked]:bg-red-600" : ""}
-                    />
-                    <Label htmlFor="not-approved" className={`cursor-pointer font-normal flex-1 ${assessmentData.surgicalApprovalStatus === "not-approved" ? "text-red-700 dark:text-red-300 font-semibold" : ""}`}>
-                      {t('anesthesia.patientDetail.notApproved', 'Not Approved')}
-                    </Label>
-                  </div>
-                </div>
-
-                {/* Stand-By Status */}
-                <div className={`space-y-4 p-4 rounded-lg border ${assessmentData.standBy ? "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-700" : "border-muted"}`}>
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="standby-toggle" className={`text-base font-semibold cursor-pointer ${assessmentData.standBy ? "text-amber-700 dark:text-amber-300" : ""}`}>
-                      {t('anesthesia.patientDetail.standByLabel', 'Stand-By')}
-                    </Label>
-                    <Switch
-                      id="standby-toggle"
-                      checked={assessmentData.standBy}
-                      onCheckedChange={(checked) => {
-                        updateAssessment({
-                          standBy: checked,
-                          standByReason: checked ? assessmentData.standByReason : "",
-                          standByReasonNote: checked ? assessmentData.standByReasonNote : "",
-                          surgicalApprovalStatus: checked ? "" : assessmentData.surgicalApprovalStatus
-                        });
-                      }}
-                      disabled={isReadOnly}
-                      data-testid="switch-standby"
-                      className={assessmentData.standBy ? "data-[state=checked]:bg-amber-600" : ""}
-                    />
-                  </div>
-                  
-                  {assessmentData.standBy && (
-                    <div className="space-y-4 pt-2">
-                      <div className="space-y-2">
-                        <Label htmlFor="standby-reason" className="text-sm font-medium">
-                          {t('anesthesia.patientDetail.standByReasonLabel', 'Reason')}
-                        </Label>
-                        <Select
-                          value={assessmentData.standByReason}
-                          onValueChange={(value) => {
-                            updateAssessment({
-                              standByReason: value,
-                              standByReasonNote: value !== "other" ? "" : assessmentData.standByReasonNote
-                            });
-                          }}
-                          disabled={isReadOnly}
-                        >
-                          <SelectTrigger data-testid="select-standby-reason">
-                            <SelectValue placeholder={t('anesthesia.patientDetail.selectReason', 'Select reason...')} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="signature_missing">{t('anesthesia.patientDetail.standByReasons.signatureMissing', 'Patient informed, only signature missing')}</SelectItem>
-                            <SelectItem value="consent_required">{t('anesthesia.patientDetail.standByReasons.consentRequired', 'Consent talk required')}</SelectItem>
-                            <SelectItem value="waiting_exams">{t('anesthesia.patientDetail.standByReasons.waitingExams', 'Waiting for EKG/Labs/Other exams')}</SelectItem>
-                            <SelectItem value="other">{t('anesthesia.patientDetail.standByReasons.other', 'Other reason')}</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      
-                      {assessmentData.standByReason === "other" && (
-                        <div className="space-y-2">
-                          <Label htmlFor="standby-note" className="text-sm font-medium">
-                            {t('anesthesia.patientDetail.standByReasonNote', 'Please specify')}
-                          </Label>
-                          <Textarea
-                            id="standby-note"
-                            value={assessmentData.standByReasonNote}
-                            onChange={(e) => updateAssessment({ standByReasonNote: e.target.value })}
-                            placeholder={t('anesthesia.patientDetail.standByReasonNotePlaceholder', 'Enter the reason...')}
-                            rows={2}
-                            disabled={isReadOnly}
-                            data-testid="textarea-standby-note"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Reset button to reverse decisions */}
-                {(assessmentData.surgicalApprovalStatus || assessmentData.standBy) && !isReadOnly && (
-                  <div className="pt-2 border-t">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        updateAssessment({
-                          surgicalApprovalStatus: "",
-                          standBy: false,
-                          standByReason: "",
-                          standByReasonNote: ""
-                        });
-                      }}
-                      data-testid="button-reset-status"
-                    >
-                      <X className="h-4 w-4 mr-2" />
-                      {t('surgery.preop.resetDecision', 'Reset Decision')}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </AccordionContent>
-          </Card>
-        </AccordionItem>
-
         {/* Consent Upload Section */}
         <AccordionItem value="consent">
           <Card className={consentPreview ? "border-green-500 dark:border-green-700" : ""}>
@@ -1601,7 +1432,7 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
                       />
                     </div>
                     {!isReadOnly && (
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 flex-wrap">
                         <Button
                           type="button"
                           variant="outline"
@@ -1611,6 +1442,16 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
                         >
                           <Upload className="h-4 w-4 mr-2" />
                           {t('surgery.preop.changeImage', 'Change')}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => cameraInputRef.current?.click()}
+                          data-testid="button-camera-consent"
+                        >
+                          <Camera className="h-4 w-4 mr-2" />
+                          {t('surgery.preop.takePhoto', 'Take Photo')}
                         </Button>
                         <Button
                           type="button"
@@ -1627,13 +1468,23 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
                   </div>
                 ) : (
                   !isReadOnly && (
-                    <div 
-                      className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <FileImage className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-                      <p className="text-sm font-medium">{t('surgery.preop.uploadConsent', 'Click to upload consent')}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{t('surgery.preop.uploadConsentDesc', 'JPG, PNG or PDF')}</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div 
+                        className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm font-medium">{t('surgery.preop.uploadFile', 'Upload File')}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('surgery.preop.uploadConsentDesc', 'JPG, PNG or PDF')}</p>
+                      </div>
+                      <div 
+                        className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => cameraInputRef.current?.click()}
+                      >
+                        <Camera className="h-10 w-10 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm font-medium">{t('surgery.preop.takePhoto', 'Take Photo')}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('surgery.preop.useCamera', 'Use camera')}</p>
+                      </div>
                     </div>
                   )
                 )}
@@ -1645,6 +1496,15 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
                   onChange={handleFileChange}
                   className="hidden"
                   data-testid="input-consent-file"
+                />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleFileChange}
+                  className="hidden"
+                  data-testid="input-consent-camera"
                 />
 
                 <div className="space-y-2">
@@ -1720,14 +1580,176 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
 
         {/* Assessment Completion Section */}
         <AccordionItem value="completion">
-          <Card className={assessmentData.doctorSignature ? "border-green-500 dark:border-green-700" : ""}>
+          <Card className={
+            assessmentData.surgicalApprovalStatus === "approved" ? "border-green-500 dark:border-green-700" :
+            assessmentData.surgicalApprovalStatus === "not-approved" ? "border-red-500 dark:border-red-700" :
+            assessmentData.standBy ? "border-amber-500 dark:border-amber-700" : 
+            assessmentData.doctorSignature ? "border-green-500 dark:border-green-700" : ""
+          }>
             <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-completion">
-              <CardTitle className={`text-lg ${assessmentData.doctorSignature ? "text-green-600 dark:text-green-400" : ""}`}>
-                {t('surgery.preop.assessmentCompletion', 'Assessment Completion')}
-              </CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className={`text-lg ${
+                  assessmentData.surgicalApprovalStatus === "approved" ? "text-green-600 dark:text-green-400" :
+                  assessmentData.surgicalApprovalStatus === "not-approved" ? "text-red-600 dark:text-red-400" :
+                  assessmentData.standBy ? "text-amber-600 dark:text-amber-400" :
+                  assessmentData.doctorSignature ? "text-green-600 dark:text-green-400" : ""
+                }`}>
+                  {t('surgery.preop.assessmentCompletion', 'Assessment Completion')}
+                </CardTitle>
+                {assessmentData.surgicalApprovalStatus === "approved" && (
+                  <Badge className="bg-green-600">{t('anesthesia.patientDetail.approvedForSurgery', 'Approved')}</Badge>
+                )}
+                {assessmentData.surgicalApprovalStatus === "not-approved" && (
+                  <Badge variant="destructive">{t('anesthesia.patientDetail.notApproved', 'Not Approved')}</Badge>
+                )}
+                {assessmentData.standBy && !assessmentData.surgicalApprovalStatus && (
+                  <Badge className="bg-amber-600">{t('anesthesia.patientDetail.standByLabel', 'Stand-By')}</Badge>
+                )}
+              </div>
             </AccordionTrigger>
             <AccordionContent>
-              <CardContent className="pt-0 space-y-4">
+              <CardContent className="pt-0 space-y-6">
+                {/* Approved / Not Approved toggles */}
+                <div className="space-y-3">
+                  <div className={`flex items-center space-x-2 p-3 rounded-lg border ${assessmentData.surgicalApprovalStatus === "approved" ? "bg-green-50 dark:bg-green-950 border-green-300" : "border-muted"}`}>
+                    <Checkbox
+                      id="approved"
+                      checked={assessmentData.surgicalApprovalStatus === "approved"}
+                      onCheckedChange={(checked) => {
+                        updateAssessment({
+                          surgicalApprovalStatus: checked ? "approved" : "",
+                          standBy: checked ? false : assessmentData.standBy,
+                          standByReason: checked ? "" : assessmentData.standByReason,
+                          standByReasonNote: checked ? "" : assessmentData.standByReasonNote
+                        });
+                      }}
+                      disabled={isReadOnly}
+                      data-testid="checkbox-approved"
+                      className={assessmentData.surgicalApprovalStatus === "approved" ? "border-green-600 data-[state=checked]:bg-green-600" : ""}
+                    />
+                    <Label htmlFor="approved" className={`cursor-pointer font-normal flex-1 ${assessmentData.surgicalApprovalStatus === "approved" ? "text-green-700 dark:text-green-300 font-semibold" : ""}`}>
+                      {t('anesthesia.patientDetail.approvedForSurgery', 'Approved for Surgery')}
+                    </Label>
+                  </div>
+                  
+                  <div className={`flex items-center space-x-2 p-3 rounded-lg border ${assessmentData.surgicalApprovalStatus === "not-approved" ? "bg-red-50 dark:bg-red-950 border-red-300" : "border-muted"}`}>
+                    <Checkbox
+                      id="not-approved"
+                      checked={assessmentData.surgicalApprovalStatus === "not-approved"}
+                      onCheckedChange={(checked) => {
+                        updateAssessment({
+                          surgicalApprovalStatus: checked ? "not-approved" : "",
+                          standBy: checked ? false : assessmentData.standBy,
+                          standByReason: checked ? "" : assessmentData.standByReason,
+                          standByReasonNote: checked ? "" : assessmentData.standByReasonNote
+                        });
+                      }}
+                      disabled={isReadOnly}
+                      data-testid="checkbox-not-approved"
+                      className={assessmentData.surgicalApprovalStatus === "not-approved" ? "border-red-600 data-[state=checked]:bg-red-600" : ""}
+                    />
+                    <Label htmlFor="not-approved" className={`cursor-pointer font-normal flex-1 ${assessmentData.surgicalApprovalStatus === "not-approved" ? "text-red-700 dark:text-red-300 font-semibold" : ""}`}>
+                      {t('anesthesia.patientDetail.notApproved', 'Not Approved')}
+                    </Label>
+                  </div>
+                </div>
+
+                {/* Stand-By Status */}
+                <div className={`space-y-4 p-4 rounded-lg border ${assessmentData.standBy ? "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-700" : "border-muted"}`}>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="standby-toggle" className={`text-base font-medium cursor-pointer ${assessmentData.standBy ? "text-amber-700 dark:text-amber-300" : ""}`}>
+                      {t('anesthesia.patientDetail.putCaseOnStandBy', 'Put Case on Stand-By')}
+                    </Label>
+                    <Switch
+                      id="standby-toggle"
+                      checked={assessmentData.standBy}
+                      onCheckedChange={(checked) => {
+                        updateAssessment({
+                          standBy: checked,
+                          standByReason: checked ? assessmentData.standByReason : "",
+                          standByReasonNote: checked ? assessmentData.standByReasonNote : "",
+                          surgicalApprovalStatus: checked ? "" : assessmentData.surgicalApprovalStatus
+                        });
+                      }}
+                      disabled={isReadOnly}
+                      data-testid="switch-standby"
+                      className={assessmentData.standBy ? "data-[state=checked]:bg-amber-600" : ""}
+                    />
+                  </div>
+                  
+                  {assessmentData.standBy && (
+                    <div className="space-y-4 pt-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="standby-reason" className="text-sm font-medium">
+                          {t('anesthesia.patientDetail.standByReasonLabel', 'Reason')}
+                        </Label>
+                        <Select
+                          value={assessmentData.standByReason}
+                          onValueChange={(value) => {
+                            updateAssessment({
+                              standByReason: value,
+                              standByReasonNote: value !== "other" ? "" : assessmentData.standByReasonNote
+                            });
+                          }}
+                          disabled={isReadOnly}
+                        >
+                          <SelectTrigger data-testid="select-standby-reason">
+                            <SelectValue placeholder={t('anesthesia.patientDetail.selectReason', 'Select reason...')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="signature_missing">{t('anesthesia.patientDetail.standByReasons.signatureMissing', 'Patient informed, only signature missing')}</SelectItem>
+                            <SelectItem value="consent_required">{t('anesthesia.patientDetail.standByReasons.consentRequired', 'Consent talk required')}</SelectItem>
+                            <SelectItem value="waiting_exams">{t('anesthesia.patientDetail.standByReasons.waitingExams', 'Waiting for EKG/Labs/Other exams')}</SelectItem>
+                            <SelectItem value="other">{t('anesthesia.patientDetail.standByReasons.other', 'Other reason')}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      {assessmentData.standByReason === "other" && (
+                        <div className="space-y-2">
+                          <Label htmlFor="standby-note" className="text-sm font-medium">
+                            {t('anesthesia.patientDetail.standByReasonNote', 'Please specify')}
+                          </Label>
+                          <Textarea
+                            id="standby-note"
+                            value={assessmentData.standByReasonNote}
+                            onChange={(e) => updateAssessment({ standByReasonNote: e.target.value })}
+                            placeholder={t('anesthesia.patientDetail.standByReasonNotePlaceholder', 'Enter the reason...')}
+                            rows={2}
+                            disabled={isReadOnly}
+                            data-testid="textarea-standby-note"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Reset button to reverse decisions */}
+                {(assessmentData.surgicalApprovalStatus || assessmentData.standBy) && !isReadOnly && (
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        updateAssessment({
+                          surgicalApprovalStatus: "",
+                          standBy: false,
+                          standByReason: "",
+                          standByReasonNote: ""
+                        });
+                      }}
+                      data-testid="button-reset-status"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      {t('surgery.preop.resetDecision', 'Reset Decision')}
+                    </Button>
+                  </div>
+                )}
+
+                <Separator />
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>{t('surgery.preop.assessmentDate', 'Assessment Date')}</Label>
