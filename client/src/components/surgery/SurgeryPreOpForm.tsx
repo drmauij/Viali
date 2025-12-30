@@ -100,6 +100,8 @@ interface AssessmentData {
   assessmentDate: string;
   doctorName: string;
   doctorSignature: string;
+  consentFileUrl: string | null;
+  consentFileName: string | null;
   consentNotes: string;
   consentDate: string;
   patientSignature: string;
@@ -153,6 +155,8 @@ const initialAssessmentData: AssessmentData = {
   assessmentDate: '',
   doctorName: '',
   doctorSignature: '',
+  consentFileUrl: null,
+  consentFileName: null,
   consentNotes: '',
   consentDate: '',
   patientSignature: '',
@@ -388,14 +392,19 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setConsentPreview(reader.result as string);
+        const base64Data = reader.result as string;
+        setConsentPreview(base64Data);
+        // Also persist to database
+        updateAssessment({ consentFileUrl: base64Data, consentFileName: file.name });
       };
       reader.readAsDataURL(file);
     }
   };
 
   const handleRemoveFile = () => {
-    setConsentPreview(assessment?.consentFileUrl || null);
+    setConsentPreview(null);
+    // Clear from database
+    updateAssessment({ consentFileUrl: null, consentFileName: null });
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
