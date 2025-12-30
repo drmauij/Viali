@@ -203,12 +203,41 @@ export class GalexisClient {
       let hasMore = false;
       let nextKey = '';
 
-      if (conditionsResponse.atFirst || conditionsResponse.inBetween) {
+      // Check for pagination status flags in response
+      // The API uses atFirst (first page, more coming), inBetween (middle pages), or atLast (final page)
+      const paginationStatus = conditionsResponse.atFirst ? 'atFirst' : 
+                               conditionsResponse.inBetween ? 'inBetween' : 
+                               conditionsResponse.atLast ? 'atLast' : 'unknown';
+      
+      // Extract the next page key from the response
+      // The key could be in browseRequest as an attribute or in the pagination status element
+      let extractedKey = '';
+      if (conditionsResponse.browseRequest?.requestKey) {
+        extractedKey = conditionsResponse.browseRequest.requestKey;
+      } else if (typeof conditionsResponse.atFirst === 'object' && conditionsResponse.atFirst?.requestKey) {
+        extractedKey = conditionsResponse.atFirst.requestKey;
+      } else if (typeof conditionsResponse.inBetween === 'object' && conditionsResponse.inBetween?.requestKey) {
+        extractedKey = conditionsResponse.inBetween.requestKey;
+      }
+      
+      console.log(`[Galexis] Pagination status: ${paginationStatus}, extractedKey: "${extractedKey}", prices: ${prices.length}`);
+      console.log(`[Galexis] Response structure keys: ${Object.keys(conditionsResponse).join(', ')}`);
+      
+      // Only continue if we have more pages AND we have a valid key to continue with
+      if ((conditionsResponse.atFirst || conditionsResponse.inBetween) && extractedKey) {
         hasMore = true;
-        nextKey = conditionsResponse.browseRequest?.requestKey || '';
+        nextKey = extractedKey;
+      } else if (conditionsResponse.atFirst || conditionsResponse.inBetween) {
+        // We have a "more pages" indicator but no key - log warning and try to find key
+        console.warn(`[Galexis] WARNING: API indicates more pages but no requestKey found. Response keys: ${JSON.stringify(Object.keys(conditionsResponse))}`);
+        console.warn(`[Galexis] browseRequest content: ${JSON.stringify(conditionsResponse.browseRequest)}`);
+        console.warn(`[Galexis] atFirst content: ${JSON.stringify(conditionsResponse.atFirst)}`);
+        console.warn(`[Galexis] inBetween content: ${JSON.stringify(conditionsResponse.inBetween)}`);
+        // Do NOT set hasMore to true without a key - this would cause infinite loop
+        hasMore = false;
       }
 
-      console.log(`[Galexis] Fetched ${prices.length} price entries`);
+      console.log(`[Galexis] Fetched ${prices.length} price entries, hasMore: ${hasMore}`);
 
       return { prices, hasMore, nextKey };
     } catch (error: any) {
@@ -225,12 +254,36 @@ export class GalexisClient {
     let nextKey = '';
     let page = 0;
     let debugInfo: any = null;
+    
+    // Safety limit to prevent infinite loops (Galexis catalog typically has ~30k-50k items max)
+    // At 200 items per page, 500 pages = 100,000 items max
+    const MAX_PAGES = 500;
+    const MAX_ITEMS = 100000;
 
     while (hasMore) {
       page++;
       console.log(`[Galexis] Fetching page ${page}...`);
       
+      // Safety check: prevent infinite loops
+      if (page > MAX_PAGES) {
+        console.error(`[Galexis] SAFETY LIMIT: Exceeded ${MAX_PAGES} pages. Stopping to prevent infinite loop.`);
+        console.error(`[Galexis] Current items: ${allPrices.length}, last nextKey: "${nextKey}"`);
+        break;
+      }
+      
+      if (allPrices.length > MAX_ITEMS) {
+        console.error(`[Galexis] SAFETY LIMIT: Exceeded ${MAX_ITEMS} items. Stopping to prevent infinite loop.`);
+        break;
+      }
+      
       const result = await this.fetchCustomerConditions(200, nextKey);
+      
+      // If we got 0 items, something is wrong - stop
+      if (result.prices.length === 0 && page > 1) {
+        console.warn(`[Galexis] Got 0 items on page ${page}. Stopping pagination.`);
+        break;
+      }
+      
       allPrices.push(...result.prices);
       hasMore = result.hasMore;
       nextKey = result.nextKey;
@@ -249,7 +302,7 @@ export class GalexisClient {
       }
     }
 
-    console.log(`[Galexis] Total prices fetched: ${allPrices.length}`);
+    console.log(`[Galexis] Total prices fetched: ${allPrices.length} over ${page} pages`);
     return { prices: allPrices, debugInfo };
   }
 
