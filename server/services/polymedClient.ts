@@ -17,6 +17,11 @@ export interface PolymedPriceData {
   availability?: string;
   catalogUrl?: string;
   imageUrl?: string;
+  // Additional identifiers extracted from product pages
+  pharmacode?: string;
+  gtin?: string;
+  packInfo?: string;
+  manufacturer?: string;
 }
 
 export interface PolymedSearchResult {
@@ -474,6 +479,41 @@ export class PolymedBrowserClient {
         return null;
       }
 
+      // Extract additional identifiers from the page content
+      const pageContent = await this.page!.textContent('body') ?? '';
+      
+      // Extract Pharmacode (7-digit Swiss pharmacy code)
+      // Common patterns: "Pharmacode: 1234567", "Pharmacode 1234567", "Pharma-Code: 1234567"
+      let pharmacode: string | undefined;
+      const pharmacodeMatch = pageContent.match(/(?:Pharmacode|Pharma-Code|Pharmacode)[:\s]*(\d{5,7})/i);
+      if (pharmacodeMatch) {
+        pharmacode = pharmacodeMatch[1];
+        console.log(`[Polymed] Extracted pharmacode: ${pharmacode}`);
+      }
+
+      // Extract GTIN/EAN (13-digit barcode)
+      // Common patterns: "GTIN: 7680123456789", "EAN: 7680123456789", "Barcode: 7680123456789"
+      let gtin: string | undefined;
+      const gtinMatch = pageContent.match(/(?:GTIN|EAN|Barcode)[:\s]*(\d{13})/i);
+      if (gtinMatch) {
+        gtin = gtinMatch[1];
+        console.log(`[Polymed] Extracted GTIN: ${gtin}`);
+      }
+
+      // Extract manufacturer/brand
+      let manufacturer: string | undefined;
+      const manufacturerMatch = pageContent.match(/(?:Hersteller|Manufacturer|Marke|Brand)[:\s]*([^\n\r,]+)/i);
+      if (manufacturerMatch) {
+        manufacturer = manufacturerMatch[1].trim();
+      }
+
+      // Extract pack info (e.g., "100 Stk", "500ml", "30 Tabletten")
+      let packInfo: string | undefined;
+      const packMatch = pageContent.match(/(\d+\s*(?:Stk|Stück|ml|g|kg|Tabletten|Kapseln|Ampullen|Beutel|Flaschen))/i);
+      if (packMatch) {
+        packInfo = packMatch[1];
+      }
+
       return {
         articleCode: code.trim(),
         productName: name.trim(),
@@ -482,6 +522,10 @@ export class PolymedBrowserClient {
         currency: 'CHF',
         catalogUrl: productUrl,
         imageUrl: imageUrl ? new URL(imageUrl, this.loginUrl).href : undefined,
+        pharmacode,
+        gtin,
+        manufacturer,
+        packInfo,
       };
 
     } catch (error) {

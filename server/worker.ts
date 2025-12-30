@@ -5,7 +5,7 @@ import { createGalexisClient, type PriceData } from './services/galexisClient';
 import { createPolymedClient, type PolymedPriceData } from './services/polymedClient';
 import { batchMatchItems, type ItemToMatch } from './services/polymedMatching';
 import { supplierCodes, itemCodes, items, supplierCatalogs } from '@shared/schema';
-import { eq, and, isNull, isNotNull } from 'drizzle-orm';
+import { eq, and, isNull, isNotNull, sql } from 'drizzle-orm';
 import { db } from './storage';
 import { decryptCredential } from './utils/encryption';
 import { randomUUID } from 'crypto';
@@ -207,6 +207,7 @@ async function processNextPriceSyncJob() {
       const unmatchedWithCodes: Array<{ itemId: string; itemName: string; gtin?: string; pharmacode?: string }> = [];
 
       // Update prices for items with existing supplier codes
+      // Also set Galexis as preferred supplier (since it's cheaper) and demote others
       for (const code of existingSupplierCodes) {
         if (code.articleCode && priceMap.has(code.articleCode)) {
           matchedCount++;
@@ -215,6 +216,19 @@ async function processNextPriceSyncJob() {
           const hasChanges = 
             code.basispreis !== String(priceData.basispreis) ||
             code.publikumspreis !== String(priceData.publikumspreis);
+
+          // First, demote any other preferred suppliers for this item
+          await db
+            .update(supplierCodes)
+            .set({
+              isPreferred: false,
+              updatedAt: new Date(),
+            })
+            .where(and(
+              eq(supplierCodes.itemId, code.itemId),
+              eq(supplierCodes.isPreferred, true),
+              sql`${supplierCodes.id} != ${code.id}`
+            ));
 
           if (hasChanges) {
             await db
@@ -225,16 +239,18 @@ async function processNextPriceSyncJob() {
                 lastPriceUpdate: new Date(),
                 lastChecked: new Date(),
                 updatedAt: new Date(),
+                isPreferred: true, // Galexis becomes preferred (cheaper)
               })
               .where(eq(supplierCodes.id, code.id));
             
             updatedCount++;
-            console.log(`[Worker] Updated price for item ${code.itemId}: ${code.basispreis} -> ${priceData.basispreis}`);
+            console.log(`[Worker] Updated price for item ${code.itemId}: ${code.basispreis} -> ${priceData.basispreis} (set as preferred)`);
           } else {
             await db
               .update(supplierCodes)
               .set({
                 lastChecked: new Date(),
+                isPreferred: true, // Galexis becomes preferred (cheaper)
               })
               .where(eq(supplierCodes.id, code.id));
           }
@@ -252,7 +268,19 @@ async function processNextPriceSyncJob() {
           if (pharmacode && priceMap.has(pharmacode)) {
             const priceData = priceMap.get(pharmacode)!;
             
-            // Create new Galexis supplier code with this pharmacode
+            // First, demote any other preferred suppliers for this item
+            await db
+              .update(supplierCodes)
+              .set({
+                isPreferred: false,
+                updatedAt: new Date(),
+              })
+              .where(and(
+                eq(supplierCodes.itemId, item.itemId),
+                eq(supplierCodes.isPreferred, true)
+              ));
+            
+            // Create new Galexis supplier code with this pharmacode (as preferred)
             try {
               const newId = randomUUID();
               await db.insert(supplierCodes).values({
@@ -264,7 +292,7 @@ async function processNextPriceSyncJob() {
                 publikumspreis: String(priceData.publikumspreis),
                 lastPriceUpdate: new Date(),
                 lastChecked: new Date(),
-                isPreferred: false,
+                isPreferred: true, // Galexis becomes preferred (cheaper)
                 createdAt: new Date(),
                 updatedAt: new Date(),
               });
@@ -272,7 +300,7 @@ async function processNextPriceSyncJob() {
               autoMatchedCount++;
               autoCreatedCount++;
               itemsWithGalexisCode.add(item.itemId); // Mark as matched
-              console.log(`[Worker] Auto-matched item "${item.itemName}" by pharmacode ${pharmacode}, created supplier code`);
+              console.log(`[Worker] Auto-matched item "${item.itemName}" by pharmacode ${pharmacode}, created supplier code (set as preferred)`);
             } catch (err: any) {
               console.error(`[Worker] Failed to create supplier code for item ${item.itemId}:`, err.message);
             }
@@ -479,6 +507,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
     let matchedCount = 0;
     let updatedCount = 0;
     let pricesFetched = 0;
+    let itemCodesUpdated = 0;
 
     for (const result of matchResults) {
       if (result.matchedProduct && result.confidence >= 0.6) {
@@ -488,23 +517,97 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
         const searchedName = itemNameMap.get(result.itemId) || '';
         let matchedProductName = result.matchedProduct.productName || '';
         let price = result.matchedProduct.price;
+        let extractedPharmacode: string | undefined;
+        let extractedGtin: string | undefined;
+        let extractedManufacturer: string | undefined;
         
-        // If price is 0 and we have a catalog URL, fetch the product details page
-        if (price === 0 && result.matchedProduct.catalogUrl) {
+        // If price is 0 OR we want to extract pharmacode/GTIN, fetch the product details page
+        if (result.matchedProduct.catalogUrl) {
           try {
-            console.log(`[Worker] Price is 0, fetching product details for: ${matchedProductName}`);
+            console.log(`[Worker] Fetching product details for: ${matchedProductName}`);
             const details = await client.getProductDetails(result.matchedProduct.catalogUrl);
-            if (details && details.price > 0) {
-              price = details.price;
-              pricesFetched++;
-              console.log(`[Worker] Got price from product page: CHF ${price}`);
+            if (details) {
+              if (details.price > 0 && price === 0) {
+                price = details.price;
+                pricesFetched++;
+                console.log(`[Worker] Got price from product page: CHF ${price}`);
+              }
+              // Extract identifiers from product page
+              extractedPharmacode = details.pharmacode;
+              extractedGtin = details.gtin;
+              extractedManufacturer = details.manufacturer;
             }
           } catch (e) {
             console.error(`[Worker] Failed to fetch product details:`, e);
           }
         }
         
-        // Check if supplier code already exists
+        // Update item_codes with extracted identifiers (if not already set or matching)
+        if (extractedPharmacode || extractedGtin || extractedManufacturer) {
+          const existingItemCode = await db.query.itemCodes.findFirst({
+            where: eq(itemCodes.itemId, result.itemId),
+          });
+          
+          if (existingItemCode) {
+            // Check for conflicts before updating
+            const hasPharmacodeConflict = existingItemCode.pharmacode && extractedPharmacode && 
+              existingItemCode.pharmacode !== extractedPharmacode;
+            const hasGtinConflict = existingItemCode.gtin && extractedGtin && 
+              existingItemCode.gtin !== extractedGtin;
+            
+            if (hasPharmacodeConflict || hasGtinConflict) {
+              // Log conflict but don't overwrite - mark for review
+              console.warn(`[Worker] Identifier conflict for item ${result.itemId}: ` +
+                `existing pharmacode=${existingItemCode.pharmacode} vs extracted=${extractedPharmacode}, ` +
+                `existing gtin=${existingItemCode.gtin} vs extracted=${extractedGtin}`);
+              // We'll mark the supplier code as needs_review later
+            } else {
+              // Safe to update - only fill in missing fields
+              const updateData: any = { updatedAt: new Date() };
+              if (!existingItemCode.pharmacode && extractedPharmacode) {
+                updateData.pharmacode = extractedPharmacode;
+              }
+              if (!existingItemCode.gtin && extractedGtin) {
+                updateData.gtin = extractedGtin;
+              }
+              if (!existingItemCode.manufacturer && extractedManufacturer) {
+                updateData.manufacturer = extractedManufacturer;
+              }
+              
+              if (Object.keys(updateData).length > 1) { // More than just updatedAt
+                await db
+                  .update(itemCodes)
+                  .set(updateData)
+                  .where(eq(itemCodes.id, existingItemCode.id));
+                itemCodesUpdated++;
+                console.log(`[Worker] Updated item_codes for item ${result.itemId} with extracted identifiers`);
+              }
+            }
+          } else {
+            // Create new item_codes record
+            await db.insert(itemCodes).values({
+              itemId: result.itemId,
+              pharmacode: extractedPharmacode || null,
+              gtin: extractedGtin || null,
+              manufacturer: extractedManufacturer || null,
+            });
+            itemCodesUpdated++;
+            console.log(`[Worker] Created item_codes for item ${result.itemId}`);
+          }
+        }
+        
+        // Check if any supplier code already exists for this item (to determine isPreferred)
+        const existingAnySuppierCode = await db.query.supplierCodes.findFirst({
+          where: and(
+            eq(supplierCodes.itemId, result.itemId),
+            eq(supplierCodes.isPreferred, true)
+          ),
+        });
+        
+        // Polymed becomes preferred if no other supplier is currently preferred
+        const shouldBePreferred = !existingAnySuppierCode;
+        
+        // Check if Polymed supplier code already exists
         const existingCode = await db.query.supplierCodes.findFirst({
           where: and(
             eq(supplierCodes.itemId, result.itemId),
@@ -533,6 +636,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
                 matchReason: result.matchReason,
                 searchedName,
                 matchedProductName,
+                isPreferred: shouldBePreferred || existingCode.isPreferred, // Keep preferred if already set
               })
               .where(eq(supplierCodes.id, existingCode.id));
             
@@ -550,7 +654,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
               .where(eq(supplierCodes.id, existingCode.id));
           }
         } else {
-          // Create new supplier code
+          // Create new supplier code - set as preferred if no other preferred supplier exists
           await db.insert(supplierCodes).values({
             itemId: result.itemId,
             supplierName: 'Polymed',
@@ -567,6 +671,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
             matchReason: result.matchReason,
             searchedName,
             matchedProductName,
+            isPreferred: shouldBePreferred,
           });
           
           updatedCount++;
@@ -581,6 +686,8 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
       totalItemsSearched: totalItems,
       matchedItems: matchedCount,
       updatedItems: updatedCount,
+      itemCodesUpdated,
+      pricesFetched,
       unmatchedItems: totalItems - matchedCount,
       matchResults: matchResults
         .filter(r => r.confidence >= 0.6)
@@ -593,7 +700,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
         })),
     };
 
-    console.log(`[Worker] Polymed sync complete: ${matchedCount} matched, ${updatedCount} updated, ${pricesFetched} prices fetched from detail pages`);
+    console.log(`[Worker] Polymed sync complete: ${matchedCount} matched, ${updatedCount} updated, ${pricesFetched} prices fetched, ${itemCodesUpdated} item codes updated`);
 
     await storage.updatePriceSyncJob(job.id, {
       status: 'completed',
