@@ -1435,9 +1435,12 @@ export const surgeryPreOpAssessments = pgTable("surgery_preop_assessments", {
   lastSolids: varchar("last_solids"),
   lastClear: varchar("last_clear"),
   
+  // Surgical Approval Status (matching anesthesia form)
+  surgicalApprovalStatus: varchar("surgical_approval_status"), // 'approved' | 'not-approved' | ''
+  
   // Stand-By Status
   standBy: boolean("stand_by").default(false),
-  standByReason: varchar("stand_by_reason"), // 'consent_required' | 'waiting_exams' | 'other'
+  standByReason: varchar("stand_by_reason"), // 'signature_missing' | 'consent_required' | 'waiting_exams' | 'other'
   standByReasonNote: text("stand_by_reason_note"),
   
   // Assessment metadata

@@ -90,8 +90,10 @@ interface AssessmentData {
   outpatientCaregiverPhone: string;
   lastSolids: string;
   lastClear: string;
+  // Status system matching anesthesia form
+  surgicalApprovalStatus: string; // "approved", "not-approved", or ""
   standBy: boolean;
-  standByReason: string;
+  standByReason: string; // "signature_missing", "consent_required", "waiting_exams", "other"
   standByReasonNote: string;
   assessmentDate: string;
   doctorName: string;
@@ -142,6 +144,7 @@ const initialAssessmentData: AssessmentData = {
   outpatientCaregiverPhone: '',
   lastSolids: '',
   lastClear: '',
+  surgicalApprovalStatus: '',
   standBy: false,
   standByReason: '',
   standByReasonNote: '',
@@ -218,6 +221,7 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
         outpatientCaregiverPhone: assessment.outpatientCaregiverPhone || '',
         lastSolids: assessment.lastSolids || '',
         lastClear: assessment.lastClear || '',
+        surgicalApprovalStatus: (assessment as any).surgicalApprovalStatus || '',
         standBy: assessment.standBy || false,
         standByReason: assessment.standByReason || '',
         standByReasonNote: assessment.standByReasonNote || '',
@@ -407,14 +411,23 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
         onValueChange={setOpenSections}
         className="space-y-4"
       >
-        {/* General Data Section */}
+        {/* General Data Section (with Allergies inside, matching anesthesia form) */}
         <AccordionItem value="general">
-          <Card className={hasGeneralData() ? "border-white dark:border-white" : ""}>
+          <Card className={hasGeneralData() || hasAllergiesData() ? "border-white dark:border-white" : ""}>
             <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-general">
-              <CardTitle className="text-lg">{t('anesthesia.patientDetail.generalData', 'General Data')}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle className="text-lg">{t('anesthesia.patientDetail.generalData', 'General Data')}</CardTitle>
+                {hasAllergiesData() && (
+                  <Badge variant="destructive" className="text-xs">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    {t('anesthesia.patientDetail.allergies', 'Allergies')}
+                  </Badge>
+                )}
+              </div>
             </AccordionTrigger>
             <AccordionContent>
-              <CardContent className="space-y-4 pt-0">
+              <CardContent className="space-y-6 pt-0">
+                {/* Vitals */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="space-y-2">
                     <Label>{t('anesthesia.patientDetail.heightCm', 'Height (cm)')}</Label>
@@ -453,6 +466,8 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
                     />
                   </div>
                 </div>
+                
+                {/* CAVE */}
                 <div className="space-y-2">
                   <Label>{t('anesthesia.patientDetail.cave', 'CAVE')}</Label>
                   <Input
@@ -463,6 +478,8 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
                     data-testid="input-cave"
                   />
                 </div>
+                
+                {/* Special Notes */}
                 <div className="space-y-2">
                   <Label>{t('anesthesia.patientDetail.specialNotes', 'Special Notes')}</Label>
                   <Textarea
@@ -474,55 +491,47 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
                     data-testid="textarea-special-notes"
                   />
                 </div>
-              </CardContent>
-            </AccordionContent>
-          </Card>
-        </AccordionItem>
 
-        {/* Allergies Section */}
-        <AccordionItem value="allergies">
-          <Card className={hasAllergiesData() ? "border-red-500 dark:border-red-700" : ""}>
-            <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-allergies">
-              <CardTitle className={`text-lg ${hasAllergiesData() ? "text-red-600 dark:text-red-400" : ""}`}>
-                {t('anesthesia.patientDetail.allergies', 'Allergies')}
-              </CardTitle>
-            </AccordionTrigger>
-            <AccordionContent>
-              <CardContent className="pt-0 space-y-4">
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {(anesthesiaSettings?.allergyList || []).map((allergy) => (
-                    <Badge
-                      key={allergy.id}
-                      variant={assessmentData.allergies.includes(allergy.id) ? "destructive" : "outline"}
-                      className="cursor-pointer"
-                      onClick={() => {
-                        if (isReadOnly) return;
-                        if (assessmentData.allergies.includes(allergy.id)) {
-                          updateAssessment({
-                            allergies: assessmentData.allergies.filter((a) => a !== allergy.id),
-                          });
-                        } else {
-                          updateAssessment({
-                            allergies: [...assessmentData.allergies, allergy.id],
-                          });
-                        }
-                      }}
-                      data-testid={`badge-allergy-${allergy.id}`}
-                    >
-                      {allergy.label}
-                    </Badge>
-                  ))}
-                </div>
-                <div className="space-y-2">
-                  <Label>{t('anesthesia.patientDetail.otherAllergies', 'Other Allergies')}</Label>
-                  <Textarea
-                    value={assessmentData.otherAllergies}
-                    onChange={(e) => updateAssessment({ otherAllergies: e.target.value })}
-                    placeholder={t('anesthesia.patientDetail.otherAllergiesPlaceholder', 'List other allergies...')}
-                    rows={2}
-                    disabled={isReadOnly}
-                    data-testid="textarea-other-allergies"
-                  />
+                {/* Allergies (moved inside General Info to match anesthesia form) */}
+                <div className={`space-y-4 p-4 rounded-lg border ${hasAllergiesData() ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700" : "border-muted"}`}>
+                  <Label className={`text-base font-semibold ${hasAllergiesData() ? "text-red-700 dark:text-red-300" : ""}`}>
+                    {t('anesthesia.patientDetail.allergies', 'Allergies')}
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {(anesthesiaSettings?.allergyList || []).map((allergy) => (
+                      <Badge
+                        key={allergy.id}
+                        variant={assessmentData.allergies.includes(allergy.id) ? "destructive" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          if (isReadOnly) return;
+                          if (assessmentData.allergies.includes(allergy.id)) {
+                            updateAssessment({
+                              allergies: assessmentData.allergies.filter((a) => a !== allergy.id),
+                            });
+                          } else {
+                            updateAssessment({
+                              allergies: [...assessmentData.allergies, allergy.id],
+                            });
+                          }
+                        }}
+                        data-testid={`badge-allergy-${allergy.id}`}
+                      >
+                        {allergy.label}
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>{t('anesthesia.patientDetail.otherAllergies', 'Other Allergies')}</Label>
+                    <Textarea
+                      value={assessmentData.otherAllergies}
+                      onChange={(e) => updateAssessment({ otherAllergies: e.target.value })}
+                      placeholder={t('anesthesia.patientDetail.otherAllergiesPlaceholder', 'List other allergies...')}
+                      rows={2}
+                      disabled={isReadOnly}
+                      data-testid="textarea-other-allergies"
+                    />
+                  </div>
                 </div>
               </CardContent>
             </AccordionContent>
@@ -991,40 +1000,6 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
           </Card>
         </AccordionItem>
 
-        {/* Fasting Section */}
-        <AccordionItem value="fasting">
-          <Card>
-            <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-fasting">
-              <CardTitle className="text-lg">{t('anesthesia.patientDetail.fasting', 'Fasting Status')}</CardTitle>
-            </AccordionTrigger>
-            <AccordionContent>
-              <CardContent className="pt-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>{t('anesthesia.patientDetail.lastSolids', 'Last Solids')}</Label>
-                    <Input
-                      value={assessmentData.lastSolids}
-                      onChange={(e) => updateAssessment({ lastSolids: e.target.value })}
-                      placeholder={t('anesthesia.patientDetail.lastSolidsPlaceholder', 'e.g., 08:00')}
-                      disabled={isReadOnly}
-                      data-testid="input-last-solids"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t('anesthesia.patientDetail.lastClear', 'Last Clear Fluids')}</Label>
-                    <Input
-                      value={assessmentData.lastClear}
-                      onChange={(e) => updateAssessment({ lastClear: e.target.value })}
-                      placeholder={t('anesthesia.patientDetail.lastClearPlaceholder', 'e.g., 10:00')}
-                      disabled={isReadOnly}
-                      data-testid="input-last-clear"
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </AccordionContent>
-          </Card>
-        </AccordionItem>
 
         {/* Outpatient Care Section */}
         <AccordionItem value="outpatient">
@@ -1068,64 +1043,173 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId }: SurgeryPreOp
           </Card>
         </AccordionItem>
 
-        {/* Stand-By Section */}
-        <AccordionItem value="standby">
-          <Card className={assessmentData.standBy ? "border-amber-500 dark:border-amber-700" : ""}>
-            <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-standby">
-              <CardTitle className={`text-lg ${assessmentData.standBy ? "text-amber-600 dark:text-amber-400" : ""}`}>
-                {t('anesthesia.patientDetail.standByStatus', 'Stand-By Status')}
-              </CardTitle>
+        {/* Surgical Approval Status Section (matching anesthesia form) */}
+        <AccordionItem value="approval">
+          <Card className={
+            assessmentData.surgicalApprovalStatus === "approved" ? "border-green-500 dark:border-green-700" :
+            assessmentData.surgicalApprovalStatus === "not-approved" ? "border-red-500 dark:border-red-700" :
+            assessmentData.standBy ? "border-amber-500 dark:border-amber-700" : ""
+          }>
+            <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-approval">
+              <div className="flex items-center gap-2">
+                <CardTitle className={`text-lg ${
+                  assessmentData.surgicalApprovalStatus === "approved" ? "text-green-600 dark:text-green-400" :
+                  assessmentData.surgicalApprovalStatus === "not-approved" ? "text-red-600 dark:text-red-400" :
+                  assessmentData.standBy ? "text-amber-600 dark:text-amber-400" : ""
+                }`}>
+                  {t('surgery.preop.surgicalApprovalStatus', 'Surgical Approval')}
+                </CardTitle>
+                {assessmentData.surgicalApprovalStatus === "approved" && (
+                  <Badge className="bg-green-600">{t('anesthesia.patientDetail.approvedForSurgery', 'Approved')}</Badge>
+                )}
+                {assessmentData.surgicalApprovalStatus === "not-approved" && (
+                  <Badge variant="destructive">{t('anesthesia.patientDetail.notApproved', 'Not Approved')}</Badge>
+                )}
+                {assessmentData.standBy && !assessmentData.surgicalApprovalStatus && (
+                  <Badge className="bg-amber-600">{t('anesthesia.patientDetail.standByLabel', 'Stand-By')}</Badge>
+                )}
+              </div>
             </AccordionTrigger>
             <AccordionContent>
-              <CardContent className="pt-0 space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch 
-                    id="standBy"
-                    checked={assessmentData.standBy}
-                    onCheckedChange={(checked) => {
-                      updateAssessment({ 
-                        standBy: checked,
-                        standByReason: checked ? assessmentData.standByReason : '',
-                        standByReasonNote: checked ? assessmentData.standByReasonNote : ''
-                      });
-                    }}
-                    disabled={isReadOnly}
-                    data-testid="switch-stand-by"
-                  />
-                  <Label htmlFor="standBy">{t('anesthesia.patientDetail.standBy', 'Stand-By')}</Label>
+              <CardContent className="pt-0 space-y-6">
+                {/* Approved / Not Approved toggles */}
+                <div className="space-y-3">
+                  <Label className="text-base font-semibold">{t('surgery.preop.surgicalDecision', 'Surgical Decision')}</Label>
+                  
+                  <div className={`flex items-center space-x-2 p-3 rounded-lg border ${assessmentData.surgicalApprovalStatus === "approved" ? "bg-green-50 dark:bg-green-950 border-green-300" : "border-muted"}`}>
+                    <Checkbox
+                      id="approved"
+                      checked={assessmentData.surgicalApprovalStatus === "approved"}
+                      onCheckedChange={(checked) => {
+                        updateAssessment({
+                          surgicalApprovalStatus: checked ? "approved" : "",
+                          standBy: checked ? false : assessmentData.standBy,
+                          standByReason: checked ? "" : assessmentData.standByReason,
+                          standByReasonNote: checked ? "" : assessmentData.standByReasonNote
+                        });
+                      }}
+                      disabled={isReadOnly}
+                      data-testid="checkbox-approved"
+                      className={assessmentData.surgicalApprovalStatus === "approved" ? "border-green-600 data-[state=checked]:bg-green-600" : ""}
+                    />
+                    <Label htmlFor="approved" className={`cursor-pointer font-normal flex-1 ${assessmentData.surgicalApprovalStatus === "approved" ? "text-green-700 dark:text-green-300 font-semibold" : ""}`}>
+                      {t('anesthesia.patientDetail.approvedForSurgery', 'Approved for Surgery')}
+                    </Label>
+                  </div>
+                  
+                  <div className={`flex items-center space-x-2 p-3 rounded-lg border ${assessmentData.surgicalApprovalStatus === "not-approved" ? "bg-red-50 dark:bg-red-950 border-red-300" : "border-muted"}`}>
+                    <Checkbox
+                      id="not-approved"
+                      checked={assessmentData.surgicalApprovalStatus === "not-approved"}
+                      onCheckedChange={(checked) => {
+                        updateAssessment({
+                          surgicalApprovalStatus: checked ? "not-approved" : "",
+                          standBy: checked ? false : assessmentData.standBy,
+                          standByReason: checked ? "" : assessmentData.standByReason,
+                          standByReasonNote: checked ? "" : assessmentData.standByReasonNote
+                        });
+                      }}
+                      disabled={isReadOnly}
+                      data-testid="checkbox-not-approved"
+                      className={assessmentData.surgicalApprovalStatus === "not-approved" ? "border-red-600 data-[state=checked]:bg-red-600" : ""}
+                    />
+                    <Label htmlFor="not-approved" className={`cursor-pointer font-normal flex-1 ${assessmentData.surgicalApprovalStatus === "not-approved" ? "text-red-700 dark:text-red-300 font-semibold" : ""}`}>
+                      {t('anesthesia.patientDetail.notApproved', 'Not Approved')}
+                    </Label>
+                  </div>
                 </div>
-                
-                {assessmentData.standBy && (
-                  <div className="space-y-4 pl-8 border-l-2 border-amber-500/50">
-                    <div className="space-y-2">
-                      <Label>{t('anesthesia.patientDetail.standByReason', 'Reason')}</Label>
-                      <Select
-                        value={assessmentData.standByReason}
-                        onValueChange={(value) => updateAssessment({ standByReason: value })}
-                        disabled={isReadOnly}
-                      >
-                        <SelectTrigger data-testid="select-stand-by-reason">
-                          <SelectValue placeholder={t('anesthesia.patientDetail.selectReason', 'Select reason...')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="consent_required">{t('anesthesia.patientDetail.consentRequired', 'Consent Required')}</SelectItem>
-                          <SelectItem value="waiting_exams">{t('anesthesia.patientDetail.waitingExams', 'Waiting for Exams')}</SelectItem>
-                          <SelectItem value="other">{t('anesthesia.patientDetail.other', 'Other')}</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {assessmentData.standByReason === 'other' && (
+
+                {/* Stand-By Status */}
+                <div className={`space-y-4 p-4 rounded-lg border ${assessmentData.standBy ? "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-700" : "border-muted"}`}>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="standby-toggle" className={`text-base font-semibold cursor-pointer ${assessmentData.standBy ? "text-amber-700 dark:text-amber-300" : ""}`}>
+                      {t('anesthesia.patientDetail.standByLabel', 'Stand-By')}
+                    </Label>
+                    <Switch
+                      id="standby-toggle"
+                      checked={assessmentData.standBy}
+                      onCheckedChange={(checked) => {
+                        updateAssessment({
+                          standBy: checked,
+                          standByReason: checked ? assessmentData.standByReason : "",
+                          standByReasonNote: checked ? assessmentData.standByReasonNote : "",
+                          surgicalApprovalStatus: checked ? "" : assessmentData.surgicalApprovalStatus
+                        });
+                      }}
+                      disabled={isReadOnly}
+                      data-testid="switch-standby"
+                      className={assessmentData.standBy ? "data-[state=checked]:bg-amber-600" : ""}
+                    />
+                  </div>
+                  
+                  {assessmentData.standBy && (
+                    <div className="space-y-4 pt-2">
                       <div className="space-y-2">
-                        <Label>{t('anesthesia.patientDetail.standByNote', 'Note')}</Label>
-                        <Textarea
-                          value={assessmentData.standByReasonNote}
-                          onChange={(e) => updateAssessment({ standByReasonNote: e.target.value })}
-                          placeholder={t('anesthesia.patientDetail.standByNotePlaceholder', 'Explain reason...')}
+                        <Label htmlFor="standby-reason" className="text-sm font-medium">
+                          {t('anesthesia.patientDetail.standByReasonLabel', 'Reason')}
+                        </Label>
+                        <Select
+                          value={assessmentData.standByReason}
+                          onValueChange={(value) => {
+                            updateAssessment({
+                              standByReason: value,
+                              standByReasonNote: value !== "other" ? "" : assessmentData.standByReasonNote
+                            });
+                          }}
                           disabled={isReadOnly}
-                          data-testid="textarea-stand-by-reason-note"
-                        />
+                        >
+                          <SelectTrigger data-testid="select-standby-reason">
+                            <SelectValue placeholder={t('anesthesia.patientDetail.selectReason', 'Select reason...')} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="signature_missing">{t('anesthesia.patientDetail.standByReasons.signatureMissing', 'Patient informed, only signature missing')}</SelectItem>
+                            <SelectItem value="consent_required">{t('anesthesia.patientDetail.standByReasons.consentRequired', 'Consent talk required')}</SelectItem>
+                            <SelectItem value="waiting_exams">{t('anesthesia.patientDetail.standByReasons.waitingExams', 'Waiting for EKG/Labs/Other exams')}</SelectItem>
+                            <SelectItem value="other">{t('anesthesia.patientDetail.standByReasons.other', 'Other reason')}</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
-                    )}
+                      
+                      {assessmentData.standByReason === "other" && (
+                        <div className="space-y-2">
+                          <Label htmlFor="standby-note" className="text-sm font-medium">
+                            {t('anesthesia.patientDetail.standByReasonNote', 'Please specify')}
+                          </Label>
+                          <Textarea
+                            id="standby-note"
+                            value={assessmentData.standByReasonNote}
+                            onChange={(e) => updateAssessment({ standByReasonNote: e.target.value })}
+                            placeholder={t('anesthesia.patientDetail.standByReasonNotePlaceholder', 'Enter the reason...')}
+                            rows={2}
+                            disabled={isReadOnly}
+                            data-testid="textarea-standby-note"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Reset button to reverse decisions */}
+                {(assessmentData.surgicalApprovalStatus || assessmentData.standBy) && !isReadOnly && (
+                  <div className="pt-2 border-t">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        updateAssessment({
+                          surgicalApprovalStatus: "",
+                          standBy: false,
+                          standByReason: "",
+                          standByReasonNote: ""
+                        });
+                      }}
+                      data-testid="button-reset-status"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      {t('surgery.preop.resetDecision', 'Reset Decision')}
+                    </Button>
                   </div>
                 )}
               </CardContent>
