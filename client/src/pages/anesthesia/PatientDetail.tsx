@@ -297,7 +297,7 @@ export default function PatientDetail() {
       const results = await Promise.all(uploadPromises);
       return results.flat();
     },
-    enabled: !!params?.id && !!activeHospital?.id && isPreOpOpen && submittedResponseIds.length > 0,
+    enabled: !!params?.id && !!activeHospital?.id && submittedResponseIds.length > 0,
     staleTime: 30000, // Cache for 30 seconds to avoid redundant calls
   });
 
@@ -1569,6 +1569,11 @@ export default function PatientDetail() {
            assessmentData.asa.trim() !== "" ||
            assessmentData.specialNotes.trim() !== "";
   };
+
+  const hasAllergiesData = () => {
+    return assessmentData.allergies.length > 0 ||
+           assessmentData.allergiesOther.trim() !== "";
+  };
   
   const hasMedicationsData = () => {
     return assessmentData.anticoagulationMeds.length > 0 ||
@@ -2763,35 +2768,39 @@ export default function PatientDetail() {
                             />
                           </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label>{t('anesthesia.patientDetail.allergies')}</Label>
-                          <div className="border rounded-lg p-3 space-y-2">
-                            <div className="grid grid-cols-2 gap-2">
-                              {(anesthesiaSettings?.allergyList || []).map((allergy) => (
-                                <div key={allergy.id} className="flex items-center space-x-2">
-                                  <Checkbox
-                                    id={`allergy-${allergy.id}`}
-                                    checked={assessmentData.allergies.includes(allergy.id)}
-                                    onCheckedChange={(checked) => {
-                                      if (checked) {
-                                        setAssessmentData({...assessmentData, allergies: [...assessmentData.allergies, allergy.id]});
-                                      } else {
-                                        setAssessmentData({...assessmentData, allergies: assessmentData.allergies.filter(a => a !== allergy.id)});
-                                      }
-                                    }}
-                                    disabled={isPreOpReadOnly}
-                                    data-testid={`checkbox-allergy-${allergy.id}`}
-                                  />
-                                  <Label htmlFor={`allergy-${allergy.id}`} className="cursor-pointer font-normal text-sm">{allergy.label}</Label>
-                                </div>
-                              ))}
-                            </div>
-                            <Input
+                        <div className={`space-y-4 p-4 rounded-lg border ${hasAllergiesData() ? "bg-red-50 dark:bg-red-950 border-red-300 dark:border-red-700" : "border-muted"}`}>
+                          <Label className={`text-base font-semibold ${hasAllergiesData() ? "text-red-700 dark:text-red-300" : ""}`}>
+                            {t('anesthesia.patientDetail.allergies')}
+                          </Label>
+                          <div className="flex flex-wrap gap-2">
+                            {(anesthesiaSettings?.allergyList || []).map((allergy) => (
+                              <Badge
+                                key={allergy.id}
+                                variant={assessmentData.allergies.includes(allergy.id) ? "destructive" : "outline"}
+                                className="cursor-pointer"
+                                onClick={() => {
+                                  if (isPreOpReadOnly) return;
+                                  if (assessmentData.allergies.includes(allergy.id)) {
+                                    setAssessmentData({...assessmentData, allergies: assessmentData.allergies.filter(a => a !== allergy.id)});
+                                  } else {
+                                    setAssessmentData({...assessmentData, allergies: [...assessmentData.allergies, allergy.id]});
+                                  }
+                                }}
+                                data-testid={`badge-allergy-${allergy.id}`}
+                              >
+                                {allergy.label}
+                              </Badge>
+                            ))}
+                          </div>
+                          <div className="space-y-2">
+                            <Label>{t('anesthesia.patientDetail.otherAllergies', 'Other Allergies')}</Label>
+                            <Textarea
                               value={assessmentData.allergiesOther}
                               onChange={(e) => setAssessmentData({...assessmentData, allergiesOther: e.target.value})}
                               placeholder={t('anesthesia.patientDetail.otherAllergiesPlaceholder')}
+                              rows={2}
                               disabled={isPreOpReadOnly}
-                              data-testid="input-allergies-other"
+                              data-testid="textarea-allergies-other"
                             />
                           </div>
                         </div>

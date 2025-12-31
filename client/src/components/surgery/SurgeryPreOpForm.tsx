@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Save, CheckCircle2, Eye, Upload, Trash2, FileImage, Pencil, Camera, ChevronDown, ChevronUp, AlertCircle, AlertTriangle, X, Import } from "lucide-react";
+import { Loader2, Save, CheckCircle2, Eye, Upload, Trash2, FileImage, FileText, Pencil, Camera, ChevronDown, ChevronUp, AlertCircle, AlertTriangle, X, Import } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -164,6 +164,18 @@ const initialAssessmentData: AssessmentData = {
   status: 'draft',
 };
 
+type QuestionnaireUpload = {
+  id: string;
+  responseId: string;
+  category: "medication_list" | "diagnosis" | "exam_result" | "other";
+  fileName: string;
+  fileUrl: string;
+  mimeType?: string;
+  fileSize?: number;
+  description?: string;
+  createdAt: string;
+};
+
 type QuestionnaireLink = {
   id: string;
   token: string;
@@ -233,6 +245,39 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
   const submittedQuestionnaires = questionnaireLinks.filter(
     (q) => q.status === 'submitted' && q.response?.id
   );
+  const submittedResponseIds = submittedQuestionnaires.map(q => q.response?.id).filter(Boolean).sort().join(',');
+
+  // Fetch all patient uploads using a dedicated query
+  const { data: patientUploads = [] } = useQuery<QuestionnaireUpload[]>({
+    queryKey: ['/api/questionnaire/patient-uploads', patientId, submittedResponseIds],
+    queryFn: async () => {
+      const responseIds = submittedQuestionnaires.map(q => q.response?.id).filter(Boolean) as string[];
+      
+      const uploadPromises = responseIds.map(async (responseId) => {
+        const response = await fetch(`/api/questionnaire/responses/${responseId}`, {
+          headers: { 'x-active-hospital-id': hospitalId || '' },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          return (data.uploads || []) as QuestionnaireUpload[];
+        }
+        return [];
+      });
+      
+      const results = await Promise.all(uploadPromises);
+      return results.flat();
+    },
+    enabled: !!patientId && !!hospitalId && submittedResponseIds.length > 0,
+    staleTime: 30000,
+  });
+
+  // State for document preview
+  const [previewDocument, setPreviewDocument] = useState<{
+    id: string;
+    fileName: string;
+    mimeType: string;
+    url: string;
+  } | null>(null);
 
   // Fetch the selected questionnaire response details
   const { data: selectedQuestionnaireResponse, isLoading: isLoadingQuestionnaireResponse } = useQuery<{
@@ -902,6 +947,134 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
             </AccordionContent>
           </Card>
         </AccordionItem>
+
+        {/* Patient Uploaded Documents Section */}
+        {patientUploads.length > 0 && (
+          <AccordionItem value="patient-documents">
+            <Card className="border-blue-400 dark:border-blue-600">
+              <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-patient-documents">
+                <CardTitle className="text-lg text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')} ({patientUploads.length})
+                </CardTitle>
+              </AccordionTrigger>
+              <AccordionContent>
+                <CardContent className="pt-0">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {t('anesthesia.patientDetail.patientDocumentsDesc', 'Files uploaded by the patient through the online questionnaire.')}
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {patientUploads.map((upload) => {
+                      const isImage = upload.mimeType?.startsWith('image/');
+                      const categoryLabels: Record<string, string> = {
+                        medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
+                        diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
+                        exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
+                        other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
+                      };
+                      const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file?hospital_id=${hospitalId}`;
+                      return (
+                        <div 
+                          key={upload.id}
+                          className="flex flex-col p-3 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
+                          data-testid={`patient-upload-${upload.id}`}
+                          onClick={() => {
+                            setPreviewDocument({
+                              id: upload.id,
+                              fileName: upload.fileName,
+                              mimeType: upload.mimeType || '',
+                              url: fileStreamUrl,
+                            });
+                          }}
+                        >
+                          {isImage ? (
+                            <div className="w-full h-32 mb-2 overflow-hidden rounded bg-muted">
+                              <img 
+                                src={fileStreamUrl} 
+                                alt={upload.fileName}
+                                className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
+                                  }
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-full h-32 mb-2 flex items-center justify-center bg-muted rounded">
+                              <FileText className="h-12 w-12 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                              {upload.fileName}
+                            </p>
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                              <Badge variant="secondary" className="text-xs">
+                                {categoryLabels[upload.category] || upload.category}
+                              </Badge>
+                              {upload.fileSize && (
+                                <span>{(upload.fileSize / 1024).toFixed(1)} KB</span>
+                              )}
+                            </div>
+                            {upload.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-2">{upload.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </AccordionContent>
+            </Card>
+          </AccordionItem>
+        )}
+
+        {/* Document Preview Dialog */}
+        <Dialog open={!!previewDocument} onOpenChange={(open) => !open && setPreviewDocument(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                {previewDocument?.fileName}
+              </DialogTitle>
+              <DialogDescription>
+                {t('anesthesia.patientDetail.documentPreview', 'Document Preview')}
+              </DialogDescription>
+            </DialogHeader>
+            {previewDocument && (
+              <div className="mt-4">
+                {previewDocument.mimeType?.startsWith('image/') ? (
+                  <img 
+                    src={previewDocument.url} 
+                    alt={previewDocument.fileName}
+                    className="max-w-full max-h-[70vh] mx-auto object-contain rounded-lg"
+                  />
+                ) : previewDocument.mimeType === 'application/pdf' ? (
+                  <iframe
+                    src={previewDocument.url}
+                    className="w-full h-[70vh] rounded-lg border"
+                    title={previewDocument.fileName}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <FileText className="h-16 w-16 text-muted-foreground" />
+                    <p className="text-muted-foreground">{t('anesthesia.patientDetail.noPreviewAvailable', 'No preview available')}</p>
+                    <Button asChild>
+                      <a href={previewDocument.url} download={previewDocument.fileName} target="_blank" rel="noopener noreferrer">
+                        {t('common.download', 'Download')}
+                      </a>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Medications Section */}
         <AccordionItem value="medications">
