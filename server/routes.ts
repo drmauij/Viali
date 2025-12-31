@@ -816,7 +816,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/items/:itemId/suppliers', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { itemId } = req.params;
-      const validatedData = insertSupplierCodeSchema.parse({ ...req.body, itemId });
+      // When manually added by user, auto-confirm the match since user explicitly added it
+      const validatedData = insertSupplierCodeSchema.parse({ 
+        ...req.body, 
+        itemId,
+        matchStatus: 'confirmed' // User-added suppliers are automatically confirmed
+      });
       const code = await storage.createSupplierCode(validatedData);
       res.status(201).json(code);
     } catch (error: any) {
