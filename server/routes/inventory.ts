@@ -10,7 +10,7 @@ import {
   supplierCodes,
   itemCodes
 } from "@shared/schema";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and } from "drizzle-orm";
 import {
   getUserUnitForHospital,
   getActiveUnitIdFromRequest,
@@ -919,7 +919,14 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
     
-    // Get all items for this hospital
+    // Get active unit from request header to filter items by unit (same as standard inventory)
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied - no unit access" });
+    }
+    
+    // Get all items for this hospital filtered by unit
     const allItems = await db
       .select({
         id: items.id,
@@ -927,7 +934,7 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
         description: items.description,
       })
       .from(items)
-      .where(eq(items.hospitalId, hospitalId));
+      .where(and(eq(items.hospitalId, hospitalId), eq(items.unitId, unitId)));
     
     // Get all supplier codes for these items
     const itemIds = allItems.map(i => i.id);
