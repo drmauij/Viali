@@ -24,6 +24,19 @@ export interface PolymedPriceData {
   manufacturer?: string;
 }
 
+// Product metadata from Polymed API (no price - use Galexis for pricing)
+export interface PolymedProductMetadata {
+  pmcCode: string;           // Polymed article code
+  pharmacode?: string;       // Swiss pharmacy code (for Galexis lookup)
+  gtin?: string;             // EAN/GTIN barcode
+  productName: string;
+  description?: string;
+  packInfo?: string;
+  showPrice: boolean;        // Whether Polymed shows price for this item
+  catalogUrl?: string;
+  imageUrl?: string;
+}
+
 export interface PolymedSearchResult {
   success: boolean;
   products: PolymedPriceData[];
@@ -304,120 +317,134 @@ export class PolymedBrowserClient {
     const products: PolymedPriceData[] = [];
 
     try {
-      // Polymed uses CSS modules with hashed class names like styles_productCard__g2_eE
-      const productCards = await this.page!.$$('[class*="productCard"], .product-card, .product-item, [class*="ProductCard"], article');
+      console.log('[Polymed] Waiting for page content to load...');
       
-      if (productCards.length > 0) {
-        for (const card of productCards) {
-          try {
-            // Title is in h4.PolymedTitle or div with title class
-            const nameEl = await card.$('h4, [class*="title"] h4, [class*="label"], [class*="Title"], [class*="name"]');
-            // PMC-Code follows pattern: <span>PMC-Code: </span><span>CODE</span>
-            const codeSpans = await card.$$('span');
-            let articleCode = '';
-            for (let i = 0; i < codeSpans.length - 1; i++) {
-              const text = await codeSpans[i].textContent();
-              if (text?.includes('PMC-Code') || text?.includes('Art.') || text?.includes('Artikel')) {
-                articleCode = (await codeSpans[i + 1].textContent()) ?? '';
-                break;
-              }
-            }
-            // Product link
-            const linkEl = await card.$('a[href*="/product/"], a[href*="/artikel/"], a[href*="/de/"]');
-            // Image
-            const imgEl = await card.$('img');
-            
-            // Price - try multiple strategies
-            let priceText = '';
-            
-            // Strategy 1: Look for price class
-            const priceEl = await card.$('[class*="price"], [class*="Price"], [class*="Preis"]');
-            if (priceEl) {
-              priceText = (await priceEl.textContent()) ?? '';
-            }
-            
-            // Strategy 2: Look for CHF pattern in the card text
-            if (!priceText || !priceText.includes('CHF')) {
-              const cardText = await card.textContent() ?? '';
-              const chfMatch = cardText.match(/CHF\s*([\d',\.]+)/i);
-              if (chfMatch) {
-                priceText = chfMatch[0];
-              }
-            }
-            
-            // Strategy 3: Look for any element containing currency
-            if (!priceText || this.parsePrice(priceText) === 0) {
-              const allSpans = await card.$$('span, div, p');
-              for (const el of allSpans) {
-                const text = await el.textContent() ?? '';
-                if (text.includes('CHF') || /^\d+[.,]\d{2}$/.test(text.trim())) {
-                  priceText = text;
-                  break;
-                }
-              }
-            }
-
-            const name = nameEl ? (await nameEl.textContent()) ?? '' : '';
-            const catalogUrl = linkEl ? (await linkEl.getAttribute('href')) ?? '' : '';
-            const imageUrl = imgEl ? (await imgEl.getAttribute('src')) ?? '' : '';
-
-            if (name || articleCode) {
-              const price = this.parsePrice(priceText);
-              
-              products.push({
-                articleCode: articleCode.trim(),
-                productName: name.trim(),
-                price,
-                currency: 'CHF',
-                catalogUrl: catalogUrl ? new URL(catalogUrl, this.loginUrl).href : undefined,
-                imageUrl: imageUrl || undefined,
-              });
-            }
-          } catch (e) {
-            // Skip individual card errors
+      // Wait for Next.js to hydrate
+      await this.delay(2000);
+      
+      // Strategy 1: Extract from Next.js __NEXT_DATA__ or Apollo cache
+      // Polymed uses Next.js with Apollo GraphQL - data is in window.__NEXT_DATA__
+      const nextData = await this.page!.evaluate(() => {
+        try {
+          // Try to get Next.js data
+          const nextDataScript = document.querySelector('#__NEXT_DATA__');
+          if (nextDataScript) {
+            return JSON.parse(nextDataScript.textContent || '{}');
           }
+          
+          // Try Apollo cache
+          const w = window as any;
+          if (w.__APOLLO_STATE__) {
+            return { apolloState: w.__APOLLO_STATE__ };
+          }
+          
+          return null;
+        } catch {
+          return null;
+        }
+      });
+      
+      if (nextData) {
+        console.log('[Polymed] Found Next.js data, extracting products...');
+        
+        // Try to extract products from pageProps or apolloState
+        const extractedProducts = this.extractProductsFromNextData(nextData);
+        if (extractedProducts.length > 0) {
+          console.log(`[Polymed] Extracted ${extractedProducts.length} products from Next.js data`);
+          return extractedProducts;
         }
       }
-
-      // Fallback: try to find products by looking for product links
-      if (products.length === 0) {
-        const productLinks = await this.page!.$$('a[href*="/de/product/"]');
+      
+      // Strategy 2: Intercept network responses for product data
+      // Look for any JSON in the page that contains product info
+      const pageJsonData = await this.page!.evaluate(() => {
+        // Find all script tags with JSON content
+        const scripts = document.querySelectorAll('script[type="application/json"], script:not([src])');
+        const jsonBlocks: any[] = [];
         
-        for (const link of productLinks) {
+        scripts.forEach(script => {
           try {
-            const href = await link.getAttribute('href');
-            const text = await link.textContent();
-            
-            if (text && href) {
-              // Extract PMC code from URL (last segment before product name)
-              const codeMatch = href.match(/-(\d+)$/);
-              const articleCode = codeMatch ? codeMatch[1] : '';
-              
-              // Try to get price from parent container
-              let price = 0;
-              try {
-                const parent = await link.evaluateHandle(el => el.closest('[class*="Card"], [class*="item"], article, div'));
-                if (parent) {
-                  const parentText = await parent.evaluate(el => el?.textContent ?? '') ?? '';
-                  const chfMatch = parentText.match(/CHF\s*([\d',\.]+)/i);
-                  if (chfMatch) {
-                    price = this.parsePrice(chfMatch[0]);
-                  }
-                }
-              } catch {
-                // Ignore price extraction errors
-              }
-              
-              products.push({
-                articleCode,
-                productName: text.trim(),
-                price,
-                currency: 'CHF',
-                catalogUrl: new URL(href, this.loginUrl).href,
-              });
+            const text = script.textContent || '';
+            if (text.includes('price') || text.includes('PMC') || text.includes('product')) {
+              const parsed = JSON.parse(text);
+              jsonBlocks.push(parsed);
             }
-          } catch (e) {
-            // Skip individual link errors
+          } catch {
+            // Not valid JSON
+          }
+        });
+        
+        return jsonBlocks;
+      });
+      
+      if (pageJsonData && pageJsonData.length > 0) {
+        console.log(`[Polymed] Found ${pageJsonData.length} JSON blocks in page`);
+        for (const data of pageJsonData) {
+          const extracted = this.extractProductsFromNextData(data);
+          if (extracted.length > 0) {
+            console.log(`[Polymed] Extracted ${extracted.length} products from JSON block`);
+            products.push(...extracted);
+          }
+        }
+        if (products.length > 0) {
+          return products;
+        }
+      }
+      
+      // Strategy 3: Fall back to DOM scraping with improved selectors
+      console.log('[Polymed] Falling back to DOM scraping...');
+      
+      // Get product URLs from links
+      const productLinks = await this.page!.$$('a[href*="/de/product/"]');
+      console.log(`[Polymed] Found ${productLinks.length} product links`);
+      
+      const seenUrls = new Set<string>();
+      
+      for (const link of productLinks) {
+        try {
+          const href = await link.getAttribute('href');
+          if (!href || seenUrls.has(href)) continue;
+          seenUrls.add(href);
+          
+          const text = await link.textContent();
+          const cleanText = (text || '').trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
+          if (cleanText.length < 3) continue;
+          
+          // Extract PMC code from URL
+          const codeMatch = href.match(/-(\d{5,7})(?:\?|$|\/)/);
+          const articleCode = codeMatch ? codeMatch[1] : '';
+          
+          // For price, we'll need to fetch the product page
+          // For now, add with price 0 and fetch later if needed
+          if (articleCode) {
+            products.push({
+              articleCode,
+              productName: cleanText,
+              price: 0, // Will be fetched from product page
+              currency: 'CHF',
+              catalogUrl: new URL(href, this.loginUrl).href,
+            });
+            console.log(`[Polymed] Found: ${cleanText.substring(0, 40)}... | PMC: ${articleCode}`);
+          }
+        } catch {
+          // Skip errors
+        }
+      }
+      
+      // If we have products but no prices, try to fetch prices from product pages
+      if (products.length > 0 && products.every(p => p.price === 0)) {
+        console.log('[Polymed] Fetching prices from product pages...');
+        for (const product of products.slice(0, 10)) { // Limit to first 10 to avoid timeout
+          if (product.catalogUrl) {
+            try {
+              const details = await this.getProductDetails(product.catalogUrl);
+              if (details && details.price > 0) {
+                product.price = details.price;
+                console.log(`[Polymed] Got price for ${product.articleCode}: CHF ${product.price}`);
+              }
+            } catch {
+              // Skip price fetch errors
+            }
           }
         }
       }
@@ -426,6 +453,57 @@ export class PolymedBrowserClient {
       console.error('[Polymed] Error parsing search results:', error);
     }
 
+    return products;
+  }
+  
+  private extractProductsFromNextData(data: any): PolymedPriceData[] {
+    const products: PolymedPriceData[] = [];
+    
+    try {
+      // Recursively search for product data in the Next.js data structure
+      const findProducts = (obj: any, depth: number = 0): void => {
+        if (depth > 10 || !obj) return;
+        
+        if (Array.isArray(obj)) {
+          for (const item of obj) {
+            findProducts(item, depth + 1);
+          }
+          return;
+        }
+        
+        if (typeof obj !== 'object') return;
+        
+        // Look for product-like objects
+        // Common patterns: { pmcCode, price, name } or { articleNumber, unitPrice, description }
+        if (obj.pmcCode || obj.articleNumber || obj.productCode) {
+          const product: PolymedPriceData = {
+            articleCode: String(obj.pmcCode || obj.articleNumber || obj.productCode || ''),
+            productName: obj.name || obj.description || obj.title || '',
+            price: parseFloat(obj.price || obj.unitPrice || obj.basePrice || 0) || 0,
+            currency: 'CHF',
+            catalogUrl: obj.url || obj.link || undefined,
+            gtin: obj.gtin || obj.ean || undefined,
+            pharmacode: obj.pharmacode || obj.pmcCode || undefined,
+          };
+          
+          if (product.articleCode || product.productName) {
+            products.push(product);
+          }
+          return;
+        }
+        
+        // Recurse into nested objects
+        for (const key of Object.keys(obj)) {
+          findProducts(obj[key], depth + 1);
+        }
+      };
+      
+      findProducts(data);
+      
+    } catch (error) {
+      console.error('[Polymed] Error extracting products from Next.js data:', error);
+    }
+    
     return products;
   }
 
@@ -451,63 +529,99 @@ export class PolymedBrowserClient {
       }
 
       await this.page!.goto(productUrl, { waitUntil: 'networkidle' });
-      await this.delay(500);
+      await this.delay(1500); // Wait for React hydration
+      
+      // Extract PMC code from URL
+      const urlCodeMatch = productUrl.match(/-(\d{5,7})(?:\?|$|\/)/);
+      const urlArticleCode = urlCodeMatch ? urlCodeMatch[1] : '';
 
-      const nameEl = await this.page!.$('h1, .product-title, .product-name, [class*="Title"], [class*="ProductName"]');
-      const priceEl = await this.page!.$('.price, .product-price, [class*="price"], [class*="Price"], [class*="Preis"]');
-      const codeEl = await this.page!.$('.article-code, .product-code, .sku, [class*="ArticleCode"], [class*="PMC"]');
-      const descEl = await this.page!.$('.description, .product-description, [class*="Description"]');
-      const imgEl = await this.page!.$('.product-image img, .main-image img, [class*="ProductImage"] img');
-
-      const name = nameEl ? (await nameEl.textContent()) ?? '' : '';
-      let priceText = priceEl ? (await priceEl.textContent()) ?? '' : '';
-      const code = codeEl ? (await codeEl.textContent()) ?? '' : '';
-      const description = descEl ? (await descEl.textContent()) ?? '' : '';
-      const imageUrl = imgEl ? (await imgEl.getAttribute('src')) ?? '' : '';
-
-      // If no price found with selectors, try to find CHF pattern in page
-      if (!priceText || this.parsePrice(priceText) === 0) {
-        const pageContent = await this.page!.textContent('body') ?? '';
-        const chfMatch = pageContent.match(/CHF\s*([\d',\.]+)/i);
-        if (chfMatch) {
-          priceText = chfMatch[0];
-          console.log(`[Polymed] Found price via text pattern: ${priceText}`);
+      // Strategy 1: Try to extract from Next.js __NEXT_DATA__
+      const nextData = await this.page!.evaluate(() => {
+        try {
+          const nextDataScript = document.querySelector('#__NEXT_DATA__');
+          if (nextDataScript) {
+            return JSON.parse(nextDataScript.textContent || '{}');
+          }
+          return null;
+        } catch {
+          return null;
+        }
+      });
+      
+      if (nextData) {
+        const products = this.extractProductsFromNextData(nextData);
+        if (products.length > 0) {
+          const product = products[0];
+          console.log(`[Polymed] Extracted from Next.js data: ${product.productName} = CHF ${product.price}`);
+          product.catalogUrl = productUrl;
+          if (!product.articleCode && urlArticleCode) {
+            product.articleCode = urlArticleCode;
+          }
+          return product;
         }
       }
 
-      if (!name && !priceText) {
+      // Strategy 2: Try to find product data in script tags
+      const productData = await this.page!.evaluate(() => {
+        // Look for structured product data in script tags or data attributes
+        const scripts = Array.from(document.querySelectorAll('script'));
+        for (let i = 0; i < scripts.length; i++) {
+          const text = scripts[i].textContent || '';
+          // Look for price patterns in JSON
+          const priceMatch = text.match(/"(?:price|unitPrice|basePrice)"[:\s]*([0-9.]+)/);
+          const nameMatch = text.match(/"(?:name|title|description)"[:\s]*"([^"]+)"/);
+          
+          if (priceMatch && nameMatch) {
+            return {
+              price: parseFloat(priceMatch[1]),
+              name: nameMatch[1],
+            };
+          }
+        }
+        
+        // Try to find price in any visible element
+        const allText = document.body.textContent || '';
+        const chfMatch = allText.match(/CHF\s*([\d',\.]+)/);
+        if (chfMatch) {
+          const priceStr = chfMatch[1].replace(/'/g, '').replace(/,/g, '.');
+          return { price: parseFloat(priceStr) || 0, name: '' };
+        }
+        
         return null;
+      });
+      
+      let price = 0;
+      let name = '';
+      
+      if (productData) {
+        price = productData.price || 0;
+        name = productData.name || '';
+        if (price > 0) {
+          console.log(`[Polymed] Found price from page data: CHF ${price}`);
+        }
       }
 
-      // Extract additional identifiers from the page content
+      // Strategy 3: DOM-based extraction as fallback
+      if (!name) {
+        const nameEl = await this.page!.$('h1, [class*="Title"], [class*="ProductName"]');
+        name = nameEl ? ((await nameEl.textContent()) ?? '').trim() : '';
+      }
+
+      // Extract additional identifiers
       const pageContent = await this.page!.textContent('body') ?? '';
       
-      // Extract Pharmacode (7-digit Swiss pharmacy code)
-      // Common patterns: "Pharmacode: 1234567", "Pharmacode 1234567", "Pharma-Code: 1234567"
       let pharmacode: string | undefined;
-      const pharmacodeMatch = pageContent.match(/(?:Pharmacode|Pharma-Code|Pharmacode)[:\s]*(\d{5,7})/i);
+      const pharmacodeMatch = pageContent.match(/(?:Pharmacode|Pharma-Code|PMC-Code)[:\s]*(\d{5,7})/i);
       if (pharmacodeMatch) {
         pharmacode = pharmacodeMatch[1];
-        console.log(`[Polymed] Extracted pharmacode: ${pharmacode}`);
       }
 
-      // Extract GTIN/EAN (13-digit barcode)
-      // Common patterns: "GTIN: 7680123456789", "EAN: 7680123456789", "Barcode: 7680123456789"
       let gtin: string | undefined;
       const gtinMatch = pageContent.match(/(?:GTIN|EAN|Barcode)[:\s]*(\d{13})/i);
       if (gtinMatch) {
         gtin = gtinMatch[1];
-        console.log(`[Polymed] Extracted GTIN: ${gtin}`);
       }
 
-      // Extract manufacturer/brand
-      let manufacturer: string | undefined;
-      const manufacturerMatch = pageContent.match(/(?:Hersteller|Manufacturer|Marke|Brand)[:\s]*([^\n\r,]+)/i);
-      if (manufacturerMatch) {
-        manufacturer = manufacturerMatch[1].trim();
-      }
-
-      // Extract pack info (e.g., "100 Stk", "500ml", "30 Tabletten")
       let packInfo: string | undefined;
       const packMatch = pageContent.match(/(\d+\s*(?:Stk|Stück|ml|g|kg|Tabletten|Kapseln|Ampullen|Beutel|Flaschen))/i);
       if (packMatch) {
@@ -515,16 +629,13 @@ export class PolymedBrowserClient {
       }
 
       return {
-        articleCode: code.trim(),
-        productName: name.trim(),
-        description: description.trim() || undefined,
-        price: this.parsePrice(priceText),
+        articleCode: urlArticleCode,
+        productName: name,
+        price,
         currency: 'CHF',
         catalogUrl: productUrl,
-        imageUrl: imageUrl ? new URL(imageUrl, this.loginUrl).href : undefined,
         pharmacode,
         gtin,
-        manufacturer,
         packInfo,
       };
 
@@ -532,6 +643,117 @@ export class PolymedBrowserClient {
       console.error('[Polymed] Error getting product details:', error);
       return null;
     }
+  }
+
+  /**
+   * Fetch product metadata directly from Polymed API.
+   * This method bypasses DOM scraping and calls the internal API endpoint.
+   * Note: Polymed API does not return prices - use Galexis for price lookups.
+   */
+  async getProductMetadataByPmcCode(pmcCode: string): Promise<PolymedProductMetadata | null> {
+    try {
+      if (!this.isLoggedIn) {
+        console.log('[Polymed] Not logged in, cannot get product metadata');
+        return null;
+      }
+
+      // Call the Polymed API directly using authenticated session
+      const apiUrl = `https://shop.polymed.ch/api/products/${pmcCode}/de`;
+      
+      const response = await this.page!.evaluate(async (url) => {
+        try {
+          const res = await fetch(url, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Accept': 'application/json',
+            },
+          });
+          if (!res.ok) {
+            return { error: `HTTP ${res.status}` };
+          }
+          return await res.json();
+        } catch (e: any) {
+          return { error: e.message };
+        }
+      }, apiUrl);
+
+      if (response.error) {
+        console.log(`[Polymed] API error for PMC ${pmcCode}: ${response.error}`);
+        return null;
+      }
+
+      // Extract GTIN from codes array
+      let gtin: string | undefined;
+      if (response.codes && Array.isArray(response.codes)) {
+        const gtinEntry = response.codes.find((c: any) => 
+          c.codeType === 'gtin' || c.codeType === 'gtin_pmc' || c.codeType === 'ean'
+        );
+        if (gtinEntry) {
+          gtin = gtinEntry.code;
+        }
+      }
+
+      // Extract pack info from name or properties
+      let packInfo: string | undefined;
+      const name = response.productText?.name || '';
+      const packMatch = name.match(/(\d+\s*(?:Stk|Stück|ml|g|kg|Tabletten|Kapseln|Ampullen|Beutel|Flaschen|Tabletts))/i);
+      if (packMatch) {
+        packInfo = packMatch[1];
+      }
+
+      // Build catalog URL
+      const slugName = name.toLowerCase()
+        .replace(/[äÄ]/g, 'a').replace(/[öÖ]/g, 'o').replace(/[üÜ]/g, 'u')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+      const catalogUrl = `https://shop.polymed.ch/de/product/${slugName}-${pmcCode}`;
+
+      // Build image URL if available
+      let imageUrl: string | undefined;
+      if (response.productPreviewImage) {
+        imageUrl = `https://shop.polymed.ch/api/get_product_image/auto/auto/${response.productPreviewImage}?square=1`;
+      }
+
+      const metadata: PolymedProductMetadata = {
+        pmcCode: String(response.pmcCode || pmcCode),
+        pharmacode: String(response.pmcCode || pmcCode), // PMC code can be used as pharmacode
+        gtin,
+        productName: name,
+        description: response.productText?.description?.replace(/<[^>]*>/g, '') || undefined,
+        packInfo,
+        showPrice: response.showPrice === true,
+        catalogUrl,
+        imageUrl,
+      };
+
+      console.log(`[Polymed] Fetched metadata for PMC ${pmcCode}: ${metadata.productName}${gtin ? ` (GTIN: ${gtin})` : ''}`);
+      return metadata;
+
+    } catch (error) {
+      console.error(`[Polymed] Error fetching metadata for PMC ${pmcCode}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Batch fetch product metadata for multiple PMC codes.
+   * Returns a map of pmcCode -> metadata.
+   */
+  async getProductMetadataBatch(pmcCodes: string[]): Promise<Map<string, PolymedProductMetadata>> {
+    const results = new Map<string, PolymedProductMetadata>();
+    
+    for (const pmcCode of pmcCodes) {
+      const metadata = await this.getProductMetadataByPmcCode(pmcCode);
+      if (metadata) {
+        results.set(pmcCode, metadata);
+      }
+      // Small delay between requests
+      await this.delay(500);
+    }
+    
+    return results;
   }
 
   async testConnection(): Promise<{ success: boolean; message: string }> {

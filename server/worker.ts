@@ -612,18 +612,43 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
         let extractedGtin: string | undefined;
         let extractedManufacturer: string | undefined;
         
-        // If price is 0 OR we want to extract pharmacode/GTIN, fetch the product details page
-        if (result.matchedProduct.catalogUrl) {
+        // Extract product metadata using API-based method (faster and more reliable than DOM scraping)
+        // Note: Polymed API does NOT return prices - use Galexis for price lookups
+        const pmcCode = result.matchedProduct.articleCode;
+        if (pmcCode) {
           try {
-            console.log(`[Worker] Fetching product details for: ${matchedProductName}`);
+            console.log(`[Worker] Fetching product metadata via API for PMC ${pmcCode}: ${matchedProductName}`);
+            const metadata = await client.getProductMetadataByPmcCode(pmcCode);
+            if (metadata) {
+              // Extract identifiers from API response
+              extractedPharmacode = metadata.pharmacode;
+              extractedGtin = metadata.gtin;
+              // Note: Polymed API doesn't return prices - they must be looked up via Galexis
+              console.log(`[Worker] Extracted from Polymed API: pharmacode=${extractedPharmacode}, gtin=${extractedGtin}`);
+            }
+          } catch (e) {
+            console.error(`[Worker] Failed to fetch product metadata via API, falling back to DOM:`, e);
+            
+            // Fallback to DOM scraping for older products or when API fails
+            if (result.matchedProduct.catalogUrl) {
+              try {
+                const details = await client.getProductDetails(result.matchedProduct.catalogUrl);
+                if (details) {
+                  extractedPharmacode = details.pharmacode;
+                  extractedGtin = details.gtin;
+                  extractedManufacturer = details.manufacturer;
+                }
+              } catch (domError) {
+                console.error(`[Worker] DOM fallback also failed:`, domError);
+              }
+            }
+          }
+        } else if (result.matchedProduct.catalogUrl) {
+          // No PMC code available, use DOM fallback
+          try {
+            console.log(`[Worker] Fetching product details via DOM for: ${matchedProductName}`);
             const details = await client.getProductDetails(result.matchedProduct.catalogUrl);
             if (details) {
-              if (details.price > 0 && price === 0) {
-                price = details.price;
-                pricesFetched++;
-                console.log(`[Worker] Got price from product page: CHF ${price}`);
-              }
-              // Extract identifiers from product page
               extractedPharmacode = details.pharmacode;
               extractedGtin = details.gtin;
               extractedManufacturer = details.manufacturer;
@@ -780,6 +805,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
       itemCodesUpdated,
       pricesFetched,
       unmatchedItems: totalItems - matchedCount,
+      note: 'Polymed API provides product identifiers (pharmacode/GTIN) only. Use Galexis sync for price lookups.',
       matchResults: matchResults
         .filter(r => r.confidence >= 0.6)
         .slice(0, 20)
@@ -791,7 +817,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
         })),
     };
 
-    console.log(`[Worker] Polymed sync complete: ${matchedCount} matched, ${updatedCount} updated, ${pricesFetched} prices fetched, ${itemCodesUpdated} item codes updated`);
+    console.log(`[Worker] Polymed sync complete: ${matchedCount} matched, ${updatedCount} supplier codes updated, ${itemCodesUpdated} item codes enriched with identifiers`);
 
     await storage.updatePriceSyncJob(job.id, {
       status: 'completed',
@@ -807,7 +833,7 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
     await storage.updateSupplierCatalog(job.catalogId, {
       lastSyncAt: new Date(),
       lastSyncStatus: 'success',
-      lastSyncMessage: `Synced ${matchedCount} items, updated ${updatedCount} prices via browser (${pricesFetched} from detail pages)`,
+      lastSyncMessage: `Synced ${matchedCount} items, enriched ${itemCodesUpdated} items with identifiers (use Galexis for prices)`,
     });
 
     return true;
