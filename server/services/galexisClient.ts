@@ -58,6 +58,23 @@ export interface PriceData {
   validFrom?: Date;
   validUntil?: Date;
   conditionType?: string;
+  gtin?: string;
+  description?: string;
+  available?: boolean;
+  availabilityMessage?: string;
+}
+
+export interface ProductLookupResult {
+  pharmacode: string;
+  gtin?: string;
+  found: boolean;
+  price?: PriceData;
+  error?: string;
+}
+
+export interface ProductLookupRequest {
+  pharmacode?: string;
+  gtin?: string;
 }
 
 const DEFAULT_BASE_URL = 'https://xml.e-galexis.com/POS';
@@ -304,6 +321,223 @@ export class GalexisClient {
 
     console.log(`[Galexis] Total prices fetched: ${allPrices.length} over ${page} pages`);
     return { prices: allPrices, debugInfo };
+  }
+
+  private buildProductAvailabilityRequest(products: ProductLookupRequest[]): string {
+    const productLines = products.map((p, index) => {
+      if (p.pharmacode) {
+        return `    <productAvailabilityLine quantity="1">
+      <product>
+        <pharmaCode id="${p.pharmacode}" />
+      </product>
+    </productAvailabilityLine>`;
+      } else if (p.gtin) {
+        return `    <productAvailabilityLine quantity="1">
+      <product>
+        <EAN id="${p.gtin}" />
+      </product>
+    </productAvailabilityLine>`;
+      }
+      return '';
+    }).filter(Boolean).join('\n');
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<productAvailabilityRequest 
+  xmlns="http://xml.e-galexis.com/V2/schemas/" 
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+  xsi:schemaLocation="http://xml.e-galexis.com/V2/schemas/ http://xml.e-galexis.com/V2/schemas/productAvailability/productAvailabilityRequest.xsd" 
+  version="2.0" 
+  language="de" 
+  communicationSoftwareId="Viali" 
+  productDescriptionDesired="true" 
+  compressionDesired="false">
+  <client number="${this.customerNumber}" password="${this.password}" />
+  <productAvailabilityLines>
+${productLines}
+  </productAvailabilityLines>
+</productAvailabilityRequest>`;
+  }
+
+  async lookupProducts(
+    products: ProductLookupRequest[]
+  ): Promise<{ results: ProductLookupResult[]; debugInfo: any }> {
+    if (products.length === 0) {
+      return { results: [], debugInfo: { message: 'No products to lookup' } };
+    }
+
+    console.log(`[Galexis] Looking up ${products.length} products by pharmacode/GTIN...`);
+    
+    const requestXml = this.buildProductAvailabilityRequest(products);
+    console.log('[Galexis] ProductAvailability Request XML:', requestXml.substring(0, 1000));
+
+    try {
+      const response = await fetch(`${this.baseUrl}/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/xml; charset=utf-8',
+          'Accept': 'text/xml',
+        },
+        body: requestXml,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Galexis] ProductAvailability HTTP error:', response.status, errorText);
+        throw new Error(`Galexis API error: ${response.status} - ${errorText}`);
+      }
+
+      const responseXml = await response.text();
+      console.log('[Galexis] ProductAvailability Raw XML response (first 2000 chars):', responseXml.substring(0, 2000));
+
+      const parsed = this.parser.parse(responseXml);
+      console.log('[Galexis] ProductAvailability Parsed response keys:', Object.keys(parsed));
+
+      const availabilityResponse = parsed.productAvailabilityResponse;
+      if (!availabilityResponse) {
+        console.log('[Galexis] ProductAvailability Full parsed response:', JSON.stringify(parsed, null, 2).substring(0, 2000));
+        throw new Error('Invalid productAvailability response format from Galexis');
+      }
+
+      if (availabilityResponse.clientErrorResponse) {
+        const errorMsg = availabilityResponse.clientErrorResponse.message || 
+                        availabilityResponse.clientErrorResponse.errorText ||
+                        JSON.stringify(availabilityResponse.clientErrorResponse);
+        console.log('[Galexis] ProductAvailability Client error:', JSON.stringify(availabilityResponse.clientErrorResponse));
+        throw new Error(`Galexis authentication error: ${errorMsg}`);
+      }
+
+      const responseLines = availabilityResponse.productAvailabilityResponseLines?.productAvailabilityResponseLine || [];
+      const linesArray = Array.isArray(responseLines) ? responseLines : [responseLines];
+      
+      console.log(`[Galexis] ProductAvailability Got ${linesArray.length} response lines`);
+
+      const results: ProductLookupResult[] = linesArray.map((line: any) => {
+        const requestLine = line.productAvailabilityLine;
+        const productResponse = line.productResponse;
+        const availability = line.availability;
+        const conditions = line.productConditionLevels?.productConditionLevel;
+
+        const requestedPharmacode = requestLine?.product?.pharmaCode?.id?.toString() || '';
+        const requestedGtin = requestLine?.product?.EAN?.id?.toString() || '';
+        
+        if (!productResponse) {
+          console.log(`[Galexis] No productResponse for pharmacode=${requestedPharmacode}, gtin=${requestedGtin}`);
+          return {
+            pharmacode: requestedPharmacode,
+            gtin: requestedGtin,
+            found: false,
+            error: availability?.message || 'Product not found',
+          };
+        }
+
+        const conditionArray = Array.isArray(conditions) ? conditions : (conditions ? [conditions] : []);
+        const bestCondition = conditionArray[0];
+        const priceLevel = bestCondition?.productConditionLevelPrice || {};
+        const conditionType = bestCondition?.productConditionType || {};
+
+        const basePiecePrice = parseFloat(productResponse.basePiecePrice) || 0;
+        const publicPrice = parseFloat(productResponse.publicPricePerPiece) || 0;
+        const expectedPrice = parseFloat(priceLevel.expectedTotalPiecePrice) || basePiecePrice;
+        const discountPercent = parseFloat(priceLevel.discountPercent) || parseFloat(productResponse.discountPercent) || 0;
+        const logisticCost = parseFloat(priceLevel.expectedLogisticServiceCost) || parseFloat(productResponse.expectedLogisticServiceCost) || 0;
+
+        const resultGtin = productResponse.EAN?.id?.toString() || requestedGtin;
+
+        console.log(`[Galexis] Found product: ${productResponse.description}, pharmacode=${productResponse.wholesalerProductCode}, price=${basePiecePrice}`);
+
+        return {
+          pharmacode: productResponse.wholesalerProductCode?.toString() || requestedPharmacode,
+          gtin: resultGtin,
+          found: true,
+          price: {
+            articleCode: productResponse.wholesalerProductCode?.toString() || requestedPharmacode,
+            basispreis: basePiecePrice,
+            publikumspreis: publicPrice,
+            yourPrice: expectedPrice,
+            discountPercent,
+            logisticCost,
+            gtin: resultGtin,
+            description: productResponse.description || '',
+            available: availability?.status === 'yes',
+            availabilityMessage: availability?.message || '',
+            validFrom: bestCondition?.validFrom ? new Date(bestCondition.validFrom) : undefined,
+            conditionType: conditionType.type || undefined,
+          },
+        };
+      });
+
+      const foundCount = results.filter(r => r.found).length;
+      console.log(`[Galexis] ProductAvailability completed: ${foundCount}/${results.length} products found`);
+
+      return {
+        results,
+        debugInfo: {
+          apiEndpoint: this.baseUrl,
+          customerNumber: this.customerNumber,
+          requestedProducts: products.length,
+          foundProducts: foundCount,
+          notFoundProducts: results.length - foundCount,
+          timestamp: new Date().toISOString(),
+          rawXmlPreview: responseXml.substring(0, 1500),
+        },
+      };
+    } catch (error: any) {
+      console.error('[Galexis] ProductAvailability error:', error);
+      throw error;
+    }
+  }
+
+  async lookupProductsBatch(
+    products: ProductLookupRequest[],
+    batchSize: number = 50,
+    onProgress?: (processed: number, total: number, found: number) => void
+  ): Promise<{ results: ProductLookupResult[]; debugInfo: any }> {
+    const allResults: ProductLookupResult[] = [];
+    let foundCount = 0;
+    const debugInfos: any[] = [];
+
+    for (let i = 0; i < products.length; i += batchSize) {
+      const batch = products.slice(i, i + batchSize);
+      console.log(`[Galexis] Processing batch ${Math.floor(i / batchSize) + 1}, items ${i + 1}-${Math.min(i + batchSize, products.length)} of ${products.length}`);
+      
+      try {
+        const { results, debugInfo } = await this.lookupProducts(batch);
+        allResults.push(...results);
+        foundCount += results.filter(r => r.found).length;
+        debugInfos.push(debugInfo);
+        
+        if (onProgress) {
+          onProgress(allResults.length, products.length, foundCount);
+        }
+
+        if (i + batchSize < products.length) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      } catch (error: any) {
+        console.error(`[Galexis] Batch ${Math.floor(i / batchSize) + 1} failed:`, error.message);
+        for (const p of batch) {
+          allResults.push({
+            pharmacode: p.pharmacode || '',
+            gtin: p.gtin,
+            found: false,
+            error: error.message,
+          });
+        }
+      }
+    }
+
+    console.log(`[Galexis] Batch lookup completed: ${foundCount}/${allResults.length} products found`);
+
+    return {
+      results: allResults,
+      debugInfo: {
+        totalBatches: Math.ceil(products.length / batchSize),
+        totalProducts: products.length,
+        totalFound: foundCount,
+        totalNotFound: allResults.length - foundCount,
+        batchDebugInfos: debugInfos,
+      },
+    };
   }
 
   async testConnection(): Promise<{ success: boolean; message: string }> {
