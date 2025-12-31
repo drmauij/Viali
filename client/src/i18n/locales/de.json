@@ -12,6 +12,7 @@
     "copy": "Kopie",
     "submit": "Absenden",
     "search": "Suchen",
+    "noSearchResults": "Keine Artikel entsprechen Ihrer Suche",
     "loading": "Laden...",
     "adding": "Hinzufügen...",
     "sending": "Wird gesendet...",

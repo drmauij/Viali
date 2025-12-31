@@ -13,7 +13,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Check, X, ExternalLink, Package, AlertCircle, Loader2, 
-  Edit2, Save, XCircle, DollarSign, AlertTriangle, CheckCircle2 
+  Edit2, Save, XCircle, DollarSign, AlertTriangle, CheckCircle2, Search 
 } from "lucide-react";
 
 interface ItemCode {
@@ -171,6 +171,24 @@ export default function SupplierMatches() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
+  
+  // Search states for each tab
+  const [searchUnmatched, setSearchUnmatched] = useState("");
+  const [searchToVerify, setSearchToVerify] = useState("");
+  const [searchWithPrice, setSearchWithPrice] = useState("");
+  const [searchNoPrice, setSearchNoPrice] = useState("");
+  
+  // Filter function for items
+  const filterItems = (items: CategorizedItem[], searchQuery: string) => {
+    if (!searchQuery.trim()) return items;
+    const query = searchQuery.toLowerCase().trim();
+    return items.filter(item => 
+      item.name.toLowerCase().includes(query) ||
+      (item.description?.toLowerCase() || "").includes(query) ||
+      (item.itemCode?.pharmacode?.toLowerCase() || "").includes(query) ||
+      (item.itemCode?.gtin?.toLowerCase() || "").includes(query)
+    );
+  };
 
   const { data: categorizedData, isLoading, refetch } = useQuery<CategorizedData>({
     queryKey: [`/api/supplier-matches/${activeHospital?.id}/categorized`],
@@ -288,13 +306,32 @@ export default function SupplierMatches() {
               {t("supplierMatches.unmatchedDesc", "Items without any supplier match. Add pharmacode/GTIN manually or run a sync.")}
             </p>
           </div>
-          {(categorizedData?.unmatched || []).length === 0 ? (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={t("common.search", "Search")}
+              value={searchUnmatched}
+              onChange={(e) => setSearchUnmatched(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-unmatched"
+            />
+          </div>
+          {filterItems(categorizedData?.unmatched || [], searchUnmatched).length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-6 text-center">
-              <CheckCircle2 className="w-8 h-8 mx-auto text-green-500 mb-2" />
-              <p className="text-muted-foreground">{t("supplierMatches.allItemsMatched", "All items have supplier matches!")}</p>
+              {searchUnmatched.trim() ? (
+                <>
+                  <Search className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground">{t("common.noSearchResults", "No items match your search")}</p>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-8 h-8 mx-auto text-green-500 mb-2" />
+                  <p className="text-muted-foreground">{t("supplierMatches.allItemsMatched", "All items have supplier matches!")}</p>
+                </>
+              )}
             </div>
           ) : (
-            (categorizedData?.unmatched || []).map((item) => (
+            filterItems(categorizedData?.unmatched || [], searchUnmatched).map((item) => (
               <Card key={item.id} data-testid={`card-unmatched-${item.id}`}>
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-2">
@@ -323,13 +360,32 @@ export default function SupplierMatches() {
               {t("supplierMatches.toVerifyDesc", "Items matched by product name. Verify the match is correct and confirm to save pharmacode/GTIN.")}
             </p>
           </div>
-          {(categorizedData?.toVerify || []).length === 0 ? (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={t("common.search", "Search")}
+              value={searchToVerify}
+              onChange={(e) => setSearchToVerify(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-to-verify"
+            />
+          </div>
+          {filterItems(categorizedData?.toVerify || [], searchToVerify).length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-6 text-center">
-              <AlertCircle className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">{t("supplierMatches.noPendingVerification", "No items pending verification")}</p>
+              {searchToVerify.trim() ? (
+                <>
+                  <Search className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground">{t("common.noSearchResults", "No items match your search")}</p>
+                </>
+              ) : (
+                <>
+                  <AlertCircle className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground">{t("supplierMatches.noPendingVerification", "No items pending verification")}</p>
+                </>
+              )}
             </div>
           ) : (
-            (categorizedData?.toVerify || []).map((item) => (
+            filterItems(categorizedData?.toVerify || [], searchToVerify).map((item) => (
               <Card key={item.id} data-testid={`card-to-verify-${item.id}`}>
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-3">
@@ -433,13 +489,32 @@ export default function SupplierMatches() {
               {t("supplierMatches.confirmedWithPriceDesc", "Items with confirmed supplier match and price from Galexis.")}
             </p>
           </div>
-          {(categorizedData?.confirmedWithPrice || []).length === 0 ? (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={t("common.search", "Search")}
+              value={searchWithPrice}
+              onChange={(e) => setSearchWithPrice(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-with-price"
+            />
+          </div>
+          {filterItems(categorizedData?.confirmedWithPrice || [], searchWithPrice).length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-6 text-center">
-              <DollarSign className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">{t("supplierMatches.noConfirmedWithPrice", "No confirmed items with prices yet")}</p>
+              {searchWithPrice.trim() ? (
+                <>
+                  <Search className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground">{t("common.noSearchResults", "No items match your search")}</p>
+                </>
+              ) : (
+                <>
+                  <DollarSign className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground">{t("supplierMatches.noConfirmedWithPrice", "No confirmed items with prices yet")}</p>
+                </>
+              )}
             </div>
           ) : (
-            (categorizedData?.confirmedWithPrice || []).map((item) => (
+            filterItems(categorizedData?.confirmedWithPrice || [], searchWithPrice).map((item) => (
               <Card key={item.id} data-testid={`card-confirmed-price-${item.id}`}>
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-2">
@@ -496,13 +571,32 @@ export default function SupplierMatches() {
               {t("supplierMatches.confirmedNoPriceDesc", "Items with confirmed pharmacode/GTIN but no price from Galexis. These need manual price entry or are not available in Galexis catalog.")}
             </p>
           </div>
-          {(categorizedData?.confirmedNoPrice || []).length === 0 ? (
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={t("common.search", "Search")}
+              value={searchNoPrice}
+              onChange={(e) => setSearchNoPrice(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-no-price"
+            />
+          </div>
+          {filterItems(categorizedData?.confirmedNoPrice || [], searchNoPrice).length === 0 ? (
             <div className="bg-card border border-border rounded-lg p-6 text-center">
-              <CheckCircle2 className="w-8 h-8 mx-auto text-green-500 mb-2" />
-              <p className="text-muted-foreground">{t("supplierMatches.allHavePrices", "All confirmed items have prices!")}</p>
+              {searchNoPrice.trim() ? (
+                <>
+                  <Search className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground">{t("common.noSearchResults", "No items match your search")}</p>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-8 h-8 mx-auto text-green-500 mb-2" />
+                  <p className="text-muted-foreground">{t("supplierMatches.allHavePrices", "All confirmed items have prices!")}</p>
+                </>
+              )}
             </div>
           ) : (
-            (categorizedData?.confirmedNoPrice || []).map((item) => (
+            filterItems(categorizedData?.confirmedNoPrice || [], searchNoPrice).map((item) => (
               <Card key={item.id} data-testid={`card-confirmed-no-price-${item.id}`}>
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-2">

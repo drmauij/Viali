@@ -12,6 +12,7 @@
     "copy": "Copy",
     "submit": "Submit",
     "search": "Search",
+    "noSearchResults": "No items match your search",
     "loading": "Loading...",
     "adding": "Adding...",
     "sending": "Sending...",
