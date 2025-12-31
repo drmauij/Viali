@@ -977,8 +977,8 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
       const codes = supplierCodesByItem.get(item.id) || [];
       const itemCode = itemCodesByItem.get(item.id);
       
-      // Find the best/active supplier code
-      const activeCode = codes.find(c => c.matchStatus === 'confirmed') || codes.find(c => c.matchStatus === 'pending');
+      // Separate codes by status
+      const confirmedCodes = codes.filter(c => c.matchStatus === 'confirmed');
       const pendingCodes = codes.filter(c => c.matchStatus === 'pending');
       
       const itemWithCodes = {
@@ -990,8 +990,32 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
       if (codes.length === 0) {
         // No supplier matches at all
         unmatched.push(itemWithCodes);
+      } else if (confirmedCodes.length > 0) {
+        // Has confirmed match - prioritize this over pending matches
+        // Use the first confirmed code (could be enhanced to pick preferred)
+        const confirmedCode = confirmedCodes[0];
+        const hasPrice = confirmedCode.basispreis && parseFloat(String(confirmedCode.basispreis)) > 0;
+        const itemData = {
+          ...itemWithCodes,
+          confirmedMatch: {
+            id: confirmedCode.id,
+            supplierName: confirmedCode.supplierName,
+            articleCode: confirmedCode.articleCode,
+            matchedProductName: confirmedCode.matchedProductName,
+            catalogUrl: confirmedCode.catalogUrl,
+            basispreis: confirmedCode.basispreis,
+            publikumspreis: confirmedCode.publikumspreis,
+            lastPriceUpdate: confirmedCode.lastPriceUpdate,
+          },
+        };
+        
+        if (hasPrice) {
+          confirmedWithPrice.push(itemData);
+        } else {
+          confirmedNoPrice.push(itemData);
+        }
       } else if (pendingCodes.length > 0) {
-        // Has pending matches that need verification
+        // Only pending matches (no confirmed) - need verification
         toVerify.push({
           ...itemWithCodes,
           pendingMatches: pendingCodes.map(c => ({
@@ -1006,33 +1030,8 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
           })),
         });
       } else {
-        // All matches are confirmed or rejected
-        const confirmedCode = codes.find(c => c.matchStatus === 'confirmed');
-        if (confirmedCode) {
-          const hasPrice = confirmedCode.basispreis && parseFloat(String(confirmedCode.basispreis)) > 0;
-          const itemData = {
-            ...itemWithCodes,
-            confirmedMatch: {
-              id: confirmedCode.id,
-              supplierName: confirmedCode.supplierName,
-              articleCode: confirmedCode.articleCode,
-              matchedProductName: confirmedCode.matchedProductName,
-              catalogUrl: confirmedCode.catalogUrl,
-              basispreis: confirmedCode.basispreis,
-              publikumspreis: confirmedCode.publikumspreis,
-              lastPriceUpdate: confirmedCode.lastPriceUpdate,
-            },
-          };
-          
-          if (hasPrice) {
-            confirmedWithPrice.push(itemData);
-          } else {
-            confirmedNoPrice.push(itemData);
-          }
-        } else {
-          // Only rejected matches - treat as unmatched
-          unmatched.push(itemWithCodes);
-        }
+        // Only rejected matches - treat as unmatched
+        unmatched.push(itemWithCodes);
       }
     }
     
