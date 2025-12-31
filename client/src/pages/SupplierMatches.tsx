@@ -290,13 +290,13 @@ export default function SupplierMatches() {
             <AlertTriangle className="w-3 h-3 mr-1 hidden sm:inline" />
             {t("supplierMatches.toVerify", "To Verify")} ({counts.toVerify})
           </TabsTrigger>
-          <TabsTrigger value="confirmedWithPrice" data-testid="tab-confirmed-price" className="text-xs sm:text-sm">
-            <CheckCircle2 className="w-3 h-3 mr-1 hidden sm:inline" />
-            {t("supplierMatches.confirmedWithPrice", "With Price")} ({counts.confirmedWithPrice})
-          </TabsTrigger>
           <TabsTrigger value="confirmedNoPrice" data-testid="tab-confirmed-no-price" className="text-xs sm:text-sm">
             <DollarSign className="w-3 h-3 mr-1 hidden sm:inline" />
             {t("supplierMatches.confirmedNoPrice", "No Price")} ({counts.confirmedNoPrice})
+          </TabsTrigger>
+          <TabsTrigger value="confirmedWithPrice" data-testid="tab-confirmed-price" className="text-xs sm:text-sm">
+            <CheckCircle2 className="w-3 h-3 mr-1 hidden sm:inline" />
+            {t("supplierMatches.confirmedWithPrice", "With Price")} ({counts.confirmedWithPrice})
           </TabsTrigger>
         </TabsList>
 
