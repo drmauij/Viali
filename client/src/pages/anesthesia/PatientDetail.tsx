@@ -2724,9 +2724,17 @@ export default function PatientDetail() {
               >
                 {/* General Data Section */}
                 <AccordionItem value="general">
-                  <Card className={hasGeneralData() ? "border-white dark:border-white" : ""}>
+                  <Card className={hasGeneralData() || hasAllergiesData() ? "border-white dark:border-white" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-general">
-                      <CardTitle className="text-lg">{t('anesthesia.patientDetail.generalData')}</CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">{t('anesthesia.patientDetail.generalData')}</CardTitle>
+                        {hasAllergiesData() && (
+                          <Badge variant="destructive" className="text-xs">
+                            <AlertCircle className="h-3 w-3 mr-1" />
+                            {t('anesthesia.patientDetail.allergies')}
+                          </Badge>
+                        )}
+                      </div>
                     </AccordionTrigger>
                     <AccordionContent>
                       <CardContent className="space-y-4 pt-0">
