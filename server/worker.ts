@@ -1,7 +1,7 @@
 import { storage } from './storage';
 import { analyzeBulkItemImages } from './openai';
 import { sendBulkImportCompleteEmail } from './resend';
-import { createGalexisClient, type PriceData } from './services/galexisClient';
+import { createGalexisClient, type PriceData, type ProductLookupRequest, type ProductLookupResult } from './services/galexisClient';
 import { createPolymedClient, type PolymedPriceData } from './services/polymedClient';
 import { batchMatchItems, type ItemToMatch } from './services/polymedMatching';
 import { supplierCodes, itemCodes, items, supplierCatalogs } from '@shared/schema';
@@ -143,32 +143,17 @@ async function processNextPriceSyncJob() {
         throw new Error(`Galexis connection failed: ${connectionTest.message}`);
       }
 
-      console.log(`[Worker] Fetching all prices from Galexis...`);
-      const { prices, debugInfo: galexisDebugInfo } = await client.fetchAllPrices((processed, total) => {
-        const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
-        storage.updatePriceSyncJob(job.id, {
-          processedItems: processed,
-          totalItems: total,
-          progressPercent: percent,
-        });
-      });
-
-      console.log(`[Worker] Fetched ${prices.length} prices, matching with inventory items...`);
-      if (galexisDebugInfo) {
-        console.log(`[Worker] Galexis API Debug Info:`, JSON.stringify(galexisDebugInfo, null, 2));
-      }
-
-      await storage.updatePriceSyncJob(job.id, {
-        totalItems: prices.length,
-        progressPercent: 50,
-      });
-
-      const priceMap = new Map<string, PriceData>();
-      for (const price of prices) {
-        if (price.articleCode) {
-          priceMap.set(price.articleCode, price);
-        }
-      }
+      // Get all items from this hospital that have item codes (GTIN/pharmacode)
+      const allHospitalItems = await db
+        .select({
+          itemId: items.id,
+          itemName: items.name,
+          gtin: itemCodes.gtin,
+          pharmacode: itemCodes.pharmacode,
+        })
+        .from(items)
+        .leftJoin(itemCodes, eq(itemCodes.itemId, items.id))
+        .where(eq(items.hospitalId, catalog.hospitalId));
 
       // Get existing Galexis supplier codes for this hospital's items
       const existingSupplierCodes = await db
@@ -186,28 +171,123 @@ async function processNextPriceSyncJob() {
           eq(items.hospitalId, catalog.hospitalId)
         ));
 
-      // Get all items from this hospital that have item codes (GTIN/pharmacode)
-      // but might not have Galexis supplier codes yet
-      const allHospitalItems = await db
-        .select({
-          itemId: items.id,
-          itemName: items.name,
-          gtin: itemCodes.gtin,
-          pharmacode: itemCodes.pharmacode,
-        })
-        .from(items)
-        .leftJoin(itemCodes, eq(itemCodes.itemId, items.id))
-        .where(eq(items.hospitalId, catalog.hospitalId));
-
       // Get set of item IDs that already have Galexis codes
       const itemsWithGalexisCode = new Set(existingSupplierCodes.map(c => c.itemId));
+
+      // Build a map of itemId -> item info for all hospital items
+      const hospitalItemMap = new Map<string, { itemId: string; itemName: string; pharmacode?: string; gtin?: string }>();
+      for (const item of allHospitalItems) {
+        hospitalItemMap.set(item.itemId, {
+          itemId: item.itemId,
+          itemName: item.itemName,
+          pharmacode: item.pharmacode || undefined,
+          gtin: item.gtin || undefined,
+        });
+      }
+
+      // Collect items with pharmacode/GTIN for productAvailability lookup
+      // Include both items from itemCodes AND existing supplier codes (which use articleCode as pharmacode)
+      const itemsToLookup: Array<{ itemId: string; itemName: string; pharmacode?: string; gtin?: string }> = [];
+      const lookupCodes = new Set<string>(); // Track codes already added to avoid duplicates
+
+      // First, add items with pharmacode/GTIN from itemCodes
+      for (const item of allHospitalItems) {
+        if (item.pharmacode || item.gtin) {
+          itemsToLookup.push({
+            itemId: item.itemId,
+            itemName: item.itemName,
+            pharmacode: item.pharmacode || undefined,
+            gtin: item.gtin || undefined,
+          });
+          if (item.pharmacode) lookupCodes.add(item.pharmacode);
+          if (item.gtin) lookupCodes.add(item.gtin);
+        }
+      }
+
+      // Second, add existing Galexis supplier codes that aren't already covered
+      // (for items that have supplier codes but no itemCodes entry)
+      for (const code of existingSupplierCodes) {
+        if (code.articleCode && !lookupCodes.has(code.articleCode)) {
+          const itemInfo = hospitalItemMap.get(code.itemId);
+          itemsToLookup.push({
+            itemId: code.itemId,
+            itemName: itemInfo?.itemName || 'Unknown',
+            pharmacode: code.articleCode, // articleCode is the pharmacode for Galexis
+          });
+          lookupCodes.add(code.articleCode);
+        }
+      }
+
+      console.log(`[Worker] Found ${itemsToLookup.length} items to lookup in Galexis (${existingSupplierCodes.length} existing supplier codes)`);
+      
+      await storage.updatePriceSyncJob(job.id, {
+        totalItems: itemsToLookup.length,
+        progressPercent: 10,
+      });
+
+      // Use productAvailability API to lookup prices for items with pharmacode/GTIN
+      let galexisDebugInfo: any = null;
+      const priceMap = new Map<string, PriceData>();
+      
+      if (itemsToLookup.length > 0) {
+        console.log(`[Worker] Using Galexis productAvailability API to lookup ${itemsToLookup.length} products...`);
+        
+        // Build lookup requests - prefer pharmacode over GTIN
+        const lookupRequests: ProductLookupRequest[] = [];
+        for (const item of itemsToLookup) {
+          if (item.pharmacode) {
+            lookupRequests.push({ pharmacode: item.pharmacode });
+          } else if (item.gtin) {
+            lookupRequests.push({ gtin: item.gtin });
+          }
+        }
+
+        try {
+          const { results: lookupResults, debugInfo } = await client.lookupProductsBatch(
+            lookupRequests,
+            50, // batch size
+            (processed, total, found) => {
+              const percent = 10 + Math.round((processed / total) * 40); // 10-50%
+              storage.updatePriceSyncJob(job.id, {
+                processedItems: processed,
+                progressPercent: percent,
+              });
+            }
+          );
+          
+          galexisDebugInfo = debugInfo;
+          console.log(`[Worker] ProductAvailability completed: ${lookupResults.filter(r => r.found).length}/${lookupResults.length} found`);
+
+          // Build price map from lookup results
+          for (const result of lookupResults) {
+            if (result.found && result.price) {
+              priceMap.set(result.pharmacode, result.price);
+              if (result.gtin) {
+                priceMap.set(result.gtin, result.price);
+              }
+            }
+          }
+        } catch (lookupError: any) {
+          console.error(`[Worker] ProductAvailability lookup failed:`, lookupError.message);
+          galexisDebugInfo = {
+            error: lookupError.message,
+            errorType: 'productAvailability',
+            timestamp: new Date().toISOString(),
+          };
+        }
+      }
+
+      console.log(`[Worker] Got ${priceMap.size} prices from Galexis, matching with inventory items...`);
+
+      await storage.updatePriceSyncJob(job.id, {
+        progressPercent: 50,
+      });
 
       let matchedCount = 0;
       let updatedCount = 0;
       const unmatchedWithCodes: Array<{ itemId: string; itemName: string; gtin?: string; pharmacode?: string }> = [];
 
       // Update prices for items with existing supplier codes
-      // Also set Galexis as preferred supplier (since it's cheaper) and demote others
       for (const code of existingSupplierCodes) {
         if (code.articleCode && priceMap.has(code.articleCode)) {
           matchedCount++;
@@ -239,35 +319,45 @@ async function processNextPriceSyncJob() {
                 lastPriceUpdate: new Date(),
                 lastChecked: new Date(),
                 updatedAt: new Date(),
-                isPreferred: true, // Galexis becomes preferred (cheaper)
+                isPreferred: true,
               })
               .where(eq(supplierCodes.id, code.id));
             
             updatedCount++;
-            console.log(`[Worker] Updated price for item ${code.itemId}: ${code.basispreis} -> ${priceData.basispreis} (set as preferred)`);
+            console.log(`[Worker] Updated price for item ${code.itemId}: ${code.basispreis} -> ${priceData.basispreis}`);
           } else {
             await db
               .update(supplierCodes)
               .set({
                 lastChecked: new Date(),
-                isPreferred: true, // Galexis becomes preferred (cheaper)
+                isPreferred: true,
               })
               .where(eq(supplierCodes.id, code.id));
           }
         }
       }
 
-      // Try to auto-match items by Pharmacode and create supplier codes
+      // Try to auto-match items by Pharmacode/GTIN and create supplier codes
       let autoMatchedCount = 0;
       let autoCreatedCount = 0;
       
-      for (const item of allHospitalItems) {
+      for (const item of itemsToLookup) {
         if (!itemsWithGalexisCode.has(item.itemId)) {
-          // Try to match by Pharmacode first (Galexis uses Pharmacode as their article code)
+          // Try to match by Pharmacode first, then GTIN
           const pharmacode = item.pharmacode;
+          const gtin = item.gtin;
+          let priceData: PriceData | undefined;
+          let matchedCode: string | undefined;
+          
           if (pharmacode && priceMap.has(pharmacode)) {
-            const priceData = priceMap.get(pharmacode)!;
-            
+            priceData = priceMap.get(pharmacode);
+            matchedCode = pharmacode;
+          } else if (gtin && priceMap.has(gtin)) {
+            priceData = priceMap.get(gtin);
+            matchedCode = pharmacode || gtin; // Use pharmacode as article code if available
+          }
+          
+          if (priceData && matchedCode) {
             // First, demote any other preferred suppliers for this item
             await db
               .update(supplierCodes)
@@ -280,44 +370,46 @@ async function processNextPriceSyncJob() {
                 eq(supplierCodes.isPreferred, true)
               ));
             
-            // Create new Galexis supplier code with this pharmacode (as preferred)
+            // Create new Galexis supplier code
             try {
               const newId = randomUUID();
               await db.insert(supplierCodes).values({
                 id: newId,
                 itemId: item.itemId,
                 supplierName: 'Galexis',
-                articleCode: pharmacode,
+                articleCode: matchedCode,
                 basispreis: String(priceData.basispreis),
                 publikumspreis: String(priceData.publikumspreis),
                 lastPriceUpdate: new Date(),
                 lastChecked: new Date(),
-                isPreferred: true, // Galexis becomes preferred (cheaper)
+                isPreferred: true,
                 createdAt: new Date(),
                 updatedAt: new Date(),
               });
               
               autoMatchedCount++;
               autoCreatedCount++;
-              itemsWithGalexisCode.add(item.itemId); // Mark as matched
-              console.log(`[Worker] Auto-matched item "${item.itemName}" by pharmacode ${pharmacode}, created supplier code (set as preferred)`);
+              itemsWithGalexisCode.add(item.itemId);
+              console.log(`[Worker] Auto-matched item "${item.itemName}" by ${pharmacode ? 'pharmacode' : 'GTIN'} ${matchedCode}, price=${priceData.basispreis}`);
             } catch (err: any) {
               console.error(`[Worker] Failed to create supplier code for item ${item.itemId}:`, err.message);
             }
-          } else if (item.gtin || item.pharmacode) {
+          } else {
             // Has codes but no match found
             unmatchedWithCodes.push({
               itemId: item.itemId,
               itemName: item.itemName,
-              gtin: item.gtin || undefined,
-              pharmacode: item.pharmacode || undefined,
+              gtin: gtin || undefined,
+              pharmacode: pharmacode || undefined,
             });
           }
         }
       }
 
       const summary = {
-        totalPricesFetched: prices.length,
+        syncMethod: 'productAvailability',
+        totalItemsLookedUp: itemsToLookup.length,
+        totalPricesFound: priceMap.size,
         totalItemsInHospital: allHospitalItems.length,
         itemsWithSupplierCode: existingSupplierCodes.length + autoCreatedCount,
         matchedItems: matchedCount + autoMatchedCount,
@@ -327,18 +419,17 @@ async function processNextPriceSyncJob() {
         unmatchedSupplierCodes: existingSupplierCodes.length - matchedCount,
         itemsWithoutSupplierCode: allHospitalItems.length - existingSupplierCodes.length - autoCreatedCount,
         itemsWithGtinNoSupplierCode: unmatchedWithCodes.length,
-        unmatchedItems: unmatchedWithCodes.slice(0, 50), // First 50 for display
-        // Include Galexis API debug info for troubleshooting
+        unmatchedItems: unmatchedWithCodes.slice(0, 50),
         galexisApiDebug: galexisDebugInfo || null,
       };
 
-      console.log(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched by pharmacode, ${unmatchedWithCodes.length} items still unmatched`);
+      console.log(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched, ${unmatchedWithCodes.length} items still unmatched`);
 
       await storage.updatePriceSyncJob(job.id, {
         status: 'completed',
         completedAt: new Date(),
-        totalItems: prices.length,
-        processedItems: prices.length,
+        totalItems: itemsToLookup.length,
+        processedItems: itemsToLookup.length,
         matchedItems: matchedCount + autoMatchedCount,
         updatedItems: updatedCount,
         progressPercent: 100,
@@ -346,7 +437,7 @@ async function processNextPriceSyncJob() {
       });
 
       const syncMessage = autoMatchedCount > 0 
-        ? `Matched ${matchedCount + autoMatchedCount} items (${autoMatchedCount} auto-matched by pharmacode), updated ${updatedCount} prices`
+        ? `Matched ${matchedCount + autoMatchedCount} items (${autoMatchedCount} auto-matched), updated ${updatedCount} prices`
         : `Matched ${matchedCount} items, updated ${updatedCount} prices`;
 
       await storage.updateSupplierCatalog(job.catalogId, {
