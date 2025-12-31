@@ -320,6 +320,7 @@ async function processNextPriceSyncJob() {
                 lastChecked: new Date(),
                 updatedAt: new Date(),
                 isPreferred: true,
+                matchStatus: 'confirmed',
               })
               .where(eq(supplierCodes.id, code.id));
             
@@ -331,6 +332,7 @@ async function processNextPriceSyncJob() {
               .set({
                 lastChecked: new Date(),
                 isPreferred: true,
+                matchStatus: 'confirmed',
               })
               .where(eq(supplierCodes.id, code.id));
           }
@@ -383,6 +385,7 @@ async function processNextPriceSyncJob() {
                 lastPriceUpdate: new Date(),
                 lastChecked: new Date(),
                 isPreferred: true,
+                matchStatus: 'confirmed',
                 createdAt: new Date(),
                 updatedAt: new Date(),
               });
