@@ -6,9 +6,11 @@ import {
   insertItemSchema, 
   insertFolderSchema,
   items,
-  stockLevels
+  stockLevels,
+  supplierCodes,
+  itemCodes
 } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import {
   getUserUnitForHospital,
   getActiveUnitIdFromRequest,
@@ -904,6 +906,148 @@ router.get('/api/supplier-matches/:hospitalId/confirmed', isAuthenticated, async
   }
 });
 
+// Get items categorized by match status for improved UI
+// Categories: unmatched, to-verify, confirmed-with-price, confirmed-no-price
+router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some(h => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    // Get all items for this hospital
+    const allItems = await db
+      .select({
+        id: items.id,
+        name: items.name,
+        description: items.description,
+      })
+      .from(items)
+      .where(eq(items.hospitalId, hospitalId));
+    
+    // Get all supplier codes for these items
+    const itemIds = allItems.map(i => i.id);
+    const allSupplierCodes = itemIds.length > 0 
+      ? await db
+          .select()
+          .from(supplierCodes)
+          .where(inArray(supplierCodes.itemId, itemIds))
+      : [];
+    
+    // Get all item codes for these items
+    const allItemCodes = itemIds.length > 0
+      ? await db
+          .select()
+          .from(itemCodes)
+          .where(inArray(itemCodes.itemId, itemIds))
+      : [];
+    
+    // Build lookup maps
+    const supplierCodesByItem = new Map<string, typeof allSupplierCodes>();
+    for (const code of allSupplierCodes) {
+      if (!supplierCodesByItem.has(code.itemId)) {
+        supplierCodesByItem.set(code.itemId, []);
+      }
+      supplierCodesByItem.get(code.itemId)!.push(code);
+    }
+    
+    const itemCodesByItem = new Map<string, typeof allItemCodes[0]>();
+    for (const code of allItemCodes) {
+      itemCodesByItem.set(code.itemId, code);
+    }
+    
+    // Categorize items
+    const unmatched: any[] = [];
+    const toVerify: any[] = [];
+    const confirmedWithPrice: any[] = [];
+    const confirmedNoPrice: any[] = [];
+    
+    for (const item of allItems) {
+      const codes = supplierCodesByItem.get(item.id) || [];
+      const itemCode = itemCodesByItem.get(item.id);
+      
+      // Find the best/active supplier code
+      const activeCode = codes.find(c => c.matchStatus === 'confirmed') || codes.find(c => c.matchStatus === 'pending');
+      const pendingCodes = codes.filter(c => c.matchStatus === 'pending');
+      
+      const itemWithCodes = {
+        ...item,
+        itemCode: itemCode || null,
+        supplierCodes: codes,
+      };
+      
+      if (codes.length === 0) {
+        // No supplier matches at all
+        unmatched.push(itemWithCodes);
+      } else if (pendingCodes.length > 0) {
+        // Has pending matches that need verification
+        toVerify.push({
+          ...itemWithCodes,
+          pendingMatches: pendingCodes.map(c => ({
+            id: c.id,
+            supplierName: c.supplierName,
+            articleCode: c.articleCode,
+            matchedProductName: c.matchedProductName,
+            catalogUrl: c.catalogUrl,
+            matchConfidence: c.matchConfidence,
+            matchReason: c.matchReason,
+            basispreis: c.basispreis,
+          })),
+        });
+      } else {
+        // All matches are confirmed or rejected
+        const confirmedCode = codes.find(c => c.matchStatus === 'confirmed');
+        if (confirmedCode) {
+          const hasPrice = confirmedCode.basispreis && parseFloat(String(confirmedCode.basispreis)) > 0;
+          const itemData = {
+            ...itemWithCodes,
+            confirmedMatch: {
+              id: confirmedCode.id,
+              supplierName: confirmedCode.supplierName,
+              articleCode: confirmedCode.articleCode,
+              matchedProductName: confirmedCode.matchedProductName,
+              catalogUrl: confirmedCode.catalogUrl,
+              basispreis: confirmedCode.basispreis,
+              publikumspreis: confirmedCode.publikumspreis,
+              lastPriceUpdate: confirmedCode.lastPriceUpdate,
+            },
+          };
+          
+          if (hasPrice) {
+            confirmedWithPrice.push(itemData);
+          } else {
+            confirmedNoPrice.push(itemData);
+          }
+        } else {
+          // Only rejected matches - treat as unmatched
+          unmatched.push(itemWithCodes);
+        }
+      }
+    }
+    
+    res.json({
+      unmatched,
+      toVerify,
+      confirmedWithPrice,
+      confirmedNoPrice,
+      counts: {
+        unmatched: unmatched.length,
+        toVerify: toVerify.length,
+        confirmedWithPrice: confirmedWithPrice.length,
+        confirmedNoPrice: confirmedNoPrice.length,
+        total: allItems.length,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching categorized matches:", error);
+    res.status(500).json({ message: "Failed to fetch categorized matches" });
+  }
+});
+
 // Get matches for a specific sync job
 router.get('/api/price-sync-jobs/:jobId/matches', isAuthenticated, async (req: any, res) => {
   try {
@@ -1004,6 +1148,59 @@ router.post('/api/supplier-codes/:id/select', isAuthenticated, async (req: any, 
   } catch (error) {
     console.error("Error selecting match:", error);
     res.status(500).json({ message: "Failed to select match" });
+  }
+});
+
+// Update item codes (pharmacode, GTIN) for an item
+router.put('/api/item-codes/:itemId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { itemId } = req.params;
+    const { pharmacode, gtin } = req.body;
+    
+    // Get the item to verify it exists
+    const item = await storage.getItem(itemId);
+    if (!item) {
+      return res.status(404).json({ message: "Item not found" });
+    }
+    
+    // Check user has access to this item's hospital
+    const userId = req.user.id;
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some(h => h.id === item.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    // Check if item code exists
+    const existingCode = await storage.getItemCode(itemId);
+    
+    if (existingCode) {
+      // Update existing item code
+      const updated = await db
+        .update(itemCodes)
+        .set({
+          pharmacode: pharmacode || null,
+          gtin: gtin || null,
+        })
+        .where(eq(itemCodes.itemId, itemId))
+        .returning();
+      res.json(updated[0]);
+    } else {
+      // Create new item code
+      const created = await db
+        .insert(itemCodes)
+        .values({
+          id: crypto.randomUUID(),
+          itemId,
+          pharmacode: pharmacode || null,
+          gtin: gtin || null,
+        })
+        .returning();
+      res.json(created[0]);
+    }
+  } catch (error) {
+    console.error("Error updating item codes:", error);
+    res.status(500).json({ message: "Failed to update item codes" });
   }
 });
 
