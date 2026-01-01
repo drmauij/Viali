@@ -163,6 +163,8 @@ async function processNextPriceSyncJob() {
           articleCode: supplierCodes.articleCode,
           basispreis: supplierCodes.basispreis,
           publikumspreis: supplierCodes.publikumspreis,
+          matchedProductName: supplierCodes.matchedProductName,
+          catalogUrl: supplierCodes.catalogUrl,
         })
         .from(supplierCodes)
         .innerJoin(items, eq(items.id, supplierCodes.itemId))
@@ -311,6 +313,9 @@ async function processNextPriceSyncJob() {
             ));
 
           if (hasChanges) {
+            // Construct catalog URL using pharmacode (dispocura.galexis.com)
+            const catalogUrl = code.articleCode ? `https://dispocura.galexis.com/app#/articles/${code.articleCode}` : undefined;
+            
             await db
               .update(supplierCodes)
               .set({
@@ -321,18 +326,25 @@ async function processNextPriceSyncJob() {
                 updatedAt: new Date(),
                 isPreferred: true,
                 matchStatus: 'confirmed',
+                matchedProductName: priceData.description || undefined,
+                catalogUrl: catalogUrl,
               })
               .where(eq(supplierCodes.id, code.id));
             
             updatedCount++;
             console.log(`[Worker] Updated price for item ${code.itemId}: ${code.basispreis} -> ${priceData.basispreis}`);
           } else {
+            // Construct catalog URL using pharmacode (dispocura.galexis.com)
+            const catalogUrl = code.articleCode ? `https://dispocura.galexis.com/app#/articles/${code.articleCode}` : undefined;
+            
             await db
               .update(supplierCodes)
               .set({
                 lastChecked: new Date(),
                 isPreferred: true,
                 matchStatus: 'confirmed',
+                matchedProductName: priceData.description || code.matchedProductName || undefined,
+                catalogUrl: catalogUrl || code.catalogUrl,
               })
               .where(eq(supplierCodes.id, code.id));
           }
@@ -375,6 +387,9 @@ async function processNextPriceSyncJob() {
             // Create new Galexis supplier code
             try {
               const newId = randomUUID();
+              // Construct catalog URL using pharmacode (dispocura.galexis.com)
+              const catalogUrl = matchedCode ? `https://dispocura.galexis.com/app#/articles/${matchedCode}` : undefined;
+              
               await db.insert(supplierCodes).values({
                 id: newId,
                 itemId: item.itemId,
@@ -386,6 +401,8 @@ async function processNextPriceSyncJob() {
                 lastChecked: new Date(),
                 isPreferred: true,
                 matchStatus: 'confirmed',
+                matchedProductName: priceData.description || undefined,
+                catalogUrl: catalogUrl,
                 createdAt: new Date(),
                 updatedAt: new Date(),
               });
