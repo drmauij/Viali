@@ -38,7 +38,12 @@ export default function Hospital() {
   const { toast } = useToast();
 
   // Internal tab state
-  const [activeTab, setActiveTab] = useState<"units" | "checklists" | "suppliers" | "integrations">("units");
+  const [activeTab, setActiveTab] = useState<"units" | "rooms" | "checklists" | "suppliers" | "integrations">("units");
+  
+  // Rooms management state
+  const [roomDialogOpen, setRoomDialogOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<any | null>(null);
+  const [roomFormName, setRoomFormName] = useState('');
   
   // TimeButler integration states
   const [timebutlerApiToken, setTimebutlerApiToken] = useState("");
@@ -105,6 +110,13 @@ export default function Hospital() {
   // Fetch units
   const { data: units = [], isLoading: unitsLoading } = useQuery<Unit[]>({
     queryKey: [`/api/admin/${activeHospital?.id}/units`],
+    enabled: !!activeHospital?.id && isAdmin,
+  });
+
+  // Fetch surgery rooms
+  type SurgeryRoom = { id: string; name: string; hospitalId: string; sortOrder: number; createdAt: string };
+  const { data: surgeryRooms = [], isLoading: roomsLoading } = useQuery<SurgeryRoom[]>({
+    queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
@@ -216,6 +228,60 @@ export default function Hospital() {
     },
     onError: (error: any) => {
       toast({ title: t("common.error"), description: error.message || t("admin.failedToDeleteUnit"), variant: "destructive" });
+    },
+  });
+
+  // Surgery Room mutations
+  const createRoomMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return apiRequest('POST', `/api/surgery-rooms`, { hospitalId: activeHospital?.id, name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
+      toast({ title: t('common.success'), description: t('admin.roomCreated', 'Room created successfully') });
+      setRoomDialogOpen(false);
+      setRoomFormName('');
+    },
+    onError: (error: any) => {
+      toast({ title: t('common.error'), description: error.message || t('admin.failedToCreateRoom', 'Failed to create room'), variant: "destructive" });
+    },
+  });
+
+  const updateRoomMutation = useMutation({
+    mutationFn: async ({ roomId, name }: { roomId: string; name: string }) => {
+      return apiRequest('PUT', `/api/surgery-rooms/${roomId}`, { name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
+      toast({ title: t('common.success'), description: t('admin.roomUpdated', 'Room updated successfully') });
+      setRoomDialogOpen(false);
+      setEditingRoom(null);
+      setRoomFormName('');
+    },
+    onError: (error: any) => {
+      toast({ title: t('common.error'), description: error.message || t('admin.failedToUpdateRoom', 'Failed to update room'), variant: "destructive" });
+    },
+  });
+
+  const deleteRoomMutation = useMutation({
+    mutationFn: async (roomId: string) => {
+      return apiRequest('DELETE', `/api/surgery-rooms/${roomId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
+      toast({ title: t('common.success'), description: t('admin.roomDeleted', 'Room deleted successfully') });
+    },
+    onError: (error: any) => {
+      toast({ title: t('common.error'), description: error.message || t('admin.failedToDeleteRoom', 'Cannot delete room - it may have surgeries scheduled'), variant: "destructive" });
+    },
+  });
+
+  const reorderRoomsMutation = useMutation({
+    mutationFn: async (roomIds: string[]) => {
+      return apiRequest('PUT', `/api/surgery-rooms/reorder`, { roomIds });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
     },
   });
 
@@ -542,6 +608,21 @@ export default function Hospital() {
     } else {
       createUnitMutation.mutate(data);
     }
+  };
+
+  // Room helper functions
+  const moveRoom = (roomId: string, direction: 'up' | 'down') => {
+    const currentIndex = surgeryRooms.findIndex(r => r.id === roomId);
+    if (currentIndex === -1) return;
+    
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+    if (newIndex < 0 || newIndex >= surgeryRooms.length) return;
+    
+    const newOrder = [...surgeryRooms];
+    const [removed] = newOrder.splice(currentIndex, 1);
+    newOrder.splice(newIndex, 0, removed);
+    
+    reorderRoomsMutation.mutate(newOrder.map(r => r.id));
   };
 
   const handleAddTemplate = () => {
@@ -941,6 +1022,18 @@ export default function Hospital() {
         </button>
         <button
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === "rooms"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+          onClick={() => setActiveTab("rooms")}
+          data-testid="tab-rooms"
+        >
+          <i className="fas fa-door-open mr-2"></i>
+          {t("admin.rooms", "Rooms")}
+        </button>
+        <button
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             activeTab === "checklists"
               ? "bg-primary text-primary-foreground"
               : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -1031,6 +1124,103 @@ export default function Hospital() {
                           }
                         }}
                         data-testid={`button-delete-unit-${unit.id}`}
+                      >
+                        <i className="fas fa-trash text-destructive"></i>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Rooms Tab Content */}
+      {activeTab === "rooms" && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold text-foreground">{t("admin.rooms", "Rooms")}</h2>
+            <Button
+              onClick={() => {
+                setEditingRoom(null);
+                setRoomFormName('');
+                setRoomDialogOpen(true);
+              }}
+              size="sm"
+              data-testid="button-add-room"
+            >
+              <i className="fas fa-plus mr-2"></i>
+              {t("admin.addRoom", "Add Room")}
+            </Button>
+          </div>
+
+          {roomsLoading ? (
+            <div className="text-center py-8">
+              <i className="fas fa-spinner fa-spin text-2xl text-primary"></i>
+            </div>
+          ) : surgeryRooms.length === 0 ? (
+            <div className="bg-card border border-border rounded-lg p-8 text-center">
+              <i className="fas fa-door-open text-4xl text-muted-foreground mb-4"></i>
+              <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noRooms", "No rooms configured")}</h3>
+              <p className="text-muted-foreground mb-4">{t("admin.noRoomsMessage", "Add surgery rooms to organize your schedules")}</p>
+              <Button
+                onClick={() => {
+                  setEditingRoom(null);
+                  setRoomFormName('');
+                  setRoomDialogOpen(true);
+                }}
+                size="sm"
+              >
+                <i className="fas fa-plus mr-2"></i>
+                {t("admin.addRoom", "Add Room")}
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {surgeryRooms.map((room, index) => (
+                <div key={room.id} className="bg-card border border-border rounded-lg p-4" data-testid={`room-${room.id}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="flex flex-col gap-1">
+                        <button
+                          onClick={() => moveRoom(room.id, 'up')}
+                          disabled={index === 0}
+                          className={`p-1 rounded hover:bg-muted ${index === 0 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                          data-testid={`button-move-room-up-${room.id}`}
+                        >
+                          <i className="fas fa-chevron-up text-xs"></i>
+                        </button>
+                        <button
+                          onClick={() => moveRoom(room.id, 'down')}
+                          disabled={index === surgeryRooms.length - 1}
+                          className={`p-1 rounded hover:bg-muted ${index === surgeryRooms.length - 1 ? 'opacity-30 cursor-not-allowed' : ''}`}
+                          data-testid={`button-move-room-down-${room.id}`}
+                        >
+                          <i className="fas fa-chevron-down text-xs"></i>
+                        </button>
+                      </div>
+                      <h3 className="font-semibold text-foreground">{room.name}</h3>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setEditingRoom(room);
+                          setRoomFormName(room.name);
+                          setRoomDialogOpen(true);
+                        }}
+                        data-testid={`button-edit-room-${room.id}`}
+                      >
+                        <i className="fas fa-edit"></i>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => deleteRoomMutation.mutate(room.id)}
+                        disabled={deleteRoomMutation.isPending}
+                        data-testid={`button-delete-room-${room.id}`}
                       >
                         <i className="fas fa-trash text-destructive"></i>
                       </Button>
@@ -1691,6 +1881,49 @@ export default function Hospital() {
                 data-testid="button-save-unit"
               >
                 {editingUnit ? t("common.edit") : t("common.save")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Room Dialog */}
+      <Dialog open={roomDialogOpen} onOpenChange={setRoomDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingRoom ? t("admin.editRoom", "Edit Room") : t("admin.addRoom", "Add Room")}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="room-name">{t("admin.roomName", "Room Name")} *</Label>
+              <Input
+                id="room-name"
+                value={roomFormName}
+                onChange={(e) => setRoomFormName(e.target.value)}
+                placeholder={t("admin.roomNamePlaceholder", "e.g., OR 1, Recovery Room A")}
+                data-testid="input-room-name"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setRoomDialogOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={() => {
+                  if (!roomFormName.trim()) {
+                    toast({ title: t("common.error"), description: t("admin.roomNameRequired", "Room name is required"), variant: "destructive" });
+                    return;
+                  }
+                  if (editingRoom) {
+                    updateRoomMutation.mutate({ roomId: editingRoom.id, name: roomFormName.trim() });
+                  } else {
+                    createRoomMutation.mutate(roomFormName.trim());
+                  }
+                }}
+                disabled={createRoomMutation.isPending || updateRoomMutation.isPending}
+                data-testid="button-save-room"
+              >
+                {editingRoom ? t("common.edit") : t("common.save")}
               </Button>
             </div>
           </div>
