@@ -387,6 +387,24 @@ export default function Items() {
     queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
     enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
+
+  // Fetch item codes for search by pharmacode/GTIN
+  const { data: itemCodesData = [] } = useQuery<{ itemId: string; gtin: string | null; pharmacode: string | null }[]>({
+    queryKey: [`/api/items/${activeHospital?.id}/codes`, activeHospital?.unitId],
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
+  });
+
+  // Create a map of itemId to codes for efficient lookup during search
+  const itemCodesMap = useMemo(() => {
+    const map = new Map<string, { gtin?: string; pharmacode?: string }>();
+    for (const code of itemCodesData) {
+      map.set(code.itemId, {
+        gtin: code.gtin || undefined,
+        pharmacode: code.pharmacode || undefined,
+      });
+    }
+    return map;
+  }, [itemCodesData]);
   
   // Show onboarding when there are no items
   useEffect(() => {
@@ -2403,12 +2421,25 @@ export default function Items() {
   const filterAndSortItems = (itemsToFilter: ItemWithStock[]) => {
     let filtered = itemsToFilter;
 
-    // Apply search filter
+    // Apply search filter (name, description, pharmacode, GTIN)
     if (searchTerm) {
-      filtered = filtered.filter(item =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.description?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(item => {
+        // Search by name or description
+        if (item.name.toLowerCase().includes(searchLower) ||
+            item.description?.toLowerCase().includes(searchLower)) {
+          return true;
+        }
+        // Search by pharmacode or GTIN
+        const codes = itemCodesMap.get(item.id);
+        if (codes) {
+          if (codes.pharmacode?.toLowerCase().includes(searchLower) ||
+              codes.gtin?.toLowerCase().includes(searchLower)) {
+            return true;
+          }
+        }
+        return false;
+      });
     }
 
     // Apply category filter
@@ -2466,7 +2497,7 @@ export default function Items() {
         items: filterAndSortItems(group.items),
       })).filter(group => group.items.length > 0 || searchTerm === ""),
     };
-  }, [items, folders, searchTerm, activeFilter, sortBy]);
+  }, [items, folders, searchTerm, activeFilter, sortBy, itemCodesMap]);
 
   const filteredItems = useMemo(() => {
     return [...organizedItems.rootItems, ...organizedItems.folderGroups.flatMap(g => g.items)];

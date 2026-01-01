@@ -240,6 +240,40 @@ router.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
   }
 });
 
+// Get all item codes for a hospital (for search functionality)
+router.get('/api/items/:hospitalId/codes', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { unitId } = req.query;
+    const userId = req.user.id;
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some(h => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    
+    // Get all item codes for items in this hospital/unit
+    const codes = await db
+      .select({
+        itemId: itemCodes.itemId,
+        gtin: itemCodes.gtin,
+        pharmacode: itemCodes.pharmacode,
+      })
+      .from(itemCodes)
+      .innerJoin(items, eq(items.id, itemCodes.itemId))
+      .where(unitId 
+        ? and(eq(items.hospitalId, hospitalId), eq(items.unitId, unitId as string))
+        : eq(items.hospitalId, hospitalId)
+      );
+    
+    res.json(codes);
+  } catch (error) {
+    console.error("Error fetching item codes:", error);
+    res.status(500).json({ message: "Failed to fetch item codes" });
+  }
+});
+
 router.get('/api/items/detail/:itemId', isAuthenticated, async (req: any, res) => {
   try {
     const { itemId } = req.params;

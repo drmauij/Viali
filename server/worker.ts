@@ -331,6 +331,15 @@ async function processNextPriceSyncJob() {
               })
               .where(eq(supplierCodes.id, code.id));
             
+            // Also update item description if we have a product name from Galexis
+            if (priceData.description) {
+              const existingItem = await db.select({ description: items.description }).from(items).where(eq(items.id, code.itemId)).limit(1);
+              if (existingItem.length > 0 && (!existingItem[0].description || existingItem[0].description !== priceData.description)) {
+                await db.update(items).set({ description: priceData.description, updatedAt: new Date() }).where(eq(items.id, code.itemId));
+                console.log(`[Worker] Updated item description for ${code.itemId}: "${priceData.description}"`);
+              }
+            }
+            
             updatedCount++;
             console.log(`[Worker] Updated price for item ${code.itemId}: ${code.basispreis} -> ${priceData.basispreis}`);
           } else {
@@ -347,6 +356,15 @@ async function processNextPriceSyncJob() {
                 catalogUrl: catalogUrl || code.catalogUrl,
               })
               .where(eq(supplierCodes.id, code.id));
+            
+            // Also update item description if we have a product name from Galexis and item has no description
+            if (priceData.description) {
+              const existingItem = await db.select({ description: items.description }).from(items).where(eq(items.id, code.itemId)).limit(1);
+              if (existingItem.length > 0 && !existingItem[0].description) {
+                await db.update(items).set({ description: priceData.description, updatedAt: new Date() }).where(eq(items.id, code.itemId));
+                console.log(`[Worker] Updated item description for ${code.itemId}: "${priceData.description}"`);
+              }
+            }
           }
         }
       }
@@ -406,6 +424,15 @@ async function processNextPriceSyncJob() {
                 createdAt: new Date(),
                 updatedAt: new Date(),
               });
+              
+              // Also update item description if we have a product name from Galexis
+              if (priceData.description) {
+                const existingItem = await db.select({ description: items.description }).from(items).where(eq(items.id, item.itemId)).limit(1);
+                if (existingItem.length > 0 && !existingItem[0].description) {
+                  await db.update(items).set({ description: priceData.description, updatedAt: new Date() }).where(eq(items.id, item.itemId));
+                  console.log(`[Worker] Updated item description for ${item.itemId}: "${priceData.description}"`);
+                }
+              }
               
               autoMatchedCount++;
               autoCreatedCount++;
