@@ -388,6 +388,34 @@ export default function Items() {
     enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
 
+  // Fetch runway data for inline stock indicators
+  interface RunwayItem {
+    itemId: string;
+    runwayDays: number | null;
+    dailyUsage: number;
+    status: 'stockout' | 'critical' | 'warning' | 'ok' | 'no_data';
+  }
+  interface RunwayData {
+    items: RunwayItem[];
+    targetRunway: number;
+    warningDays: number;
+  }
+  const { data: runwayData } = useQuery<RunwayData>({
+    queryKey: [`/api/items/${activeHospital?.id}/runway?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
+  });
+
+  // Create a map for quick runway lookup
+  const runwayMap = useMemo(() => {
+    const map = new Map<string, RunwayItem>();
+    if (runwayData?.items) {
+      for (const item of runwayData.items) {
+        map.set(item.itemId, item);
+      }
+    }
+    return map;
+  }, [runwayData]);
+
   // Fetch item codes for search by pharmacode/GTIN
   const { data: itemCodesData = [] } = useQuery<{ itemId: string; gtin: string | null; pharmacode: string | null }[]>({
     queryKey: [`/api/items/${activeHospital?.id}/codes`, activeHospital?.unitId],
@@ -2919,6 +2947,31 @@ export default function Items() {
                                     <div className="flex items-start gap-2">
                                       <h3 className="text-sm font-semibold text-foreground truncate flex-1">{item.name}</h3>
                                       <div className="flex gap-1 flex-shrink-0">
+                                        {/* Runway indicator badge */}
+                                        {(() => {
+                                          const runway = runwayMap.get(item.id);
+                                          if (!runway || runway.status === 'ok' || runway.status === 'no_data') return null;
+                                          const colors = {
+                                            stockout: 'bg-red-500 text-white',
+                                            critical: 'bg-orange-500 text-white',
+                                            warning: 'bg-yellow-500 text-white',
+                                          };
+                                          const icons = {
+                                            stockout: 'fas fa-ban',
+                                            critical: 'fas fa-exclamation-triangle',
+                                            warning: 'fas fa-clock',
+                                          };
+                                          return (
+                                            <span 
+                                              className={`px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${colors[runway.status]}`}
+                                              title={runway.runwayDays !== null ? t('items.runwayDays', { days: runway.runwayDays }) : t('items.outOfStock')}
+                                              data-testid={`item-${item.id}-runway`}
+                                            >
+                                              <i className={icons[runway.status]}></i>
+                                              {runway.runwayDays !== null ? `${runway.runwayDays}d` : '0'}
+                                            </span>
+                                          );
+                                        })()}
                                         {item.critical && (
                                           <span className="status-chip chip-critical text-xs" data-testid={`item-${item.id}-critical`}>
                                             <i className="fas fa-exclamation-circle"></i>

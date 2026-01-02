@@ -267,6 +267,13 @@
       "when": 1767098090620,
       "tag": "0037_skinny_sunfire",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1767348045343,
+      "tag": "0038_careful_excalibur",
+      "breakpoints": true
     }
   ]
 }

@@ -1252,7 +1252,7 @@ router.put('/api/item-codes/:itemId', isAuthenticated, async (req: any, res) => 
 router.get('/api/items/:hospitalId/runway', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const { unitId, lookbackDays = 30, targetRunway = 14 } = req.query;
+    const { unitId } = req.query;
     const userId = req.user.id;
     
     const userHospitals = await storage.getUserHospitals(userId);
@@ -1260,6 +1260,17 @@ router.get('/api/items/:hospitalId/runway', isAuthenticated, async (req: any, re
     if (!hasAccess) {
       return res.status(403).json({ message: "Access denied" });
     }
+    
+    // Get hospital config for runway settings
+    const hospital = await storage.getHospital(hospitalId);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    
+    // Use hospital-configured values or defaults
+    const lookbackDays = hospital.runwayLookbackDays ?? 30;
+    const targetRunway = hospital.runwayTargetDays ?? 14;
+    const warningDays = hospital.runwayWarningDays ?? 7;
     
     // Get all items for this hospital/unit
     const itemsList = await storage.getItems(hospitalId, unitId);
@@ -1338,15 +1349,15 @@ router.get('/api/items/:hospitalId/runway', isAuthenticated, async (req: any, re
         runwayDays = null; // Indicates "unknown" - no usage pattern
       }
       
-      // Status based on runway
+      // Status based on runway - use hospital-configured thresholds
       let status: 'critical' | 'warning' | 'ok' | 'no_data' | 'stockout';
       if (currentUnits === 0 && packsOnHand === 0) {
         status = 'stockout';
       } else if (runwayDays === null) {
         status = 'no_data';
-      } else if (runwayDays < 7) {
+      } else if (runwayDays < warningDays) {
         status = 'critical';
-      } else if (runwayDays < Number(targetRunway)) {
+      } else if (runwayDays < targetRunway) {
         status = 'warning';
       } else {
         status = 'ok';
@@ -1383,8 +1394,9 @@ router.get('/api/items/:hospitalId/runway', isAuthenticated, async (req: any, re
         noData: runwayData.filter(i => i.status === 'no_data').length,
         ok: runwayData.filter(i => i.status === 'ok').length,
       },
-      lookbackDays: Number(lookbackDays),
-      targetRunway: Number(targetRunway),
+      lookbackDays,
+      targetRunway,
+      warningDays,
     });
   } catch (error) {
     console.error("Error calculating runway:", error);
@@ -1424,10 +1436,26 @@ router.post('/api/items/:hospitalId/send-stock-alerts', isAuthenticated, async (
       });
     }
     
-    // Get runway data for items needing attention
-    const itemsList = await storage.getItems(hospitalId);
+    // Use hospital-configured runway settings
+    const lookbackDays = hospital.runwayLookbackDays ?? 30;
+    const targetRunway = hospital.runwayTargetDays ?? 14;
+    const warningDays = hospital.runwayWarningDays ?? 7;
+    
+    // Get runway data for items needing attention - query items directly for all units
+    const itemsList = await db
+      .select({
+        id: items.id,
+        name: items.name,
+        packSize: items.packSize,
+        trackExactQuantity: items.trackExactQuantity,
+        currentUnits: items.currentUnits,
+        stockLevel: stockLevels,
+      })
+      .from(items)
+      .leftJoin(stockLevels, eq(items.id, stockLevels.itemId))
+      .where(eq(items.hospitalId, hospitalId));
     const lookbackDate = new Date();
-    lookbackDate.setDate(lookbackDate.getDate() - 30);
+    lookbackDate.setDate(lookbackDate.getDate() - lookbackDays);
     
     const usageQuery = await db
       .select({
@@ -1472,7 +1500,7 @@ router.post('/api/items/:hospitalId/send-stock-alerts', isAuthenticated, async (
     
     for (const item of itemsList) {
       const administrations = usageMap.get(item.id) || 0;
-      const dailyUsage = administrations / 30;
+      const dailyUsage = administrations / lookbackDays;
       
       if (dailyUsage === 0) continue; // Skip items with no usage data
       
@@ -1487,9 +1515,9 @@ router.post('/api/items/:hospitalId/send-stock-alerts', isAuthenticated, async (
       let status: 'stockout' | 'critical' | 'warning' | null = null;
       if (currentUnits === 0 && packsOnHand === 0) {
         status = 'stockout';
-      } else if (runwayDays !== null && runwayDays < 7) {
+      } else if (runwayDays !== null && runwayDays < warningDays) {
         status = 'critical';
-      } else if (runwayDays !== null && runwayDays < 14) {
+      } else if (runwayDays !== null && runwayDays < targetRunway) {
         status = 'warning';
       }
       

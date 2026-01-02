@@ -66,6 +66,10 @@ export const hospitals = pgTable("hospitals", {
   companyEmail: varchar("company_email"),
   companyLogoUrl: varchar("company_logo_url"),
   questionnaireToken: varchar("questionnaire_token").unique(),
+  // Stock runway alert configuration
+  runwayTargetDays: integer("runway_target_days").default(14), // Target stock runway in days
+  runwayWarningDays: integer("runway_warning_days").default(7), // Warning threshold (critical below this)
+  runwayLookbackDays: integer("runway_lookback_days").default(30), // Days to look back for usage calculation
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

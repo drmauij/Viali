@@ -73,6 +73,9 @@ export default function Hospital() {
     companyFax: "",
     companyEmail: "",
     companyLogoUrl: "",
+    runwayTargetDays: 14,
+    runwayWarningDays: 7,
+    runwayLookbackDays: 30,
   });
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
@@ -488,6 +491,9 @@ export default function Hospital() {
         companyFax: fullHospitalData.companyFax || "",
         companyEmail: fullHospitalData.companyEmail || "",
         companyLogoUrl: fullHospitalData.companyLogoUrl || "",
+        runwayTargetDays: fullHospitalData.runwayTargetDays ?? 14,
+        runwayWarningDays: fullHospitalData.runwayWarningDays ?? 7,
+        runwayLookbackDays: fullHospitalData.runwayLookbackDays ?? 30,
       });
     }
   }, [fullHospitalData, hospitalDialogOpen]);
@@ -2217,6 +2223,56 @@ export default function Hospital() {
                 placeholder="info@klinik.ch"
                 data-testid="input-company-email"
               />
+            </div>
+
+            {/* Stock Runway Alert Configuration */}
+            <div className="pt-4 border-t">
+              <h4 className="font-medium mb-3 flex items-center gap-2">
+                <i className="fas fa-chart-line text-primary"></i>
+                {t("admin.runwayConfigTitle")}
+              </h4>
+              <p className="text-sm text-muted-foreground mb-4">{t("admin.runwayConfigDescription")}</p>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="runway-target">{t("admin.runwayTargetDays")}</Label>
+                  <Input
+                    id="runway-target"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={hospitalForm.runwayTargetDays}
+                    onChange={(e) => setHospitalForm(prev => ({ ...prev, runwayTargetDays: parseInt(e.target.value) || 14 }))}
+                    data-testid="input-runway-target"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{t("admin.runwayTargetHint")}</p>
+                </div>
+                <div>
+                  <Label htmlFor="runway-warning">{t("admin.runwayWarningDays")}</Label>
+                  <Input
+                    id="runway-warning"
+                    type="number"
+                    min={1}
+                    max={365}
+                    value={hospitalForm.runwayWarningDays}
+                    onChange={(e) => setHospitalForm(prev => ({ ...prev, runwayWarningDays: parseInt(e.target.value) || 7 }))}
+                    data-testid="input-runway-warning"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{t("admin.runwayWarningHint")}</p>
+                </div>
+                <div>
+                  <Label htmlFor="runway-lookback">{t("admin.runwayLookbackDays")}</Label>
+                  <Input
+                    id="runway-lookback"
+                    type="number"
+                    min={7}
+                    max={365}
+                    value={hospitalForm.runwayLookbackDays}
+                    onChange={(e) => setHospitalForm(prev => ({ ...prev, runwayLookbackDays: parseInt(e.target.value) || 30 }))}
+                    data-testid="input-runway-lookback"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">{t("admin.runwayLookbackHint")}</p>
+                </div>
+              </div>
             </div>
 
             {/* Hospital Name (System name) */}
