@@ -186,6 +186,7 @@ export const items = pgTable("items", {
   imageUrl: varchar("image_url"),
   sortOrder: integer("sort_order").default(0),
   patientPrice: decimal("patient_price", { precision: 10, scale: 2 }), // Final patient dispensing price for ambulatory invoices
+  status: varchar("status").default("active").notNull(), // 'active' | 'archived' - archived items hidden from lists but searchable
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -193,6 +194,7 @@ export const items = pgTable("items", {
   index("idx_items_unit").on(table.unitId),
   index("idx_items_vendor").on(table.vendorId),
   index("idx_items_folder").on(table.folderId),
+  index("idx_items_status").on(table.status),
 ]);
 
 // Item Codes (universal product identifiers - one per item)

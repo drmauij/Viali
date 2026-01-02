@@ -26,7 +26,7 @@ import autoTable from "jspdf-autotable";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
 
-type FilterType = "all" | "critical" | "controlled" | "expiring" | "belowMin";
+type FilterType = "all" | "stockout" | "critical" | "warning" | "controlled";
 
 interface ItemWithStock extends Item {
   stockLevel?: StockLevel;
@@ -173,6 +173,7 @@ export default function Items() {
     trackExactQuantity: false,
     imageUrl: "",
     patientPrice: "",
+    status: "active" as "active" | "archived",
   });
   const [formData, setFormData] = useState({
     name: "",
@@ -751,6 +752,7 @@ export default function Items() {
       trackExactQuantity: item.trackExactQuantity || false,
       imageUrl: item.imageUrl || "",
       patientPrice: item.patientPrice || "",
+      status: (item.status as "active" | "archived") || "active",
     });
     setSelectedUnit(normalizeUnit(item.unit));
     setEditDialogTab("details");
@@ -1301,6 +1303,7 @@ export default function Items() {
       controlled: editFormData.controlled,
       imageUrl: editFormData.imageUrl || null,
       patientPrice: editFormData.patientPrice ? editFormData.patientPrice : null,
+      status: editFormData.status,
     };
 
     // Also save codes if they exist
@@ -2449,6 +2452,12 @@ export default function Items() {
   const filterAndSortItems = (itemsToFilter: ItemWithStock[]) => {
     let filtered = itemsToFilter;
 
+    // Hide archived items from normal browsing, but show them in search results
+    const isSearching = searchTerm && searchTerm.length > 0;
+    if (!isSearching) {
+      filtered = filtered.filter(item => item.status !== 'archived');
+    }
+
     // Apply search filter (name, description, pharmacode, GTIN)
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
@@ -2470,20 +2479,19 @@ export default function Items() {
       });
     }
 
-    // Apply category filter
+    // Apply category filter (runway-based)
     if (activeFilter !== "all") {
       filtered = filtered.filter(item => {
+        const runway = runwayMap.get(item.id);
         switch (activeFilter) {
+          case "stockout":
+            return runway?.status === 'stockout';
           case "critical":
-            return item.critical;
+            return runway?.status === 'critical';
+          case "warning":
+            return runway?.status === 'warning';
           case "controlled":
             return item.controlled;
-          case "expiring":
-            if (!item.soonestExpiry) return false;
-            const daysUntilExpiry = Math.ceil((new Date(item.soonestExpiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-            return daysUntilExpiry <= 90 && daysUntilExpiry > 0;
-          case "belowMin":
-            return (item.stockLevel?.qtyOnHand || 0) <= (item.minThreshold || 0);
           default:
             return true;
         }
@@ -2525,7 +2533,7 @@ export default function Items() {
         items: filterAndSortItems(group.items),
       })).filter(group => group.items.length > 0 || searchTerm === ""),
     };
-  }, [items, folders, searchTerm, activeFilter, sortBy, itemCodesMap]);
+  }, [items, folders, searchTerm, activeFilter, sortBy, itemCodesMap, runwayMap]);
 
   const filteredItems = useMemo(() => {
     return [...organizedItems.rootItems, ...organizedItems.folderGroups.flatMap(g => g.items)];
@@ -2544,16 +2552,14 @@ export default function Items() {
   }, [searchTerm, organizedItems.folderGroups]);
 
   const getFilterCounts = () => {
+    // Only count active items (not archived)
+    const activeItems = items.filter(item => item.status !== 'archived');
     return {
-      all: items.length,
-      critical: items.filter(item => item.critical).length,
-      controlled: items.filter(item => item.controlled).length,
-      expiring: items.filter(item => {
-        if (!item.soonestExpiry) return false;
-        const daysUntilExpiry = Math.ceil((new Date(item.soonestExpiry).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
-        return daysUntilExpiry <= 90 && daysUntilExpiry > 0;
-      }).length,
-      belowMin: items.filter(item => (item.stockLevel?.qtyOnHand || 0) <= (item.minThreshold || 0)).length,
+      all: activeItems.length,
+      stockout: activeItems.filter(item => runwayMap.get(item.id)?.status === 'stockout').length,
+      critical: activeItems.filter(item => runwayMap.get(item.id)?.status === 'critical').length,
+      warning: activeItems.filter(item => runwayMap.get(item.id)?.status === 'warning').length,
+      controlled: activeItems.filter(item => item.controlled).length,
     };
   };
 
@@ -2767,22 +2773,36 @@ export default function Items() {
         >
           {t('items.allItems', { count: filterCounts.all })}
         </button>
-        <button
-          className={`status-chip whitespace-nowrap ${activeFilter === "belowMin" ? "chip-warning" : "chip-muted"}`}
-          onClick={() => setActiveFilter("belowMin")}
-          data-testid="filter-below-min"
-        >
-          <i className="fas fa-arrow-down text-xs mr-1"></i>
-          {t('items.belowMinItems', { count: filterCounts.belowMin })}
-        </button>
-        <button
-          className={`status-chip whitespace-nowrap ${activeFilter === "critical" ? "chip-critical" : "chip-muted"}`}
-          onClick={() => setActiveFilter("critical")}
-          data-testid="filter-critical"
-        >
-          <i className="fas fa-exclamation-circle text-xs mr-1"></i>
-          {t('items.criticalItems', { count: filterCounts.critical })}
-        </button>
+        {filterCounts.stockout > 0 && (
+          <button
+            className={`status-chip whitespace-nowrap ${activeFilter === "stockout" ? "bg-red-500 text-white" : "chip-muted"}`}
+            onClick={() => setActiveFilter("stockout")}
+            data-testid="filter-stockout"
+          >
+            <i className="fas fa-ban text-xs mr-1"></i>
+            {t('items.stockoutItems', { count: filterCounts.stockout })}
+          </button>
+        )}
+        {filterCounts.critical > 0 && (
+          <button
+            className={`status-chip whitespace-nowrap ${activeFilter === "critical" ? "bg-orange-500 text-white" : "chip-muted"}`}
+            onClick={() => setActiveFilter("critical")}
+            data-testid="filter-critical"
+          >
+            <i className="fas fa-exclamation-triangle text-xs mr-1"></i>
+            {t('items.criticalItems', { count: filterCounts.critical })}
+          </button>
+        )}
+        {filterCounts.warning > 0 && (
+          <button
+            className={`status-chip whitespace-nowrap ${activeFilter === "warning" ? "bg-yellow-500 text-white" : "chip-muted"}`}
+            onClick={() => setActiveFilter("warning")}
+            data-testid="filter-warning"
+          >
+            <i className="fas fa-clock text-xs mr-1"></i>
+            {t('items.warningItems', { count: filterCounts.warning })}
+          </button>
+        )}
         <button
           className={`status-chip whitespace-nowrap ${activeFilter === "controlled" ? "chip-controlled" : "chip-muted"}`}
           onClick={() => setActiveFilter("controlled")}
@@ -3117,19 +3137,17 @@ export default function Items() {
                                       <span className="text-muted-foreground">{normalizeUnit(item.unit)}</span>
                                       {item.stockLevel && (
                                         <div className={`inline-flex items-center gap-1 ${stockStatus.color}`}>
-                                          <i className={`fas ${currentQty > 0 ? 'fa-check-circle' : 'fa-times-circle'}`}></i>
+                                          <i className={`fas ${normalizeUnit(item.unit) === "Pack" ? "fa-box" : "fa-vial"}`}></i>
                                           <span className="font-semibold" data-testid={`item-${item.id}-stock`}>
                                             {currentQty}
                                             {item.trackExactQuantity && normalizeUnit(item.unit) === 'Pack' && (
                                               <span className="text-muted-foreground font-normal"> [{item.currentUnits} units]</span>
                                             )}
                                           </span>
-                                          {item.minThreshold !== null && item.minThreshold !== undefined && (
-                                            <span className="text-muted-foreground">
-                                              / Min: {item.minThreshold} / Max: {item.maxThreshold || 0}
-                                            </span>
-                                          )}
                                         </div>
+                                      )}
+                                      {item.status === 'archived' && (
+                                        <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
                                       )}
                                     </div>
                                     <div className="flex gap-1 items-center">
@@ -3397,9 +3415,9 @@ export default function Items() {
                           </span>
                           <i className={`fas ${normalizeUnit(item.unit) === "Pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
                         </div>
-                        <span className="text-sm text-muted-foreground">
-                          / Min: {item.minThreshold || 0} / Max: {item.maxThreshold || 0}
-                        </span>
+                        {item.status === 'archived' && (
+                          <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
+                        )}
                       </div>
                       <div className="flex gap-1 items-center">
                         {canWrite && (item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
@@ -3746,18 +3764,8 @@ export default function Items() {
               />
             </div>
 
-            {/* Item Qualities - Critical and Controlled */}
+            {/* Item Qualities - Controlled */}
             <div className="flex gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="critical" 
-                  name="critical" 
-                  checked={formData.critical}
-                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, critical: checked === true }))}
-                  data-testid="checkbox-item-critical" 
-                />
-                <Label htmlFor="critical" className="cursor-pointer">{t('items.critical')}</Label>
-              </div>
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="controlled" 
@@ -4095,19 +4103,8 @@ export default function Items() {
               </p>
             </div>
 
-            {/* Item Qualities - Critical and Controlled */}
-            <div className="flex gap-4">
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="edit-critical" 
-                  name="critical" 
-                  checked={editFormData.critical}
-                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, critical: checked === true }))}
-                  disabled={!canWrite}
-                  data-testid="checkbox-edit-critical" 
-                />
-                <Label htmlFor="edit-critical" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.critical')}</Label>
-              </div>
+            {/* Item Qualities - Controlled and Archived */}
+            <div className="flex gap-4 flex-wrap">
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="edit-controlled" 
@@ -4118,6 +4115,17 @@ export default function Items() {
                   data-testid="checkbox-edit-controlled" 
                 />
                 <Label htmlFor="edit-controlled" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.controlled')}</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="edit-archived" 
+                  name="archived"
+                  checked={editFormData.status === 'archived'}
+                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, status: checked ? 'archived' : 'active' }))}
+                  disabled={!canWrite}
+                  data-testid="checkbox-edit-archived" 
+                />
+                <Label htmlFor="edit-archived" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.archiveItem')}</Label>
               </div>
             </div>
 
@@ -4492,48 +4500,6 @@ export default function Items() {
                             disabled={!canWrite}
                             data-testid="input-manufacturer"
                           />
-                        </div>
-                      </div>
-                      
-                      {/* Pack Information */}
-                      <div className="pt-2 border-t">
-                        <Label className="text-sm text-muted-foreground mb-2 block">{t('items.packInformation')}</Label>
-                        <div className="grid grid-cols-3 gap-3">
-                          <div>
-                            <Label htmlFor="packContent" className="text-xs">Pack Content</Label>
-                            <Input 
-                              id="packContent"
-                              placeholder="e.g., 10x5ml"
-                              value={itemCodes?.packContent || ""}
-                              onChange={(e) => setItemCodes(prev => ({ ...prev, packContent: e.target.value }))}
-                              disabled={!canWrite}
-                              data-testid="input-pack-content"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="unitsPerPack" className="text-xs">Units/Pack</Label>
-                            <Input 
-                              id="unitsPerPack"
-                              type="number"
-                              min="1"
-                              placeholder="10"
-                              value={itemCodes?.unitsPerPack || ""}
-                              onChange={(e) => setItemCodes(prev => ({ ...prev, unitsPerPack: parseInt(e.target.value) || undefined }))}
-                              disabled={!canWrite}
-                              data-testid="input-units-per-pack"
-                            />
-                          </div>
-                          <div>
-                            <Label htmlFor="contentPerUnit" className="text-xs">Per Unit</Label>
-                            <Input 
-                              id="contentPerUnit"
-                              placeholder="e.g., 5ml"
-                              value={itemCodes?.contentPerUnit || ""}
-                              onChange={(e) => setItemCodes(prev => ({ ...prev, contentPerUnit: e.target.value }))}
-                              disabled={!canWrite}
-                              data-testid="input-content-per-unit"
-                            />
-                          </div>
                         </div>
                       </div>
                       
