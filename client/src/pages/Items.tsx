@@ -3226,11 +3226,8 @@ export default function Items() {
                   ) : (
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start gap-2">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-foreground">{item.name}</h3>
-                          <p className="text-sm text-muted-foreground">{item.description || item.unit}</p>
-                        </div>
-                        <div className="flex gap-1 items-center flex-shrink-0">
+                        <h3 className="text-sm font-semibold text-foreground truncate flex-1">{item.name}</h3>
+                        <div className="flex gap-1 flex-shrink-0">
                           {/* Runway indicator badge */}
                           {(() => {
                             const runway = runwayMap.get(item.id);
@@ -3248,12 +3245,15 @@ export default function Items() {
                             );
                           })()}
                           {item.controlled && (
-                            <span className="status-chip chip-controlled text-xs">
+                            <span className="status-chip chip-controlled text-xs" data-testid={`item-${item.id}-controlled`}>
                               <i className="fas fa-shield-halved"></i>
                             </span>
                           )}
                         </div>
                       </div>
+                      {item.description && (
+                        <p className="text-xs text-muted-foreground mt-1 truncate">{item.description}</p>
+                      )}
                     </div>
                   )}
                 </div>
