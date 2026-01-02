@@ -26,7 +26,7 @@ import autoTable from "jspdf-autotable";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
 
-type FilterType = "all" | "runningLow" | "stockout" | "controlled";
+type FilterType = "all" | "runningLow" | "stockout";
 
 interface ItemWithStock extends Item {
   stockLevel?: StockLevel;
@@ -2488,8 +2488,6 @@ export default function Items() {
             return runway?.status === 'critical' || runway?.status === 'warning';
           case "stockout":
             return runway?.status === 'stockout';
-          case "controlled":
-            return item.controlled;
           default:
             return true;
         }
@@ -2559,7 +2557,6 @@ export default function Items() {
         return status === 'critical' || status === 'warning';
       }).length,
       stockout: activeItems.filter(item => runwayMap.get(item.id)?.status === 'stockout').length,
-      controlled: activeItems.filter(item => item.controlled).length,
     };
   };
 
@@ -2791,16 +2788,6 @@ export default function Items() {
           >
             <i className="fas fa-ban text-xs mr-1"></i>
             {t('items.stockoutItems', { count: filterCounts.stockout })}
-          </button>
-        )}
-        {filterCounts.controlled > 0 && (
-          <button
-            className={`status-chip whitespace-nowrap ${activeFilter === "controlled" ? "chip-controlled" : "chip-muted"}`}
-            onClick={() => setActiveFilter("controlled")}
-            data-testid="filter-controlled"
-          >
-            <i className="fas fa-shield-halved text-xs mr-1"></i>
-            {t('items.controlledItems', { count: filterCounts.controlled })}
           </button>
         )}
       </div>
