@@ -26,7 +26,7 @@ import autoTable from "jspdf-autotable";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
 
-type FilterType = "all" | "stockout" | "critical" | "warning" | "controlled";
+type FilterType = "all" | "runningLow" | "stockout" | "controlled";
 
 interface ItemWithStock extends Item {
   stockLevel?: StockLevel;
@@ -2484,12 +2484,10 @@ export default function Items() {
       filtered = filtered.filter(item => {
         const runway = runwayMap.get(item.id);
         switch (activeFilter) {
+          case "runningLow":
+            return runway?.status === 'critical' || runway?.status === 'warning';
           case "stockout":
             return runway?.status === 'stockout';
-          case "critical":
-            return runway?.status === 'critical';
-          case "warning":
-            return runway?.status === 'warning';
           case "controlled":
             return item.controlled;
           default:
@@ -2556,9 +2554,11 @@ export default function Items() {
     const activeItems = items.filter(item => item.status !== 'archived');
     return {
       all: activeItems.length,
+      runningLow: activeItems.filter(item => {
+        const status = runwayMap.get(item.id)?.status;
+        return status === 'critical' || status === 'warning';
+      }).length,
       stockout: activeItems.filter(item => runwayMap.get(item.id)?.status === 'stockout').length,
-      critical: activeItems.filter(item => runwayMap.get(item.id)?.status === 'critical').length,
-      warning: activeItems.filter(item => runwayMap.get(item.id)?.status === 'warning').length,
       controlled: activeItems.filter(item => item.controlled).length,
     };
   };
@@ -2773,6 +2773,16 @@ export default function Items() {
         >
           {t('items.allItems', { count: filterCounts.all })}
         </button>
+        {filterCounts.runningLow > 0 && (
+          <button
+            className={`status-chip whitespace-nowrap ${activeFilter === "runningLow" ? "bg-orange-500 text-white" : "chip-muted"}`}
+            onClick={() => setActiveFilter("runningLow")}
+            data-testid="filter-running-low"
+          >
+            <i className="fas fa-exclamation-triangle text-xs mr-1"></i>
+            {t('items.runningLowItems', { count: filterCounts.runningLow })}
+          </button>
+        )}
         {filterCounts.stockout > 0 && (
           <button
             className={`status-chip whitespace-nowrap ${activeFilter === "stockout" ? "bg-red-500 text-white" : "chip-muted"}`}
@@ -2783,34 +2793,16 @@ export default function Items() {
             {t('items.stockoutItems', { count: filterCounts.stockout })}
           </button>
         )}
-        {filterCounts.critical > 0 && (
+        {filterCounts.controlled > 0 && (
           <button
-            className={`status-chip whitespace-nowrap ${activeFilter === "critical" ? "bg-orange-500 text-white" : "chip-muted"}`}
-            onClick={() => setActiveFilter("critical")}
-            data-testid="filter-critical"
+            className={`status-chip whitespace-nowrap ${activeFilter === "controlled" ? "chip-controlled" : "chip-muted"}`}
+            onClick={() => setActiveFilter("controlled")}
+            data-testid="filter-controlled"
           >
-            <i className="fas fa-exclamation-triangle text-xs mr-1"></i>
-            {t('items.criticalItems', { count: filterCounts.critical })}
+            <i className="fas fa-shield-halved text-xs mr-1"></i>
+            {t('items.controlledItems', { count: filterCounts.controlled })}
           </button>
         )}
-        {filterCounts.warning > 0 && (
-          <button
-            className={`status-chip whitespace-nowrap ${activeFilter === "warning" ? "bg-yellow-500 text-white" : "chip-muted"}`}
-            onClick={() => setActiveFilter("warning")}
-            data-testid="filter-warning"
-          >
-            <i className="fas fa-clock text-xs mr-1"></i>
-            {t('items.warningItems', { count: filterCounts.warning })}
-          </button>
-        )}
-        <button
-          className={`status-chip whitespace-nowrap ${activeFilter === "controlled" ? "chip-controlled" : "chip-muted"}`}
-          onClick={() => setActiveFilter("controlled")}
-          data-testid="filter-controlled"
-        >
-          <i className="fas fa-shield-halved text-xs mr-1"></i>
-          {t('items.controlledItems', { count: filterCounts.controlled })}
-        </button>
       </div>
 
       {/* Sort Options and Create Folder */}
@@ -2971,32 +2963,19 @@ export default function Items() {
                                         {(() => {
                                           const runway = runwayMap.get(item.id);
                                           if (!runway || runway.status === 'ok' || runway.status === 'no_data') return null;
-                                          const colors = {
-                                            stockout: 'bg-red-500 text-white',
-                                            critical: 'bg-orange-500 text-white',
-                                            warning: 'bg-yellow-500 text-white',
-                                          };
-                                          const icons = {
-                                            stockout: 'fas fa-ban',
-                                            critical: 'fas fa-exclamation-triangle',
-                                            warning: 'fas fa-clock',
-                                          };
+                                          const isStockout = runway.status === 'stockout';
+                                          const isRunningLow = runway.status === 'critical' || runway.status === 'warning';
                                           return (
                                             <span 
-                                              className={`px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${colors[runway.status]}`}
+                                              className={`px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${isStockout ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'}`}
                                               title={runway.runwayDays !== null ? t('items.runwayDays', { days: runway.runwayDays }) : t('items.outOfStock')}
                                               data-testid={`item-${item.id}-runway`}
                                             >
-                                              <i className={icons[runway.status]}></i>
+                                              <i className={isStockout ? 'fas fa-ban' : 'fas fa-exclamation-triangle'}></i>
                                               {runway.runwayDays !== null ? `${runway.runwayDays}d` : '0'}
                                             </span>
                                           );
                                         })()}
-                                        {item.critical && (
-                                          <span className="status-chip chip-critical text-xs" data-testid={`item-${item.id}-critical`}>
-                                            <i className="fas fa-exclamation-circle"></i>
-                                          </span>
-                                        )}
                                         {item.controlled && (
                                           <span className="status-chip chip-controlled text-xs" data-testid={`item-${item.id}-controlled`}>
                                             <i className="fas fa-shield-halved"></i>
@@ -3265,11 +3244,22 @@ export default function Items() {
                           <p className="text-sm text-muted-foreground">{item.description || item.unit}</p>
                         </div>
                         <div className="flex gap-1 items-center flex-shrink-0">
-                          {item.critical && (
-                            <span className="status-chip chip-critical text-xs">
-                              <i className="fas fa-exclamation-circle"></i>
-                            </span>
-                          )}
+                          {/* Runway indicator badge */}
+                          {(() => {
+                            const runway = runwayMap.get(item.id);
+                            if (!runway || runway.status === 'ok' || runway.status === 'no_data') return null;
+                            const isStockout = runway.status === 'stockout';
+                            return (
+                              <span 
+                                className={`px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${isStockout ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'}`}
+                                title={runway.runwayDays !== null ? t('items.runwayDays', { days: runway.runwayDays }) : t('items.outOfStock')}
+                                data-testid={`item-${item.id}-runway`}
+                              >
+                                <i className={isStockout ? 'fas fa-ban' : 'fas fa-exclamation-triangle'}></i>
+                                {runway.runwayDays !== null ? `${runway.runwayDays}d` : '0'}
+                              </span>
+                            );
+                          })()}
                           {item.controlled && (
                             <span className="status-chip chip-controlled text-xs">
                               <i className="fas fa-shield-halved"></i>
