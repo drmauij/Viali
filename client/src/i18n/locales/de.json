@@ -578,7 +578,43 @@
     "failedToAcknowledge": "Benachrichtigung konnte nicht bestätigt werden.",
     "failedToSnooze": "Benachrichtigung konnte nicht zurückgestellt werden.",
     "criticalAlert": "🚨 Kritische Benachrichtigung - Sofortige Aufmerksamkeit erforderlich",
-    "lotInfo": "Charge: {{lotNumber}} • {{qty}} Einheiten verbleibend"
+    "lotInfo": "Charge: {{lotNumber}} • {{qty}} Einheiten verbleibend",
+    "runway": {
+      "title": "Bestandsreichweite",
+      "loading": "Bestandsreichweite wird berechnet...",
+      "stockout": "Nicht vorrätig",
+      "critical": "Kritisch (<7 Tage)",
+      "warning": "Warnung",
+      "ok": "OK",
+      "noData": "Keine Nutzungsdaten",
+      "units": "Einheiten",
+      "packs": "Packungen",
+      "day": "Tag",
+      "daysRemaining": "{{days}} Tage verbleibend",
+      "noUsageData": "Keine Nutzungsdaten",
+      "target": "Ziel",
+      "howItWorks": "So funktioniert es",
+      "explanation": "Die Bestandsreichweite wird basierend auf dem Medikamentenverbrauch der letzten {{lookback}} Tage berechnet. Artikel mit weniger als {{target}} Tagen Reichweite werden zur Nachbestellung markiert.",
+      "needsAttention": "Benötigt Aufmerksamkeit",
+      "allGood": "Alle Bestände OK",
+      "noItemsNeedAttention": "Alle Artikel haben ausreichend Bestand basierend auf den Nutzungsmustern.",
+      "tooltipExplanation": "{{units}} Einheiten auf Lager ÷ {{usage}} täglicher Verbrauch = {{days}} Tage Reichweite",
+      "sendEmail": "Warnung per E-Mail senden",
+      "email": {
+        "successTitle": "E-Mail-Warnung gesendet",
+        "successDescription": "Bestandswarnung für {{count}} Artikel wurde an Ihre E-Mail gesendet.",
+        "errorTitle": "E-Mail konnte nicht gesendet werden",
+        "errorDescription": "Die Bestandswarnung konnte nicht per E-Mail gesendet werden. Bitte versuchen Sie es erneut.",
+        "noItemsTitle": "Keine Warnung erforderlich",
+        "noItemsDescription": "Alle Artikel haben ausreichend Bestand. Es wurde keine Warnung gesendet.",
+        "enterEmailTitle": "E-Mail-Adresse eingeben",
+        "enterEmailDescription": "Wir konnten keine E-Mail-Adresse in Ihrem Profil finden. Bitte geben Sie eine E-Mail-Adresse ein, um die Bestandswarnung zu erhalten.",
+        "emailPlaceholder": "ihre@email.com"
+      }
+    },
+    "traditional": {
+      "title": "System-Benachrichtigungen"
+    }
   },
   "admin": {
     "title": "Admin",

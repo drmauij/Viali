@@ -578,7 +578,43 @@
     "failedToAcknowledge": "Failed to acknowledge alert.",
     "failedToSnooze": "Failed to snooze alert.",
     "criticalAlert": "🚨 Critical Alert - Immediate attention required",
-    "lotInfo": "Lot: {{lotNumber}} • {{qty}} units remaining"
+    "lotInfo": "Lot: {{lotNumber}} • {{qty}} units remaining",
+    "runway": {
+      "title": "Stock Runway",
+      "loading": "Calculating stock runway...",
+      "stockout": "Out of Stock",
+      "critical": "Critical (<7 days)",
+      "warning": "Warning",
+      "ok": "OK",
+      "noData": "No Usage Data",
+      "units": "units",
+      "packs": "packs",
+      "day": "day",
+      "daysRemaining": "{{days}} days remaining",
+      "noUsageData": "No usage data",
+      "target": "Target",
+      "howItWorks": "How it works",
+      "explanation": "Stock runway is calculated based on the last {{lookback}} days of medication usage. Items below {{target}} days of runway are flagged for reordering.",
+      "needsAttention": "Needs Attention",
+      "allGood": "All Stock Levels OK",
+      "noItemsNeedAttention": "All items have sufficient stock based on usage patterns.",
+      "tooltipExplanation": "{{units}} units in stock ÷ {{usage}} daily usage = {{days}} days runway",
+      "sendEmail": "Send Alert Email",
+      "email": {
+        "successTitle": "Alert Email Sent",
+        "successDescription": "Stock alert for {{count}} items has been sent to your email.",
+        "errorTitle": "Failed to Send Email",
+        "errorDescription": "Could not send the stock alert email. Please try again.",
+        "noItemsTitle": "No Alert Needed",
+        "noItemsDescription": "All items have sufficient stock. No alert was sent.",
+        "enterEmailTitle": "Enter Email Address",
+        "enterEmailDescription": "We couldn't find an email address in your profile. Please enter an email address to receive the stock alert.",
+        "emailPlaceholder": "your@email.com"
+      }
+    },
+    "traditional": {
+      "title": "System Alerts"
+    }
   },
   "admin": {
     "title": "Admin",

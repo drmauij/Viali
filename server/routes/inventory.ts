@@ -2,15 +2,19 @@ import { Router } from "express";
 import type { Request, Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
+import { sendStockAlertEmail, StockAlertItem } from "../resend";
 import { 
   insertItemSchema, 
   insertFolderSchema,
   items,
   stockLevels,
   supplierCodes,
-  itemCodes
+  itemCodes,
+  anesthesiaMedications,
+  anesthesiaRecords,
+  surgeries
 } from "@shared/schema";
-import { eq, inArray, and } from "drizzle-orm";
+import { eq, inArray, and, gte, sql } from "drizzle-orm";
 import {
   getUserUnitForHospital,
   getActiveUnitIdFromRequest,
@@ -1241,6 +1245,308 @@ router.put('/api/item-codes/:itemId', isAuthenticated, async (req: any, res) => 
   } catch (error) {
     console.error("Error updating item codes:", error);
     res.status(500).json({ message: "Failed to update item codes" });
+  }
+});
+
+// Stock Runway Calculation - Usage-based intelligent stock alerts
+router.get('/api/items/:hospitalId/runway', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { unitId, lookbackDays = 30, targetRunway = 14 } = req.query;
+    const userId = req.user.id;
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some(h => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    
+    // Get all items for this hospital/unit
+    const itemsList = await storage.getItems(hospitalId, unitId);
+    
+    // Calculate usage from anesthesia medications over the lookback period
+    const lookbackDate = new Date();
+    lookbackDate.setDate(lookbackDate.getDate() - Number(lookbackDays));
+    
+    // Query medication usage grouped by itemId
+    // Join through anesthesiaRecords -> surgeries to get hospitalId
+    const usageQuery = await db
+      .select({
+        itemId: anesthesiaMedications.itemId,
+        totalAdministrations: sql<number>`count(*)`,
+        totalDose: sql<string>`sum(CASE WHEN ${anesthesiaMedications.dose} ~ '^[0-9.]+$' THEN ${anesthesiaMedications.dose}::numeric ELSE 0 END)`,
+      })
+      .from(anesthesiaMedications)
+      .innerJoin(anesthesiaRecords, eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecords.id))
+      .innerJoin(surgeries, eq(anesthesiaRecords.surgeryId, surgeries.id))
+      .where(
+        and(
+          eq(surgeries.hospitalId, hospitalId),
+          gte(anesthesiaMedications.timestamp, lookbackDate)
+        )
+      )
+      .groupBy(anesthesiaMedications.itemId);
+    
+    // Create usage map
+    const usageMap = new Map<string, { administrations: number; totalDose: number }>();
+    for (const row of usageQuery) {
+      usageMap.set(row.itemId, {
+        administrations: row.totalAdministrations,
+        totalDose: parseFloat(row.totalDose) || 0,
+      });
+    }
+    
+    // Get item codes for unitsPerPack info
+    const itemIds = itemsList.map(i => i.id);
+    const codesQuery = itemIds.length > 0 ? await db
+      .select({
+        itemId: itemCodes.itemId,
+        unitsPerPack: itemCodes.unitsPerPack,
+      })
+      .from(itemCodes)
+      .where(inArray(itemCodes.itemId, itemIds)) : [];
+    
+    const unitsPerPackMap = new Map<string, number>();
+    for (const code of codesQuery) {
+      if (code.unitsPerPack) {
+        unitsPerPackMap.set(code.itemId, code.unitsPerPack);
+      }
+    }
+    
+    // Calculate runway for each item
+    const runwayData = itemsList.map(item => {
+      const usage = usageMap.get(item.id);
+      const unitsPerPack = unitsPerPackMap.get(item.id) || item.packSize || 1;
+      
+      // Current stock in units
+      const packsOnHand = item.stockLevel?.qtyOnHand || 0;
+      const currentUnitsFromExact = item.trackExactQuantity ? (item.currentUnits || 0) : null;
+      const currentUnits = currentUnitsFromExact !== null 
+        ? currentUnitsFromExact 
+        : packsOnHand * unitsPerPack;
+      
+      // Daily usage rate
+      const daysInPeriod = Number(lookbackDays);
+      const administrationsPerDay = usage ? usage.administrations / daysInPeriod : 0;
+      
+      // Runway calculation
+      let runwayDays: number | null = null;
+      if (administrationsPerDay > 0) {
+        runwayDays = Math.floor(currentUnits / administrationsPerDay);
+      } else if (currentUnits > 0) {
+        // No usage data - item is in stock but never used
+        runwayDays = null; // Indicates "unknown" - no usage pattern
+      }
+      
+      // Status based on runway
+      let status: 'critical' | 'warning' | 'ok' | 'no_data' | 'stockout';
+      if (currentUnits === 0 && packsOnHand === 0) {
+        status = 'stockout';
+      } else if (runwayDays === null) {
+        status = 'no_data';
+      } else if (runwayDays < 7) {
+        status = 'critical';
+      } else if (runwayDays < Number(targetRunway)) {
+        status = 'warning';
+      } else {
+        status = 'ok';
+      }
+      
+      return {
+        itemId: item.id,
+        itemName: item.name,
+        currentUnits,
+        packsOnHand,
+        unitsPerPack,
+        trackExactQuantity: item.trackExactQuantity,
+        dailyUsage: Math.round(administrationsPerDay * 100) / 100,
+        runwayDays,
+        status,
+        usageDataAvailable: !!usage,
+        totalAdministrations: usage?.administrations || 0,
+        minThreshold: item.minThreshold, // For fallback display
+        folderId: item.folderId,
+      };
+    });
+    
+    // Sort by urgency: stockout > critical > warning > no_data > ok
+    const statusOrder = { stockout: 0, critical: 1, warning: 2, no_data: 3, ok: 4 };
+    runwayData.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+    
+    res.json({
+      items: runwayData,
+      summary: {
+        total: runwayData.length,
+        stockout: runwayData.filter(i => i.status === 'stockout').length,
+        critical: runwayData.filter(i => i.status === 'critical').length,
+        warning: runwayData.filter(i => i.status === 'warning').length,
+        noData: runwayData.filter(i => i.status === 'no_data').length,
+        ok: runwayData.filter(i => i.status === 'ok').length,
+      },
+      lookbackDays: Number(lookbackDays),
+      targetRunway: Number(targetRunway),
+    });
+  } catch (error) {
+    console.error("Error calculating runway:", error);
+    res.status(500).json({ message: "Failed to calculate stock runway" });
+  }
+});
+
+// Send stock alert email for low runway items
+router.post('/api/items/:hospitalId/send-stock-alerts', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { email, language = 'en' } = req.body;
+    const userId = req.user.id;
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some(h => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    
+    // Get hospital name
+    const hospital = await storage.getHospital(hospitalId);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    
+    // Get current user info
+    const user = await storage.getUser(userId);
+    const userName = user?.firstName || user?.email || 'User';
+    const recipientEmail = email || user?.email;
+    
+    if (!recipientEmail) {
+      return res.status(400).json({ 
+        success: false,
+        message: "No email address found. Please provide an email address or update your user profile.",
+        needsEmail: true
+      });
+    }
+    
+    // Get runway data for items needing attention
+    const itemsList = await storage.getItems(hospitalId);
+    const lookbackDate = new Date();
+    lookbackDate.setDate(lookbackDate.getDate() - 30);
+    
+    const usageQuery = await db
+      .select({
+        itemId: anesthesiaMedications.itemId,
+        totalAdministrations: sql<number>`count(*)`,
+      })
+      .from(anesthesiaMedications)
+      .innerJoin(anesthesiaRecords, eq(anesthesiaMedications.anesthesiaRecordId, anesthesiaRecords.id))
+      .innerJoin(surgeries, eq(anesthesiaRecords.surgeryId, surgeries.id))
+      .where(
+        and(
+          eq(surgeries.hospitalId, hospitalId),
+          gte(anesthesiaMedications.timestamp, lookbackDate)
+        )
+      )
+      .groupBy(anesthesiaMedications.itemId);
+    
+    const usageMap = new Map<string, number>();
+    for (const row of usageQuery) {
+      usageMap.set(row.itemId, row.totalAdministrations);
+    }
+    
+    // Get item codes for unitsPerPack
+    const itemIds = itemsList.map(i => i.id);
+    const codesQuery = itemIds.length > 0 ? await db
+      .select({
+        itemId: itemCodes.itemId,
+        unitsPerPack: itemCodes.unitsPerPack,
+      })
+      .from(itemCodes)
+      .where(inArray(itemCodes.itemId, itemIds)) : [];
+    
+    const unitsPerPackMap = new Map<string, number>();
+    for (const code of codesQuery) {
+      if (code.unitsPerPack) {
+        unitsPerPackMap.set(code.itemId, code.unitsPerPack);
+      }
+    }
+    
+    // Find items needing attention (stockout, critical, warning)
+    const alertItems: StockAlertItem[] = [];
+    
+    for (const item of itemsList) {
+      const administrations = usageMap.get(item.id) || 0;
+      const dailyUsage = administrations / 30;
+      
+      if (dailyUsage === 0) continue; // Skip items with no usage data
+      
+      const unitsPerPack = unitsPerPackMap.get(item.id) || item.packSize || 1;
+      const packsOnHand = item.stockLevel?.qtyOnHand || 0;
+      const currentUnits = item.trackExactQuantity 
+        ? (item.currentUnits || 0) 
+        : packsOnHand * unitsPerPack;
+      
+      const runwayDays = dailyUsage > 0 ? Math.floor(currentUnits / dailyUsage) : null;
+      
+      let status: 'stockout' | 'critical' | 'warning' | null = null;
+      if (currentUnits === 0 && packsOnHand === 0) {
+        status = 'stockout';
+      } else if (runwayDays !== null && runwayDays < 7) {
+        status = 'critical';
+      } else if (runwayDays !== null && runwayDays < 14) {
+        status = 'warning';
+      }
+      
+      if (status) {
+        alertItems.push({
+          itemName: item.name,
+          currentUnits,
+          packsOnHand,
+          dailyUsage: Math.round(dailyUsage * 100) / 100,
+          runwayDays,
+          status,
+        });
+      }
+    }
+    
+    if (alertItems.length === 0) {
+      return res.json({ 
+        success: true, 
+        message: "No items need attention", 
+        itemsCount: 0 
+      });
+    }
+    
+    // Sort by urgency
+    const statusOrder = { stockout: 0, critical: 1, warning: 2 };
+    alertItems.sort((a, b) => statusOrder[a.status] - statusOrder[b.status]);
+    
+    // Build dashboard URL
+    const baseUrl = process.env.PRODUCTION_URL || process.env.APP_URL || 'https://use.viali.app';
+    const dashboardUrl = `${baseUrl}/inventory/alerts?hospitalId=${hospitalId}`;
+    
+    // Send the email
+    const result = await sendStockAlertEmail(
+      recipientEmail,
+      userName,
+      hospital.name,
+      alertItems,
+      dashboardUrl,
+      language as 'en' | 'de'
+    );
+    
+    if (result.success) {
+      res.json({ 
+        success: true, 
+        message: `Alert sent to ${recipientEmail}`, 
+        itemsCount: alertItems.length 
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to send alert email",
+        error: result.error 
+      });
+    }
+  } catch (error) {
+    console.error("Error sending stock alerts:", error);
+    res.status(500).json({ message: "Failed to send stock alerts" });
   }
 });
 

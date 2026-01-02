@@ -283,6 +283,172 @@ export async function sendBulkImportCompleteEmail(
   }
 }
 
+export interface StockAlertItem {
+  itemName: string;
+  currentUnits: number;
+  packsOnHand: number;
+  dailyUsage: number;
+  runwayDays: number | null;
+  status: 'stockout' | 'critical' | 'warning';
+}
+
+export async function sendStockAlertEmail(
+  toEmail: string,
+  userName: string,
+  hospitalName: string,
+  alertItems: StockAlertItem[],
+  dashboardUrl: string,
+  language: 'de' | 'en' = 'en'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    console.log('[Email] Sending stock alert from:', fromEmail, 'to:', toEmail);
+
+    const isGerman = language === 'de';
+    
+    const stockoutItems = alertItems.filter(i => i.status === 'stockout');
+    const criticalItems = alertItems.filter(i => i.status === 'critical');
+    const warningItems = alertItems.filter(i => i.status === 'warning');
+    
+    const subject = isGerman
+      ? `⚠️ Bestandswarnung: ${alertItems.length} Artikel benötigen Aufmerksamkeit - ${hospitalName}`
+      : `⚠️ Stock Alert: ${alertItems.length} items need attention - ${hospitalName}`;
+
+    const getStatusEmoji = (status: string) => {
+      switch (status) {
+        case 'stockout': return '🔴';
+        case 'critical': return '🟠';
+        case 'warning': return '🟡';
+        default: return '⚪';
+      }
+    };
+
+    const renderItems = (items: StockAlertItem[], title: string) => {
+      if (items.length === 0) return '';
+      return `
+        <h3 style="margin: 20px 0 10px; color: #333;">${title}</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+          <thead>
+            <tr style="background: #f5f5f5;">
+              <th style="text-align: left; padding: 8px; border-bottom: 1px solid #ddd;">${isGerman ? 'Artikel' : 'Item'}</th>
+              <th style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">${isGerman ? 'Bestand' : 'Stock'}</th>
+              <th style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">${isGerman ? 'Tagesverbrauch' : 'Daily Usage'}</th>
+              <th style="text-align: right; padding: 8px; border-bottom: 1px solid #ddd;">${isGerman ? 'Reichweite' : 'Runway'}</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(item => `
+              <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee;">
+                  ${getStatusEmoji(item.status)} ${item.itemName}
+                </td>
+                <td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;">
+                  ${item.currentUnits} ${isGerman ? 'Einh.' : 'units'}
+                </td>
+                <td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee;">
+                  ${item.dailyUsage.toFixed(1)}/${isGerman ? 'Tag' : 'day'}
+                </td>
+                <td style="text-align: right; padding: 8px; border-bottom: 1px solid #eee; font-weight: bold; color: ${item.status === 'stockout' ? '#dc2626' : item.status === 'critical' ? '#ea580c' : '#ca8a04'};">
+                  ${item.runwayDays !== null ? `${item.runwayDays} ${isGerman ? 'Tage' : 'days'}` : '-'}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+    };
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 700px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #dc2626; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .summary { display: flex; gap: 20px; margin: 20px 0; }
+            .summary-card { flex: 1; background: white; padding: 15px; border-radius: 8px; text-align: center; }
+            .button { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>⚠️ ${isGerman ? 'Bestandswarnung' : 'Stock Alert'}</h1>
+              <p style="margin: 0;">${hospitalName}</p>
+            </div>
+            <div class="content">
+              <p>${isGerman ? 'Guten Tag' : 'Hello'} ${userName},</p>
+              <p>${isGerman 
+                ? `Die folgenden ${alertItems.length} Artikel benötigen Ihre Aufmerksamkeit basierend auf dem aktuellen Verbrauch:` 
+                : `The following ${alertItems.length} items need your attention based on current usage patterns:`}</p>
+              
+              <div style="display: flex; gap: 10px; margin: 20px 0; flex-wrap: wrap;">
+                ${stockoutItems.length > 0 ? `
+                  <div style="background: #fef2f2; border: 1px solid #fecaca; padding: 10px 15px; border-radius: 8px;">
+                    <span style="font-size: 24px; font-weight: bold; color: #dc2626;">${stockoutItems.length}</span>
+                    <span style="color: #dc2626;">${isGerman ? 'Nicht vorrätig' : 'Out of Stock'}</span>
+                  </div>
+                ` : ''}
+                ${criticalItems.length > 0 ? `
+                  <div style="background: #fff7ed; border: 1px solid #fed7aa; padding: 10px 15px; border-radius: 8px;">
+                    <span style="font-size: 24px; font-weight: bold; color: #ea580c;">${criticalItems.length}</span>
+                    <span style="color: #ea580c;">${isGerman ? 'Kritisch' : 'Critical'}</span>
+                  </div>
+                ` : ''}
+                ${warningItems.length > 0 ? `
+                  <div style="background: #fefce8; border: 1px solid #fef08a; padding: 10px 15px; border-radius: 8px;">
+                    <span style="font-size: 24px; font-weight: bold; color: #ca8a04;">${warningItems.length}</span>
+                    <span style="color: #ca8a04;">${isGerman ? 'Warnung' : 'Warning'}</span>
+                  </div>
+                ` : ''}
+              </div>
+              
+              ${renderItems(stockoutItems, isGerman ? '🔴 Nicht vorrätig' : '🔴 Out of Stock')}
+              ${renderItems(criticalItems, isGerman ? '🟠 Kritisch (<7 Tage)' : '🟠 Critical (<7 days)')}
+              ${renderItems(warningItems, isGerman ? '🟡 Warnung' : '🟡 Warning')}
+              
+              <p style="text-align: center;">
+                <a href="${dashboardUrl}" class="button">${isGerman ? 'Zum Bestandsüberblick' : 'View Stock Dashboard'}</a>
+              </p>
+              
+              <p style="color: #666; font-size: 14px;">
+                ${isGerman 
+                  ? 'Die Bestandsreichweite wird basierend auf dem Medikamentenverbrauch der letzten 30 Tage berechnet.' 
+                  : 'Stock runway is calculated based on medication usage from the last 30 days.'}
+              </p>
+            </div>
+            <div class="footer">
+              <p>Viali Hospital Inventory Management System</p>
+              <p>${isGerman ? 'Dies ist eine automatische E-Mail.' : 'This is an automated email.'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      console.error('Failed to send stock alert email:', error);
+      return { success: false, error };
+    }
+
+    console.log(`[Email] Successfully sent stock alert to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error sending stock alert email:', error);
+    return { success: false, error };
+  }
+}
+
 export async function sendInvoiceEmail(
   toEmail: string,
   invoiceNumber: number,
