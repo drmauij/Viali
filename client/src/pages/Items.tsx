@@ -3098,19 +3098,16 @@ export default function Items() {
                                   )
                                 ) : (
                                   <>
-                                    <div className="flex items-center gap-3 flex-wrap text-xs">
-                                      <span className="text-muted-foreground">{normalizeUnit(item.unit)}</span>
-                                      {item.stockLevel && (
-                                        <div className={`inline-flex items-center gap-1 ${stockStatus.color}`}>
-                                          <i className={`fas ${normalizeUnit(item.unit) === "Pack" ? "fa-box" : "fa-vial"}`}></i>
-                                          <span className="font-semibold" data-testid={`item-${item.id}-stock`}>
-                                            {currentQty}
-                                            {item.trackExactQuantity && normalizeUnit(item.unit) === 'Pack' && (
-                                              <span className="text-muted-foreground font-normal"> [{item.currentUnits} units]</span>
-                                            )}
-                                          </span>
-                                        </div>
-                                      )}
+                                    <div className="flex items-baseline gap-2">
+                                      <div className="flex items-center gap-1.5">
+                                        <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
+                                          {currentQty}
+                                          {item.trackExactQuantity && normalizeUnit(item.unit) === 'Pack' && (
+                                            <span className="text-base text-muted-foreground font-normal ml-1">[{item.currentUnits} units]</span>
+                                          )}
+                                        </span>
+                                        <i className={`fas ${normalizeUnit(item.unit) === "Pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
+                                      </div>
                                       {item.status === 'archived' && (
                                         <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
                                       )}
