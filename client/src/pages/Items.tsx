@@ -2538,17 +2538,17 @@ export default function Items() {
     return [...organizedItems.rootItems, ...organizedItems.folderGroups.flatMap(g => g.items)];
   }, [organizedItems]);
 
-  // Auto-expand folders containing search results
+  // Auto-expand folders containing search results or filtered items
   useEffect(() => {
-    if (searchTerm) {
-      // When searching, expand all folders that have matching items
+    if (searchTerm || activeFilter !== "all") {
+      // When searching or filtering, expand all folders that have matching items
       const foldersWithResults = organizedItems.folderGroups
         .filter(group => group.items.length > 0)
         .map(group => group.folder.id);
       
       setExpandedFolders(new Set(foldersWithResults));
     }
-  }, [searchTerm, organizedItems.folderGroups]);
+  }, [searchTerm, activeFilter, organizedItems.folderGroups]);
 
   const getFilterCounts = () => {
     // Only count active items (not archived)
