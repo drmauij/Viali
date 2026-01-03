@@ -2579,10 +2579,16 @@ export default function Items() {
     const currentQty = item.stockLevel?.qtyOnHand || 0;
     const minThreshold = item.minThreshold || 0;
     
-    if (currentQty <= minThreshold) {
-      return { color: "text-warning", status: t('items.belowMin') };
+    // Red for stockout (zero stock)
+    if (currentQty === 0) {
+      return { color: "text-red-500", status: t('items.outOfStock') };
     }
-    return { color: "text-success", status: t('items.good') };
+    // Yellow for running low (below or at min threshold)
+    if (currentQty <= minThreshold) {
+      return { color: "text-yellow-500", status: t('items.belowMin') };
+    }
+    // Green for enough stock
+    return { color: "text-green-500", status: t('items.good') };
   };
   
   const handleDismissOnboarding = () => {
@@ -3082,13 +3088,22 @@ export default function Items() {
                                   <div className="flex items-center w-full">
                                     <div className="flex items-center gap-2">
                                       <div className="flex items-center gap-1.5">
-                                        <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
-                                          {currentQty}
-                                          {item.trackExactQuantity && normalizeUnit(item.unit) === 'Pack' && (
-                                            <span className="text-base text-muted-foreground font-normal ml-1">[{item.currentUnits} units]</span>
-                                          )}
-                                        </span>
-                                        <i className={`fas ${normalizeUnit(item.unit) === "Pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
+                                        {/* Show units directly for trackExactQuantity or single unit items, otherwise show pack qty */}
+                                        {item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? (
+                                          <>
+                                            <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
+                                              {item.trackExactQuantity ? (item.currentUnits || 0) : currentQty}
+                                            </span>
+                                            <i className={`fas fa-vial text-lg ${stockStatus.color}`}></i>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
+                                              {currentQty}
+                                            </span>
+                                            <i className={`fas fa-box text-lg ${stockStatus.color}`}></i>
+                                          </>
+                                        )}
                                       </div>
                                       {item.status === 'archived' && (
                                         <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
@@ -3344,13 +3359,22 @@ export default function Items() {
                     <div className="flex items-center w-full">
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1.5">
-                          <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
-                            {currentQty}
-                            {item.trackExactQuantity && normalizeUnit(item.unit) === 'Pack' && (
-                              <span className="text-base text-muted-foreground font-normal ml-1">[{item.currentUnits} units]</span>
-                            )}
-                          </span>
-                          <i className={`fas ${normalizeUnit(item.unit) === "Pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
+                          {/* Show units directly for trackExactQuantity or single unit items, otherwise show pack qty */}
+                          {item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? (
+                            <>
+                              <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
+                                {item.trackExactQuantity ? (item.currentUnits || 0) : currentQty}
+                              </span>
+                              <i className={`fas fa-vial text-lg ${stockStatus.color}`}></i>
+                            </>
+                          ) : (
+                            <>
+                              <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
+                                {currentQty}
+                              </span>
+                              <i className={`fas fa-box text-lg ${stockStatus.color}`}></i>
+                            </>
+                          )}
                         </div>
                         {item.status === 'archived' && (
                           <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
