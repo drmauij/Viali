@@ -3097,56 +3097,52 @@ export default function Items() {
                                     </div>
                                   )
                                 ) : (
-                                  <>
-                                    <div className="flex items-baseline gap-2">
-                                      <div className="flex items-center gap-1.5">
-                                        <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
-                                          {currentQty}
-                                          {item.trackExactQuantity && normalizeUnit(item.unit) === 'Pack' && (
-                                            <span className="text-base text-muted-foreground font-normal ml-1">[{item.currentUnits} units]</span>
-                                          )}
-                                        </span>
-                                        <i className={`fas ${normalizeUnit(item.unit) === "Pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
-                                      </div>
-                                      {item.status === 'archived' && (
-                                        <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
-                                      )}
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
+                                        {currentQty}
+                                        {item.trackExactQuantity && normalizeUnit(item.unit) === 'Pack' && (
+                                          <span className="text-base text-muted-foreground font-normal ml-1">[{item.currentUnits} units]</span>
+                                        )}
+                                      </span>
+                                      <i className={`fas ${normalizeUnit(item.unit) === "Pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
                                     </div>
-                                    <div className="flex gap-1 items-center">
-                                      {canWrite && (item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
-                                       (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
+                                    {item.status === 'archived' && (
+                                      <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
+                                    )}
+                                    {canWrite && (item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
+                                     (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
+                                      <button
+                                        onClick={(e) => handleQuickReduce(e, item)}
+                                        className="px-2 py-1 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600 transition-colors flex-shrink-0"
+                                        data-testid={`item-${item.id}-quick-reduce`}
+                                        title="Reduce 1 unit"
+                                      >
+                                        -1
+                                      </button>
+                                    )}
+                                    {canWrite && currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
+                                      openOrderItems[item.id] ? (
                                         <button
-                                          onClick={(e) => handleQuickReduce(e, item)}
-                                          className="px-2 py-1 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600 transition-colors flex-shrink-0"
-                                          data-testid={`item-${item.id}-quick-reduce`}
-                                          title="Reduce 1 unit"
+                                          disabled
+                                          className="px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs font-medium flex-shrink-0 cursor-not-allowed"
+                                          data-testid={`item-${item.id}-quick-ordered`}
                                         >
-                                          -1
+                                          <i className="fas fa-check mr-1"></i>
+                                          {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
                                         </button>
-                                      )}
-                                      {canWrite && currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
-                                        openOrderItems[item.id] ? (
-                                          <button
-                                            disabled
-                                            className="px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs font-medium flex-shrink-0 cursor-not-allowed"
-                                            data-testid={`item-${item.id}-quick-ordered`}
-                                          >
-                                            <i className="fas fa-check mr-1"></i>
-                                            {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
-                                          </button>
-                                        ) : (
-                                          <button
-                                            onClick={(e) => handleQuickOrder(e, item)}
-                                            className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
-                                            data-testid={`item-${item.id}-quick-order`}
-                                          >
-                                            <i className="fas fa-bolt mr-1"></i>
-                                            {t('items.quickOrder')}
-                                          </button>
-                                        )
-                                      )}
-                                    </div>
-                                  </>
+                                      ) : (
+                                        <button
+                                          onClick={(e) => handleQuickOrder(e, item)}
+                                          className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
+                                          data-testid={`item-${item.id}-quick-order`}
+                                        >
+                                          <i className="fas fa-bolt mr-1"></i>
+                                          {t('items.quickOrder')}
+                                        </button>
+                                      )
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </div>
@@ -3377,50 +3373,52 @@ export default function Items() {
                       </div>
                     )
                   ) : (
-                    <>
-                      <div className="flex items-baseline gap-2">
-                        <div className="flex items-center gap-1.5">
-                          <span className={`text-2xl font-bold ${stockStatus.color}`}>
-                            {currentQty}
-                            {item.trackExactQuantity && normalizeUnit(item.unit) === 'Pack' && (
-                              <span className="text-base text-muted-foreground font-normal ml-1">[{item.currentUnits} units]</span>
-                            )}
-                          </span>
-                          <i className={`fas ${normalizeUnit(item.unit) === "Pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
-                        </div>
-                        {item.status === 'archived' && (
-                          <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
-                        )}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
+                          {currentQty}
+                          {item.trackExactQuantity && normalizeUnit(item.unit) === 'Pack' && (
+                            <span className="text-base text-muted-foreground font-normal ml-1">[{item.currentUnits} units]</span>
+                          )}
+                        </span>
+                        <i className={`fas ${normalizeUnit(item.unit) === "Pack" ? "fa-box" : "fa-vial"} text-lg ${stockStatus.color}`}></i>
                       </div>
-                      <div className="flex gap-1 items-center">
-                        {canWrite && (item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
-                         (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
-                          <Button 
-                            variant="outline" 
-                            size="sm" 
-                            onClick={(e) => handleQuickReduce(e, item)} 
-                            data-testid={`quick-reduce-${item.id}`}
-                            className="px-2 bg-orange-500 hover:bg-orange-600 text-white border-orange-500"
-                            title="Reduce 1 unit"
+                      {item.status === 'archived' && (
+                        <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
+                      )}
+                      {canWrite && (item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
+                       (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
+                        <button
+                          onClick={(e) => handleQuickReduce(e, item)}
+                          className="px-2 py-1 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600 transition-colors flex-shrink-0"
+                          data-testid={`item-${item.id}-quick-reduce`}
+                          title="Reduce 1 unit"
+                        >
+                          -1
+                        </button>
+                      )}
+                      {canWrite && currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
+                        openOrderItems[item.id] ? (
+                          <button
+                            disabled
+                            className="px-3 py-1.5 bg-muted text-muted-foreground rounded-lg text-xs font-medium flex-shrink-0 cursor-not-allowed"
+                            data-testid={`item-${item.id}-quick-ordered`}
                           >
-                            -1
-                          </Button>
-                        )}
-                        {canWrite && currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
-                          openOrderItems[item.id] ? (
-                            <Button variant="outline" size="sm" disabled data-testid={`quick-ordered-${item.id}`}>
-                              <i className="fas fa-check mr-1"></i>
-                              {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
-                            </Button>
-                          ) : (
-                            <Button variant="outline" size="sm" onClick={(e) => handleQuickOrder(e, item)} data-testid={`quick-order-${item.id}`}>
-                              <i className="fas fa-bolt mr-1"></i>
-                              {t('items.quickOrder')}
-                            </Button>
-                          )
-                        )}
-                      </div>
-                    </>
+                            <i className="fas fa-check mr-1"></i>
+                            {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => handleQuickOrder(e, item)}
+                            className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
+                            data-testid={`item-${item.id}-quick-order`}
+                          >
+                            <i className="fas fa-bolt mr-1"></i>
+                            {t('items.quickOrder')}
+                          </button>
+                        )
+                      )}
+                    </div>
                   )}
                 </div>
                         </div>
