@@ -2952,7 +2952,7 @@ export default function Items() {
                                     <div className="flex items-start gap-2">
                                       <div className="flex-1 min-w-0">
                                         <h3 className="font-semibold text-foreground">{item.name}</h3>
-                                        <p className="text-sm text-muted-foreground">{item.description || item.unit}</p>
+                                        <p className="text-sm text-muted-foreground">{item.description || ''}</p>
                                       </div>
                                       {item.controlled && (
                                         <span className="status-chip chip-controlled text-xs flex-shrink-0" data-testid={`item-${item.id}-controlled`}>
@@ -3186,7 +3186,7 @@ export default function Items() {
                       </div>
                       <div className="flex-1 pointer-events-none">
                         <h3 className="font-semibold text-foreground">{item.name}</h3>
-                        <p className="text-sm text-muted-foreground">{item.description || item.unit}</p>
+                        <p className="text-sm text-muted-foreground">{item.description || ''}</p>
                       </div>
                     </div>
                   ) : isBulkEditMode ? (
@@ -3221,7 +3221,7 @@ export default function Items() {
                       <div className="flex items-start gap-2">
                         <div className="flex-1 min-w-0">
                           <h3 className="font-semibold text-foreground">{item.name}</h3>
-                          <p className="text-sm text-muted-foreground">{item.description || item.unit}</p>
+                          <p className="text-sm text-muted-foreground">{item.description || ''}</p>
                         </div>
                         {item.controlled && (
                           <span className="status-chip chip-controlled text-xs flex-shrink-0" data-testid={`item-${item.id}-controlled`}>
