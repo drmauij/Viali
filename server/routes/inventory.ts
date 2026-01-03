@@ -1341,7 +1341,8 @@ router.get('/api/items/:hospitalId/runway', isAuthenticated, async (req: any, re
       const consumptionPerDay = usage ? usage.administrations / daysInPeriod : 0;
       
       // Use consumption data if available, otherwise fall back to manual dailyUsageEstimate
-      const manualEstimate = item.dailyUsageEstimate ? parseFloat(item.dailyUsageEstimate) : 0;
+      const rawManualEstimate = item.dailyUsageEstimate ? parseFloat(item.dailyUsageEstimate) : 0;
+      const manualEstimate = isNaN(rawManualEstimate) ? 0 : rawManualEstimate;
       const administrationsPerDay = consumptionPerDay > 0 ? consumptionPerDay : manualEstimate;
       const usedManualFallback = consumptionPerDay === 0 && manualEstimate > 0;
       
