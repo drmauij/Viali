@@ -2776,26 +2776,22 @@ export default function Items() {
         >
           {t('items.allItems', { count: filterCounts.all })}
         </button>
-        {filterCounts.runningLow > 0 && (
-          <button
-            className={`status-chip whitespace-nowrap ${activeFilter === "runningLow" ? "bg-orange-500 text-white" : "chip-muted"}`}
-            onClick={() => setActiveFilter("runningLow")}
-            data-testid="filter-running-low"
-          >
-            <i className="fas fa-exclamation-triangle text-xs mr-1"></i>
-            {t('items.runningLowItems', { count: filterCounts.runningLow })}
-          </button>
-        )}
-        {filterCounts.stockout > 0 && (
-          <button
-            className={`status-chip whitespace-nowrap ${activeFilter === "stockout" ? "bg-red-500 text-white" : "chip-muted"}`}
-            onClick={() => setActiveFilter("stockout")}
-            data-testid="filter-stockout"
-          >
-            <i className="fas fa-ban text-xs mr-1"></i>
-            {t('items.stockoutItems', { count: filterCounts.stockout })}
-          </button>
-        )}
+        <button
+          className={`status-chip whitespace-nowrap ${activeFilter === "runningLow" ? "bg-yellow-500 text-white" : "chip-muted"}`}
+          onClick={() => setActiveFilter("runningLow")}
+          data-testid="filter-running-low"
+        >
+          <i className="fas fa-exclamation-triangle text-xs mr-1"></i>
+          {t('items.runningLowItems', { count: filterCounts.runningLow })}
+        </button>
+        <button
+          className={`status-chip whitespace-nowrap ${activeFilter === "stockout" ? "bg-red-500 text-white" : "chip-muted"}`}
+          onClick={() => setActiveFilter("stockout")}
+          data-testid="filter-stockout"
+        >
+          <i className="fas fa-ban text-xs mr-1"></i>
+          {t('items.stockoutItems', { count: filterCounts.stockout })}
+        </button>
       </div>
 
       {/* Sort Options and Create Folder */}
