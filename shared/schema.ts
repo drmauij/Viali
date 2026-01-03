@@ -186,6 +186,7 @@ export const items = pgTable("items", {
   imageUrl: varchar("image_url"),
   sortOrder: integer("sort_order").default(0),
   patientPrice: decimal("patient_price", { precision: 10, scale: 2 }), // Final patient dispensing price for ambulatory invoices
+  dailyUsageEstimate: decimal("daily_usage_estimate", { precision: 10, scale: 2 }), // Manual fallback for runway calculation when no consumption history
   status: varchar("status").default("active").notNull(), // 'active' | 'archived' - archived items hidden from lists but searchable
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

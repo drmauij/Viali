@@ -281,6 +281,13 @@
       "when": 1767368169442,
       "tag": "0039_flawless_sersi",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1767459251423,
+      "tag": "0040_faulty_talon",
+      "breakpoints": true
     }
   ]
 }
