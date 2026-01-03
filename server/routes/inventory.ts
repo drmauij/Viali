@@ -522,6 +522,8 @@ router.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (r
       controlled: req.body.controlled,
       imageUrl: req.body.imageUrl,
       patientPrice: req.body.patientPrice,
+      dailyUsageEstimate: req.body.dailyUsageEstimate,
+      status: req.body.status,
     };
     
     if (req.body.folderId !== undefined) {
