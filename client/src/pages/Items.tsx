@@ -3079,7 +3079,7 @@ export default function Items() {
                                     </div>
                                   )
                                 ) : (
-                                  <div className="flex items-center justify-between">
+                                  <div className="flex items-center w-full">
                                     <div className="flex items-center gap-2">
                                       <div className="flex items-center gap-1.5">
                                         <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
@@ -3094,7 +3094,7 @@ export default function Items() {
                                         <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
                                       )}
                                     </div>
-                                    <div className="flex gap-1 items-center">
+                                    <div className="ml-auto flex gap-1 items-center">
                                       {canWrite && (item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
                                        (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
                                         <button
@@ -3341,7 +3341,7 @@ export default function Items() {
                       </div>
                     )
                   ) : (
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center w-full">
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1.5">
                           <span className={`text-2xl font-bold ${stockStatus.color}`} data-testid={`item-${item.id}-stock`}>
@@ -3356,7 +3356,7 @@ export default function Items() {
                           <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
                         )}
                       </div>
-                      <div className="flex gap-1 items-center">
+                      <div className="ml-auto flex gap-1 items-center">
                         {canWrite && (item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
                          (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
                           <button
