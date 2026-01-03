@@ -2948,29 +2948,11 @@ export default function Items() {
                                         <h3 className="font-semibold text-foreground">{item.name}</h3>
                                         <p className="text-sm text-muted-foreground">{item.description || item.unit}</p>
                                       </div>
-                                      <div className="flex gap-1 items-center flex-shrink-0">
-                                        {/* Runway indicator badge */}
-                                        {(() => {
-                                          const runway = runwayMap.get(item.id);
-                                          if (!runway || runway.status === 'ok' || runway.status === 'no_data') return null;
-                                          const isStockout = runway.status === 'stockout';
-                                          return (
-                                            <span 
-                                              className={`px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${isStockout ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'}`}
-                                              title={runway.runwayDays !== null ? t('items.runwayDays', { days: runway.runwayDays }) : t('items.outOfStock')}
-                                              data-testid={`item-${item.id}-runway`}
-                                            >
-                                              <i className={isStockout ? 'fas fa-ban' : 'fas fa-exclamation-triangle'}></i>
-                                              {runway.runwayDays !== null ? `${runway.runwayDays}d` : '0'}
-                                            </span>
-                                          );
-                                        })()}
-                                        {item.controlled && (
-                                          <span className="status-chip chip-controlled text-xs" data-testid={`item-${item.id}-controlled`}>
-                                            <i className="fas fa-shield-halved"></i>
-                                          </span>
-                                        )}
-                                      </div>
+                                      {item.controlled && (
+                                        <span className="status-chip chip-controlled text-xs flex-shrink-0" data-testid={`item-${item.id}-controlled`}>
+                                          <i className="fas fa-shield-halved"></i>
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 )}
@@ -3226,29 +3208,11 @@ export default function Items() {
                           <h3 className="font-semibold text-foreground">{item.name}</h3>
                           <p className="text-sm text-muted-foreground">{item.description || item.unit}</p>
                         </div>
-                        <div className="flex gap-1 items-center flex-shrink-0">
-                          {/* Runway indicator badge */}
-                          {(() => {
-                            const runway = runwayMap.get(item.id);
-                            if (!runway || runway.status === 'ok' || runway.status === 'no_data') return null;
-                            const isStockout = runway.status === 'stockout';
-                            return (
-                              <span 
-                                className={`px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${isStockout ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'}`}
-                                title={runway.runwayDays !== null ? t('items.runwayDays', { days: runway.runwayDays }) : t('items.outOfStock')}
-                                data-testid={`item-${item.id}-runway`}
-                              >
-                                <i className={isStockout ? 'fas fa-ban' : 'fas fa-exclamation-triangle'}></i>
-                                {runway.runwayDays !== null ? `${runway.runwayDays}d` : '0'}
-                              </span>
-                            );
-                          })()}
-                          {item.controlled && (
-                            <span className="status-chip chip-controlled text-xs" data-testid={`item-${item.id}-controlled`}>
-                              <i className="fas fa-shield-halved"></i>
-                            </span>
-                          )}
-                        </div>
+                        {item.controlled && (
+                          <span className="status-chip chip-controlled text-xs flex-shrink-0" data-testid={`item-${item.id}-controlled`}>
+                            <i className="fas fa-shield-halved"></i>
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
