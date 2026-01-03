@@ -219,6 +219,8 @@
     "max": "Max",
     "minThreshold": "Mindestgrenze",
     "maxThreshold": "Höchstgrenze",
+    "dailyUsageEstimate": "Gesch. Tagesverbrauch",
+    "dailyUsageEstimateHint": "Manueller Fallback für Bestandsreichweite, wenn keine Verbrauchshistorie existiert",
     "defaultOrderQty": "Standardbestellmenge",
     "initialStock": "Anfangsbestand",
     "actualStock": "Tatsächlicher Bestand",

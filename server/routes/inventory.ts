@@ -1338,14 +1338,19 @@ router.get('/api/items/:hospitalId/runway', isAuthenticated, async (req: any, re
       
       // Daily usage rate
       const daysInPeriod = Number(lookbackDays);
-      const administrationsPerDay = usage ? usage.administrations / daysInPeriod : 0;
+      const consumptionPerDay = usage ? usage.administrations / daysInPeriod : 0;
+      
+      // Use consumption data if available, otherwise fall back to manual dailyUsageEstimate
+      const manualEstimate = item.dailyUsageEstimate ? parseFloat(item.dailyUsageEstimate) : 0;
+      const administrationsPerDay = consumptionPerDay > 0 ? consumptionPerDay : manualEstimate;
+      const usedManualFallback = consumptionPerDay === 0 && manualEstimate > 0;
       
       // Runway calculation
       let runwayDays: number | null = null;
       if (administrationsPerDay > 0) {
         runwayDays = Math.floor(currentUnits / administrationsPerDay);
       } else if (currentUnits > 0) {
-        // No usage data - item is in stock but never used
+        // No usage data and no manual estimate - item is in stock but never used
         runwayDays = null; // Indicates "unknown" - no usage pattern
       }
       
@@ -1374,6 +1379,8 @@ router.get('/api/items/:hospitalId/runway', isAuthenticated, async (req: any, re
         runwayDays,
         status,
         usageDataAvailable: !!usage,
+        usedManualFallback,
+        dailyUsageEstimate: manualEstimate > 0 ? manualEstimate : null,
         totalAdministrations: usage?.administrations || 0,
         minThreshold: item.minThreshold, // For fallback display
         folderId: item.folderId,

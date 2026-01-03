@@ -219,6 +219,8 @@
     "max": "Max",
     "minThreshold": "Min Threshold",
     "maxThreshold": "Max Threshold",
+    "dailyUsageEstimate": "Est. Daily Usage",
+    "dailyUsageEstimateHint": "Manual fallback for runway calculation when no consumption history exists",
     "defaultOrderQty": "Default Order Qty",
     "initialStock": "Initial Stock",
     "actualStock": "Actual Stock",

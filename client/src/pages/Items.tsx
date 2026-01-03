@@ -173,6 +173,7 @@ export default function Items() {
     trackExactQuantity: false,
     imageUrl: "",
     patientPrice: "",
+    dailyUsageEstimate: "",
     status: "active" as "active" | "archived",
   });
   const [formData, setFormData] = useState({
@@ -752,6 +753,7 @@ export default function Items() {
       trackExactQuantity: item.trackExactQuantity || false,
       imageUrl: item.imageUrl || "",
       patientPrice: item.patientPrice || "",
+      dailyUsageEstimate: item.dailyUsageEstimate || "",
       status: (item.status as "active" | "archived") || "active",
     });
     setSelectedUnit(normalizeUnit(item.unit));
@@ -1303,6 +1305,7 @@ export default function Items() {
       controlled: editFormData.controlled,
       imageUrl: editFormData.imageUrl || null,
       patientPrice: editFormData.patientPrice ? editFormData.patientPrice : null,
+      dailyUsageEstimate: editFormData.dailyUsageEstimate ? editFormData.dailyUsageEstimate : null,
       status: editFormData.status,
     };
 
@@ -4276,6 +4279,26 @@ export default function Items() {
                   data-testid="input-edit-max" 
                 />
               </div>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-dailyUsageEstimate">{t('items.dailyUsageEstimate', 'Est. Daily Usage')}</Label>
+              <Input 
+                id="edit-dailyUsageEstimate" 
+                name="dailyUsageEstimate" 
+                type="number"
+                step="0.01"
+                min="0"
+                value={editFormData.dailyUsageEstimate}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, dailyUsageEstimate: e.target.value }))}
+                onFocus={handleNumberInputFocus}
+                disabled={!canWrite}
+                placeholder="0.00"
+                data-testid="input-edit-daily-usage-estimate" 
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                {t('items.dailyUsageEstimateHint', 'Manual fallback for runway calculation when no consumption history exists')}
+              </p>
             </div>
               </TabsContent>
 
