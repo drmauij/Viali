@@ -2479,15 +2479,18 @@ export default function Items() {
       });
     }
 
-    // Apply category filter (runway-based)
+    // Apply category filter (threshold-based)
     if (activeFilter !== "all") {
       filtered = filtered.filter(item => {
-        const runway = runwayMap.get(item.id);
+        const currentQty = item.stockLevel?.qtyOnHand || 0;
+        const minThreshold = item.minThreshold || 0;
         switch (activeFilter) {
           case "runningLow":
-            return runway?.status === 'critical' || runway?.status === 'warning';
+            // Running low: stock > 0 but at or below min threshold
+            return currentQty > 0 && currentQty <= minThreshold;
           case "stockout":
-            return runway?.status === 'stockout';
+            // Stockout: zero stock
+            return currentQty === 0;
           default:
             return true;
         }
@@ -2552,11 +2555,17 @@ export default function Items() {
     const activeItems = items.filter(item => item.status !== 'archived');
     return {
       all: activeItems.length,
+      // Running low: stock > 0 but at or below min threshold
       runningLow: activeItems.filter(item => {
-        const status = runwayMap.get(item.id)?.status;
-        return status === 'critical' || status === 'warning';
+        const currentQty = item.stockLevel?.qtyOnHand || 0;
+        const minThreshold = item.minThreshold || 0;
+        return currentQty > 0 && currentQty <= minThreshold;
       }).length,
-      stockout: activeItems.filter(item => runwayMap.get(item.id)?.status === 'stockout').length,
+      // Stockout: zero stock
+      stockout: activeItems.filter(item => {
+        const currentQty = item.stockLevel?.qtyOnHand || 0;
+        return currentQty === 0;
+      }).length,
     };
   };
 
