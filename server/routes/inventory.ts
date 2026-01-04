@@ -720,6 +720,15 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
     for (const transferItem of transferItems) {
       const { itemId, transferType, transferQty, pharmacode, gtin } = transferItem;
       
+      // Track original values for rollback
+      let sourceStockOriginal: number | null = null;
+      let sourceUnitsOriginal: number | null = null;
+      let destStockOriginal: number | null = null;
+      let destUnitsOriginal: number | null = null;
+      let destItemId: string | null = null;
+      let createdNewItem = false;
+      let newItemId: string | null = null;
+      
       try {
         // Get source item
         const sourceItem = await storage.getItem(itemId);
@@ -731,23 +740,30 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
         // Get source stock level
         const sourceStock = await storage.getStockLevel(itemId, sourceUnitId);
         const sourceStockQty = sourceStock?.qtyOnHand || 0;
+        sourceStockOriginal = sourceStockQty;
+        sourceUnitsOriginal = sourceItem.currentUnits || 0;
         
-        // Calculate transfer amount
-        let packTransferQty = transferQty;
+        const packSize = sourceItem.packSize || 1;
+        
+        // Calculate transfer amounts based on transfer type
+        // For unit transfers: only update currentUnits, qtyOnHand stays the same
+        // For pack transfers: update qtyOnHand, and calculate equivalent units
+        let packTransferQty = 0;
         let unitTransferQty = 0;
         
         if (transferType === 'units' && sourceItem.trackExactQuantity) {
-          // Transferring individual units
+          // Transferring individual units only - no pack changes
           unitTransferQty = transferQty;
-          packTransferQty = Math.ceil(transferQty / (sourceItem.packSize || 1));
+          packTransferQty = 0; // Don't touch pack counts for unit transfers
         } else {
           // Transferring whole packs
-          unitTransferQty = transferQty * (sourceItem.packSize || 1);
+          packTransferQty = transferQty;
+          unitTransferQty = transferQty * packSize;
         }
         
         // Validate we have enough stock
         if (transferType === 'units') {
-          if ((sourceItem.currentUnits || 0) < unitTransferQty) {
+          if (sourceUnitsOriginal < unitTransferQty) {
             results.failed.push({ itemId, reason: "Insufficient units" });
             continue;
           }
@@ -759,10 +775,7 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
         }
         
         // Find matching item in destination by pharmacode or GTIN
-        let destItemId: string | null = null;
-        
         if (pharmacode || gtin) {
-          // Get all items in destination unit
           const destItems = await storage.getItems(hospitalId, destinationUnitId);
           
           for (const destItem of destItems) {
@@ -780,84 +793,149 @@ router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (r
           }
         }
         
-        // Decrease source stock
-        const newSourceQty = Math.max(0, sourceStockQty - packTransferQty);
-        await storage.updateStockLevel(itemId, sourceUnitId, newSourceQty);
-        
-        // Update source item's currentUnits if tracking exact quantity
-        if (sourceItem.trackExactQuantity) {
-          const newCurrentUnits = Math.max(0, (sourceItem.currentUnits || 0) - unitTransferQty);
-          await storage.updateItem(itemId, { currentUnits: newCurrentUnits });
-        }
-        
-        if (destItemId) {
-          // Increase existing destination stock
-          const destStock = await storage.getStockLevel(destItemId, destinationUnitId);
-          const destStockQty = destStock?.qtyOnHand || 0;
-          await storage.updateStockLevel(destItemId, destinationUnitId, destStockQty + packTransferQty);
-          
-          // Update destination item's currentUnits if tracking exact quantity
-          const destItem = await storage.getItem(destItemId);
-          if (destItem?.trackExactQuantity) {
-            const newDestUnits = (destItem.currentUnits || 0) + unitTransferQty;
-            await storage.updateItem(destItemId, { currentUnits: newDestUnits });
+        // Helper function to rollback destination changes
+        const rollbackDestination = async () => {
+          try {
+            if (destItemId && destStockOriginal !== null) {
+              await storage.updateStockLevel(destItemId, destinationUnitId, destStockOriginal);
+              if (destUnitsOriginal !== null) {
+                await storage.updateItem(destItemId, { currentUnits: destUnitsOriginal });
+              }
+            }
+            if (createdNewItem && newItemId) {
+              await storage.deleteItem(newItemId);
+              // Remove from created list if rollback
+              const idx = results.created.indexOf(newItemId);
+              if (idx > -1) results.created.splice(idx, 1);
+            }
+          } catch (rollbackErr) {
+            console.error(`Rollback failed for ${itemId}:`, rollbackErr);
           }
-          
-          results.transferred.push(itemId);
-        } else {
-          // Create new item in destination unit
-          const sourceCodes = await storage.getItemCode(itemId);
-          
-          const newItem = await storage.createItem({
-            hospitalId,
-            unitId: destinationUnitId,
-            name: sourceItem.name,
-            description: sourceItem.description,
-            unit: sourceItem.unit,
-            packSize: sourceItem.packSize,
-            minThreshold: sourceItem.minThreshold,
-            maxThreshold: sourceItem.maxThreshold,
-            defaultOrderQty: sourceItem.defaultOrderQty,
-            critical: sourceItem.critical,
-            controlled: sourceItem.controlled,
-            trackExactQuantity: sourceItem.trackExactQuantity,
-            currentUnits: sourceItem.trackExactQuantity ? unitTransferQty : 0,
-            vendorId: sourceItem.vendorId,
-            imageUrl: sourceItem.imageUrl,
-          });
-          
-          // Copy item codes to new item
-          if (sourceCodes) {
-            await storage.createItemCode({
-              itemId: newItem.id,
-              gtin: sourceCodes.gtin,
-              pharmacode: sourceCodes.pharmacode,
-              migel: sourceCodes.migel,
-              atc: sourceCodes.atc,
-              manufacturer: sourceCodes.manufacturer,
-              packContent: sourceCodes.packContent,
-              unitsPerPack: sourceCodes.unitsPerPack,
-              contentPerUnit: sourceCodes.contentPerUnit,
+        };
+        
+        // STEP 1: Do destination operations first
+        try {
+          if (destItemId) {
+            // Increase existing destination stock
+            const destStock = await storage.getStockLevel(destItemId, destinationUnitId);
+            destStockOriginal = destStock?.qtyOnHand || 0;
+            
+            if (packTransferQty > 0) {
+              await storage.updateStockLevel(destItemId, destinationUnitId, destStockOriginal + packTransferQty);
+            }
+            
+            // Update destination item's currentUnits if tracking exact quantity
+            const destItem = await storage.getItem(destItemId);
+            if (destItem?.trackExactQuantity && unitTransferQty > 0) {
+              destUnitsOriginal = destItem.currentUnits || 0;
+              await storage.updateItem(destItemId, { currentUnits: destUnitsOriginal + unitTransferQty });
+            }
+          } else {
+            // Create new item in destination unit
+            createdNewItem = true;
+            const sourceCodes = await storage.getItemCode(itemId);
+            
+            const newItem = await storage.createItem({
+              hospitalId,
+              unitId: destinationUnitId,
+              name: sourceItem.name,
+              description: sourceItem.description,
+              unit: sourceItem.unit,
+              packSize: sourceItem.packSize,
+              minThreshold: sourceItem.minThreshold,
+              maxThreshold: sourceItem.maxThreshold,
+              defaultOrderQty: sourceItem.defaultOrderQty,
+              critical: sourceItem.critical,
+              controlled: sourceItem.controlled,
+              trackExactQuantity: sourceItem.trackExactQuantity,
+              currentUnits: sourceItem.trackExactQuantity ? unitTransferQty : 0,
+              vendorId: sourceItem.vendorId,
+              imageUrl: sourceItem.imageUrl,
             });
+            newItemId = newItem.id;
+            
+            // Copy item codes to new item
+            if (sourceCodes) {
+              await storage.createItemCode({
+                itemId: newItem.id,
+                gtin: sourceCodes.gtin,
+                pharmacode: sourceCodes.pharmacode,
+                migel: sourceCodes.migel,
+                atc: sourceCodes.atc,
+                manufacturer: sourceCodes.manufacturer,
+                packContent: sourceCodes.packContent,
+                unitsPerPack: sourceCodes.unitsPerPack,
+                contentPerUnit: sourceCodes.contentPerUnit,
+              });
+            }
+            
+            // Set initial stock level
+            if (packTransferQty > 0) {
+              await storage.updateStockLevel(newItem.id, destinationUnitId, packTransferQty);
+            }
           }
-          
-          // Set initial stock level
-          await storage.updateStockLevel(newItem.id, destinationUnitId, packTransferQty);
-          
-          results.transferred.push(itemId);
-          results.created.push(newItem.id);
+        } catch (destError) {
+          // Destination update failed - rollback any partial destination changes
+          console.error(`Destination update failed for ${itemId}:`, destError);
+          await rollbackDestination();
+          throw destError;
         }
         
-        // Create activity record for audit trail
-        await storage.createActivity({
-          unitId: sourceUnitId,
-          itemId,
-          userId,
-          action: 'transfer_out',
-          delta: -packTransferQty,
-          movementType: 'OUT',
-          notes: `Transferred ${transferType === 'units' ? unitTransferQty + ' units' : packTransferQty + ' packs'} to ${destUnit.name}`,
-        });
+        // STEP 2: Decrease source stock (after destination is updated)
+        let sourceStockUpdated = false;
+        try {
+          if (packTransferQty > 0) {
+            await storage.updateStockLevel(itemId, sourceUnitId, Math.max(0, sourceStockQty - packTransferQty));
+            sourceStockUpdated = true;
+          }
+          
+          // Update source item's currentUnits if tracking exact quantity
+          if (sourceItem.trackExactQuantity && unitTransferQty > 0) {
+            await storage.updateItem(itemId, { currentUnits: Math.max(0, sourceUnitsOriginal - unitTransferQty) });
+          }
+        } catch (sourceError) {
+          // Source update failed - rollback both source and destination changes
+          console.error(`Source update failed for ${itemId}:`, sourceError);
+          
+          // Rollback source changes if any were made
+          try {
+            if (sourceStockUpdated && sourceStockOriginal !== null) {
+              await storage.updateStockLevel(itemId, sourceUnitId, sourceStockOriginal);
+            }
+            if (sourceItem.trackExactQuantity && sourceUnitsOriginal !== null) {
+              await storage.updateItem(itemId, { currentUnits: sourceUnitsOriginal });
+            }
+          } catch (sourceRollbackErr) {
+            console.error(`Source rollback failed for ${itemId}:`, sourceRollbackErr);
+          }
+          
+          // Rollback destination changes
+          await rollbackDestination();
+          throw sourceError;
+        }
+        
+        // STEP 3: Create activity record (non-critical, don't rollback on failure)
+        try {
+          const auditDelta = transferType === 'units' ? -unitTransferQty : -packTransferQty;
+          await storage.createActivity({
+            unitId: sourceUnitId,
+            itemId,
+            userId,
+            action: 'transfer_out',
+            delta: auditDelta,
+            movementType: 'OUT',
+            notes: `Transferred ${transferType === 'units' ? unitTransferQty + ' units' : packTransferQty + ' packs'} to ${destUnit.name}`,
+          });
+        } catch (activityError) {
+          console.error(`Activity log failed for ${itemId}:`, activityError);
+          // Don't fail the transfer for activity log errors
+        }
+        
+        // Only add to created list after full success
+        if (createdNewItem && newItemId) {
+          results.created.push(newItemId);
+        }
+        results.transferred.push(itemId);
         
       } catch (error: any) {
         console.error(`Error transferring item ${itemId}:`, error);
