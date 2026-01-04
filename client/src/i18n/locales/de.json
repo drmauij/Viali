@@ -433,6 +433,7 @@
     "orderDeleted": "Bestellung gelöscht",
     "orderDeletedSuccess": "Bestellung wurde erfolgreich gelöscht.",
     "failedToDeleteOrder": "Bestellung konnte nicht gelöscht werden.",
+    "unit": "Einheit",
     "itemAdded": "Artikel hinzugefügt",
     "itemAddedSuccess": "Artikel wurde erfolgreich zur Bestellung hinzugefügt.",
     "failedToAddItem": "Artikel konnte nicht zur Bestellung hinzugefügt werden.",

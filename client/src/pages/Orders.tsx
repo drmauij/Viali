@@ -1105,14 +1105,14 @@ export default function Orders() {
 
       {/* Edit Order Dialog */}
       <Dialog open={editOrderDialogOpen} onOpenChange={setEditOrderDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>{t('orders.editOrderTitle', { number: selectedOrder?.id.slice(-4) })}</DialogTitle>
             <DialogDescription>{t('orders.editOrderDesc')}</DialogDescription>
           </DialogHeader>
 
           {selectedOrder && (
-            <div className="space-y-4">
+            <div className="flex-1 space-y-4 overflow-y-auto min-h-0">
               <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                 <div>
                   <p className="text-sm text-muted-foreground">{t('orders.unit')}</p>
@@ -1200,7 +1200,7 @@ export default function Orders() {
 
               <div>
                 <h3 className="font-semibold mb-2">{t('orders.orderItems', { count: selectedOrder.orderLines.length })}</h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
+                <div className="space-y-2">
                   {selectedOrder.orderLines.map(line => {
                     const stockStatus = getStockStatus(line.item);
                     const currentQty = line.item.stockLevel?.qtyOnHand ?? 0;

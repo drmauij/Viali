@@ -433,6 +433,7 @@
     "orderDeleted": "Order Deleted",
     "orderDeletedSuccess": "Order has been deleted successfully.",
     "failedToDeleteOrder": "Failed to delete order.",
+    "unit": "Unit",
     "itemAdded": "Item Added",
     "itemAddedSuccess": "Item added to order successfully.",
     "failedToAddItem": "Failed to add item to order.",
