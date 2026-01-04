@@ -689,6 +689,14 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
       `,
     });
     
+    // Record that email was sent on the questionnaire link
+    await storage.updateQuestionnaireLink(linkId, {
+      emailSent: true,
+      emailSentAt: new Date(),
+      emailSentTo: email,
+      emailSentBy: req.user.id,
+    });
+    
     res.json({ message: "Email sent successfully" });
   } catch (error) {
     console.error("Error sending questionnaire email:", error);
