@@ -44,6 +44,26 @@ router.get('/api/dashboard/kpis/:hospitalId', isAuthenticated, async (req, res) 
   }
 });
 
+// Get all units for a hospital (for transfer destination selection)
+router.get('/api/units/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+    
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasHospitalAccess = userHospitals.some(h => h.id === hospitalId);
+    if (!hasHospitalAccess) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const units = await storage.getUnits(hospitalId);
+    res.json(units);
+  } catch (error) {
+    console.error("Error fetching units:", error);
+    res.status(500).json({ message: "Failed to fetch units" });
+  }
+});
+
 router.get('/api/folders/:hospitalId', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
