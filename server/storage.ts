@@ -65,6 +65,8 @@ import {
   patientQuestionnaireResponses,
   patientQuestionnaireUploads,
   patientQuestionnaireReviews,
+  // Patient documents (staff uploads)
+  patientDocuments,
   type User,
   type UpsertUser,
   type Hospital,
@@ -181,6 +183,8 @@ import {
   type InsertPatientQuestionnaireUpload,
   type PatientQuestionnaireReview,
   type InsertPatientQuestionnaireReview,
+  type PatientDocument,
+  type InsertPatientDocument,
   // Personal todo types
   personalTodos,
   type PersonalTodo,
@@ -699,6 +703,12 @@ export interface IStorage {
   createQuestionnaireReview(review: InsertPatientQuestionnaireReview): Promise<PatientQuestionnaireReview>;
   getQuestionnaireReview(responseId: string): Promise<PatientQuestionnaireReview | undefined>;
   updateQuestionnaireReview(id: string, updates: Partial<PatientQuestionnaireReview>): Promise<PatientQuestionnaireReview>;
+  
+  // ========== PATIENT DOCUMENT OPERATIONS (Staff uploads) ==========
+  getPatientDocuments(patientId: string): Promise<PatientDocument[]>;
+  getPatientDocument(id: string): Promise<PatientDocument | undefined>;
+  createPatientDocument(doc: InsertPatientDocument): Promise<PatientDocument>;
+  deletePatientDocument(id: string): Promise<void>;
   
   // ========== PERSONAL TODO OPERATIONS ==========
   getPersonalTodos(userId: string, hospitalId: string): Promise<PersonalTodo[]>;
@@ -6380,6 +6390,38 @@ export class DatabaseStorage implements IStorage {
       .where(eq(patientQuestionnaireReviews.id, id))
       .returning();
     return updated;
+  }
+
+  // ========== PATIENT DOCUMENT OPERATIONS (Staff uploads) ==========
+  
+  async getPatientDocuments(patientId: string): Promise<PatientDocument[]> {
+    return await db
+      .select()
+      .from(patientDocuments)
+      .where(eq(patientDocuments.patientId, patientId))
+      .orderBy(desc(patientDocuments.createdAt));
+  }
+
+  async getPatientDocument(id: string): Promise<PatientDocument | undefined> {
+    const [doc] = await db
+      .select()
+      .from(patientDocuments)
+      .where(eq(patientDocuments.id, id));
+    return doc;
+  }
+
+  async createPatientDocument(doc: InsertPatientDocument): Promise<PatientDocument> {
+    const [created] = await db
+      .insert(patientDocuments)
+      .values(doc)
+      .returning();
+    return created;
+  }
+
+  async deletePatientDocument(id: string): Promise<void> {
+    await db
+      .delete(patientDocuments)
+      .where(eq(patientDocuments.id, id));
   }
 
   // ========== PERSONAL TODO OPERATIONS ==========
