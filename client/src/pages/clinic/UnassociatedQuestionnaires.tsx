@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Dialog, 
   DialogContent, 
@@ -28,7 +29,8 @@ import {
   ChevronRight,
   Copy,
   Check,
-  ExternalLink
+  CheckCircle,
+  AlertCircle
 } from "lucide-react";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
@@ -41,14 +43,20 @@ interface UnassociatedResponse extends PatientQuestionnaireResponse {
   link: PatientQuestionnaireLink;
 }
 
+interface ResponseWithMatch extends UnassociatedResponse {
+  matchedPatient: Patient | null;
+  matchConfidence: 'exact' | 'partial' | 'none';
+}
+
 export default function UnassociatedQuestionnaires() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [activeTab, setActiveTab] = useState("with-matches");
   const [searchTerm, setSearchTerm] = useState("");
   const [associateDialogOpen, setAssociateDialogOpen] = useState(false);
-  const [selectedResponse, setSelectedResponse] = useState<UnassociatedResponse | null>(null);
+  const [selectedResponse, setSelectedResponse] = useState<ResponseWithMatch | null>(null);
   const [patientSearchTerm, setPatientSearchTerm] = useState("");
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [linkCopied, setLinkCopied] = useState(false);
@@ -71,7 +79,6 @@ export default function UnassociatedQuestionnaires() {
   const hospitalId = activeHospital?.id;
   const dateLocale = i18n.language === 'de' ? de : enUS;
 
-  // Fetch questionnaire token for the hospital
   const { data: questionnaireTokenData } = useQuery<{ questionnaireToken: string | null }>({
     queryKey: [`/api/admin/${hospitalId}/questionnaire-token`],
     enabled: !!hospitalId,
@@ -126,6 +133,77 @@ export default function UnassociatedQuestionnaires() {
     enabled: !!hospitalId,
   });
 
+  const findMatchingPatient = (response: UnassociatedResponse): { patient: Patient | null; confidence: 'exact' | 'partial' | 'none' } => {
+    if (!response.patientFirstName && !response.patientLastName && !response.patientBirthday) {
+      return { patient: null, confidence: 'none' };
+    }
+
+    const responseFirstName = (response.patientFirstName || '').toLowerCase().trim();
+    const responseLastName = (response.patientLastName || '').toLowerCase().trim();
+    const responseBirthday = response.patientBirthday || '';
+
+    for (const patient of patients) {
+      const patientFirstName = (patient.firstName || '').toLowerCase().trim();
+      const patientLastName = (patient.surname || '').toLowerCase().trim();
+      const patientBirthday = patient.birthday || '';
+
+      const firstNameMatch = responseFirstName && patientFirstName && responseFirstName === patientFirstName;
+      const lastNameMatch = responseLastName && patientLastName && responseLastName === patientLastName;
+      const birthdayMatch = responseBirthday && patientBirthday && responseBirthday === patientBirthday;
+
+      if (firstNameMatch && lastNameMatch && birthdayMatch) {
+        return { patient, confidence: 'exact' };
+      }
+
+      if ((firstNameMatch && lastNameMatch) || (lastNameMatch && birthdayMatch) || (firstNameMatch && birthdayMatch)) {
+        return { patient, confidence: 'partial' };
+      }
+    }
+
+    return { patient: null, confidence: 'none' };
+  };
+
+  const responsesWithMatches: ResponseWithMatch[] = useMemo(() => {
+    return responses.map(response => {
+      const { patient, confidence } = findMatchingPatient(response);
+      return {
+        ...response,
+        matchedPatient: patient,
+        matchConfidence: confidence,
+      };
+    });
+  }, [responses, patients]);
+
+  const matchedResponses = responsesWithMatches.filter(r => r.matchConfidence !== 'none');
+  const unmatchedResponses = responsesWithMatches.filter(r => r.matchConfidence === 'none');
+
+  const filteredMatchedResponses = matchedResponses.filter(response => {
+    if (!searchTerm.trim()) return true;
+    const query = searchTerm.toLowerCase();
+    const name = `${response.patientFirstName || ''} ${response.patientLastName || ''}`.toLowerCase();
+    const email = (response.patientEmail || '').toLowerCase();
+    return name.includes(query) || email.includes(query);
+  });
+
+  const filteredUnmatchedResponses = unmatchedResponses.filter(response => {
+    if (!searchTerm.trim()) return true;
+    const query = searchTerm.toLowerCase();
+    const name = `${response.patientFirstName || ''} ${response.patientLastName || ''}`.toLowerCase();
+    const email = (response.patientEmail || '').toLowerCase();
+    return name.includes(query) || email.includes(query);
+  });
+
+  const filteredPatients = patients.filter(patient => {
+    if (!patientSearchTerm.trim()) return true;
+    const query = patientSearchTerm.toLowerCase();
+    const fullName = `${patient.firstName} ${patient.surname}`.toLowerCase();
+    const reverseName = `${patient.surname} ${patient.firstName}`.toLowerCase();
+    return fullName.includes(query) || 
+           reverseName.includes(query) || 
+           patient.patientNumber.toLowerCase().includes(query) ||
+           patient.birthday.includes(patientSearchTerm);
+  });
+
   const associateMutation = useMutation({
     mutationFn: async ({ responseId, patientId }: { responseId: string; patientId: string }) => {
       return await apiRequest('POST', `/api/questionnaire/responses/${responseId}/associate`, { patientId });
@@ -150,30 +228,24 @@ export default function UnassociatedQuestionnaires() {
     },
   });
 
-  const filteredResponses = responses.filter(response => {
-    if (!searchTerm.trim()) return true;
-    const query = searchTerm.toLowerCase();
-    const name = `${response.patientFirstName || ''} ${response.patientLastName || ''}`.toLowerCase();
-    const email = (response.patientEmail || '').toLowerCase();
-    return name.includes(query) || email.includes(query);
-  });
-
-  const filteredPatients = patients.filter(patient => {
-    if (!patientSearchTerm.trim()) return true;
-    const query = patientSearchTerm.toLowerCase();
-    const fullName = `${patient.firstName} ${patient.surname}`.toLowerCase();
-    const reverseName = `${patient.surname} ${patient.firstName}`.toLowerCase();
-    return fullName.includes(query) || 
-           reverseName.includes(query) || 
-           patient.patientNumber.toLowerCase().includes(query) ||
-           patient.birthday.includes(patientSearchTerm);
-  });
-
-  const handleOpenAssociateDialog = (response: UnassociatedResponse) => {
+  const handleOpenAssociateDialog = (response: ResponseWithMatch) => {
     setSelectedResponse(response);
+    if (response.matchedPatient) {
+      setSelectedPatient(response.matchedPatient);
+    } else {
+      setSelectedPatient(null);
+    }
     setAssociateDialogOpen(true);
     setPatientSearchTerm("");
-    setSelectedPatient(null);
+  };
+
+  const handleQuickAssociate = (response: ResponseWithMatch) => {
+    if (response.matchedPatient) {
+      associateMutation.mutate({
+        responseId: response.id,
+        patientId: response.matchedPatient.id,
+      });
+    }
   };
 
   const handleAssociate = () => {
@@ -196,6 +268,136 @@ export default function UnassociatedQuestionnaires() {
       </div>
     );
   }
+
+  const renderResponseCard = (response: ResponseWithMatch, showMatchInfo: boolean) => (
+    <Card 
+      key={response.id}
+      className="hover:bg-accent/50 transition-colors"
+      data-testid={`questionnaire-response-${response.id}`}
+    >
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <h3 className="font-semibold text-lg">
+                {response.patientFirstName} {response.patientLastName}
+              </h3>
+              {showMatchInfo && response.matchConfidence === 'exact' && (
+                <Badge variant="default" className="bg-green-600 text-xs">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  {t('questionnaire.unassociated.exactMatch', 'Exact Match')}
+                </Badge>
+              )}
+              {showMatchInfo && response.matchConfidence === 'partial' && (
+                <Badge variant="secondary" className="text-xs">
+                  {t('questionnaire.unassociated.partialMatch', 'Partial Match')}
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+              {response.patientBirthday && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  {formatDate(response.patientBirthday)}
+                </span>
+              )}
+              {response.patientEmail && (
+                <span className="flex items-center gap-1">
+                  <Mail className="h-3.5 w-3.5" />
+                  {response.patientEmail}
+                </span>
+              )}
+              {response.patientPhone && (
+                <span className="flex items-center gap-1">
+                  <Phone className="h-3.5 w-3.5" />
+                  {response.patientPhone}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              {t('questionnaire.unassociated.submittedAt', 'Submitted')}: {
+                response.submittedAt 
+                  ? format(new Date(response.submittedAt), 'PPp', { locale: dateLocale })
+                  : '-'
+              }
+            </p>
+            {showMatchInfo && response.matchedPatient && (
+              <div className="mt-2 p-2 bg-green-50 dark:bg-green-950/30 rounded-md border border-green-200 dark:border-green-800">
+                <p className="text-xs text-green-700 dark:text-green-400 font-medium">
+                  {t('questionnaire.unassociated.matchedTo', 'Matched to')}: {response.matchedPatient.surname}, {response.matchedPatient.firstName} ({response.matchedPatient.patientNumber})
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            {showMatchInfo && response.matchedPatient ? (
+              <>
+                <Button 
+                  size="sm"
+                  onClick={(e) => { e.stopPropagation(); handleQuickAssociate(response); }}
+                  disabled={associateMutation.isPending}
+                  data-testid={`button-confirm-match-${response.id}`}
+                >
+                  {associateMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-1" />
+                  )}
+                  {t('questionnaire.unassociated.confirm', 'Confirm')}
+                </Button>
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  onClick={(e) => { e.stopPropagation(); handleOpenAssociateDialog(response); }}
+                  data-testid={`button-change-match-${response.id}`}
+                >
+                  {t('questionnaire.unassociated.change', 'Change')}
+                </Button>
+              </>
+            ) : (
+              <Button 
+                size="sm"
+                variant="outline"
+                onClick={(e) => { e.stopPropagation(); handleOpenAssociateDialog(response); }}
+                data-testid={`button-associate-${response.id}`}
+              >
+                <Link2 className="h-4 w-4 mr-1" />
+                {t('questionnaire.unassociated.link', 'Link')}
+              </Button>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  const renderEmptyState = (isMatched: boolean) => (
+    <Card>
+      <CardContent className="flex flex-col items-center justify-center py-12">
+        {isMatched ? (
+          <>
+            <CheckCircle className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+              {t('questionnaire.unassociated.noMatchedResponses', 'No questionnaires with matches')}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1 text-center max-w-md">
+              {t('questionnaire.unassociated.noMatchedResponsesDesc', 'There are no questionnaires that match existing patients in the system.')}
+            </p>
+          </>
+        ) : (
+          <>
+            <FileQuestion className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+              {t('questionnaire.unassociated.noUnmatchedResponses', 'No questionnaires without matches')}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1 text-center max-w-md">
+              {t('questionnaire.unassociated.noUnmatchedResponsesDesc', 'All unassociated questionnaires have potential patient matches.')}
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="container mx-auto p-4 pb-20">
@@ -249,7 +451,7 @@ export default function UnassociatedQuestionnaires() {
             </Card>
           ))}
         </div>
-      ) : filteredResponses.length === 0 ? (
+      ) : responses.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileQuestion className="h-12 w-12 text-muted-foreground mb-4" />
@@ -262,59 +464,50 @@ export default function UnassociatedQuestionnaires() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {filteredResponses.map((response) => (
-            <Card 
-              key={response.id}
-              className="hover:bg-accent/50 transition-colors cursor-pointer"
-              onClick={() => handleOpenAssociateDialog(response)}
-              data-testid={`questionnaire-response-${response.id}`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-lg">
-                        {response.patientFirstName} {response.patientLastName}
-                      </h3>
-                      <Badge variant="outline" className="text-xs">
-                        {t('questionnaire.unassociated.newSubmission', 'New')}
-                      </Badge>
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                      {response.patientBirthday && (
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3.5 w-3.5" />
-                          {formatDate(response.patientBirthday)}
-                        </span>
-                      )}
-                      {response.patientEmail && (
-                        <span className="flex items-center gap-1">
-                          <Mail className="h-3.5 w-3.5" />
-                          {response.patientEmail}
-                        </span>
-                      )}
-                      {response.patientPhone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="h-3.5 w-3.5" />
-                          {response.patientPhone}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      {t('questionnaire.unassociated.submittedAt', 'Submitted')}: {
-                        response.submittedAt 
-                          ? format(new Date(response.submittedAt), 'PPp', { locale: dateLocale })
-                          : '-'
-                      }
-                    </p>
-                  </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="with-matches" className="gap-2" data-testid="tab-with-matches">
+              <CheckCircle className="h-4 w-4" />
+              {t('questionnaire.unassociated.tabWithMatches', 'Suggested Matches')}
+              {matchedResponses.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{matchedResponses.length}</Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="no-matches" className="gap-2" data-testid="tab-no-matches">
+              <AlertCircle className="h-4 w-4" />
+              {t('questionnaire.unassociated.tabNoMatches', 'No Match Found')}
+              {unmatchedResponses.length > 0 && (
+                <Badge variant="secondary" className="ml-1">{unmatchedResponses.length}</Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="with-matches" className="mt-0">
+            {filteredMatchedResponses.length === 0 ? (
+              renderEmptyState(true)
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  {t('questionnaire.unassociated.matchedDescription', 'These questionnaires have been automatically matched to existing patients. Review and confirm the associations.')}
+                </p>
+                {filteredMatchedResponses.map((response) => renderResponseCard(response, true))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="no-matches" className="mt-0">
+            {filteredUnmatchedResponses.length === 0 ? (
+              renderEmptyState(false)
+            ) : (
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  {t('questionnaire.unassociated.unmatchedDescription', 'These questionnaires could not be matched to any existing patient. You may need to create a new patient record first.')}
+                </p>
+                {filteredUnmatchedResponses.map((response) => renderResponseCard(response, false))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       )}
 
       <Dialog open={associateDialogOpen} onOpenChange={setAssociateDialogOpen}>

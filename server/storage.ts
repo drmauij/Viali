@@ -6302,7 +6302,7 @@ export class DatabaseStorage implements IStorage {
   async getQuestionnaireResponsesForHospital(hospitalId: string, status?: string): Promise<(PatientQuestionnaireResponse & { link: PatientQuestionnaireLink })[]> {
     const conditions = [eq(patientQuestionnaireLinks.hospitalId, hospitalId)];
     if (status) {
-      conditions.push(eq(patientQuestionnaireResponses.status, status));
+      conditions.push(eq(patientQuestionnaireLinks.status, status));
     }
     
     const results = await db
@@ -6310,7 +6310,7 @@ export class DatabaseStorage implements IStorage {
       .from(patientQuestionnaireResponses)
       .innerJoin(patientQuestionnaireLinks, eq(patientQuestionnaireResponses.linkId, patientQuestionnaireLinks.id))
       .where(and(...conditions))
-      .orderBy(desc(patientQuestionnaireResponses.updatedAt));
+      .orderBy(desc(patientQuestionnaireResponses.submittedAt));
     
     return results.map(row => ({
       ...row.patient_questionnaire_responses,
@@ -6326,7 +6326,7 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(patientQuestionnaireLinks.hospitalId, hospitalId),
         isNull(patientQuestionnaireLinks.patientId),
-        eq(patientQuestionnaireResponses.status, 'submitted')
+        eq(patientQuestionnaireLinks.status, 'submitted')
       ))
       .orderBy(desc(patientQuestionnaireResponses.submittedAt));
     
