@@ -1059,13 +1059,24 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
   const results: Array<{
     surgeryId: string;
     patientName: string;
-    status: 'sent' | 'skipped_no_email' | 'skipped_already_sent' | 'failed';
+    status: 'sent' | 'skipped_no_email' | 'skipped_already_sent' | 'skipped_has_questionnaire' | 'failed';
     error?: string;
   }> = [];
 
   for (const surgery of eligibleSurgeries) {
     processedCount++;
     const patientName = `${surgery.patientFirstName} ${surgery.patientLastName}`;
+    
+    // Skip if patient already has a filled/submitted questionnaire (via tablet or previous visit)
+    if (surgery.hasExistingQuestionnaire) {
+      console.log(`[Worker] Skipping ${patientName} - patient already has filled questionnaire`);
+      results.push({
+        surgeryId: surgery.surgeryId,
+        patientName,
+        status: 'skipped_has_questionnaire',
+      });
+      continue;
+    }
     
     // Skip if already has questionnaire sent
     if (surgery.hasQuestionnaireSent) {

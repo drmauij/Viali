@@ -775,9 +775,11 @@ export interface IStorage {
     patientFirstName: string;
     patientLastName: string;
     patientEmail: string | null;
+    patientBirthday: Date | null;
     plannedDate: Date;
     plannedSurgery: string;
     hasQuestionnaireSent: boolean;
+    hasExistingQuestionnaire: boolean;
   }>>;
 }
 
@@ -6933,9 +6935,11 @@ export class DatabaseStorage implements IStorage {
     patientFirstName: string;
     patientLastName: string;
     patientEmail: string | null;
+    patientBirthday: Date | null;
     plannedDate: Date;
     plannedSurgery: string;
     hasQuestionnaireSent: boolean;
+    hasExistingQuestionnaire: boolean;
   }>> {
     // Calculate the date range: surgeries planned for approximately daysAhead days from now
     // We use a 24-hour window: from (daysAhead - 0.5) days to (daysAhead + 0.5) days
@@ -6954,6 +6958,7 @@ export class DatabaseStorage implements IStorage {
         patientFirstName: patients.firstName,
         patientLastName: patients.surname,
         patientEmail: patients.email,
+        patientBirthday: patients.birthday,
         plannedDate: surgeries.plannedDate,
         plannedSurgery: surgeries.plannedSurgery,
         // Check if there's any questionnaire link with emailSent=true for this surgery OR patient
@@ -6961,6 +6966,25 @@ export class DatabaseStorage implements IStorage {
           SELECT 1 FROM patient_questionnaire_links pql 
           WHERE (pql.surgery_id = ${surgeries.id} OR pql.patient_id = ${surgeries.patientId})
             AND pql.email_sent = true
+        )`,
+        // Check if there's an existing submitted/reviewed questionnaire for this patient
+        // Either: linked directly to the patient, OR filled via tablet with matching name/birthday
+        hasExistingQuestionnaire: sql<boolean>`EXISTS (
+          SELECT 1 FROM patient_questionnaire_links pql
+          LEFT JOIN patient_questionnaire_responses pqr ON pqr.link_id = pql.id
+          WHERE pql.hospital_id = ${hospitalId}
+            AND pql.status IN ('submitted', 'reviewed')
+            AND (
+              -- Linked directly to this patient
+              pql.patient_id = surgeries.patient_id
+              -- OR filled via tablet with matching first name, last name, and birthday
+              OR (
+                pqr.id IS NOT NULL 
+                AND LOWER(pqr.patient_first_name) = LOWER(patients.first_name)
+                AND LOWER(pqr.patient_last_name) = LOWER(patients.surname)
+                AND pqr.patient_birthday = patients.birthday::date
+              )
+            )
         )`,
       })
       .from(surgeries)
