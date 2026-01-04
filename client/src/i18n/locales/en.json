@@ -2002,7 +2002,21 @@
       "questionnaireImportedDesc": "Patient data has been imported to the pre-op assessment",
       "submitted": "Submitted",
       "noDataToImport": "No data to import",
-      "loadingQuestionnaire": "Loading questionnaire..."
+      "loadingQuestionnaire": "Loading questionnaire...",
+      "findQuestionnaire": "Find & Associate Questionnaire",
+      "findQuestionnaireDesc": "Search for an unassociated questionnaire filled by a walk-in patient and link it to this patient.",
+      "searchQuestionnaires": "Search by patient name",
+      "searchQuestionnairesPlaceholder": "Enter name or birthday...",
+      "associatingTo": "Will associate to:",
+      "availableQuestionnaires": "Available unassociated questionnaires",
+      "noUnassociatedQuestionnaires": "No unassociated questionnaires found",
+      "submittedOn": "Submitted",
+      "exactMatch": "Exact Match",
+      "partialMatch": "Partial Match",
+      "confirmAssociate": "Associate & Import",
+      "questionnaireAssociated": "Questionnaire Associated",
+      "questionnaireAssociatedDesc": "The questionnaire has been linked to this patient. You can now import the data.",
+      "associationFailed": "Failed to associate questionnaire"
     },
     "surgerySummary": {
       "title": "Surgery Summary",

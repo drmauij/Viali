@@ -2002,7 +2002,21 @@
       "questionnaireImportedDesc": "Patientendaten wurden in das Prä-OP Assessment importiert",
       "submitted": "Eingereicht",
       "noDataToImport": "Keine Daten zum Importieren",
-      "loadingQuestionnaire": "Fragebogen wird geladen..."
+      "loadingQuestionnaire": "Fragebogen wird geladen...",
+      "findQuestionnaire": "Fragebogen suchen & verknüpfen",
+      "findQuestionnaireDesc": "Suchen Sie nach einem nicht zugeordneten Fragebogen eines Walk-in-Patienten und verknüpfen Sie ihn mit diesem Patienten.",
+      "searchQuestionnaires": "Nach Patientenname suchen",
+      "searchQuestionnairesPlaceholder": "Name oder Geburtsdatum eingeben...",
+      "associatingTo": "Wird verknüpft mit:",
+      "availableQuestionnaires": "Verfügbare nicht zugeordnete Fragebögen",
+      "noUnassociatedQuestionnaires": "Keine nicht zugeordneten Fragebögen gefunden",
+      "submittedOn": "Eingereicht",
+      "exactMatch": "Exakte Übereinstimmung",
+      "partialMatch": "Teilweise Übereinstimmung",
+      "confirmAssociate": "Verknüpfen & Importieren",
+      "questionnaireAssociated": "Fragebogen verknüpft",
+      "questionnaireAssociatedDesc": "Der Fragebogen wurde mit diesem Patienten verknüpft. Sie können jetzt die Daten importieren.",
+      "associationFailed": "Fragebogen konnte nicht verknüpft werden"
     },
     "surgerySummary": {
       "title": "OP-Zusammenfassung",
