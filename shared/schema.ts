@@ -3568,3 +3568,46 @@ export type ClinicAppointment = typeof clinicAppointments.$inferSelect;
 export type InsertClinicAppointment = z.infer<typeof insertClinicAppointmentSchema>;
 export type TimebutlerConfig = typeof timebutlerConfig.$inferSelect;
 export type InsertTimebutlerConfig = z.infer<typeof insertTimebutlerConfigSchema>;
+
+// Scheduled Jobs - For recurring tasks like auto-sending questionnaires
+export const scheduledJobs = pgTable("scheduled_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobType: varchar("job_type", { 
+    enum: ["auto_questionnaire_dispatch"] 
+  }).notNull(),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  
+  // Scheduling
+  scheduledFor: timestamp("scheduled_for").notNull(), // When job should run
+  status: varchar("status", { 
+    enum: ["pending", "processing", "completed", "failed"] 
+  }).default("pending").notNull(),
+  
+  // Processing info
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  error: text("error"),
+  
+  // Results
+  processedCount: integer("processed_count").default(0),
+  successCount: integer("success_count").default(0),
+  failedCount: integer("failed_count").default(0),
+  results: jsonb("results"), // Detailed results per surgery
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_scheduled_jobs_type").on(table.jobType),
+  index("idx_scheduled_jobs_hospital").on(table.hospitalId),
+  index("idx_scheduled_jobs_status").on(table.status),
+  index("idx_scheduled_jobs_scheduled_for").on(table.scheduledFor),
+]);
+
+export const insertScheduledJobSchema = createInsertSchema(scheduledJobs).omit({
+  id: true,
+  createdAt: true,
+  startedAt: true,
+  completedAt: true,
+});
+
+export type ScheduledJob = typeof scheduledJobs.$inferSelect;
+export type InsertScheduledJob = z.infer<typeof insertScheduledJobSchema>;

@@ -206,6 +206,9 @@ import {
   type InsertClinicAppointment,
   type TimebutlerConfig,
   type InsertTimebutlerConfig,
+  type ScheduledJob,
+  type InsertScheduledJob,
+  scheduledJobs,
   type ClinicService,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
@@ -757,6 +760,25 @@ export interface IStorage {
   
   // Clinic Services (for appointment booking)
   getClinicServices(unitId: string): Promise<ClinicService[]>;
+  
+  // ========== SCHEDULED JOBS ==========
+  getNextScheduledJob(): Promise<ScheduledJob | undefined>;
+  createScheduledJob(job: InsertScheduledJob): Promise<ScheduledJob>;
+  updateScheduledJob(id: string, updates: Partial<ScheduledJob>): Promise<ScheduledJob>;
+  getLastScheduledJobForHospital(hospitalId: string, jobType: string): Promise<ScheduledJob | undefined>;
+  getPendingQuestionnaireJobsCount(hospitalId: string): Promise<number>;
+  
+  // Auto-questionnaire specific
+  getSurgeriesForAutoQuestionnaire(hospitalId: string, daysAhead: number): Promise<Array<{
+    surgeryId: string;
+    patientId: string;
+    patientFirstName: string;
+    patientLastName: string;
+    patientEmail: string | null;
+    plannedDate: Date;
+    plannedSurgery: string;
+    hasQuestionnaireSent: boolean;
+  }>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -6843,6 +6865,115 @@ export class DatabaseStorage implements IStorage {
       .from(clinicServices)
       .where(eq(clinicServices.unitId, unitId))
       .orderBy(asc(clinicServices.sortOrder), asc(clinicServices.name));
+  }
+
+  // ========== SCHEDULED JOBS ==========
+  
+  async getNextScheduledJob(): Promise<ScheduledJob | undefined> {
+    const [job] = await db
+      .select()
+      .from(scheduledJobs)
+      .where(and(
+        eq(scheduledJobs.status, 'pending'),
+        sql`${scheduledJobs.scheduledFor} <= NOW()`
+      ))
+      .orderBy(asc(scheduledJobs.scheduledFor))
+      .limit(1);
+    
+    return job;
+  }
+
+  async createScheduledJob(job: InsertScheduledJob): Promise<ScheduledJob> {
+    const [created] = await db
+      .insert(scheduledJobs)
+      .values(job)
+      .returning();
+    return created;
+  }
+
+  async updateScheduledJob(id: string, updates: Partial<ScheduledJob>): Promise<ScheduledJob> {
+    const [updated] = await db
+      .update(scheduledJobs)
+      .set(updates)
+      .where(eq(scheduledJobs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getLastScheduledJobForHospital(hospitalId: string, jobType: string): Promise<ScheduledJob | undefined> {
+    const [job] = await db
+      .select()
+      .from(scheduledJobs)
+      .where(and(
+        eq(scheduledJobs.hospitalId, hospitalId),
+        eq(scheduledJobs.jobType, jobType as any)
+      ))
+      .orderBy(desc(scheduledJobs.scheduledFor))
+      .limit(1);
+    
+    return job;
+  }
+
+  async getPendingQuestionnaireJobsCount(hospitalId: string): Promise<number> {
+    const [result] = await db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(scheduledJobs)
+      .where(and(
+        eq(scheduledJobs.hospitalId, hospitalId),
+        eq(scheduledJobs.jobType, 'auto_questionnaire_dispatch'),
+        eq(scheduledJobs.status, 'pending')
+      ));
+    
+    return result?.count || 0;
+  }
+
+  async getSurgeriesForAutoQuestionnaire(hospitalId: string, daysAhead: number): Promise<Array<{
+    surgeryId: string;
+    patientId: string;
+    patientFirstName: string;
+    patientLastName: string;
+    patientEmail: string | null;
+    plannedDate: Date;
+    plannedSurgery: string;
+    hasQuestionnaireSent: boolean;
+  }>> {
+    // Calculate the date range: surgeries planned for approximately daysAhead days from now
+    // We use a 24-hour window: from (daysAhead - 0.5) days to (daysAhead + 0.5) days
+    const targetDate = new Date();
+    targetDate.setDate(targetDate.getDate() + daysAhead);
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Get surgeries in the date range with patient info and check for existing questionnaire links
+    const results = await db
+      .select({
+        surgeryId: surgeries.id,
+        patientId: surgeries.patientId,
+        patientFirstName: patients.firstName,
+        patientLastName: patients.surname,
+        patientEmail: patients.email,
+        plannedDate: surgeries.plannedDate,
+        plannedSurgery: surgeries.plannedSurgery,
+        // Check if there's any questionnaire link with emailSent=true for this surgery OR patient
+        hasQuestionnaireSent: sql<boolean>`EXISTS (
+          SELECT 1 FROM patient_questionnaire_links pql 
+          WHERE (pql.surgery_id = ${surgeries.id} OR pql.patient_id = ${surgeries.patientId})
+            AND pql.email_sent = true
+        )`,
+      })
+      .from(surgeries)
+      .innerJoin(patients, eq(patients.id, surgeries.patientId))
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        sql`${surgeries.plannedDate} >= ${startOfDay}`,
+        sql`${surgeries.plannedDate} <= ${endOfDay}`,
+        sql`${surgeries.status} IN ('scheduled', 'confirmed')`,
+        isNull(surgeries.archivedAt)
+      ));
+
+    return results;
   }
 }
 
