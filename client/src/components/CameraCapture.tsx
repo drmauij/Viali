@@ -6,9 +6,10 @@ interface CameraCaptureProps {
   isOpen: boolean;
   onClose: () => void;
   onCapture: (photo: string) => void;
+  fullFrame?: boolean; // If true, captures the full video frame instead of cropping
 }
 
-export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps) {
+export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }: CameraCaptureProps) {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -60,22 +61,29 @@ export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
 
-    // Define crop rectangle (horizontal, centered, signature-pad sized)
-    const cropWidth = Math.min(videoWidth * 0.9, 800);
-    const cropHeight = 200;
-    const cropX = (videoWidth - cropWidth) / 2;
-    const cropY = (videoHeight - cropHeight) / 2;
+    if (fullFrame) {
+      // Full frame capture for documents
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
+      ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
+    } else {
+      // Define crop rectangle (horizontal, centered, signature-pad sized)
+      const cropWidth = Math.min(videoWidth * 0.9, 800);
+      const cropHeight = 200;
+      const cropX = (videoWidth - cropWidth) / 2;
+      const cropY = (videoHeight - cropHeight) / 2;
 
-    // Set canvas size to crop size
-    canvas.width = cropWidth;
-    canvas.height = cropHeight;
+      // Set canvas size to crop size
+      canvas.width = cropWidth;
+      canvas.height = cropHeight;
 
-    // Draw the cropped portion
-    ctx.drawImage(
-      video,
-      cropX, cropY, cropWidth, cropHeight,  // Source rectangle
-      0, 0, cropWidth, cropHeight            // Destination rectangle
-    );
+      // Draw the cropped portion
+      ctx.drawImage(
+        video,
+        cropX, cropY, cropWidth, cropHeight,  // Source rectangle
+        0, 0, cropWidth, cropHeight            // Destination rectangle
+      );
+    }
 
     // Convert to base64
     const photo = canvas.toDataURL("image/jpeg", 0.9);
@@ -115,49 +123,60 @@ export function CameraCapture({ isOpen, onClose, onCapture }: CameraCaptureProps
               className="w-full h-full object-cover"
             />
             
-            {/* Rectangle guide overlay */}
-            <div className="absolute inset-0 pointer-events-none">
-              <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                {/* Dark overlay with cutout */}
-                <defs>
-                  <mask id="guideMask">
-                    <rect width="100" height="100" fill="white" />
-                    <rect 
-                      x="5" 
-                      y="40" 
-                      width="90" 
-                      height="20" 
-                      fill="black"
-                    />
-                  </mask>
-                </defs>
-                <rect 
-                  width="100" 
-                  height="100" 
-                  fill="rgba(0,0,0,0.5)" 
-                  mask="url(#guideMask)"
-                />
-                {/* Guide rectangle border */}
-                <rect 
-                  x="5" 
-                  y="40" 
-                  width="90" 
-                  height="20" 
-                  fill="none" 
-                  stroke="white" 
-                  strokeWidth="0.3"
-                  strokeDasharray="2,1"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
-              
-              {/* Instruction text */}
-              <div className="absolute top-1/4 left-1/2 -translate-x-1/2 text-center">
+            {/* Rectangle guide overlay - only shown when not in fullFrame mode */}
+            {!fullFrame && (
+              <div className="absolute inset-0 pointer-events-none">
+                <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  {/* Dark overlay with cutout */}
+                  <defs>
+                    <mask id="guideMask">
+                      <rect width="100" height="100" fill="white" />
+                      <rect 
+                        x="5" 
+                        y="40" 
+                        width="90" 
+                        height="20" 
+                        fill="black"
+                      />
+                    </mask>
+                  </defs>
+                  <rect 
+                    width="100" 
+                    height="100" 
+                    fill="rgba(0,0,0,0.5)" 
+                    mask="url(#guideMask)"
+                  />
+                  {/* Guide rectangle border */}
+                  <rect 
+                    x="5" 
+                    y="40" 
+                    width="90" 
+                    height="20" 
+                    fill="none" 
+                    stroke="white" 
+                    strokeWidth="0.3"
+                    strokeDasharray="2,1"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                </svg>
+                
+                {/* Instruction text */}
+                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 text-center">
+                  <p className="text-white text-lg font-medium bg-black/50 px-4 py-2 rounded">
+                    {t('controlled.positionLabel')}
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {/* Full frame instruction */}
+            {fullFrame && (
+              <div className="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none">
                 <p className="text-white text-lg font-medium bg-black/50 px-4 py-2 rounded">
-                  {t('controlled.positionLabel')}
+                  {t('anesthesia.patientDetail.pointAtDocument', 'Point camera at document')}
                 </p>
               </div>
-            </div>
+            )}
 
             {/* Controls - Cancel left, Capture right for easy thumb access */}
             <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between">

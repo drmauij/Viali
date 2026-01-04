@@ -34,6 +34,7 @@ import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButt
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { CameraCapture } from "@/components/CameraCapture";
 
 type Patient = {
   id: string;
@@ -252,6 +253,21 @@ export default function PatientDetail() {
     description?: string;
     createdAt: string;
   };
+  
+  // Define type for staff-uploaded patient documents
+  type StaffDocument = {
+    id: string;
+    hospitalId: string;
+    patientId: string;
+    category: "medication_list" | "diagnosis" | "exam_result" | "consent" | "lab_result" | "imaging" | "referral" | "other";
+    fileName: string;
+    fileUrl: string;
+    mimeType?: string;
+    fileSize?: number;
+    description?: string;
+    uploadedBy: string;
+    createdAt: string;
+  };
 
   // Get the selected questionnaire response details (including uploads)
   const { data: selectedQuestionnaireResponse, isLoading: isLoadingQuestionnaireResponse } = useQuery<{
@@ -300,6 +316,21 @@ export default function PatientDetail() {
     enabled: !!params?.id && !!activeHospital?.id && submittedResponseIds.length > 0,
     staleTime: 30000, // Cache for 30 seconds to avoid redundant calls
   });
+
+  // Fetch staff-uploaded documents
+  const { data: staffDocuments = [], isLoading: isLoadingStaffDocs } = useQuery<StaffDocument[]>({
+    queryKey: ['/api/patients', params?.id, 'documents'],
+    enabled: !!params?.id && !!activeHospital?.id,
+  });
+  
+  // Document upload state
+  const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [uploadCategory, setUploadCategory] = useState<StaffDocument['category']>('other');
+  const [uploadDescription, setUploadDescription] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<StaffDocument | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch hospital anesthesia settings
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
@@ -681,6 +712,102 @@ export default function PatientDetail() {
       });
     },
   });
+
+  // Mutation to delete a staff document
+  const deleteDocumentMutation = useMutation({
+    mutationFn: async (docId: string) => {
+      return await apiRequest("DELETE", `/api/patients/${params?.id}/documents/${docId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/patients', params?.id, 'documents'] });
+      toast({
+        title: t('anesthesia.patientDetail.documentDeleted', 'Document deleted'),
+        description: t('anesthesia.patientDetail.documentDeletedDesc', 'The document has been removed'),
+      });
+      setDocumentToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('anesthesia.patientDetail.error'),
+        description: error.message || t('anesthesia.patientDetail.errorDocumentDelete', 'Failed to delete document'),
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // Handle file upload to S3
+  const handleFileUpload = async (file: File) => {
+    if (!params?.id || !activeHospital?.id) return;
+    
+    setIsUploading(true);
+    try {
+      // Step 1: Get presigned upload URL using apiRequest
+      const urlResult = await apiRequest("POST", `/api/patients/${params.id}/documents/upload-url`, {
+        filename: file.name,
+        contentType: file.type,
+      });
+      
+      const { uploadUrl, storageKey } = urlResult;
+      
+      // Step 2: Upload file directly to S3 (this is external, use fetch)
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': file.type,
+        },
+        body: file,
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload file');
+      }
+      
+      // Step 3: Create document record using apiRequest
+      await apiRequest("POST", `/api/patients/${params.id}/documents`, {
+        category: uploadCategory,
+        fileName: file.name,
+        fileUrl: storageKey,
+        mimeType: file.type,
+        fileSize: file.size,
+        description: uploadDescription || null,
+      });
+      
+      queryClient.invalidateQueries({ queryKey: ['/api/patients', params.id, 'documents'] });
+      
+      toast({
+        title: t('anesthesia.patientDetail.documentUploaded', 'Document uploaded'),
+        description: t('anesthesia.patientDetail.documentUploadedDesc', 'The document has been saved successfully'),
+      });
+      
+      // Reset form
+      setIsUploadDialogOpen(false);
+      setUploadCategory('other');
+      setUploadDescription('');
+      
+    } catch (error: any) {
+      toast({
+        title: t('anesthesia.patientDetail.error'),
+        description: error.message || t('anesthesia.patientDetail.errorDocumentUpload', 'Failed to upload document'),
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+  
+  // Handle camera capture (convert base64 to file and upload)
+  const handleCameraCapture = async (photoDataUrl: string) => {
+    if (!params?.id || !activeHospital?.id) return;
+    
+    // Convert base64 to file
+    const response = await fetch(photoDataUrl);
+    const blob = await response.blob();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const file = new File([blob], `photo-${timestamp}.jpg`, { type: 'image/jpeg' });
+    
+    await handleFileUpload(file);
+    setIsCameraOpen(false);
+  };
 
   // Handler for quick contact edit in Pre-Op dialog
   const handleQuickContactSave = async () => {
@@ -1878,8 +2005,8 @@ export default function PatientDetail() {
           </TabsTrigger>
           <TabsTrigger value="documents" data-testid="tab-documents">
             {t('anesthesia.patientDetail.documents', 'Documents')}
-            {patientUploads.length > 0 && (
-              <Badge variant="secondary" className="ml-2">{patientUploads.length}</Badge>
+            {(patientUploads.length + staffDocuments.length) > 0 && (
+              <Badge variant="secondary" className="ml-2">{patientUploads.length + staffDocuments.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="invoices" data-testid="tab-invoices">
@@ -2205,104 +2332,241 @@ export default function PatientDetail() {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-0">
-          {patientUploads.length > 0 ? (
+          <div className="space-y-6">
+            {/* Staff Documents Section */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')}
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {t('anesthesia.patientDetail.patientDocumentsDesc', 'Files uploaded by the patient through the online questionnaire.')}
-                </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      {t('anesthesia.patientDetail.staffDocuments', 'Staff Documents')}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {t('anesthesia.patientDetail.staffDocumentsDesc', 'Documents uploaded by clinical staff.')}
+                    </p>
+                  </div>
+                  {canWrite && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsCameraOpen(true)}
+                        data-testid="button-camera-capture"
+                      >
+                        <ImageIcon className="h-4 w-4 mr-2" />
+                        {t('anesthesia.patientDetail.takePhoto', 'Take Photo')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => setIsUploadDialogOpen(true)}
+                        data-testid="button-upload-document"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        {t('anesthesia.patientDetail.uploadDocument', 'Upload Document')}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {patientUploads.map((upload) => {
-                    const isImage = upload.mimeType?.startsWith('image/');
-                    const categoryLabels: Record<string, string> = {
-                      medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
-                      diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
-                      exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
-                      other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
-                    };
-                    const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file?hospital_id=${activeHospital?.id}`;
-                    return (
-                      <div 
-                        key={upload.id}
-                        className="flex flex-col p-4 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
-                        data-testid={`document-upload-${upload.id}`}
-                        onClick={() => {
-                          // Open pre-op dialog and show document in split view
-                          setPreviewDocument({
-                            id: upload.id,
-                            fileName: upload.fileName,
-                            mimeType: upload.mimeType || '',
-                            url: fileStreamUrl,
-                          });
-                          if (!isPreOpOpen) {
-                            setIsPreOpOpen(true);
-                          }
-                        }}
-                      >
-                        {isImage ? (
-                          <div className="w-full h-40 mb-3 overflow-hidden rounded bg-muted">
-                            <img 
-                              src={fileStreamUrl} 
-                              alt={upload.fileName}
-                              className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                const parent = target.parentElement;
-                                if (parent) {
-                                  parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
-                                }
+                {isLoadingStaffDocs ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : staffDocuments.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {staffDocuments.map((doc) => {
+                      const isImage = doc.mimeType?.startsWith('image/');
+                      const categoryLabels: Record<string, string> = {
+                        medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
+                        diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
+                        exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
+                        consent: t('anesthesia.patientDetail.uploadCategoryConsent', 'Consent Form'),
+                        lab_result: t('anesthesia.patientDetail.uploadCategoryLabResult', 'Lab Result'),
+                        imaging: t('anesthesia.patientDetail.uploadCategoryImaging', 'Imaging'),
+                        referral: t('anesthesia.patientDetail.uploadCategoryReferral', 'Referral'),
+                        other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
+                      };
+                      const fileStreamUrl = `/api/patients/${params?.id}/documents/${doc.id}/file`;
+                      return (
+                        <div 
+                          key={doc.id}
+                          className="flex flex-col p-4 border rounded-lg hover:bg-muted/50 transition-colors group relative"
+                          data-testid={`staff-document-${doc.id}`}
+                        >
+                          {canWrite && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 hover:bg-destructive hover:text-destructive-foreground"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDocumentToDelete(doc);
                               }}
-                            />
+                              data-testid={`button-delete-document-${doc.id}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <div 
+                            className="cursor-pointer"
+                            onClick={() => {
+                              setPreviewDocument({
+                                id: doc.id,
+                                fileName: doc.fileName,
+                                mimeType: doc.mimeType || '',
+                                url: fileStreamUrl,
+                              });
+                              if (!isPreOpOpen) {
+                                setIsPreOpOpen(true);
+                              }
+                            }}
+                          >
+                            {isImage ? (
+                              <div className="w-full h-40 mb-3 overflow-hidden rounded bg-muted">
+                                <img 
+                                  src={fileStreamUrl} 
+                                  alt={doc.fileName}
+                                  className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.style.display = 'none';
+                                    const parent = target.parentElement;
+                                    if (parent) {
+                                      parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
+                                    }
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <div className="w-full h-40 mb-3 flex items-center justify-center bg-muted rounded">
+                                <FileText className="h-16 w-16 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="space-y-2">
+                              <p className="font-medium truncate group-hover:text-primary transition-colors">
+                                {doc.fileName}
+                              </p>
+                              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                                <Badge variant="secondary">
+                                  {categoryLabels[doc.category] || doc.category}
+                                </Badge>
+                                {doc.fileSize && (
+                                  <span>{(doc.fileSize / 1024).toFixed(1)} KB</span>
+                                )}
+                              </div>
+                              {doc.description && (
+                                <p className="text-sm text-muted-foreground line-clamp-2">{doc.description}</p>
+                              )}
+                            </div>
                           </div>
-                        ) : (
-                          <div className="w-full h-40 mb-3 flex items-center justify-center bg-muted rounded">
-                            <FileText className="h-16 w-16 text-muted-foreground" />
-                          </div>
-                        )}
-                        <div className="space-y-2">
-                          <p className="font-medium truncate group-hover:text-primary transition-colors">
-                            {upload.fileName}
-                          </p>
-                          <div className="flex items-center justify-between text-sm text-muted-foreground">
-                            <Badge variant="secondary">
-                              {categoryLabels[upload.category] || upload.category}
-                            </Badge>
-                            {upload.fileSize && (
-                              <span>{(upload.fileSize / 1024).toFixed(1)} KB</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <FileText className="h-12 w-12 text-muted-foreground mb-3" />
+                    <p className="text-muted-foreground">
+                      {t('anesthesia.patientDetail.noStaffDocuments', 'No staff documents uploaded yet.')}
+                    </p>
+                    {canWrite && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {t('anesthesia.patientDetail.noStaffDocumentsHint', 'Use the buttons above to upload documents or take photos.')}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Patient Questionnaire Uploads Section */}
+            {patientUploads.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="h-5 w-5" />
+                    {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')}
+                    <Badge variant="outline" className="ml-2">{patientUploads.length}</Badge>
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {t('anesthesia.patientDetail.patientDocumentsDesc', 'Files uploaded by the patient through the online questionnaire.')}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {patientUploads.map((upload) => {
+                      const isImage = upload.mimeType?.startsWith('image/');
+                      const categoryLabels: Record<string, string> = {
+                        medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
+                        diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
+                        exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
+                        other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
+                      };
+                      const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file?hospital_id=${activeHospital?.id}`;
+                      return (
+                        <div 
+                          key={upload.id}
+                          className="flex flex-col p-4 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
+                          data-testid={`document-upload-${upload.id}`}
+                          onClick={() => {
+                            setPreviewDocument({
+                              id: upload.id,
+                              fileName: upload.fileName,
+                              mimeType: upload.mimeType || '',
+                              url: fileStreamUrl,
+                            });
+                            if (!isPreOpOpen) {
+                              setIsPreOpOpen(true);
+                            }
+                          }}
+                        >
+                          {isImage ? (
+                            <div className="w-full h-40 mb-3 overflow-hidden rounded bg-muted">
+                              <img 
+                                src={fileStreamUrl} 
+                                alt={upload.fileName}
+                                className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
+                                onError={(e) => {
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
+                                  }
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-full h-40 mb-3 flex items-center justify-center bg-muted rounded">
+                              <FileText className="h-16 w-16 text-muted-foreground" />
+                            </div>
+                          )}
+                          <div className="space-y-2">
+                            <p className="font-medium truncate group-hover:text-primary transition-colors">
+                              {upload.fileName}
+                            </p>
+                            <div className="flex items-center justify-between text-sm text-muted-foreground">
+                              <Badge variant="secondary">
+                                {categoryLabels[upload.category] || upload.category}
+                              </Badge>
+                              {upload.fileSize && (
+                                <span>{(upload.fileSize / 1024).toFixed(1)} KB</span>
+                              )}
+                            </div>
+                            {upload.description && (
+                              <p className="text-sm text-muted-foreground line-clamp-2">{upload.description}</p>
                             )}
                           </div>
-                          {upload.description && (
-                            <p className="text-sm text-muted-foreground line-clamp-2">{upload.description}</p>
-                          )}
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardContent className="flex items-center justify-center py-12">
-                <div className="flex flex-col items-center gap-3">
-                  <FileText className="h-12 w-12 text-muted-foreground" data-testid="icon-no-documents" />
-                  <p className="text-foreground font-semibold" data-testid="text-no-documents">
-                    {t('anesthesia.patientDetail.noDocuments', 'No documents found')}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {t('anesthesia.patientDetail.noDocumentsDesc', 'Documents will appear here when the patient submits a questionnaire with file uploads.')}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="invoices" className="mt-0">
@@ -5211,6 +5475,121 @@ export default function PatientDetail() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Document Upload Dialog */}
+      <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('anesthesia.patientDetail.uploadDocument', 'Upload Document')}</DialogTitle>
+            <DialogDescription>
+              {t('anesthesia.patientDetail.uploadDocumentDesc', 'Select a document category and upload a file.')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t('anesthesia.patientDetail.documentCategory', 'Category')}</Label>
+              <Select value={uploadCategory} onValueChange={(val: StaffDocument['category']) => setUploadCategory(val)}>
+                <SelectTrigger data-testid="select-document-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="medication_list">{t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List')}</SelectItem>
+                  <SelectItem value="diagnosis">{t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis')}</SelectItem>
+                  <SelectItem value="exam_result">{t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result')}</SelectItem>
+                  <SelectItem value="consent">{t('anesthesia.patientDetail.uploadCategoryConsent', 'Consent Form')}</SelectItem>
+                  <SelectItem value="lab_result">{t('anesthesia.patientDetail.uploadCategoryLabResult', 'Lab Result')}</SelectItem>
+                  <SelectItem value="imaging">{t('anesthesia.patientDetail.uploadCategoryImaging', 'Imaging')}</SelectItem>
+                  <SelectItem value="referral">{t('anesthesia.patientDetail.uploadCategoryReferral', 'Referral')}</SelectItem>
+                  <SelectItem value="other">{t('anesthesia.patientDetail.uploadCategoryOther', 'Other')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t('anesthesia.patientDetail.documentDescription', 'Description (optional)')}</Label>
+              <Textarea 
+                value={uploadDescription} 
+                onChange={(e) => setUploadDescription(e.target.value)}
+                placeholder={t('anesthesia.patientDetail.documentDescriptionPlaceholder', 'Add a short description...')}
+                data-testid="input-document-description"
+              />
+            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept="image/*,application/pdf,.doc,.docx,.txt"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  handleFileUpload(file);
+                }
+                e.target.value = '';
+              }}
+            />
+            <Button 
+              className="w-full" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+              data-testid="button-select-file"
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t('anesthesia.patientDetail.uploading', 'Uploading...')}
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t('anesthesia.patientDetail.selectFile', 'Select File')}
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Camera Capture Dialog */}
+      {isCameraOpen && (
+        <div className="fixed inset-0 z-[9999] bg-black">
+          <CameraCapture
+            isOpen={isCameraOpen}
+            onClose={() => setIsCameraOpen(false)}
+            onCapture={handleCameraCapture}
+            fullFrame={true}
+          />
+        </div>
+      )}
+
+      {/* Delete Document Confirmation Dialog */}
+      <AlertDialog open={!!documentToDelete} onOpenChange={(open) => !open && setDocumentToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('anesthesia.patientDetail.deleteDocument', 'Delete Document')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('anesthesia.patientDetail.deleteDocumentConfirm', 'Are you sure you want to delete "{fileName}"? This action cannot be undone.', { fileName: documentToDelete?.fileName })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-document">
+              {t('common.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => documentToDelete && deleteDocumentMutation.mutate(documentToDelete.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-document"
+            >
+              {deleteDocumentMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t('common.deleting', 'Deleting...')}
+                </>
+              ) : (
+                t('common.delete')
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
