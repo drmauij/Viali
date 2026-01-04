@@ -18,7 +18,7 @@ import UpgradeDialog from "@/components/UpgradeDialog";
 import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
 import type { Item, StockLevel, InsertItem, Vendor, Folder, Lot } from "@shared/schema";
 import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
-import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X, ArrowRightLeft, Plus, Minus, Search, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X, ArrowRightLeft, ArrowRight, ArrowLeft, Plus, Minus, Search, Loader2 } from "lucide-react";
 import Papa from "papaparse";
 import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
@@ -336,6 +336,7 @@ export default function Items() {
 
   // Transfer items dialog state
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+  const [transferDirection, setTransferDirection] = useState<'to' | 'from'>('to');
   const [transferItems, setTransferItems] = useState<Array<{
     itemId: string;
     name: string;
@@ -348,7 +349,7 @@ export default function Items() {
     pharmacode?: string;
     gtin?: string;
   }>>([]);
-  const [transferDestinationUnitId, setTransferDestinationUnitId] = useState<string>("");
+  const [transferTargetUnitId, setTransferTargetUnitId] = useState<string>("");
   const [transferSearchTerm, setTransferSearchTerm] = useState("");
   const [transferScanner, setTransferScanner] = useState(false);
 
@@ -458,6 +459,30 @@ export default function Items() {
     return allUnits.filter(u => u.id !== activeHospital?.unitId);
   }, [allUnits, activeHospital?.unitId]);
 
+  // Fetch items from source unit when transferring FROM another unit
+  const { data: sourceUnitItems = [], isLoading: isLoadingSourceItems } = useQuery<ItemWithStock[]>({
+    queryKey: [`/api/items/${activeHospital?.id}?unitId=${transferTargetUnitId}`, transferTargetUnitId],
+    enabled: !!activeHospital?.id && !!transferTargetUnitId && transferDirection === 'from',
+  });
+
+  // Fetch item codes for source unit when transferring FROM
+  const { data: sourceUnitCodesData = [] } = useQuery<{ itemId: string; gtin: string | null; pharmacode: string | null }[]>({
+    queryKey: [`/api/items/${activeHospital?.id}/codes?unitId=${transferTargetUnitId}`, transferTargetUnitId],
+    enabled: !!activeHospital?.id && !!transferTargetUnitId && transferDirection === 'from',
+  });
+
+  // Create map of source unit item codes
+  const sourceUnitCodesMap = useMemo(() => {
+    const map = new Map<string, { gtin?: string; pharmacode?: string }>();
+    for (const code of sourceUnitCodesData) {
+      map.set(code.itemId, {
+        gtin: code.gtin || undefined,
+        pharmacode: code.pharmacode || undefined,
+      });
+    }
+    return map;
+  }, [sourceUnitCodesData]);
+
   // Create a map of itemId to codes for efficient lookup during search
   const itemCodesMap = useMemo(() => {
     const map = new Map<string, { gtin?: string; pharmacode?: string }>();
@@ -469,6 +494,10 @@ export default function Items() {
     }
     return map;
   }, [itemCodesData]);
+
+  // Get the appropriate items and codes based on transfer direction
+  const transferSourceItems = transferDirection === 'from' ? sourceUnitItems : items;
+  const transferSourceCodesMap = transferDirection === 'from' ? sourceUnitCodesMap : itemCodesMap;
   
   // Show onboarding when there are no items
   useEffect(() => {
@@ -679,7 +708,8 @@ export default function Items() {
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
       setTransferDialogOpen(false);
       setTransferItems([]);
-      setTransferDestinationUnitId("");
+      setTransferTargetUnitId("");
+      setTransferDirection('to');
       toast({
         title: t('items.transferSuccess', 'Transfer Complete'),
         description: t('items.transferSuccessDesc', `Successfully transferred ${data.transferredCount || transferItems.length} item(s)`),
@@ -2828,8 +2858,9 @@ export default function Items() {
                       onClick={() => {
                         setTransferDialogOpen(true);
                         setTransferItems([]);
-                        setTransferDestinationUnitId("");
+                        setTransferTargetUnitId("");
                         setTransferSearchTerm("");
+                        setTransferDirection('to');
                       }} 
                       data-testid="transfer-items-button" 
                       className="flex-1 sm:flex-initial"
@@ -5833,8 +5864,9 @@ export default function Items() {
         setTransferDialogOpen(open);
         if (!open) {
           setTransferItems([]);
-          setTransferDestinationUnitId("");
+          setTransferTargetUnitId("");
           setTransferSearchTerm("");
+          setTransferDirection('to');
         }
       }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -5846,12 +5878,65 @@ export default function Items() {
           </DialogHeader>
           
           <div className="space-y-4">
-            {/* Destination Unit Selection */}
+            {/* Transfer Direction Selection */}
             <div className="space-y-2">
-              <Label>{t('items.destinationUnit', 'Destination Unit')}</Label>
-              <Select value={transferDestinationUnitId} onValueChange={setTransferDestinationUnitId}>
-                <SelectTrigger data-testid="select-destination-unit">
-                  <SelectValue placeholder={t('items.selectDestinationUnit', 'Select destination unit...')} />
+              <Label>{t('items.transferDirection', 'Transfer Direction')}</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={transferDirection === 'to' ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => {
+                    setTransferDirection('to');
+                    setTransferItems([]);
+                  }}
+                  data-testid="button-transfer-direction-to"
+                >
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  {t('items.transferTo', 'Transfer To')}
+                </Button>
+                <Button
+                  type="button"
+                  variant={transferDirection === 'from' ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => {
+                    setTransferDirection('from');
+                    setTransferItems([]);
+                  }}
+                  data-testid="button-transfer-direction-from"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  {t('items.transferFrom', 'Transfer From')}
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {transferDirection === 'to' 
+                  ? t('items.transferToDesc', 'Send items from this unit to the selected unit')
+                  : t('items.transferFromDesc', 'Receive items from the selected unit to this unit')
+                }
+              </p>
+            </div>
+
+            {/* Target Unit Selection */}
+            <div className="space-y-2">
+              <Label>
+                {transferDirection === 'to' 
+                  ? t('items.destinationUnit', 'Destination Unit')
+                  : t('items.sourceUnit', 'Source Unit')
+                }
+              </Label>
+              <Select value={transferTargetUnitId} onValueChange={(value) => {
+                setTransferTargetUnitId(value);
+                if (transferDirection === 'from') {
+                  setTransferItems([]);
+                }
+              }}>
+                <SelectTrigger data-testid="select-target-unit">
+                  <SelectValue placeholder={
+                    transferDirection === 'to'
+                      ? t('items.selectDestinationUnit', 'Select destination unit...')
+                      : t('items.selectSourceUnit', 'Select source unit...')
+                  } />
                 </SelectTrigger>
                 <SelectContent>
                   {availableDestinationUnits.map((unit) => (
@@ -5866,102 +5951,123 @@ export default function Items() {
             {/* Item Search/Add */}
             <div className="space-y-2">
               <Label>{t('items.addItemsToTransfer', 'Add Items to Transfer')}</Label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder={t('items.searchByNameOrCode', 'Search by name, pharmacode, or GTIN...')}
-                    value={transferSearchTerm}
-                    onChange={(e) => setTransferSearchTerm(e.target.value)}
-                    className="pl-10"
-                    data-testid="input-transfer-search"
-                  />
+              
+              {/* Show message if 'from' direction but no source unit selected */}
+              {transferDirection === 'from' && !transferTargetUnitId && (
+                <div className="p-4 border rounded-lg bg-muted/50 text-center text-muted-foreground">
+                  {t('items.selectSourceFirst', 'Please select a source unit first')}
                 </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setTransferScanner(true)}
-                  data-testid="button-transfer-scan"
-                >
-                  <i className="fas fa-barcode"></i>
-                </Button>
-              </div>
+              )}
+              
+              {/* Show loading state when fetching source unit items */}
+              {transferDirection === 'from' && transferTargetUnitId && isLoadingSourceItems && (
+                <div className="p-4 border rounded-lg text-center">
+                  <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+                  {t('items.loadingItems', 'Loading items...')}
+                </div>
+              )}
+              
+              {/* Show search when ready */}
+              {(transferDirection === 'to' || (transferDirection === 'from' && transferTargetUnitId && !isLoadingSourceItems)) && (
+                <>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder={t('items.searchByNameOrCode', 'Search by name, pharmacode, or GTIN...')}
+                        value={transferSearchTerm}
+                        onChange={(e) => setTransferSearchTerm(e.target.value)}
+                        className="pl-10"
+                        data-testid="input-transfer-search"
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setTransferScanner(true)}
+                      data-testid="button-transfer-scan"
+                    >
+                      <i className="fas fa-barcode"></i>
+                    </Button>
+                  </div>
 
-              {/* Filtered Items List for Selection */}
-              {transferSearchTerm.trim() && (
-                <div className="border rounded-lg max-h-48 overflow-y-auto">
-                  {items
-                    .filter(item => {
-                      const search = transferSearchTerm.toLowerCase();
-                      const codes = itemCodesMap.get(item.id);
-                      const alreadyAdded = transferItems.some(ti => ti.itemId === item.id);
-                      if (alreadyAdded) return false;
-                      
-                      return (
-                        item.name.toLowerCase().includes(search) ||
-                        codes?.pharmacode?.toLowerCase().includes(search) ||
-                        codes?.gtin?.toLowerCase().includes(search)
-                      );
-                    })
-                    .slice(0, 10)
-                    .map(item => {
-                      const codes = itemCodesMap.get(item.id);
-                      const stockQty = item.stockLevel?.qtyOnHand || 0;
-                      
-                      return (
-                        <div
-                          key={item.id}
-                          className="p-3 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer flex justify-between items-center"
-                          onClick={() => {
-                            setTransferItems(prev => [...prev, {
-                              itemId: item.id,
-                              name: item.name,
-                              packSize: item.packSize || 1,
-                              trackExactQuantity: item.trackExactQuantity || false,
-                              currentUnits: item.currentUnits || 0,
-                              stockQty,
-                              transferType: 'packs',
-                              transferQty: 1,
-                              pharmacode: codes?.pharmacode,
-                              gtin: codes?.gtin,
-                            }]);
-                            setTransferSearchTerm("");
-                          }}
-                          data-testid={`transfer-item-option-${item.id}`}
-                        >
-                          <div>
-                            <p className="font-medium">{item.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {codes?.pharmacode && `PC: ${codes.pharmacode}`}
-                              {codes?.pharmacode && codes?.gtin && ' | '}
-                              {codes?.gtin && `GTIN: ${codes.gtin}`}
-                            </p>
-                          </div>
-                          <div className="text-right text-sm">
-                            <p>{t('items.stock')}: {stockQty}</p>
-                            {item.trackExactQuantity && (
-                              <p className="text-muted-foreground">{t('items.units')}: {item.currentUnits || 0}</p>
-                            )}
-                          </div>
+                  {/* Filtered Items List for Selection */}
+                  {transferSearchTerm.trim() && (
+                    <div className="border rounded-lg max-h-48 overflow-y-auto">
+                      {transferSourceItems
+                        .filter(item => {
+                          const search = transferSearchTerm.toLowerCase();
+                          const codes = transferSourceCodesMap.get(item.id);
+                          const alreadyAdded = transferItems.some(ti => ti.itemId === item.id);
+                          if (alreadyAdded) return false;
+                          
+                          return (
+                            item.name.toLowerCase().includes(search) ||
+                            codes?.pharmacode?.toLowerCase().includes(search) ||
+                            codes?.gtin?.toLowerCase().includes(search)
+                          );
+                        })
+                        .slice(0, 10)
+                        .map(item => {
+                          const codes = transferSourceCodesMap.get(item.id);
+                          const stockQty = item.stockLevel?.qtyOnHand || 0;
+                          
+                          return (
+                            <div
+                              key={item.id}
+                              className="p-3 border-b last:border-b-0 hover:bg-muted/50 cursor-pointer flex justify-between items-center"
+                              onClick={() => {
+                                setTransferItems(prev => [...prev, {
+                                  itemId: item.id,
+                                  name: item.name,
+                                  packSize: item.packSize || 1,
+                                  trackExactQuantity: item.trackExactQuantity || false,
+                                  currentUnits: item.currentUnits || 0,
+                                  stockQty,
+                                  transferType: 'packs',
+                                  transferQty: 1,
+                                  pharmacode: codes?.pharmacode,
+                                  gtin: codes?.gtin,
+                                }]);
+                                setTransferSearchTerm("");
+                              }}
+                              data-testid={`transfer-item-option-${item.id}`}
+                            >
+                              <div>
+                                <p className="font-medium">{item.name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {codes?.pharmacode && `PC: ${codes.pharmacode}`}
+                                  {codes?.pharmacode && codes?.gtin && ' | '}
+                                  {codes?.gtin && `GTIN: ${codes.gtin}`}
+                                </p>
+                              </div>
+                              <div className="text-right text-sm">
+                                <p>{t('items.stock')}: {stockQty}</p>
+                                {item.trackExactQuantity && (
+                                  <p className="text-muted-foreground">{t('items.units')}: {item.currentUnits || 0}</p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      {transferSourceItems.filter(item => {
+                        const search = transferSearchTerm.toLowerCase();
+                        const codes = transferSourceCodesMap.get(item.id);
+                        const alreadyAdded = transferItems.some(ti => ti.itemId === item.id);
+                        if (alreadyAdded) return false;
+                        return (
+                          item.name.toLowerCase().includes(search) ||
+                          codes?.pharmacode?.toLowerCase().includes(search) ||
+                          codes?.gtin?.toLowerCase().includes(search)
+                        );
+                      }).length === 0 && (
+                        <div className="p-4 text-center text-muted-foreground">
+                          {t('items.noItemsFound', 'No items found')}
                         </div>
-                      );
-                    })}
-                  {items.filter(item => {
-                    const search = transferSearchTerm.toLowerCase();
-                    const codes = itemCodesMap.get(item.id);
-                    const alreadyAdded = transferItems.some(ti => ti.itemId === item.id);
-                    if (alreadyAdded) return false;
-                    return (
-                      item.name.toLowerCase().includes(search) ||
-                      codes?.pharmacode?.toLowerCase().includes(search) ||
-                      codes?.gtin?.toLowerCase().includes(search)
-                    );
-                  }).length === 0 && (
-                    <div className="p-4 text-center text-muted-foreground">
-                      {t('items.noItemsFound', 'No items found')}
+                      )}
                     </div>
                   )}
-                </div>
+                </>
               )}
             </div>
 
@@ -6085,7 +6191,8 @@ export default function Items() {
               onClick={() => {
                 setTransferDialogOpen(false);
                 setTransferItems([]);
-                setTransferDestinationUnitId("");
+                setTransferTargetUnitId("");
+                setTransferDirection('to');
               }}
               data-testid="button-cancel-transfer"
             >
@@ -6093,10 +6200,17 @@ export default function Items() {
             </Button>
             <Button
               onClick={() => {
-                if (transferDestinationUnitId && transferItems.length > 0 && activeHospital?.unitId) {
+                if (transferTargetUnitId && transferItems.length > 0 && activeHospital?.unitId) {
+                  const sourceUnitId = transferDirection === 'to' 
+                    ? activeHospital.unitId 
+                    : transferTargetUnitId;
+                  const destinationUnitId = transferDirection === 'to' 
+                    ? transferTargetUnitId 
+                    : activeHospital.unitId;
+                  
                   transferItemsMutation.mutate({
-                    sourceUnitId: activeHospital.unitId,
-                    destinationUnitId: transferDestinationUnitId,
+                    sourceUnitId,
+                    destinationUnitId,
                     items: transferItems.map(item => ({
                       itemId: item.itemId,
                       transferType: item.transferType,
@@ -6107,7 +6221,7 @@ export default function Items() {
                   });
                 }
               }}
-              disabled={!transferDestinationUnitId || transferItems.length === 0 || transferItemsMutation.isPending}
+              disabled={!transferTargetUnitId || transferItems.length === 0 || transferItemsMutation.isPending}
               data-testid="button-confirm-transfer"
             >
               {transferItemsMutation.isPending ? (
