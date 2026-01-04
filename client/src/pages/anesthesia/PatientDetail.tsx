@@ -116,6 +116,9 @@ export default function PatientDetail() {
   const [isSendQuestionnaireOpen, setIsSendQuestionnaireOpen] = useState(false);
   const [isImportQuestionnaireOpen, setIsImportQuestionnaireOpen] = useState(false);
   const [selectedQuestionnaireForImport, setSelectedQuestionnaireForImport] = useState<string | null>(null);
+  const [isFindQuestionnaireOpen, setIsFindQuestionnaireOpen] = useState(false);
+  const [questionnaireSearchTerm, setQuestionnaireSearchTerm] = useState("");
+  const [selectedUnassociatedQuestionnaire, setSelectedUnassociatedQuestionnaire] = useState<string | null>(null);
   // Split-screen document preview state
   const [previewDocument, setPreviewDocument] = useState<{
     id: string;
@@ -288,6 +291,66 @@ export default function PatientDetail() {
   
   // Filter to only submitted questionnaires that have responses with IDs
   const submittedQuestionnaires = questionnaireLinks.filter(q => q.status === 'submitted' && q.response?.id);
+
+  // Type for unassociated questionnaire responses
+  type UnassociatedQuestionnaire = {
+    id: string;
+    linkId: string;
+    patientFirstName: string | null;
+    patientSurname: string | null;
+    patientBirthday: string | null;
+    submittedAt: string | null;
+    link: {
+      id: string;
+      hospitalId: string;
+      patientId: string | null;
+      status: string;
+      submittedAt: string | null;
+      createdAt: string;
+    };
+  };
+
+  // Fetch unassociated questionnaires for quick association
+  const { data: unassociatedQuestionnaires = [], isLoading: isLoadingUnassociated, refetch: refetchUnassociated } = useQuery<UnassociatedQuestionnaire[]>({
+    queryKey: ['/api/questionnaire/unassociated'],
+    queryFn: async () => {
+      const response = await fetch('/api/questionnaire/unassociated', {
+        headers: { 'x-active-hospital-id': activeHospital?.id || '' },
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!activeHospital?.id && isFindQuestionnaireOpen,
+  });
+
+  // Mutation to associate questionnaire with patient
+  const associateQuestionnaireMutation = useMutation({
+    mutationFn: async ({ responseId, patientId }: { responseId: string; patientId: string }) => {
+      const response = await apiRequest('POST', `/api/questionnaire/responses/${responseId}/associate`, { patientId });
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate questionnaire queries to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient', params?.id, 'links'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/unassociated'] });
+      setIsFindQuestionnaireOpen(false);
+      setSelectedUnassociatedQuestionnaire(null);
+      setQuestionnaireSearchTerm("");
+      toast({
+        title: t('anesthesia.patientDetail.questionnaireAssociated', 'Questionnaire Associated'),
+        description: t('anesthesia.patientDetail.questionnaireAssociatedDesc', 'The questionnaire has been linked to this patient. You can now import the data.'),
+      });
+      // Open the import dialog after successful association
+      setIsImportQuestionnaireOpen(true);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: t('common.error', 'Error'),
+        description: error.message || t('anesthesia.patientDetail.associationFailed', 'Failed to associate questionnaire'),
+        variant: "destructive",
+      });
+    },
+  });
 
   // Fetch all patient uploads using a dedicated query with proper dependencies
   // The query key includes the response IDs to ensure refetch when new questionnaires are submitted
@@ -2893,7 +2956,7 @@ export default function PatientDetail() {
                 </div>
               )}
               <div className="flex justify-between items-center mb-2">
-                <div>
+                <div className="flex gap-2">
                   {!isPreOpReadOnly && submittedQuestionnaires.length > 0 && (
                     <Button
                       variant="outline"
@@ -2905,6 +2968,18 @@ export default function PatientDetail() {
                       <Import className="h-4 w-4" />
                       {t('anesthesia.patientDetail.importFromQuestionnaire')}
                       <Badge variant="secondary" className="ml-1">{submittedQuestionnaires.length}</Badge>
+                    </Button>
+                  )}
+                  {!isPreOpReadOnly && submittedQuestionnaires.length === 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsFindQuestionnaireOpen(true)}
+                      className="gap-2"
+                      data-testid="button-find-questionnaire"
+                    >
+                      <ClipboardList className="h-4 w-4" />
+                      {t('anesthesia.patientDetail.findQuestionnaire', 'Find & Associate Questionnaire')}
                     </Button>
                   )}
                 </div>
@@ -5471,6 +5546,169 @@ export default function PatientDetail() {
             >
               <Import className="h-4 w-4 mr-2" />
               {t('anesthesia.patientDetail.importData')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Find & Associate Questionnaire Dialog */}
+      <Dialog open={isFindQuestionnaireOpen} onOpenChange={(open) => {
+        setIsFindQuestionnaireOpen(open);
+        if (!open) {
+          setSelectedUnassociatedQuestionnaire(null);
+          setQuestionnaireSearchTerm("");
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('anesthesia.patientDetail.findQuestionnaire', 'Find & Associate Questionnaire')}</DialogTitle>
+            <DialogDescription>
+              {t('anesthesia.patientDetail.findQuestionnaireDesc', 'Search for an unassociated questionnaire filled by a walk-in patient and link it to this patient.')}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Search Input */}
+            <div className="space-y-2">
+              <Label>{t('anesthesia.patientDetail.searchQuestionnaires', 'Search by patient name')}</Label>
+              <Input
+                placeholder={t('anesthesia.patientDetail.searchQuestionnairesPlaceholder', 'Enter name or birthday...')}
+                value={questionnaireSearchTerm}
+                onChange={(e) => setQuestionnaireSearchTerm(e.target.value)}
+                data-testid="input-search-questionnaires"
+              />
+            </div>
+
+            {/* Current Patient Info */}
+            {patient && (
+              <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+                <p className="text-sm font-medium text-primary">
+                  {t('anesthesia.patientDetail.associatingTo', 'Will associate to:')}
+                </p>
+                <p className="text-sm">
+                  {patient.firstName} {patient.surname} ({isoToDisplayDate(patient.birthday)})
+                </p>
+              </div>
+            )}
+
+            {/* List of Unassociated Questionnaires */}
+            <div className="space-y-2">
+              <Label>{t('anesthesia.patientDetail.availableQuestionnaires', 'Available unassociated questionnaires')}</Label>
+              
+              {isLoadingUnassociated ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : unassociatedQuestionnaires.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <ClipboardList className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                  <p>{t('anesthesia.patientDetail.noUnassociatedQuestionnaires', 'No unassociated questionnaires found')}</p>
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {unassociatedQuestionnaires
+                    .filter(q => {
+                      if (!questionnaireSearchTerm.trim()) return true;
+                      const search = questionnaireSearchTerm.toLowerCase();
+                      const fullName = `${q.patientFirstName || ''} ${q.patientSurname || ''}`.toLowerCase();
+                      const birthday = q.patientBirthday ? isoToDisplayDate(q.patientBirthday) : '';
+                      return fullName.includes(search) || birthday.includes(search);
+                    })
+                    .map((q) => {
+                      const isSelected = selectedUnassociatedQuestionnaire === q.id;
+                      // Check if this questionnaire seems to match the current patient
+                      const matchesName = patient && 
+                        q.patientFirstName?.toLowerCase() === patient.firstName?.toLowerCase() &&
+                        q.patientSurname?.toLowerCase() === patient.surname?.toLowerCase();
+                      const matchesBirthday = patient && q.patientBirthday && 
+                        new Date(q.patientBirthday).toISOString().split('T')[0] === new Date(patient.birthday).toISOString().split('T')[0];
+                      const isExactMatch = matchesName && matchesBirthday;
+                      const isPartialMatch = matchesName || matchesBirthday;
+                      
+                      return (
+                        <div
+                          key={q.id}
+                          onClick={() => setSelectedUnassociatedQuestionnaire(q.id)}
+                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                            isSelected 
+                              ? 'border-primary bg-primary/5' 
+                              : isExactMatch
+                                ? 'border-green-500 bg-green-50 dark:bg-green-950 hover:bg-green-100 dark:hover:bg-green-900'
+                                : isPartialMatch
+                                  ? 'border-amber-400 bg-amber-50 dark:bg-amber-950 hover:bg-amber-100 dark:hover:bg-amber-900'
+                                  : 'border-border hover:bg-muted/50'
+                          }`}
+                          data-testid={`questionnaire-row-${q.id}`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium">
+                                {q.patientFirstName || t('common.unknown', 'Unknown')} {q.patientSurname || ''}
+                              </p>
+                              <p className="text-sm text-muted-foreground">
+                                {q.patientBirthday ? isoToDisplayDate(q.patientBirthday) : t('common.noBirthday', 'No birthday')}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-muted-foreground">
+                                {t('anesthesia.patientDetail.submittedOn', 'Submitted')}
+                              </p>
+                              <p className="text-sm">
+                                {q.submittedAt || q.link.submittedAt 
+                                  ? formatDate(q.submittedAt || q.link.submittedAt!) 
+                                  : formatDate(q.link.createdAt)}
+                              </p>
+                            </div>
+                          </div>
+                          {isExactMatch && (
+                            <Badge variant="default" className="mt-2 bg-green-600">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              {t('anesthesia.patientDetail.exactMatch', 'Exact Match')}
+                            </Badge>
+                          )}
+                          {isPartialMatch && !isExactMatch && (
+                            <Badge variant="secondary" className="mt-2 bg-amber-500 text-white">
+                              {t('anesthesia.patientDetail.partialMatch', 'Partial Match')}
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 mt-4">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsFindQuestionnaireOpen(false);
+                setSelectedUnassociatedQuestionnaire(null);
+                setQuestionnaireSearchTerm("");
+              }}
+              data-testid="button-cancel-find-questionnaire"
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedUnassociatedQuestionnaire && patient) {
+                  associateQuestionnaireMutation.mutate({
+                    responseId: selectedUnassociatedQuestionnaire,
+                    patientId: patient.id,
+                  });
+                }
+              }}
+              disabled={!selectedUnassociatedQuestionnaire || associateQuestionnaireMutation.isPending}
+              data-testid="button-confirm-associate"
+            >
+              {associateQuestionnaireMutation.isPending ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <CheckCircle className="h-4 w-4 mr-2" />
+              )}
+              {t('anesthesia.patientDetail.confirmAssociate', 'Associate & Import')}
             </Button>
           </div>
         </DialogContent>
