@@ -3188,6 +3188,10 @@ export const patientQuestionnaireLinks = pgTable("patient_questionnaire_links", 
   submittedAt: timestamp("submitted_at"), // When patient submitted
   reviewedAt: timestamp("reviewed_at"), // When doctor reviewed
   reviewedBy: varchar("reviewed_by").references(() => users.id), // Doctor who reviewed
+  emailSent: boolean("email_sent").default(false).notNull(), // Track if questionnaire was emailed
+  emailSentAt: timestamp("email_sent_at"), // When email was sent
+  emailSentTo: varchar("email_sent_to"), // Email address it was sent to
+  emailSentBy: varchar("email_sent_by").references(() => users.id), // User who sent the email
 }, (table) => [
   index("idx_questionnaire_links_hospital").on(table.hospitalId),
   index("idx_questionnaire_links_patient").on(table.patientId),
