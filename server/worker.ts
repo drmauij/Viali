@@ -1179,15 +1179,16 @@ async function scheduleAutoQuestionnaireJobs(): Promise<void> {
     todayStart.setHours(6, 0, 0, 0); // Schedule for 6 AM each day
     
     for (const hospital of allHospitals) {
-      // Check if there's already a pending job for today
+      // Check if there's already a completed or pending job for today
       const lastJob = await storage.getLastScheduledJobForHospital(hospital.id, 'auto_questionnaire_dispatch');
       
       if (lastJob) {
         const lastJobDate = new Date(lastJob.scheduledFor);
         const isSameDay = lastJobDate.toDateString() === todayStart.toDateString();
         
-        // Skip if we already have a job scheduled for today
-        if (isSameDay) {
+        // Skip if we already have a successful or pending job for today
+        // Allow retry if the job failed
+        if (isSameDay && (lastJob.status === 'completed' || lastJob.status === 'pending' || lastJob.status === 'processing')) {
           continue;
         }
       }
