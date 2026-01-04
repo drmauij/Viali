@@ -679,6 +679,205 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
   }
 });
 
+// Transfer items between units
+router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, sourceUnitId, destinationUnitId, items: transferItems } = req.body;
+    const userId = req.user.id;
+    
+    if (!hospitalId || !sourceUnitId || !destinationUnitId || !transferItems || !Array.isArray(transferItems)) {
+      return res.status(400).json({ message: "Missing required fields" });
+    }
+    
+    if (sourceUnitId === destinationUnitId) {
+      return res.status(400).json({ message: "Source and destination units must be different" });
+    }
+    
+    // Verify user has access to the hospital
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hospital = userHospitals.find(h => h.id === hospitalId);
+    if (!hospital) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    // Verify both units exist and belong to the same hospital
+    const sourceUnit = await storage.getUnit(sourceUnitId);
+    const destUnit = await storage.getUnit(destinationUnitId);
+    
+    if (!sourceUnit || sourceUnit.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Invalid source unit" });
+    }
+    if (!destUnit || destUnit.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Invalid destination unit" });
+    }
+    
+    const results = {
+      transferred: [] as string[],
+      failed: [] as { itemId: string; reason: string }[],
+      created: [] as string[],
+    };
+    
+    for (const transferItem of transferItems) {
+      const { itemId, transferType, transferQty, pharmacode, gtin } = transferItem;
+      
+      try {
+        // Get source item
+        const sourceItem = await storage.getItem(itemId);
+        if (!sourceItem || sourceItem.unitId !== sourceUnitId) {
+          results.failed.push({ itemId, reason: "Item not found in source unit" });
+          continue;
+        }
+        
+        // Get source stock level
+        const sourceStock = await storage.getStockLevel(itemId, sourceUnitId);
+        const sourceStockQty = sourceStock?.qtyOnHand || 0;
+        
+        // Calculate transfer amount
+        let packTransferQty = transferQty;
+        let unitTransferQty = 0;
+        
+        if (transferType === 'units' && sourceItem.trackExactQuantity) {
+          // Transferring individual units
+          unitTransferQty = transferQty;
+          packTransferQty = Math.ceil(transferQty / (sourceItem.packSize || 1));
+        } else {
+          // Transferring whole packs
+          unitTransferQty = transferQty * (sourceItem.packSize || 1);
+        }
+        
+        // Validate we have enough stock
+        if (transferType === 'units') {
+          if ((sourceItem.currentUnits || 0) < unitTransferQty) {
+            results.failed.push({ itemId, reason: "Insufficient units" });
+            continue;
+          }
+        } else {
+          if (sourceStockQty < packTransferQty) {
+            results.failed.push({ itemId, reason: "Insufficient stock" });
+            continue;
+          }
+        }
+        
+        // Find matching item in destination by pharmacode or GTIN
+        let destItemId: string | null = null;
+        
+        if (pharmacode || gtin) {
+          // Get all items in destination unit
+          const destItems = await storage.getItems(hospitalId, destinationUnitId);
+          
+          for (const destItem of destItems) {
+            const destCodes = await storage.getItemCode(destItem.id);
+            if (destCodes) {
+              if (pharmacode && destCodes.pharmacode === pharmacode) {
+                destItemId = destItem.id;
+                break;
+              }
+              if (gtin && destCodes.gtin === gtin) {
+                destItemId = destItem.id;
+                break;
+              }
+            }
+          }
+        }
+        
+        // Decrease source stock
+        const newSourceQty = Math.max(0, sourceStockQty - packTransferQty);
+        await storage.updateStockLevel(itemId, sourceUnitId, newSourceQty);
+        
+        // Update source item's currentUnits if tracking exact quantity
+        if (sourceItem.trackExactQuantity) {
+          const newCurrentUnits = Math.max(0, (sourceItem.currentUnits || 0) - unitTransferQty);
+          await storage.updateItem(itemId, { currentUnits: newCurrentUnits });
+        }
+        
+        if (destItemId) {
+          // Increase existing destination stock
+          const destStock = await storage.getStockLevel(destItemId, destinationUnitId);
+          const destStockQty = destStock?.qtyOnHand || 0;
+          await storage.updateStockLevel(destItemId, destinationUnitId, destStockQty + packTransferQty);
+          
+          // Update destination item's currentUnits if tracking exact quantity
+          const destItem = await storage.getItem(destItemId);
+          if (destItem?.trackExactQuantity) {
+            const newDestUnits = (destItem.currentUnits || 0) + unitTransferQty;
+            await storage.updateItem(destItemId, { currentUnits: newDestUnits });
+          }
+          
+          results.transferred.push(itemId);
+        } else {
+          // Create new item in destination unit
+          const sourceCodes = await storage.getItemCode(itemId);
+          
+          const newItem = await storage.createItem({
+            hospitalId,
+            unitId: destinationUnitId,
+            name: sourceItem.name,
+            description: sourceItem.description,
+            unit: sourceItem.unit,
+            packSize: sourceItem.packSize,
+            minThreshold: sourceItem.minThreshold,
+            maxThreshold: sourceItem.maxThreshold,
+            defaultOrderQty: sourceItem.defaultOrderQty,
+            critical: sourceItem.critical,
+            controlled: sourceItem.controlled,
+            trackExactQuantity: sourceItem.trackExactQuantity,
+            currentUnits: sourceItem.trackExactQuantity ? unitTransferQty : 0,
+            vendorId: sourceItem.vendorId,
+            imageUrl: sourceItem.imageUrl,
+          });
+          
+          // Copy item codes to new item
+          if (sourceCodes) {
+            await storage.createItemCode({
+              itemId: newItem.id,
+              gtin: sourceCodes.gtin,
+              pharmacode: sourceCodes.pharmacode,
+              migel: sourceCodes.migel,
+              atc: sourceCodes.atc,
+              manufacturer: sourceCodes.manufacturer,
+              packContent: sourceCodes.packContent,
+              unitsPerPack: sourceCodes.unitsPerPack,
+              contentPerUnit: sourceCodes.contentPerUnit,
+            });
+          }
+          
+          // Set initial stock level
+          await storage.updateStockLevel(newItem.id, destinationUnitId, packTransferQty);
+          
+          results.transferred.push(itemId);
+          results.created.push(newItem.id);
+        }
+        
+        // Create activity record for audit trail
+        await storage.createActivity({
+          unitId: sourceUnitId,
+          itemId,
+          userId,
+          action: 'transfer_out',
+          delta: -packTransferQty,
+          movementType: 'OUT',
+          notes: `Transferred ${transferType === 'units' ? unitTransferQty + ' units' : packTransferQty + ' packs'} to ${destUnit.name}`,
+        });
+        
+      } catch (error: any) {
+        console.error(`Error transferring item ${itemId}:`, error);
+        results.failed.push({ itemId, reason: error.message || "Unknown error" });
+      }
+    }
+    
+    res.json({
+      success: true,
+      transferredCount: results.transferred.length,
+      createdCount: results.created.length,
+      failedCount: results.failed.length,
+      results,
+    });
+  } catch (error) {
+    console.error("Error transferring items:", error);
+    res.status(500).json({ message: "Failed to transfer items" });
+  }
+});
+
 // ============ Price Sync Routes ============
 
 router.get('/api/supplier-catalogs/:hospitalId', isAuthenticated, async (req: any, res) => {
