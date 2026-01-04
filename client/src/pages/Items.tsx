@@ -2794,8 +2794,8 @@ export default function Items() {
                   data-testid="download-inventory-button" 
                   className="flex-1 sm:flex-initial"
                 >
-                  <i className="fas fa-download mr-2"></i>
-                  Download List
+                  <i className="fas fa-file-pdf mr-2"></i>
+                  List as PDF
                 </Button>
                 {canWrite && (
                   <>
