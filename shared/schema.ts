@@ -700,6 +700,24 @@ export const patients = pgTable("patients", {
   index("idx_patients_archived").on(table.isArchived),
 ]);
 
+// Patient Documents - Staff-uploaded files for patients (separate from questionnaire uploads)
+export const patientDocuments = pgTable("patient_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  category: varchar("category", { enum: ["medication_list", "diagnosis", "exam_result", "consent", "lab_result", "imaging", "referral", "other"] }).notNull(),
+  fileName: varchar("file_name").notNull(),
+  fileUrl: varchar("file_url").notNull(),
+  mimeType: varchar("mime_type"),
+  fileSize: integer("file_size"),
+  description: text("description"),
+  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_patient_documents_hospital").on(table.hospitalId),
+  index("idx_patient_documents_patient").on(table.patientId),
+]);
+
 // Cases (Episode of Care) - Container for patient hospital stay
 export const cases = pgTable("cases", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2197,6 +2215,11 @@ export const insertPatientSchema = createInsertSchema(patients).omit({
   updatedAt: true,
 });
 
+export const insertPatientDocumentSchema = createInsertSchema(patientDocuments).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertCaseSchema = createInsertSchema(cases).omit({
   id: true,
   createdAt: true,
@@ -2844,6 +2867,8 @@ export type HospitalAnesthesiaSettings = typeof hospitalAnesthesiaSettings.$infe
 export type InsertHospitalAnesthesiaSettings = z.infer<typeof insertHospitalAnesthesiaSettingsSchema>;
 export type Patient = typeof patients.$inferSelect;
 export type InsertPatient = z.infer<typeof insertPatientSchema>;
+export type PatientDocument = typeof patientDocuments.$inferSelect;
+export type InsertPatientDocument = z.infer<typeof insertPatientDocumentSchema>;
 export type Case = typeof cases.$inferSelect;
 export type InsertCase = z.infer<typeof insertCaseSchema>;
 export type Surgery = typeof surgeries.$inferSelect;
