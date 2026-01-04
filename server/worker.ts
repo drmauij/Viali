@@ -4,7 +4,7 @@ import { sendBulkImportCompleteEmail } from './resend';
 import { createGalexisClient, type PriceData, type ProductLookupRequest, type ProductLookupResult } from './services/galexisClient';
 import { createPolymedClient, type PolymedPriceData } from './services/polymedClient';
 import { batchMatchItems, type ItemToMatch } from './services/polymedMatching';
-import { supplierCodes, itemCodes, items, supplierCatalogs } from '@shared/schema';
+import { supplierCodes, itemCodes, items, supplierCatalogs, hospitals, patientQuestionnaireLinks, units } from '@shared/schema';
 import { eq, and, isNull, isNotNull, sql } from 'drizzle-orm';
 import { db } from './storage';
 import { decryptCredential } from './utils/encryption';
@@ -13,6 +13,8 @@ import { randomUUID } from 'crypto';
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
 const STUCK_JOB_CHECK_INTERVAL_MS = 60000; // Check for stuck jobs every minute
 const STUCK_JOB_THRESHOLD_MINUTES = 30; // Jobs stuck for >30 minutes
+const SCHEDULED_JOB_CHECK_INTERVAL_MS = 60000; // Check for scheduled jobs every minute
+const AUTO_QUESTIONNAIRE_DAYS_AHEAD = 14; // Send questionnaires 2 weeks before surgery
 
 async function processNextImportJob() {
   try {
@@ -904,6 +906,315 @@ async function processPolymedSync(job: any, catalog: any): Promise<boolean> {
   }
 }
 
+/**
+ * Process scheduled jobs for automatic questionnaire dispatch
+ */
+async function processNextScheduledJob(): Promise<boolean> {
+  try {
+    const job = await storage.getNextScheduledJob();
+    
+    if (!job) {
+      return false;
+    }
+
+    console.log(`[Worker] Processing scheduled job ${job.id} (${job.jobType}) for hospital ${job.hospitalId}`);
+
+    await storage.updateScheduledJob(job.id, {
+      status: 'processing',
+      startedAt: new Date(),
+    });
+
+    try {
+      if (job.jobType === 'auto_questionnaire_dispatch') {
+        await processAutoQuestionnaireDispatch(job);
+      }
+
+      return true;
+    } catch (processingError: any) {
+      console.error(`[Worker] Error processing scheduled job ${job.id}:`, processingError);
+      
+      await storage.updateScheduledJob(job.id, {
+        status: 'failed',
+        completedAt: new Date(),
+        error: processingError.message || 'Processing failed',
+      });
+      
+      return true;
+    }
+  } catch (error: any) {
+    console.error('[Worker] Error in processNextScheduledJob:', error);
+    return false;
+  }
+}
+
+/**
+ * Send questionnaire email to a patient
+ */
+async function sendQuestionnaireEmail(
+  linkToken: string,
+  patientEmail: string,
+  patientName: string,
+  hospitalId: string,
+  unitId: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const hospital = await storage.getHospital(hospitalId);
+    
+    // Get unit info for the help line phone number
+    let helpPhone: string | null = null;
+    if (unitId) {
+      const unit = await storage.getUnit(unitId);
+      helpPhone = unit?.questionnairePhone || hospital?.companyPhone || null;
+    } else {
+      helpPhone = hospital?.companyPhone || null;
+    }
+
+    const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+    const questionnaireUrl = `${baseUrl}/questionnaire/${linkToken}`;
+    
+    // Build help contact section based on available phone
+    const helpContactEN = helpPhone 
+      ? `If you have any questions or need assistance, please call us at <strong>${helpPhone}</strong>.`
+      : `If you have any questions, please contact our office.`;
+    const helpContactDE = helpPhone 
+      ? `Bei Fragen oder wenn Sie Hilfe benötigen, rufen Sie uns bitte an unter <strong>${helpPhone}</strong>.`
+      : `Bei Fragen kontaktieren Sie bitte unser Büro.`;
+    
+    // Send bilingual email using Resend
+    const { Resend } = await import('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
+      to: patientEmail,
+      subject: `Pre-Op Questionnaire / Präoperativer Fragebogen - ${hospital?.name || 'Hospital'}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <!-- English Section -->
+          <div style="margin-bottom: 40px;">
+            <h2 style="color: #333; border-bottom: 2px solid #0066cc; padding-bottom: 10px;">🇬🇧 Pre-Operative Questionnaire</h2>
+            <p>Dear ${patientName},</p>
+            <p>You have been invited to complete a pre-operative questionnaire for your upcoming procedure at ${hospital?.name || 'our facility'}.</p>
+            <p>Please click the button below to access and complete the questionnaire:</p>
+            <p style="margin: 25px 0; text-align: center;">
+              <a href="${questionnaireUrl}" style="background-color: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Complete Questionnaire
+              </a>
+            </p>
+            <p style="font-size: 13px; color: #666;">Or copy and paste this link into your browser:</p>
+            <p style="color: #0066cc; word-break: break-all; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">${questionnaireUrl}</p>
+            <p>${helpContactEN}</p>
+          </div>
+          
+          <!-- German Section -->
+          <div>
+            <h2 style="color: #333; border-bottom: 2px solid #cc0000; padding-bottom: 10px;">🇩🇪 Präoperativer Fragebogen</h2>
+            <p>Liebe(r) ${patientName},</p>
+            <p>Sie wurden eingeladen, einen präoperativen Fragebogen für Ihren bevorstehenden Eingriff bei ${hospital?.name || 'unserer Einrichtung'} auszufüllen.</p>
+            <p>Bitte klicken Sie auf die Schaltfläche unten, um den Fragebogen aufzurufen und auszufüllen:</p>
+            <p style="margin: 25px 0; text-align: center;">
+              <a href="${questionnaireUrl}" style="background-color: #cc0000; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                Fragebogen ausfüllen
+              </a>
+            </p>
+            <p>${helpContactDE}</p>
+          </div>
+          
+          <hr style="margin: 30px 0; border: none; border-top: 1px solid #ddd;" />
+          <p style="color: #999; font-size: 12px; text-align: center;">
+            This is an automated message from ${hospital?.name || 'Hospital'}.<br/>
+            Dies ist eine automatische Nachricht von ${hospital?.name || 'Hospital'}.
+          </p>
+        </div>
+      `,
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('[Worker] Failed to send questionnaire email:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Process auto-questionnaire dispatch job
+ * Finds surgeries scheduled ~14 days in the future and sends questionnaires
+ */
+async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
+  const hospitalId = job.hospitalId;
+  
+  console.log(`[Worker] Auto-questionnaire dispatch for hospital ${hospitalId}`);
+  
+  // Get surgeries scheduled for daysAhead days from now
+  const eligibleSurgeries = await storage.getSurgeriesForAutoQuestionnaire(
+    hospitalId, 
+    AUTO_QUESTIONNAIRE_DAYS_AHEAD
+  );
+  
+  console.log(`[Worker] Found ${eligibleSurgeries.length} surgeries scheduled for ${AUTO_QUESTIONNAIRE_DAYS_AHEAD} days ahead`);
+  
+  let processedCount = 0;
+  let successCount = 0;
+  let failedCount = 0;
+  const results: Array<{
+    surgeryId: string;
+    patientName: string;
+    status: 'sent' | 'skipped_no_email' | 'skipped_already_sent' | 'failed';
+    error?: string;
+  }> = [];
+
+  for (const surgery of eligibleSurgeries) {
+    processedCount++;
+    const patientName = `${surgery.patientFirstName} ${surgery.patientLastName}`;
+    
+    // Skip if already has questionnaire sent
+    if (surgery.hasQuestionnaireSent) {
+      console.log(`[Worker] Skipping ${patientName} - questionnaire already sent`);
+      results.push({
+        surgeryId: surgery.surgeryId,
+        patientName,
+        status: 'skipped_already_sent',
+      });
+      continue;
+    }
+    
+    // Skip if no email
+    if (!surgery.patientEmail) {
+      console.log(`[Worker] Skipping ${patientName} - no email on file`);
+      results.push({
+        surgeryId: surgery.surgeryId,
+        patientName,
+        status: 'skipped_no_email',
+      });
+      continue;
+    }
+    
+    try {
+      // Generate a questionnaire link
+      const linkToken = randomUUID();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 14); // 14 day expiry
+      
+      // Create the questionnaire link
+      const newLink = await storage.createQuestionnaireLink({
+        hospitalId,
+        patientId: surgery.patientId,
+        surgeryId: surgery.surgeryId,
+        token: linkToken,
+        expiresAt,
+        status: 'pending',
+        language: 'de',
+      });
+      
+      // Send the email
+      const emailResult = await sendQuestionnaireEmail(
+        linkToken,
+        surgery.patientEmail,
+        patientName,
+        hospitalId,
+        null // No specific unit for auto-dispatch
+      );
+      
+      if (emailResult.success) {
+        // Update the link to mark email as sent
+        await storage.updateQuestionnaireLink(newLink.id, {
+          emailSent: true,
+          emailSentAt: new Date(),
+          emailSentTo: surgery.patientEmail,
+          // No emailSentBy since this is automatic
+        });
+        
+        console.log(`[Worker] Successfully sent questionnaire to ${patientName} (${surgery.patientEmail})`);
+        successCount++;
+        results.push({
+          surgeryId: surgery.surgeryId,
+          patientName,
+          status: 'sent',
+        });
+      } else {
+        failedCount++;
+        results.push({
+          surgeryId: surgery.surgeryId,
+          patientName,
+          status: 'failed',
+          error: emailResult.error,
+        });
+      }
+    } catch (error: any) {
+      console.error(`[Worker] Error processing surgery ${surgery.surgeryId}:`, error);
+      failedCount++;
+      results.push({
+        surgeryId: surgery.surgeryId,
+        patientName,
+        status: 'failed',
+        error: error.message,
+      });
+    }
+  }
+
+  // Update job as completed
+  await storage.updateScheduledJob(job.id, {
+    status: 'completed',
+    completedAt: new Date(),
+    processedCount,
+    successCount,
+    failedCount,
+    results: results as any,
+  });
+
+  console.log(`[Worker] Completed auto-questionnaire dispatch: ${successCount} sent, ${failedCount} failed, ${processedCount - successCount - failedCount} skipped`);
+}
+
+/**
+ * Schedule auto-questionnaire dispatch jobs for all hospitals that need them
+ * This runs periodically to ensure jobs are scheduled for each hospital daily
+ */
+async function scheduleAutoQuestionnaireJobs(): Promise<void> {
+  try {
+    // Get all hospitals
+    const allHospitals = await db.select().from(hospitals);
+    
+    const now = new Date();
+    const todayStart = new Date(now);
+    todayStart.setHours(6, 0, 0, 0); // Schedule for 6 AM each day
+    
+    for (const hospital of allHospitals) {
+      // Check if there's already a pending job for today
+      const lastJob = await storage.getLastScheduledJobForHospital(hospital.id, 'auto_questionnaire_dispatch');
+      
+      if (lastJob) {
+        const lastJobDate = new Date(lastJob.scheduledFor);
+        const isSameDay = lastJobDate.toDateString() === todayStart.toDateString();
+        
+        // Skip if we already have a job scheduled for today
+        if (isSameDay) {
+          continue;
+        }
+      }
+      
+      // If no job exists for today and it's past 6 AM, schedule one for now
+      // Otherwise schedule for 6 AM tomorrow
+      let scheduledFor: Date;
+      if (now.getHours() >= 6) {
+        scheduledFor = now; // Run immediately if past 6 AM
+      } else {
+        scheduledFor = todayStart;
+      }
+      
+      await storage.createScheduledJob({
+        jobType: 'auto_questionnaire_dispatch',
+        hospitalId: hospital.id,
+        scheduledFor,
+        status: 'pending',
+      });
+      
+      console.log(`[Worker] Scheduled auto-questionnaire job for hospital ${hospital.id} at ${scheduledFor.toISOString()}`);
+    }
+  } catch (error: any) {
+    console.error('[Worker] Error scheduling auto-questionnaire jobs:', error);
+  }
+}
+
 async function checkStuckJobs() {
   try {
     const stuckJobs = await storage.getStuckJobs(STUCK_JOB_THRESHOLD_MINUTES);
@@ -935,21 +1246,37 @@ async function workerLoop() {
   console.log(`[Worker] Poll interval: ${POLL_INTERVAL_MS}ms, Stuck job check: ${STUCK_JOB_CHECK_INTERVAL_MS}ms`);
   
   let lastStuckJobCheck = Date.now();
+  let lastScheduledJobCheck = Date.now();
   
   while (true) {
     try {
+      // Check for stuck jobs periodically
       if (Date.now() - lastStuckJobCheck >= STUCK_JOB_CHECK_INTERVAL_MS) {
         await checkStuckJobs();
         lastStuckJobCheck = Date.now();
       }
       
+      // Schedule new auto-questionnaire jobs periodically (every minute)
+      if (Date.now() - lastScheduledJobCheck >= SCHEDULED_JOB_CHECK_INTERVAL_MS) {
+        await scheduleAutoQuestionnaireJobs();
+        lastScheduledJobCheck = Date.now();
+      }
+      
+      // Process import jobs
       const processedImport = await processNextImportJob();
       if (processedImport) {
         continue;
       }
       
+      // Process price sync jobs
       const processedPriceSync = await processNextPriceSyncJob();
       if (processedPriceSync) {
+        continue;
+      }
+      
+      // Process scheduled jobs (auto-questionnaire dispatch, etc.)
+      const processedScheduled = await processNextScheduledJob();
+      if (processedScheduled) {
         continue;
       }
       
