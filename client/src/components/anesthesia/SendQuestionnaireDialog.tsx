@@ -87,6 +87,7 @@ export function SendQuestionnaireDialog({
     },
     onSuccess: () => {
       setEmailSent(true);
+      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient', patientId, 'links'] });
       toast({
         title: t('questionnaire.links.emailSent'),
         description: t('questionnaire.links.emailSentDesc'),

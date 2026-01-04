@@ -13,6 +13,7 @@ import {
   Plus, 
   Copy, 
   Mail, 
+  MailCheck,
   Trash2, 
   Loader2, 
   CheckCircle2, 
@@ -35,6 +36,9 @@ interface QuestionnaireLink {
   status: 'pending' | 'started' | 'submitted' | 'reviewed' | 'expired';
   createdAt?: string;
   expiresAt?: string;
+  emailSent?: boolean;
+  emailSentAt?: string;
+  emailSentTo?: string;
 }
 
 interface QuestionnaireLinksCardProps {
@@ -117,6 +121,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
       return res.json();
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient', patientId, 'links'] });
       setIsSendEmailDialogOpen(false);
       setSelectedLinkId(null);
       toast({
@@ -264,8 +269,14 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
                   data-testid={`link-row-${link.id}`}
                 >
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       {getStatusBadge(link.status)}
+                      {link.emailSent && (
+                        <Badge variant="outline" className="flex items-center gap-1 text-green-600 border-green-300 bg-green-50">
+                          <MailCheck className="h-3 w-3" />
+                          {t('questionnaire.links.emailSentBadge', 'Emailed')}
+                        </Badge>
+                      )}
                       {link.expiresAt && (
                         <span className="text-xs text-muted-foreground">
                           {t('questionnaire.links.expires')}: {formatDate(link.expiresAt)}
@@ -274,6 +285,11 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {t('questionnaire.links.created')}: {formatDate(link.createdAt || '')}
+                      {link.emailSent && link.emailSentTo && (
+                        <span className="ml-2">
+                          • {t('questionnaire.links.sentTo', 'Sent to')}: {link.emailSentTo}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
@@ -297,15 +313,22 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>
-                        {canWrite && link.status === 'pending' && (
+                        {canWrite && (link.status === 'pending' || link.status === 'started') && (
                           <Button
                             variant="ghost"
                             size="icon"
                             onClick={() => handleOpenSendEmail(link.id)}
-                            title={t('questionnaire.links.sendEmail')}
+                            title={link.emailSent 
+                              ? t('questionnaire.links.resendEmail', 'Resend email')
+                              : t('questionnaire.links.sendEmail')
+                            }
                             data-testid={`button-send-email-${link.id}`}
                           >
-                            <Mail className="h-4 w-4" />
+                            {link.emailSent ? (
+                              <MailCheck className="h-4 w-4 text-green-600" />
+                            ) : (
+                              <Mail className="h-4 w-4" />
+                            )}
                           </Button>
                         )}
                         {canWrite && link.status !== 'submitted' && link.status !== 'reviewed' && (
