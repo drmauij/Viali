@@ -1,35 +1,38 @@
-// Plivo SMS integration for sending SMS messages
-import * as plivo from 'plivo';
+// Vonage SMS integration for sending SMS messages
+import { Vonage } from '@vonage/server-sdk';
 
-interface PlivoCredentials {
-  authId: string;
-  authToken: string;
+interface VonageCredentials {
+  apiKey: string;
+  apiSecret: string;
   fromNumber: string;
 }
 
-function getPlivoCredentials(): PlivoCredentials {
-  const authId = process.env.PLIVO_AUTH_ID;
-  const authToken = process.env.PLIVO_AUTH_TOKEN;
-  const fromNumber = process.env.PLIVO_FROM_NUMBER;
+function getVonageCredentials(): VonageCredentials {
+  const apiKey = process.env.VONAGE_API_KEY;
+  const apiSecret = process.env.VONAGE_API_SECRET;
+  const fromNumber = process.env.VONAGE_FROM_NUMBER;
 
-  if (!authId) {
-    throw new Error('PLIVO_AUTH_ID environment variable is required');
+  if (!apiKey) {
+    throw new Error('VONAGE_API_KEY environment variable is required');
   }
 
-  if (!authToken) {
-    throw new Error('PLIVO_AUTH_TOKEN environment variable is required');
+  if (!apiSecret) {
+    throw new Error('VONAGE_API_SECRET environment variable is required');
   }
 
   if (!fromNumber) {
-    throw new Error('PLIVO_FROM_NUMBER environment variable is required');
+    throw new Error('VONAGE_FROM_NUMBER environment variable is required');
   }
 
-  return { authId, authToken, fromNumber };
+  return { apiKey, apiSecret, fromNumber };
 }
 
-function getPlivoClient(): plivo.Client {
-  const { authId, authToken } = getPlivoCredentials();
-  return new plivo.Client(authId, authToken);
+function getVonageClient(): Vonage {
+  const { apiKey, apiSecret } = getVonageCredentials();
+  return new Vonage({
+    apiKey,
+    apiSecret,
+  });
 }
 
 export interface SendSmsResult {
@@ -39,14 +42,14 @@ export interface SendSmsResult {
 }
 
 /**
- * Send an SMS message using Plivo
+ * Send an SMS message using Vonage
  * @param to - Destination phone number in E.164 format (e.g., +41791234567)
- * @param message - The SMS message text (max 1600 characters, will be split if longer)
+ * @param message - The SMS message text
  */
 export async function sendSms(to: string, message: string): Promise<SendSmsResult> {
   try {
-    const { fromNumber } = getPlivoCredentials();
-    const client = getPlivoClient();
+    const { fromNumber } = getVonageCredentials();
+    const vonage = getVonageClient();
 
     // Ensure phone number is in E.164 format
     const normalizedTo = normalizePhoneNumber(to);
@@ -58,22 +61,33 @@ export async function sendSms(to: string, message: string): Promise<SendSmsResul
       };
     }
 
+    // Remove + prefix for Vonage (it expects numbers without +)
+    const vonageTo = normalizedTo.replace(/^\+/, '');
+    const vonageFrom = fromNumber.replace(/^\+/, '');
+
     console.log(`[SMS] Sending SMS to ${normalizedTo} from ${fromNumber}`);
     
-    const response = await client.messages.create(
-      fromNumber,
-      normalizedTo,
-      message
-    );
+    const response = await vonage.sms.send({
+      to: vonageTo,
+      from: vonageFrom,
+      text: message,
+    });
 
-    console.log(`[SMS] Message sent successfully, UUID: ${response.messageUuid}`);
+    const firstMessage = response.messages[0];
     
-    return {
-      success: true,
-      messageUuid: Array.isArray(response.messageUuid) 
-        ? response.messageUuid[0] 
-        : response.messageUuid,
-    };
+    if (firstMessage.status === '0') {
+      console.log(`[SMS] Message sent successfully, ID: ${firstMessage.messageId}`);
+      return {
+        success: true,
+        messageUuid: firstMessage.messageId,
+      };
+    } else {
+      console.error(`[SMS] Failed to send: ${firstMessage.errorText}`);
+      return {
+        success: false,
+        error: firstMessage.errorText || 'Unknown Vonage error',
+      };
+    }
   } catch (error) {
     console.error('[SMS] Failed to send SMS:', error);
     return {
@@ -135,8 +149,8 @@ function normalizePhoneNumber(phone: string): string | null {
  */
 export function isSmsConfigured(): boolean {
   return !!(
-    process.env.PLIVO_AUTH_ID &&
-    process.env.PLIVO_AUTH_TOKEN &&
-    process.env.PLIVO_FROM_NUMBER
+    process.env.VONAGE_API_KEY &&
+    process.env.VONAGE_API_SECRET &&
+    process.env.VONAGE_FROM_NUMBER
   );
 }
