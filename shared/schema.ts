@@ -408,6 +408,19 @@ export const orderLines = pgTable("order_lines", {
   index("idx_order_lines_item").on(table.itemId),
 ]);
 
+// Order Attachments (delivery receipts, Lieferscheine)
+export const orderAttachments = pgTable("order_attachments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  orderId: varchar("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+  filename: varchar("filename").notNull(),
+  contentType: varchar("content_type"),
+  storageKey: varchar("storage_key").notNull(),
+  uploadedBy: varchar("uploaded_by").notNull().references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_order_attachments_order").on(table.orderId),
+]);
+
 // Activity Log (immutable audit trail)
 export const activities = pgTable("activities", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2023,11 +2036,17 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   vendor: one(vendors, { fields: [orders.vendorId], references: [vendors.id] }),
   createdByUser: one(users, { fields: [orders.createdBy], references: [users.id] }),
   orderLines: many(orderLines),
+  attachments: many(orderAttachments),
 }));
 
 export const orderLinesRelations = relations(orderLines, ({ one }) => ({
   order: one(orders, { fields: [orderLines.orderId], references: [orders.id] }),
   item: one(items, { fields: [orderLines.itemId], references: [items.id] }),
+}));
+
+export const orderAttachmentsRelations = relations(orderAttachments, ({ one }) => ({
+  order: one(orders, { fields: [orderAttachments.orderId], references: [orders.id] }),
+  uploadedByUser: one(users, { fields: [orderAttachments.uploadedBy], references: [users.id] }),
 }));
 
 export const activitiesRelations = relations(activities, ({ one }) => ({
@@ -2831,6 +2850,7 @@ export type StockLevel = typeof stockLevels.$inferSelect;
 export type Lot = typeof lots.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderLine = typeof orderLines.$inferSelect;
+export type OrderAttachment = typeof orderAttachments.$inferSelect;
 export type Activity = typeof activities.$inferSelect;
 export type Alert = typeof alerts.$inferSelect;
 export type Vendor = typeof vendors.$inferSelect;
