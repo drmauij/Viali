@@ -740,7 +740,7 @@ router.post('/api/questionnaire/links/:linkId/send-sms', isAuthenticated, requir
     const unit = await storage.getUnit(unitId);
     const helpPhone = unit?.questionnairePhone || hospital?.companyPhone || null;
     
-    const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+    const baseUrl = process.env.PUBLIC_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
     const questionnaireUrl = `${baseUrl}/questionnaire/${link.token}`;
     
     // Build a short bilingual SMS message
