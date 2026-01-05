@@ -5,10 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, Mail, Loader2, CheckCircle, Link as LinkIcon, MessageSquare } from "lucide-react";
+import { Copy, Mail, Loader2, CheckCircle, Link as LinkIcon, MessageSquare, Clock, AlertCircle } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
 
 interface SendQuestionnaireDialogProps {
   open: boolean;
@@ -45,6 +47,51 @@ export function SendQuestionnaireDialog({
   });
 
   const isSmsConfigured = smsStatus?.configured ?? false;
+
+  // Fetch existing questionnaire links for this patient to show send history
+  const { data: existingLinks } = useQuery<any[]>({
+    queryKey: ['/api/questionnaire/patient', patientId, 'links'],
+    queryFn: async () => {
+      const res = await fetch(`/api/questionnaire/patient/${patientId}/links`, {
+        headers: {
+          'X-Hospital-Id': activeHospital?.id || '',
+        },
+        credentials: 'include',
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: open && !!patientId && !!activeHospital?.id,
+  });
+
+  // Find the most recent sent link (email or SMS)
+  const getMostRecentSendInfo = () => {
+    if (!existingLinks || existingLinks.length === 0) return null;
+    
+    // Find links that were sent via email or SMS
+    const sentLinks = existingLinks.filter(link => link.emailSent || link.smsSent);
+    if (sentLinks.length === 0) return null;
+    
+    // Sort by most recent send date
+    const sortedLinks = sentLinks.sort((a, b) => {
+      const aDate = a.emailSentAt || a.smsSentAt;
+      const bDate = b.emailSentAt || b.smsSentAt;
+      return new Date(bDate).getTime() - new Date(aDate).getTime();
+    });
+    
+    const mostRecent = sortedLinks[0];
+    return {
+      emailSent: mostRecent.emailSent,
+      emailSentAt: mostRecent.emailSentAt,
+      emailSentTo: mostRecent.emailSentTo,
+      smsSent: mostRecent.smsSent,
+      smsSentAt: mostRecent.smsSentAt,
+      smsSentTo: mostRecent.smsSentTo,
+      status: mostRecent.status,
+    };
+  };
+
+  const sendHistory = getMostRecentSendInfo();
 
   useEffect(() => {
     if (open) {
@@ -192,6 +239,48 @@ export function SendQuestionnaireDialog({
             {t('questionnaire.send.description', { name: patientName })}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Send History Banner */}
+        {sendHistory && (
+          <div className="bg-muted/50 border rounded-lg p-3 mb-2" data-testid="questionnaire-send-history">
+            <div className="flex items-start gap-2">
+              <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+              <div className="text-sm space-y-1">
+                <p className="font-medium text-foreground">
+                  {t('questionnaire.send.alreadySent', 'Questionnaire already sent')}
+                </p>
+                {sendHistory.emailSent && sendHistory.emailSentAt && (
+                  <p className="text-muted-foreground flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    {t('questionnaire.send.sentViaEmail', 'Email')}: {sendHistory.emailSentTo || '-'} 
+                    <span className="text-xs">
+                      ({format(new Date(sendHistory.emailSentAt), 'dd.MM.yyyy HH:mm', { locale: de })})
+                    </span>
+                  </p>
+                )}
+                {sendHistory.smsSent && sendHistory.smsSentAt && (
+                  <p className="text-muted-foreground flex items-center gap-1">
+                    <MessageSquare className="h-3 w-3" />
+                    {t('questionnaire.send.sentViaSms', 'SMS')}: {sendHistory.smsSentTo || '-'}
+                    <span className="text-xs">
+                      ({format(new Date(sendHistory.smsSentAt), 'dd.MM.yyyy HH:mm', { locale: de })})
+                    </span>
+                  </p>
+                )}
+                {sendHistory.status && (
+                  <p className="text-xs text-muted-foreground">
+                    {t('questionnaire.send.status', 'Status')}: {
+                      sendHistory.status === 'submitted' ? t('questionnaire.status.submitted', 'Submitted') :
+                      sendHistory.status === 'reviewed' ? t('questionnaire.status.reviewed', 'Reviewed') :
+                      sendHistory.status === 'pending' ? t('questionnaire.status.pending', 'Pending') :
+                      sendHistory.status
+                    }
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         
         {isGenerating ? (
           <div className="flex flex-col items-center justify-center py-8">
