@@ -7,14 +7,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2, Stethoscope, EyeOff, Mail, Send } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 
 function getPreOpSummary(assessment: any, surgery: any, t: (key: string) => string): string | null {
   if (!assessment) return null;
@@ -152,136 +150,15 @@ export default function PreOpList() {
     },
   });
 
-  // Email dialog state
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
-  const [emailInput, setEmailInput] = useState("");
-  const [saveEmailToPatient, setSaveEmailToPatient] = useState(true);
-  const [selectedSurgeryForEmail, setSelectedSurgeryForEmail] = useState<any>(null);
-  
-  // Track surgeries that have had forms sent in this session
-  const [sentForms, setSentForms] = useState<Set<string>>(new Set());
+  // Send questionnaire dialog state
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [selectedSurgeryForSend, setSelectedSurgeryForSend] = useState<any>(null);
 
-  // Mutation to generate questionnaire link
-  const generateLinkMutation = useMutation({
-    mutationFn: async ({ patientId, surgeryId }: { patientId: string; surgeryId: string }) => {
-      return await apiRequest("POST", "/api/questionnaire/generate-link", {
-        patientId,
-        surgeryId,
-        expiresInDays: 14,
-        language: "de",
-      });
-    },
-  });
-
-  // Mutation to send email with questionnaire link
-  const sendEmailMutation = useMutation({
-    mutationFn: async ({ linkId, email }: { linkId: string; email: string }) => {
-      return await apiRequest("POST", `/api/questionnaire/links/${linkId}/send-email`, {
-        email,
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: t('anesthesia.preop.emailSent'),
-        description: t('anesthesia.preop.emailSentDesc'),
-      });
-      setEmailDialogOpen(false);
-      setEmailInput("");
-      setSelectedSurgeryForEmail(null);
-    },
-    onError: () => {
-      toast({
-        title: t('common.error'),
-        description: t('anesthesia.preop.emailSendError'),
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Mutation to update patient email
-  const updatePatientEmailMutation = useMutation({
-    mutationFn: async ({ patientId, email }: { patientId: string; email: string }) => {
-      return await apiRequest("PATCH", `/api/anesthesia/patients/${patientId}`, {
-        email,
-      });
-    },
-  });
-
-  // Handle sending form to patient
-  const handleSendFormToPatient = async (surgery: any) => {
+  // Handle sending form to patient - opens the SendQuestionnaireDialog
+  const handleSendFormToPatient = (surgery: any) => {
     if (!surgery.patientId) return;
-
-    // If patient has no email, open dialog to enter one
-    if (!surgery.patientEmail) {
-      setSelectedSurgeryForEmail(surgery);
-      setEmailInput(""); // Reset email input for new dialog
-      setSaveEmailToPatient(true); // Default to save since patient has no email
-      setEmailDialogOpen(true);
-      return;
-    }
-
-    // Generate link and send email
-    try {
-      const response = await generateLinkMutation.mutateAsync({
-        patientId: surgery.patientId,
-        surgeryId: surgery.id,
-      });
-      const linkData = await response.json();
-      
-      await sendEmailMutation.mutateAsync({
-        linkId: linkData.link.id,
-        email: surgery.patientEmail,
-      });
-      
-      // Track that form was sent for this surgery
-      setSentForms(prev => new Set(prev).add(surgery.id));
-    } catch (error) {
-      console.error("Failed to send form:", error);
-      toast({
-        title: t('common.error'),
-        description: t('anesthesia.preop.emailSendError'),
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Handle sending email after entering in dialog
-  const handleSendEmailFromDialog = async () => {
-    if (!selectedSurgeryForEmail || !emailInput) return;
-
-    try {
-      // Save email to patient record if checkbox is checked
-      if (saveEmailToPatient && selectedSurgeryForEmail.patientId) {
-        await updatePatientEmailMutation.mutateAsync({
-          patientId: selectedSurgeryForEmail.patientId,
-          email: emailInput,
-        });
-        // Invalidate preop query to get updated patient email
-        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id || ''}`] });
-      }
-
-      // Generate link and send email
-      const response = await generateLinkMutation.mutateAsync({
-        patientId: selectedSurgeryForEmail.patientId,
-        surgeryId: selectedSurgeryForEmail.id,
-      });
-      const linkData = await response.json();
-      
-      await sendEmailMutation.mutateAsync({
-        linkId: linkData.link.id,
-        email: emailInput,
-      });
-      
-      // Track that form was sent for this surgery
-      setSentForms(prev => new Set(prev).add(selectedSurgeryForEmail.id));
-    } catch (error) {
-      console.error("Failed to send form:", error);
-      toast({
-        title: t('common.error'),
-        description: t('anesthesia.preop.emailSendError'),
-        variant: "destructive",
-      });
-    }
+    setSelectedSurgeryForSend(surgery);
+    setSendDialogOpen(true);
   };
 
   // Filter assessments by search term
@@ -577,7 +454,7 @@ export default function PreOpList() {
                     )}
                     {/* Button to send pre-op form to patient (only for planned items) */}
                     {item.status === 'planned' && (
-                      (item.questionnaireEmailSent || sentForms.has(surgery.id)) ? (
+                      item.questionnaireEmailSent ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
                             <Mail className="h-3 w-3" />
@@ -591,14 +468,9 @@ export default function PreOpList() {
                               e.stopPropagation();
                               handleSendFormToPatient(surgery);
                             }}
-                            disabled={generateLinkMutation.isPending || sendEmailMutation.isPending}
                             data-testid={`button-resend-form-${surgery.id}`}
                           >
-                            {(generateLinkMutation.isPending || sendEmailMutation.isPending) ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Send className="h-3 w-3" />
-                            )}
+                            <Send className="h-3 w-3" />
                           </Button>
                         </div>
                       ) : (
@@ -610,14 +482,9 @@ export default function PreOpList() {
                             e.stopPropagation();
                             handleSendFormToPatient(surgery);
                           }}
-                          disabled={generateLinkMutation.isPending || sendEmailMutation.isPending}
                           data-testid={`button-send-form-${surgery.id}`}
                         >
-                          {(generateLinkMutation.isPending || sendEmailMutation.isPending) ? (
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          ) : (
-                            <Mail className="h-3 w-3 mr-1" />
-                          )}
+                          <Mail className="h-3 w-3 mr-1" />
                           {t('anesthesia.preop.sendForm')}
                         </Button>
                       )
@@ -650,68 +517,20 @@ export default function PreOpList() {
         )}
       </div>
 
-      {/* Email Dialog for patients without email */}
-      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('anesthesia.preop.enterEmail')}</DialogTitle>
-            <DialogDescription>
-              {selectedSurgeryForEmail?.patientName && (
-                <span>{t('anesthesia.preop.noEmailForPatient', { name: selectedSurgeryForEmail.patientName })}</span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">{t('anesthesia.preop.patientEmail')}</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="patient@example.com"
-                value={emailInput}
-                onChange={(e) => setEmailInput(e.target.value)}
-                data-testid="input-patient-email"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="save-email"
-                checked={saveEmailToPatient}
-                onCheckedChange={(checked) => setSaveEmailToPatient(!!checked)}
-                data-testid="checkbox-save-email"
-              />
-              <Label htmlFor="save-email" className="text-sm font-normal cursor-pointer">
-                {t('anesthesia.preop.saveEmailToPatient')}
-              </Label>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setEmailDialogOpen(false);
-                setEmailInput("");
-                setSelectedSurgeryForEmail(null);
-              }}
-              data-testid="button-cancel-email"
-            >
-              {t('common.cancel')}
-            </Button>
-            <Button
-              onClick={handleSendEmailFromDialog}
-              disabled={!emailInput || generateLinkMutation.isPending || sendEmailMutation.isPending || updatePatientEmailMutation.isPending}
-              data-testid="button-send-email"
-            >
-              {(generateLinkMutation.isPending || sendEmailMutation.isPending || updatePatientEmailMutation.isPending) ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4 mr-2" />
-              )}
-              {t('anesthesia.preop.sendEmail')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Send Questionnaire Dialog (with Email and SMS options) */}
+      {selectedSurgeryForSend && (
+        <SendQuestionnaireDialog
+          open={sendDialogOpen}
+          onOpenChange={(open) => {
+            setSendDialogOpen(open);
+            if (!open) setSelectedSurgeryForSend(null);
+          }}
+          patientId={selectedSurgeryForSend.patientId}
+          patientName={selectedSurgeryForSend.patientName || ''}
+          patientEmail={selectedSurgeryForSend.patientEmail}
+          patientPhone={selectedSurgeryForSend.patientPhone}
+        />
+      )}
     </div>
   );
 }
