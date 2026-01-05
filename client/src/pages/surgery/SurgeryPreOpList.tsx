@@ -1,14 +1,20 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2, Mail, Send } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 function getPreOpSummary(assessment: any, surgery: any, t: (key: string) => string): string | null {
   if (!assessment) return null;
@@ -52,6 +58,7 @@ function getPreOpSummary(assessment: any, surgery: any, t: (key: string) => stri
 
 export default function SurgeryPreOpList() {
   const { t } = useTranslation();
+  const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"planned" | "draft" | "standby" | "completed">("planned");
@@ -59,10 +66,141 @@ export default function SurgeryPreOpList() {
 
   const activeHospital = useActiveHospital();
 
+  // Email dialog state
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
+  const [saveEmailToPatient, setSaveEmailToPatient] = useState(true);
+  const [selectedSurgeryForEmail, setSelectedSurgeryForEmail] = useState<any>(null);
+  
+  // Track surgeries that have had forms sent in this session
+  const [sentForms, setSentForms] = useState<Set<string>>(new Set());
+
   const { data: assessments, isLoading } = useQuery<any[]>({
     queryKey: [`/api/surgery/preop?hospitalId=${activeHospital?.id || ''}`],
     enabled: !!activeHospital?.id,
   });
+
+  // Mutation to generate questionnaire link
+  const generateLinkMutation = useMutation({
+    mutationFn: async ({ patientId, surgeryId }: { patientId: string; surgeryId: string }) => {
+      return await apiRequest("POST", "/api/questionnaire/generate-link", {
+        patientId,
+        surgeryId,
+        expiresInDays: 14,
+        language: "de",
+      });
+    },
+  });
+
+  // Mutation to send email with questionnaire link
+  const sendEmailMutation = useMutation({
+    mutationFn: async ({ linkId, email }: { linkId: string; email: string }) => {
+      return await apiRequest("POST", `/api/questionnaire/links/${linkId}/send-email`, {
+        email,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: t('surgery.preop.emailSent', 'Email sent'),
+        description: t('surgery.preop.emailSentDesc', 'The questionnaire link has been sent to the patient'),
+      });
+      setEmailDialogOpen(false);
+      setEmailInput("");
+      setSelectedSurgeryForEmail(null);
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('surgery.preop.emailSendError', 'Failed to send email'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to update patient email
+  const updatePatientEmailMutation = useMutation({
+    mutationFn: async ({ patientId, email }: { patientId: string; email: string }) => {
+      return await apiRequest("PATCH", `/api/anesthesia/patients/${patientId}`, {
+        email,
+      });
+    },
+  });
+
+  // Handle sending form to patient
+  const handleSendFormToPatient = async (surgery: any) => {
+    if (!surgery.patientId) return;
+
+    // If patient has no email, open dialog to enter one
+    if (!surgery.patientEmail) {
+      setSelectedSurgeryForEmail(surgery);
+      setEmailInput("");
+      setSaveEmailToPatient(true);
+      setEmailDialogOpen(true);
+      return;
+    }
+
+    // Generate link and send email
+    try {
+      const response = await generateLinkMutation.mutateAsync({
+        patientId: surgery.patientId,
+        surgeryId: surgery.id,
+      });
+      const linkData = await response.json();
+      
+      await sendEmailMutation.mutateAsync({
+        linkId: linkData.link.id,
+        email: surgery.patientEmail,
+      });
+      
+      // Track that form was sent for this surgery
+      setSentForms(prev => new Set(prev).add(surgery.id));
+    } catch (error) {
+      console.error("Failed to send form:", error);
+      toast({
+        title: t('common.error'),
+        description: t('surgery.preop.emailSendError', 'Failed to send email'),
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle sending email after entering in dialog
+  const handleSendEmailFromDialog = async () => {
+    if (!selectedSurgeryForEmail || !emailInput) return;
+
+    try {
+      // Save email to patient record if checkbox is checked
+      if (saveEmailToPatient && selectedSurgeryForEmail.patientId) {
+        await updatePatientEmailMutation.mutateAsync({
+          patientId: selectedSurgeryForEmail.patientId,
+          email: emailInput,
+        });
+        queryClient.invalidateQueries({ queryKey: [`/api/surgery/preop?hospitalId=${activeHospital?.id || ''}`] });
+      }
+
+      // Generate link and send email
+      const response = await generateLinkMutation.mutateAsync({
+        patientId: selectedSurgeryForEmail.patientId,
+        surgeryId: selectedSurgeryForEmail.id,
+      });
+      const linkData = await response.json();
+      
+      await sendEmailMutation.mutateAsync({
+        linkId: linkData.link.id,
+        email: emailInput,
+      });
+      
+      // Track that form was sent for this surgery
+      setSentForms(prev => new Set(prev).add(selectedSurgeryForEmail.id));
+    } catch (error) {
+      console.error("Failed to send form:", error);
+      toast({
+        title: t('common.error'),
+        description: t('surgery.preop.emailSendError', 'Failed to send email'),
+        variant: "destructive",
+      });
+    }
+  };
 
   const filteredAssessments = (assessments || []).filter((item) => {
     if (!item.surgery) return false;
@@ -321,6 +459,53 @@ export default function SurgeryPreOpList() {
                         {t('surgery.preop.consentUploaded')}
                       </Badge>
                     )}
+                    {/* Button to send pre-op form to patient (only for planned items) */}
+                    {item.status === 'planned' && (
+                      (item.questionnaireEmailSent || sentForms.has(surgery.id)) ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                            <Mail className="h-3 w-3" />
+                            {t('surgery.preop.formSent', 'Form sent')}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSendFormToPatient(surgery);
+                            }}
+                            disabled={generateLinkMutation.isPending || sendEmailMutation.isPending}
+                            data-testid={`button-resend-form-${surgery.id}`}
+                          >
+                            {(generateLinkMutation.isPending || sendEmailMutation.isPending) ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Send className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 px-2 text-xs"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleSendFormToPatient(surgery);
+                          }}
+                          disabled={generateLinkMutation.isPending || sendEmailMutation.isPending}
+                          data-testid={`button-send-form-${surgery.id}`}
+                        >
+                          {(generateLinkMutation.isPending || sendEmailMutation.isPending) ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <Mail className="h-3 w-3 mr-1" />
+                          )}
+                          {t('surgery.preop.sendForm', 'Send Form')}
+                        </Button>
+                      )
+                    )}
                   </div>
                 </div>
               </Card>
@@ -328,6 +513,67 @@ export default function SurgeryPreOpList() {
           })
         )}
       </div>
+
+      {/* Email Dialog for patients without email */}
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('surgery.preop.enterEmail', 'Enter Email')}</DialogTitle>
+            <DialogDescription>
+              {selectedSurgeryForEmail?.patientName && (
+                <span>{t('surgery.preop.noEmailForPatient', { name: selectedSurgeryForEmail.patientName })}</span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">{t('surgery.preop.patientEmail', 'Patient Email')}</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="patient@example.com"
+                value={emailInput}
+                onChange={(e) => setEmailInput(e.target.value)}
+                data-testid="input-patient-email"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="save-email"
+                checked={saveEmailToPatient}
+                onCheckedChange={(checked) => setSaveEmailToPatient(!!checked)}
+                data-testid="checkbox-save-email"
+              />
+              <Label htmlFor="save-email" className="text-sm font-normal cursor-pointer">
+                {t('surgery.preop.saveEmailToPatient', 'Save email to patient record')}
+              </Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setEmailDialogOpen(false);
+                setEmailInput("");
+                setSelectedSurgeryForEmail(null);
+              }}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleSendEmailFromDialog}
+              disabled={!emailInput || generateLinkMutation.isPending || sendEmailMutation.isPending}
+            >
+              {(generateLinkMutation.isPending || sendEmailMutation.isPending) ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Mail className="h-4 w-4 mr-2" />
+              )}
+              {t('surgery.preop.sendForm', 'Send Form')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
