@@ -11,6 +11,7 @@ import { formatDate, formatDateTime } from "@/lib/dateUtils";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -88,6 +89,7 @@ export default function Orders() {
   
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [orderDialogTab, setOrderDialogTab] = useState<"details" | "attachments">("details");
   
   // Expand/collapse state for order preview
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
@@ -799,6 +801,7 @@ export default function Orders() {
 
   const handleEditOrder = (order: OrderWithDetails) => {
     setSelectedOrder(order);
+    setOrderDialogTab("details");
     setEditOrderDialogOpen(true);
   };
 
@@ -1236,8 +1239,8 @@ export default function Orders() {
           </DialogHeader>
 
           {selectedOrder && (
-            <div className="flex-1 space-y-4 overflow-y-auto min-h-0">
-              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg mb-4">
                 <div>
                   <p className="text-sm text-muted-foreground">{t('orders.unit')}</p>
                   <p className="font-medium text-foreground">
@@ -1253,177 +1256,90 @@ export default function Orders() {
                 </div>
               </div>
 
-              {/* Order Notes */}
-              {canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && (
-                <div className="p-3 bg-muted/20 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-medium text-foreground">
-                      <i className="fas fa-sticky-note mr-1"></i>
-                      Order Notes
-                    </label>
-                    {!editingOrderNotes && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setEditingOrderNotes(true);
-                          setOrderNotes(selectedOrder.notes || "");
-                        }}
-                        data-testid="edit-order-notes"
-                      >
-                        <i className="fas fa-edit"></i>
-                      </Button>
-                    )}
-                  </div>
-                  {editingOrderNotes ? (
-                    <div className="space-y-2">
-                      <textarea
-                        value={orderNotes}
-                        onChange={(e) => setOrderNotes(e.target.value)}
-                        className="w-full px-3 py-2 border border-border rounded bg-background text-foreground"
-                        rows={3}
-                        placeholder="Add notes for this order..."
-                        data-testid="order-notes-input"
-                      />
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            updateOrderNotesMutation.mutate({
-                              orderId: selectedOrder.id,
-                              notes: orderNotes,
-                            });
-                          }}
-                          disabled={updateOrderNotesMutation.isPending}
-                          data-testid="save-order-notes"
-                        >
-                          <i className="fas fa-check mr-1"></i>
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setEditingOrderNotes(false);
-                            setOrderNotes("");
-                          }}
-                          data-testid="cancel-order-notes"
-                        >
-                          <i className="fas fa-times mr-1"></i>
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                      {selectedOrder.notes || "No notes"}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Order Attachments */}
-              <div className="p-3 bg-muted/20 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-foreground flex items-center gap-1">
-                    <Paperclip className="h-4 w-4" />
+              <Tabs value={orderDialogTab} onValueChange={(v) => setOrderDialogTab(v as "details" | "attachments")} className="flex-1 flex flex-col overflow-hidden">
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="details" data-testid="tab-order-details">
+                    <i className="fas fa-list mr-2"></i>
+                    {t('orders.orderItems', { count: selectedOrder.orderLines.length })}
+                  </TabsTrigger>
+                  <TabsTrigger value="attachments" data-testid="tab-order-attachments">
+                    <Paperclip className="h-4 w-4 mr-2" />
                     {t('orders.attachments')} ({orderAttachments.length})
-                  </label>
-                  {canWrite && canEditOrder(selectedOrder) && (
-                    <div className="flex gap-1">
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*,.pdf"
-                        className="hidden"
-                        onChange={handleFileInputChange}
-                        data-testid="attachment-file-input"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploadingAttachment}
-                        data-testid="upload-attachment-button"
-                      >
-                        {uploadingAttachment ? (
-                          <i className="fas fa-spinner fa-spin mr-1"></i>
-                        ) : (
-                          <Upload className="h-4 w-4 mr-1" />
-                        )}
-                        {t('orders.uploadFile')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          const input = document.createElement('input');
-                          input.type = 'file';
-                          input.accept = 'image/*';
-                          input.capture = 'environment';
-                          input.onchange = (e) => {
-                            const file = (e.target as HTMLInputElement).files?.[0];
-                            if (file) handleAttachmentUpload(file);
-                          };
-                          input.click();
-                        }}
-                        disabled={uploadingAttachment}
-                        data-testid="camera-attachment-button"
-                      >
-                        <Camera className="h-4 w-4 mr-1" />
-                        {t('orders.takePhoto')}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                
-                {orderAttachments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t('orders.noAttachments')}</p>
-                ) : (
-                  <div className="space-y-2">
-                    {orderAttachments.map((attachment) => (
-                      <div
-                        key={attachment.id}
-                        className="flex items-center justify-between p-2 bg-background rounded border border-border"
-                        data-testid={`attachment-${attachment.id}`}
-                      >
-                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                          {attachment.contentType?.startsWith('image/') ? (
-                            <i className="fas fa-image text-blue-500"></i>
-                          ) : (
-                            <FileIcon className="h-4 w-4 text-muted-foreground" />
-                          )}
-                          <span className="text-sm truncate">{attachment.filename}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
+                  </TabsTrigger>
+                </TabsList>
+
+                {/* Details Tab */}
+                <TabsContent value="details" className="flex-1 overflow-y-auto space-y-4 mt-0">
+                  {/* Order Notes */}
+                  {canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && (
+                    <div className="p-3 bg-muted/20 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-medium text-foreground">
+                          <i className="fas fa-sticky-note mr-1"></i>
+                          Order Notes
+                        </label>
+                        {!editingOrderNotes && (
                           <Button
                             size="sm"
                             variant="ghost"
-                            onClick={() => handleDownloadAttachment(attachment.id)}
-                            data-testid={`download-attachment-${attachment.id}`}
+                            onClick={() => {
+                              setEditingOrderNotes(true);
+                              setOrderNotes(selectedOrder.notes || "");
+                            }}
+                            data-testid="edit-order-notes"
                           >
-                            <Download className="h-4 w-4" />
+                            <i className="fas fa-edit"></i>
                           </Button>
-                          {canWrite && canEditOrder(selectedOrder) && (
+                        )}
+                      </div>
+                      {editingOrderNotes ? (
+                        <div className="space-y-2">
+                          <textarea
+                            value={orderNotes}
+                            onChange={(e) => setOrderNotes(e.target.value)}
+                            className="w-full px-3 py-2 border border-border rounded bg-background text-foreground"
+                            rows={3}
+                            placeholder="Add notes for this order..."
+                            data-testid="order-notes-input"
+                          />
+                          <div className="flex gap-2">
                             <Button
                               size="sm"
-                              variant="ghost"
-                              className="text-destructive hover:text-destructive"
-                              onClick={() => deleteAttachmentMutation.mutate(attachment.id)}
-                              disabled={deleteAttachmentMutation.isPending}
-                              data-testid={`delete-attachment-${attachment.id}`}
+                              onClick={() => {
+                                updateOrderNotesMutation.mutate({
+                                  orderId: selectedOrder.id,
+                                  notes: orderNotes,
+                                });
+                              }}
+                              disabled={updateOrderNotesMutation.isPending}
+                              data-testid="save-order-notes"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <i className="fas fa-check mr-1"></i>
+                              Save
                             </Button>
-                          )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingOrderNotes(false);
+                                setOrderNotes("");
+                              }}
+                              data-testid="cancel-order-notes"
+                            >
+                              <i className="fas fa-times mr-1"></i>
+                              Cancel
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                          {selectedOrder.notes || "No notes"}
+                        </p>
+                      )}
+                    </div>
+                  )}
 
-              <div>
+                  <div>
                 <h3 className="font-semibold mb-2">{t('orders.orderItems', { count: selectedOrder.orderLines.length })}</h3>
                 <div className="space-y-2">
                   {selectedOrder.orderLines.map(line => {
@@ -1687,7 +1603,117 @@ export default function Orders() {
                     );
                   })}
                 </div>
-              </div>
+                  </div>
+                </TabsContent>
+
+                {/* Attachments Tab */}
+                <TabsContent value="attachments" className="flex-1 overflow-y-auto mt-0">
+                  <div className="space-y-4">
+                    {canWrite && canEditOrder(selectedOrder) && (
+                      <div className="flex gap-2">
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*,.pdf"
+                          className="hidden"
+                          onChange={handleFileInputChange}
+                          data-testid="attachment-file-input"
+                        />
+                        <Button
+                          variant="outline"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingAttachment}
+                          data-testid="upload-attachment-button"
+                        >
+                          {uploadingAttachment ? (
+                            <i className="fas fa-spinner fa-spin mr-2"></i>
+                          ) : (
+                            <Upload className="h-4 w-4 mr-2" />
+                          )}
+                          {t('orders.uploadFile')}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            const input = document.createElement('input');
+                            input.type = 'file';
+                            input.accept = 'image/*';
+                            input.capture = 'environment';
+                            input.onchange = (e) => {
+                              const file = (e.target as HTMLInputElement).files?.[0];
+                              if (file) handleAttachmentUpload(file);
+                            };
+                            input.click();
+                          }}
+                          disabled={uploadingAttachment}
+                          data-testid="camera-attachment-button"
+                        >
+                          <Camera className="h-4 w-4 mr-2" />
+                          {t('orders.takePhoto')}
+                        </Button>
+                      </div>
+                    )}
+                    
+                    {orderAttachments.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Paperclip className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                        <p>{t('orders.noAttachments')}</p>
+                        <p className="text-sm mt-1">Upload delivery receipts or other documents</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {orderAttachments.map((attachment) => (
+                          <div
+                            key={attachment.id}
+                            className="flex items-center justify-between p-3 bg-muted/20 rounded-lg border border-border"
+                            data-testid={`attachment-${attachment.id}`}
+                          >
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              {attachment.contentType?.startsWith('image/') ? (
+                                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded flex items-center justify-center">
+                                  <i className="fas fa-image text-blue-500"></i>
+                                </div>
+                              ) : (
+                                <div className="w-10 h-10 bg-gray-100 dark:bg-gray-800 rounded flex items-center justify-center">
+                                  <FileIcon className="h-5 w-5 text-muted-foreground" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{attachment.filename}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {attachment.createdAt ? formatDate(attachment.createdAt as any) : ''}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDownloadAttachment(attachment.id)}
+                                data-testid={`download-attachment-${attachment.id}`}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              {canWrite && canEditOrder(selectedOrder) && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => deleteAttachmentMutation.mutate(attachment.id)}
+                                  disabled={deleteAttachmentMutation.isPending}
+                                  data-testid={`delete-attachment-${attachment.id}`}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
 
               <div className="flex justify-between gap-2 pt-4 border-t border-border">
                 {canWrite && canEditOrder(selectedOrder) && (
