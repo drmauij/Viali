@@ -1014,9 +1014,12 @@ export default function Orders() {
                       </div>
                     )}
                     
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Received {formatDate((order.updatedAt || order.createdAt) as any)}
-                    </p>
+                    <div className="text-xs text-muted-foreground mb-3 space-y-0.5">
+                      {(order as any).sentAt && (
+                        <p>Sent {formatDate((order as any).sentAt)}</p>
+                      )}
+                      <p>Received {formatDate((order.updatedAt || order.createdAt) as any)}</p>
+                    </div>
                     <Button 
                       variant="outline" 
                       size="sm" 

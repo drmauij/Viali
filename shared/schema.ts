@@ -377,6 +377,7 @@ export const orders = pgTable("orders", {
   createdBy: varchar("created_by").notNull().references(() => users.id),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
   notes: text("notes"),
+  sentAt: timestamp("sent_at"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
