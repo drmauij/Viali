@@ -573,6 +573,7 @@ export default function Patients() {
           patientId={selectedPatientForForm.id}
           patientName={`${selectedPatientForForm.firstName} ${selectedPatientForForm.surname}`}
           patientEmail={selectedPatientForForm.email}
+          patientPhone={selectedPatientForForm.phone}
         />
       )}
     </div>
