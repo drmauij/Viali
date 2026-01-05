@@ -9,6 +9,7 @@ import { eq, and, isNull, isNotNull, sql } from 'drizzle-orm';
 import { db } from './storage';
 import { decryptCredential } from './utils/encryption';
 import { randomUUID } from 'crypto';
+import { sendSms, isSmsConfigured } from './sms';
 
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
 const STUCK_JOB_CHECK_INTERVAL_MS = 60000; // Check for stuck jobs every minute
@@ -1037,6 +1038,58 @@ async function sendQuestionnaireEmail(
 }
 
 /**
+ * Send questionnaire SMS to a patient
+ * Uses a shorter message with the link and unit phone number for callback reference
+ */
+async function sendQuestionnaireSms(
+  linkToken: string,
+  patientPhone: string,
+  patientName: string,
+  hospitalId: string,
+  unitId: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!isSmsConfigured()) {
+      return { success: false, error: 'SMS is not configured (PLIVO credentials missing)' };
+    }
+
+    const hospital = await storage.getHospital(hospitalId);
+    
+    // Get unit info for the help line phone number
+    let helpPhone: string | null = null;
+    if (unitId) {
+      const unit = await storage.getUnit(unitId);
+      helpPhone = unit?.questionnairePhone || hospital?.companyPhone || null;
+    } else {
+      helpPhone = hospital?.companyPhone || null;
+    }
+
+    const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+    const questionnaireUrl = `${baseUrl}/questionnaire/${linkToken}`;
+    
+    // Build a short bilingual SMS message (SMS has character limits)
+    // Standard SMS = 160 chars, concatenated can be longer but charged per segment
+    let message = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${questionnaireUrl}`;
+    
+    if (helpPhone) {
+      message += `\n\nBei Fragen / Questions: ${helpPhone}`;
+    }
+
+    const result = await sendSms(patientPhone, message);
+    
+    if (result.success) {
+      console.log(`[Worker] SMS sent to ${patientPhone}, UUID: ${result.messageUuid}`);
+      return { success: true };
+    } else {
+      return { success: false, error: result.error };
+    }
+  } catch (error: any) {
+    console.error('[Worker] Failed to send questionnaire SMS:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+/**
  * Process auto-questionnaire dispatch job
  * Finds surgeries scheduled ~14 days in the future and sends questionnaires
  */
@@ -1059,7 +1112,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
   const results: Array<{
     surgeryId: string;
     patientName: string;
-    status: 'sent' | 'skipped_no_email' | 'skipped_already_sent' | 'skipped_has_questionnaire' | 'failed';
+    status: 'sent_email' | 'sent_sms' | 'skipped_no_contact' | 'skipped_already_sent' | 'skipped_has_questionnaire' | 'failed';
     error?: string;
   }> = [];
 
@@ -1089,13 +1142,16 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
       continue;
     }
     
-    // Skip if no email
-    if (!surgery.patientEmail) {
-      console.log(`[Worker] Skipping ${patientName} - no email on file`);
+    // Check if we have any contact method (email or phone)
+    const hasEmail = !!surgery.patientEmail;
+    const hasPhone = !!surgery.patientPhone;
+    
+    if (!hasEmail && !hasPhone) {
+      console.log(`[Worker] Skipping ${patientName} - no email or phone on file`);
       results.push({
         surgeryId: surgery.surgeryId,
         patientName,
-        status: 'skipped_no_email',
+        status: 'skipped_no_contact',
       });
       continue;
     }
@@ -1117,30 +1173,61 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
         language: 'de',
       });
       
-      // Send the email
-      const emailResult = await sendQuestionnaireEmail(
-        linkToken,
-        surgery.patientEmail,
-        patientName,
-        hospitalId,
-        null // No specific unit for auto-dispatch
-      );
+      // Try email first, fall back to SMS
+      let sendSuccess = false;
+      let usedMethod: 'email' | 'sms' = 'email';
       
-      if (emailResult.success) {
-        // Update the link to mark email as sent
-        await storage.updateQuestionnaireLink(newLink.id, {
-          emailSent: true,
-          emailSentAt: new Date(),
-          emailSentTo: surgery.patientEmail,
-          // No emailSentBy since this is automatic
-        });
+      if (hasEmail) {
+        const emailResult = await sendQuestionnaireEmail(
+          linkToken,
+          surgery.patientEmail!,
+          patientName,
+          hospitalId,
+          null // No specific unit for auto-dispatch
+        );
         
-        console.log(`[Worker] Successfully sent questionnaire to ${patientName} (${surgery.patientEmail})`);
+        if (emailResult.success) {
+          await storage.updateQuestionnaireLink(newLink.id, {
+            emailSent: true,
+            emailSentAt: new Date(),
+            emailSentTo: surgery.patientEmail,
+          });
+          sendSuccess = true;
+          usedMethod = 'email';
+          console.log(`[Worker] Successfully sent questionnaire via email to ${patientName} (${surgery.patientEmail})`);
+        } else {
+          console.log(`[Worker] Email failed for ${patientName}, trying SMS fallback...`);
+        }
+      }
+      
+      // If email failed or not available, try SMS
+      if (!sendSuccess && hasPhone && isSmsConfigured()) {
+        const smsResult = await sendQuestionnaireSms(
+          linkToken,
+          surgery.patientPhone!,
+          patientName,
+          hospitalId,
+          null
+        );
+        
+        if (smsResult.success) {
+          await storage.updateQuestionnaireLink(newLink.id, {
+            smsSent: true,
+            smsSentAt: new Date(),
+            smsSentTo: surgery.patientPhone,
+          });
+          sendSuccess = true;
+          usedMethod = 'sms';
+          console.log(`[Worker] Successfully sent questionnaire via SMS to ${patientName} (${surgery.patientPhone})`);
+        }
+      }
+      
+      if (sendSuccess) {
         successCount++;
         results.push({
           surgeryId: surgery.surgeryId,
           patientName,
-          status: 'sent',
+          status: usedMethod === 'email' ? 'sent_email' : 'sent_sms',
         });
       } else {
         failedCount++;
@@ -1148,7 +1235,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
           surgeryId: surgery.surgeryId,
           patientName,
           status: 'failed',
-          error: emailResult.error,
+          error: 'Failed to send via email or SMS',
         });
       }
     } catch (error: any) {
