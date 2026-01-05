@@ -1506,13 +1506,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // No need to process data.apiEvents separately for now
   }, [data.medications, anesthesiaItems, administrationGroups, anesthesiaRecordId, resetMedicationData]);
 
-  // Event state management hook (heart rhythm, staff, position, BIS, TOF, events, time markers)
+  // Event state management hook (heart rhythm, staff, position, BIS, TOF, VAS, Scores, events, time markers)
   const {
     heartRhythmData,
     staffData,
     positionData,
     bisData,
     tofData,
+    vasData,
+    scoresData,
     eventComments,
     timeMarkers,
     setHeartRhythmData,
@@ -1520,6 +1522,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     setPositionData,
     setBisData,
     setTofData,
+    setVasData,
+    setScoresData,
     setEventComments,
     setTimeMarkers,
     addHeartRhythm,
@@ -1527,12 +1531,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     addPosition,
     addBIS,
     addTOF,
+    addVAS,
+    addScore,
     addEvent,
     resetEventData,
   } = useEventState({
     timeMarkers: ANESTHESIA_TIME_MARKERS.map(marker => ({ ...marker, time: null })),
     bis: [],
     tof: [],
+    vas: [],
+    scores: [],
   });
 
   // Inventory commit state management (for X2/P safeguards)
@@ -1609,6 +1617,49 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       setTofData([]);
     }
   }, [clinicalSnapshot, setTofData]);
+
+  // NEW: Sync VAS data from clinical snapshot (PACU mode)
+  useEffect(() => {
+    if (clinicalSnapshot === undefined) return;
+    
+    const snapshotData = clinicalSnapshot?.data as any;
+    const vas = snapshotData?.vas || [];
+    
+    if (vas.length > 0) {
+      console.log('[VAS-SYNC] Loading VAS from snapshot:', vas.length, 'points');
+      const vasEntries = vas.map((point: any) => ({
+        id: point.id,
+        timestamp: new Date(point.timestamp).getTime(),
+        value: point.value,
+      }));
+      setVasData(vasEntries);
+    } else {
+      setVasData([]);
+    }
+  }, [clinicalSnapshot, setVasData]);
+
+  // NEW: Sync Scores data from clinical snapshot (PACU mode)
+  useEffect(() => {
+    if (clinicalSnapshot === undefined) return;
+    
+    const snapshotData = clinicalSnapshot?.data as any;
+    const scores = snapshotData?.scores || [];
+    
+    if (scores.length > 0) {
+      console.log('[SCORES-SYNC] Loading Scores from snapshot:', scores.length, 'points');
+      const scoresEntries = scores.map((point: any) => ({
+        id: point.id,
+        timestamp: new Date(point.timestamp).getTime(),
+        scoreType: point.scoreType,
+        totalScore: point.totalScore,
+        aldreteScore: point.aldreteScore,
+        parsapScore: point.parsapScore,
+      }));
+      setScoresData(scoresEntries);
+    } else {
+      setScoresData([]);
+    }
+  }, [clinicalSnapshot, setScoresData]);
 
   // NEW: Sync ventilation mode data from clinical snapshot
   useEffect(() => {
@@ -6153,6 +6204,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     positionData,
     bisData,
     tofData,
+    vasData,
+    scoresData,
     eventComments,
     timeMarkers,
     setHeartRhythmData,
@@ -6160,6 +6213,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     setPositionData,
     setBisData,
     setTofData,
+    setVasData,
+    setScoresData,
     setEventComments,
     setTimeMarkers,
     addHeartRhythm,
@@ -6167,6 +6222,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     addPosition,
     addBIS,
     addTOF,
+    addVAS,
+    addScore,
     addEvent,
     resetEventData,
   };
