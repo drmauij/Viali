@@ -27,6 +27,8 @@ export type AnesthesiaDataSection =
   | 'output'
   | 'rhythm'
   | 'tof'
+  | 'vas'
+  | 'aldrete'
   | 'timeMarkers';
 
 export interface AnesthesiaUpdatePayload {

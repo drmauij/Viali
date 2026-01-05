@@ -480,6 +480,16 @@ export interface IStorage {
   updateTOFPoint(pointId: string, updates: { value?: string; percentage?: number; timestamp?: string }): Promise<ClinicalSnapshot | null>;
   deleteTOFPoint(pointId: string): Promise<ClinicalSnapshot | null>;
   
+  // VAS (Visual Analog Scale) Pain Score operations
+  addVASPoint(anesthesiaRecordId: string, timestamp: string, value: number): Promise<ClinicalSnapshot>;
+  updateVASPoint(pointId: string, updates: { value?: number; timestamp?: string }): Promise<ClinicalSnapshot | null>;
+  deleteVASPoint(pointId: string): Promise<ClinicalSnapshot | null>;
+  
+  // Aldrete Score operations (PACU recovery)
+  addAldretePoint(anesthesiaRecordId: string, timestamp: string, value: number, components?: { activity?: number; respiration?: number; circulation?: number; consciousness?: number; oxygenSaturation?: number }): Promise<ClinicalSnapshot>;
+  updateAldretePoint(pointId: string, updates: { value?: number; timestamp?: string; components?: { activity?: number; respiration?: number; circulation?: number; consciousness?: number; oxygenSaturation?: number } }): Promise<ClinicalSnapshot | null>;
+  deleteAldretePoint(pointId: string): Promise<ClinicalSnapshot | null>;
+  
   // Ventilation Mode operations
   addVentilationModePoint(anesthesiaRecordId: string, timestamp: string, value: string): Promise<ClinicalSnapshot>;
   updateVentilationModePoint(anesthesiaRecordId: string, pointId: string, updates: { value?: string; timestamp?: string }): Promise<ClinicalSnapshot | null>;
@@ -3569,6 +3579,231 @@ export class DatabaseStorage implements IStorage {
     }
     
     return null; // Point not found
+  }
+
+  /**
+   * Add a VAS (Visual Analog Scale) pain score point
+   */
+  async addVASPoint(
+    anesthesiaRecordId: string,
+    timestamp: string,
+    value: number
+  ): Promise<ClinicalSnapshot> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    
+    const newPoint = {
+      id: randomUUID(),
+      timestamp,
+      value,
+    };
+    
+    const currentVAS = (snapshot.data as any).vas || [];
+    const updatedData = {
+      ...snapshot.data,
+      vas: [...currentVAS, newPoint].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+    };
+    
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Update a VAS point by ID
+   */
+  async updateVASPoint(
+    pointId: string,
+    updates: { value?: number; timestamp?: string }
+  ): Promise<ClinicalSnapshot | null> {
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      const vas = data.vas || [];
+      
+      const pointIndex = vas.findIndex((p: any) => p.id === pointId);
+      if (pointIndex !== -1) {
+        const updatedPoints = [...vas];
+        updatedPoints[pointIndex] = {
+          ...updatedPoints[pointIndex],
+          ...updates,
+        };
+        updatedPoints.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        
+        const updatedData = {
+          ...data,
+          vas: updatedPoints,
+        };
+        
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Delete a VAS point by ID
+   */
+  async deleteVASPoint(pointId: string): Promise<ClinicalSnapshot | null> {
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      const vas = data.vas || [];
+      
+      const filteredPoints = vas.filter((p: any) => p.id !== pointId);
+      if (filteredPoints.length < vas.length) {
+        const updatedData = {
+          ...data,
+          vas: filteredPoints,
+        };
+        
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Add an Aldrete score point (PACU recovery score)
+   */
+  async addAldretePoint(
+    anesthesiaRecordId: string,
+    timestamp: string,
+    value: number,
+    components?: { activity?: number; respiration?: number; circulation?: number; consciousness?: number; oxygenSaturation?: number }
+  ): Promise<ClinicalSnapshot> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    
+    const newPoint: any = {
+      id: randomUUID(),
+      timestamp,
+      value,
+    };
+    
+    if (components) {
+      newPoint.components = components;
+    }
+    
+    const currentAldrete = (snapshot.data as any).aldrete || [];
+    const updatedData = {
+      ...snapshot.data,
+      aldrete: [...currentAldrete, newPoint].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+    };
+    
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Update an Aldrete point by ID
+   */
+  async updateAldretePoint(
+    pointId: string,
+    updates: { value?: number; timestamp?: string; components?: { activity?: number; respiration?: number; circulation?: number; consciousness?: number; oxygenSaturation?: number } }
+  ): Promise<ClinicalSnapshot | null> {
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      const aldrete = data.aldrete || [];
+      
+      const pointIndex = aldrete.findIndex((p: any) => p.id === pointId);
+      if (pointIndex !== -1) {
+        const updatedPoints = [...aldrete];
+        updatedPoints[pointIndex] = {
+          ...updatedPoints[pointIndex],
+          ...updates,
+        };
+        updatedPoints.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        
+        const updatedData = {
+          ...data,
+          aldrete: updatedPoints,
+        };
+        
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Delete an Aldrete point by ID
+   */
+  async deleteAldretePoint(pointId: string): Promise<ClinicalSnapshot | null> {
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      const aldrete = data.aldrete || [];
+      
+      const filteredPoints = aldrete.filter((p: any) => p.id !== pointId);
+      if (filteredPoints.length < aldrete.length) {
+        const updatedData = {
+          ...data,
+          aldrete: filteredPoints,
+        };
+        
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null;
   }
 
   /**

@@ -22,6 +22,12 @@ import {
   addTOFPointSchema,
   updateTOFPointSchema,
   deleteTOFPointSchema,
+  addVASPointSchema,
+  updateVASPointSchema,
+  deleteVASPointSchema,
+  addAldretePointSchema,
+  updateAldretePointSchema,
+  deleteAldretePointSchema,
   addVentilationModePointSchema,
   updateVentilationModePointSchema,
   addBulkVentilationSchema,
@@ -3213,6 +3219,362 @@ router.delete('/api/anesthesia/tof/:pointId', isAuthenticated, requireWriteAcces
   } catch (error) {
     console.error("Error deleting TOF point:", error);
     res.status(500).json({ message: "Failed to delete TOF point" });
+  }
+});
+
+// VAS (Visual Analog Scale) Pain Score endpoints
+router.post('/api/anesthesia/vas', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const validatedData = addVASPointSchema.parse(req.body);
+
+    const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedSnapshot = await storage.addVASPoint(
+      validatedData.anesthesiaRecordId,
+      validatedData.timestamp,
+      validatedData.value
+    );
+    
+    broadcastAnesthesiaUpdate({
+      recordId: validatedData.anesthesiaRecordId,
+      section: 'vas',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+    
+    res.status(201).json(updatedSnapshot);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error adding VAS point:", error);
+    res.status(500).json({ message: "Failed to add VAS point" });
+  }
+});
+
+router.patch('/api/anesthesia/vas/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { pointId } = req.params;
+    const userId = req.user.id;
+    
+    const validatedData = updateVASPointSchema.parse({
+      pointId,
+      ...req.body
+    });
+
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    let snapshot = null;
+    
+    for (const s of allSnapshots) {
+      const vas = (s.data as any).vas || [];
+      if (vas.some((p: any) => p.id === pointId)) {
+        snapshot = s;
+        break;
+      }
+    }
+    
+    if (!snapshot) {
+      return res.status(404).json({ message: "VAS point not found" });
+    }
+
+    const record = await storage.getAnesthesiaRecordById(snapshot.anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedSnapshot = await storage.updateVASPoint(pointId, {
+      value: validatedData.value,
+      timestamp: validatedData.timestamp,
+    });
+    
+    if (!updatedSnapshot) {
+      return res.status(404).json({ message: "VAS point not found" });
+    }
+
+    broadcastAnesthesiaUpdate({
+      recordId: snapshot.anesthesiaRecordId,
+      section: 'vas',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+
+    res.json(updatedSnapshot);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error updating VAS point:", error);
+    res.status(500).json({ message: "Failed to update VAS point" });
+  }
+});
+
+router.delete('/api/anesthesia/vas/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { pointId } = req.params;
+    const userId = req.user.id;
+
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    let snapshot = null;
+    
+    for (const s of allSnapshots) {
+      const vas = (s.data as any).vas || [];
+      if (vas.some((p: any) => p.id === pointId)) {
+        snapshot = s;
+        break;
+      }
+    }
+    
+    if (!snapshot) {
+      return res.status(404).json({ message: "VAS point not found" });
+    }
+
+    const record = await storage.getAnesthesiaRecordById(snapshot.anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedSnapshot = await storage.deleteVASPoint(pointId);
+    
+    if (!updatedSnapshot) {
+      return res.status(404).json({ message: "VAS point not found" });
+    }
+
+    broadcastAnesthesiaUpdate({
+      recordId: snapshot.anesthesiaRecordId,
+      section: 'vas',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+
+    res.json(updatedSnapshot);
+  } catch (error) {
+    console.error("Error deleting VAS point:", error);
+    res.status(500).json({ message: "Failed to delete VAS point" });
+  }
+});
+
+// Aldrete Score endpoints (PACU recovery)
+router.post('/api/anesthesia/aldrete', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const validatedData = addAldretePointSchema.parse(req.body);
+
+    const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedSnapshot = await storage.addAldretePoint(
+      validatedData.anesthesiaRecordId,
+      validatedData.timestamp,
+      validatedData.value,
+      validatedData.components
+    );
+    
+    broadcastAnesthesiaUpdate({
+      recordId: validatedData.anesthesiaRecordId,
+      section: 'aldrete',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+    
+    res.status(201).json(updatedSnapshot);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error adding Aldrete point:", error);
+    res.status(500).json({ message: "Failed to add Aldrete point" });
+  }
+});
+
+router.patch('/api/anesthesia/aldrete/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { pointId } = req.params;
+    const userId = req.user.id;
+    
+    const validatedData = updateAldretePointSchema.parse({
+      pointId,
+      ...req.body
+    });
+
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    let snapshot = null;
+    
+    for (const s of allSnapshots) {
+      const aldrete = (s.data as any).aldrete || [];
+      if (aldrete.some((p: any) => p.id === pointId)) {
+        snapshot = s;
+        break;
+      }
+    }
+    
+    if (!snapshot) {
+      return res.status(404).json({ message: "Aldrete point not found" });
+    }
+
+    const record = await storage.getAnesthesiaRecordById(snapshot.anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedSnapshot = await storage.updateAldretePoint(pointId, {
+      value: validatedData.value,
+      timestamp: validatedData.timestamp,
+      components: validatedData.components,
+    });
+    
+    if (!updatedSnapshot) {
+      return res.status(404).json({ message: "Aldrete point not found" });
+    }
+
+    broadcastAnesthesiaUpdate({
+      recordId: snapshot.anesthesiaRecordId,
+      section: 'aldrete',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+
+    res.json(updatedSnapshot);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error updating Aldrete point:", error);
+    res.status(500).json({ message: "Failed to update Aldrete point" });
+  }
+});
+
+router.delete('/api/anesthesia/aldrete/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { pointId } = req.params;
+    const userId = req.user.id;
+
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    let snapshot = null;
+    
+    for (const s of allSnapshots) {
+      const aldrete = (s.data as any).aldrete || [];
+      if (aldrete.some((p: any) => p.id === pointId)) {
+        snapshot = s;
+        break;
+      }
+    }
+    
+    if (!snapshot) {
+      return res.status(404).json({ message: "Aldrete point not found" });
+    }
+
+    const record = await storage.getAnesthesiaRecordById(snapshot.anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedSnapshot = await storage.deleteAldretePoint(pointId);
+    
+    if (!updatedSnapshot) {
+      return res.status(404).json({ message: "Aldrete point not found" });
+    }
+
+    broadcastAnesthesiaUpdate({
+      recordId: snapshot.anesthesiaRecordId,
+      section: 'aldrete',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+
+    res.json(updatedSnapshot);
+  } catch (error) {
+    console.error("Error deleting Aldrete point:", error);
+    res.status(500).json({ message: "Failed to delete Aldrete point" });
   }
 });
 
