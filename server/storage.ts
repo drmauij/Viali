@@ -490,6 +490,11 @@ export interface IStorage {
   updateAldretePoint(pointId: string, updates: { value?: number; timestamp?: string; components?: { activity?: number; respiration?: number; circulation?: number; consciousness?: number; oxygenSaturation?: number } }): Promise<ClinicalSnapshot | null>;
   deleteAldretePoint(pointId: string): Promise<ClinicalSnapshot | null>;
   
+  // Generic Score operations (Aldrete and PARSAP)
+  addScorePoint(anesthesiaRecordId: string, timestamp: string, scoreType: 'aldrete' | 'parsap', totalScore: number, aldreteScore?: { activity: number; respiration: number; circulation: number; consciousness: number; oxygenSaturation: number }, parsapScore?: { pulse: number; activity: number; respiration: number; saturations: number; airwayPatency: number; pupil: number }): Promise<ClinicalSnapshot>;
+  updateScorePoint(pointId: string, updates: { timestamp?: string; scoreType?: 'aldrete' | 'parsap'; totalScore?: number; aldreteScore?: { activity: number; respiration: number; circulation: number; consciousness: number; oxygenSaturation: number }; parsapScore?: { pulse: number; activity: number; respiration: number; saturations: number; airwayPatency: number; pupil: number } }): Promise<ClinicalSnapshot | null>;
+  deleteScorePoint(pointId: string): Promise<ClinicalSnapshot | null>;
+  
   // Ventilation Mode operations
   addVentilationModePoint(anesthesiaRecordId: string, timestamp: string, value: string): Promise<ClinicalSnapshot>;
   updateVentilationModePoint(anesthesiaRecordId: string, pointId: string, updates: { value?: string; timestamp?: string }): Promise<ClinicalSnapshot | null>;
@@ -3788,6 +3793,134 @@ export class DatabaseStorage implements IStorage {
         const updatedData = {
           ...data,
           aldrete: filteredPoints,
+        };
+        
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Add a generic score point (Aldrete or PARSAP)
+   */
+  async addScorePoint(
+    anesthesiaRecordId: string,
+    timestamp: string,
+    scoreType: 'aldrete' | 'parsap',
+    totalScore: number,
+    aldreteScore?: { activity: number; respiration: number; circulation: number; consciousness: number; oxygenSaturation: number },
+    parsapScore?: { pulse: number; activity: number; respiration: number; saturations: number; airwayPatency: number; pupil: number }
+  ): Promise<ClinicalSnapshot> {
+    const snapshot = await this.getClinicalSnapshot(anesthesiaRecordId);
+    
+    const newPoint: any = {
+      id: randomUUID(),
+      timestamp,
+      scoreType,
+      totalScore,
+    };
+    
+    if (aldreteScore) {
+      newPoint.aldreteScore = aldreteScore;
+    }
+    if (parsapScore) {
+      newPoint.parsapScore = parsapScore;
+    }
+    
+    const currentScores = (snapshot.data as any).scores || [];
+    const updatedData = {
+      ...snapshot.data,
+      scores: [...currentScores, newPoint].sort((a, b) => a.timestamp.localeCompare(b.timestamp)),
+    };
+    
+    const [updated] = await db
+      .update(clinicalSnapshots)
+      .set({ 
+        data: updatedData,
+        updatedAt: new Date(),
+      })
+      .where(eq(clinicalSnapshots.id, snapshot.id))
+      .returning();
+    
+    return updated;
+  }
+
+  /**
+   * Update a score point by ID
+   */
+  async updateScorePoint(
+    pointId: string,
+    updates: { timestamp?: string; scoreType?: 'aldrete' | 'parsap'; totalScore?: number; aldreteScore?: { activity: number; respiration: number; circulation: number; consciousness: number; oxygenSaturation: number }; parsapScore?: { pulse: number; activity: number; respiration: number; saturations: number; airwayPatency: number; pupil: number } }
+  ): Promise<ClinicalSnapshot | null> {
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      const scores = data.scores || [];
+      
+      const pointIndex = scores.findIndex((p: any) => p.id === pointId);
+      if (pointIndex !== -1) {
+        const updatedPoints = [...scores];
+        // Only merge defined fields to avoid overwriting with undefined
+        const existingPoint = updatedPoints[pointIndex];
+        const mergedPoint = { ...existingPoint };
+        
+        if (updates.timestamp !== undefined) mergedPoint.timestamp = updates.timestamp;
+        if (updates.scoreType !== undefined) mergedPoint.scoreType = updates.scoreType;
+        if (updates.totalScore !== undefined) mergedPoint.totalScore = updates.totalScore;
+        if (updates.aldreteScore !== undefined) mergedPoint.aldreteScore = updates.aldreteScore;
+        if (updates.parsapScore !== undefined) mergedPoint.parsapScore = updates.parsapScore;
+        
+        updatedPoints[pointIndex] = mergedPoint;
+        updatedPoints.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+        
+        const updatedData = {
+          ...data,
+          scores: updatedPoints,
+        };
+        
+        const [updated] = await db
+          .update(clinicalSnapshots)
+          .set({ 
+            data: updatedData,
+            updatedAt: new Date(),
+          })
+          .where(eq(clinicalSnapshots.id, snapshot.id))
+          .returning();
+        
+        return updated;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Delete a score point by ID
+   */
+  async deleteScorePoint(pointId: string): Promise<ClinicalSnapshot | null> {
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    
+    for (const snapshot of allSnapshots) {
+      const data = snapshot.data as any;
+      const scores = data.scores || [];
+      
+      const filteredPoints = scores.filter((p: any) => p.id !== pointId);
+      if (filteredPoints.length < scores.length) {
+        const updatedData = {
+          ...data,
+          scores: filteredPoints,
         };
         
         const [updated] = await db

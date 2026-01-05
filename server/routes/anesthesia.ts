@@ -28,6 +28,9 @@ import {
   addAldretePointSchema,
   updateAldretePointSchema,
   deleteAldretePointSchema,
+  addScorePointSchema,
+  updateScorePointSchema,
+  deleteScorePointSchema,
   addVentilationModePointSchema,
   updateVentilationModePointSchema,
   addBulkVentilationSchema,
@@ -3575,6 +3578,189 @@ router.delete('/api/anesthesia/aldrete/:pointId', isAuthenticated, requireWriteA
   } catch (error) {
     console.error("Error deleting Aldrete point:", error);
     res.status(500).json({ message: "Failed to delete Aldrete point" });
+  }
+});
+
+// Generic Score endpoints (Aldrete and PARSAP)
+router.post('/api/anesthesia/scores', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const validatedData = addScorePointSchema.parse(req.body);
+
+    const record = await storage.getAnesthesiaRecordById(validatedData.anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedSnapshot = await storage.addScorePoint(
+      validatedData.anesthesiaRecordId,
+      validatedData.timestamp,
+      validatedData.scoreType,
+      validatedData.totalScore,
+      validatedData.aldreteScore,
+      validatedData.parsapScore
+    );
+    
+    broadcastAnesthesiaUpdate({
+      recordId: validatedData.anesthesiaRecordId,
+      section: 'scores',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+    
+    res.status(201).json(updatedSnapshot);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error adding score point:", error);
+    res.status(500).json({ message: "Failed to add score point" });
+  }
+});
+
+router.patch('/api/anesthesia/scores/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { pointId } = req.params;
+    const userId = req.user.id;
+    
+    const validatedData = updateScorePointSchema.parse({
+      pointId,
+      ...req.body
+    });
+
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    let snapshot = null;
+    
+    for (const s of allSnapshots) {
+      const scores = (s.data as any).scores || [];
+      if (scores.some((p: any) => p.id === pointId)) {
+        snapshot = s;
+        break;
+      }
+    }
+    
+    if (!snapshot) {
+      return res.status(404).json({ message: "Score point not found" });
+    }
+
+    const record = await storage.getAnesthesiaRecordById(snapshot.anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedSnapshot = await storage.updateScorePoint(pointId, {
+      timestamp: validatedData.timestamp,
+      scoreType: validatedData.scoreType,
+      totalScore: validatedData.totalScore,
+      aldreteScore: validatedData.aldreteScore,
+      parsapScore: validatedData.parsapScore,
+    });
+    
+    if (!updatedSnapshot) {
+      return res.status(404).json({ message: "Score point not found" });
+    }
+
+    broadcastAnesthesiaUpdate({
+      recordId: snapshot.anesthesiaRecordId,
+      section: 'scores',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+
+    res.json(updatedSnapshot);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error updating score point:", error);
+    res.status(500).json({ message: "Failed to update score point" });
+  }
+});
+
+router.delete('/api/anesthesia/scores/:pointId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { pointId } = req.params;
+    const userId = req.user.id;
+
+    const allSnapshots = await db.select().from(clinicalSnapshots);
+    let snapshot = null;
+    
+    for (const s of allSnapshots) {
+      const scores = (s.data as any).scores || [];
+      if (scores.some((p: any) => p.id === pointId)) {
+        snapshot = s;
+        break;
+      }
+    }
+    
+    if (!snapshot) {
+      return res.status(404).json({ message: "Score point not found" });
+    }
+
+    const record = await storage.getAnesthesiaRecordById(snapshot.anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedSnapshot = await storage.deleteScorePoint(pointId);
+    
+    if (!updatedSnapshot) {
+      return res.status(404).json({ message: "Score point not found" });
+    }
+
+    broadcastAnesthesiaUpdate({
+      recordId: snapshot.anesthesiaRecordId,
+      section: 'scores',
+      data: updatedSnapshot,
+      timestamp: Date.now(),
+      userId,
+      clientSessionId: getClientSessionId(req),
+    });
+
+    res.json(updatedSnapshot);
+  } catch (error) {
+    console.error("Error deleting score point:", error);
+    res.status(500).json({ message: "Failed to delete score point" });
   }
 });
 

@@ -29,6 +29,7 @@ export type AnesthesiaDataSection =
   | 'tof'
   | 'vas'
   | 'aldrete'
+  | 'scores'
   | 'timeMarkers';
 
 export interface AnesthesiaUpdatePayload {

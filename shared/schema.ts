@@ -2614,6 +2614,55 @@ export const deleteAldretePointSchema = z.object({
   pointId: z.string(),
 });
 
+// Generic Score schemas (Aldrete and PARSAP)
+export const addScorePointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  timestamp: z.string(),
+  scoreType: z.enum(['aldrete', 'parsap']),
+  totalScore: z.number().min(0).max(12),
+  aldreteScore: z.object({
+    activity: z.number().min(0).max(2),
+    respiration: z.number().min(0).max(2),
+    circulation: z.number().min(0).max(2),
+    consciousness: z.number().min(0).max(2),
+    oxygenSaturation: z.number().min(0).max(2),
+  }).optional(),
+  parsapScore: z.object({
+    pulse: z.number().min(0).max(2),
+    activity: z.number().min(0).max(2),
+    respiration: z.number().min(0).max(2),
+    saturations: z.number().min(0).max(2),
+    airwayPatency: z.number().min(0).max(2),
+    pupil: z.number().min(0).max(2),
+  }).optional(),
+});
+
+export const updateScorePointSchema = z.object({
+  pointId: z.string(),
+  timestamp: z.string().optional(),
+  scoreType: z.enum(['aldrete', 'parsap']).optional(),
+  totalScore: z.number().min(0).max(12).optional(),
+  aldreteScore: z.object({
+    activity: z.number().min(0).max(2),
+    respiration: z.number().min(0).max(2),
+    circulation: z.number().min(0).max(2),
+    consciousness: z.number().min(0).max(2),
+    oxygenSaturation: z.number().min(0).max(2),
+  }).optional(),
+  parsapScore: z.object({
+    pulse: z.number().min(0).max(2),
+    activity: z.number().min(0).max(2),
+    respiration: z.number().min(0).max(2),
+    saturations: z.number().min(0).max(2),
+    airwayPatency: z.number().min(0).max(2),
+    pupil: z.number().min(0).max(2),
+  }).optional(),
+});
+
+export const deleteScorePointSchema = z.object({
+  pointId: z.string(),
+});
+
 export const addBulkVentilationSchema = z.object({
   anesthesiaRecordId: z.string(),
   timestamp: z.string(),
