@@ -58,7 +58,8 @@ import {
   orderLines, 
   items, 
   stockLevels, 
-  orders, 
+  orders,
+  orderAttachments,
   users, 
   userHospitalRoles, 
   activities, 
@@ -104,6 +105,7 @@ import {
   parseDrugCommand
 } from "./services/aiMonitorAnalysis";
 import { registerDomainRoutes } from "./routes/index";
+import { ObjectStorageService } from "./objectStorage";
 
 // Helper to extract client session ID from request for real-time sync
 function getClientSessionId(req: Request): string | undefined {
@@ -1994,6 +1996,147 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting order:", error);
       res.status(500).json({ message: "Failed to delete order" });
+    }
+  });
+
+  // Order Attachments - Get presigned upload URL
+  app.post('/api/orders/:orderId/attachments/upload-url', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const { filename, contentType } = req.body;
+
+      // Verify order exists
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      if (!objectStorageService.isConfigured()) {
+        return res.status(500).json({ message: "Object storage not configured" });
+      }
+
+      const { uploadURL, storageKey } = await objectStorageService.getOrderAttachmentUploadURL(
+        orderId,
+        filename,
+        contentType
+      );
+
+      res.json({ uploadURL, storageKey });
+    } catch (error) {
+      console.error("Error getting upload URL for order attachment:", error);
+      res.status(500).json({ message: "Failed to get upload URL" });
+    }
+  });
+
+  // Order Attachments - Create attachment record after upload
+  app.post('/api/orders/:orderId/attachments', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const { filename, contentType, storageKey } = req.body;
+      const userId = req.user.id;
+
+      if (!filename || !storageKey) {
+        return res.status(400).json({ message: "Filename and storageKey are required" });
+      }
+
+      // Verify order exists
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+
+      const [attachment] = await db.insert(orderAttachments).values({
+        orderId,
+        filename,
+        contentType: contentType || 'application/octet-stream',
+        storageKey,
+        uploadedBy: userId,
+      }).returning();
+
+      res.json(attachment);
+    } catch (error) {
+      console.error("Error creating order attachment:", error);
+      res.status(500).json({ message: "Failed to create attachment" });
+    }
+  });
+
+  // Order Attachments - List attachments for an order
+  app.get('/api/orders/:orderId/attachments', isAuthenticated, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+
+      const attachments = await db
+        .select()
+        .from(orderAttachments)
+        .where(eq(orderAttachments.orderId, orderId))
+        .orderBy(desc(orderAttachments.createdAt));
+
+      res.json(attachments);
+    } catch (error) {
+      console.error("Error fetching order attachments:", error);
+      res.status(500).json({ message: "Failed to fetch attachments" });
+    }
+  });
+
+  // Order Attachments - Get download URL for an attachment
+  app.get('/api/orders/attachments/:attachmentId/download-url', isAuthenticated, async (req: any, res) => {
+    try {
+      const { attachmentId } = req.params;
+
+      const [attachment] = await db
+        .select()
+        .from(orderAttachments)
+        .where(eq(orderAttachments.id, attachmentId));
+
+      if (!attachment) {
+        return res.status(404).json({ message: "Attachment not found" });
+      }
+
+      const objectStorageService = new ObjectStorageService();
+      if (!objectStorageService.isConfigured()) {
+        return res.status(500).json({ message: "Object storage not configured" });
+      }
+
+      const downloadURL = await objectStorageService.getObjectDownloadURL(attachment.storageKey, 3600);
+      res.json({ downloadURL, filename: attachment.filename, contentType: attachment.contentType });
+    } catch (error) {
+      console.error("Error getting download URL for order attachment:", error);
+      res.status(500).json({ message: "Failed to get download URL" });
+    }
+  });
+
+  // Order Attachments - Delete an attachment
+  app.delete('/api/orders/attachments/:attachmentId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { attachmentId } = req.params;
+
+      const [attachment] = await db
+        .select()
+        .from(orderAttachments)
+        .where(eq(orderAttachments.id, attachmentId));
+
+      if (!attachment) {
+        return res.status(404).json({ message: "Attachment not found" });
+      }
+
+      // Delete from S3
+      const objectStorageService = new ObjectStorageService();
+      if (objectStorageService.isConfigured()) {
+        try {
+          await objectStorageService.deleteObject(attachment.storageKey);
+        } catch (deleteError) {
+          console.warn(`Failed to delete attachment from S3 ${attachment.storageKey}:`, deleteError);
+        }
+      }
+
+      // Delete from database
+      await db.delete(orderAttachments).where(eq(orderAttachments.id, attachmentId));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting order attachment:", error);
+      res.status(500).json({ message: "Failed to delete attachment" });
     }
   });
 

@@ -318,6 +318,38 @@ export class ObjectStorageService {
   }
 
   /**
+   * Generate upload URL for order attachment files (delivery receipts, Lieferscheine)
+   * Files are stored in: orders/{orderId}/{uuid}.{ext}
+   */
+  async getOrderAttachmentUploadURL(
+    orderId: string,
+    filename?: string,
+    contentType?: string
+  ): Promise<{ uploadURL: string; storageKey: string }> {
+    if (!this.s3Client) {
+      throw new Error("S3 storage not configured. Please set S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY, and S3_BUCKET environment variables.");
+    }
+
+    const objectId = randomUUID();
+    const extension = filename ? filename.split('.').pop() : '';
+    const objectName = extension ? `${objectId}.${extension}` : objectId;
+    const key = `orders/${orderId}/${objectName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: contentType || 'application/octet-stream',
+    });
+
+    const uploadURL = await getSignedUrl(this.s3Client, command, { expiresIn: 900 }); // 15 min
+
+    return {
+      uploadURL,
+      storageKey: `/objects/${key}`
+    };
+  }
+
+  /**
    * Upload a base64 blob directly to S3 (for migration of legacy sticker docs)
    */
   async uploadBase64ToS3(
