@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,7 +27,8 @@ import SignaturePad from "@/components/SignaturePad";
 import type { Order, Vendor, OrderLine, Item, StockLevel, Unit } from "@shared/schema";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Check, ChevronDown, ChevronUp, Merge } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Merge, Paperclip, Upload, Camera, Trash2, Download, FileIcon } from "lucide-react";
+import type { OrderAttachment } from "@shared/schema";
 
 interface OrderWithDetails extends Order {
   vendor: Vendor | null;
@@ -84,6 +85,9 @@ export default function Orders() {
   const [receiveNotes, setReceiveNotes] = useState("");
   const [receiveSignature, setReceiveSignature] = useState("");
   const [showReceiveSignaturePad, setShowReceiveSignaturePad] = useState(false);
+  
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   
   // Expand/collapse state for order preview
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
@@ -149,6 +153,18 @@ export default function Orders() {
       }
     }
   }, [orders, selectedOrder?.id]);
+
+  // Order attachments query
+  const { data: orderAttachments = [], refetch: refetchAttachments } = useQuery<OrderAttachment[]>({
+    queryKey: ['/api/orders', selectedOrder?.id, 'attachments'],
+    queryFn: async () => {
+      if (!selectedOrder?.id) return [];
+      const response = await fetch(`/api/orders/${selectedOrder.id}/attachments`);
+      if (!response.ok) throw new Error('Failed to fetch attachments');
+      return response.json();
+    },
+    enabled: !!selectedOrder?.id && editOrderDialogOpen,
+  });
 
   const createOrderMutation = useMutation({
     mutationFn: async (data: { vendorId: string | null; orderLines: { itemId: string; qty: number; packSize: number }[] }) => {
@@ -279,6 +295,111 @@ export default function Orders() {
       });
     },
   });
+
+  const deleteAttachmentMutation = useMutation({
+    mutationFn: async (attachmentId: string) => {
+      const response = await apiRequest("DELETE", `/api/orders/attachments/${attachmentId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchAttachments();
+      toast({
+        title: t('orders.attachmentDeleted'),
+        description: t('orders.attachmentDeletedSuccess'),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('orders.failedToDeleteAttachment'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAttachmentUpload = async (file: File) => {
+    if (!selectedOrder) return;
+    
+    setUploadingAttachment(true);
+    try {
+      // Get presigned upload URL
+      const uploadUrlResponse = await apiRequest("POST", `/api/orders/${selectedOrder.id}/attachments/upload-url`, {
+        filename: file.name,
+        contentType: file.type,
+      });
+      const { uploadURL, storageKey } = await uploadUrlResponse.json();
+      
+      // Upload file to S3
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload file');
+      }
+      
+      // Create attachment record
+      await apiRequest("POST", `/api/orders/${selectedOrder.id}/attachments`, {
+        filename: file.name,
+        contentType: file.type,
+        storageKey,
+      });
+      
+      refetchAttachments();
+      toast({
+        title: t('orders.attachmentUploaded'),
+        description: t('orders.attachmentUploadedSuccess'),
+      });
+    } catch (error) {
+      console.error('Error uploading attachment:', error);
+      toast({
+        title: t('common.error'),
+        description: t('orders.failedToUploadAttachment'),
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleAttachmentUpload(file);
+    }
+    // Reset input
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
+
+  const handleDownloadAttachment = async (attachmentId: string) => {
+    try {
+      const response = await fetch(`/api/orders/attachments/${attachmentId}/download-url`);
+      if (!response.ok) throw new Error('Failed to get download URL');
+      const { downloadURL, filename } = await response.json();
+      
+      // Open in new tab or download
+      const link = document.createElement('a');
+      link.href = downloadURL;
+      link.download = filename;
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error('Error downloading attachment:', error);
+      toast({
+        title: t('common.error'),
+        description: t('orders.failedToDownloadAttachment'),
+        variant: "destructive",
+      });
+    }
+  };
 
   const addItemToOrderMutation = useMutation({
     mutationFn: async ({ orderId, itemId }: { orderId: string; itemId: string }) => {
@@ -1200,6 +1321,107 @@ export default function Orders() {
                   )}
                 </div>
               )}
+
+              {/* Order Attachments */}
+              <div className="p-3 bg-muted/20 rounded-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium text-foreground flex items-center gap-1">
+                    <Paperclip className="h-4 w-4" />
+                    {t('orders.attachments')} ({orderAttachments.length})
+                  </label>
+                  {canWrite && canEditOrder(selectedOrder) && (
+                    <div className="flex gap-1">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*,.pdf"
+                        className="hidden"
+                        onChange={handleFileInputChange}
+                        data-testid="attachment-file-input"
+                      />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingAttachment}
+                        data-testid="upload-attachment-button"
+                      >
+                        {uploadingAttachment ? (
+                          <i className="fas fa-spinner fa-spin mr-1"></i>
+                        ) : (
+                          <Upload className="h-4 w-4 mr-1" />
+                        )}
+                        {t('orders.uploadFile')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const input = document.createElement('input');
+                          input.type = 'file';
+                          input.accept = 'image/*';
+                          input.capture = 'environment';
+                          input.onchange = (e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (file) handleAttachmentUpload(file);
+                          };
+                          input.click();
+                        }}
+                        disabled={uploadingAttachment}
+                        data-testid="camera-attachment-button"
+                      >
+                        <Camera className="h-4 w-4 mr-1" />
+                        {t('orders.takePhoto')}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                
+                {orderAttachments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('orders.noAttachments')}</p>
+                ) : (
+                  <div className="space-y-2">
+                    {orderAttachments.map((attachment) => (
+                      <div
+                        key={attachment.id}
+                        className="flex items-center justify-between p-2 bg-background rounded border border-border"
+                        data-testid={`attachment-${attachment.id}`}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {attachment.contentType?.startsWith('image/') ? (
+                            <i className="fas fa-image text-blue-500"></i>
+                          ) : (
+                            <FileIcon className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <span className="text-sm truncate">{attachment.filename}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDownloadAttachment(attachment.id)}
+                            data-testid={`download-attachment-${attachment.id}`}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          {canWrite && canEditOrder(selectedOrder) && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => deleteAttachmentMutation.mutate(attachment.id)}
+                              disabled={deleteAttachmentMutation.isPending}
+                              data-testid={`delete-attachment-${attachment.id}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div>
                 <h3 className="font-semibold mb-2">{t('orders.orderItems', { count: selectedOrder.orderLines.length })}</h3>
