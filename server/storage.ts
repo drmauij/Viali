@@ -2937,6 +2937,7 @@ export class DatabaseStorage implements IStorage {
       .from(surgeries)
       .leftJoin(preOpAssessments, eq(surgeries.id, preOpAssessments.surgeryId))
       .innerJoin(patients, eq(surgeries.patientId, patients.id))
+      .leftJoin(patientQuestionnaireLinks, eq(surgeries.id, patientQuestionnaireLinks.surgeryId))
       .where(
         and(
           eq(surgeries.hospitalId, hospitalId),
@@ -2947,32 +2948,52 @@ export class DatabaseStorage implements IStorage {
       )
       .orderBy(desc(surgeries.plannedDate));
 
-    return results.map(row => {
-      const patient = row.patients;
+    // Group results by surgery ID to handle multiple questionnaire links
+    const surgeryMap = new Map<string, any>();
+    
+    for (const row of results) {
       const surgery = row.surgeries;
+      const patient = row.patients;
+      const questionnaireLink = row.patient_questionnaire_links;
       
-      // Create a combined surgery object with patient data for frontend compatibility
-      const surgeryWithPatient = {
-        ...surgery,
-        patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown Patient',
-        patientMRN: patient?.patientNumber || '',
-        patientBirthday: patient?.birthday || null,
-        patientSex: patient?.sex || null,
-        procedureName: surgery.plannedSurgery,
-        // Include patient allergies for pre-op summary display
-        patientAllergies: patient?.allergies || [],
-        patientOtherAllergies: patient?.otherAllergies || null,
-        // Include patient email for sending pre-op form
-        patientEmail: patient?.email || null,
-      };
+      if (!surgeryMap.has(surgery.id)) {
+        // Create a combined surgery object with patient data for frontend compatibility
+        const surgeryWithPatient = {
+          ...surgery,
+          patientName: patient ? `${patient.firstName} ${patient.surname}` : 'Unknown Patient',
+          patientMRN: patient?.patientNumber || '',
+          patientBirthday: patient?.birthday || null,
+          patientSex: patient?.sex || null,
+          procedureName: surgery.plannedSurgery,
+          // Include patient allergies for pre-op summary display
+          patientAllergies: patient?.allergies || [],
+          patientOtherAllergies: patient?.otherAllergies || null,
+          // Include patient email for sending pre-op form
+          patientEmail: patient?.email || null,
+        };
 
-      return {
-        surgery: surgeryWithPatient,
-        assessment: row.preop_assessments,
-        // Status: planned (no assessment), draft (has assessment but not completed), completed (has signature)
-        status: !row.preop_assessments ? 'planned' : row.preop_assessments.status || 'draft',
-      };
-    });
+        surgeryMap.set(surgery.id, {
+          surgery: surgeryWithPatient,
+          assessment: row.preop_assessments,
+          // Status: planned (no assessment), draft (has assessment but not completed), completed (has signature)
+          status: !row.preop_assessments ? 'planned' : row.preop_assessments.status || 'draft',
+          // Track if questionnaire was sent
+          questionnaireEmailSent: questionnaireLink?.emailSent || false,
+          questionnaireEmailSentAt: questionnaireLink?.emailSentAt || null,
+          questionnaireStatus: questionnaireLink?.status || null,
+        });
+      } else {
+        // If we already have this surgery and found another questionnaire link, update if it has email sent
+        const existing = surgeryMap.get(surgery.id);
+        if (questionnaireLink?.emailSent) {
+          existing.questionnaireEmailSent = true;
+          existing.questionnaireEmailSentAt = questionnaireLink.emailSentAt || existing.questionnaireEmailSentAt;
+          existing.questionnaireStatus = questionnaireLink.status || existing.questionnaireStatus;
+        }
+      }
+    }
+
+    return Array.from(surgeryMap.values());
   }
 
   async getPreOpAssessment(surgeryId: string): Promise<PreOpAssessment | undefined> {

@@ -577,7 +577,7 @@ export default function PreOpList() {
                     )}
                     {/* Button to send pre-op form to patient (only for planned items) */}
                     {item.status === 'planned' && (
-                      sentForms.has(surgery.id) ? (
+                      (item.questionnaireEmailSent || sentForms.has(surgery.id)) ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
                             <Mail className="h-3 w-3" />
