@@ -3310,6 +3310,10 @@ export const patientQuestionnaireLinks = pgTable("patient_questionnaire_links", 
   emailSentAt: timestamp("email_sent_at"), // When email was sent
   emailSentTo: varchar("email_sent_to"), // Email address it was sent to
   emailSentBy: varchar("email_sent_by").references(() => users.id), // User who sent the email
+  smsSent: boolean("sms_sent").default(false).notNull(), // Track if questionnaire was sent via SMS
+  smsSentAt: timestamp("sms_sent_at"), // When SMS was sent
+  smsSentTo: varchar("sms_sent_to"), // Phone number it was sent to
+  smsSentBy: varchar("sms_sent_by").references(() => users.id), // User who sent the SMS
 }, (table) => [
   index("idx_questionnaire_links_hospital").on(table.hospitalId),
   index("idx_questionnaire_links_patient").on(table.patientId),
