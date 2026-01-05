@@ -472,7 +472,18 @@
     "merge": "Zusammenführen",
     "ordersMerged": "Bestellungen wurden erfolgreich zusammengeführt",
     "mergeFailed": "Bestellungen konnten nicht zusammengeführt werden",
-    "selectAtLeastTwo": "Bitte wählen Sie mindestens 2 Bestellungen zum Zusammenführen"
+    "selectAtLeastTwo": "Bitte wählen Sie mindestens 2 Bestellungen zum Zusammenführen",
+    "attachments": "Anhänge",
+    "noAttachments": "Keine Anhänge",
+    "uploadFile": "Hochladen",
+    "takePhoto": "Foto",
+    "attachmentUploaded": "Anhang hochgeladen",
+    "attachmentUploadedSuccess": "Datei wurde an die Bestellung angehängt.",
+    "failedToUploadAttachment": "Anhang konnte nicht hochgeladen werden.",
+    "attachmentDeleted": "Anhang gelöscht",
+    "attachmentDeletedSuccess": "Anhang wurde von der Bestellung entfernt.",
+    "failedToDeleteAttachment": "Anhang konnte nicht gelöscht werden.",
+    "failedToDownloadAttachment": "Anhang konnte nicht heruntergeladen werden."
   },
   "checklists": {
     "title": "Geräte-Checklisten",

@@ -472,7 +472,18 @@
     "merge": "Merge",
     "ordersMerged": "Orders have been merged successfully",
     "mergeFailed": "Failed to merge orders",
-    "selectAtLeastTwo": "Please select at least 2 orders to merge"
+    "selectAtLeastTwo": "Please select at least 2 orders to merge",
+    "attachments": "Attachments",
+    "noAttachments": "No attachments",
+    "uploadFile": "Upload",
+    "takePhoto": "Photo",
+    "attachmentUploaded": "Attachment Uploaded",
+    "attachmentUploadedSuccess": "File has been attached to the order.",
+    "failedToUploadAttachment": "Failed to upload attachment.",
+    "attachmentDeleted": "Attachment Deleted",
+    "attachmentDeletedSuccess": "Attachment has been removed from the order.",
+    "failedToDeleteAttachment": "Failed to delete attachment.",
+    "failedToDownloadAttachment": "Failed to download attachment."
   },
   "checklists": {
     "title": "Equipment Checklists",
