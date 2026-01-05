@@ -200,7 +200,7 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
 
     if (activeLink) {
       // Return existing active link instead of creating new one
-      const baseUrl = process.env.PUBLIC_URL || `https://${req.headers.host}`;
+      const baseUrl = process.env.PRODUCTION_URL || `https://${req.headers.host}`;
       const questionnaireUrl = `${baseUrl}/questionnaire/${activeLink.token}`;
       return res.json({ 
         link: activeLink, 
@@ -227,7 +227,7 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
     });
 
     // Generate full URL
-    const baseUrl = process.env.PUBLIC_URL || `https://${req.headers.host}`;
+    const baseUrl = process.env.PRODUCTION_URL || `https://${req.headers.host}`;
     const questionnaireUrl = `${baseUrl}/questionnaire/${token}`;
 
     res.json({ 
@@ -623,7 +623,7 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
       }
     }
 
-    const baseUrl = process.env.PUBLIC_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
+    const baseUrl = process.env.PRODUCTION_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
     const questionnaireUrl = `${baseUrl}/questionnaire/${link.token}`;
     const expiryDate = link.expiresAt ? new Date(link.expiresAt).toLocaleDateString('de-DE') : '';
     
@@ -740,7 +740,7 @@ router.post('/api/questionnaire/links/:linkId/send-sms', isAuthenticated, requir
     const unit = await storage.getUnit(unitId);
     const helpPhone = unit?.questionnairePhone || hospital?.companyPhone || null;
     
-    const baseUrl = process.env.PUBLIC_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
+    const baseUrl = process.env.PRODUCTION_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
     const questionnaireUrl = `${baseUrl}/questionnaire/${link.token}`;
     
     // Build a short bilingual SMS message
