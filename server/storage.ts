@@ -790,6 +790,7 @@ export interface IStorage {
     patientFirstName: string;
     patientLastName: string;
     patientEmail: string | null;
+    patientPhone: string | null;
     patientBirthday: Date | null;
     plannedDate: Date;
     plannedSurgery: string;
@@ -7334,6 +7335,7 @@ export class DatabaseStorage implements IStorage {
     patientFirstName: string;
     patientLastName: string;
     patientEmail: string | null;
+    patientPhone: string | null;
     patientBirthday: Date | null;
     plannedDate: Date;
     plannedSurgery: string;
@@ -7357,14 +7359,15 @@ export class DatabaseStorage implements IStorage {
         patientFirstName: patients.firstName,
         patientLastName: patients.surname,
         patientEmail: patients.email,
+        patientPhone: patients.phone,
         patientBirthday: patients.birthday,
         plannedDate: surgeries.plannedDate,
         plannedSurgery: surgeries.plannedSurgery,
-        // Check if there's any questionnaire link with emailSent=true for this surgery OR patient
+        // Check if there's any questionnaire link with emailSent=true OR smsSent=true for this surgery OR patient
         hasQuestionnaireSent: sql<boolean>`EXISTS (
           SELECT 1 FROM patient_questionnaire_links pql 
           WHERE (pql.surgery_id = ${surgeries.id} OR pql.patient_id = ${surgeries.patientId})
-            AND pql.email_sent = true
+            AND (pql.email_sent = true OR pql.sms_sent = true)
         )`,
         // Check if there's an existing submitted/reviewed questionnaire for this patient
         // Either: linked directly to the patient, OR filled via tablet with matching name/birthday

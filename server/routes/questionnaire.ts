@@ -8,6 +8,7 @@ import { nanoid } from "nanoid";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
+import { sendSms, isSmsConfigured } from "../sms";
 
 const router = Router();
 
@@ -702,6 +703,77 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
     console.error("Error sending questionnaire email:", error);
     res.status(500).json({ message: "Failed to send email" });
   }
+});
+
+// Send questionnaire link via SMS
+router.post('/api/questionnaire/links/:linkId/send-sms', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID required" });
+    }
+
+    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    if (!isSmsConfigured()) {
+      return res.status(503).json({ message: "SMS service is not configured" });
+    }
+
+    const { linkId } = req.params;
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ message: "Phone number is required" });
+    }
+
+    // Get the link and verify it belongs to this hospital
+    const link = await storage.getQuestionnaireLink(linkId);
+    if (!link || link.hospitalId !== hospitalId) {
+      return res.status(404).json({ message: "Questionnaire link not found" });
+    }
+
+    // Get hospital and unit info for the message
+    const hospital = await storage.getHospital(hospitalId);
+    const unit = await storage.getUnit(unitId);
+    const helpPhone = unit?.questionnairePhone || hospital?.companyPhone || null;
+    
+    const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+    const questionnaireUrl = `${baseUrl}/questionnaire/${link.token}`;
+    
+    // Build a short bilingual SMS message
+    let message = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${questionnaireUrl}`;
+    
+    if (helpPhone) {
+      message += `\n\nBei Fragen / Questions: ${helpPhone}`;
+    }
+    
+    const result = await sendSms(phone, message);
+    
+    if (!result.success) {
+      return res.status(500).json({ message: `Failed to send SMS: ${result.error}` });
+    }
+    
+    // Record that SMS was sent on the questionnaire link
+    await storage.updateQuestionnaireLink(linkId, {
+      smsSent: true,
+      smsSentAt: new Date(),
+      smsSentTo: phone,
+      smsSentBy: req.user.id,
+    });
+    
+    res.json({ message: "SMS sent successfully" });
+  } catch (error) {
+    console.error("Error sending questionnaire SMS:", error);
+    res.status(500).json({ message: "Failed to send SMS" });
+  }
+});
+
+// Endpoint to check if SMS is configured
+router.get('/api/questionnaire/sms-status', isAuthenticated, async (req: any, res: Response) => {
+  res.json({ configured: isSmsConfigured() });
 });
 
 // Invalidate/expire a questionnaire link

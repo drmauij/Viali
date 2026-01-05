@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, Mail, Loader2, CheckCircle, Link as LinkIcon } from "lucide-react";
+import { Copy, Mail, Loader2, CheckCircle, Link as LinkIcon, MessageSquare } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -16,6 +16,7 @@ interface SendQuestionnaireDialogProps {
   patientId: string;
   patientName: string;
   patientEmail?: string | null;
+  patientPhone?: string | null;
 }
 
 export function SendQuestionnaireDialog({
@@ -24,6 +25,7 @@ export function SendQuestionnaireDialog({
   patientId,
   patientName,
   patientEmail,
+  patientPhone,
 }: SendQuestionnaireDialogProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
@@ -31,17 +33,29 @@ export function SendQuestionnaireDialog({
   
   const [generatedLink, setGeneratedLink] = useState<{ token: string; linkId: string } | null>(null);
   const [emailAddress, setEmailAddress] = useState(patientEmail || "");
+  const [phoneNumber, setPhoneNumber] = useState(patientPhone || "");
   const [copied, setCopied] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [smsSent, setSmsSent] = useState(false);
+
+  // Check if SMS is configured
+  const { data: smsStatus } = useQuery({
+    queryKey: ['/api/questionnaire/sms-status'],
+    enabled: open,
+  });
+
+  const isSmsConfigured = smsStatus?.configured ?? false;
 
   useEffect(() => {
     if (open) {
       setGeneratedLink(null);
       setEmailAddress(patientEmail || "");
+      setPhoneNumber(patientPhone || "");
       setCopied(false);
       setEmailSent(false);
+      setSmsSent(false);
     }
-  }, [open, patientEmail]);
+  }, [open, patientEmail, patientPhone]);
 
   const generateLinkMutation = useMutation({
     mutationFn: async () => {
@@ -102,6 +116,38 @@ export function SendQuestionnaireDialog({
     },
   });
 
+  const sendSmsMutation = useMutation({
+    mutationFn: async () => {
+      if (!generatedLink) throw new Error('No link generated');
+      const res = await fetch(`/api/questionnaire/links/${generatedLink.linkId}/send-sms`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hospital-Id': activeHospital?.id || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ phone: phoneNumber }),
+      });
+      if (!res.ok) throw new Error('Failed to send SMS');
+      return res.json();
+    },
+    onSuccess: () => {
+      setSmsSent(true);
+      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient', patientId, 'links'] });
+      toast({
+        title: t('questionnaire.links.smsSent', 'SMS sent'),
+        description: t('questionnaire.links.smsSentDesc', 'The questionnaire link was sent via SMS'),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('questionnaire.links.smsError', 'Failed to send SMS'),
+        variant: 'destructive',
+      });
+    },
+  });
+
   useEffect(() => {
     if (open && !generatedLink && activeHospital?.id) {
       generateLinkMutation.mutate();
@@ -125,8 +171,14 @@ export function SendQuestionnaireDialog({
     sendEmailMutation.mutate();
   };
 
+  const handleSendSms = () => {
+    if (!phoneNumber || !generatedLink) return;
+    sendSmsMutation.mutate();
+  };
+
   const isGenerating = generateLinkMutation.isPending;
   const isSending = sendEmailMutation.isPending;
+  const isSendingSms = sendSmsMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -209,6 +261,47 @@ export function SendQuestionnaireDialog({
                 </p>
               )}
             </div>
+
+            {isSmsConfigured && (
+              <div className="border-t pt-4 space-y-3">
+                <Label>{t('questionnaire.send.orSendSms', 'Or send via SMS')}</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="tel"
+                    placeholder={t('questionnaire.links.phonePlaceholder', '+41 79 123 45 67')}
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    disabled={smsSent}
+                    data-testid="input-send-sms"
+                  />
+                  <Button
+                    onClick={handleSendSms}
+                    disabled={!phoneNumber || isSendingSms || smsSent}
+                    className="shrink-0"
+                    data-testid="button-send-sms"
+                  >
+                    {isSendingSms ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : smsSent ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        {t('questionnaire.send.sent', 'Sent')}
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquare className="h-4 w-4 mr-1" />
+                        {t('questionnaire.send.sendSms', 'SMS')}
+                      </>
+                    )}
+                  </Button>
+                </div>
+                {!patientPhone && (
+                  <p className="text-xs text-muted-foreground">
+                    {t('questionnaire.send.noPhoneHint', 'No phone number on file for this patient')}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         ) : null}
       </DialogContent>
