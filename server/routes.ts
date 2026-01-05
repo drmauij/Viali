@@ -1819,22 +1819,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
       
-      // Get current stock level
+      // Get current stock level - use order.unitId (the receiving unit), not item.unitId
       const [currentStock] = await db
         .select()
         .from(stockLevels)
         .where(
           and(
             eq(stockLevels.itemId, item.id),
-            eq(stockLevels.unitId, item.unitId)
+            eq(stockLevels.unitId, order.unitId)
           )
         );
       
       const currentQty = currentStock?.qtyOnHand || 0;
       const newQty = currentQty + line.qty;
       
-      // Update stock level
-      await storage.updateStockLevel(item.id, item.unitId, newQty);
+      console.log('[Order Line Receive] Stock update: item', item.id, 'unit', order.unitId, 'current', currentQty, '+ received', line.qty, '= new', newQty);
+      
+      // Update stock level for the order's unit (where the receiving happens)
+      await storage.updateStockLevel(item.id, order.unitId, newQty);
       
       // For items with exact quantity tracking, also update current units
       let addedUnits = 0;
@@ -1873,7 +1875,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           userId,
           action: 'receive',
           itemId: item.id,
-          unitId: item.unitId,
+          unitId: order.unitId,
           delta: addedUnits || line.qty,
           movementType: 'IN',
           notes: notes || 'Order received',
