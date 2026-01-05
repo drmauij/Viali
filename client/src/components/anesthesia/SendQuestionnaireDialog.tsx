@@ -39,7 +39,7 @@ export function SendQuestionnaireDialog({
   const [smsSent, setSmsSent] = useState(false);
 
   // Check if SMS is configured
-  const { data: smsStatus } = useQuery({
+  const { data: smsStatus } = useQuery<{ configured: boolean }>({
     queryKey: ['/api/questionnaire/sms-status'],
     enabled: open,
   });

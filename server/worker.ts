@@ -1050,7 +1050,7 @@ async function sendQuestionnaireSms(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!isSmsConfigured()) {
-      return { success: false, error: 'SMS is not configured (PLIVO credentials missing)' };
+      return { success: false, error: 'SMS is not configured (VONAGE credentials missing)' };
     }
 
     const hospital = await storage.getHospital(hospitalId);
