@@ -2566,6 +2566,54 @@ export const deleteTOFPointSchema = z.object({
   pointId: z.string(),
 });
 
+// VAS (Visual Analog Scale) Pain Score schemas
+export const addVASPointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  timestamp: z.string(),
+  value: z.number().min(0).max(10),
+});
+
+export const updateVASPointSchema = z.object({
+  pointId: z.string(),
+  value: z.number().min(0).max(10).optional(),
+  timestamp: z.string().optional(),
+});
+
+export const deleteVASPointSchema = z.object({
+  pointId: z.string(),
+});
+
+// Aldrete Score schemas (PACU recovery score)
+export const addAldretePointSchema = z.object({
+  anesthesiaRecordId: z.string(),
+  timestamp: z.string(),
+  value: z.number().min(0).max(10), // Aldrete score 0-10
+  components: z.object({
+    activity: z.number().min(0).max(2).optional(),
+    respiration: z.number().min(0).max(2).optional(),
+    circulation: z.number().min(0).max(2).optional(),
+    consciousness: z.number().min(0).max(2).optional(),
+    oxygenSaturation: z.number().min(0).max(2).optional(),
+  }).optional(),
+});
+
+export const updateAldretePointSchema = z.object({
+  pointId: z.string(),
+  value: z.number().min(0).max(10).optional(),
+  timestamp: z.string().optional(),
+  components: z.object({
+    activity: z.number().min(0).max(2).optional(),
+    respiration: z.number().min(0).max(2).optional(),
+    circulation: z.number().min(0).max(2).optional(),
+    consciousness: z.number().min(0).max(2).optional(),
+    oxygenSaturation: z.number().min(0).max(2).optional(),
+  }).optional(),
+});
+
+export const deleteAldretePointSchema = z.object({
+  pointId: z.string(),
+});
+
 export const addBulkVentilationSchema = z.object({
   anesthesiaRecordId: z.string(),
   timestamp: z.string(),
