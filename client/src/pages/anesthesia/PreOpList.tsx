@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2, Stethoscope, EyeOff, Mail, Send, Download, CheckSquare, Square } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -120,6 +121,7 @@ export default function PreOpList() {
   const [standByFilter, setStandByFilter] = useState<"all" | "consent_required" | "signature_missing">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
+  const [showLanguageDialog, setShowLanguageDialog] = useState(false);
 
   // Get active hospital
   const activeHospital = useActiveHospital();
@@ -242,9 +244,15 @@ export default function PreOpList() {
     setSelectedIds(new Set());
   };
 
-  const handleBatchExport = async () => {
+  const openLanguageDialog = () => {
+    if (selectedIds.size === 0) return;
+    setShowLanguageDialog(true);
+  };
+
+  const handleBatchExport = async (language: 'en' | 'de') => {
     if (selectedIds.size === 0) return;
     
+    setShowLanguageDialog(false);
     setIsExporting(true);
     try {
       const response = await fetch('/api/anesthesia/preop/batch-export', {
@@ -252,7 +260,7 @@ export default function PreOpList() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ assessmentIds: Array.from(selectedIds) }),
+        body: JSON.stringify({ assessmentIds: Array.from(selectedIds), language }),
         credentials: 'include',
       });
 
@@ -457,7 +465,7 @@ export default function PreOpList() {
                 <Button
                   variant="default"
                   size="sm"
-                  onClick={handleBatchExport}
+                  onClick={openLanguageDialog}
                   disabled={isExporting}
                   data-testid="button-download-selected"
                 >
@@ -655,6 +663,36 @@ export default function PreOpList() {
           patientPhone={selectedSurgeryForSend.patientPhone}
         />
       )}
+
+      {/* Language Selection Dialog for PDF Export */}
+      <Dialog open={showLanguageDialog} onOpenChange={setShowLanguageDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('anesthesia.preop.selectLanguage')}</DialogTitle>
+            <DialogDescription>{t('anesthesia.preop.selectLanguageDesc')}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-4">
+            <Button
+              variant="outline"
+              className="w-full justify-start h-14 text-left"
+              onClick={() => handleBatchExport('en')}
+              data-testid="button-export-english"
+            >
+              <span className="text-2xl mr-3">🇬🇧</span>
+              <span className="font-medium">{t('anesthesia.preop.exportInEnglish')}</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start h-14 text-left"
+              onClick={() => handleBatchExport('de')}
+              data-testid="button-export-german"
+            >
+              <span className="text-2xl mr-3">🇩🇪</span>
+              <span className="font-medium">{t('anesthesia.preop.exportInGerman')}</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

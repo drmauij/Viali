@@ -1120,7 +1120,50 @@
       "downloadSelected": "Download Selected",
       "exportSuccess": "Export Complete",
       "exportSuccessDesc": "Pre-op assessments have been exported as PDFs",
-      "exportError": "Failed to export assessments"
+      "exportError": "Failed to export assessments",
+      "selectLanguage": "Select PDF Language",
+      "selectLanguageDesc": "Choose the language for the exported PDF documents",
+      "exportInEnglish": "English",
+      "exportInGerman": "German",
+      "fastingRequirements": "Fasting Requirements",
+      "fastingRequirementsTitle": "Pre-Operative Fasting Requirements",
+      "fastingFood": "No solid food for 6 hours before surgery",
+      "fastingLiquids": "No liquids for 2 hours before surgery (water only allowed until then)",
+      "ambulatorySupervision": "Post-Anesthesia Supervision (Outpatient)",
+      "ambulatorySupervisionTitle": "Post-Anesthesia Care for Outpatients",
+      "ambulatorySupervisionText": "For outpatient (ambulatory) procedures: The patient must be accompanied and supervised by a responsible adult for 24 hours after anesthesia.",
+      "anesthesiaTechniqueDescriptions": {
+        "general": {
+          "title": "General Anesthesia",
+          "description": "Complete loss of consciousness through intravenous and/or inhaled medications.",
+          "risks": "Possible adverse events: Nausea, vomiting, sore throat, dental damage, awareness during anesthesia (rare), allergic reactions, cardiovascular complications."
+        },
+        "regional": {
+          "title": "Regional Anesthesia",
+          "description": "Numbing of a specific region through local anesthetic injections (Spinal, Epidural, Nerve Blocks).",
+          "risks": "Possible adverse events: Headache, back pain, nerve damage (rare), hypotension, bleeding, infection at the injection site."
+        },
+        "spinal": {
+          "title": "Spinal Anesthesia",
+          "description": "Injection of local anesthetic into the cerebrospinal fluid for lower body numbness.",
+          "risks": "Possible adverse events: Post-dural puncture headache, hypotension, urinary retention, back pain, nerve damage (rare)."
+        },
+        "epidural": {
+          "title": "Epidural Anesthesia",
+          "description": "Injection of local anesthetic into the epidural space, often with catheter placement for continuous administration.",
+          "risks": "Possible adverse events: Hypotension, headache (if dura punctured), back pain, incomplete block, epidural hematoma or abscess (rare)."
+        },
+        "sedation": {
+          "title": "Sedation / Monitored Anesthesia Care",
+          "description": "Administration of sedative medications to reduce anxiety and provide comfort while maintaining consciousness.",
+          "risks": "Possible adverse events: Respiratory depression, nausea, paradoxical reactions, delayed awakening, aspiration (if not fasting)."
+        },
+        "combined": {
+          "title": "Combined Technique",
+          "description": "Combination of general anesthesia with regional techniques for optimal pain control.",
+          "risks": "Risks associated with each individual technique apply. May provide enhanced pain relief with potentially reduced overall anesthetic requirements."
+        }
+      }
     },
     "pacu": {
       "title": "Post-Anesthesia Care Unit",

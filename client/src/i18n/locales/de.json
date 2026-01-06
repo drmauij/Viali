@@ -1120,7 +1120,50 @@
       "downloadSelected": "Ausgewählte herunterladen",
       "exportSuccess": "Export abgeschlossen",
       "exportSuccessDesc": "Präop-Assessments wurden als PDFs exportiert",
-      "exportError": "Fehler beim Exportieren der Assessments"
+      "exportError": "Fehler beim Exportieren der Assessments",
+      "selectLanguage": "PDF-Sprache wählen",
+      "selectLanguageDesc": "Wählen Sie die Sprache für die exportierten PDF-Dokumente",
+      "exportInEnglish": "Englisch",
+      "exportInGerman": "Deutsch",
+      "fastingRequirements": "Nüchternheitsanforderungen",
+      "fastingRequirementsTitle": "Präoperative Nüchternheitsanforderungen",
+      "fastingFood": "Keine feste Nahrung für 6 Stunden vor der Operation",
+      "fastingLiquids": "Keine Flüssigkeiten für 2 Stunden vor der Operation (nur Wasser bis dahin erlaubt)",
+      "ambulatorySupervision": "Postanästhetische Betreuung (Ambulant)",
+      "ambulatorySupervisionTitle": "Postanästhetische Versorgung für ambulante Patienten",
+      "ambulatorySupervisionText": "Für ambulante Eingriffe: Der Patient muss für 24 Stunden nach der Anästhesie von einer verantwortlichen erwachsenen Person begleitet und beaufsichtigt werden.",
+      "anesthesiaTechniqueDescriptions": {
+        "general": {
+          "title": "Allgemeinanästhesie",
+          "description": "Vollständiger Bewusstseinsverlust durch intravenöse und/oder inhalierte Medikamente.",
+          "risks": "Mögliche unerwünschte Ereignisse: Übelkeit, Erbrechen, Halsschmerzen, Zahnschäden, Wachheit während der Anästhesie (selten), allergische Reaktionen, kardiovaskuläre Komplikationen."
+        },
+        "regional": {
+          "title": "Regionalanästhesie",
+          "description": "Betäubung einer bestimmten Region durch Lokalanästhetika-Injektionen (Spinal, Epidural, Nervenblockaden).",
+          "risks": "Mögliche unerwünschte Ereignisse: Kopfschmerzen, Rückenschmerzen, Nervenschäden (selten), Hypotonie, Blutung, Infektion an der Injektionsstelle."
+        },
+        "spinal": {
+          "title": "Spinalanästhesie",
+          "description": "Injektion von Lokalanästhetikum in die Cerebrospinalflüssigkeit zur Betäubung des unteren Körperbereichs.",
+          "risks": "Mögliche unerwünschte Ereignisse: Postpunktioneller Kopfschmerz, Hypotonie, Harnverhalt, Rückenschmerzen, Nervenschäden (selten)."
+        },
+        "epidural": {
+          "title": "Epiduralanästhesie",
+          "description": "Injektion von Lokalanästhetikum in den Epiduralraum, oft mit Katheteranlage für kontinuierliche Verabreichung.",
+          "risks": "Mögliche unerwünschte Ereignisse: Hypotonie, Kopfschmerzen (bei Durapunktion), Rückenschmerzen, unvollständige Blockade, Epiduralhämatom oder -abszess (selten)."
+        },
+        "sedation": {
+          "title": "Sedierung / Überwachte Anästhesiepflege",
+          "description": "Verabreichung von Beruhigungsmitteln zur Angstreduktion und Komfortsteigerung bei erhaltenem Bewusstsein.",
+          "risks": "Mögliche unerwünschte Ereignisse: Atemdepression, Übelkeit, paradoxe Reaktionen, verzögertes Erwachen, Aspiration (bei fehlendem Nüchternsein)."
+        },
+        "combined": {
+          "title": "Kombinierte Technik",
+          "description": "Kombination von Allgemeinanästhesie mit Regionalverfahren für optimale Schmerzkontrolle.",
+          "risks": "Die Risiken der einzelnen Techniken gelten entsprechend. Kann eine verbesserte Schmerzlinderung bei potenziell reduziertem Gesamtanästhetikabedarf bieten."
+        }
+      }
     },
     "pacu": {
       "title": "Aufwachraum",
