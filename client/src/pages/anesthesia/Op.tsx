@@ -19,6 +19,7 @@ import { IntraoperativeMedicationsCard } from "@/components/anesthesia/Intraoper
 import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
 import { PatientWeightDialog } from "@/components/anesthesia/dialogs/PatientWeightDialog";
 import { DuplicateRecordsDialog } from "@/components/anesthesia/DuplicateRecordsDialog";
+import { CameraConnectionDialog } from "@/components/anesthesia/dialogs/CameraConnectionDialog";
 import { useOpData } from "@/hooks/useOpData";
 import { useChecklistState } from "@/hooks/useChecklistState";
 import { usePacuDataFiltering } from "@/hooks/usePacuDataFiltering";
@@ -129,6 +130,10 @@ export default function Op() {
   const [duplicateRecords, setDuplicateRecords] = useState<any[]>([]);
   const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
   const [duplicateCheckComplete, setDuplicateCheckComplete] = useState(false);
+  
+  // Camera connection dialog state
+  const [showCameraDialog, setShowCameraDialog] = useState(false);
+  const [isSavingCamera, setIsSavingCamera] = useState(false);
 
   // Get surgeryId from params
   const surgeryId = params.id;
@@ -411,6 +416,64 @@ export default function Op() {
     },
     enabled: !!activeHospital?.id && isSurgeryMode,
   });
+
+  // Fetch camera devices for the hospital (for camera connection dialog)
+  const { data: cameraDevices = [], isLoading: isCameraDevicesLoading } = useQuery<any[]>({
+    queryKey: ['/api/camera-devices', activeHospital?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/camera-devices?hospitalId=${activeHospital?.id}`, { credentials: 'include' });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!activeHospital?.id && !isSurgeryMode,
+  });
+
+  // Get the connected camera device name
+  const connectedCameraDevice = useMemo(() => {
+    if (!anesthesiaRecord?.cameraDeviceId || !cameraDevices.length) return null;
+    return cameraDevices.find((d: any) => d.id === anesthesiaRecord.cameraDeviceId);
+  }, [anesthesiaRecord?.cameraDeviceId, cameraDevices]);
+
+  // Handle saving camera connection settings
+  const handleSaveCameraSettings = async (cameraDeviceId: string | null, autoCaptureEnabled: boolean) => {
+    if (!anesthesiaRecord?.id) return;
+    
+    setIsSavingCamera(true);
+    try {
+      const response = await apiRequest("PATCH", `/api/anesthesia/records/${anesthesiaRecord.id}`, {
+        cameraDeviceId,
+        autoCaptureEnabled,
+      });
+      
+      if (response.ok) {
+        queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+        toast({
+          title: cameraDeviceId 
+            ? t('anesthesia.op.cameraDialog.connected', 'Camera connected')
+            : t('anesthesia.op.cameraDialog.disconnected', 'Camera disconnected'),
+          description: cameraDeviceId && autoCaptureEnabled
+            ? t('anesthesia.op.cameraDialog.autoCaptureEnabled', 'Auto-capture is enabled')
+            : undefined,
+        });
+        setShowCameraDialog(false);
+      } else {
+        toast({
+          title: t('common.error', 'Error'),
+          description: t('anesthesia.op.cameraDialog.saveFailed', 'Failed to update camera settings'),
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Error saving camera settings:', error);
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('anesthesia.op.cameraDialog.saveFailed', 'Failed to update camera settings'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingCamera(false);
+    }
+  };
 
   // Auto-create anesthesia record if it doesn't exist (404 only)
   useEffect(() => {
@@ -1264,6 +1327,18 @@ export default function Op() {
       onSave={handleWeightSave}
     />
     
+    {/* Camera Connection Dialog */}
+    <CameraConnectionDialog
+      open={showCameraDialog}
+      onOpenChange={setShowCameraDialog}
+      cameraDevices={cameraDevices}
+      isLoadingDevices={isCameraDevicesLoading}
+      currentCameraDeviceId={anesthesiaRecord?.cameraDeviceId || null}
+      autoCaptureEnabled={anesthesiaRecord?.autoCaptureEnabled || false}
+      onSave={handleSaveCameraSettings}
+      isSaving={isSavingCamera}
+    />
+    
     <Dialog open={isOpen && !showWeightDialog && !showDuplicatesDialog} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
         <h2 className="sr-only" id="op-dialog-title">{isPacuMode ? t('anesthesia.op.pacuMonitor') : t('anesthesia.op.intraoperativeMonitoring')} - {t('anesthesia.op.patient')} {surgery.patientId}</h2>
@@ -1286,6 +1361,9 @@ export default function Op() {
           connectionState={connectionState}
           viewers={viewers}
           onForceReconnect={forceReconnect}
+          cameraDeviceName={connectedCameraDevice?.name}
+          isCameraConnected={!!anesthesiaRecord?.cameraDeviceId}
+          onOpenCameraDialog={!isSurgeryMode ? () => setShowCameraDialog(true) : undefined}
         />
 
         {/* Tabbed Content */}
