@@ -2634,7 +2634,7 @@ router.patch('/api/anesthesia/preop/:id', isAuthenticated, requireWriteAccess, a
 router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.id;
-    const { assessmentIds } = req.body;
+    const { assessmentIds, language = 'de' } = req.body;
 
     if (!assessmentIds || !Array.isArray(assessmentIds) || assessmentIds.length === 0) {
       return res.status(400).json({ message: "assessmentIds array is required" });
@@ -2645,6 +2645,207 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
 
     const { jsPDF } = await import('jspdf');
     const archiver = (await import('archiver')).default;
+
+    const translations: Record<string, Record<string, string>> = {
+      en: {
+        title: 'Pre-Op Assessment / Anesthesia Informed Consent',
+        patientInfo: 'Patient Information',
+        name: 'Name',
+        birthday: 'Birthday',
+        years: 'years',
+        gender: 'Gender',
+        male: 'Male',
+        female: 'Female',
+        other: 'Other',
+        surgeryInfo: 'Surgery Information',
+        plannedSurgery: 'Planned Surgery',
+        surgeon: 'Surgeon',
+        plannedDate: 'Planned Date',
+        preOpAssessment: 'Pre-Op Assessment',
+        asaClassification: 'ASA Classification',
+        weight: 'Weight',
+        height: 'Height',
+        allergies: 'Allergies',
+        cave: 'CAVE',
+        medications: 'Medications',
+        anticoagulation: 'Anticoagulation',
+        generalMeds: 'General Meds',
+        medicationNotes: 'Medication Notes',
+        medicalHistory: 'Medical History',
+        heart: 'Heart / Cardiovascular',
+        lungs: 'Lungs / Respiratory',
+        gi: 'Gastrointestinal',
+        kidney: 'Kidney / Urological',
+        metabolic: 'Metabolic / Endocrine',
+        neuro: 'Neurological',
+        psych: 'Psychiatric',
+        skeletal: 'Musculoskeletal',
+        coagulation: 'Coagulation Disorders',
+        infectious: 'Infectious Diseases',
+        women: "Women's Health",
+        noxen: 'Substance Use (Noxen)',
+        pediatric: 'Pediatric Issues',
+        notes: 'Notes',
+        anesthesiaSurgicalHistory: 'Anesthesia & Surgical History',
+        anesthesiaHistoryIssues: 'Anesthesia History Issues',
+        dentalIssues: 'Dental Issues',
+        ponvTransfusion: 'PONV / Transfusion',
+        previousSurgeries: 'Previous Surgeries',
+        plannedAnesthesia: 'Planned Anesthesia',
+        techniques: 'Techniques',
+        generalAnesthesia: 'General Anesthesia',
+        spinal: 'Spinal',
+        epidural: 'Epidural',
+        regional: 'Regional',
+        sedation: 'Sedation',
+        combined: 'Combined',
+        generalOptions: 'General Options',
+        epiduralOptions: 'Epidural Options',
+        regionalOptions: 'Regional Options',
+        postOpICU: 'Post-Op ICU',
+        yes: 'Yes',
+        otherAnesthesiaNotes: 'Other Anesthesia Notes',
+        specialNotes: 'Special Notes',
+        anesthesiaTechniqueInfo: 'Anesthesia Technique Information',
+        techniqueGeneral: 'General Anesthesia',
+        techniqueGeneralDesc: 'Complete loss of consciousness through intravenous and/or inhaled medications.',
+        techniqueGeneralRisks: 'Possible adverse events: Nausea, vomiting, sore throat, dental damage, awareness during anesthesia (rare), allergic reactions, cardiovascular complications.',
+        techniqueSpinal: 'Spinal Anesthesia',
+        techniqueSpinalDesc: 'Injection of local anesthetic into the cerebrospinal fluid for lower body numbness.',
+        techniqueSpinalRisks: 'Possible adverse events: Post-dural puncture headache, hypotension, urinary retention, back pain, nerve damage (rare).',
+        techniqueEpidural: 'Epidural Anesthesia',
+        techniqueEpiduralDesc: 'Injection of local anesthetic into the epidural space, often with catheter placement for continuous administration.',
+        techniqueEpiduralRisks: 'Possible adverse events: Hypotension, headache (if dura punctured), back pain, incomplete block, epidural hematoma or abscess (rare).',
+        techniqueRegional: 'Regional Anesthesia',
+        techniqueRegionalDesc: 'Numbing of a specific region through local anesthetic injections (Spinal, Epidural, Nerve Blocks).',
+        techniqueRegionalRisks: 'Possible adverse events: Headache, back pain, nerve damage (rare), hypotension, bleeding, infection at the injection site.',
+        techniqueSedation: 'Sedation / Monitored Anesthesia Care',
+        techniqueSedationDesc: 'Administration of sedative medications to reduce anxiety and provide comfort while maintaining consciousness.',
+        techniqueSedationRisks: 'Possible adverse events: Respiratory depression, nausea, paradoxical reactions, delayed awakening, aspiration (if not fasting).',
+        techniqueCombined: 'Combined Technique',
+        techniqueCombinedDesc: 'Combination of general anesthesia with regional techniques for optimal pain control.',
+        techniqueCombinedRisks: 'Risks associated with each individual technique apply. May provide enhanced pain relief with potentially reduced overall anesthetic requirements.',
+        fastingRequirements: 'Pre-Operative Fasting Requirements',
+        fastingFood: 'No solid food for 6 hours before surgery',
+        fastingLiquids: 'No liquids for 2 hours before surgery (water only allowed until then)',
+        ambulatorySupervision: 'Post-Anesthesia Care for Outpatients',
+        ambulatorySupervisionText: 'For outpatient (ambulatory) procedures: The patient must be accompanied and supervised by a responsible adult for 24 hours after anesthesia.',
+        informedConsent: 'Informed Consent',
+        consentFor: 'Consent for',
+        generalConsentGiven: 'General Consent Given',
+        analgosedation: 'Analgosedation',
+        regionalAnesthesia: 'Regional Anesthesia',
+        installations: 'Installations (IV, Arterial, etc.)',
+        icuIntensiveCare: 'ICU / Intensive Care',
+        consentInfo: 'Consent Information',
+        additionalConsentNotes: 'Additional Consent Notes',
+        doctorSignature: 'Doctor Signature',
+        date: 'Date',
+        patientSignatureQuestionnaire: 'Patient Signature (from questionnaire)',
+        patientSignaturePhysical: 'Patient Signature (physical)',
+        signature: 'Signature',
+      },
+      de: {
+        title: 'Präoperative Beurteilung / Anästhesie-Einwilligung',
+        patientInfo: 'Patienteninformationen',
+        name: 'Name',
+        birthday: 'Geburtsdatum',
+        years: 'Jahre',
+        gender: 'Geschlecht',
+        male: 'Männlich',
+        female: 'Weiblich',
+        other: 'Andere',
+        surgeryInfo: 'Operationsinformationen',
+        plannedSurgery: 'Geplante Operation',
+        surgeon: 'Chirurg',
+        plannedDate: 'Geplantes Datum',
+        preOpAssessment: 'Präoperative Beurteilung',
+        asaClassification: 'ASA-Klassifikation',
+        weight: 'Gewicht',
+        height: 'Größe',
+        allergies: 'Allergien',
+        cave: 'CAVE',
+        medications: 'Medikamente',
+        anticoagulation: 'Antikoagulation',
+        generalMeds: 'Allgemeine Medikamente',
+        medicationNotes: 'Medikamenten-Hinweise',
+        medicalHistory: 'Anamnese',
+        heart: 'Herz / Kreislauf',
+        lungs: 'Lunge / Atmung',
+        gi: 'Magen-Darm',
+        kidney: 'Niere / Urologie',
+        metabolic: 'Stoffwechsel / Endokrin',
+        neuro: 'Neurologie',
+        psych: 'Psychiatrie',
+        skeletal: 'Bewegungsapparat',
+        coagulation: 'Gerinnungsstörungen',
+        infectious: 'Infektionskrankheiten',
+        women: 'Frauengesundheit',
+        noxen: 'Substanzgebrauch (Noxen)',
+        pediatric: 'Pädiatrische Probleme',
+        notes: 'Hinweise',
+        anesthesiaSurgicalHistory: 'Anästhesie- & OP-Vorgeschichte',
+        anesthesiaHistoryIssues: 'Anästhesie-Vorgeschichte',
+        dentalIssues: 'Zahnprobleme',
+        ponvTransfusion: 'PONV / Transfusion',
+        previousSurgeries: 'Frühere Operationen',
+        plannedAnesthesia: 'Geplante Anästhesie',
+        techniques: 'Verfahren',
+        generalAnesthesia: 'Allgemeinanästhesie',
+        spinal: 'Spinal',
+        epidural: 'Epidural',
+        regional: 'Regional',
+        sedation: 'Sedierung',
+        combined: 'Kombiniert',
+        generalOptions: 'Allgemein-Optionen',
+        epiduralOptions: 'Epidural-Optionen',
+        regionalOptions: 'Regional-Optionen',
+        postOpICU: 'Post-OP Intensivstation',
+        yes: 'Ja',
+        otherAnesthesiaNotes: 'Weitere Anästhesie-Hinweise',
+        specialNotes: 'Besondere Hinweise',
+        anesthesiaTechniqueInfo: 'Informationen zu Anästhesieverfahren',
+        techniqueGeneral: 'Allgemeinanästhesie',
+        techniqueGeneralDesc: 'Vollständiger Bewusstseinsverlust durch intravenöse und/oder inhalierte Medikamente.',
+        techniqueGeneralRisks: 'Mögliche unerwünschte Ereignisse: Übelkeit, Erbrechen, Halsschmerzen, Zahnschäden, Wachheit während der Anästhesie (selten), allergische Reaktionen, kardiovaskuläre Komplikationen.',
+        techniqueSpinal: 'Spinalanästhesie',
+        techniqueSpinalDesc: 'Injektion von Lokalanästhetikum in die Cerebrospinalflüssigkeit zur Betäubung des unteren Körperbereichs.',
+        techniqueSpinalRisks: 'Mögliche unerwünschte Ereignisse: Postpunktioneller Kopfschmerz, Hypotonie, Harnverhalt, Rückenschmerzen, Nervenschäden (selten).',
+        techniqueEpidural: 'Epiduralanästhesie',
+        techniqueEpiduralDesc: 'Injektion von Lokalanästhetikum in den Epiduralraum, oft mit Katheteranlage für kontinuierliche Verabreichung.',
+        techniqueEpiduralRisks: 'Mögliche unerwünschte Ereignisse: Hypotonie, Kopfschmerzen (bei Durapunktion), Rückenschmerzen, unvollständige Blockade, Epiduralhämatom oder -abszess (selten).',
+        techniqueRegional: 'Regionalanästhesie',
+        techniqueRegionalDesc: 'Betäubung einer bestimmten Region durch Lokalanästhetika-Injektionen (Spinal, Epidural, Nervenblockaden).',
+        techniqueRegionalRisks: 'Mögliche unerwünschte Ereignisse: Kopfschmerzen, Rückenschmerzen, Nervenschäden (selten), Hypotonie, Blutung, Infektion an der Injektionsstelle.',
+        techniqueSedation: 'Sedierung / Überwachte Anästhesiepflege',
+        techniqueSedationDesc: 'Verabreichung von Beruhigungsmitteln zur Angstreduktion und Komfortsteigerung bei erhaltenem Bewusstsein.',
+        techniqueSedationRisks: 'Mögliche unerwünschte Ereignisse: Atemdepression, Übelkeit, paradoxe Reaktionen, verzögertes Erwachen, Aspiration (bei fehlendem Nüchternsein).',
+        techniqueCombined: 'Kombinierte Technik',
+        techniqueCombinedDesc: 'Kombination von Allgemeinanästhesie mit Regionalverfahren für optimale Schmerzkontrolle.',
+        techniqueCombinedRisks: 'Die Risiken der einzelnen Techniken gelten entsprechend. Kann eine verbesserte Schmerzlinderung bei potenziell reduziertem Gesamtanästhetikabedarf bieten.',
+        fastingRequirements: 'Präoperative Nüchternheitsanforderungen',
+        fastingFood: 'Keine feste Nahrung für 6 Stunden vor der Operation',
+        fastingLiquids: 'Keine Flüssigkeiten für 2 Stunden vor der Operation (nur Wasser bis dahin erlaubt)',
+        ambulatorySupervision: 'Postanästhetische Versorgung für ambulante Patienten',
+        ambulatorySupervisionText: 'Für ambulante Eingriffe: Der Patient muss für 24 Stunden nach der Anästhesie von einer verantwortlichen erwachsenen Person begleitet und beaufsichtigt werden.',
+        informedConsent: 'Einverständniserklärung',
+        consentFor: 'Einwilligung für',
+        generalConsentGiven: 'Allgemeine Einwilligung erteilt',
+        analgosedation: 'Analgosedierung',
+        regionalAnesthesia: 'Regionalanästhesie',
+        installations: 'Installationen (IV, Arteriell, etc.)',
+        icuIntensiveCare: 'Intensivstation',
+        consentInfo: 'Aufklärungstext',
+        additionalConsentNotes: 'Zusätzliche Einwilligungshinweise',
+        doctorSignature: 'Arzt-Unterschrift',
+        date: 'Datum',
+        patientSignatureQuestionnaire: 'Patientenunterschrift (aus Fragebogen)',
+        patientSignaturePhysical: 'Patientenunterschrift (handschriftlich)',
+        signature: 'Unterschrift',
+      }
+    };
+    
+    const t = translations[language] || translations.de;
 
     const archive = archiver('zip', { zlib: { level: 9 } });
     
@@ -2716,7 +2917,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
         doc.text(hospital.name, 105, yPos, { align: 'center' });
         yPos += 8;
       }
-      doc.text('Pre-Op Assessment / Anästhesie-Aufklärung', 105, yPos, { align: 'center' });
+      doc.text(t.title, 105, yPos, { align: 'center' });
       yPos += 12;
 
       doc.setDrawColor(200, 200, 200);
@@ -2727,7 +2928,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       // Patient Information
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('Patient Information', 20, yPos);
+      doc.text(t.patientInfo, 20, yPos);
       yPos += 7;
 
       doc.setFontSize(10);
@@ -2737,7 +2938,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       const patientSurname = patient?.surname || '';
       const patientFirstName = patient?.firstName || '';
       const patientName = `${patientSurname}, ${patientFirstName}`.trim().replace(/^,\s*|,\s*$/g, '') || 'Unknown';
-      doc.text(`Name: ${patientName}`, 20, yPos);
+      doc.text(`${t.name}: ${patientName}`, 20, yPos);
       yPos += 5;
 
       if (patient?.birthday) {
@@ -2746,14 +2947,14 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
         let age = today.getFullYear() - birthDate.getFullYear();
         const monthDiff = today.getMonth() - birthDate.getMonth();
         if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
-        const formattedBirthday = birthDate.toLocaleDateString('de-DE');
-        doc.text(`Birthday: ${formattedBirthday} (${age} years)`, 20, yPos);
+        const formattedBirthday = birthDate.toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE');
+        doc.text(`${t.birthday}: ${formattedBirthday} (${age} ${t.years})`, 20, yPos);
         yPos += 5;
       }
 
       if (patient?.sex) {
-        const genderText = patient.sex === 'M' ? 'Male / Männlich' : patient.sex === 'F' ? 'Female / Weiblich' : 'Other';
-        doc.text(`Gender: ${genderText}`, 20, yPos);
+        const genderText = patient.sex === 'M' ? t.male : patient.sex === 'F' ? t.female : t.other;
+        doc.text(`${t.gender}: ${genderText}`, 20, yPos);
         yPos += 5;
       }
 
@@ -2762,7 +2963,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       // Surgery Information
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('Surgery Information', 20, yPos);
+      doc.text(t.surgeryInfo, 20, yPos);
       yPos += 7;
 
       doc.setFontSize(10);
@@ -2770,19 +2971,19 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       
       // FIXED: Use plannedSurgery instead of procedureName
       if (surgery.plannedSurgery) {
-        const surgeryLines = doc.splitTextToSize(`Planned Surgery: ${surgery.plannedSurgery}`, 165);
+        const surgeryLines = doc.splitTextToSize(`${t.plannedSurgery}: ${surgery.plannedSurgery}`, 165);
         surgeryLines.forEach((line: string) => {
           doc.text(line, 20, yPos);
           yPos += 5;
         });
       }
       if (surgery.surgeon) {
-        doc.text(`Surgeon: ${surgery.surgeon}`, 20, yPos);
+        doc.text(`${t.surgeon}: ${surgery.surgeon}`, 20, yPos);
         yPos += 5;
       }
       if (surgery.plannedDate) {
-        const plannedDate = new Date(surgery.plannedDate).toLocaleDateString('de-DE');
-        doc.text(`Planned Date: ${plannedDate}`, 20, yPos);
+        const plannedDate = new Date(surgery.plannedDate).toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE');
+        doc.text(`${t.plannedDate}: ${plannedDate}`, 20, yPos);
         yPos += 5;
       }
 
@@ -2791,22 +2992,22 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       // Pre-Op Assessment - Basic Info
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('Pre-Op Assessment', 20, yPos);
+      doc.text(t.preOpAssessment, 20, yPos);
       yPos += 7;
 
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
 
       if (assessment.asa) {
-        doc.text(`ASA Classification: ${assessment.asa}`, 20, yPos);
+        doc.text(`${t.asaClassification}: ${assessment.asa}`, 20, yPos);
         yPos += 5;
       }
       if (assessment.weight) {
-        doc.text(`Weight: ${assessment.weight} kg`, 20, yPos);
+        doc.text(`${t.weight}: ${assessment.weight} kg`, 20, yPos);
         yPos += 5;
       }
       if (assessment.height) {
-        doc.text(`Height: ${assessment.height} cm`, 20, yPos);
+        doc.text(`${t.height}: ${assessment.height} cm`, 20, yPos);
         yPos += 5;
       }
 
@@ -2819,7 +3020,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
         allergies.push(patient.otherAllergies);
       }
       if (allergies.length > 0) {
-        const allergyText = `Allergies: ${allergies.join(', ')}`;
+        const allergyText = `${t.allergies}: ${allergies.join(', ')}`;
         const allergyLines = doc.splitTextToSize(allergyText, 165);
         allergyLines.forEach((line: string) => {
           checkNewPage();
@@ -2829,7 +3030,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       }
 
       if (assessment.cave) {
-        const caveLines = doc.splitTextToSize(`CAVE: ${assessment.cave}`, 165);
+        const caveLines = doc.splitTextToSize(`${t.cave}: ${assessment.cave}`, 165);
         caveLines.forEach((line: string) => {
           checkNewPage();
           doc.text(line, 20, yPos);
@@ -2842,7 +3043,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       checkNewPage(20);
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
-      doc.text('Medications', 20, yPos);
+      doc.text(t.medications, 20, yPos);
       yPos += 6;
       doc.setFontSize(10);
       doc.setFont('helvetica', 'normal');
@@ -2850,7 +3051,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       if (assessment.anticoagulationMeds && assessment.anticoagulationMeds.length > 0) {
         const meds = assessment.anticoagulationMeds.filter(m => m).join(', ');
         if (meds) {
-          const lines = doc.splitTextToSize(`Anticoagulation: ${meds}${assessment.anticoagulationMedsOther ? ', ' + assessment.anticoagulationMedsOther : ''}`, 165);
+          const lines = doc.splitTextToSize(`${t.anticoagulation}: ${meds}${assessment.anticoagulationMedsOther ? ', ' + assessment.anticoagulationMedsOther : ''}`, 165);
           lines.forEach((line: string) => {
             checkNewPage();
             doc.text(line, 20, yPos);
@@ -2862,7 +3063,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       if (assessment.generalMeds && assessment.generalMeds.length > 0) {
         const meds = assessment.generalMeds.filter(m => m).join(', ');
         if (meds) {
-          const lines = doc.splitTextToSize(`General Meds: ${meds}${assessment.generalMedsOther ? ', ' + assessment.generalMedsOther : ''}`, 165);
+          const lines = doc.splitTextToSize(`${t.generalMeds}: ${meds}${assessment.generalMedsOther ? ', ' + assessment.generalMedsOther : ''}`, 165);
           lines.forEach((line: string) => {
             checkNewPage();
             doc.text(line, 20, yPos);
@@ -2872,7 +3073,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       }
 
       if (assessment.medicationsNotes) {
-        const lines = doc.splitTextToSize(`Medication Notes: ${assessment.medicationsNotes}`, 165);
+        const lines = doc.splitTextToSize(`${t.medicationNotes}: ${assessment.medicationsNotes}`, 165);
         lines.forEach((line: string) => {
           checkNewPage();
           doc.text(line, 20, yPos);
@@ -2885,39 +3086,39 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       checkNewPage(20);
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
-      doc.text('Medical History', 20, yPos);
+      doc.text(t.medicalHistory, 20, yPos);
       yPos += 6;
 
-      renderIllnessSection('Heart / Cardiovascular:', assessment.heartIllnesses as Record<string, boolean> | null, assessment.heartNotes);
-      renderIllnessSection('Lungs / Respiratory:', assessment.lungIllnesses as Record<string, boolean> | null, assessment.lungNotes);
-      renderIllnessSection('Gastrointestinal:', assessment.giIllnesses as Record<string, boolean> | null, null);
-      renderIllnessSection('Kidney / Urological:', assessment.kidneyIllnesses as Record<string, boolean> | null, null);
-      renderIllnessSection('Metabolic / Endocrine:', assessment.metabolicIllnesses as Record<string, boolean> | null, assessment.giKidneyMetabolicNotes);
-      renderIllnessSection('Neurological:', assessment.neuroIllnesses as Record<string, boolean> | null, null);
-      renderIllnessSection('Psychiatric:', assessment.psychIllnesses as Record<string, boolean> | null, null);
-      renderIllnessSection('Musculoskeletal:', assessment.skeletalIllnesses as Record<string, boolean> | null, assessment.neuroPsychSkeletalNotes);
-      renderIllnessSection('Coagulation Disorders:', assessment.coagulationIllnesses as Record<string, boolean> | null, null);
-      renderIllnessSection('Infectious Diseases:', assessment.infectiousIllnesses as Record<string, boolean> | null, assessment.coagulationInfectiousNotes);
-      renderIllnessSection('Women\'s Health:', assessment.womanIssues as Record<string, boolean> | null, assessment.womanNotes);
-      renderIllnessSection('Substance Use (Noxen):', assessment.noxen as Record<string, boolean> | null, assessment.noxenNotes);
-      renderIllnessSection('Pediatric Issues:', assessment.childrenIssues as Record<string, boolean> | null, assessment.childrenNotes);
+      renderIllnessSection(`${t.heart}:`, assessment.heartIllnesses as Record<string, boolean> | null, assessment.heartNotes);
+      renderIllnessSection(`${t.lungs}:`, assessment.lungIllnesses as Record<string, boolean> | null, assessment.lungNotes);
+      renderIllnessSection(`${t.gi}:`, assessment.giIllnesses as Record<string, boolean> | null, null);
+      renderIllnessSection(`${t.kidney}:`, assessment.kidneyIllnesses as Record<string, boolean> | null, null);
+      renderIllnessSection(`${t.metabolic}:`, assessment.metabolicIllnesses as Record<string, boolean> | null, assessment.giKidneyMetabolicNotes);
+      renderIllnessSection(`${t.neuro}:`, assessment.neuroIllnesses as Record<string, boolean> | null, null);
+      renderIllnessSection(`${t.psych}:`, assessment.psychIllnesses as Record<string, boolean> | null, null);
+      renderIllnessSection(`${t.skeletal}:`, assessment.skeletalIllnesses as Record<string, boolean> | null, assessment.neuroPsychSkeletalNotes);
+      renderIllnessSection(`${t.coagulation}:`, assessment.coagulationIllnesses as Record<string, boolean> | null, null);
+      renderIllnessSection(`${t.infectious}:`, assessment.infectiousIllnesses as Record<string, boolean> | null, assessment.coagulationInfectiousNotes);
+      renderIllnessSection(`${t.women}:`, assessment.womanIssues as Record<string, boolean> | null, assessment.womanNotes);
+      renderIllnessSection(`${t.noxen}:`, assessment.noxen as Record<string, boolean> | null, assessment.noxenNotes);
+      renderIllnessSection(`${t.pediatric}:`, assessment.childrenIssues as Record<string, boolean> | null, assessment.childrenNotes);
 
       // Anesthesia & Surgical History
       yPos += 3;
       checkNewPage(20);
       doc.setFontSize(11);
       doc.setFont('helvetica', 'bold');
-      doc.text('Anesthesia & Surgical History', 20, yPos);
+      doc.text(t.anesthesiaSurgicalHistory, 20, yPos);
       yPos += 6;
 
-      renderIllnessSection('Anesthesia History Issues:', assessment.anesthesiaHistoryIssues as Record<string, boolean> | null, null);
-      renderIllnessSection('Dental Issues:', assessment.dentalIssues as Record<string, boolean> | null, null);
-      renderIllnessSection('PONV / Transfusion:', assessment.ponvTransfusionIssues as Record<string, boolean> | null, null);
+      renderIllnessSection(`${t.anesthesiaHistoryIssues}:`, assessment.anesthesiaHistoryIssues as Record<string, boolean> | null, null);
+      renderIllnessSection(`${t.dentalIssues}:`, assessment.dentalIssues as Record<string, boolean> | null, null);
+      renderIllnessSection(`${t.ponvTransfusion}:`, assessment.ponvTransfusionIssues as Record<string, boolean> | null, null);
 
       if (assessment.previousSurgeries) {
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        const lines = doc.splitTextToSize(`Previous Surgeries: ${assessment.previousSurgeries}`, 160);
+        const lines = doc.splitTextToSize(`${t.previousSurgeries}: ${assessment.previousSurgeries}`, 160);
         lines.forEach((line: string) => {
           checkNewPage();
           doc.text(line, 25, yPos);
@@ -2929,7 +3130,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       if (assessment.anesthesiaSurgicalHistoryNotes) {
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        const lines = doc.splitTextToSize(`Notes: ${assessment.anesthesiaSurgicalHistoryNotes}`, 160);
+        const lines = doc.splitTextToSize(`${t.notes}: ${assessment.anesthesiaSurgicalHistoryNotes}`, 160);
         lines.forEach((line: string) => {
           checkNewPage();
           doc.text(line, 25, yPos);
@@ -2945,28 +3146,28 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
         checkNewPage(20);
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text('Planned Anesthesia', 20, yPos);
+        doc.text(t.plannedAnesthesia, 20, yPos);
         yPos += 6;
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
 
         const plannedTypes: string[] = [];
-        if (techniques.general) plannedTypes.push('General Anesthesia');
-        if (techniques.spinal) plannedTypes.push('Spinal');
-        if (techniques.epidural) plannedTypes.push('Epidural');
-        if (techniques.regional) plannedTypes.push('Regional');
-        if (techniques.sedation) plannedTypes.push('Sedation');
-        if (techniques.combined) plannedTypes.push('Combined');
+        if (techniques.general) plannedTypes.push(t.generalAnesthesia);
+        if (techniques.spinal) plannedTypes.push(t.spinal);
+        if (techniques.epidural) plannedTypes.push(t.epidural);
+        if (techniques.regional) plannedTypes.push(t.regional);
+        if (techniques.sedation) plannedTypes.push(t.sedation);
+        if (techniques.combined) plannedTypes.push(t.combined);
 
         if (plannedTypes.length > 0) {
-          doc.text(`Techniques: ${plannedTypes.join(', ')}`, 20, yPos);
+          doc.text(`${t.techniques}: ${plannedTypes.join(', ')}`, 20, yPos);
           yPos += 5;
         }
 
         if (techniques.generalOptions) {
           const options = Object.entries(techniques.generalOptions).filter(([_, v]) => v).map(([k]) => k);
           if (options.length > 0) {
-            doc.text(`General Options: ${options.join(', ')}`, 25, yPos);
+            doc.text(`${t.generalOptions}: ${options.join(', ')}`, 25, yPos);
             yPos += 5;
           }
         }
@@ -2974,7 +3175,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
         if (techniques.epiduralOptions) {
           const options = Object.entries(techniques.epiduralOptions).filter(([_, v]) => v).map(([k]) => k);
           if (options.length > 0) {
-            doc.text(`Epidural Options: ${options.join(', ')}`, 25, yPos);
+            doc.text(`${t.epiduralOptions}: ${options.join(', ')}`, 25, yPos);
             yPos += 5;
           }
         }
@@ -2982,7 +3183,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
         if (techniques.regionalOptions) {
           const options = Object.entries(techniques.regionalOptions).filter(([_, v]) => v).map(([k]) => k);
           if (options.length > 0) {
-            doc.text(`Regional Options: ${options.join(', ')}`, 25, yPos);
+            doc.text(`${t.regionalOptions}: ${options.join(', ')}`, 25, yPos);
             yPos += 5;
           }
         }
@@ -2990,12 +3191,12 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
 
       if (assessment.postOpICU) {
         checkNewPage();
-        doc.text('Post-Op ICU: Yes', 20, yPos);
+        doc.text(`${t.postOpICU}: ${t.yes}`, 20, yPos);
         yPos += 5;
       }
 
       if (assessment.anesthesiaOther) {
-        const lines = doc.splitTextToSize(`Other Anesthesia Notes: ${assessment.anesthesiaOther}`, 165);
+        const lines = doc.splitTextToSize(`${t.otherAnesthesiaNotes}: ${assessment.anesthesiaOther}`, 165);
         lines.forEach((line: string) => {
           checkNewPage();
           doc.text(line, 20, yPos);
@@ -3009,7 +3210,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
         checkNewPage(15);
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text('Special Notes', 20, yPos);
+        doc.text(t.specialNotes, 20, yPos);
         yPos += 6;
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
@@ -3021,12 +3222,92 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
         });
       }
 
+      // Anesthesia Technique Descriptions with Risks (based on selected techniques)
+      if (techniques && (techniques.general || techniques.spinal || techniques.epidural || techniques.regional || techniques.sedation || techniques.combined)) {
+        yPos += 8;
+        checkNewPage(40);
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(t.anesthesiaTechniqueInfo, 20, yPos);
+        yPos += 8;
+        doc.setFontSize(9);
+
+        const renderTechniqueInfo = (title: string, description: string, risks: string) => {
+          checkNewPage(25);
+          doc.setFont('helvetica', 'bold');
+          doc.text(title, 20, yPos);
+          yPos += 4;
+          doc.setFont('helvetica', 'normal');
+          const descLines = doc.splitTextToSize(description, 165);
+          descLines.forEach((line: string) => {
+            checkNewPage();
+            doc.text(line, 20, yPos);
+            yPos += 3.5;
+          });
+          const riskLines = doc.splitTextToSize(risks, 165);
+          riskLines.forEach((line: string) => {
+            checkNewPage();
+            doc.text(line, 20, yPos);
+            yPos += 3.5;
+          });
+          yPos += 3;
+        };
+
+        if (techniques.general) {
+          renderTechniqueInfo(t.techniqueGeneral, t.techniqueGeneralDesc, t.techniqueGeneralRisks);
+        }
+        if (techniques.spinal) {
+          renderTechniqueInfo(t.techniqueSpinal, t.techniqueSpinalDesc, t.techniqueSpinalRisks);
+        }
+        if (techniques.epidural) {
+          renderTechniqueInfo(t.techniqueEpidural, t.techniqueEpiduralDesc, t.techniqueEpiduralRisks);
+        }
+        if (techniques.regional) {
+          renderTechniqueInfo(t.techniqueRegional, t.techniqueRegionalDesc, t.techniqueRegionalRisks);
+        }
+        if (techniques.sedation) {
+          renderTechniqueInfo(t.techniqueSedation, t.techniqueSedationDesc, t.techniqueSedationRisks);
+        }
+        if (techniques.combined) {
+          renderTechniqueInfo(t.techniqueCombined, t.techniqueCombinedDesc, t.techniqueCombinedRisks);
+        }
+      }
+
+      // Fasting Requirements Section
+      yPos += 5;
+      checkNewPage(25);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(t.fastingRequirements, 20, yPos);
+      yPos += 6;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`• ${t.fastingFood}`, 20, yPos);
+      yPos += 4;
+      doc.text(`• ${t.fastingLiquids}`, 20, yPos);
+      yPos += 6;
+
+      // Ambulatory Supervision Section
+      checkNewPage(20);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(t.ambulatorySupervision, 20, yPos);
+      yPos += 6;
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      const ambLines = doc.splitTextToSize(t.ambulatorySupervisionText, 165);
+      ambLines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, 20, yPos);
+        yPos += 4;
+      });
+
       // Informed Consent Section
       yPos += 8;
       checkNewPage(30);
       doc.setFontSize(12);
       doc.setFont('helvetica', 'bold');
-      doc.text('Informed Consent / Einverständnis', 20, yPos);
+      doc.text(t.informedConsent, 20, yPos);
       yPos += 8;
 
       doc.setFontSize(10);
@@ -3034,15 +3315,15 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
 
       // Consent Options
       const consentOptions: string[] = [];
-      if (assessment.consentGiven) consentOptions.push('General Consent Given');
-      if (assessment.consentAnalgosedation) consentOptions.push('Analgosedation');
-      if (assessment.consentRegional) consentOptions.push('Regional Anesthesia');
-      if (assessment.consentInstallations) consentOptions.push('Installations (IV, Arterial, etc.)');
-      if (assessment.consentICU) consentOptions.push('ICU / Intensive Care');
+      if (assessment.consentGiven) consentOptions.push(t.generalConsentGiven);
+      if (assessment.consentAnalgosedation) consentOptions.push(t.analgosedation);
+      if (assessment.consentRegional) consentOptions.push(t.regionalAnesthesia);
+      if (assessment.consentInstallations) consentOptions.push(t.installations);
+      if (assessment.consentICU) consentOptions.push(t.icuIntensiveCare);
 
       if (consentOptions.length > 0) {
         doc.setFont('helvetica', 'bold');
-        doc.text('Consent for:', 20, yPos);
+        doc.text(`${t.consentFor}:`, 20, yPos);
         yPos += 5;
         doc.setFont('helvetica', 'normal');
         consentOptions.forEach(opt => {
@@ -3057,7 +3338,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       if (assessment.consentText) {
         checkNewPage(20);
         doc.setFont('helvetica', 'bold');
-        doc.text('Consent Information / Aufklärungstext:', 20, yPos);
+        doc.text(`${t.consentInfo}:`, 20, yPos);
         yPos += 5;
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
@@ -3075,7 +3356,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       if (assessment.consentNotes) {
         checkNewPage(15);
         doc.setFont('helvetica', 'bold');
-        doc.text('Additional Consent Notes:', 20, yPos);
+        doc.text(`${t.additionalConsentNotes}:`, 20, yPos);
         yPos += 5;
         doc.setFont('helvetica', 'normal');
         const noteLines = doc.splitTextToSize(assessment.consentNotes, 165);
@@ -3091,12 +3372,12 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       if (assessment.consentDoctorSignature || assessment.consentDate) {
         checkNewPage(35);
         doc.setFont('helvetica', 'bold');
-        doc.text('Doctor Signature / Arzt-Unterschrift:', 20, yPos);
+        doc.text(`${t.doctorSignature}:`, 20, yPos);
         yPos += 3;
 
         if (assessment.consentDate) {
           doc.setFont('helvetica', 'normal');
-          doc.text(`Date: ${assessment.consentDate}`, 20, yPos);
+          doc.text(`${t.date}: ${assessment.consentDate}`, 20, yPos);
           yPos += 5;
         }
 
@@ -3118,7 +3399,7 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       if (assessment.patientSignature) {
         checkNewPage(30);
         doc.setFont('helvetica', 'bold');
-        doc.text('Patient Signature (from questionnaire):', 20, yPos);
+        doc.text(`${t.patientSignatureQuestionnaire}:`, 20, yPos);
         yPos += 3;
         try {
           doc.addImage(assessment.patientSignature, 'PNG', 20, yPos, 50, 20);
@@ -3135,16 +3416,16 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
       yPos += 10;
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.text('Patient Signature (physical) / Unterschrift Patient:', 20, yPos);
+      doc.text(`${t.patientSignaturePhysical}:`, 20, yPos);
       yPos += 5;
       doc.setFont('helvetica', 'normal');
       doc.setDrawColor(0, 0, 0);
       doc.line(20, yPos + 15, 100, yPos + 15);
       doc.setFontSize(8);
-      doc.text('Signature / Unterschrift', 20, yPos + 20);
+      doc.text(t.signature, 20, yPos + 20);
 
       doc.line(120, yPos + 15, 180, yPos + 15);
-      doc.text('Date / Datum', 120, yPos + 20);
+      doc.text(t.date, 120, yPos + 20);
 
       const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
       
