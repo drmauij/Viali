@@ -3482,6 +3482,839 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
   }
 });
 
+// Download single pre-op assessment as PDF (not ZIP)
+router.get('/api/anesthesia/preop/:assessmentId/pdf', isAuthenticated, async (req: any, res) => {
+  try {
+    const { assessmentId } = req.params;
+    const language = (req.query.language as string) || 'de';
+    const userId = req.user.id;
+
+    const assessment = await storage.getPreOpAssessmentById(assessmentId);
+    if (!assessment) {
+      return res.status(404).json({ message: "Assessment not found" });
+    }
+
+    const surgery = await storage.getSurgery(assessment.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const patient = await storage.getPatient(surgery.patientId);
+    const hospital = await storage.getHospital(surgery.hospitalId);
+
+    const { jsPDF } = await import('jspdf');
+
+    const translations: Record<string, Record<string, string>> = {
+      en: {
+        title: 'Pre-Op Assessment / Anesthesia Informed Consent',
+        patientInfo: 'Patient Information',
+        name: 'Name',
+        birthday: 'Birthday',
+        years: 'years',
+        gender: 'Gender',
+        male: 'Male',
+        female: 'Female',
+        other: 'Other',
+        surgeryInfo: 'Surgery Information',
+        plannedSurgery: 'Planned Surgery',
+        surgeon: 'Surgeon',
+        plannedDate: 'Planned Date',
+        preOpAssessment: 'Pre-Op Assessment',
+        asaClassification: 'ASA Classification',
+        weight: 'Weight',
+        height: 'Height',
+        allergies: 'Allergies',
+        cave: 'CAVE',
+        medications: 'Medications',
+        anticoagulation: 'Anticoagulation',
+        generalMeds: 'General Meds',
+        medicationNotes: 'Medication Notes',
+        medicalHistory: 'Medical History',
+        heart: 'Heart / Cardiovascular',
+        lungs: 'Lungs / Respiratory',
+        gi: 'Gastrointestinal',
+        kidney: 'Kidney / Urological',
+        metabolic: 'Metabolic / Endocrine',
+        neuro: 'Neurological',
+        psych: 'Psychiatric',
+        skeletal: 'Musculoskeletal',
+        coagulation: 'Coagulation Disorders',
+        infectious: 'Infectious Diseases',
+        women: "Women's Health",
+        noxen: 'Substance Use (Noxen)',
+        pediatric: 'Pediatric Issues',
+        notes: 'Notes',
+        anesthesiaSurgicalHistory: 'Anesthesia & Surgical History',
+        anesthesiaHistoryIssues: 'Anesthesia History Issues',
+        dentalIssues: 'Dental Issues',
+        ponvTransfusion: 'PONV / Transfusion',
+        previousSurgeries: 'Previous Surgeries',
+        plannedAnesthesia: 'Planned Anesthesia',
+        techniques: 'Techniques',
+        generalAnesthesia: 'General Anesthesia',
+        spinal: 'Spinal',
+        epidural: 'Epidural',
+        regional: 'Regional',
+        sedation: 'Sedation',
+        combined: 'Combined',
+        generalOptions: 'General Options',
+        epiduralOptions: 'Epidural Options',
+        regionalOptions: 'Regional Options',
+        postOpICU: 'Post-Op ICU',
+        yes: 'Yes',
+        otherAnesthesiaNotes: 'Other Anesthesia Notes',
+        specialNotes: 'Special Notes',
+        anesthesiaTechniqueInfo: 'Anesthesia Technique Information',
+        techniqueGeneral: 'General Anesthesia',
+        techniqueGeneralDesc: 'Complete loss of consciousness through intravenous and/or inhaled medications.',
+        techniqueGeneralRisks: 'Possible adverse events: Nausea, vomiting, sore throat, dental damage, awareness during anesthesia (rare), allergic reactions, cardiovascular complications.',
+        techniqueSpinal: 'Spinal Anesthesia',
+        techniqueSpinalDesc: 'Injection of local anesthetic into the cerebrospinal fluid for lower body numbness.',
+        techniqueSpinalRisks: 'Possible adverse events: Post-dural puncture headache, hypotension, urinary retention, back pain, nerve damage (rare).',
+        techniqueEpidural: 'Epidural Anesthesia',
+        techniqueEpiduralDesc: 'Injection of local anesthetic into the epidural space, often with catheter placement for continuous administration.',
+        techniqueEpiduralRisks: 'Possible adverse events: Hypotension, headache (if dura punctured), back pain, incomplete block, epidural hematoma or abscess (rare).',
+        techniqueRegional: 'Regional Anesthesia',
+        techniqueRegionalDesc: 'Numbing of a specific region through local anesthetic injections (Spinal, Epidural, Nerve Blocks).',
+        techniqueRegionalRisks: 'Possible adverse events: Headache, back pain, nerve damage (rare), hypotension, bleeding, infection at the injection site.',
+        techniqueSedation: 'Sedation / Monitored Anesthesia Care',
+        techniqueSedationDesc: 'Administration of sedative medications to reduce anxiety and provide comfort while maintaining consciousness.',
+        techniqueSedationRisks: 'Possible adverse events: Respiratory depression, nausea, paradoxical reactions, delayed awakening, aspiration (if not fasting).',
+        techniqueCombined: 'Combined Technique',
+        techniqueCombinedDesc: 'Combination of general anesthesia with regional techniques for optimal pain control.',
+        techniqueCombinedRisks: 'Risks associated with each individual technique apply. May provide enhanced pain relief with potentially reduced overall anesthetic requirements.',
+        fastingRequirements: 'Pre-Operative Fasting Requirements',
+        fastingFood: 'No solid food for 6 hours before surgery',
+        fastingLiquids: 'No liquids for 2 hours before surgery (water only allowed until then)',
+        ambulatorySupervision: 'Post-Anesthesia Care for Outpatients',
+        ambulatorySupervisionText: 'For outpatient (ambulatory) procedures: The patient must be accompanied and supervised by a responsible adult for 24 hours after anesthesia.',
+        informedConsent: 'Informed Consent',
+        consentFor: 'Consent for',
+        generalConsentGiven: 'General Consent Given',
+        analgosedation: 'Analgosedation',
+        regionalAnesthesia: 'Regional Anesthesia',
+        installations: 'Installations (IV, Arterial, etc.)',
+        icuIntensiveCare: 'ICU / Intensive Care',
+        consentInfo: 'Consent Information',
+        additionalConsentNotes: 'Additional Consent Notes',
+        doctorSignature: 'Doctor Signature',
+        date: 'Date',
+        patientSignatureQuestionnaire: 'Patient Signature (from questionnaire)',
+        patientSignaturePhysical: 'Patient Signature (physical)',
+        signature: 'Signature',
+      },
+      de: {
+        title: 'Präoperative Beurteilung / Anästhesie-Einwilligung',
+        patientInfo: 'Patienteninformationen',
+        name: 'Name',
+        birthday: 'Geburtsdatum',
+        years: 'Jahre',
+        gender: 'Geschlecht',
+        male: 'Männlich',
+        female: 'Weiblich',
+        other: 'Andere',
+        surgeryInfo: 'Operationsinformationen',
+        plannedSurgery: 'Geplante Operation',
+        surgeon: 'Chirurg',
+        plannedDate: 'Geplantes Datum',
+        preOpAssessment: 'Präoperative Beurteilung',
+        asaClassification: 'ASA-Klassifikation',
+        weight: 'Gewicht',
+        height: 'Größe',
+        allergies: 'Allergien',
+        cave: 'CAVE',
+        medications: 'Medikamente',
+        anticoagulation: 'Antikoagulation',
+        generalMeds: 'Allgemeine Medikamente',
+        medicationNotes: 'Medikamenten-Hinweise',
+        medicalHistory: 'Anamnese',
+        heart: 'Herz / Kreislauf',
+        lungs: 'Lunge / Atmung',
+        gi: 'Magen-Darm',
+        kidney: 'Niere / Urologie',
+        metabolic: 'Stoffwechsel / Endokrin',
+        neuro: 'Neurologie',
+        psych: 'Psychiatrie',
+        skeletal: 'Bewegungsapparat',
+        coagulation: 'Gerinnungsstörungen',
+        infectious: 'Infektionskrankheiten',
+        women: 'Frauengesundheit',
+        noxen: 'Substanzgebrauch (Noxen)',
+        pediatric: 'Pädiatrische Probleme',
+        notes: 'Hinweise',
+        anesthesiaSurgicalHistory: 'Anästhesie- & OP-Vorgeschichte',
+        anesthesiaHistoryIssues: 'Anästhesie-Vorgeschichte',
+        dentalIssues: 'Zahnprobleme',
+        ponvTransfusion: 'PONV / Transfusion',
+        previousSurgeries: 'Frühere Operationen',
+        plannedAnesthesia: 'Geplante Anästhesie',
+        techniques: 'Verfahren',
+        generalAnesthesia: 'Allgemeinanästhesie',
+        spinal: 'Spinal',
+        epidural: 'Epidural',
+        regional: 'Regional',
+        sedation: 'Sedierung',
+        combined: 'Kombiniert',
+        generalOptions: 'Allgemein-Optionen',
+        epiduralOptions: 'Epidural-Optionen',
+        regionalOptions: 'Regional-Optionen',
+        postOpICU: 'Post-OP Intensivstation',
+        yes: 'Ja',
+        otherAnesthesiaNotes: 'Weitere Anästhesie-Hinweise',
+        specialNotes: 'Besondere Hinweise',
+        anesthesiaTechniqueInfo: 'Informationen zu Anästhesieverfahren',
+        techniqueGeneral: 'Allgemeinanästhesie',
+        techniqueGeneralDesc: 'Vollständiger Bewusstseinsverlust durch intravenöse und/oder inhalierte Medikamente.',
+        techniqueGeneralRisks: 'Mögliche unerwünschte Ereignisse: Übelkeit, Erbrechen, Halsschmerzen, Zahnschäden, Wachheit während der Anästhesie (selten), allergische Reaktionen, kardiovaskuläre Komplikationen.',
+        techniqueSpinal: 'Spinalanästhesie',
+        techniqueSpinalDesc: 'Injektion von Lokalanästhetikum in die Cerebrospinalflüssigkeit zur Betäubung des unteren Körperbereichs.',
+        techniqueSpinalRisks: 'Mögliche unerwünschte Ereignisse: Postpunktioneller Kopfschmerz, Hypotonie, Harnverhalt, Rückenschmerzen, Nervenschäden (selten).',
+        techniqueEpidural: 'Epiduralanästhesie',
+        techniqueEpiduralDesc: 'Injektion von Lokalanästhetikum in den Epiduralraum, oft mit Katheteranlage für kontinuierliche Verabreichung.',
+        techniqueEpiduralRisks: 'Mögliche unerwünschte Ereignisse: Hypotonie, Kopfschmerzen (bei Durapunktion), Rückenschmerzen, unvollständige Blockade, Epiduralhämatom oder -abszess (selten).',
+        techniqueRegional: 'Regionalanästhesie',
+        techniqueRegionalDesc: 'Betäubung einer bestimmten Region durch Lokalanästhetika-Injektionen (Spinal, Epidural, Nervenblockaden).',
+        techniqueRegionalRisks: 'Mögliche unerwünschte Ereignisse: Kopfschmerzen, Rückenschmerzen, Nervenschäden (selten), Hypotonie, Blutung, Infektion an der Injektionsstelle.',
+        techniqueSedation: 'Sedierung / Überwachte Anästhesiepflege',
+        techniqueSedationDesc: 'Verabreichung von Beruhigungsmitteln zur Angstreduktion und Komfortsteigerung bei erhaltenem Bewusstsein.',
+        techniqueSedationRisks: 'Mögliche unerwünschte Ereignisse: Atemdepression, Übelkeit, paradoxe Reaktionen, verzögertes Erwachen, Aspiration (bei fehlendem Nüchternsein).',
+        techniqueCombined: 'Kombinierte Technik',
+        techniqueCombinedDesc: 'Kombination von Allgemeinanästhesie mit Regionalverfahren für optimale Schmerzkontrolle.',
+        techniqueCombinedRisks: 'Die Risiken der einzelnen Techniken gelten entsprechend. Kann eine verbesserte Schmerzlinderung bei potenziell reduziertem Gesamtanästhetikabedarf bieten.',
+        fastingRequirements: 'Präoperative Nüchternheitsanforderungen',
+        fastingFood: 'Keine feste Nahrung für 6 Stunden vor der Operation',
+        fastingLiquids: 'Keine Flüssigkeiten für 2 Stunden vor der Operation (nur Wasser bis dahin erlaubt)',
+        ambulatorySupervision: 'Postanästhetische Versorgung für ambulante Patienten',
+        ambulatorySupervisionText: 'Für ambulante Eingriffe: Der Patient muss für 24 Stunden nach der Anästhesie von einer verantwortlichen erwachsenen Person begleitet und beaufsichtigt werden.',
+        informedConsent: 'Einverständniserklärung',
+        consentFor: 'Einwilligung für',
+        generalConsentGiven: 'Allgemeine Einwilligung erteilt',
+        analgosedation: 'Analgosedierung',
+        regionalAnesthesia: 'Regionalanästhesie',
+        installations: 'Installationen (IV, Arteriell, etc.)',
+        icuIntensiveCare: 'Intensivstation',
+        consentInfo: 'Aufklärungstext',
+        additionalConsentNotes: 'Zusätzliche Einwilligungshinweise',
+        doctorSignature: 'Arzt-Unterschrift',
+        date: 'Datum',
+        patientSignatureQuestionnaire: 'Patientenunterschrift (aus Fragebogen)',
+        patientSignaturePhysical: 'Patientenunterschrift (handschriftlich)',
+        signature: 'Unterschrift',
+      }
+    };
+    
+    const t = translations[language] || translations.de;
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    let yPos = 20;
+
+    const checkNewPage = (requiredSpace: number = 15) => {
+      if (yPos > 280 - requiredSpace) {
+        doc.addPage();
+        yPos = 20;
+      }
+    };
+
+    const renderIllnessSection = (title: string, illnesses: Record<string, boolean> | null | undefined, notes: string | null | undefined) => {
+      if (!illnesses && !notes) return;
+      const activeIllnesses = illnesses ? Object.entries(illnesses).filter(([_, v]) => v).map(([k]) => k) : [];
+      if (activeIllnesses.length === 0 && !notes) return;
+      
+      checkNewPage(15);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text(title, 25, yPos);
+      yPos += 4;
+      doc.setFont('helvetica', 'normal');
+      
+      if (activeIllnesses.length > 0) {
+        const text = activeIllnesses.join(', ');
+        const lines = doc.splitTextToSize(text, 160);
+        lines.forEach((line: string) => {
+          checkNewPage();
+          doc.text(line, 25, yPos);
+          yPos += 4;
+        });
+      }
+      if (notes) {
+        const noteLines = doc.splitTextToSize(`Notes: ${notes}`, 160);
+        noteLines.forEach((line: string) => {
+          checkNewPage();
+          doc.text(line, 25, yPos);
+          yPos += 4;
+        });
+      }
+      yPos += 2;
+    };
+
+    // Professional Header with Logo
+    const hospitalData = hospital as any;
+    const hasLogo = hospitalData?.companyLogoUrl;
+    
+    if (hasLogo) {
+      try {
+        const response = await fetch(hospitalData.companyLogoUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        const mimeType = response.headers.get('content-type') || 'image/png';
+        const dataUrl = `data:${mimeType};base64,${base64}`;
+        doc.addImage(dataUrl, 'PNG', 20, yPos - 5, 25, 25);
+      } catch (e) {
+        console.warn('Could not load hospital logo:', e);
+      }
+    }
+    
+    const headerStartX = hasLogo ? 50 : 20;
+    
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    if (hospital?.name) {
+      doc.text(hospital.name, headerStartX, yPos);
+      yPos += 5;
+    }
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    if (hospitalData?.companyAddress) {
+      doc.text(hospitalData.companyAddress, headerStartX, yPos);
+      yPos += 4;
+    }
+    if (hospitalData?.companyPhone) {
+      doc.text(hospitalData.companyPhone, headerStartX, yPos);
+      yPos += 4;
+    }
+    
+    yPos = hasLogo ? Math.max(yPos, 45) : yPos + 3;
+    
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.title, 105, yPos, { align: 'center' });
+    yPos += 10;
+
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(20, yPos, 190, yPos);
+    yPos += 8;
+
+    // Patient Information
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.patientInfo, 20, yPos);
+    yPos += 7;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    
+    const patientSurname = patient?.surname || '';
+    const patientFirstName = patient?.firstName || '';
+    const patientName = `${patientSurname}, ${patientFirstName}`.trim().replace(/^,\s*|,\s*$/g, '') || 'Unknown';
+    doc.text(`${t.name}: ${patientName}`, 20, yPos);
+    yPos += 5;
+
+    if (patient?.birthday) {
+      const birthDate = new Date(patient.birthday);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+      const formattedBirthday = birthDate.toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE');
+      doc.text(`${t.birthday}: ${formattedBirthday} (${age} ${t.years})`, 20, yPos);
+      yPos += 5;
+    }
+
+    if (patient?.sex) {
+      const genderText = patient.sex === 'M' ? t.male : patient.sex === 'F' ? t.female : t.other;
+      doc.text(`${t.gender}: ${genderText}`, 20, yPos);
+      yPos += 5;
+    }
+
+    yPos += 5;
+
+    // Surgery Information
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.surgeryInfo, 20, yPos);
+    yPos += 7;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    
+    if (surgery.plannedSurgery) {
+      const surgeryLines = doc.splitTextToSize(`${t.plannedSurgery}: ${surgery.plannedSurgery}`, 165);
+      surgeryLines.forEach((line: string) => {
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+    if (surgery.surgeon) {
+      doc.text(`${t.surgeon}: ${surgery.surgeon}`, 20, yPos);
+      yPos += 5;
+    }
+    if (surgery.plannedDate) {
+      const plannedDate = new Date(surgery.plannedDate).toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE');
+      doc.text(`${t.plannedDate}: ${plannedDate}`, 20, yPos);
+      yPos += 5;
+    }
+
+    yPos += 5;
+
+    // Pre-Op Assessment - Basic Info
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.preOpAssessment, 20, yPos);
+    yPos += 7;
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+
+    if (assessment.asa) {
+      doc.text(`${t.asaClassification}: ${assessment.asa}`, 20, yPos);
+      yPos += 5;
+    }
+    if (assessment.weight) {
+      doc.text(`${t.weight}: ${assessment.weight} kg`, 20, yPos);
+      yPos += 5;
+    }
+    if (assessment.height) {
+      doc.text(`${t.height}: ${assessment.height} cm`, 20, yPos);
+      yPos += 5;
+    }
+
+    // Allergies
+    const allergies: string[] = [];
+    if (patient?.allergies && Array.isArray(patient.allergies)) {
+      allergies.push(...patient.allergies.filter(a => a));
+    }
+    if (patient?.otherAllergies) {
+      allergies.push(patient.otherAllergies);
+    }
+    if (allergies.length > 0) {
+      const allergyText = `${t.allergies}: ${allergies.join(', ')}`;
+      const allergyLines = doc.splitTextToSize(allergyText, 165);
+      allergyLines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+
+    if (assessment.cave) {
+      const caveLines = doc.splitTextToSize(`${t.cave}: ${assessment.cave}`, 165);
+      caveLines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+
+    // Medications
+    yPos += 3;
+    checkNewPage(20);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.medications, 20, yPos);
+    yPos += 6;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+
+    if (assessment.anticoagulationMeds && assessment.anticoagulationMeds.length > 0) {
+      const meds = assessment.anticoagulationMeds.filter(m => m).join(', ');
+      if (meds) {
+        const lines = doc.splitTextToSize(`${t.anticoagulation}: ${meds}${assessment.anticoagulationMedsOther ? ', ' + assessment.anticoagulationMedsOther : ''}`, 165);
+        lines.forEach((line: string) => {
+          checkNewPage();
+          doc.text(line, 20, yPos);
+          yPos += 5;
+        });
+      }
+    }
+
+    if (assessment.generalMeds && assessment.generalMeds.length > 0) {
+      const meds = assessment.generalMeds.filter(m => m).join(', ');
+      if (meds) {
+        const lines = doc.splitTextToSize(`${t.generalMeds}: ${meds}${assessment.generalMedsOther ? ', ' + assessment.generalMedsOther : ''}`, 165);
+        lines.forEach((line: string) => {
+          checkNewPage();
+          doc.text(line, 20, yPos);
+          yPos += 5;
+        });
+      }
+    }
+
+    if (assessment.medicationsNotes) {
+      const lines = doc.splitTextToSize(`${t.medicationNotes}: ${assessment.medicationsNotes}`, 165);
+      lines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+
+    // Medical History
+    yPos += 3;
+    checkNewPage(20);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.medicalHistory, 20, yPos);
+    yPos += 6;
+
+    renderIllnessSection(`${t.heart}:`, assessment.heartIllnesses as Record<string, boolean> | null, assessment.heartNotes);
+    renderIllnessSection(`${t.lungs}:`, assessment.lungIllnesses as Record<string, boolean> | null, assessment.lungNotes);
+    renderIllnessSection(`${t.gi}:`, assessment.giIllnesses as Record<string, boolean> | null, null);
+    renderIllnessSection(`${t.kidney}:`, assessment.kidneyIllnesses as Record<string, boolean> | null, null);
+    renderIllnessSection(`${t.metabolic}:`, assessment.metabolicIllnesses as Record<string, boolean> | null, assessment.giKidneyMetabolicNotes);
+    renderIllnessSection(`${t.neuro}:`, assessment.neuroIllnesses as Record<string, boolean> | null, null);
+    renderIllnessSection(`${t.psych}:`, assessment.psychIllnesses as Record<string, boolean> | null, assessment.neuroPsychNotes);
+    renderIllnessSection(`${t.skeletal}:`, assessment.skeletalIllnesses as Record<string, boolean> | null, assessment.skeletalNotes);
+    renderIllnessSection(`${t.coagulation}:`, assessment.coagulationIllnesses as Record<string, boolean> | null, null);
+    renderIllnessSection(`${t.infectious}:`, assessment.infectiousIllnesses as Record<string, boolean> | null, assessment.coagulationInfectiousNotes);
+    renderIllnessSection(`${t.women}:`, assessment.womenIllnesses as Record<string, boolean> | null, assessment.womenNotes);
+    renderIllnessSection(`${t.noxen}:`, assessment.noxenIllnesses as Record<string, boolean> | null, assessment.noxenNotes);
+    renderIllnessSection(`${t.pediatric}:`, assessment.pediatricIllnesses as Record<string, boolean> | null, assessment.pediatricNotes);
+
+    // Anesthesia & Surgical History
+    yPos += 3;
+    checkNewPage(20);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.anesthesiaSurgicalHistory, 20, yPos);
+    yPos += 6;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+
+    if (assessment.anesthesiaHistory && assessment.anesthesiaHistory.length > 0) {
+      const items = assessment.anesthesiaHistory.filter(h => h).join(', ');
+      if (items) {
+        const lines = doc.splitTextToSize(`${t.anesthesiaHistoryIssues}: ${items}${assessment.anesthesiaHistoryOther ? ', ' + assessment.anesthesiaHistoryOther : ''}`, 165);
+        lines.forEach((line: string) => {
+          checkNewPage();
+          doc.text(line, 20, yPos);
+          yPos += 5;
+        });
+      }
+    }
+
+    if (assessment.dentalIssues && assessment.dentalIssues.length > 0) {
+      const items = assessment.dentalIssues.filter(d => d).join(', ');
+      if (items) {
+        const lines = doc.splitTextToSize(`${t.dentalIssues}: ${items}${assessment.dentalIssuesOther ? ', ' + assessment.dentalIssuesOther : ''}`, 165);
+        lines.forEach((line: string) => {
+          checkNewPage();
+          doc.text(line, 20, yPos);
+          yPos += 5;
+        });
+      }
+    }
+
+    if (assessment.ponvTransfusion && assessment.ponvTransfusion.length > 0) {
+      const items = assessment.ponvTransfusion.filter(p => p).join(', ');
+      if (items) {
+        const lines = doc.splitTextToSize(`${t.ponvTransfusion}: ${items}${assessment.ponvTransfusionOther ? ', ' + assessment.ponvTransfusionOther : ''}`, 165);
+        lines.forEach((line: string) => {
+          checkNewPage();
+          doc.text(line, 20, yPos);
+          yPos += 5;
+        });
+      }
+    }
+
+    if (assessment.previousSurgeries) {
+      const lines = doc.splitTextToSize(`${t.previousSurgeries}: ${assessment.previousSurgeries}`, 165);
+      lines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+
+    // Planned Anesthesia
+    yPos += 3;
+    checkNewPage(20);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.plannedAnesthesia, 20, yPos);
+    yPos += 6;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+
+    const techniques: string[] = [];
+    if (assessment.anesthesiaTechniques) {
+      const techMap: Record<string, string> = {
+        general: t.generalAnesthesia,
+        spinal: t.spinal,
+        epidural: t.epidural,
+        regional: t.regional,
+        sedation: t.sedation,
+        combined: t.combined,
+      };
+      for (const [key, val] of Object.entries(assessment.anesthesiaTechniques)) {
+        if (val && techMap[key]) {
+          techniques.push(techMap[key]);
+        }
+      }
+    }
+    if (techniques.length > 0) {
+      doc.text(`${t.techniques}: ${techniques.join(', ')}`, 20, yPos);
+      yPos += 5;
+    }
+
+    if (assessment.generalOptions && assessment.generalOptions.length > 0) {
+      const opts = assessment.generalOptions.filter(o => o).join(', ');
+      if (opts) {
+        doc.text(`${t.generalOptions}: ${opts}`, 20, yPos);
+        yPos += 5;
+      }
+    }
+
+    if (assessment.epiduralOptions && assessment.epiduralOptions.length > 0) {
+      const opts = assessment.epiduralOptions.filter(o => o).join(', ');
+      if (opts) {
+        doc.text(`${t.epiduralOptions}: ${opts}`, 20, yPos);
+        yPos += 5;
+      }
+    }
+
+    if (assessment.regionalOptions && assessment.regionalOptions.length > 0) {
+      const opts = assessment.regionalOptions.filter(o => o).join(', ');
+      if (opts) {
+        doc.text(`${t.regionalOptions}: ${opts}`, 20, yPos);
+        yPos += 5;
+      }
+    }
+
+    if (assessment.postOpIcu) {
+      doc.text(`${t.postOpICU}: ${t.yes}`, 20, yPos);
+      yPos += 5;
+    }
+
+    if (assessment.otherAnesthesiaNotes) {
+      const lines = doc.splitTextToSize(`${t.otherAnesthesiaNotes}: ${assessment.otherAnesthesiaNotes}`, 165);
+      lines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+
+    // Special Notes
+    if (assessment.specialNotes) {
+      yPos += 3;
+      checkNewPage(15);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text(t.specialNotes, 20, yPos);
+      yPos += 6;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      const lines = doc.splitTextToSize(assessment.specialNotes, 165);
+      lines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+
+    // Anesthesia Technique Information
+    yPos += 5;
+    checkNewPage(40);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.anesthesiaTechniqueInfo, 20, yPos);
+    yPos += 6;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+
+    const renderTechniqueInfo = (title: string, desc: string, risks: string) => {
+      checkNewPage(25);
+      doc.setFont('helvetica', 'bold');
+      doc.text(title, 25, yPos);
+      yPos += 4;
+      doc.setFont('helvetica', 'normal');
+      const descLines = doc.splitTextToSize(desc, 155);
+      descLines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, 30, yPos);
+        yPos += 4;
+      });
+      const riskLines = doc.splitTextToSize(risks, 155);
+      riskLines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, 30, yPos);
+        yPos += 4;
+      });
+      yPos += 2;
+    };
+
+    if (assessment.anesthesiaTechniques) {
+      const techData = assessment.anesthesiaTechniques as Record<string, boolean>;
+      if (techData.general) {
+        renderTechniqueInfo(t.techniqueGeneral, t.techniqueGeneralDesc, t.techniqueGeneralRisks);
+      }
+      if (techData.spinal) {
+        renderTechniqueInfo(t.techniqueSpinal, t.techniqueSpinalDesc, t.techniqueSpinalRisks);
+      }
+      if (techData.epidural) {
+        renderTechniqueInfo(t.techniqueEpidural, t.techniqueEpiduralDesc, t.techniqueEpiduralRisks);
+      }
+      if (techData.regional) {
+        renderTechniqueInfo(t.techniqueRegional, t.techniqueRegionalDesc, t.techniqueRegionalRisks);
+      }
+      if (techData.sedation) {
+        renderTechniqueInfo(t.techniqueSedation, t.techniqueSedationDesc, t.techniqueSedationRisks);
+      }
+      if (techData.combined) {
+        renderTechniqueInfo(t.techniqueCombined, t.techniqueCombinedDesc, t.techniqueCombinedRisks);
+      }
+    }
+
+    // Fasting Requirements
+    yPos += 3;
+    checkNewPage(20);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.fastingRequirements, 20, yPos);
+    yPos += 6;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`• ${t.fastingFood}`, 25, yPos);
+    yPos += 4;
+    doc.text(`• ${t.fastingLiquids}`, 25, yPos);
+    yPos += 6;
+
+    // Ambulatory Supervision
+    checkNewPage(15);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.ambulatorySupervision, 20, yPos);
+    yPos += 6;
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    const ambLines = doc.splitTextToSize(t.ambulatorySupervisionText, 165);
+    ambLines.forEach((line: string) => {
+      checkNewPage();
+      doc.text(line, 20, yPos);
+      yPos += 4;
+    });
+
+    // Informed Consent
+    yPos += 5;
+    checkNewPage(30);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.informedConsent, 20, yPos);
+    yPos += 7;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+
+    const consentItems: string[] = [];
+    if (assessment.consentGeneral) consentItems.push(t.generalConsentGiven);
+    if (assessment.consentAnalgosedation) consentItems.push(t.analgosedation);
+    if (assessment.consentRegional) consentItems.push(t.regionalAnesthesia);
+    if (assessment.consentInstallations) consentItems.push(t.installations);
+    if (assessment.consentIcu) consentItems.push(t.icuIntensiveCare);
+
+    if (consentItems.length > 0) {
+      doc.text(`${t.consentFor}: ${consentItems.join(', ')}`, 20, yPos);
+      yPos += 6;
+    }
+
+    if (assessment.consentInfo) {
+      const consentLines = doc.splitTextToSize(`${t.consentInfo}: ${assessment.consentInfo}`, 165);
+      consentLines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+
+    if (assessment.additionalConsentNotes) {
+      const noteLines = doc.splitTextToSize(`${t.additionalConsentNotes}: ${assessment.additionalConsentNotes}`, 165);
+      noteLines.forEach((line: string) => {
+        checkNewPage();
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+
+    // Doctor Signature
+    yPos += 5;
+    checkNewPage(30);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.doctorSignature, 20, yPos);
+    yPos += 5;
+    doc.setFont('helvetica', 'normal');
+
+    if (assessment.doctorSignature) {
+      try {
+        doc.addImage(assessment.doctorSignature, 'PNG', 20, yPos, 60, 20);
+        yPos += 22;
+      } catch {
+        yPos += 5;
+      }
+    } else {
+      doc.setDrawColor(0, 0, 0);
+      doc.line(20, yPos + 15, 100, yPos + 15);
+      doc.setFontSize(8);
+      doc.text(t.signature, 20, yPos + 20);
+      yPos += 25;
+    }
+
+    // Patient Signature from Questionnaire
+    if (assessment.patientSignature) {
+      checkNewPage(30);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text(t.patientSignatureQuestionnaire, 20, yPos);
+      yPos += 5;
+      doc.setFont('helvetica', 'normal');
+      try {
+        doc.addImage(assessment.patientSignature, 'PNG', 20, yPos, 60, 20);
+        yPos += 22;
+      } catch {
+        yPos += 5;
+      }
+    }
+
+    // Physical Patient Signature
+    yPos += 5;
+    checkNewPage(30);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.patientSignaturePhysical, 20, yPos);
+    yPos += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setDrawColor(0, 0, 0);
+    doc.line(20, yPos + 15, 100, yPos + 15);
+    doc.setFontSize(8);
+    doc.text(t.signature, 20, yPos + 20);
+
+    doc.line(120, yPos + 15, 180, yPos + 15);
+    doc.text(t.date, 120, yPos + 20);
+
+    const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+    
+    const dateStr = surgery.plannedDate 
+      ? new Date(surgery.plannedDate).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
+    const safeFullName = `${patientSurname}_${patientFirstName}`.replace(/[^a-zA-Z0-9\-_ ]/g, '').replace(/\s+/g, '_');
+    const filename = `preop-${dateStr}-${safeFullName}.pdf`;
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("Error downloading pre-op PDF:", error);
+    res.status(500).json({ message: "Failed to download pre-op PDF" });
+  }
+});
+
 // Send pre-op assessment PDF via email
 router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {

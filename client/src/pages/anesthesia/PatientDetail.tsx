@@ -1696,11 +1696,9 @@ export default function PatientDetail() {
     setIsDownloadingPreOpPdf(true);
     try {
       const language = consentData.emailLanguage || 'de';
-      const response = await fetch(`/api/anesthesia/preop/batch-export?language=${language}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(`/api/anesthesia/preop/${existingAssessment.id}/pdf?language=${language}`, {
+        method: 'GET',
         credentials: 'include',
-        body: JSON.stringify({ assessmentIds: [existingAssessment.id] }),
       });
       
       if (!response.ok) {
@@ -1713,7 +1711,7 @@ export default function PatientDetail() {
       a.href = url;
       
       const patientName = patient ? `${patient.surname}_${patient.firstName}`.replace(/[^a-zA-Z0-9_-]/g, '') : 'patient';
-      a.download = `preop-${patientName}.zip`;
+      a.download = `preop-${patientName}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
