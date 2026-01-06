@@ -513,6 +513,7 @@ export default function PatientDetail() {
     emergencyNoSignature: false,
     sendEmailCopy: false,
     emailForCopy: "",
+    emailLanguage: "de" as "en" | "de",
   });
   
   // Signature pad states
@@ -1028,6 +1029,7 @@ export default function PatientDetail() {
         emergencyNoSignature: existingAssessment.emergencyNoSignature || false,
         sendEmailCopy: existingAssessment.sendEmailCopy || false,
         emailForCopy: existingAssessment.emailForCopy || "",
+        emailLanguage: (existingAssessment.emailLanguage as "en" | "de") || "de",
       });
     } else if (isPreOpOpen && !existingAssessment && patient) {
       // Reset form with patient allergies and current user's name for new assessments
@@ -1070,12 +1072,13 @@ export default function PatientDetail() {
   // Mutation to create pre-op assessment
   const createPreOpMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("POST", "/api/anesthesia/preop", {
+      const response = await apiRequest("POST", "/api/anesthesia/preop", {
         surgeryId: selectedCaseId,
         ...data,
       });
+      return { response, shouldSendEmail: data.sendEmailCopy && data.emailForCopy };
     },
-    onSuccess: () => {
+    onSuccess: async (result: { response: any; shouldSendEmail: boolean }) => {
       // Clear saving flag after a short delay to allow React to settle
       setTimeout(() => { isSavingRef.current = false; }, 500);
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
@@ -1084,6 +1087,10 @@ export default function PatientDetail() {
         title: t('anesthesia.patientDetail.saved'),
         description: t('anesthesia.patientDetail.preOpAssessmentSaved'),
       });
+      
+      if (result.shouldSendEmail && result.response?.id) {
+        sendEmailMutation.mutate(result.response.id);
+      }
     },
     onError: (error: any) => {
       isSavingRef.current = false;
@@ -1098,9 +1105,10 @@ export default function PatientDetail() {
   // Mutation to update pre-op assessment
   const updatePreOpMutation = useMutation({
     mutationFn: async (data: any) => {
-      return await apiRequest("PATCH", `/api/anesthesia/preop/${existingAssessment?.id}`, data);
+      const response = await apiRequest("PATCH", `/api/anesthesia/preop/${existingAssessment?.id}`, data);
+      return { response, shouldSendEmail: data.sendEmailCopy && data.emailForCopy, assessmentId: existingAssessment?.id };
     },
-    onSuccess: () => {
+    onSuccess: (result: { response: any; shouldSendEmail: boolean; assessmentId: string | undefined }) => {
       // Clear saving flag after a short delay to allow React to settle
       setTimeout(() => { isSavingRef.current = false; }, 500);
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
@@ -1109,12 +1117,37 @@ export default function PatientDetail() {
         title: t('anesthesia.patientDetail.updated'),
         description: t('anesthesia.patientDetail.preOpAssessmentUpdated'),
       });
+      
+      if (result.shouldSendEmail && result.assessmentId) {
+        sendEmailMutation.mutate(result.assessmentId);
+      }
     },
     onError: (error: any) => {
       isSavingRef.current = false;
       toast({
         title: t('anesthesia.patientDetail.error'),
         description: error.message || t('anesthesia.patientDetail.errorUpdateAssessment'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to send pre-op assessment PDF via email
+  const sendEmailMutation = useMutation({
+    mutationFn: async (assessmentId: string) => {
+      return await apiRequest("POST", `/api/anesthesia/preop/${assessmentId}/send-email`);
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
+      toast({
+        title: t('anesthesia.patientDetail.emailSent', 'Email Sent'),
+        description: t('anesthesia.patientDetail.emailSentDescription', 'Pre-op assessment sent to patient'),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('anesthesia.patientDetail.emailError', 'Email Error'),
+        description: error.message || t('anesthesia.patientDetail.emailSendFailed', 'Failed to send email'),
         variant: "destructive",
       });
     },
@@ -1196,6 +1229,7 @@ export default function PatientDetail() {
       emergencyNoSignature: consentData.emergencyNoSignature,
       sendEmailCopy: consentData.sendEmailCopy,
       emailForCopy: consentData.emailForCopy,
+      emailLanguage: consentData.emailLanguage,
       // Set status - completed if explicitly marked or if signature present
       status: markAsCompleted ? "completed" : ((overrideData.doctorSignature || assessmentData.doctorSignature) ? "completed" : "draft"),
     };
@@ -4903,21 +4937,53 @@ export default function PatientDetail() {
                       </div>
                       
                       {consentData.sendEmailCopy && (
-                        <div className="space-y-2 ml-6">
-                          <Label className="text-sm">{t('anesthesia.patientDetail.emailForCopy')}</Label>
-                          <Input
-                            type="email"
-                            value={consentData.emailForCopy}
-                            onChange={(e) => setConsentData({...consentData, emailForCopy: e.target.value})}
-                            placeholder={patient?.email || t('anesthesia.patientDetail.enterPatientEmail')}
-                            disabled={isPreOpReadOnly}
-                            data-testid="input-email-for-copy"
-                          />
-                          {!consentData.emailForCopy && !patient?.email && (
-                            <p className="text-xs text-muted-foreground">
-                              {t('anesthesia.patientDetail.noEmailAvailable')}
-                            </p>
-                          )}
+                        <div className="space-y-3 ml-6">
+                          <div className="space-y-2">
+                            <Label className="text-sm">{t('anesthesia.patientDetail.emailForCopy')}</Label>
+                            <Input
+                              type="email"
+                              value={consentData.emailForCopy}
+                              onChange={(e) => setConsentData({...consentData, emailForCopy: e.target.value})}
+                              placeholder={patient?.email || t('anesthesia.patientDetail.enterPatientEmail')}
+                              disabled={isPreOpReadOnly}
+                              data-testid="input-email-for-copy"
+                            />
+                            {!consentData.emailForCopy && !patient?.email && (
+                              <p className="text-xs text-muted-foreground">
+                                {t('anesthesia.patientDetail.noEmailAvailable')}
+                              </p>
+                            )}
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label className="text-sm">{t('anesthesia.patientDetail.documentLanguage', 'Document Language')}</Label>
+                            <div className="flex gap-2">
+                              <Button
+                                type="button"
+                                variant={consentData.emailLanguage === 'de' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setConsentData({...consentData, emailLanguage: 'de'})}
+                                disabled={isPreOpReadOnly}
+                                className="flex items-center gap-2"
+                                data-testid="button-email-lang-de"
+                              >
+                                <span className="text-lg">🇩🇪</span>
+                                <span>Deutsch</span>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant={consentData.emailLanguage === 'en' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => setConsentData({...consentData, emailLanguage: 'en'})}
+                                disabled={isPreOpReadOnly}
+                                className="flex items-center gap-2"
+                                data-testid="button-email-lang-en"
+                              >
+                                <span className="text-lg">🇬🇧</span>
+                                <span>English</span>
+                              </Button>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>

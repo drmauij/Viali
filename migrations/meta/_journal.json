@@ -330,6 +330,13 @@
       "when": 1767690956132,
       "tag": "0046_married_whiplash",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1767704181489,
+      "tag": "0047_glossy_mikhail_rasputin",
+      "breakpoints": true
     }
   ]
 }

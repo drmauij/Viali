@@ -1423,6 +1423,8 @@ export const preOpAssessments = pgTable("preop_assessments", {
   emergencyNoSignature: boolean("emergency_no_signature").default(false),
   sendEmailCopy: boolean("send_email_copy").default(false),
   emailForCopy: varchar("email_for_copy"),
+  emailLanguage: varchar("email_language").default("de"), // 'en' | 'de'
+  emailSentAt: timestamp("email_sent_at"),
   consentNotes: text("consent_notes"),
   
   createdAt: timestamp("created_at").defaultNow(),

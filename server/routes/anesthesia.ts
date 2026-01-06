@@ -2910,15 +2910,49 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
         yPos += 2;
       };
 
-      // Header
-      doc.setFontSize(16);
+      // Professional Header with Logo
+      const hospitalData = hospital as any;
+      const hasLogo = hospitalData?.companyLogoUrl;
+      
+      if (hasLogo) {
+        try {
+          const response = await fetch(hospitalData.companyLogoUrl);
+          const arrayBuffer = await response.arrayBuffer();
+          const base64 = Buffer.from(arrayBuffer).toString('base64');
+          const mimeType = response.headers.get('content-type') || 'image/png';
+          const dataUrl = `data:${mimeType};base64,${base64}`;
+          doc.addImage(dataUrl, 'PNG', 20, yPos - 5, 25, 25);
+        } catch (e) {
+          console.warn('Could not load hospital logo:', e);
+        }
+      }
+      
+      const headerStartX = hasLogo ? 50 : 20;
+      
+      doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
       if (hospital?.name) {
-        doc.text(hospital.name, 105, yPos, { align: 'center' });
-        yPos += 8;
+        doc.text(hospital.name, headerStartX, yPos);
+        yPos += 5;
       }
+      
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      if (hospitalData?.companyAddress) {
+        doc.text(hospitalData.companyAddress, headerStartX, yPos);
+        yPos += 4;
+      }
+      if (hospitalData?.companyPhone) {
+        doc.text(hospitalData.companyPhone, headerStartX, yPos);
+        yPos += 4;
+      }
+      
+      yPos = hasLogo ? Math.max(yPos, 45) : yPos + 3;
+      
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
       doc.text(t.title, 105, yPos, { align: 'center' });
-      yPos += 12;
+      yPos += 10;
 
       doc.setDrawColor(200, 200, 200);
       doc.setLineWidth(0.5);
@@ -3445,6 +3479,360 @@ router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: a
     if (!res.headersSent) {
       res.status(500).json({ message: "Failed to export pre-op assessments" });
     }
+  }
+});
+
+// Send pre-op assessment PDF via email
+router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { assessmentId } = req.params;
+    const userId = req.user.id;
+    
+    const assessment = await storage.getPreOpAssessmentById(assessmentId);
+    if (!assessment) {
+      return res.status(404).json({ message: "Assessment not found" });
+    }
+    
+    const surgery = await storage.getSurgery(assessment.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+    
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    
+    const recipientEmail = assessment.emailForCopy;
+    if (!recipientEmail) {
+      return res.status(400).json({ message: "No email address specified for this assessment" });
+    }
+    
+    const language = (assessment.emailLanguage as 'en' | 'de') || 'de';
+    const patient = await storage.getPatient(surgery.patientId);
+    const hospital = await storage.getHospital(surgery.hospitalId);
+    
+    const translations: Record<string, Record<string, string>> = {
+      en: {
+        title: 'Pre-Operative Assessment',
+        patientInfo: 'Patient Information',
+        name: 'Name',
+        birthday: 'Date of Birth',
+        gender: 'Gender',
+        male: 'Male',
+        female: 'Female',
+        other: 'Other',
+        years: 'years',
+        surgeryInfo: 'Surgery Information',
+        plannedSurgery: 'Planned Surgery',
+        surgeon: 'Surgeon',
+        plannedDate: 'Planned Date',
+        preOpAssessment: 'Pre-Operative Assessment',
+        asaClassification: 'ASA Classification',
+        weight: 'Weight',
+        height: 'Height',
+        allergies: 'Allergies',
+        cave: 'CAVE',
+        medications: 'Medications',
+        anticoagulation: 'Anticoagulation Medications',
+        generalMeds: 'General Medications',
+        medicationNotes: 'Medication Notes',
+        medicalHistory: 'Medical History',
+        heart: 'Heart & Circulation',
+        lungs: 'Lungs',
+        gi: 'Gastrointestinal',
+        kidney: 'Kidney',
+        metabolic: 'Metabolic',
+        neuro: 'Neurological',
+        psych: 'Psychological',
+        skeletal: 'Skeletal/Muscular',
+        coagulation: 'Coagulation',
+        infectious: 'Infectious',
+        women: 'Women\'s Health',
+        noxen: 'Smoking/Alcohol/Drugs',
+        pediatric: 'Pediatric Issues',
+        notes: 'Notes',
+        anesthesiaSurgicalHistory: 'Anesthesia & Surgical History',
+        anesthesiaHistoryIssues: 'Anesthesia History Issues',
+        dentalIssues: 'Dental Issues',
+        ponvTransfusion: 'PONV / Transfusion',
+        previousSurgeries: 'Previous Surgeries',
+        plannedAnesthesia: 'Planned Anesthesia',
+        techniques: 'Techniques',
+        emailSubject: 'Your Pre-Operative Assessment',
+        emailBody: 'Please find attached your pre-operative assessment document.',
+      },
+      de: {
+        title: 'Präoperative Beurteilung',
+        patientInfo: 'Patienteninformation',
+        name: 'Name',
+        birthday: 'Geburtsdatum',
+        gender: 'Geschlecht',
+        male: 'Männlich',
+        female: 'Weiblich',
+        other: 'Andere',
+        years: 'Jahre',
+        surgeryInfo: 'Operationsinformation',
+        plannedSurgery: 'Geplante Operation',
+        surgeon: 'Chirurg',
+        plannedDate: 'Geplantes Datum',
+        preOpAssessment: 'Präoperative Beurteilung',
+        asaClassification: 'ASA-Klassifikation',
+        weight: 'Gewicht',
+        height: 'Größe',
+        allergies: 'Allergien',
+        cave: 'CAVE',
+        medications: 'Medikamente',
+        anticoagulation: 'Antikoagulation',
+        generalMeds: 'Allgemeine Medikamente',
+        medicationNotes: 'Medikationshinweise',
+        medicalHistory: 'Krankengeschichte',
+        heart: 'Herz & Kreislauf',
+        lungs: 'Lunge',
+        gi: 'Magen-Darm',
+        kidney: 'Niere',
+        metabolic: 'Stoffwechsel',
+        neuro: 'Neurologie',
+        psych: 'Psychologie',
+        skeletal: 'Skelett/Muskel',
+        coagulation: 'Gerinnung',
+        infectious: 'Infektiös',
+        women: 'Frauengesundheit',
+        noxen: 'Rauchen/Alkohol/Drogen',
+        pediatric: 'Pädiatrische Probleme',
+        notes: 'Hinweise',
+        anesthesiaSurgicalHistory: 'Anästhesie- & OP-Vorgeschichte',
+        anesthesiaHistoryIssues: 'Anästhesie-Vorgeschichte',
+        dentalIssues: 'Zahnprobleme',
+        ponvTransfusion: 'PONV / Transfusion',
+        previousSurgeries: 'Frühere Operationen',
+        plannedAnesthesia: 'Geplante Anästhesie',
+        techniques: 'Verfahren',
+        emailSubject: 'Ihre präoperative Beurteilung',
+        emailBody: 'Im Anhang finden Sie Ihr präoperatives Beurteilungsdokument.',
+      }
+    };
+    
+    const t = translations[language] || translations.de;
+    
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    let yPos = 20;
+    
+    const checkNewPage = (requiredSpace: number = 15) => {
+      if (yPos > 280 - requiredSpace) {
+        doc.addPage();
+        yPos = 20;
+      }
+    };
+    
+    const hospitalData = hospital as any;
+    const hasLogo = hospitalData?.companyLogoUrl;
+    
+    if (hasLogo) {
+      try {
+        const response = await fetch(hospitalData.companyLogoUrl);
+        const arrayBuffer = await response.arrayBuffer();
+        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        const mimeType = response.headers.get('content-type') || 'image/png';
+        const dataUrl = `data:${mimeType};base64,${base64}`;
+        doc.addImage(dataUrl, 'PNG', 20, yPos - 5, 25, 25);
+      } catch (e) {
+        console.warn('Could not load hospital logo:', e);
+      }
+    }
+    
+    const headerStartX = hasLogo ? 50 : 20;
+    
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    if (hospital?.name) {
+      doc.text(hospital.name, headerStartX, yPos);
+      yPos += 5;
+    }
+    
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'normal');
+    if (hospitalData?.companyAddress) {
+      doc.text(hospitalData.companyAddress, headerStartX, yPos);
+      yPos += 4;
+    }
+    if (hospitalData?.companyPhone) {
+      doc.text(hospitalData.companyPhone, headerStartX, yPos);
+      yPos += 4;
+    }
+    
+    yPos = hasLogo ? Math.max(yPos, 45) : yPos + 3;
+    
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.title, 105, yPos, { align: 'center' });
+    yPos += 10;
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(20, yPos, 190, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.patientInfo, 20, yPos);
+    yPos += 7;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    
+    const patientSurname = patient?.surname || '';
+    const patientFirstName = patient?.firstName || '';
+    const patientName = `${patientSurname}, ${patientFirstName}`.trim().replace(/^,\s*|,\s*$/g, '') || 'Unknown';
+    doc.text(`${t.name}: ${patientName}`, 20, yPos);
+    yPos += 5;
+    
+    if (patient?.birthday) {
+      const birthDate = new Date(patient.birthday);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const monthDiff = today.getMonth() - birthDate.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+      const formattedBirthday = birthDate.toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE');
+      doc.text(`${t.birthday}: ${formattedBirthday} (${age} ${t.years})`, 20, yPos);
+      yPos += 5;
+    }
+    
+    if (patient?.sex) {
+      const genderText = patient.sex === 'M' ? t.male : patient.sex === 'F' ? t.female : t.other;
+      doc.text(`${t.gender}: ${genderText}`, 20, yPos);
+      yPos += 5;
+    }
+    
+    yPos += 5;
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.surgeryInfo, 20, yPos);
+    yPos += 7;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    
+    if (surgery.plannedSurgery) {
+      const surgeryLines = doc.splitTextToSize(`${t.plannedSurgery}: ${surgery.plannedSurgery}`, 165);
+      surgeryLines.forEach((line: string) => {
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+    if (surgery.surgeon) {
+      doc.text(`${t.surgeon}: ${surgery.surgeon}`, 20, yPos);
+      yPos += 5;
+    }
+    if (surgery.plannedDate) {
+      const plannedDate = new Date(surgery.plannedDate).toLocaleDateString(language === 'en' ? 'en-GB' : 'de-DE');
+      doc.text(`${t.plannedDate}: ${plannedDate}`, 20, yPos);
+      yPos += 5;
+    }
+    
+    yPos += 5;
+    
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(t.preOpAssessment, 20, yPos);
+    yPos += 7;
+    
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    
+    if (assessment.asa) {
+      doc.text(`${t.asaClassification}: ${assessment.asa}`, 20, yPos);
+      yPos += 5;
+    }
+    if (assessment.weight) {
+      doc.text(`${t.weight}: ${assessment.weight} kg`, 20, yPos);
+      yPos += 5;
+    }
+    if (assessment.height) {
+      doc.text(`${t.height}: ${assessment.height} cm`, 20, yPos);
+      yPos += 5;
+    }
+    
+    const allergies: string[] = [];
+    if (patient?.allergies && Array.isArray(patient.allergies)) {
+      allergies.push(...patient.allergies.filter(a => a));
+    }
+    if (patient?.otherAllergies) {
+      allergies.push(patient.otherAllergies);
+    }
+    if (allergies.length > 0) {
+      checkNewPage();
+      const allergyText = `${t.allergies}: ${allergies.join(', ')}`;
+      const allergyLines = doc.splitTextToSize(allergyText, 165);
+      allergyLines.forEach((line: string) => {
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+    
+    if (assessment.cave) {
+      checkNewPage();
+      const caveLines = doc.splitTextToSize(`${t.cave}: ${assessment.cave}`, 165);
+      caveLines.forEach((line: string) => {
+        doc.text(line, 20, yPos);
+        yPos += 5;
+      });
+    }
+    
+    const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+    
+    const dateStr = surgery.plannedDate 
+      ? new Date(surgery.plannedDate).toISOString().split('T')[0]
+      : new Date().toISOString().split('T')[0];
+    const safeFullName = `${patientSurname}_${patientFirstName}`.replace(/[^a-zA-Z0-9\-_ ]/g, '').replace(/\s+/g, '_');
+    const filename = `preop-${dateStr}-${safeFullName}.pdf`;
+    
+    const { Resend } = await import('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    
+    await resend.emails.send({
+      from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
+      to: recipientEmail,
+      subject: `${t.emailSubject} - ${hospital?.name || 'Hospital'}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">${t.title}</h2>
+          <p>${t.emailBody}</p>
+          <p style="color: #666; font-size: 14px;">
+            ${patientName}<br/>
+            ${surgery.plannedSurgery || ''}
+          </p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+          <p style="color: #999; font-size: 12px;">
+            ${hospital?.name || ''}
+          </p>
+        </div>
+      `,
+      attachments: [
+        {
+          filename: filename,
+          content: pdfBuffer.toString('base64'),
+        }
+      ]
+    });
+    
+    await storage.updatePreOpAssessment(assessmentId, {
+      emailSentAt: new Date()
+    });
+    
+    res.json({ 
+      success: true, 
+      message: language === 'en' ? 'Email sent successfully' : 'E-Mail erfolgreich gesendet',
+      sentTo: recipientEmail
+    });
+  } catch (error: any) {
+    console.error("Error sending pre-op email:", error);
+    res.status(500).json({ 
+      message: "Failed to send email", 
+      error: error.message 
+    });
   }
 });
 
