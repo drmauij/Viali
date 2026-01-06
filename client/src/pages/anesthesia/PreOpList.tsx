@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -117,11 +117,33 @@ export default function PreOpList() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState<"planned" | "draft" | "standby" | "completed">("planned");
+  
+  // Read initial tab from URL query parameter
+  const getInitialTab = (): "planned" | "draft" | "standby" | "completed" => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && ['planned', 'draft', 'standby', 'completed'].includes(tabParam)) {
+      return tabParam as "planned" | "draft" | "standby" | "completed";
+    }
+    return "planned";
+  };
+  
+  const [activeTab, setActiveTab] = useState<"planned" | "draft" | "standby" | "completed">(getInitialTab);
   const [standByFilter, setStandByFilter] = useState<"all" | "consent_required" | "signature_missing">("all");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isExporting, setIsExporting] = useState(false);
   const [showLanguageDialog, setShowLanguageDialog] = useState(false);
+
+  // Update URL when tab changes (using replaceState to avoid polluting history)
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (activeTab === 'planned') {
+      url.searchParams.delete('tab');
+    } else {
+      url.searchParams.set('tab', activeTab);
+    }
+    window.history.replaceState({}, '', url.toString());
+  }, [activeTab]);
 
   // Get active hospital
   const activeHospital = useActiveHospital();
