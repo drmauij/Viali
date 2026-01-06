@@ -2631,6 +2631,255 @@ router.patch('/api/anesthesia/preop/:id', isAuthenticated, requireWriteAccess, a
   }
 });
 
+router.post('/api/anesthesia/preop/batch-export', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { assessmentIds } = req.body;
+
+    if (!assessmentIds || !Array.isArray(assessmentIds) || assessmentIds.length === 0) {
+      return res.status(400).json({ message: "assessmentIds array is required" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hospitalIds = hospitals.map(h => h.id);
+
+    const { jsPDF } = await import('jspdf');
+    const archiver = (await import('archiver')).default;
+
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="preop-assessments.zip"');
+    
+    archive.pipe(res);
+
+    for (const assessmentId of assessmentIds) {
+      const assessment = await storage.getPreOpAssessmentById(assessmentId);
+      if (!assessment) continue;
+
+      const surgery = await storage.getSurgery(assessment.surgeryId);
+      if (!surgery) continue;
+
+      if (!hospitalIds.includes(surgery.hospitalId)) continue;
+
+      const patient = await storage.getPatient(surgery.patientId);
+      const hospital = await storage.getHospital(surgery.hospitalId);
+
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+      let yPos = 20;
+
+      doc.setFontSize(16);
+      doc.setFont('helvetica', 'bold');
+      if (hospital?.name) {
+        doc.text(hospital.name, 105, yPos, { align: 'center' });
+        yPos += 8;
+      }
+      doc.text('Pre-Op Assessment / Anästhesie-Aufklärung', 105, yPos, { align: 'center' });
+      yPos += 12;
+
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.5);
+      doc.line(20, yPos, 190, yPos);
+      yPos += 8;
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Patient Information', 20, yPos);
+      yPos += 7;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      
+      const patientName = patient ? `${patient.firstName || ''} ${patient.lastName || ''}`.trim() : 'Unknown';
+      doc.text(`Name: ${patientName}`, 20, yPos);
+      yPos += 5;
+
+      if (patient?.birthday) {
+        const birthDate = new Date(patient.birthday);
+        const today = new Date();
+        let age = today.getFullYear() - birthDate.getFullYear();
+        const monthDiff = today.getMonth() - birthDate.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+        const formattedBirthday = birthDate.toLocaleDateString('de-DE');
+        doc.text(`Birthday: ${formattedBirthday} (${age} years)`, 20, yPos);
+        yPos += 5;
+      }
+
+      if (patient?.sex) {
+        doc.text(`Gender: ${patient.sex === 'M' ? 'Male' : 'Female'}`, 20, yPos);
+        yPos += 5;
+      }
+
+      yPos += 5;
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Surgery Information', 20, yPos);
+      yPos += 7;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+      
+      if (surgery.procedureName) {
+        doc.text(`Procedure: ${surgery.procedureName}`, 20, yPos);
+        yPos += 5;
+      }
+      if (surgery.surgeon) {
+        doc.text(`Surgeon: ${surgery.surgeon}`, 20, yPos);
+        yPos += 5;
+      }
+      if (surgery.plannedDate) {
+        const plannedDate = new Date(surgery.plannedDate).toLocaleDateString('de-DE');
+        doc.text(`Planned Date: ${plannedDate}`, 20, yPos);
+        yPos += 5;
+      }
+
+      yPos += 5;
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Pre-Op Assessment', 20, yPos);
+      yPos += 7;
+
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'normal');
+
+      if (assessment.asa) {
+        doc.text(`ASA Classification: ${assessment.asa}`, 20, yPos);
+        yPos += 5;
+      }
+      if (assessment.weight) {
+        doc.text(`Weight: ${assessment.weight} kg`, 20, yPos);
+        yPos += 5;
+      }
+      if (assessment.height) {
+        doc.text(`Height: ${assessment.height} cm`, 20, yPos);
+        yPos += 5;
+      }
+
+      const allergies: string[] = [];
+      if (patient?.allergies && Array.isArray(patient.allergies)) {
+        allergies.push(...patient.allergies);
+      }
+      if (patient?.otherAllergies) {
+        allergies.push(patient.otherAllergies);
+      }
+      if (allergies.length > 0) {
+        doc.text(`Allergies: ${allergies.join(', ')}`, 20, yPos);
+        yPos += 5;
+      }
+
+      if (assessment.cave) {
+        doc.text(`CAVE: ${assessment.cave}`, 20, yPos);
+        yPos += 5;
+      }
+
+      if (assessment.permanentMedication) {
+        const lines = doc.splitTextToSize(`Permanent Medication: ${assessment.permanentMedication}`, 165);
+        lines.forEach((line: string) => {
+          doc.text(line, 20, yPos);
+          yPos += 5;
+        });
+      }
+
+      if (assessment.specialNotes) {
+        const lines = doc.splitTextToSize(`Special Notes: ${assessment.specialNotes}`, 165);
+        lines.forEach((line: string) => {
+          doc.text(line, 20, yPos);
+          yPos += 5;
+        });
+      }
+
+      yPos += 10;
+
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Informed Consent', 20, yPos);
+      yPos += 8;
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+
+      if (assessment.consentText) {
+        const consentLines = doc.splitTextToSize(assessment.consentText, 165);
+        consentLines.forEach((line: string) => {
+          if (yPos > 260) {
+            doc.addPage();
+            yPos = 20;
+          }
+          doc.text(line, 20, yPos);
+          yPos += 4;
+        });
+        yPos += 5;
+      }
+
+      if (assessment.consentDoctorSignature) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Doctor Signature:', 20, yPos);
+        yPos += 3;
+        try {
+          doc.addImage(assessment.consentDoctorSignature, 'PNG', 20, yPos, 50, 20);
+          doc.setDrawColor(200, 200, 200);
+          doc.rect(20, yPos, 50, 20);
+        } catch (e) {
+          doc.rect(20, yPos, 50, 20);
+        }
+        yPos += 25;
+      }
+
+      if (assessment.patientSignature) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Patient Signature (from questionnaire):', 20, yPos);
+        yPos += 3;
+        try {
+          doc.addImage(assessment.patientSignature, 'PNG', 20, yPos, 50, 20);
+          doc.setDrawColor(200, 200, 200);
+          doc.rect(20, yPos, 50, 20);
+        } catch (e) {
+          doc.rect(20, yPos, 50, 20);
+        }
+        yPos += 25;
+      }
+
+      if (yPos > 230) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      yPos += 10;
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Patient Signature (physical):', 20, yPos);
+      yPos += 5;
+      doc.setFont('helvetica', 'normal');
+      doc.setDrawColor(0, 0, 0);
+      doc.line(20, yPos + 15, 100, yPos + 15);
+      doc.setFontSize(8);
+      doc.text('Signature', 20, yPos + 20);
+
+      doc.line(120, yPos + 15, 180, yPos + 15);
+      doc.text('Date', 120, yPos + 20);
+
+      const pdfBuffer = Buffer.from(doc.output('arraybuffer'));
+      
+      const dateStr = surgery.plannedDate 
+        ? new Date(surgery.plannedDate).toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0];
+      const safeName = patientName.replace(/[^a-zA-Z0-9\-_ ]/g, '').replace(/\s+/g, '_');
+      const filename = `preop-${dateStr}-${safeName}.pdf`;
+
+      archive.append(pdfBuffer, { name: filename });
+    }
+
+    await archive.finalize();
+  } catch (error) {
+    console.error("Error exporting pre-op assessments:", error);
+    if (!res.headersSent) {
+      res.status(500).json({ message: "Failed to export pre-op assessments" });
+    }
+  }
+});
+
 router.get('/api/anesthesia/vitals/:recordId', isAuthenticated, async (req: any, res) => {
   try {
     const { recordId } = req.params;

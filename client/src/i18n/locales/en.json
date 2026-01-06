@@ -1113,7 +1113,13 @@
       "noMatchingCases": "No matching cases found",
       "cancel": "Cancel",
       "allergies": "Allergies",
-      "filterAll": "All"
+      "filterAll": "All",
+      "selectAll": "Select All",
+      "deselectAll": "Deselect All",
+      "downloadSelected": "Download Selected",
+      "exportSuccess": "Export Complete",
+      "exportSuccessDesc": "Pre-op assessments have been exported as PDFs",
+      "exportError": "Failed to export assessments"
     },
     "pacu": {
       "title": "Post-Anesthesia Care Unit",

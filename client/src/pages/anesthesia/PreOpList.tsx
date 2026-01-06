@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2, Stethoscope, EyeOff, Mail, Send } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2, Stethoscope, EyeOff, Mail, Send, Download, CheckSquare, Square } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -117,6 +118,8 @@ export default function PreOpList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<"planned" | "draft" | "standby" | "completed">("planned");
   const [standByFilter, setStandByFilter] = useState<"all" | "consent_required" | "signature_missing">("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isExporting, setIsExporting] = useState(false);
 
   // Get active hospital
   const activeHospital = useActiveHospital();
@@ -214,6 +217,74 @@ export default function PreOpList() {
   };
 
   const displayedAssessments = sortByPlannedDate(groupedByStatus[activeTab]);
+
+  // Selection helpers for Stand-By tab batch export
+  const toggleSelection = (assessmentId: string) => {
+    setSelectedIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(assessmentId)) {
+        newSet.delete(assessmentId);
+      } else {
+        newSet.add(assessmentId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAll = () => {
+    const standByAssessmentIds = groupedByStatus.standby
+      .filter((item) => item.assessment?.id)
+      .map((item) => item.assessment.id);
+    setSelectedIds(new Set(standByAssessmentIds));
+  };
+
+  const deselectAll = () => {
+    setSelectedIds(new Set());
+  };
+
+  const handleBatchExport = async () => {
+    if (selectedIds.size === 0) return;
+    
+    setIsExporting(true);
+    try {
+      const response = await fetch('/api/anesthesia/preop/batch-export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ assessmentIds: Array.from(selectedIds) }),
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'preop-assessments.zip';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: t('anesthesia.preop.exportSuccess'),
+        description: t('anesthesia.preop.exportSuccessDesc'),
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: t('common.error'),
+        description: t('anesthesia.preop.exportError'),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const getStandByReasonLabel = (reason: string) => {
     switch (reason) {
@@ -333,31 +404,72 @@ export default function PreOpList() {
         
         {/* Stand-By Filter - only visible when Stand-By tab is active */}
         {activeTab === 'standby' && (
-          <div className="flex flex-wrap gap-2">
-            <Badge 
-              variant={standByFilter === 'all' ? 'default' : 'outline'}
-              className="cursor-pointer hover:bg-primary/80 transition-colors"
-              onClick={() => setStandByFilter('all')}
-              data-testid="filter-standby-all"
-            >
-              {t('anesthesia.preop.filterAll')} ({allStandByItems.length})
-            </Badge>
-            <Badge 
-              variant={standByFilter === 'consent_required' ? 'default' : 'outline'}
-              className="cursor-pointer hover:bg-primary/80 transition-colors"
-              onClick={() => setStandByFilter('consent_required')}
-              data-testid="filter-standby-consent"
-            >
-              {t('anesthesia.preop.standByReasons.consentRequired')} ({allStandByItems.filter(i => i.assessment?.standByReason === 'consent_required').length})
-            </Badge>
-            <Badge 
-              variant={standByFilter === 'signature_missing' ? 'default' : 'outline'}
-              className="cursor-pointer hover:bg-primary/80 transition-colors"
-              onClick={() => setStandByFilter('signature_missing')}
-              data-testid="filter-standby-signature"
-            >
-              {t('anesthesia.preop.standByReasons.signatureMissing')} ({allStandByItems.filter(i => i.assessment?.standByReason === 'signature_missing').length})
-            </Badge>
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <Badge 
+                variant={standByFilter === 'all' ? 'default' : 'outline'}
+                className="cursor-pointer hover:bg-primary/80 transition-colors"
+                onClick={() => setStandByFilter('all')}
+                data-testid="filter-standby-all"
+              >
+                {t('anesthesia.preop.filterAll')} ({allStandByItems.length})
+              </Badge>
+              <Badge 
+                variant={standByFilter === 'consent_required' ? 'default' : 'outline'}
+                className="cursor-pointer hover:bg-primary/80 transition-colors"
+                onClick={() => setStandByFilter('consent_required')}
+                data-testid="filter-standby-consent"
+              >
+                {t('anesthesia.preop.standByReasons.consentRequired')} ({allStandByItems.filter(i => i.assessment?.standByReason === 'consent_required').length})
+              </Badge>
+              <Badge 
+                variant={standByFilter === 'signature_missing' ? 'default' : 'outline'}
+                className="cursor-pointer hover:bg-primary/80 transition-colors"
+                onClick={() => setStandByFilter('signature_missing')}
+                data-testid="filter-standby-signature"
+              >
+                {t('anesthesia.preop.standByReasons.signatureMissing')} ({allStandByItems.filter(i => i.assessment?.standByReason === 'signature_missing').length})
+              </Badge>
+            </div>
+            
+            {/* Multi-select controls for batch export */}
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={selectedIds.size === groupedByStatus.standby.filter(i => i.assessment?.id).length ? deselectAll : selectAll}
+                data-testid="button-toggle-select-all"
+              >
+                {selectedIds.size === groupedByStatus.standby.filter(i => i.assessment?.id).length ? (
+                  <>
+                    <Square className="h-4 w-4 mr-1" />
+                    {t('anesthesia.preop.deselectAll')}
+                  </>
+                ) : (
+                  <>
+                    <CheckSquare className="h-4 w-4 mr-1" />
+                    {t('anesthesia.preop.selectAll')}
+                  </>
+                )}
+              </Button>
+              
+              {selectedIds.size > 0 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleBatchExport}
+                  disabled={isExporting}
+                  data-testid="button-download-selected"
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-1" />
+                  )}
+                  {t('anesthesia.preop.downloadSelected')} ({selectedIds.size})
+                </Button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -377,11 +489,13 @@ export default function PreOpList() {
           displayedAssessments.map((item) => {
             const surgery = item.surgery;
             const age = calculateAge(surgery.patientBirthday);
+            const assessmentId = item.assessment?.id;
+            const isSelected = assessmentId ? selectedIds.has(assessmentId) : false;
             
             return (
               <Card 
                 key={surgery.id} 
-                className="p-4 cursor-pointer hover:bg-accent/50 transition-colors" 
+                className={`p-4 cursor-pointer hover:bg-accent/50 transition-colors ${isSelected && activeTab === 'standby' ? 'ring-2 ring-primary' : ''}`}
                 data-testid={`card-preop-${surgery.id}`}
                 onClick={() => setLocation(`/anesthesia/patients/${surgery.patientId}?openPreOp=${surgery.id}`)}
               >
@@ -389,6 +503,16 @@ export default function PreOpList() {
                   {/* Patient Info */}
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
+                      {/* Checkbox for Stand-By tab multi-select */}
+                      {activeTab === 'standby' && assessmentId && (
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelection(assessmentId)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-5 w-5"
+                          data-testid={`checkbox-preop-${surgery.id}`}
+                        />
+                      )}
                       {surgery.patientSex === "M" ? (
                         <UserCircle className="h-6 w-6 text-blue-500" />
                       ) : (

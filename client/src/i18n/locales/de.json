@@ -1113,7 +1113,13 @@
       "noMatchingCases": "Keine passenden Fälle gefunden",
       "cancel": "Abbrechen",
       "allergies": "Allergien",
-      "filterAll": "Alle"
+      "filterAll": "Alle",
+      "selectAll": "Alle auswählen",
+      "deselectAll": "Alle abwählen",
+      "downloadSelected": "Ausgewählte herunterladen",
+      "exportSuccess": "Export abgeschlossen",
+      "exportSuccessDesc": "Präop-Assessments wurden als PDFs exportiert",
+      "exportError": "Fehler beim Exportieren der Assessments"
     },
     "pacu": {
       "title": "Aufwachraum",
