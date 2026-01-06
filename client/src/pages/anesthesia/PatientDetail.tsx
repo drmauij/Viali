@@ -91,6 +91,7 @@ export default function PatientDetail() {
   const [, setLocation] = useLocation();
   const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
   const [isPreOpOpen, setIsPreOpOpen] = useState(false);
+  const [isDownloadingPreOpPdf, setIsDownloadingPreOpPdf] = useState(false);
   const [selectedCaseId, setSelectedCaseId] = useState<string>("");
   const [isPatientCardVisible, setIsPatientCardVisible] = useState(true);
   const patientCardRef = useRef<HTMLDivElement>(null);
@@ -1688,6 +1689,51 @@ export default function PatientDetail() {
     setSelectedQuestionnaireForImport(null);
   };
 
+  // Handle pre-op assessment PDF download
+  const handleDownloadPreOpPDF = async () => {
+    if (!existingAssessment?.id) return;
+    
+    setIsDownloadingPreOpPdf(true);
+    try {
+      const language = consentData.emailLanguage || 'de';
+      const response = await fetch(`/api/anesthesia/preop/batch-export?language=${language}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ assessmentIds: [existingAssessment.id] }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to download PDF');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      const patientName = patient ? `${patient.surname}_${patient.firstName}`.replace(/[^a-zA-Z0-9_-]/g, '') : 'patient';
+      a.download = `preop-${patientName}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: t('anesthesia.patientDetail.pdfDownloaded', 'PDF Downloaded'),
+        description: t('anesthesia.patientDetail.preOpPdfDownloadSuccess', 'Pre-op assessment downloaded successfully'),
+      });
+    } catch (error) {
+      toast({
+        title: t('anesthesia.patientDetail.error'),
+        description: t('anesthesia.patientDetail.errorDownloadingPdf', 'Failed to download PDF'),
+        variant: "destructive",
+      });
+    } finally {
+      setIsDownloadingPreOpPdf(false);
+    }
+  };
+
   // Handle PDF download for a surgery - uses centralized PDF generation utility
   const handleDownloadPDF = async (surgery: Surgery) => {
     if (!patient) {
@@ -2815,23 +2861,40 @@ export default function PatientDetail() {
             <DialogDescription className="sr-only">Pre-operative assessment and informed consent forms</DialogDescription>
             <div className="flex items-center justify-between mb-4 pr-10">
               <DialogTitle className="text-lg md:text-2xl">Pre-Operative Assessment</DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  // If opened via URL navigation, use history.back() to return to previous page
-                  // If opened via button click, just close the dialog
-                  if (preOpOpenedViaUrl.current && window.history.length > 1) {
-                    window.history.back();
-                  } else {
-                    setIsPreOpOpen(false);
-                  }
-                }}
-                className="absolute right-2 top-2 md:right-4 md:top-4 z-10"
-                data-testid="button-close-preop-dialog"
-              >
-                <X className="h-5 w-5" />
-              </Button>
+              <div className="flex items-center gap-1 absolute right-2 top-2 md:right-4 md:top-4 z-10">
+                {existingAssessment && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleDownloadPreOpPDF}
+                    disabled={isDownloadingPreOpPdf}
+                    data-testid="button-download-preop-pdf"
+                    title={t('anesthesia.patientDetail.downloadPreOpPdf', 'Download Pre-Op PDF')}
+                  >
+                    {isDownloadingPreOpPdf ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Download className="h-5 w-5" />
+                    )}
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    // If opened via URL navigation, use history.back() to return to previous page
+                    // If opened via button click, just close the dialog
+                    if (preOpOpenedViaUrl.current && window.history.length > 1) {
+                      window.history.back();
+                    } else {
+                      setIsPreOpOpen(false);
+                    }
+                  }}
+                  data-testid="button-close-preop-dialog"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
             </div>
             <div className="flex items-center gap-3">
               {patient.sex === "M" ? (
