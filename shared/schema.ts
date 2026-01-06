@@ -150,6 +150,22 @@ export const surgeryRooms = pgTable("surgery_rooms", {
   index("idx_surgery_rooms_hospital").on(table.hospitalId),
 ]);
 
+// Camera Devices (Raspberry Pi cameras for automated vital signs capture)
+export const cameraDevices = pgTable("camera_devices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  cameraId: varchar("camera_id").notNull(), // Unique identifier set on the Raspberry Pi (e.g., "cam-or-1")
+  name: varchar("name").notNull(), // Display name (e.g., "OR 1 Vitals Camera")
+  surgeryRoomId: varchar("surgery_room_id").references(() => surgeryRooms.id), // Optional: link to specific OR
+  captureIntervalSeconds: integer("capture_interval_seconds").default(300), // Default 5 minutes
+  isActive: boolean("is_active").default(true),
+  lastSeenAt: timestamp("last_seen_at"), // Last time an image was uploaded
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_camera_devices_hospital").on(table.hospitalId),
+  index("idx_camera_devices_camera_id").on(table.cameraId),
+]);
+
 // Folders (for organizing items)
 export const folders = pgTable("folders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -861,6 +877,10 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
   anesthesiaType: varchar("anesthesia_type", { 
     enum: ["general", "spinal", "epidural", "regional", "sedation", "combined"] 
   }),
+  
+  // Camera device for automated vitals capture
+  cameraDeviceId: varchar("camera_device_id").references(() => cameraDevices.id),
+  autoCaptureEnabled: boolean("auto_capture_enabled").default(false), // Enable automatic vitals capture from camera
   
   // Case status
   caseStatus: varchar("case_status", { enum: ["open", "closed", "amended"] }).notNull().default("open"),
@@ -2221,6 +2241,12 @@ export const insertSurgeryRoomSchema = createInsertSchema(surgeryRooms).omit({
   createdAt: true,
 });
 
+export const insertCameraDeviceSchema = createInsertSchema(cameraDevices).omit({
+  id: true,
+  lastSeenAt: true,
+  createdAt: true,
+});
+
 // Anesthesia Module Insert Schemas
 export const insertHospitalAnesthesiaSettingsSchema = createInsertSchema(hospitalAnesthesiaSettings).omit({
   id: true,
@@ -2979,6 +3005,8 @@ export type AdministrationGroup = typeof administrationGroups.$inferSelect;
 export type InsertAdministrationGroup = z.infer<typeof insertAdministrationGroupSchema>;
 export type SurgeryRoom = typeof surgeryRooms.$inferSelect;
 export type InsertSurgeryRoom = z.infer<typeof insertSurgeryRoomSchema>;
+export type CameraDevice = typeof cameraDevices.$inferSelect;
+export type InsertCameraDevice = z.infer<typeof insertCameraDeviceSchema>;
 
 // Anesthesia Module Types
 export type HospitalAnesthesiaSettings = typeof hospitalAnesthesiaSettings.$inferSelect;

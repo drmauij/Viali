@@ -87,6 +87,13 @@ Core design decisions include:
 - **Historical Record Viewport Centering**: The timeline automatically detects historical records and centers the viewport on the actual data range.
 - **Record Locking System**: Anesthesia records are automatically locked when the PACU End (A2) marker is set.
 - **Sticker Documentation Object Storage**: Sticker documentation photos are now stored in Exoscale S3-compatible object storage for improved performance. The system maintains backward compatibility with legacy base64-encoded images. New uploads use presigned URLs for direct browser-to-S3 uploads with pattern `anesthesia/sticker-docs/${recordId}/${uuid}`. Frontend handles both formats transparently.
+- **Raspberry Pi Camera Integration**: Automated vital signs capture system using Raspberry Pi devices with cameras. Pi devices capture images at configurable intervals (default 5 min) and upload to Exoscale S3 storage under `cameras/{cameraId}/{timestamp}.jpg`. The app can fetch these images and process them with Vision AI OCR. Includes:
+  - `raspberry-pi-camera/` folder with Python capture script, config template, and install script
+  - Camera devices table (`camera_devices`) for managing registered cameras per hospital
+  - API endpoints for camera image management (`/cameras/:cameraId/images`, `/cameras/:cameraId/latest`)
+  - CRUD API for camera devices (`/api/camera-devices`)
+  - `useAutoCameraCapture` hook for automatic image fetching and OCR processing
+  - Anesthesia records can be linked to a camera device via `cameraDeviceId` field
 
 ## Planned Features
 
