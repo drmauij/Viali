@@ -25,6 +25,7 @@ import ControlledLog from "@/pages/ControlledLog";
 import Checklists from "@/pages/Checklists";
 import AdminHospital from "@/pages/admin/Hospital";
 import AdminUsers from "@/pages/admin/Users";
+import AdminCameraDevices from "@/pages/admin/CameraDevices";
 import Signup from "@/pages/Signup";
 import ResetPassword from "@/pages/ResetPassword";
 import ChangePasswordDialog from "@/components/ChangePasswordDialog";
@@ -199,6 +200,7 @@ function Router() {
             {/* Admin Module - requires admin role */}
             <Route path="/admin">{() => <ProtectedRoute requireAdmin><AdminHospital /></ProtectedRoute>}</Route>
             <Route path="/admin/users">{() => <ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>}</Route>
+            <Route path="/admin/cameras">{() => <ProtectedRoute requireAdmin><AdminCameraDevices /></ProtectedRoute>}</Route>
             {/* Business Module - requires business unit access */}
             <Route path="/business">{() => <ProtectedRoute requireBusiness><SimplifiedDashboard /></ProtectedRoute>}</Route>
             <Route path="/business/staff">{() => <ProtectedRoute requireBusiness><SimplifiedStaff /></ProtectedRoute>}</Route>

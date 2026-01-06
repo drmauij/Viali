@@ -83,6 +83,7 @@
     "anesthesia.settings": "Einstellungen",
     "admin.hospital": "Krankenhaus",
     "admin.users": "Benutzer",
+    "admin.cameras": "Kameras",
     "surgery": {
       "patients": "Patienten",
       "op": "OP",

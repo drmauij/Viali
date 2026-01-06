@@ -151,6 +151,7 @@ export default function BottomNav() {
       return [
         { id: "admin-hospital", icon: "fas fa-hospital", label: t('bottomNav.admin.hospital'), path: "/admin" },
         { id: "admin-users", icon: "fas fa-users", label: t('bottomNav.admin.users'), path: "/admin/users" },
+        { id: "admin-cameras", icon: "fas fa-camera", label: t('bottomNav.admin.cameras'), path: "/admin/cameras" },
       ];
     }
     
