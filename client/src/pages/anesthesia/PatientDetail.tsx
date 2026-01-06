@@ -393,6 +393,7 @@ export default function PatientDetail() {
   const [uploadDescription, setUploadDescription] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [documentToDelete, setDocumentToDelete] = useState<StaffDocument | null>(null);
+  const [patientUploadToDelete, setPatientUploadToDelete] = useState<QuestionnaireUpload | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch hospital anesthesia settings
@@ -788,6 +789,28 @@ export default function PatientDetail() {
         description: t('anesthesia.patientDetail.documentDeletedDesc', 'The document has been removed'),
       });
       setDocumentToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('anesthesia.patientDetail.error'),
+        description: error.message || t('anesthesia.patientDetail.errorDocumentDelete', 'Failed to delete document'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to delete a patient questionnaire upload
+  const deletePatientUploadMutation = useMutation({
+    mutationFn: async (uploadId: string) => {
+      return await apiRequest("DELETE", `/api/questionnaire/uploads/${uploadId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient-uploads', params?.id] });
+      toast({
+        title: t('anesthesia.patientDetail.documentDeleted', 'Document deleted'),
+        description: t('anesthesia.patientDetail.documentDeletedDesc', 'The document has been removed'),
+      });
+      setPatientUploadToDelete(null);
     },
     onError: (error: any) => {
       toast({
@@ -2571,20 +2594,37 @@ export default function PatientDetail() {
                       return (
                         <div 
                           key={upload.id}
-                          className="flex flex-col p-4 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
+                          className="flex flex-col p-4 border rounded-lg hover:bg-muted/50 transition-colors group relative"
                           data-testid={`document-upload-${upload.id}`}
-                          onClick={() => {
-                            setPreviewDocument({
-                              id: upload.id,
-                              fileName: upload.fileName,
-                              mimeType: upload.mimeType || '',
-                              url: fileStreamUrl,
-                            });
-                            if (!isPreOpOpen) {
-                              setIsPreOpOpen(true);
-                            }
-                          }}
                         >
+                          {canWrite && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 hover:bg-destructive hover:text-destructive-foreground z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPatientUploadToDelete(upload);
+                              }}
+                              data-testid={`button-delete-patient-upload-${upload.id}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <div 
+                            className="cursor-pointer"
+                            onClick={() => {
+                              setPreviewDocument({
+                                id: upload.id,
+                                fileName: upload.fileName,
+                                mimeType: upload.mimeType || '',
+                                url: fileStreamUrl,
+                              });
+                              if (!isPreOpOpen) {
+                                setIsPreOpOpen(true);
+                              }
+                            }}
+                          >
                           {isImage ? (
                             <div className="w-full h-40 mb-3 overflow-hidden rounded bg-muted">
                               <img 
@@ -2621,6 +2661,7 @@ export default function PatientDetail() {
                             {upload.description && (
                               <p className="text-sm text-muted-foreground line-clamp-2">{upload.description}</p>
                             )}
+                          </div>
                           </div>
                         </div>
                       );
@@ -5818,6 +5859,37 @@ export default function PatientDetail() {
               data-testid="button-confirm-delete-document"
             >
               {deleteDocumentMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t('common.deleting', 'Deleting...')}
+                </>
+              ) : (
+                t('common.delete')
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Patient Upload Confirmation Dialog */}
+      <AlertDialog open={!!patientUploadToDelete} onOpenChange={(open) => !open && setPatientUploadToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('anesthesia.patientDetail.deleteDocument', 'Delete Document')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('anesthesia.patientDetail.deleteDocumentConfirm', 'Are you sure you want to delete "{fileName}"? This action cannot be undone.', { fileName: patientUploadToDelete?.fileName })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-patient-upload">
+              {t('common.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => patientUploadToDelete && deletePatientUploadMutation.mutate(patientUploadToDelete.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-patient-upload"
+            >
+              {deletePatientUploadMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   {t('common.deleting', 'Deleting...')}

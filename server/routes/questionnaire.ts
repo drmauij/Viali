@@ -1598,4 +1598,79 @@ router.get('/api/questionnaire/uploads/:uploadId/file', isAuthenticated, async (
   }
 });
 
+// Delete questionnaire upload (authenticated - for staff)
+router.delete('/api/questionnaire/uploads/:uploadId', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const { uploadId } = req.params;
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
+    
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID required" });
+    }
+
+    // Get the upload record
+    const upload = await storage.getQuestionnaireUploadById(uploadId);
+    if (!upload) {
+      return res.status(404).json({ message: "Upload not found" });
+    }
+
+    // Get the response to verify hospital access
+    const response = await storage.getQuestionnaireResponse(upload.responseId);
+    if (!response) {
+      return res.status(404).json({ message: "Response not found" });
+    }
+
+    // Get the link to verify hospital
+    const link = await storage.getQuestionnaireLink(response.linkId);
+    if (!link || link.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Access denied to this upload" });
+    }
+
+    // Verify user has access to this hospital
+    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    // Delete from S3 if configured
+    const endpoint = process.env.S3_ENDPOINT;
+    const accessKeyId = process.env.S3_ACCESS_KEY;
+    const secretAccessKey = process.env.S3_SECRET_KEY;
+    const bucket = process.env.S3_BUCKET;
+    const region = process.env.S3_REGION || "ch-dk-2";
+
+    if (endpoint && accessKeyId && secretAccessKey && bucket) {
+      try {
+        const fileUrl = upload.fileUrl;
+        const key = fileUrl.startsWith('/objects/') ? fileUrl.slice(9) : fileUrl;
+
+        const s3Client = new S3Client({
+          endpoint,
+          region,
+          credentials: { accessKeyId, secretAccessKey },
+          forcePathStyle: true,
+        });
+
+        const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+        const command = new DeleteObjectCommand({
+          Bucket: bucket,
+          Key: key,
+        });
+        await s3Client.send(command);
+      } catch (s3Error) {
+        console.error("Error deleting file from S3:", s3Error);
+        // Continue to delete from database even if S3 delete fails
+      }
+    }
+
+    // Delete from database
+    await storage.deleteQuestionnaireUpload(uploadId);
+
+    res.json({ message: "Upload deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting questionnaire upload:", error);
+    res.status(500).json({ message: "Failed to delete upload" });
+  }
+});
+
 export default router;

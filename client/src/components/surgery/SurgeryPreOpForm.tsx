@@ -15,6 +15,7 @@ import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, Save, CheckCircle2, Eye, Upload, Trash2, FileImage, FileText, Pencil, Camera, ChevronDown, ChevronUp, AlertCircle, AlertTriangle, X, Import, Search, ClipboardList } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
@@ -301,6 +302,9 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
     mimeType: string;
     url: string;
   } | null>(null);
+  
+  // State for patient upload deletion
+  const [patientUploadToDelete, setPatientUploadToDelete] = useState<QuestionnaireUpload | null>(null);
 
   // Fetch the selected questionnaire response details
   const { data: selectedQuestionnaireResponse, isLoading: isLoadingQuestionnaireResponse } = useQuery<{
@@ -365,6 +369,28 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
       toast({
         title: t('common.error'),
         description: error.message || t('surgery.preop.associationFailed', 'Failed to associate questionnaire'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Mutation to delete a patient questionnaire upload
+  const deletePatientUploadMutation = useMutation({
+    mutationFn: async (uploadId: string) => {
+      return await apiRequest("DELETE", `/api/questionnaire/uploads/${uploadId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient-uploads', patientId] });
+      toast({
+        title: t('anesthesia.patientDetail.documentDeleted', 'Document deleted'),
+        description: t('anesthesia.patientDetail.documentDeletedDesc', 'The document has been removed'),
+      });
+      setPatientUploadToDelete(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('anesthesia.patientDetail.errorDocumentDelete', 'Failed to delete document'),
         variant: "destructive",
       });
     },
@@ -1063,7 +1089,7 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
                       return (
                         <div 
                           key={upload.id}
-                          className="flex flex-col p-3 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
+                          className="flex flex-col p-3 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer relative"
                           data-testid={`patient-upload-${upload.id}`}
                           onClick={() => {
                             setPreviewDocument({
@@ -1074,6 +1100,20 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
                             });
                           }}
                         >
+                          {canWrite && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute top-2 right-2 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 hover:bg-destructive hover:text-destructive-foreground z-10"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPatientUploadToDelete(upload);
+                              }}
+                              data-testid={`button-delete-patient-upload-${upload.id}`}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          )}
                           {isImage ? (
                             <div className="w-full h-32 mb-2 overflow-hidden rounded bg-muted">
                               <img 
@@ -1120,6 +1160,39 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
             </Card>
           </AccordionItem>
         )}
+
+        {/* Patient Upload Delete Confirmation Dialog */}
+        <AlertDialog open={!!patientUploadToDelete} onOpenChange={(open) => !open && setPatientUploadToDelete(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('anesthesia.patientDetail.deleteDocument', 'Delete Document')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('anesthesia.patientDetail.deleteDocumentConfirm', 'Are you sure you want to delete this document? This action cannot be undone.')}
+                {patientUploadToDelete && (
+                  <span className="block mt-2 font-medium">{patientUploadToDelete.fileName}</span>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common.cancel', 'Cancel')}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => {
+                  if (patientUploadToDelete) {
+                    deletePatientUploadMutation.mutate(patientUploadToDelete.id);
+                  }
+                }}
+              >
+                {deletePatientUploadMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-2" />
+                )}
+                {t('common.delete', 'Delete')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Document Preview Dialog */}
         <Dialog open={!!previewDocument} onOpenChange={(open) => !open && setPreviewDocument(null)}>
