@@ -93,6 +93,24 @@ chmod +x "$INSTALL_DIR/capture.py"
 # Reload systemd
 sudo systemctl daemon-reload
 
+# Install Raspberry Pi Connect for remote diagnostics
+echo ""
+echo "============================================"
+echo "Raspberry Pi Connect (Remote Diagnostics)"
+echo "============================================"
+echo ""
+read -p "Install Raspberry Pi Connect for remote access? (y/n) " -n 1 -r
+echo
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Installing Raspberry Pi Connect..."
+    sudo apt-get update
+    sudo apt-get install -y rpi-connect
+    echo ""
+    echo "Raspberry Pi Connect installed!"
+    echo "To enable remote access, run: rpi-connect signin"
+    echo "Then access your Pi at: https://connect.raspberrypi.com"
+fi
+
 echo ""
 echo "============================================"
 echo "Installation Complete!"
@@ -117,4 +135,8 @@ echo "6. View logs:"
 echo "   tail -f $INSTALL_DIR/capture.log"
 echo "   # or"
 echo "   sudo journalctl -u viali-camera.service -f"
+echo ""
+echo "7. (Optional) Set up Raspberry Pi Connect for remote diagnostics:"
+echo "   rpi-connect signin"
+echo "   # Then access at: https://connect.raspberrypi.com"
 echo ""

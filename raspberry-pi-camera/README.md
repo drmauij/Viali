@@ -108,6 +108,93 @@ python3 -c "import cv2; cap=cv2.VideoCapture(0); ret,frame=cap.read(); cv2.imwri
 - Check logs for errors
 - Verify Python dependencies: `pip3 list | grep boto3`
 
+## Remote Diagnostics with Raspberry Pi Connect
+
+[Raspberry Pi Connect](https://www.raspberrypi.com/software/connect/) provides free, secure remote access to your camera Pis from anywhere via web browser - no VPN or port forwarding needed.
+
+### Why Use Pi Connect?
+
+- **Troubleshoot remotely**: Access any camera Pi from your office or home
+- **Check image quality**: View captured images directly on the Pi
+- **Monitor logs**: Watch capture script logs in real-time
+- **Adjust settings**: Tune camera exposure, focus, and configuration
+- **Restart services**: Recover from issues without physical access
+
+### Setup
+
+1. **During installation**, answer "y" when prompted to install Raspberry Pi Connect
+
+2. **Sign in** (one-time setup on each Pi):
+   ```bash
+   rpi-connect signin
+   ```
+   This displays a URL and verification code. Visit the URL on any device, sign in with your Raspberry Pi ID, and enter the code.
+
+3. **Access remotely** at [connect.raspberrypi.com](https://connect.raspberrypi.com):
+   - See all your connected Pis in one dashboard
+   - Click "Connect via" → "Remote shell" for terminal access
+   - Click "Connect via" → "Screen sharing" for desktop access (Desktop OS only)
+
+### Useful Diagnostic Commands
+
+Once connected via remote shell, use these commands to diagnose issues:
+
+```bash
+# Check service status
+sudo systemctl status viali-camera.service
+
+# View live logs
+tail -f /home/pi/camera-capture/capture.log
+
+# Check last 50 log entries
+tail -n 50 /home/pi/camera-capture/capture.log
+
+# View recent captured images
+ls -la /home/pi/camera-capture/pending_uploads/
+
+# Test camera capture manually
+cd /home/pi/camera-capture && python3 -c "
+import cv2
+cap = cv2.VideoCapture(0)
+ret, frame = cap.read()
+cv2.imwrite('test-capture.jpg', frame)
+cap.release()
+print('Test image saved: test-capture.jpg')
+"
+
+# View test image dimensions
+file test-capture.jpg
+
+# Check network connectivity
+ping -c 3 sos-ch-gva-2.exo.io
+
+# Check disk space
+df -h
+
+# Check available memory
+free -h
+
+# Restart the capture service
+sudo systemctl restart viali-camera.service
+
+# Check S3 credentials are set
+grep -E "^S3_" /home/pi/camera-capture/config.env | sed 's/=.*/=***/'
+```
+
+### Manual Installation (if skipped during setup)
+
+```bash
+sudo apt-get update
+sudo apt-get install -y rpi-connect
+rpi-connect signin
+```
+
+### Requirements
+
+- Raspberry Pi OS Bookworm or newer
+- Raspberry Pi 4, Pi 5, or Pi Zero 2 W
+- Internet connection
+
 ## Security Considerations
 
 - **Config file permissions**: The installer sets `config.env` to `chmod 600` (owner read/write only) to protect S3 credentials
@@ -115,6 +202,7 @@ python3 -c "import cv2; cap=cv2.VideoCapture(0); ret,frame=cap.read(); cv2.imwri
 - **Credential rotation**: Consider rotating S3 access keys periodically
 - **Scoped IAM credentials**: Create dedicated S3 credentials with minimal permissions (write access to `cameras/` prefix only)
 - **Network security**: Ensure the Raspberry Pi is on a secure network segment
+- **Pi Connect security**: Uses end-to-end encryption; access requires your Raspberry Pi ID authentication
 
 ## How It Works
 
