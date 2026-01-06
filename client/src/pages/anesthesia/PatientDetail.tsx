@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -4748,6 +4748,33 @@ export default function PatientDetail() {
                           {t('anesthesia.patientDetail.postoperativeIcuPurpose')}
                         </p>
                       </div>
+                    </div>
+
+                    {/* Fasting Requirements Section */}
+                    <div className="p-4 border rounded-lg bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+                      <div className="flex items-center gap-2 mb-3">
+                        <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                        <h4 className="font-semibold text-amber-800 dark:text-amber-300">
+                          {t('anesthesia.patientDetail.fastingRequirements', 'Pre-Operative Fasting Requirements')}
+                        </h4>
+                      </div>
+                      <ul className="list-disc list-inside space-y-1 text-sm text-amber-800 dark:text-amber-200">
+                        <li>{t('anesthesia.patientDetail.fastingFood', 'No solid food for 6 hours before surgery')}</li>
+                        <li>{t('anesthesia.patientDetail.fastingLiquids', 'No liquids for 2 hours before surgery (water only allowed until then)')}</li>
+                      </ul>
+                    </div>
+
+                    {/* Ambulatory Supervision Section */}
+                    <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <h4 className="font-semibold text-blue-800 dark:text-blue-300">
+                          {t('anesthesia.patientDetail.ambulatorySupervision', 'Post-Anesthesia Care for Outpatients')}
+                        </h4>
+                      </div>
+                      <p className="text-sm text-blue-800 dark:text-blue-200">
+                        {t('anesthesia.patientDetail.ambulatorySupervisionText', 'For outpatient (ambulatory) procedures: The patient must be accompanied and supervised by a responsible adult for 24 hours after anesthesia.')}
+                      </p>
                     </div>
                     
                     <div className="space-y-2 p-4 border rounded-lg bg-muted/30">
