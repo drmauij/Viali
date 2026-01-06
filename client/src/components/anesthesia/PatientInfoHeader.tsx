@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { UserCircle, AlertCircle, Download, X, Wifi, WifiOff, RefreshCw, Users } from "lucide-react";
+import { UserCircle, AlertCircle, Download, X, Wifi, WifiOff, RefreshCw, Users, Camera, CameraOff } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
 
@@ -24,6 +24,9 @@ interface PatientInfoHeaderProps {
   connectionState?: ConnectionState;
   viewers?: number;
   onForceReconnect?: () => void;
+  cameraDeviceName?: string | null;
+  isCameraConnected?: boolean;
+  onOpenCameraDialog?: () => void;
 }
 
 export function PatientInfoHeader({
@@ -42,6 +45,9 @@ export function PatientInfoHeader({
   connectionState = 'disconnected',
   viewers = 0,
   onForceReconnect,
+  cameraDeviceName,
+  isCameraConnected = false,
+  onOpenCameraDialog,
 }: PatientInfoHeaderProps) {
   const { t } = useTranslation();
 
@@ -77,6 +83,43 @@ export function PatientInfoHeader({
     <div className="shrink-0 bg-background relative">
       {/* Action Buttons - Fixed top-right */}
       <div className="absolute right-2 top-2 md:right-4 md:top-4 z-10 flex items-center gap-2">
+        {/* Camera Connection Indicator */}
+        {onOpenCameraDialog && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div 
+                className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
+                  isCameraConnected 
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' 
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400'
+                }`}
+                onClick={onOpenCameraDialog}
+                data-testid="camera-connection-indicator"
+              >
+                {isCameraConnected ? (
+                  <Camera className="h-4 w-4" />
+                ) : (
+                  <CameraOff className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {isCameraConnected 
+                    ? (cameraDeviceName || t('anesthesia.op.cameraStatus.connected', 'Camera'))
+                    : t('anesthesia.op.cameraStatus.notConnected', 'No Camera')
+                  }
+                </span>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                {isCameraConnected 
+                  ? t('anesthesia.op.cameraStatus.connectedTooltip', 'Auto-capture active') + (cameraDeviceName ? `: ${cameraDeviceName}` : '')
+                  : t('anesthesia.op.cameraStatus.notConnectedTooltip', 'Click to connect a camera for auto-capture')
+                }
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        )}
+
         {/* Connection Status Indicator */}
         <Tooltip>
           <TooltipTrigger asChild>
