@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { de, enGB } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -496,6 +496,41 @@ export default function ClinicCalendar({
     },
   });
 
+  // Cal.com integration - check if configured
+  const { data: calcomConfig } = useQuery<{
+    isEnabled?: boolean;
+    apiKey?: string;
+    lastSyncAt?: string;
+    lastSyncError?: string;
+  }>({
+    queryKey: [`/api/clinic/${hospitalId}/calcom-config`],
+    enabled: !!hospitalId,
+  });
+  
+  const calcomEnabled = calcomConfig?.isEnabled && calcomConfig?.apiKey === '***configured***';
+  
+  // Cal.com manual sync mutation
+  const calcomSyncMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/calcom-sync`);
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/calcom-config`] });
+      toast({ 
+        title: t('common.success'), 
+        description: `Synced ${data.syncedBlocks || 0} busy blocks to Cal.com`,
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: t('common.error'), 
+        description: error.message || 'Failed to sync with Cal.com', 
+        variant: 'destructive' 
+      });
+    },
+  });
+
   const handleEventDrop = useCallback(async ({ event, start, end, resourceId }: any) => {
     // Don't allow dragging surgery or absence blocks
     if (event.isSurgeryBlock || event.isAbsenceBlock) return;
@@ -814,6 +849,24 @@ export default function ClinicCalendar({
             <CalendarRange className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
             <span className="hidden sm:inline">{t('opCalendar.month', 'Month')}</span>
           </Button>
+          {calcomEnabled && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => calcomSyncMutation.mutate()}
+              disabled={calcomSyncMutation.isPending}
+              data-testid="button-calcom-sync"
+              className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
+              title={calcomConfig?.lastSyncAt ? `Last sync: ${new Date(calcomConfig.lastSyncAt).toLocaleString()}` : 'Sync with Cal.com'}
+            >
+              {calcomSyncMutation.isPending ? (
+                <RefreshCw className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+              ) : (
+                <Cloud className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
+              )}
+              <span className="hidden sm:inline">{t('appointments.calcomSync', 'Cal.com')}</span>
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"

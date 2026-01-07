@@ -216,6 +216,12 @@ import {
   type InsertScheduledJob,
   scheduledJobs,
   type ClinicService,
+  calcomConfig,
+  calcomProviderMappings,
+  type CalcomConfig,
+  type InsertCalcomConfig,
+  type CalcomProviderMapping,
+  type InsertCalcomProviderMapping,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -776,6 +782,15 @@ export interface IStorage {
   // Timebutler Config
   getTimebutlerConfig(hospitalId: string): Promise<TimebutlerConfig | undefined>;
   upsertTimebutlerConfig(config: InsertTimebutlerConfig): Promise<TimebutlerConfig>;
+  
+  // Cal.com Integration Config
+  getCalcomConfig(hospitalId: string): Promise<CalcomConfig | undefined>;
+  upsertCalcomConfig(config: InsertCalcomConfig): Promise<CalcomConfig>;
+  getCalcomProviderMappings(hospitalId: string): Promise<CalcomProviderMapping[]>;
+  getCalcomProviderMapping(hospitalId: string, providerId: string): Promise<CalcomProviderMapping | undefined>;
+  upsertCalcomProviderMapping(mapping: InsertCalcomProviderMapping): Promise<CalcomProviderMapping>;
+  deleteCalcomProviderMapping(id: string): Promise<void>;
+  updateCalcomProviderMappingBusyBlocks(id: string, busyBlockMapping: Record<string, string>): Promise<CalcomProviderMapping>;
   
   // Clinic Appointments
   getClinicAppointments(unitId: string, filters?: {
@@ -7206,6 +7221,86 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return upserted;
+  }
+
+  async getCalcomConfig(hospitalId: string): Promise<CalcomConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(calcomConfig)
+      .where(eq(calcomConfig.hospitalId, hospitalId));
+    return config;
+  }
+
+  async upsertCalcomConfig(config: InsertCalcomConfig): Promise<CalcomConfig> {
+    const [upserted] = await db
+      .insert(calcomConfig)
+      .values(config)
+      .onConflictDoUpdate({
+        target: calcomConfig.hospitalId,
+        set: {
+          apiKey: config.apiKey,
+          webhookSecret: config.webhookSecret,
+          isEnabled: config.isEnabled,
+          syncBusyBlocks: config.syncBusyBlocks,
+          syncTimebutlerAbsences: config.syncTimebutlerAbsences,
+          lastSyncAt: config.lastSyncAt,
+          lastSyncError: config.lastSyncError,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return upserted;
+  }
+
+  async getCalcomProviderMappings(hospitalId: string): Promise<CalcomProviderMapping[]> {
+    return db
+      .select()
+      .from(calcomProviderMappings)
+      .where(eq(calcomProviderMappings.hospitalId, hospitalId));
+  }
+
+  async getCalcomProviderMapping(hospitalId: string, providerId: string): Promise<CalcomProviderMapping | undefined> {
+    const [mapping] = await db
+      .select()
+      .from(calcomProviderMappings)
+      .where(and(
+        eq(calcomProviderMappings.hospitalId, hospitalId),
+        eq(calcomProviderMappings.providerId, providerId)
+      ));
+    return mapping;
+  }
+
+  async upsertCalcomProviderMapping(mapping: InsertCalcomProviderMapping): Promise<CalcomProviderMapping> {
+    const [upserted] = await db
+      .insert(calcomProviderMappings)
+      .values(mapping)
+      .onConflictDoUpdate({
+        target: [calcomProviderMappings.hospitalId, calcomProviderMappings.providerId],
+        set: {
+          calcomEventTypeId: mapping.calcomEventTypeId,
+          calcomUserId: mapping.calcomUserId,
+          calcomScheduleId: mapping.calcomScheduleId,
+          isEnabled: mapping.isEnabled,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return upserted;
+  }
+
+  async deleteCalcomProviderMapping(id: string): Promise<void> {
+    await db
+      .delete(calcomProviderMappings)
+      .where(eq(calcomProviderMappings.id, id));
+  }
+
+  async updateCalcomProviderMappingBusyBlocks(id: string, busyBlockMapping: Record<string, string>): Promise<CalcomProviderMapping> {
+    const [updated] = await db
+      .update(calcomProviderMappings)
+      .set({ busyBlockMapping, updatedAt: new Date() })
+      .where(eq(calcomProviderMappings.id, id))
+      .returning();
+    return updated;
   }
 
   async getClinicAppointments(unitId: string, filters?: {

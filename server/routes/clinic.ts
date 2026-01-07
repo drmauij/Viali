@@ -14,8 +14,9 @@ import {
   items,
   itemCodes,
   units,
+  hospitals,
 } from "@shared/schema";
-import { eq, and, desc, sql, max, inArray, or } from "drizzle-orm";
+import { eq, and, desc, sql, max, inArray, or, gte, lte } from "drizzle-orm";
 import { z } from "zod";
 
 const router = Router();
@@ -1534,6 +1535,479 @@ router.get('/api/clinic/:hospitalId/provider-surgeries', isAuthenticated, isClin
   } catch (error) {
     console.error("Error fetching provider surgeries:", error);
     res.status(500).json({ message: "Failed to fetch provider surgeries" });
+  }
+});
+
+// ========================================
+// Cal.com Integration
+// ========================================
+
+// Get Cal.com config
+router.get('/api/clinic/:hospitalId/calcom-config', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    const config = await storage.getCalcomConfig(hospitalId);
+    
+    if (!config) {
+      return res.json({
+        hospitalId,
+        isEnabled: false,
+        apiKey: null,
+        syncBusyBlocks: true,
+        syncTimebutlerAbsences: true,
+      });
+    }
+    
+    res.json({
+      ...config,
+      apiKey: config.apiKey ? '***configured***' : null,
+    });
+  } catch (error) {
+    console.error("Error fetching Cal.com config:", error);
+    res.status(500).json({ message: "Failed to fetch Cal.com config" });
+  }
+});
+
+// Update Cal.com config
+router.put('/api/clinic/:hospitalId/calcom-config', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { apiKey, webhookSecret, isEnabled, syncBusyBlocks, syncTimebutlerAbsences } = req.body;
+    
+    const existing = await storage.getCalcomConfig(hospitalId);
+    
+    const config = await storage.upsertCalcomConfig({
+      hospitalId,
+      apiKey: apiKey === '***configured***' ? existing?.apiKey : apiKey,
+      webhookSecret: webhookSecret === '***configured***' ? existing?.webhookSecret : webhookSecret,
+      isEnabled: isEnabled ?? existing?.isEnabled ?? false,
+      syncBusyBlocks: syncBusyBlocks ?? existing?.syncBusyBlocks ?? true,
+      syncTimebutlerAbsences: syncTimebutlerAbsences ?? existing?.syncTimebutlerAbsences ?? true,
+    });
+    
+    res.json({
+      ...config,
+      apiKey: config.apiKey ? '***configured***' : null,
+      webhookSecret: config.webhookSecret ? '***configured***' : null,
+    });
+  } catch (error) {
+    console.error("Error updating Cal.com config:", error);
+    res.status(500).json({ message: "Failed to update Cal.com config" });
+  }
+});
+
+// Get Cal.com provider mappings
+router.get('/api/clinic/:hospitalId/calcom-mappings', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const mappings = await storage.getCalcomProviderMappings(hospitalId);
+    res.json(mappings);
+  } catch (error) {
+    console.error("Error fetching Cal.com mappings:", error);
+    res.status(500).json({ message: "Failed to fetch Cal.com mappings" });
+  }
+});
+
+// Create/update Cal.com provider mapping
+router.post('/api/clinic/:hospitalId/calcom-mappings', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { providerId, calcomEventTypeId, calcomUserId, calcomScheduleId, isEnabled } = req.body;
+    
+    if (!providerId || !calcomEventTypeId) {
+      return res.status(400).json({ message: "providerId and calcomEventTypeId are required" });
+    }
+    
+    const mapping = await storage.upsertCalcomProviderMapping({
+      hospitalId,
+      providerId,
+      calcomEventTypeId,
+      calcomUserId,
+      calcomScheduleId,
+      isEnabled: isEnabled ?? true,
+    });
+    
+    res.json(mapping);
+  } catch (error) {
+    console.error("Error creating Cal.com mapping:", error);
+    res.status(500).json({ message: "Failed to create Cal.com mapping" });
+  }
+});
+
+// Delete Cal.com provider mapping
+router.delete('/api/clinic/:hospitalId/calcom-mappings/:mappingId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { mappingId } = req.params;
+    await storage.deleteCalcomProviderMapping(mappingId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting Cal.com mapping:", error);
+    res.status(500).json({ message: "Failed to delete Cal.com mapping" });
+  }
+});
+
+// Trigger Cal.com sync for ALL providers with mappings (push appointments + absences as busy blocks)
+router.post('/api/clinic/:hospitalId/calcom-sync', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    const config = await storage.getCalcomConfig(hospitalId);
+    if (!config?.isEnabled || !config.apiKey) {
+      return res.status(400).json({ message: "Cal.com is not configured or enabled" });
+    }
+    
+    const mappings = await storage.getCalcomProviderMappings(hospitalId);
+    const enabledMappings = mappings.filter(m => m.isEnabled);
+    
+    if (enabledMappings.length === 0) {
+      return res.status(400).json({ message: "No provider mappings configured" });
+    }
+    
+    const { createCalcomClient } = await import("../services/calcomClient");
+    const calcom = createCalcomClient(config.apiKey);
+    
+    const syncStartDate = new Date().toISOString().split('T')[0];
+    const syncEndDateObj = new Date();
+    syncEndDateObj.setMonth(syncEndDateObj.getMonth() + 3);
+    const syncEndDate = syncEndDateObj.toISOString().split('T')[0];
+    
+    let totalBlocks = 0;
+    const allErrors: string[] = [];
+    
+    for (const mapping of enabledMappings) {
+      try {
+        if (config.syncBusyBlocks) {
+          const { clinicAppointments: appts } = await import("@shared/schema");
+          
+          const appointments = await db
+            .select()
+            .from(appts)
+            .where(
+              and(
+                eq(appts.providerId, mapping.providerId),
+                gte(appts.appointmentDate, syncStartDate),
+                lte(appts.appointmentDate, syncEndDate),
+                sql`${appts.status} NOT IN ('cancelled', 'no_show')`
+              )
+            );
+          
+          for (const apt of appointments) {
+            try {
+              const startDateTime = `${apt.appointmentDate}T${apt.startTime}:00`;
+              const endDateTime = `${apt.appointmentDate}T${apt.endTime}:00`;
+              
+              await calcom.createOutOfOffice({
+                start: startDateTime,
+                end: endDateTime,
+                notes: `Clinic appointment: ${apt.id}`,
+              });
+              totalBlocks++;
+            } catch (err: any) {
+              if (!err.message?.includes('already exists')) {
+                allErrors.push(`Appointment ${apt.id}: ${err.message}`);
+              }
+            }
+          }
+        }
+        
+        if (config.syncTimebutlerAbsences) {
+          const absences = await storage.getProviderAbsences(hospitalId, syncStartDate, syncEndDate);
+          const providerAbsences = absences.filter(a => a.providerId === mapping.providerId);
+          
+          for (const absence of providerAbsences) {
+            try {
+              await calcom.createOutOfOffice({
+                start: `${absence.startDate}T00:00:00`,
+                end: `${absence.endDate}T23:59:59`,
+                notes: `Timebutler: ${absence.absenceType}`,
+              });
+              totalBlocks++;
+            } catch (err: any) {
+              if (!err.message?.includes('already exists')) {
+                allErrors.push(`Absence ${absence.id}: ${err.message}`);
+              }
+            }
+          }
+        }
+      } catch (err: any) {
+        allErrors.push(`Provider ${mapping.providerId}: ${err.message}`);
+      }
+    }
+    
+    await storage.upsertCalcomConfig({
+      ...config,
+      lastSyncAt: new Date(),
+      lastSyncError: allErrors.length > 0 ? allErrors.slice(0, 5).join('; ') : null,
+    });
+    
+    res.json({
+      success: true,
+      syncedBlocks: totalBlocks,
+      providersProcessed: enabledMappings.length,
+      errors: allErrors.slice(0, 10),
+    });
+  } catch (error: any) {
+    console.error("Error syncing to Cal.com:", error);
+    res.status(500).json({ message: "Failed to sync to Cal.com", error: error.message });
+  }
+});
+
+// Trigger Cal.com sync for a specific provider (push appointments + absences as busy blocks)
+router.post('/api/clinic/:hospitalId/calcom-sync/:providerId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, providerId } = req.params;
+    const { startDate, endDate } = req.body;
+    
+    const config = await storage.getCalcomConfig(hospitalId);
+    if (!config?.isEnabled || !config.apiKey) {
+      return res.status(400).json({ message: "Cal.com is not configured or enabled" });
+    }
+    
+    const mapping = await storage.getCalcomProviderMapping(hospitalId, providerId);
+    if (!mapping || !mapping.isEnabled) {
+      return res.status(400).json({ message: "Provider is not mapped to Cal.com" });
+    }
+    
+    const { createCalcomClient } = await import("../services/calcomClient");
+    const calcom = createCalcomClient(config.apiKey);
+    
+    const syncStartDate = startDate || new Date().toISOString().split('T')[0];
+    const syncEndDateObj = new Date();
+    syncEndDateObj.setMonth(syncEndDateObj.getMonth() + 3);
+    const syncEndDate = endDate || syncEndDateObj.toISOString().split('T')[0];
+    
+    const blocksCreated: string[] = [];
+    const errors: string[] = [];
+    
+    if (config.syncBusyBlocks) {
+      const { clinicAppointments: appts } = await import("@shared/schema");
+      
+      const appointments = await db
+        .select()
+        .from(appts)
+        .where(
+          and(
+            eq(appts.providerId, providerId),
+            gte(appts.appointmentDate, syncStartDate),
+            lte(appts.appointmentDate, syncEndDate),
+            sql`${appts.status} NOT IN ('cancelled', 'no_show')`
+          )
+        );
+      
+      for (const apt of appointments) {
+        try {
+          const startDateTime = `${apt.appointmentDate}T${apt.startTime}:00`;
+          const endDateTime = `${apt.appointmentDate}T${apt.endTime}:00`;
+          
+          await calcom.createOutOfOffice({
+            start: startDateTime,
+            end: endDateTime,
+            notes: `Clinic appointment: ${apt.id}`,
+          });
+          blocksCreated.push(apt.id);
+        } catch (err: any) {
+          errors.push(`Appointment ${apt.id}: ${err.message}`);
+        }
+      }
+    }
+    
+    if (config.syncTimebutlerAbsences) {
+      const absences = await storage.getProviderAbsences(hospitalId, syncStartDate, syncEndDate);
+      const providerAbsences = absences.filter(a => a.providerId === providerId);
+      
+      for (const absence of providerAbsences) {
+        try {
+          await calcom.createOutOfOffice({
+            start: `${absence.startDate}T00:00:00`,
+            end: `${absence.endDate}T23:59:59`,
+            notes: `Timebutler: ${absence.absenceType}`,
+          });
+          blocksCreated.push(`absence-${absence.id}`);
+        } catch (err: any) {
+          errors.push(`Absence ${absence.id}: ${err.message}`);
+        }
+      }
+    }
+    
+    await storage.upsertCalcomConfig({
+      ...config,
+      lastSyncAt: new Date(),
+      lastSyncError: errors.length > 0 ? errors.join('; ') : null,
+    });
+    
+    res.json({
+      success: true,
+      blocksCreated: blocksCreated.length,
+      errors,
+    });
+  } catch (error: any) {
+    console.error("Error syncing to Cal.com:", error);
+    res.status(500).json({ message: "Failed to sync to Cal.com", error: error.message });
+  }
+});
+
+// Cal.com webhook endpoint (receives booking notifications from Cal.com)
+router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { triggerEvent, payload } = req.body;
+    
+    console.log(`Cal.com webhook received: ${triggerEvent}`, JSON.stringify(payload, null, 2));
+    
+    const config = await storage.getCalcomConfig(hospitalId);
+    if (!config?.isEnabled) {
+      return res.status(400).json({ message: "Cal.com integration not enabled" });
+    }
+    
+    if (triggerEvent === 'BOOKING_CREATED') {
+      const { startTime, endTime, eventTypeId, attendees, metadata } = payload;
+      
+      const mappings = await storage.getCalcomProviderMappings(hospitalId);
+      const mapping = mappings.find(m => m.calcomEventTypeId === String(eventTypeId));
+      
+      if (!mapping) {
+        console.warn(`No provider mapping found for event type ${eventTypeId}`);
+        return res.json({ received: true, processed: false, reason: 'No provider mapping' });
+      }
+      
+      const attendee = attendees?.[0];
+      if (!attendee) {
+        return res.json({ received: true, processed: false, reason: 'No attendee' });
+      }
+      
+      const startDate = new Date(startTime);
+      const endDate = new Date(endTime);
+      
+      const appointmentDate = startDate.toISOString().split('T')[0];
+      const startTimeStr = startDate.toISOString().split('T')[1].substring(0, 5);
+      const endTimeStr = endDate.toISOString().split('T')[1].substring(0, 5);
+      
+      let patientId: string | null = null;
+      
+      if (attendee.email) {
+        const { patients: patientsTable } = await import("@shared/schema");
+        const [existingPatient] = await db
+          .select()
+          .from(patientsTable)
+          .where(
+            and(
+              eq(patientsTable.hospitalId, hospitalId),
+              eq(patientsTable.email, attendee.email)
+            )
+          )
+          .limit(1);
+        
+        if (existingPatient) {
+          patientId = existingPatient.id;
+        } else {
+          const nameParts = (attendee.name || '').split(' ');
+          const firstName = nameParts[0] || 'Unknown';
+          const surname = nameParts.slice(1).join(' ') || 'Patient';
+          
+          const [hospital] = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+          
+          const countResult = await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(patients)
+            .where(eq(patients.hospitalId, hospitalId));
+          const patientCount = countResult[0]?.count || 0;
+          
+          const [newPatient] = await db
+            .insert(patients)
+            .values({
+              hospitalId,
+              firstName,
+              surname,
+              email: attendee.email,
+              patientNumber: `P-${String(patientCount + 1).padStart(5, '0')}`,
+              birthday: '1900-01-01',
+              sex: 'O',
+            })
+            .returning();
+          
+          patientId = newPatient.id;
+        }
+      }
+      
+      if (!patientId) {
+        return res.json({ received: true, processed: false, reason: 'Could not create/find patient' });
+      }
+      
+      const { clinicAppointments: appts } = await import("@shared/schema");
+      const { units: unitsTable } = await import("@shared/schema");
+      
+      const [clinicUnit] = await db
+        .select()
+        .from(unitsTable)
+        .where(
+          and(
+            eq(unitsTable.hospitalId, hospitalId),
+            eq(unitsTable.isClinicModule, true)
+          )
+        )
+        .limit(1);
+      
+      if (!clinicUnit) {
+        return res.json({ received: true, processed: false, reason: 'No clinic unit found' });
+      }
+      
+      const [appointment] = await db
+        .insert(appts)
+        .values({
+          hospitalId,
+          unitId: clinicUnit.id,
+          patientId,
+          providerId: mapping.providerId,
+          appointmentDate,
+          startTime: startTimeStr,
+          endTime: endTimeStr,
+          status: 'scheduled',
+          notes: `Booked via Cal.com (RetellAI). Booking ID: ${payload.uid}`,
+        })
+        .returning();
+      
+      console.log(`Created appointment ${appointment.id} from Cal.com booking ${payload.uid}`);
+      
+      res.json({ received: true, processed: true, appointmentId: appointment.id });
+    } else if (triggerEvent === 'BOOKING_CANCELLED') {
+      res.json({ received: true, processed: false, reason: 'Cancellation handling not implemented' });
+    } else {
+      res.json({ received: true, processed: false, reason: `Unknown event: ${triggerEvent}` });
+    }
+  } catch (error: any) {
+    console.error("Error processing Cal.com webhook:", error);
+    res.status(500).json({ message: "Failed to process webhook", error: error.message });
+  }
+});
+
+// Test Cal.com API connection
+router.post('/api/clinic/:hospitalId/calcom-test', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    const config = await storage.getCalcomConfig(hospitalId);
+    if (!config?.apiKey) {
+      return res.status(400).json({ message: "Cal.com API key not configured" });
+    }
+    
+    const { createCalcomClient } = await import("../services/calcomClient");
+    const calcom = createCalcomClient(config.apiKey);
+    
+    const eventTypes = await calcom.getEventTypes();
+    
+    res.json({
+      success: true,
+      message: "Cal.com API connection successful",
+      eventTypes,
+    });
+  } catch (error: any) {
+    console.error("Error testing Cal.com connection:", error);
+    res.status(400).json({ 
+      success: false, 
+      message: "Failed to connect to Cal.com API",
+      error: error.message 
+    });
   }
 });
 

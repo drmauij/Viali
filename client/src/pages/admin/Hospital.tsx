@@ -1691,6 +1691,9 @@ export default function Hospital() {
               </div>
             )}
           </div>
+
+          {/* Cal.com Integration Card (for RetellAI booking) */}
+          <CalcomIntegrationCard hospitalId={activeHospital?.id} />
         </div>
       )}
 
@@ -2389,5 +2392,374 @@ export default function Hospital() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+  );
+}
+
+// Cal.com Integration Card Component
+function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  
+  const [calcomApiKey, setCalcomApiKey] = useState("");
+  const [calcomEnabled, setCalcomEnabled] = useState(false);
+  const [syncBusyBlocks, setSyncBusyBlocks] = useState(true);
+  const [syncTimebutlerAbsences, setSyncTimebutlerAbsences] = useState(true);
+  const [showCalcomApiKey, setShowCalcomApiKey] = useState(false);
+  const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
+  const [mappingForm, setMappingForm] = useState({
+    providerId: "",
+    calcomEventTypeId: "",
+  });
+
+  // Cal.com config query
+  const { data: calcomConfigData, isLoading: calcomLoading } = useQuery<{
+    isEnabled?: boolean;
+    apiKey?: string;
+    syncBusyBlocks?: boolean;
+    syncTimebutlerAbsences?: boolean;
+    lastSyncAt?: string;
+    lastSyncError?: string;
+  }>({
+    queryKey: [`/api/clinic/${hospitalId}/calcom-config`],
+    enabled: !!hospitalId,
+  });
+
+  // Cal.com provider mappings query
+  const { data: calcomMappings = [] } = useQuery<{
+    id: string;
+    providerId: string;
+    calcomEventTypeId: string;
+    isEnabled?: boolean;
+    lastSyncAt?: string;
+    lastSyncError?: string;
+  }[]>({
+    queryKey: [`/api/clinic/${hospitalId}/calcom-mappings`],
+    enabled: !!hospitalId,
+  });
+
+  // Providers query for mapping dialog
+  const { data: providers = [] } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
+    queryKey: [`/api/clinic/${hospitalId}/units/all/providers`],
+    enabled: !!hospitalId && mappingDialogOpen,
+  });
+
+  // Sync Cal.com state when data is fetched
+  useEffect(() => {
+    if (calcomConfigData) {
+      setCalcomEnabled(calcomConfigData.isEnabled || false);
+      setSyncBusyBlocks(calcomConfigData.syncBusyBlocks ?? true);
+      setSyncTimebutlerAbsences(calcomConfigData.syncTimebutlerAbsences ?? true);
+    }
+  }, [calcomConfigData]);
+
+  // Cal.com config mutation
+  const saveCalcomConfigMutation = useMutation({
+    mutationFn: async (data: { apiKey?: string; isEnabled: boolean; syncBusyBlocks: boolean; syncTimebutlerAbsences: boolean }) => {
+      const response = await apiRequest("PUT", `/api/clinic/${hospitalId}/calcom-config`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/calcom-config`] });
+      toast({ title: t("common.success"), description: "Cal.com configuration saved" });
+      setCalcomApiKey("");
+      setShowCalcomApiKey(false);
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to save Cal.com configuration", variant: "destructive" });
+    },
+  });
+
+  // Test Cal.com connection mutation
+  const testCalcomMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/calcom-test`);
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: t("common.success"), 
+        description: `Connected! Found ${data.eventTypes?.length || 0} event types.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to connect to Cal.com", variant: "destructive" });
+    },
+  });
+
+  // Add provider mapping mutation
+  const addMappingMutation = useMutation({
+    mutationFn: async (data: { providerId: string; calcomEventTypeId: string }) => {
+      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/calcom-mappings`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/calcom-mappings`] });
+      toast({ title: t("common.success"), description: "Provider mapping added" });
+      setMappingDialogOpen(false);
+      setMappingForm({ providerId: "", calcomEventTypeId: "" });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to add mapping", variant: "destructive" });
+    },
+  });
+
+  // Delete mapping mutation
+  const deleteMappingMutation = useMutation({
+    mutationFn: async (mappingId: string) => {
+      const response = await apiRequest("DELETE", `/api/clinic/${hospitalId}/calcom-mappings/${mappingId}`);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/calcom-mappings`] });
+      toast({ title: t("common.success"), description: "Mapping removed" });
+    },
+  });
+
+  if (!hospitalId) return null;
+
+  return (
+    <>
+      <div className="bg-card border border-border rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+              <ExternalLink className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Cal.com (RetellAI)</h3>
+              <p className="text-sm text-muted-foreground">Enable phone-based appointment booking via RetellAI voice agents</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={calcomEnabled}
+              onCheckedChange={setCalcomEnabled}
+              data-testid="switch-calcom-enabled"
+            />
+            <span className={`text-sm ${calcomEnabled ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+              {calcomEnabled ? t("common.enabled", "Enabled") : t("common.disabled", "Disabled")}
+            </span>
+          </div>
+        </div>
+
+        {calcomLoading ? (
+          <div className="text-center py-4">
+            <i className="fas fa-spinner fa-spin text-xl text-primary"></i>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Current Status */}
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-muted-foreground">{t("admin.status", "Status")}:</span>
+              {calcomConfigData?.apiKey === '***configured***' ? (
+                <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <i className="fas fa-check-circle"></i>
+                  API Key configured
+                </span>
+              ) : (
+                <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <i className="fas fa-exclamation-triangle"></i>
+                  API Key not configured
+                </span>
+              )}
+            </div>
+
+            {calcomConfigData?.lastSyncAt && (
+              <div className="text-sm text-muted-foreground">
+                <span>{t("admin.lastSync", "Last sync")}:</span>{" "}
+                <span>{new Date(calcomConfigData.lastSyncAt).toLocaleString()}</span>
+                {calcomConfigData.lastSyncError && (
+                  <span className="ml-2 text-xs text-red-500">- {calcomConfigData.lastSyncError}</span>
+                )}
+              </div>
+            )}
+
+            {/* Sync Options */}
+            <div className="flex flex-wrap gap-4 text-sm border-t border-border pt-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={syncBusyBlocks}
+                  onChange={(e) => setSyncBusyBlocks(e.target.checked)}
+                  className="rounded"
+                />
+                <span>Push clinic appointments as busy blocks</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={syncTimebutlerAbsences}
+                  onChange={(e) => setSyncTimebutlerAbsences(e.target.checked)}
+                  className="rounded"
+                />
+                <span>Push Timebutler absences as busy blocks</span>
+              </label>
+            </div>
+
+            {/* API Key Input */}
+            <div className="border-t border-border pt-4">
+              <Label htmlFor="calcom-key">Cal.com API Key</Label>
+              <div className="flex gap-2 mt-1">
+                <div className="relative flex-1">
+                  <Input
+                    id="calcom-key"
+                    type={showCalcomApiKey ? "text" : "password"}
+                    value={calcomApiKey}
+                    onChange={(e) => setCalcomApiKey(e.target.value)}
+                    placeholder={calcomConfigData?.apiKey === '***configured***' ? "••••••••" : "Enter Cal.com API key"}
+                    data-testid="input-calcom-key"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                    onClick={() => setShowCalcomApiKey(!showCalcomApiKey)}
+                  >
+                    {showCalcomApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <Button
+                  variant="outline"
+                  onClick={() => testCalcomMutation.mutate()}
+                  disabled={testCalcomMutation.isPending}
+                  data-testid="button-test-calcom"
+                >
+                  {testCalcomMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : null}
+                  Test
+                </Button>
+                <Button
+                  onClick={() => saveCalcomConfigMutation.mutate({
+                    apiKey: calcomApiKey || undefined,
+                    isEnabled: calcomEnabled,
+                    syncBusyBlocks,
+                    syncTimebutlerAbsences,
+                  })}
+                  disabled={saveCalcomConfigMutation.isPending}
+                  data-testid="button-save-calcom"
+                >
+                  {saveCalcomConfigMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : <i className="fas fa-save mr-2"></i>}
+                  {t("common.save", "Save")}
+                </Button>
+              </div>
+            </div>
+
+            {/* Provider Mappings */}
+            {calcomConfigData?.apiKey === '***configured***' && (
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium">Provider → Cal.com Event Type Mappings</h4>
+                  <Button
+                    size="sm"
+                    onClick={() => setMappingDialogOpen(true)}
+                    data-testid="button-add-calcom-mapping"
+                  >
+                    <i className="fas fa-plus mr-2"></i>
+                    Add Mapping
+                  </Button>
+                </div>
+                
+                {calcomMappings.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No provider mappings configured. Add a mapping to enable booking for specific providers.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {calcomMappings.map((mapping) => (
+                      <div key={mapping.id} className="flex items-center justify-between p-2 bg-muted/50 rounded">
+                        <div className="text-sm">
+                          <span className="font-medium">Provider: {mapping.providerId.substring(0, 8)}...</span>
+                          <span className="mx-2">→</span>
+                          <span>Event Type ID: {mapping.calcomEventTypeId}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteMappingMutation.mutate(mapping.id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Instructions */}
+            <div className="bg-muted/50 rounded-lg p-4 text-sm">
+              <h4 className="font-medium mb-2">How to set up Cal.com + RetellAI booking</h4>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                <li>Create a Cal.com account and set up an event type (e.g., "Clinic Appointment")</li>
+                <li>Go to Settings → Developer → API Keys and generate a new API key</li>
+                <li>Paste the API key here and save</li>
+                <li>Add provider mappings to link each doctor to their Cal.com event type</li>
+                <li>Set up RetellAI with your Cal.com Event Type ID for booking</li>
+                <li>Configure a webhook in Cal.com pointing to your app's webhook URL</li>
+              </ol>
+              <p className="mt-3 text-xs">
+                <strong>Webhook URL:</strong>{" "}
+                <code className="bg-background px-1 py-0.5 rounded">
+                  {window.location.origin}/api/webhooks/calcom/{hospitalId}
+                </code>
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Add Mapping Dialog */}
+      <Dialog open={mappingDialogOpen} onOpenChange={setMappingDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Provider Mapping</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="mapping-provider">Provider</Label>
+              <Select
+                value={mappingForm.providerId}
+                onValueChange={(value) => setMappingForm({ ...mappingForm, providerId: value })}
+              >
+                <SelectTrigger data-testid="select-mapping-provider">
+                  <SelectValue placeholder="Select provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.firstName} {p.lastName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="mapping-event-type">Cal.com Event Type ID</Label>
+              <Input
+                id="mapping-event-type"
+                value={mappingForm.calcomEventTypeId}
+                onChange={(e) => setMappingForm({ ...mappingForm, calcomEventTypeId: e.target.value })}
+                placeholder="e.g., 1427703"
+                data-testid="input-mapping-event-type"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Find this in your Cal.com event type URL: cal.com/username/event-type/<strong>123456</strong>
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setMappingDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => addMappingMutation.mutate(mappingForm)}
+                disabled={!mappingForm.providerId || !mappingForm.calcomEventTypeId || addMappingMutation.isPending}
+              >
+                {addMappingMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : null}
+                Add Mapping
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

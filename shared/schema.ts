@@ -3808,3 +3808,73 @@ export const insertScheduledJobSchema = createInsertSchema(scheduledJobs).omit({
 
 export type ScheduledJob = typeof scheduledJobs.$inferSelect;
 export type InsertScheduledJob = z.infer<typeof insertScheduledJobSchema>;
+
+// Cal.com Integration Configuration - Per hospital settings for RetellAI booking
+export const calcomConfig = pgTable("calcom_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }).unique(),
+  
+  // API credentials
+  apiKey: varchar("api_key"), // Cal.com API key
+  
+  // Webhook secret for verifying incoming webhooks from Cal.com
+  webhookSecret: varchar("webhook_secret"),
+  
+  // Sync settings
+  isEnabled: boolean("is_enabled").default(false),
+  syncBusyBlocks: boolean("sync_busy_blocks").default(true), // Push appointments as busy blocks
+  syncTimebutlerAbsences: boolean("sync_timebutler_absences").default(true), // Push absences as busy blocks
+  
+  // Status tracking
+  lastSyncAt: timestamp("last_sync_at"),
+  lastSyncError: text("last_sync_error"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_calcom_config_hospital").on(table.hospitalId),
+]);
+
+// Cal.com Provider Mapping - Maps local providers to Cal.com event types
+export const calcomProviderMappings = pgTable("calcom_provider_mappings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  providerId: varchar("provider_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  
+  // Cal.com identifiers
+  calcomEventTypeId: varchar("calcom_event_type_id").notNull(), // The event type ID in Cal.com
+  calcomUserId: varchar("calcom_user_id"), // Cal.com user ID if provider has their own Cal.com account
+  calcomScheduleId: varchar("calcom_schedule_id"), // Optional: specific schedule to use
+  
+  // Sync tracking
+  isEnabled: boolean("is_enabled").default(true),
+  lastSyncAt: timestamp("last_sync_at"),
+  lastSyncError: text("last_sync_error"),
+  
+  // Mapping for busy blocks (to delete them when appointments change)
+  busyBlockMapping: jsonb("busy_block_mapping").$type<Record<string, string>>(), // { "appointmentId": "calcomBookingId" }
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_calcom_provider_mappings_hospital").on(table.hospitalId),
+  index("idx_calcom_provider_mappings_provider").on(table.providerId),
+  unique("idx_calcom_provider_mappings_unique").on(table.hospitalId, table.providerId),
+]);
+
+export const insertCalcomConfigSchema = createInsertSchema(calcomConfig).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCalcomProviderMappingSchema = createInsertSchema(calcomProviderMappings).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type CalcomConfig = typeof calcomConfig.$inferSelect;
+export type InsertCalcomConfig = z.infer<typeof insertCalcomConfigSchema>;
+export type CalcomProviderMapping = typeof calcomProviderMappings.$inferSelect;
+export type InsertCalcomProviderMapping = z.infer<typeof insertCalcomProviderMappingSchema>;
