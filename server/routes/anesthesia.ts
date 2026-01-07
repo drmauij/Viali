@@ -1533,28 +1533,41 @@ router.get('/api/patients/:patientId/notes/timeline', isAuthenticated, async (re
       return res.status(403).json({ message: "Access denied" });
     }
 
-    // Get patient notes
+    // Get patient notes with attachment counts
     const patientNotes = await storage.getPatientNotes(patientId);
+    const patientNotesWithCounts = await Promise.all(
+      patientNotes.map(async (note) => {
+        const attachments = await storage.getNoteAttachments('patient', note.id);
+        return { ...note, attachmentCount: attachments.length };
+      })
+    );
     
-    // Get all surgeries for this patient and their notes
+    // Get all surgeries for this patient and their notes with attachment counts
     const surgeries = await storage.getSurgeries(patient.hospitalId, { patientId });
     const surgeryNotesPromises = surgeries.map(async (surgery) => {
       const notes = await storage.getSurgeryNotes(surgery.id);
-      return notes.map(note => ({
-        ...note,
-        surgery: {
-          id: surgery.id,
-          plannedSurgery: surgery.plannedSurgery,
-          plannedDate: surgery.plannedDate,
-        }
-      }));
+      const notesWithCounts = await Promise.all(
+        notes.map(async (note) => {
+          const attachments = await storage.getNoteAttachments('surgery', note.id);
+          return {
+            ...note,
+            attachmentCount: attachments.length,
+            surgery: {
+              id: surgery.id,
+              plannedSurgery: surgery.plannedSurgery,
+              plannedDate: surgery.plannedDate,
+            }
+          };
+        })
+      );
+      return notesWithCounts;
     });
     
     const allSurgeryNotes = (await Promise.all(surgeryNotesPromises)).flat();
 
     // Combine and format the timeline
     const timeline = [
-      ...patientNotes.map(note => ({
+      ...patientNotesWithCounts.map(note => ({
         id: note.id,
         type: 'patient' as const,
         content: note.content,
@@ -1562,6 +1575,7 @@ router.get('/api/patients/:patientId/notes/timeline', isAuthenticated, async (re
         updatedAt: note.updatedAt,
         author: note.author,
         surgery: null,
+        attachmentCount: note.attachmentCount,
       })),
       ...allSurgeryNotes.map(note => ({
         id: note.id,
@@ -1571,6 +1585,7 @@ router.get('/api/patients/:patientId/notes/timeline', isAuthenticated, async (re
         updatedAt: note.updatedAt,
         author: note.author,
         surgery: note.surgery,
+        attachmentCount: note.attachmentCount,
       })),
     ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 

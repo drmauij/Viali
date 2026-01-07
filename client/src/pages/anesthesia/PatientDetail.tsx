@@ -185,6 +185,7 @@ export default function PatientDetail() {
       plannedSurgery: string;
       plannedDate: string;
     } | null;
+    attachmentCount: number;
   };
 
   type NoteAttachment = {
@@ -2507,8 +2508,8 @@ export default function PatientDetail() {
                         {/* Note content */}
                         <p className="text-sm whitespace-pre-wrap break-words">{note.content}</p>
                         
-                        {/* Attachments section */}
-                        {(() => {
+                        {/* Attachments section - only show if note has attachments */}
+                        {note.attachmentCount > 0 && (() => {
                           const key = `${note.type}-${note.id}`;
                           const attachments = expandedNoteAttachments[key];
                           const isLoading = loadingAttachments[key];
@@ -2521,7 +2522,7 @@ export default function PatientDetail() {
                                   className="text-xs text-primary hover:underline flex items-center gap-1"
                                 >
                                   <Paperclip className="h-3 w-3" />
-                                  {t('anesthesia.patientDetail.loadAttachments', 'Load attachments')}
+                                  {t('anesthesia.patientDetail.loadAttachments', 'Load attachments')} ({note.attachmentCount})
                                 </button>
                               )}
                               {isLoading && (
@@ -2547,11 +2548,6 @@ export default function PatientDetail() {
                                     </button>
                                   ))}
                                 </div>
-                              )}
-                              {attachments && attachments.length === 0 && (
-                                <span className="text-xs text-muted-foreground">
-                                  {t('anesthesia.patientDetail.noAttachments', 'No attachments')}
-                                </span>
                               )}
                             </div>
                           );
