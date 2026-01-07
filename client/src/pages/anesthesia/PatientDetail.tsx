@@ -290,6 +290,18 @@ export default function PatientDetail() {
     }
   };
 
+  // Handle camera capture for notes (add to pending attachments)
+  const handleNoteCameraCapture = async (photoDataUrl: string) => {
+    // Convert base64 to file
+    const response = await fetch(photoDataUrl);
+    const blob = await response.blob();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const file = new File([blob], `photo-${timestamp}.jpg`, { type: 'image/jpeg' });
+    
+    setPendingAttachments(prev => [...prev, file]);
+    setIsCameraOpen(false);
+  };
+
   // Create patient note mutation with attachments
   const createPatientNoteMutation = useMutation({
     mutationFn: async ({ content, attachments }: { content: string; attachments: File[] }) => {
@@ -984,12 +996,12 @@ export default function PatientDetail() {
     setIsUploading(true);
     try {
       // Step 1: Get presigned upload URL using apiRequest
-      const urlResult = await apiRequest("POST", `/api/patients/${params.id}/documents/upload-url`, {
+      const urlResultResponse = await apiRequest("POST", `/api/patients/${params.id}/documents/upload-url`, {
         filename: file.name,
         contentType: file.type,
       });
       
-      const { uploadUrl, storageKey } = urlResult;
+      const { uploadUrl, storageKey } = await urlResultResponse.json();
       
       // Step 2: Upload file directly to S3 (this is external, use fetch)
       const uploadResponse = await fetch(uploadUrl, {
@@ -2378,11 +2390,21 @@ export default function PatientDetail() {
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => noteAttachmentInputRef.current?.click()}
-                    data-testid="button-attach-photo"
+                    onClick={() => setIsCameraOpen(true)}
+                    data-testid="button-take-photo"
                   >
                     <Camera className="h-4 w-4 mr-1" />
-                    {t('anesthesia.patientDetail.addPhoto', 'Add Photo')}
+                    {t('anesthesia.patientDetail.takePhoto', 'Take Photo')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => noteAttachmentInputRef.current?.click()}
+                    data-testid="button-attach-file"
+                  >
+                    <Paperclip className="h-4 w-4 mr-1" />
+                    {t('anesthesia.patientDetail.attachFile', 'Attach File')}
                   </Button>
                   <div className="flex-1" />
                   <Button
@@ -6332,13 +6354,13 @@ export default function PatientDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Camera Capture Dialog */}
+      {/* Camera Capture Dialog for Notes */}
       {isCameraOpen && (
         <div className="fixed inset-0 z-[9999] bg-black">
           <CameraCapture
             isOpen={isCameraOpen}
             onClose={() => setIsCameraOpen(false)}
-            onCapture={handleCameraCapture}
+            onCapture={handleNoteCameraCapture}
             fullFrame={true}
           />
         </div>
