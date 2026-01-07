@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -187,6 +187,17 @@ export default function PatientDetail() {
     } | null;
   };
 
+  type NoteAttachment = {
+    id: string;
+    noteType: 'patient' | 'surgery';
+    noteId: string;
+    storageKey: string;
+    fileName: string;
+    mimeType: string;
+    fileSize: number | null;
+    createdAt: string;
+  };
+
   // Fetch combined notes timeline for this patient
   const { 
     data: notesTimeline = [],
@@ -198,15 +209,104 @@ export default function PatientDetail() {
 
   // State for new patient note
   const [newPatientNote, setNewPatientNote] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [expandedNoteAttachments, setExpandedNoteAttachments] = useState<Record<string, NoteAttachment[]>>({});
+  const [loadingAttachments, setLoadingAttachments] = useState<Record<string, boolean>>({});
+  const [previewImage, setPreviewImage] = useState<{url: string; fileName: string} | null>(null);
+  const noteAttachmentInputRef = useRef<HTMLInputElement>(null);
 
-  // Create patient note mutation
+  // Upload file to S3 and create attachment record
+  const uploadNoteAttachment = async (file: File, noteType: 'patient' | 'surgery', noteId: string) => {
+    // Get upload ticket
+    const ticketRes = await apiRequest('POST', `/api/notes/${noteType}/${noteId}/attachments/upload-ticket`, {
+      filename: file.name,
+      contentType: file.type,
+    });
+    const { uploadURL, storageKey } = await ticketRes.json();
+
+    // Upload to S3
+    await fetch(uploadURL, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type,
+      },
+    });
+
+    // Create attachment record
+    await apiRequest('POST', `/api/notes/${noteType}/${noteId}/attachments`, {
+      storageKey,
+      fileName: file.name,
+      mimeType: file.type,
+      fileSize: file.size,
+    });
+  };
+
+  // Fetch attachments for a note
+  const fetchNoteAttachments = async (noteType: 'patient' | 'surgery', noteId: string) => {
+    const key = `${noteType}-${noteId}`;
+    if (loadingAttachments[key] || expandedNoteAttachments[key]) return;
+    
+    setLoadingAttachments(prev => ({ ...prev, [key]: true }));
+    try {
+      const res = await fetch(`/api/notes/${noteType}/${noteId}/attachments`, { credentials: 'include' });
+      if (res.ok) {
+        const attachments = await res.json();
+        setExpandedNoteAttachments(prev => ({ ...prev, [key]: attachments }));
+      }
+    } catch (error) {
+      console.error('Failed to fetch attachments:', error);
+    } finally {
+      setLoadingAttachments(prev => ({ ...prev, [key]: false }));
+    }
+  };
+
+  // Get attachment download URL and preview
+  const previewAttachment = async (attachmentId: string) => {
+    try {
+      const res = await fetch(`/api/notes/attachments/${attachmentId}/download`, { credentials: 'include' });
+      if (res.ok) {
+        const { downloadURL, fileName } = await res.json();
+        setPreviewImage({ url: downloadURL, fileName });
+      }
+    } catch (error) {
+      console.error('Failed to get attachment URL:', error);
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('anesthesia.patientDetail.attachmentLoadError', 'Failed to load attachment'),
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle file selection for new note
+  const handleAttachmentSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const imageFiles = files.filter(f => f.type.startsWith('image/'));
+    setPendingAttachments(prev => [...prev, ...imageFiles]);
+    if (noteAttachmentInputRef.current) {
+      noteAttachmentInputRef.current.value = '';
+    }
+  };
+
+  // Create patient note mutation with attachments
   const createPatientNoteMutation = useMutation({
-    mutationFn: async (content: string) => {
-      return apiRequest('POST', `/api/patients/${params?.id}/notes`, { content });
+    mutationFn: async ({ content, attachments }: { content: string; attachments: File[] }) => {
+      const res = await apiRequest('POST', `/api/patients/${params?.id}/notes`, { content });
+      const noteData = await res.json();
+      
+      // Upload attachments if any
+      for (const file of attachments) {
+        await uploadNoteAttachment(file, 'patient', noteData.id);
+      }
+      
+      return noteData;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/patients/${params?.id}/notes/timeline`] });
       setNewPatientNote("");
+      setPendingAttachments([]);
       toast({
         title: t('anesthesia.patientDetail.noteAdded', 'Note added'),
         description: t('anesthesia.patientDetail.noteAddedDesc', 'Your note has been saved.'),
@@ -2225,10 +2325,22 @@ export default function PatientDetail() {
 
         {/* Notes Tab - Combined timeline of patient notes and surgery notes */}
         <TabsContent value="notes" className="mt-0 space-y-4">
+          {/* Hidden file input for attachments */}
+          <input
+            type="file"
+            ref={noteAttachmentInputRef}
+            onChange={handleAttachmentSelect}
+            accept="image/*"
+            capture="environment"
+            multiple
+            className="hidden"
+            data-testid="input-note-attachment"
+          />
+          
           {/* Add New Note */}
           {canWrite && (
             <Card>
-              <CardContent className="pt-4">
+              <CardContent className="pt-4 space-y-3">
                 <div className="flex gap-2">
                   <Textarea
                     placeholder={t('anesthesia.patientDetail.writeANote', 'Write a note about this patient...')}
@@ -2237,17 +2349,53 @@ export default function PatientDetail() {
                     className="min-h-[80px] flex-1"
                     data-testid="input-new-patient-note"
                   />
+                </div>
+                
+                {/* Pending attachments preview */}
+                {pendingAttachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {pendingAttachments.map((file, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
+                          className="h-16 w-16 object-cover rounded border"
+                        />
+                        <button
+                          onClick={() => setPendingAttachments(prev => prev.filter((_, i) => i !== index))}
+                          className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                {/* Action buttons */}
+                <div className="flex items-center gap-2">
                   <Button
-                    onClick={() => createPatientNoteMutation.mutate(newPatientNote)}
-                    disabled={!newPatientNote.trim() || createPatientNoteMutation.isPending}
-                    className="self-end"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => noteAttachmentInputRef.current?.click()}
+                    data-testid="button-attach-photo"
+                  >
+                    <Camera className="h-4 w-4 mr-1" />
+                    {t('anesthesia.patientDetail.addPhoto', 'Add Photo')}
+                  </Button>
+                  <div className="flex-1" />
+                  <Button
+                    onClick={() => createPatientNoteMutation.mutate({ content: newPatientNote, attachments: pendingAttachments })}
+                    disabled={(!newPatientNote.trim() && pendingAttachments.length === 0) || createPatientNoteMutation.isPending}
                     data-testid="button-add-patient-note"
                   >
                     {createPatientNoteMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin mr-1" />
                     ) : (
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-4 w-4 mr-1" />
                     )}
+                    {t('anesthesia.patientDetail.addNote', 'Add Note')}
                   </Button>
                 </div>
               </CardContent>
@@ -2301,6 +2449,56 @@ export default function PatientDetail() {
                         {/* Note content */}
                         <p className="text-sm whitespace-pre-wrap break-words">{note.content}</p>
                         
+                        {/* Attachments section */}
+                        {(() => {
+                          const key = `${note.type}-${note.id}`;
+                          const attachments = expandedNoteAttachments[key];
+                          const isLoading = loadingAttachments[key];
+                          
+                          return (
+                            <div className="mt-2">
+                              {!attachments && !isLoading && (
+                                <button
+                                  onClick={() => fetchNoteAttachments(note.type, note.id)}
+                                  className="text-xs text-primary hover:underline flex items-center gap-1"
+                                >
+                                  <Paperclip className="h-3 w-3" />
+                                  {t('anesthesia.patientDetail.loadAttachments', 'Load attachments')}
+                                </button>
+                              )}
+                              {isLoading && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  {t('common.loading', 'Loading...')}
+                                </div>
+                              )}
+                              {attachments && attachments.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  {attachments.map((att) => (
+                                    <button
+                                      key={att.id}
+                                      onClick={() => previewAttachment(att.id)}
+                                      className="relative group"
+                                    >
+                                      <div className="h-12 w-12 bg-muted rounded border flex items-center justify-center hover:bg-muted/80 transition-colors">
+                                        <ImageLucide className="h-5 w-5 text-muted-foreground" />
+                                      </div>
+                                      <span className="absolute bottom-0 left-0 right-0 text-[8px] truncate bg-black/50 text-white px-0.5 rounded-b">
+                                        {att.fileName.length > 10 ? att.fileName.slice(0, 10) + '...' : att.fileName}
+                                      </span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                              {attachments && attachments.length === 0 && (
+                                <span className="text-xs text-muted-foreground">
+                                  {t('anesthesia.patientDetail.noAttachments', 'No attachments')}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        
                         {/* Footer with author and date */}
                         <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
                           <span>
@@ -2324,6 +2522,24 @@ export default function PatientDetail() {
                 </Card>
               ))}
             </div>
+          )}
+          
+          {/* Image Preview Modal */}
+          {previewImage && (
+            <Dialog open={!!previewImage} onOpenChange={() => setPreviewImage(null)}>
+              <DialogContent className="max-w-3xl">
+                <DialogHeader>
+                  <DialogTitle>{previewImage.fileName}</DialogTitle>
+                </DialogHeader>
+                <div className="flex justify-center">
+                  <img
+                    src={previewImage.url}
+                    alt={previewImage.fileName}
+                    className="max-h-[70vh] object-contain rounded"
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
           )}
         </TabsContent>
 
