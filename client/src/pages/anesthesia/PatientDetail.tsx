@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -214,6 +214,7 @@ export default function PatientDetail() {
   const [expandedNoteAttachments, setExpandedNoteAttachments] = useState<Record<string, NoteAttachment[]>>({});
   const [loadingAttachments, setLoadingAttachments] = useState<Record<string, boolean>>({});
   const [previewImage, setPreviewImage] = useState<{url: string; fileName: string} | null>(null);
+  const [noteToDelete, setNoteToDelete] = useState<{id: string; type: 'patient' | 'surgery'} | null>(null);
   const noteAttachmentInputRef = useRef<HTMLInputElement>(null);
 
   // Upload file to S3 and create attachment record
@@ -328,6 +329,31 @@ export default function PatientDetail() {
       toast({
         title: t('anesthesia.patientDetail.noteError', 'Error'),
         description: error.message || t('anesthesia.patientDetail.noteErrorDesc', 'Failed to save note.'),
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Delete note mutation
+  const deleteNoteMutation = useMutation({
+    mutationFn: async ({ id, type }: { id: string; type: 'patient' | 'surgery' }) => {
+      const endpoint = type === 'patient' 
+        ? `/api/patient-notes/${id}` 
+        : `/api/surgery-notes/${id}`;
+      return await apiRequest('DELETE', endpoint);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${params?.id}/notes/timeline`] });
+      setNoteToDelete(null);
+      toast({
+        title: t('anesthesia.patientDetail.noteDeleted', 'Note deleted'),
+        description: t('anesthesia.patientDetail.noteDeletedDesc', 'The note has been removed.'),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error', 'Error'),
+        description: error.message || t('anesthesia.patientDetail.noteDeleteError', 'Failed to delete note.'),
         variant: "destructive",
       });
     }
@@ -2453,7 +2479,7 @@ export default function PatientDetail() {
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        {/* Header with type badge and surgery info */}
+                        {/* Header with type badge, surgery info, and delete button */}
                         <div className="flex items-center gap-2 flex-wrap mb-1">
                           <Badge variant={note.type === 'surgery' ? 'default' : 'secondary'} className="text-xs">
                             {note.type === 'surgery' 
@@ -2466,6 +2492,16 @@ export default function PatientDetail() {
                               {note.surgery.plannedSurgery} ({new Date(note.surgery.plannedDate).toLocaleDateString()})
                             </span>
                           )}
+                          <div className="flex-1" />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                            onClick={() => setNoteToDelete({ id: note.id, type: note.type })}
+                            data-testid={`button-delete-note-${note.id}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                         
                         {/* Note content */}
@@ -2563,6 +2599,37 @@ export default function PatientDetail() {
               </DialogContent>
             </Dialog>
           )}
+
+          {/* Delete Note Confirmation Dialog */}
+          <AlertDialog open={!!noteToDelete} onOpenChange={(open) => !open && setNoteToDelete(null)}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t('anesthesia.patientDetail.deleteNote', 'Delete Note')}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t('anesthesia.patientDetail.deleteNoteConfirm', 'Are you sure you want to delete this note? This action cannot be undone.')}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel data-testid="button-cancel-delete-note">
+                  {t('common.cancel', 'Cancel')}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => noteToDelete && deleteNoteMutation.mutate(noteToDelete)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  data-testid="button-confirm-delete-note"
+                >
+                  {deleteNoteMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {t('common.deleting', 'Deleting...')}
+                    </>
+                  ) : (
+                    t('common.delete', 'Delete')
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </TabsContent>
 
         <TabsContent value="surgeries" className="mt-0 space-y-4">
