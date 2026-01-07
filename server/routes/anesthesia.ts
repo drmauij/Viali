@@ -1589,14 +1589,16 @@ async function verifyNoteAccess(noteType: 'patient' | 'surgery', noteId: string,
   const hospitalIds = hospitals.map((h: any) => h.id);
   
   if (noteType === 'patient') {
-    // For patient notes, noteId is the patient note's ID, need to get the patient's hospital
-    // Check if this is a patient note ID by trying to look it up in all patient notes
-    // Since we don't have a direct lookup, we'll need to verify through the patient
-    // For now, use requireWriteAccess middleware which already validates hospital access
+    // For patient notes, use requireWriteAccess middleware which already validates hospital access
     return { allowed: true };
   } else {
-    // For surgery notes, verify user has access to the surgery's hospital
-    const surgery = await storage.getSurgery(noteId);
+    // For surgery notes, first look up the note to get the surgery ID
+    const surgeryNote = await storage.getSurgeryNoteById(noteId);
+    if (!surgeryNote) {
+      return { allowed: false };
+    }
+    // Then get the surgery to check hospital access
+    const surgery = await storage.getSurgery(surgeryNote.surgeryId);
     if (!surgery) {
       return { allowed: false };
     }

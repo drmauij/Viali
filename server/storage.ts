@@ -428,6 +428,7 @@ export interface IStorage {
   
   // Surgery Notes operations (multi-note thread per surgery)
   getSurgeryNotes(surgeryId: string): Promise<(SurgeryNote & { author: User })[]>;
+  getSurgeryNoteById(id: string): Promise<SurgeryNote | undefined>;
   createSurgeryNote(note: InsertSurgeryNote): Promise<SurgeryNote>;
   updateSurgeryNote(id: string, content: string): Promise<SurgeryNote>;
   deleteSurgeryNote(id: string): Promise<void>;
@@ -2644,6 +2645,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(surgeryNotes.surgeryId, surgeryId))
       .orderBy(desc(surgeryNotes.createdAt));
     return results.map(r => ({ ...r.note, author: r.author }));
+  }
+
+  async getSurgeryNoteById(id: string): Promise<SurgeryNote | undefined> {
+    const [note] = await db.select().from(surgeryNotes).where(eq(surgeryNotes.id, id));
+    return note;
   }
 
   async createSurgeryNote(note: InsertSurgeryNote): Promise<SurgeryNote> {
