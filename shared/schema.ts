@@ -881,6 +881,29 @@ export const insertPatientNoteSchema = createInsertSchema(patientNotes).omit({
 export type InsertPatientNote = z.infer<typeof insertPatientNoteSchema>;
 export type PatientNote = typeof patientNotes.$inferSelect;
 
+// Note Attachments - Images/files attached to patient notes or surgery notes
+export const noteAttachments = pgTable("note_attachments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  noteType: varchar("note_type", { enum: ["patient", "surgery"] }).notNull(),
+  noteId: varchar("note_id").notNull(),
+  storageKey: varchar("storage_key").notNull(),
+  fileName: varchar("file_name").notNull(),
+  mimeType: varchar("mime_type").notNull(),
+  fileSize: integer("file_size"),
+  uploadedBy: varchar("uploaded_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => [
+  index("idx_note_attachments_note").on(table.noteType, table.noteId),
+  index("idx_note_attachments_uploaded_by").on(table.uploadedBy),
+]);
+
+export const insertNoteAttachmentSchema = createInsertSchema(noteAttachments).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export type InsertNoteAttachment = z.infer<typeof insertNoteAttachmentSchema>;
+export type NoteAttachment = typeof noteAttachments.$inferSelect;
+
 // Anesthesia Records - Main perioperative anesthesia data
 export const anesthesiaRecords = pgTable("anesthesia_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

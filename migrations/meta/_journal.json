@@ -344,6 +344,13 @@
       "when": 1767783269308,
       "tag": "0048_classy_lady_bullseye",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1767783748267,
+      "tag": "0049_hot_vance_astro",
+      "breakpoints": true
     }
   ]
 }
