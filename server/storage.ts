@@ -444,6 +444,7 @@ export interface IStorage {
   createNoteAttachment(attachment: InsertNoteAttachment): Promise<NoteAttachment>;
   deleteNoteAttachment(id: string): Promise<void>;
   getNoteAttachment(id: string): Promise<NoteAttachment | undefined>;
+  getPatientNoteAttachments(patientId: string): Promise<(NoteAttachment & { noteContent: string | null })[]>;
   
   // Anesthesia Record operations
   getAnesthesiaRecord(surgeryId: string): Promise<AnesthesiaRecord | undefined>;
@@ -2738,6 +2739,57 @@ export class DatabaseStorage implements IStorage {
       .from(noteAttachments)
       .where(eq(noteAttachments.id, id));
     return attachment;
+  }
+
+  async getPatientNoteAttachments(patientId: string): Promise<(NoteAttachment & { noteContent: string | null })[]> {
+    // Get attachments from patient notes
+    const patientNoteAttachments = await db
+      .select({
+        id: noteAttachments.id,
+        noteType: noteAttachments.noteType,
+        noteId: noteAttachments.noteId,
+        storageKey: noteAttachments.storageKey,
+        fileName: noteAttachments.fileName,
+        mimeType: noteAttachments.mimeType,
+        fileSize: noteAttachments.fileSize,
+        uploadedBy: noteAttachments.uploadedBy,
+        createdAt: noteAttachments.createdAt,
+        noteContent: patientNotes.content,
+      })
+      .from(noteAttachments)
+      .innerJoin(patientNotes, and(
+        eq(noteAttachments.noteType, 'patient'),
+        eq(noteAttachments.noteId, patientNotes.id)
+      ))
+      .where(eq(patientNotes.patientId, patientId));
+
+    // Get attachments from surgery notes (for surgeries belonging to this patient)
+    const surgeryNoteAttachments = await db
+      .select({
+        id: noteAttachments.id,
+        noteType: noteAttachments.noteType,
+        noteId: noteAttachments.noteId,
+        storageKey: noteAttachments.storageKey,
+        fileName: noteAttachments.fileName,
+        mimeType: noteAttachments.mimeType,
+        fileSize: noteAttachments.fileSize,
+        uploadedBy: noteAttachments.uploadedBy,
+        createdAt: noteAttachments.createdAt,
+        noteContent: surgeryNotes.content,
+      })
+      .from(noteAttachments)
+      .innerJoin(surgeryNotes, and(
+        eq(noteAttachments.noteType, 'surgery'),
+        eq(noteAttachments.noteId, surgeryNotes.id)
+      ))
+      .innerJoin(surgeries, eq(surgeryNotes.surgeryId, surgeries.id))
+      .where(eq(surgeries.patientId, patientId));
+
+    // Combine and sort by creation date descending
+    const allAttachments = [...patientNoteAttachments, ...surgeryNoteAttachments];
+    allAttachments.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    return allAttachments;
   }
 
   // Anesthesia Record operations

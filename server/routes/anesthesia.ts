@@ -1720,6 +1720,31 @@ router.post('/api/notes/:noteType/:noteId/attachments', isAuthenticated, require
   }
 });
 
+// Get all note attachments for a patient (for Documents section)
+router.get('/api/patients/:patientId/note-attachments', isAuthenticated, async (req: any, res) => {
+  try {
+    const { patientId } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(patientId);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const attachments = await storage.getPatientNoteAttachments(patientId);
+    res.json(attachments);
+  } catch (error) {
+    console.error("Error fetching patient note attachments:", error);
+    res.status(500).json({ message: "Failed to fetch note attachments" });
+  }
+});
+
 // Get download URL for attachment
 router.get('/api/notes/attachments/:attachmentId/download', isAuthenticated, async (req: any, res) => {
   try {

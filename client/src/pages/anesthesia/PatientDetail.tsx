@@ -579,6 +579,26 @@ export default function PatientDetail() {
     queryKey: ['/api/patients', params?.id, 'documents'],
     enabled: !!params?.id && !!activeHospital?.id,
   });
+
+  // Type for note attachments displayed in Documents section
+  type NoteAttachmentDoc = {
+    id: string;
+    noteType: 'patient' | 'surgery';
+    noteId: string;
+    storageKey: string;
+    fileName: string;
+    mimeType: string;
+    fileSize: number | null;
+    uploadedBy: string | null;
+    createdAt: string;
+    noteContent: string | null;
+  };
+
+  // Fetch note attachments for Documents section
+  const { data: noteAttachmentDocs = [], isLoading: isLoadingNoteAttachments } = useQuery<NoteAttachmentDoc[]>({
+    queryKey: ['/api/patients', params?.id, 'note-attachments'],
+    enabled: !!params?.id && !!activeHospital?.id,
+  });
   
   // Document upload state
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
@@ -2350,8 +2370,8 @@ export default function PatientDetail() {
           </TabsTrigger>
           <TabsTrigger value="documents" data-testid="tab-documents">
             {t('anesthesia.patientDetail.documents', 'Documents')}
-            {(patientUploads.length + staffDocuments.length) > 0 && (
-              <Badge variant="secondary" className="ml-2">{patientUploads.length + staffDocuments.length}</Badge>
+            {(patientUploads.length + staffDocuments.length + noteAttachmentDocs.length) > 0 && (
+              <Badge variant="secondary" className="ml-2">{patientUploads.length + staffDocuments.length + noteAttachmentDocs.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="invoices" data-testid="tab-invoices">
@@ -3091,6 +3111,75 @@ export default function PatientDetail() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Note Attachments Section */}
+            {noteAttachmentDocs.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <StickyNote className="h-5 w-5" />
+                    {t('anesthesia.patientDetail.noteAttachments', 'Note Attachments')}
+                    <Badge variant="outline" className="ml-2">{noteAttachmentDocs.length}</Badge>
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground">
+                    {t('anesthesia.patientDetail.noteAttachmentsDesc', 'Files attached to patient and surgery notes.')}
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingNoteAttachments ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {noteAttachmentDocs.map((att) => {
+                        const isImage = att.mimeType?.startsWith('image/');
+                        return (
+                          <div 
+                            key={att.id}
+                            className="flex flex-col p-4 border rounded-lg hover:bg-muted/50 transition-colors group relative cursor-pointer"
+                            onClick={() => previewAttachment(att.id)}
+                            data-testid={`note-attachment-doc-${att.id}`}
+                          >
+                            {isImage ? (
+                              <div className="w-full h-40 mb-3 overflow-hidden rounded bg-muted flex items-center justify-center">
+                                <ImageLucide className="h-16 w-16 text-muted-foreground" />
+                              </div>
+                            ) : (
+                              <div className="w-full h-40 mb-3 flex items-center justify-center bg-muted rounded">
+                                <FileText className="h-16 w-16 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="space-y-2">
+                              <p className="font-medium truncate group-hover:text-primary transition-colors">
+                                {att.fileName}
+                              </p>
+                              <div className="flex items-center gap-2 text-sm">
+                                <Badge variant="secondary" className="text-xs">
+                                  {att.noteType === 'patient' 
+                                    ? t('anesthesia.patientDetail.generalNote', 'General Note')
+                                    : t('anesthesia.patientDetail.surgeryNote', 'Surgery Note')
+                                  }
+                                </Badge>
+                                {att.fileSize && (
+                                  <span className="text-muted-foreground">{(att.fileSize / 1024).toFixed(1)} KB</span>
+                                )}
+                              </div>
+                              {att.noteContent && (
+                                <p className="text-sm text-muted-foreground line-clamp-2">{att.noteContent}</p>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(att.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Patient Questionnaire Uploads Section */}
             {patientUploads.length > 0 && (
