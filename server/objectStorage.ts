@@ -373,6 +373,39 @@ export class ObjectStorageService {
     }));
   }
 
+  /**
+   * Generate upload URL for note attachment files (images attached to patient/surgery notes)
+   * Files are stored in: notes/{noteType}/{noteId}/{uuid}.{ext}
+   */
+  async getNoteAttachmentUploadURL(
+    noteType: 'patient' | 'surgery',
+    noteId: string,
+    filename?: string,
+    contentType?: string
+  ): Promise<{ uploadURL: string; storageKey: string }> {
+    if (!this.s3Client) {
+      throw new Error("S3 storage not configured. Please set S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY, and S3_BUCKET environment variables.");
+    }
+
+    const objectId = randomUUID();
+    const extension = filename ? filename.split('.').pop() : '';
+    const objectName = extension ? `${objectId}.${extension}` : objectId;
+    const key = `notes/${noteType}/${noteId}/${objectName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: contentType || 'application/octet-stream',
+    });
+
+    const uploadURL = await getSignedUrl(this.s3Client, command, { expiresIn: 900 }); // 15 min
+
+    return {
+      uploadURL,
+      storageKey: `/objects/${key}`
+    };
+  }
+
   private storageKeyToS3Key(storageKey: string): string {
     if (storageKey.startsWith("/objects/")) {
       return storageKey.slice("/objects/".length);

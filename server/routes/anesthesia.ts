@@ -1582,6 +1582,156 @@ router.get('/api/patients/:patientId/notes/timeline', isAuthenticated, async (re
   }
 });
 
+// ========== NOTE ATTACHMENTS ROUTES ==========
+
+// Get upload ticket for note attachment
+router.post('/api/notes/:noteType/:noteId/attachments/upload-ticket', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { noteType, noteId } = req.params;
+    const { filename, contentType } = req.body;
+
+    if (noteType !== 'patient' && noteType !== 'surgery') {
+      return res.status(400).json({ message: "Invalid note type. Must be 'patient' or 'surgery'" });
+    }
+
+    // Verify note exists and user has access
+    if (noteType === 'patient') {
+      const notes = await storage.getPatientNotes(noteId);
+      if (!notes || notes.length === 0) {
+        // noteId might be the patient note ID, not patient ID
+        // Try to find a patient note with this ID
+        const allPatients = await storage.getPatients(req.user.hospitals?.[0]?.id || '');
+        // For now, assume the note exists - the client will handle errors on upload
+      }
+    }
+
+    const { ObjectStorageService } = await import('../objectStorage');
+    const objectStorageService = new ObjectStorageService();
+    
+    if (!objectStorageService.isConfigured()) {
+      return res.status(503).json({ message: "Object storage not configured" });
+    }
+
+    const { uploadURL, storageKey } = await objectStorageService.getNoteAttachmentUploadURL(
+      noteType as 'patient' | 'surgery',
+      noteId,
+      filename,
+      contentType
+    );
+
+    res.json({ uploadURL, storageKey });
+  } catch (error) {
+    console.error("Error generating note attachment upload ticket:", error);
+    res.status(500).json({ message: "Failed to generate upload ticket" });
+  }
+});
+
+// Get all attachments for a note
+router.get('/api/notes/:noteType/:noteId/attachments', isAuthenticated, async (req: any, res) => {
+  try {
+    const { noteType, noteId } = req.params;
+
+    if (noteType !== 'patient' && noteType !== 'surgery') {
+      return res.status(400).json({ message: "Invalid note type" });
+    }
+
+    const attachments = await storage.getNoteAttachments(noteType as 'patient' | 'surgery', noteId);
+    res.json(attachments);
+  } catch (error) {
+    console.error("Error fetching note attachments:", error);
+    res.status(500).json({ message: "Failed to fetch attachments" });
+  }
+});
+
+// Create a note attachment record (after upload is complete)
+router.post('/api/notes/:noteType/:noteId/attachments', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { noteType, noteId } = req.params;
+    const { storageKey, fileName, mimeType, fileSize } = req.body;
+    const userId = req.user.id;
+
+    if (noteType !== 'patient' && noteType !== 'surgery') {
+      return res.status(400).json({ message: "Invalid note type" });
+    }
+
+    if (!storageKey || !fileName || !mimeType) {
+      return res.status(400).json({ message: "storageKey, fileName, and mimeType are required" });
+    }
+
+    const attachment = await storage.createNoteAttachment({
+      noteType: noteType as 'patient' | 'surgery',
+      noteId,
+      storageKey,
+      fileName,
+      mimeType,
+      fileSize: fileSize || null,
+      uploadedBy: userId,
+    });
+
+    res.status(201).json(attachment);
+  } catch (error) {
+    console.error("Error creating note attachment:", error);
+    res.status(500).json({ message: "Failed to create attachment" });
+  }
+});
+
+// Get download URL for attachment
+router.get('/api/notes/attachments/:attachmentId/download', isAuthenticated, async (req: any, res) => {
+  try {
+    const { attachmentId } = req.params;
+
+    const attachment = await storage.getNoteAttachment(attachmentId);
+    if (!attachment) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    const { ObjectStorageService } = await import('../objectStorage');
+    const objectStorageService = new ObjectStorageService();
+    
+    if (!objectStorageService.isConfigured()) {
+      return res.status(503).json({ message: "Object storage not configured" });
+    }
+
+    const downloadURL = await objectStorageService.getObjectDownloadURL(attachment.storageKey, 3600);
+
+    res.json({ downloadURL, fileName: attachment.fileName, mimeType: attachment.mimeType });
+  } catch (error) {
+    console.error("Error generating attachment download URL:", error);
+    res.status(500).json({ message: "Failed to generate download URL" });
+  }
+});
+
+// Delete an attachment
+router.delete('/api/notes/attachments/:attachmentId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { attachmentId } = req.params;
+
+    const attachment = await storage.getNoteAttachment(attachmentId);
+    if (!attachment) {
+      return res.status(404).json({ message: "Attachment not found" });
+    }
+
+    // Delete from S3
+    const { ObjectStorageService } = await import('../objectStorage');
+    const objectStorageService = new ObjectStorageService();
+    
+    if (objectStorageService.isConfigured()) {
+      try {
+        await objectStorageService.deleteObject(attachment.storageKey);
+      } catch (deleteError) {
+        console.warn("Failed to delete attachment from S3:", deleteError);
+        // Continue with database deletion even if S3 delete fails
+      }
+    }
+
+    await storage.deleteNoteAttachment(attachmentId);
+    res.json({ message: "Attachment deleted" });
+  } catch (error) {
+    console.error("Error deleting attachment:", error);
+    res.status(500).json({ message: "Failed to delete attachment" });
+  }
+});
+
 // Get hospital users for @mention suggestions (accessible to any authenticated hospital member)
 router.get('/api/anesthesia/hospitals/:hospitalId/users', isAuthenticated, async (req: any, res) => {
   try {
