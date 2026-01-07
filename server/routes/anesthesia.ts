@@ -1455,9 +1455,8 @@ router.post('/api/patients/:patientId/notes', isAuthenticated, requireWriteAcces
     const userId = req.user.id;
     const { content } = req.body;
 
-    if (!content || typeof content !== 'string' || content.trim().length === 0) {
-      return res.status(400).json({ message: "Note content is required" });
-    }
+    // Content can be empty (for photo-only notes)
+    const noteContent = (content && typeof content === 'string') ? content.trim() : '';
 
     const patient = await storage.getPatient(patientId);
     if (!patient) {
@@ -1473,7 +1472,7 @@ router.post('/api/patients/:patientId/notes', isAuthenticated, requireWriteAcces
     const newNote = await storage.createPatientNote({
       patientId,
       authorId: userId,
-      content: content.trim(),
+      content: noteContent,
     });
 
     // Fetch the note with author info
