@@ -1231,8 +1231,13 @@ export default function PatientDetail() {
       sendEmailCopy: consentData.sendEmailCopy,
       emailForCopy: consentData.emailForCopy,
       emailLanguage: consentData.emailLanguage,
-      // Set status - completed if explicitly marked or if signature present
-      status: markAsCompleted ? "completed" : ((overrideData.doctorSignature || assessmentData.doctorSignature) ? "completed" : "draft"),
+      // Determine status based on anesthesiologist selection:
+      // - stand-by: goes to Stand-by tab (status stays as-is, standBy flag is true)
+      // - approved/not-approved: goes to Completed tab
+      // - no selection: stays in In Progress tab (draft)
+      status: markAsCompleted ? "completed" : 
+              (assessmentData.surgicalApprovalStatus === "approved" || assessmentData.surgicalApprovalStatus === "not-approved") ? "completed" :
+              "draft",
     };
 
     // Save allergies to patient table (single source of truth)
@@ -1341,30 +1346,6 @@ export default function PatientDetail() {
     });
   };
 
-  // Handle moving completed assessment back to draft
-  const handleMoveToDraft = async () => {
-    if (!existingAssessment?.id) return;
-
-    try {
-      await apiRequest("PATCH", `/api/anesthesia/preop/${existingAssessment.id}`, {
-        status: "draft",
-      });
-      
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
-      
-      toast({
-        title: t('anesthesia.patientDetail.movedToDraft'),
-        description: t('anesthesia.patientDetail.movedToDraftDesc'),
-      });
-    } catch (error: any) {
-      toast({
-        title: t('anesthesia.patientDetail.errorMovingToDraft'),
-        description: error.message || t('anesthesia.patientDetail.errorMovingToDraftDesc'),
-        variant: "destructive",
-      });
-    }
-  };
 
   // Handle importing questionnaire data into pre-op assessment
   const handleImportFromQuestionnaire = () => {
@@ -4715,18 +4696,6 @@ export default function PatientDetail() {
                     )}
                   </Button>
 
-                  {/* Move to Draft button - only shown when assessment is completed */}
-                  {existingAssessment?.status === "completed" && canWrite && (
-                    <Button 
-                      variant="destructive"
-                      size="lg" 
-                      className="w-full mt-3"
-                      onClick={handleMoveToDraft}
-                      data-testid="button-move-to-draft"
-                    >
-                      {t('anesthesia.patientDetail.moveToDraft')}
-                    </Button>
-                  )}
                 </CardContent>
               </Card>
             </TabsContent>
