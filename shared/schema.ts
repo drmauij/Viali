@@ -859,6 +859,28 @@ export const insertSurgeryNoteSchema = createInsertSchema(surgeryNotes).omit({
 export type InsertSurgeryNote = z.infer<typeof insertSurgeryNoteSchema>;
 export type SurgeryNote = typeof surgeryNotes.$inferSelect;
 
+// Patient Notes - General notes about a patient (CRM, clinical, communication tracking)
+export const patientNotes = pgTable("patient_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  authorId: varchar("author_id").notNull().references(() => users.id),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_patient_notes_patient").on(table.patientId),
+  index("idx_patient_notes_author").on(table.authorId),
+  index("idx_patient_notes_created").on(table.createdAt),
+]);
+
+export const insertPatientNoteSchema = createInsertSchema(patientNotes).omit({ 
+  id: true, 
+  createdAt: true, 
+  updatedAt: true 
+});
+export type InsertPatientNote = z.infer<typeof insertPatientNoteSchema>;
+export type PatientNote = typeof patientNotes.$inferSelect;
+
 // Anesthesia Records - Main perioperative anesthesia data
 export const anesthesiaRecords = pgTable("anesthesia_records", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

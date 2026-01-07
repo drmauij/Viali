@@ -31,6 +31,7 @@ import {
   cases,
   surgeries,
   surgeryNotes,
+  patientNotes,
   anesthesiaRecords,
   preOpAssessments,
   surgeryPreOpAssessments,
@@ -119,6 +120,8 @@ import {
   type InsertSurgery,
   type SurgeryNote,
   type InsertSurgeryNote,
+  type PatientNote,
+  type InsertPatientNote,
   type AnesthesiaRecord,
   type InsertAnesthesiaRecord,
   type PreOpAssessment,
@@ -425,6 +428,12 @@ export interface IStorage {
   createSurgeryNote(note: InsertSurgeryNote): Promise<SurgeryNote>;
   updateSurgeryNote(id: string, content: string): Promise<SurgeryNote>;
   deleteSurgeryNote(id: string): Promise<void>;
+  
+  // Patient Notes operations (general notes about a patient - CRM, clinical, communication)
+  getPatientNotes(patientId: string): Promise<(PatientNote & { author: User })[]>;
+  createPatientNote(note: InsertPatientNote): Promise<PatientNote>;
+  updatePatientNote(id: string, content: string): Promise<PatientNote>;
+  deletePatientNote(id: string): Promise<void>;
   
   // Anesthesia Record operations
   getAnesthesiaRecord(surgeryId: string): Promise<AnesthesiaRecord | undefined>;
@@ -2647,6 +2656,41 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSurgeryNote(id: string): Promise<void> {
     await db.delete(surgeryNotes).where(eq(surgeryNotes.id, id));
+  }
+
+  // Patient Notes operations
+  async getPatientNotes(patientId: string): Promise<(PatientNote & { author: User })[]> {
+    const results = await db
+      .select({
+        note: patientNotes,
+        author: users,
+      })
+      .from(patientNotes)
+      .innerJoin(users, eq(patientNotes.authorId, users.id))
+      .where(eq(patientNotes.patientId, patientId))
+      .orderBy(desc(patientNotes.createdAt));
+    return results.map(r => ({ ...r.note, author: r.author }));
+  }
+
+  async createPatientNote(note: InsertPatientNote): Promise<PatientNote> {
+    const [created] = await db
+      .insert(patientNotes)
+      .values(note)
+      .returning();
+    return created;
+  }
+
+  async updatePatientNote(id: string, content: string): Promise<PatientNote> {
+    const [updated] = await db
+      .update(patientNotes)
+      .set({ content, updatedAt: new Date() })
+      .where(eq(patientNotes.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deletePatientNote(id: string): Promise<void> {
+    await db.delete(patientNotes).where(eq(patientNotes.id, id));
   }
 
   // Anesthesia Record operations

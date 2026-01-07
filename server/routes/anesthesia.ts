@@ -1421,6 +1421,167 @@ router.delete('/api/anesthesia/surgery-notes/:noteId', isAuthenticated, requireW
   }
 });
 
+// ========== PATIENT NOTES ROUTES ==========
+
+// Get all notes for a patient
+router.get('/api/patients/:patientId/notes', isAuthenticated, async (req: any, res) => {
+  try {
+    const { patientId } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(patientId);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const notes = await storage.getPatientNotes(patientId);
+    res.json(notes);
+  } catch (error) {
+    console.error("Error fetching patient notes:", error);
+    res.status(500).json({ message: "Failed to fetch patient notes" });
+  }
+});
+
+// Create a new patient note
+router.post('/api/patients/:patientId/notes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { patientId } = req.params;
+    const userId = req.user.id;
+    const { content } = req.body;
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ message: "Note content is required" });
+    }
+
+    const patient = await storage.getPatient(patientId);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const newNote = await storage.createPatientNote({
+      patientId,
+      authorId: userId,
+      content: content.trim(),
+    });
+
+    // Fetch the note with author info
+    const notes = await storage.getPatientNotes(patientId);
+    const noteWithAuthor = notes.find(n => n.id === newNote.id);
+    
+    res.status(201).json(noteWithAuthor || newNote);
+  } catch (error) {
+    console.error("Error creating patient note:", error);
+    res.status(500).json({ message: "Failed to create patient note" });
+  }
+});
+
+// Update a patient note
+router.patch('/api/patient-notes/:noteId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { noteId } = req.params;
+    const { content } = req.body;
+
+    if (!content || typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ message: "Note content is required" });
+    }
+
+    const updatedNote = await storage.updatePatientNote(noteId, content.trim());
+    res.json(updatedNote);
+  } catch (error) {
+    console.error("Error updating patient note:", error);
+    res.status(500).json({ message: "Failed to update patient note" });
+  }
+});
+
+// Delete a patient note
+router.delete('/api/patient-notes/:noteId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { noteId } = req.params;
+    await storage.deletePatientNote(noteId);
+    res.json({ message: "Note deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting patient note:", error);
+    res.status(500).json({ message: "Failed to delete patient note" });
+  }
+});
+
+// Get combined timeline (patient notes + surgery notes) for a patient
+router.get('/api/patients/:patientId/notes/timeline', isAuthenticated, async (req: any, res) => {
+  try {
+    const { patientId } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(patientId);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Get patient notes
+    const patientNotes = await storage.getPatientNotes(patientId);
+    
+    // Get all surgeries for this patient and their notes
+    const surgeries = await storage.getSurgeries(patient.hospitalId, { patientId });
+    const surgeryNotesPromises = surgeries.map(async (surgery) => {
+      const notes = await storage.getSurgeryNotes(surgery.id);
+      return notes.map(note => ({
+        ...note,
+        surgery: {
+          id: surgery.id,
+          plannedSurgery: surgery.plannedSurgery,
+          plannedDate: surgery.plannedDate,
+        }
+      }));
+    });
+    
+    const allSurgeryNotes = (await Promise.all(surgeryNotesPromises)).flat();
+
+    // Combine and format the timeline
+    const timeline = [
+      ...patientNotes.map(note => ({
+        id: note.id,
+        type: 'patient' as const,
+        content: note.content,
+        createdAt: note.createdAt,
+        updatedAt: note.updatedAt,
+        author: note.author,
+        surgery: null,
+      })),
+      ...allSurgeryNotes.map(note => ({
+        id: note.id,
+        type: 'surgery' as const,
+        content: note.content,
+        createdAt: note.createdAt,
+        updatedAt: note.updatedAt,
+        author: note.author,
+        surgery: note.surgery,
+      })),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    res.json(timeline);
+  } catch (error) {
+    console.error("Error fetching patient timeline:", error);
+    res.status(500).json({ message: "Failed to fetch timeline" });
+  }
+});
+
 // Get hospital users for @mention suggestions (accessible to any authenticated hospital member)
 router.get('/api/anesthesia/hospitals/:hospitalId/users', isAuthenticated, async (req: any, res) => {
   try {

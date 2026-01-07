@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -165,6 +165,60 @@ export default function PatientDetail() {
   } = useQuery<Surgery[]>({
     queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${params?.id}`],
     enabled: !!params?.id && !!activeHospital?.id,
+  });
+
+  // Timeline note type (combined patient notes + surgery notes)
+  type TimelineNote = {
+    id: string;
+    type: 'patient' | 'surgery';
+    content: string;
+    createdAt: string;
+    updatedAt: string | null;
+    author: {
+      id: string;
+      firstName: string | null;
+      lastName: string | null;
+      email: string | null;
+    };
+    surgery: {
+      id: string;
+      plannedSurgery: string;
+      plannedDate: string;
+    } | null;
+  };
+
+  // Fetch combined notes timeline for this patient
+  const { 
+    data: notesTimeline = [],
+    isLoading: isLoadingNotes,
+  } = useQuery<TimelineNote[]>({
+    queryKey: [`/api/patients/${params?.id}/notes/timeline`],
+    enabled: !!params?.id,
+  });
+
+  // State for new patient note
+  const [newPatientNote, setNewPatientNote] = useState("");
+
+  // Create patient note mutation
+  const createPatientNoteMutation = useMutation({
+    mutationFn: async (content: string) => {
+      return apiRequest('POST', `/api/patients/${params?.id}/notes`, { content });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${params?.id}/notes/timeline`] });
+      setNewPatientNote("");
+      toast({
+        title: t('anesthesia.patientDetail.noteAdded', 'Note added'),
+        description: t('anesthesia.patientDetail.noteAddedDesc', 'Your note has been saved.'),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('anesthesia.patientDetail.noteError', 'Error'),
+        description: error.message || t('anesthesia.patientDetail.noteErrorDesc', 'Failed to save note.'),
+        variant: "destructive",
+      });
+    }
   });
 
   // Fetch invoices for this patient
@@ -2139,9 +2193,16 @@ export default function PatientDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Main Content Tabs - Surgeries, Documents, and Invoices */}
-      <Tabs defaultValue="surgeries" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-4">
+      {/* Main Content Tabs - Notes, Surgeries, Documents, and Invoices */}
+      <Tabs defaultValue="notes" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 mb-4">
+          <TabsTrigger value="notes" data-testid="tab-notes">
+            <StickyNote className="h-4 w-4 mr-1" />
+            {t('anesthesia.patientDetail.notes', 'Notes')}
+            {notesTimeline && notesTimeline.length > 0 && (
+              <Badge variant="secondary" className="ml-2">{notesTimeline.length}</Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="surgeries" data-testid="tab-surgeries">
             {t('anesthesia.patientDetail.surgeries', 'Surgeries')}
             {surgeries && surgeries.length > 0 && (
@@ -2161,6 +2222,110 @@ export default function PatientDetail() {
             )}
           </TabsTrigger>
         </TabsList>
+
+        {/* Notes Tab - Combined timeline of patient notes and surgery notes */}
+        <TabsContent value="notes" className="mt-0 space-y-4">
+          {/* Add New Note */}
+          {canWrite && (
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex gap-2">
+                  <Textarea
+                    placeholder={t('anesthesia.patientDetail.writeANote', 'Write a note about this patient...')}
+                    value={newPatientNote}
+                    onChange={(e) => setNewPatientNote(e.target.value)}
+                    className="min-h-[80px] flex-1"
+                    data-testid="input-new-patient-note"
+                  />
+                  <Button
+                    onClick={() => createPatientNoteMutation.mutate(newPatientNote)}
+                    disabled={!newPatientNote.trim() || createPatientNoteMutation.isPending}
+                    className="self-end"
+                    data-testid="button-add-patient-note"
+                  >
+                    {createPatientNoteMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Notes Timeline */}
+          {isLoadingNotes ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : notesTimeline.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-muted-foreground">
+                <StickyNote className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                <p>{t('anesthesia.patientDetail.noNotesYet', 'No notes yet')}</p>
+                <p className="text-sm">{t('anesthesia.patientDetail.addFirstNote', 'Add the first note to track patient communication or clinical information.')}</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {notesTimeline.map((note) => (
+                <Card key={note.id} className={note.type === 'surgery' ? 'border-l-4 border-l-blue-500' : 'border-l-4 border-l-green-500'}>
+                  <CardContent className="py-3">
+                    <div className="flex items-start gap-3">
+                      {/* Icon based on note type */}
+                      <div className={`p-2 rounded-full shrink-0 ${note.type === 'surgery' ? 'bg-blue-100 dark:bg-blue-900' : 'bg-green-100 dark:bg-green-900'}`}>
+                        {note.type === 'surgery' ? (
+                          <Stethoscope className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                        ) : (
+                          <User className="h-4 w-4 text-green-600 dark:text-green-400" />
+                        )}
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        {/* Header with type badge and surgery info */}
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <Badge variant={note.type === 'surgery' ? 'default' : 'secondary'} className="text-xs">
+                            {note.type === 'surgery' 
+                              ? t('anesthesia.patientDetail.surgeryNote', 'Surgery Note')
+                              : t('anesthesia.patientDetail.generalNote', 'General Note')
+                            }
+                          </Badge>
+                          {note.surgery && (
+                            <span className="text-xs text-muted-foreground">
+                              {note.surgery.plannedSurgery} ({new Date(note.surgery.plannedDate).toLocaleDateString()})
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Note content */}
+                        <p className="text-sm whitespace-pre-wrap break-words">{note.content}</p>
+                        
+                        {/* Footer with author and date */}
+                        <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                          <span>
+                            {note.author.firstName || note.author.lastName 
+                              ? `${note.author.firstName || ''} ${note.author.lastName || ''}`.trim()
+                              : note.author.email || t('anesthesia.patientDetail.unknownAuthor', 'Unknown')
+                            }
+                          </span>
+                          <span>•</span>
+                          <span>{new Date(note.createdAt).toLocaleString()}</span>
+                          {note.updatedAt && note.updatedAt !== note.createdAt && (
+                            <>
+                              <span>•</span>
+                              <span className="italic">{t('anesthesia.patientDetail.edited', 'edited')}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
 
         <TabsContent value="surgeries" className="mt-0 space-y-4">
           {/* New Surgery Button */}
