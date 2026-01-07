@@ -339,7 +339,7 @@ export default function PatientDetail() {
     mutationFn: async ({ id, type }: { id: string; type: 'patient' | 'surgery' }) => {
       const endpoint = type === 'patient' 
         ? `/api/patient-notes/${id}` 
-        : `/api/surgery-notes/${id}`;
+        : `/api/anesthesia/surgery-notes/${id}`;
       return await apiRequest('DELETE', endpoint);
     },
     onSuccess: () => {
