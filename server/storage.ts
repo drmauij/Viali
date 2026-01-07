@@ -32,6 +32,7 @@ import {
   surgeries,
   surgeryNotes,
   patientNotes,
+  noteAttachments,
   anesthesiaRecords,
   preOpAssessments,
   surgeryPreOpAssessments,
@@ -122,6 +123,8 @@ import {
   type InsertSurgeryNote,
   type PatientNote,
   type InsertPatientNote,
+  type NoteAttachment,
+  type InsertNoteAttachment,
   type AnesthesiaRecord,
   type InsertAnesthesiaRecord,
   type PreOpAssessment,
@@ -434,6 +437,12 @@ export interface IStorage {
   createPatientNote(note: InsertPatientNote): Promise<PatientNote>;
   updatePatientNote(id: string, content: string): Promise<PatientNote>;
   deletePatientNote(id: string): Promise<void>;
+  
+  // Note Attachments operations (for both patient notes and surgery notes)
+  getNoteAttachments(noteType: 'patient' | 'surgery', noteId: string): Promise<NoteAttachment[]>;
+  createNoteAttachment(attachment: InsertNoteAttachment): Promise<NoteAttachment>;
+  deleteNoteAttachment(id: string): Promise<void>;
+  getNoteAttachment(id: string): Promise<NoteAttachment | undefined>;
   
   // Anesthesia Record operations
   getAnesthesiaRecord(surgeryId: string): Promise<AnesthesiaRecord | undefined>;
@@ -2691,6 +2700,38 @@ export class DatabaseStorage implements IStorage {
 
   async deletePatientNote(id: string): Promise<void> {
     await db.delete(patientNotes).where(eq(patientNotes.id, id));
+  }
+
+  // Note Attachments operations
+  async getNoteAttachments(noteType: 'patient' | 'surgery', noteId: string): Promise<NoteAttachment[]> {
+    return await db
+      .select()
+      .from(noteAttachments)
+      .where(and(
+        eq(noteAttachments.noteType, noteType),
+        eq(noteAttachments.noteId, noteId)
+      ))
+      .orderBy(desc(noteAttachments.createdAt));
+  }
+
+  async createNoteAttachment(attachment: InsertNoteAttachment): Promise<NoteAttachment> {
+    const [created] = await db
+      .insert(noteAttachments)
+      .values(attachment)
+      .returning();
+    return created;
+  }
+
+  async deleteNoteAttachment(id: string): Promise<void> {
+    await db.delete(noteAttachments).where(eq(noteAttachments.id, id));
+  }
+
+  async getNoteAttachment(id: string): Promise<NoteAttachment | undefined> {
+    const [attachment] = await db
+      .select()
+      .from(noteAttachments)
+      .where(eq(noteAttachments.id, id));
+    return attachment;
   }
 
   // Anesthesia Record operations
