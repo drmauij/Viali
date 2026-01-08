@@ -979,7 +979,22 @@ export class DatabaseStorage implements IStorage {
     belowMin?: boolean;
     expiring?: boolean;
   }): Promise<(Item & { stockLevel?: StockLevel; soonestExpiry?: Date })[]> {
-    let query = db
+    // Build conditions: hospitalId, unitId, exclude archived items, and optional filters
+    const conditions = [
+      eq(items.hospitalId, hospitalId), 
+      eq(items.unitId, unitId),
+      eq(items.status, 'active')
+    ];
+    
+    // Apply filters
+    if (filters?.critical) {
+      conditions.push(eq(items.critical, true));
+    }
+    if (filters?.controlled) {
+      conditions.push(eq(items.controlled, true));
+    }
+    
+    const query = db
       .select({
         ...items,
         stockLevel: stockLevels,
@@ -988,16 +1003,8 @@ export class DatabaseStorage implements IStorage {
       .from(items)
       .leftJoin(stockLevels, and(eq(items.id, stockLevels.itemId), eq(stockLevels.unitId, unitId)))
       .leftJoin(lots, eq(items.id, lots.itemId))
-      .where(and(eq(items.hospitalId, hospitalId), eq(items.unitId, unitId)))
+      .where(and(...conditions))
       .groupBy(items.id, stockLevels.id);
-
-    // Apply filters
-    if (filters?.critical) {
-      query = query.where(and(eq(items.hospitalId, hospitalId), eq(items.unitId, unitId), eq(items.critical, true)));
-    }
-    if (filters?.controlled) {
-      query = query.where(and(eq(items.hospitalId, hospitalId), eq(items.unitId, unitId), eq(items.controlled, true)));
-    }
 
     const result = await query.orderBy(asc(items.sortOrder), asc(items.name));
     return result as (Item & { stockLevel?: StockLevel; soonestExpiry?: Date })[];
