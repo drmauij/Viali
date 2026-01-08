@@ -58,7 +58,7 @@ interface ManageAvailabilityDialogProps {
   onOpenChange: (open: boolean) => void;
   hospitalId: string;
   unitId: string;
-  providers: { id: string; firstName: string; lastName: string }[];
+  providers: { id: string; firstName: string | null; lastName: string | null }[];
   initialProviderId?: string;
 }
 
@@ -193,7 +193,7 @@ export function ManageAvailabilityDialog({
               <SelectContent>
                 {providers.map((provider) => (
                   <SelectItem key={provider.id} value={provider.id}>
-                    {provider.firstName} {provider.lastName}
+                    {provider.firstName || ''} {provider.lastName || ''}
                   </SelectItem>
                 ))}
               </SelectContent>

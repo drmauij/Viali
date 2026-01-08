@@ -94,8 +94,8 @@ export default function ClinicAppointments() {
   const unitId = activeHospital?.unitId;
   const dateLocale = i18n.language === 'de' ? de : enUS;
 
-  const { data: providers = [] } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
-    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers`],
+  const { data: providers = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null }[]>({
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/bookable-providers`],
     enabled: !!hospitalId && !!unitId,
   });
 
@@ -386,7 +386,7 @@ function BookingDialog({
   onOpenChange: (open: boolean) => void;
   hospitalId: string;
   unitId: string;
-  providers: { id: string; firstName: string; lastName: string }[];
+  providers: { id: string; firstName: string | null; lastName: string | null }[];
   defaults?: { providerId?: string; date?: Date; endDate?: Date };
 }) {
   const { t, i18n } = useTranslation();
@@ -545,7 +545,7 @@ function BookingDialog({
                 <SelectContent>
                   {providers.map((provider) => (
                     <SelectItem key={provider.id} value={provider.id}>
-                      {provider.firstName} {provider.lastName}
+                      {provider.firstName || ''} {provider.lastName || ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
