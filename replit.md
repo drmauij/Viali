@@ -94,6 +94,7 @@ Core design decisions include:
   - CRUD API for camera devices (`/api/camera-devices`)
   - `useAutoCameraCapture` hook for automatic image fetching and OCR processing
   - Anesthesia records can be linked to a camera device via `cameraDeviceId` field
+- **Clinic Appointment Booking System**: Provider bookability is managed via `user_hospital_roles.isBookable` flag (per-unit granularity). This design allows users to be bookable in some units but not others, without requiring a separate mapping table. When a user is marked as bookable, default availability (Mon-Fri 8:00-18:00) is created if none exists. Related tables: `provider_availability`, `provider_time_off`, `provider_absences`, `clinic_appointments`.
 
 ## Planned Features
 
