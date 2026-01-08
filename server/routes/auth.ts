@@ -379,4 +379,26 @@ router.patch('/api/user/preferences', isAuthenticated, async (req: any, res) => 
   }
 });
 
+// Update user's Timebutler ICS URL
+router.put('/api/user/timebutler-url', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { url } = req.body;
+    
+    // Validate URL if provided
+    if (url && !url.startsWith('https://')) {
+      return res.status(400).json({ message: "URL must use HTTPS" });
+    }
+    
+    await db.update(users)
+      .set({ timebutlerIcsUrl: url || null, updatedAt: new Date() })
+      .where(eq(users.id, userId));
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error updating Timebutler URL:", error);
+    res.status(500).json({ message: "Failed to update Timebutler URL" });
+  }
+});
+
 export default router;

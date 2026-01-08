@@ -43,6 +43,7 @@ export const users = pgTable("users", {
   staffType: varchar("staff_type", { enum: ["internal", "external"] }).default("internal").notNull(), // Internal (clinic) or external (rented/temp)
   hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }), // Hourly pay rate for cost calculations
   preferences: jsonb("preferences"), // User preferences including clinic provider filter
+  timebutlerIcsUrl: varchar("timebutler_ics_url"), // Personal Timebutler iCal export URL for syncing absences
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
