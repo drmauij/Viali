@@ -45,10 +45,6 @@ export default function Hospital() {
   const [editingRoom, setEditingRoom] = useState<any | null>(null);
   const [roomFormName, setRoomFormName] = useState('');
   
-  // TimeButler integration states
-  const [timebutlerApiToken, setTimebutlerApiToken] = useState("");
-  const [timebutlerEnabled, setTimebutlerEnabled] = useState(false);
-  const [showApiToken, setShowApiToken] = useState(false);
 
   // Supplier catalog states
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
@@ -146,46 +142,6 @@ export default function Hospital() {
     queryKey: [`/api/admin/${activeHospital?.id}/questionnaire-token`],
     enabled: !!activeHospital?.id && isAdmin,
   });
-
-  // TimeButler config query
-  const { data: timebutlerConfigData, isLoading: timebutlerLoading } = useQuery<{
-    isEnabled?: boolean;
-    apiToken?: string;
-    hasApiToken?: boolean;
-    lastSyncAt?: string;
-    lastSyncMessage?: string;
-    userMapping?: Record<string, string>;
-  }>({
-    queryKey: [`/api/clinic/${activeHospital?.id}/timebutler-config`],
-    enabled: !!activeHospital?.id && isAdmin,
-  });
-  
-  // TimeButler user mapping state
-  const [timebutlerUserMapping, setTimebutlerUserMapping] = useState<Record<string, string>>({});
-  const [showMappingDialog, setShowMappingDialog] = useState(false);
-  const [newMappingTimebutlerId, setNewMappingTimebutlerId] = useState("");
-  const [newMappingProviderId, setNewMappingProviderId] = useState("");
-  
-  // Providers for Timebutler mapping
-  const { data: timebutlerProviders = [] } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
-    queryKey: [`/api/clinic/${activeHospital?.id}/units/all/providers`],
-    enabled: !!activeHospital?.id && isAdmin,
-  });
-
-  // Sync TimeButler state when data is fetched
-  useEffect(() => {
-    if (timebutlerConfigData) {
-      setTimebutlerEnabled(timebutlerConfigData.isEnabled || false);
-      // Don't overwrite token if it's masked
-      if (timebutlerConfigData.apiToken && timebutlerConfigData.apiToken !== '********') {
-        setTimebutlerApiToken(timebutlerConfigData.apiToken);
-      }
-      // Sync user mapping
-      if (timebutlerConfigData.userMapping) {
-        setTimebutlerUserMapping(timebutlerConfigData.userMapping);
-      }
-    }
-  }, [timebutlerConfigData]);
 
   // Questionnaire link state
   const [linkCopied, setLinkCopied] = useState(false);
@@ -304,47 +260,6 @@ export default function Hospital() {
       queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
     },
   });
-
-  // TimeButler config mutation
-  const saveTimebutlerConfigMutation = useMutation({
-    mutationFn: async (data: { apiToken?: string; isEnabled: boolean; userMapping?: Record<string, string> }) => {
-      const response = await apiRequest("PUT", `/api/clinic/${activeHospital?.id}/timebutler-config`, data);
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${activeHospital?.id}/timebutler-config`] });
-      toast({ title: t("common.success"), description: t("admin.timebutlerConfigSaved", "TimeButler configuration saved") });
-      setTimebutlerApiToken(""); // Clear local token after save
-      setShowApiToken(false);
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.failedToSaveTimebutler", "Failed to save TimeButler configuration"), variant: "destructive" });
-    },
-  });
-  
-  // Add/remove Timebutler user mapping
-  const addTimebutlerMapping = () => {
-    if (!newMappingTimebutlerId || !newMappingProviderId) return;
-    const newMapping = { ...timebutlerUserMapping, [newMappingTimebutlerId]: newMappingProviderId };
-    setTimebutlerUserMapping(newMapping);
-    saveTimebutlerConfigMutation.mutate({
-      isEnabled: timebutlerEnabled,
-      userMapping: newMapping,
-    });
-    setNewMappingTimebutlerId("");
-    setNewMappingProviderId("");
-    setShowMappingDialog(false);
-  };
-  
-  const removeTimebutlerMapping = (timebutlerId: string) => {
-    const newMapping = { ...timebutlerUserMapping };
-    delete newMapping[timebutlerId];
-    setTimebutlerUserMapping(newMapping);
-    saveTimebutlerConfigMutation.mutate({
-      isEnabled: timebutlerEnabled,
-      userMapping: newMapping,
-    });
-  };
 
   // Template mutations
   const createTemplateMutation = useMutation({
@@ -1613,234 +1528,37 @@ export default function Hospital() {
         <div className="space-y-6">
           <h2 className="text-lg font-semibold text-foreground">{t("admin.integrations", "Integrations")}</h2>
           
-          {/* TimeButler Integration Card */}
+          {/* Calendar Sync Integration Card (Timebutler/ICS) */}
           <div className="bg-card border border-border rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                  <RefreshCw className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">TimeButler</h3>
-                  <p className="text-sm text-muted-foreground">{t("admin.timebutlerDesc", "Sync staff absences from TimeButler HR system")}</p>
-                </div>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                <RefreshCw className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={timebutlerEnabled}
-                  onCheckedChange={setTimebutlerEnabled}
-                  data-testid="switch-timebutler-enabled"
-                />
-                <span className={`text-sm ${timebutlerEnabled ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
-                  {timebutlerEnabled ? t("common.enabled", "Enabled") : t("common.disabled", "Disabled")}
-                </span>
+              <div>
+                <h3 className="font-semibold text-foreground">{t("admin.calendarSync", "Calendar Sync")}</h3>
+                <p className="text-sm text-muted-foreground">{t("admin.calendarSyncDesc", "Sync staff absences from personal calendar URLs (e.g., Timebutler)")}</p>
               </div>
             </div>
 
-            {timebutlerLoading ? (
-              <div className="text-center py-4">
-                <i className="fas fa-spinner fa-spin text-xl text-primary"></i>
+            <div className="space-y-4">
+              <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-3">
+                <p>{t("admin.calendarSyncInfo", "Each staff member can configure their own calendar sync URL in the user menu (top right corner). This approach is simpler and more secure than centralized API access.")}</p>
+                
+                <h4 className="font-medium">{t("admin.howToSetup", "How staff members set up their sync:")}</h4>
+                <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                  <li>{t("admin.calendarStep1", "Click on their name in the top right corner")}</li>
+                  <li>{t("admin.calendarStep2", "Select 'Timebutler Sync'")}</li>
+                  <li>{t("admin.calendarStep3", "Paste their personal calendar URL from Timebutler")}</li>
+                  <li>{t("admin.calendarStep4", "Save")}</li>
+                </ol>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {/* Current Status */}
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="text-muted-foreground">{t("admin.status", "Status")}:</span>
-                  {timebutlerConfigData?.hasApiToken ? (
-                    <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
-                      <i className="fas fa-check-circle"></i>
-                      {t("admin.apiTokenConfigured", "API Token configured")}
-                    </span>
-                  ) : (
-                    <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                      <i className="fas fa-exclamation-triangle"></i>
-                      {t("admin.apiTokenNotSet", "API Token not configured")}
-                    </span>
-                  )}
-                </div>
 
-                {timebutlerConfigData?.lastSyncAt && (
-                  <div className="text-sm text-muted-foreground">
-                    <span>{t("admin.lastSync", "Last sync")}:</span>{" "}
-                    <span>{new Date(timebutlerConfigData.lastSyncAt).toLocaleString()}</span>
-                    {timebutlerConfigData.lastSyncMessage && (
-                      <span className="ml-2 text-xs">- {timebutlerConfigData.lastSyncMessage}</span>
-                    )}
-                  </div>
-                )}
-
-                {/* API Token Input */}
-                <div className="border-t border-border pt-4">
-                  <Label htmlFor="timebutler-token">{t("admin.apiToken", "API Token")}</Label>
-                  <div className="flex gap-2 mt-1">
-                    <div className="relative flex-1">
-                      <Input
-                        id="timebutler-token"
-                        type={showApiToken ? "text" : "password"}
-                        value={timebutlerApiToken}
-                        onChange={(e) => setTimebutlerApiToken(e.target.value)}
-                        placeholder={timebutlerConfigData?.hasApiToken ? "••••••••" : t("admin.enterApiToken", "Enter TimeButler API token")}
-                        data-testid="input-timebutler-token"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                        onClick={() => setShowApiToken(!showApiToken)}
-                      >
-                        {showApiToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                    <Button
-                      onClick={() => saveTimebutlerConfigMutation.mutate({
-                        apiToken: timebutlerApiToken || undefined,
-                        isEnabled: timebutlerEnabled,
-                      })}
-                      disabled={saveTimebutlerConfigMutation.isPending}
-                      data-testid="button-save-timebutler"
-                    >
-                      {saveTimebutlerConfigMutation.isPending ? (
-                        <i className="fas fa-spinner fa-spin mr-2"></i>
-                      ) : (
-                        <i className="fas fa-save mr-2"></i>
-                      )}
-                      {t("common.save", "Save")}
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    <i className="fas fa-lock mr-1"></i>
-                    {t("admin.tokenSecurityNote", "Your API token is stored securely. Leave blank to keep the existing token.")}
-                  </p>
-                </div>
-
-                {/* Instructions */}
-                <div className="bg-muted/50 rounded-lg p-4 text-sm">
-                  <h4 className="font-medium mb-2">{t("admin.howToGetToken", "How to get your TimeButler API token")}</h4>
-                  <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                    <li>{t("admin.timebutlerStep1", "Log in to your TimeButler account")}</li>
-                    <li>{t("admin.timebutlerStep2", "Go to Settings → API Integration")}</li>
-                    <li>{t("admin.timebutlerStep3", "Generate or copy your API token")}</li>
-                    <li>{t("admin.timebutlerStep4", "Paste it here and click Save")}</li>
-                  </ol>
-                </div>
-
-                {/* User Mapping Section */}
-                <div className="border rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">{t("admin.userMappings", "User Mappings")}</h4>
-                      <p className="text-xs text-muted-foreground">
-                        {t("admin.userMappingsDesc", "Map Timebutler User IDs to your staff members")}
-                      </p>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowMappingDialog(true)}
-                      data-testid="button-add-timebutler-mapping"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      {t("common.add", "Add")}
-                    </Button>
-                  </div>
-
-                  {Object.entries(timebutlerUserMapping).length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-2">
-                      {t("admin.noMappingsYet", "No user mappings yet. Add mappings to sync absences.")}
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {Object.entries(timebutlerUserMapping).map(([timebutlerId, providerId]) => {
-                        const provider = timebutlerProviders.find(p => p.id === providerId);
-                        return (
-                          <div key={timebutlerId} className="flex items-center justify-between bg-muted/50 rounded px-3 py-2">
-                            <div className="flex items-center gap-3">
-                              <span className="font-mono text-sm bg-background px-2 py-0.5 rounded">
-                                {timebutlerId}
-                              </span>
-                              <i className="fas fa-arrow-right text-muted-foreground text-xs"></i>
-                              <span className="text-sm">
-                                {provider ? `${provider.firstName} ${provider.lastName}` : providerId}
-                              </span>
-                            </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeTimebutlerMapping(timebutlerId)}
-                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                              data-testid={`button-remove-mapping-${timebutlerId}`}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  <i className="fas fa-info-circle mr-1"></i>
-                  {t("admin.timebutlerNote", "TimeButler API allows 12 syncs per day. Syncs happen automatically once daily. Manual syncs can be triggered from Clinic → Availability.")}
-                </p>
-              </div>
-            )}
+              <p className="text-xs text-muted-foreground">
+                <i className="fas fa-info-circle mr-1"></i>
+                {t("admin.calendarSyncNote", "Synced absences appear in the clinic calendar. Manual syncs can be triggered from Clinic → Availability.")}
+              </p>
+            </div>
           </div>
-
-          {/* Timebutler User Mapping Dialog */}
-          <Dialog open={showMappingDialog} onOpenChange={setShowMappingDialog}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{t("admin.addUserMapping", "Add User Mapping")}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="timebutler-user-id">{t("admin.timebutlerUserId", "Timebutler User ID")}</Label>
-                  <Input
-                    id="timebutler-user-id"
-                    value={newMappingTimebutlerId}
-                    onChange={(e) => setNewMappingTimebutlerId(e.target.value)}
-                    placeholder={t("admin.enterTimebutlerId", "Enter the User ID from Timebutler")}
-                    data-testid="input-timebutler-user-id"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t("admin.findTimebutlerId", "Find this in Timebutler under User Management → User ID column")}
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="staff-member">{t("admin.staffMember", "Staff Member")}</Label>
-                  <Select
-                    value={newMappingProviderId}
-                    onValueChange={setNewMappingProviderId}
-                  >
-                    <SelectTrigger data-testid="select-provider-mapping">
-                      <SelectValue placeholder={t("admin.selectStaffMember", "Select staff member")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {timebutlerProviders.map(provider => (
-                        <SelectItem key={provider.id} value={provider.id}>
-                          {provider.firstName} {provider.lastName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex justify-end gap-2">
-                  <Button variant="outline" onClick={() => setShowMappingDialog(false)}>
-                    {t("common.cancel", "Cancel")}
-                  </Button>
-                  <Button 
-                    onClick={addTimebutlerMapping}
-                    disabled={!newMappingTimebutlerId || !newMappingProviderId}
-                    data-testid="button-save-user-mapping"
-                  >
-                    {t("common.save", "Save")}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
 
           {/* Cal.com Integration Card (for RetellAI booking) */}
           <CalcomIntegrationCard hospitalId={activeHospital?.id} />

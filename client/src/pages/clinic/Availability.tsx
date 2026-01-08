@@ -43,7 +43,7 @@ import { format, addDays, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { ProviderAvailability, ProviderTimeOff, TimebutlerConfig } from "@shared/schema";
+import type { ProviderAvailability, ProviderTimeOff } from "@shared/schema";
 
 const DAYS_OF_WEEK = [
   { value: 1, label: "Monday" },
@@ -104,11 +104,6 @@ export default function ClinicAvailability() {
   const { data: timeOff = [] } = useQuery<ProviderTimeOff[]>({
     queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/time-off`],
     enabled: !!hospitalId && !!unitId && !!selectedProviderId,
-  });
-
-  const { data: timebutlerConfig } = useQuery<TimebutlerConfig & { hasApiToken?: boolean }>({
-    queryKey: [`/api/clinic/${hospitalId}/timebutler-config`],
-    enabled: !!hospitalId,
   });
 
   useEffect(() => {
@@ -172,14 +167,18 @@ export default function ClinicAvailability() {
 
   const syncTimebutlerMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", `/api/clinic/${hospitalId}/timebutler-sync`);
+      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/sync-all-ics`);
+      return response.json();
     },
-    onSuccess: (res) => {
+    onSuccess: (result: any) => {
       queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/absences`] });
-      toast({ title: t('availability.timebutlerSynced', 'Timebutler absences synced') });
+      toast({ 
+        title: t('availability.timebutlerSynced', 'Calendar sync completed'),
+        description: result.message || `${result.syncedCount || 0} absences from ${result.usersProcessed || 0} users`
+      });
     },
     onError: () => {
-      toast({ title: t('availability.timebutlerError', 'Failed to sync Timebutler'), variant: "destructive" });
+      toast({ title: t('availability.timebutlerError', 'Failed to sync absences'), variant: "destructive" });
     },
   });
 
@@ -427,56 +426,33 @@ export default function ClinicAvailability() {
           <TabsContent value="timebutler">
             <Card>
               <CardHeader>
-                <CardTitle>Timebutler {t('availability.integration', 'Integration')}</CardTitle>
+                <CardTitle>{t('availability.calendarSync', 'Calendar Sync')}</CardTitle>
                 <CardDescription>
-                  {t('availability.timebutlerDescription', 'Sync staff absences from Timebutler HR system')}
+                  {t('availability.calendarSyncDescription', 'Sync absences from staff personal calendar URLs (e.g., Timebutler)')}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{t('availability.status', 'Status')}</p>
-                    {timebutlerConfig?.isEnabled ? (
-                      <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
-                        {t('availability.enabled', 'Enabled')}
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="bg-gray-100 text-gray-600">
-                        {t('availability.disabled', 'Disabled')}
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{t('availability.lastSync', 'Last Sync')}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {timebutlerConfig?.lastSyncAt
-                        ? format(new Date(timebutlerConfig.lastSyncAt), 'PPpp', { locale: dateLocale })
-                        : t('availability.never', 'Never')}
-                    </p>
-                  </div>
+                <div className="p-4 rounded-lg bg-muted/50 space-y-2">
+                  <p className="text-sm">
+                    {t('availability.calendarSyncInfo', 'Each staff member can set their personal calendar URL in the user menu (top right corner). Click the sync button below to fetch absences from all configured calendars.')}
+                  </p>
                 </div>
-
-                {timebutlerConfig?.lastSyncMessage && (
-                  <div className="p-3 rounded-lg bg-muted/50">
-                    <p className="text-sm">{timebutlerConfig.lastSyncMessage}</p>
-                  </div>
-                )}
 
                 <div className="flex gap-2">
                   <Button
                     onClick={() => syncTimebutlerMutation.mutate()}
-                    disabled={!timebutlerConfig?.isEnabled || syncTimebutlerMutation.isPending}
+                    disabled={syncTimebutlerMutation.isPending}
                     data-testid="button-sync-timebutler"
                   >
                     <RefreshCw className={`h-4 w-4 mr-1 ${syncTimebutlerMutation.isPending ? 'animate-spin' : ''}`} />
                     {syncTimebutlerMutation.isPending 
                       ? t('availability.syncing', 'Syncing...') 
-                      : t('availability.syncNow', 'Sync Now')}
+                      : t('availability.syncAllCalendars', 'Sync All Calendars')}
                   </Button>
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  {t('availability.timebutlerNote', 'Note: Timebutler API allows 12 syncs per day. Syncs happen automatically once daily.')}
+                  {t('availability.calendarSyncNote', 'Synced absences will appear in the clinic calendar alongside manually entered time-off.')}
                 </p>
               </CardContent>
             </Card>
