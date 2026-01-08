@@ -170,6 +170,8 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isC
     }
     
     const { name, description, price, durationMinutes, isShared, sortOrder } = req.body;
+    console.log('[updateService] req.body:', JSON.stringify(req.body));
+    console.log('[updateService] durationMinutes:', durationMinutes, 'type:', typeof durationMinutes);
     
     const updateData: any = { updatedAt: new Date() };
     if (name !== undefined) updateData.name = name;
@@ -178,6 +180,7 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isC
     if (durationMinutes !== undefined) updateData.durationMinutes = durationMinutes;
     if (isShared !== undefined) updateData.isShared = isShared;
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+    console.log('[updateService] updateData:', JSON.stringify(updateData));
     
     const [updated] = await db
       .update(clinicServices)
