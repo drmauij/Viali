@@ -35,12 +35,14 @@ import {
   Check,
   AlertCircle,
   RefreshCw,
+  Settings,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
+import { ManageAvailabilityDialog } from "@/components/clinic/ManageAvailabilityDialog";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 type AppointmentWithDetails = ClinicAppointment & {
@@ -66,6 +68,7 @@ export default function ClinicAppointments() {
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [bookingDefaults, setBookingDefaults] = useState<{ providerId?: string; date?: Date; endDate?: Date }>({});
+  const [availabilityDialogOpen, setAvailabilityDialogOpen] = useState(false);
 
   const activeHospital = useMemo(() => {
     const userHospitals = (user as any)?.hospitals;
@@ -172,6 +175,14 @@ export default function ClinicAppointments() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button 
+            variant="outline"
+            onClick={() => setAvailabilityDialogOpen(true)}
+            data-testid="button-manage-availability"
+          >
+            <Settings className="h-4 w-4 mr-1" />
+            {t('appointments.manageAvailability', 'Availability')}
+          </Button>
           <Button 
             variant="outline"
             onClick={() => syncTimebutlerMutation.mutate()}
@@ -348,6 +359,14 @@ export default function ClinicAppointments() {
         unitId={unitId}
         providers={providers}
         defaults={bookingDefaults}
+      />
+
+      <ManageAvailabilityDialog
+        open={availabilityDialogOpen}
+        onOpenChange={setAvailabilityDialogOpen}
+        hospitalId={hospitalId}
+        unitId={unitId}
+        providers={providers}
       />
     </div>
   );
