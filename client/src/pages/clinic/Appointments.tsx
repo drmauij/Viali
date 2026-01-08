@@ -96,6 +96,17 @@ export default function ClinicAppointments() {
 
   const { data: providers = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null }[]>({
     queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/bookable-providers`],
+    queryFn: async () => {
+      const response = await fetch(`/api/clinic/${hospitalId}/units/${unitId}/bookable-providers`);
+      if (!response.ok) throw new Error('Failed to fetch providers');
+      const data = await response.json();
+      // Map the nested user data to flat structure expected by components
+      return data.map((p: any) => ({
+        id: p.userId,
+        firstName: p.user?.firstName || null,
+        lastName: p.user?.lastName || null,
+      }));
+    },
     enabled: !!hospitalId && !!unitId,
   });
 
