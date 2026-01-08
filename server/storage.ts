@@ -196,15 +196,12 @@ import {
   type PersonalTodo,
   type InsertPersonalTodo,
   // Clinic appointment scheduling tables
-  clinicProviders,
   providerAvailability,
   providerTimeOff,
   providerAbsences,
   clinicAppointments,
   timebutlerConfig,
   clinicServices,
-  type ClinicProvider,
-  type InsertClinicProvider,
   type ProviderAvailability,
   type InsertProviderAvailability,
   type ProviderTimeOff,
@@ -767,10 +764,10 @@ export interface IStorage {
   
   // ========== CLINIC APPOINTMENT SCHEDULING ==========
   
-  // Clinic Providers (bookable providers per unit)
-  getClinicProviders(unitId: string): Promise<(ClinicProvider & { user: User })[]>;
-  getBookableProviders(unitId: string): Promise<(ClinicProvider & { user: User })[]>;
-  setClinicProviderBookable(unitId: string, userId: string, isBookable: boolean): Promise<ClinicProvider>;
+  // Clinic Providers (bookable providers per unit via user_hospital_roles.isBookable)
+  getClinicProviders(unitId: string): Promise<(UserHospitalRole & { user: User })[]>;
+  getBookableProviders(unitId: string): Promise<(UserHospitalRole & { user: User })[]>;
+  setClinicProviderBookable(unitId: string, userId: string, isBookable: boolean): Promise<UserHospitalRole>;
   
   // Provider Availability
   getProviderAvailability(providerId: string, unitId: string): Promise<ProviderAvailability[]>;
@@ -7087,80 +7084,86 @@ export class DatabaseStorage implements IStorage {
 
   // ========== CLINIC APPOINTMENT SCHEDULING ==========
 
-  // Clinic Providers (bookable providers per unit)
-  async getClinicProviders(unitId: string): Promise<(ClinicProvider & { user: User })[]> {
+  // Clinic Providers (bookable providers per unit via user_hospital_roles.isBookable)
+  async getClinicProviders(unitId: string): Promise<(UserHospitalRole & { user: User })[]> {
     const results = await db
       .select({
-        clinicProvider: clinicProviders,
+        role: userHospitalRoles,
         user: users
       })
-      .from(clinicProviders)
-      .innerJoin(users, eq(clinicProviders.userId, users.id))
-      .where(eq(clinicProviders.unitId, unitId))
+      .from(userHospitalRoles)
+      .innerJoin(users, eq(userHospitalRoles.userId, users.id))
+      .where(eq(userHospitalRoles.unitId, unitId))
       .orderBy(asc(users.lastName), asc(users.firstName));
     
-    return results.map(r => ({ ...r.clinicProvider, user: r.user }));
+    return results.map(r => ({ ...r.role, user: r.user }));
   }
 
-  async getBookableProviders(unitId: string): Promise<(ClinicProvider & { user: User })[]> {
+  async getBookableProviders(unitId: string): Promise<(UserHospitalRole & { user: User })[]> {
     const results = await db
       .select({
-        clinicProvider: clinicProviders,
+        role: userHospitalRoles,
         user: users
       })
-      .from(clinicProviders)
-      .innerJoin(users, eq(clinicProviders.userId, users.id))
+      .from(userHospitalRoles)
+      .innerJoin(users, eq(userHospitalRoles.userId, users.id))
       .where(and(
-        eq(clinicProviders.unitId, unitId),
-        eq(clinicProviders.isBookable, true)
+        eq(userHospitalRoles.unitId, unitId),
+        eq(userHospitalRoles.isBookable, true)
       ))
       .orderBy(asc(users.lastName), asc(users.firstName));
     
-    return results.map(r => ({ ...r.clinicProvider, user: r.user }));
+    return results.map(r => ({ ...r.role, user: r.user }));
   }
 
-  async setClinicProviderBookable(unitId: string, userId: string, isBookable: boolean): Promise<ClinicProvider> {
-    // Check if record exists
+  async setClinicProviderBookable(unitId: string, userId: string, isBookable: boolean): Promise<UserHospitalRole> {
+    // Find the user_hospital_role record for this unit/user
     const existing = await db
       .select()
-      .from(clinicProviders)
+      .from(userHospitalRoles)
       .where(and(
-        eq(clinicProviders.unitId, unitId),
-        eq(clinicProviders.userId, userId)
+        eq(userHospitalRoles.unitId, unitId),
+        eq(userHospitalRoles.userId, userId)
       ))
       .limit(1);
     
     if (existing.length > 0) {
       // Update existing
       const [updated] = await db
-        .update(clinicProviders)
-        .set({ isBookable, updatedAt: new Date() })
-        .where(eq(clinicProviders.id, existing[0].id))
-        .returning();
-      return updated;
-    } else {
-      // Insert new
-      const [created] = await db
-        .insert(clinicProviders)
-        .values({ unitId, userId, isBookable })
+        .update(userHospitalRoles)
+        .set({ isBookable })
+        .where(eq(userHospitalRoles.id, existing[0].id))
         .returning();
       
-      // If making bookable, create default availability (Mon-Fri 8:00-18:00)
+      // If making bookable, create default availability (Mon-Fri 8:00-18:00) if none exists
       if (isBookable) {
-        const defaultAvailability: InsertProviderAvailability[] = [1, 2, 3, 4, 5].map(dayOfWeek => ({
-          providerId: userId,
-          unitId,
-          dayOfWeek,
-          startTime: "08:00",
-          endTime: "18:00",
-          slotDurationMinutes: 30,
-          isActive: true
-        }));
+        const existingAvail = await db
+          .select()
+          .from(providerAvailability)
+          .where(and(
+            eq(providerAvailability.providerId, userId),
+            eq(providerAvailability.unitId, unitId)
+          ))
+          .limit(1);
         
-        await db.insert(providerAvailability).values(defaultAvailability);
+        if (existingAvail.length === 0) {
+          const defaultAvailability: InsertProviderAvailability[] = [1, 2, 3, 4, 5].map(dayOfWeek => ({
+            providerId: userId,
+            unitId,
+            dayOfWeek,
+            startTime: "08:00",
+            endTime: "18:00",
+            slotDurationMinutes: 30,
+            isActive: true
+          }));
+          
+          await db.insert(providerAvailability).values(defaultAvailability);
+        }
       }
       
-      return created;
+      return updated;
+    } else {
+      throw new Error(`User ${userId} does not have a role in unit ${unitId}`);
     }
   }
 

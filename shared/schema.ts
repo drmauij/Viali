@@ -100,6 +100,7 @@ export const userHospitalRoles = pgTable("user_hospital_roles", {
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   unitId: varchar("unit_id").notNull().references(() => units.id),
   role: varchar("role").notNull(), // doctor, nurse, admin
+  isBookable: boolean("is_bookable").default(false), // Whether user can be booked for appointments in this unit
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_user_hospital_roles_user").on(table.userId),
