@@ -34,6 +34,7 @@ import {
   X,
   Check,
   AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
@@ -109,6 +110,22 @@ export default function ClinicAppointments() {
     },
   });
 
+  const syncTimebutlerMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/queue-ics-sync`);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ 
+        title: t('appointments.syncQueued', 'Calendar sync started'),
+        description: t('appointments.syncQueuedDesc', 'Absences will be synced in the background')
+      });
+    },
+    onError: () => {
+      toast({ title: t('appointments.syncError', 'Failed to start calendar sync'), variant: "destructive" });
+    },
+  });
+
   const handleBookAppointment = (data: { providerId: string; date: Date; endDate?: Date }) => {
     setBookingDefaults(data);
     setBookingDialogOpen(true);
@@ -154,16 +171,27 @@ export default function ClinicAppointments() {
           </h1>
         </div>
 
-        <Button 
-          onClick={() => {
-            setBookingDefaults({});
-            setBookingDialogOpen(true);
-          }}
-          data-testid="button-new-appointment"
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          {t('appointments.new', 'New Appointment')}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="outline"
+            onClick={() => syncTimebutlerMutation.mutate()}
+            disabled={syncTimebutlerMutation.isPending}
+            data-testid="button-sync-timebutler"
+          >
+            <RefreshCw className={`h-4 w-4 mr-1 ${syncTimebutlerMutation.isPending ? 'animate-spin' : ''}`} />
+            {t('appointments.syncCalendars', 'Sync Calendars')}
+          </Button>
+          <Button 
+            onClick={() => {
+              setBookingDefaults({});
+              setBookingDialogOpen(true);
+            }}
+            data-testid="button-new-appointment"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            {t('appointments.new', 'New Appointment')}
+          </Button>
+        </div>
       </div>
 
       <div>

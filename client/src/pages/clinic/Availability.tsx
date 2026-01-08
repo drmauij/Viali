@@ -165,23 +165,6 @@ export default function ClinicAvailability() {
     },
   });
 
-  const syncTimebutlerMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/sync-all-ics`);
-      return response.json();
-    },
-    onSuccess: (result: any) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/absences`] });
-      toast({ 
-        title: t('availability.timebutlerSynced', 'Calendar sync completed'),
-        description: result.message || `${result.syncedCount || 0} absences from ${result.usersProcessed || 0} users`
-      });
-    },
-    onError: () => {
-      toast({ title: t('availability.timebutlerError', 'Failed to sync absences'), variant: "destructive" });
-    },
-  });
-
   const updateAvailabilityDay = (dayOfWeek: number, field: string, value: any) => {
     setEditAvailability(prev => {
       const existing = prev.find(a => a.dayOfWeek === dayOfWeek);
@@ -256,10 +239,6 @@ export default function ClinicAvailability() {
             <TabsTrigger value="timeoff" data-testid="tab-timeoff">
               <CalendarOff className="h-4 w-4 mr-1" />
               {t('availability.timeOff', 'Time Off')}
-            </TabsTrigger>
-            <TabsTrigger value="timebutler" data-testid="tab-timebutler">
-              <RefreshCw className="h-4 w-4 mr-1" />
-              Timebutler
             </TabsTrigger>
           </TabsList>
 
@@ -419,41 +398,6 @@ export default function ClinicAvailability() {
                     ))}
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="timebutler">
-            <Card>
-              <CardHeader>
-                <CardTitle>{t('availability.calendarSync', 'Calendar Sync')}</CardTitle>
-                <CardDescription>
-                  {t('availability.calendarSyncDescription', 'Sync absences from staff personal calendar URLs (e.g., Timebutler)')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 rounded-lg bg-muted/50 space-y-2">
-                  <p className="text-sm">
-                    {t('availability.calendarSyncInfo', 'Each staff member can set their personal calendar URL in the user menu (top right corner). Click the sync button below to fetch absences from all configured calendars.')}
-                  </p>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => syncTimebutlerMutation.mutate()}
-                    disabled={syncTimebutlerMutation.isPending}
-                    data-testid="button-sync-timebutler"
-                  >
-                    <RefreshCw className={`h-4 w-4 mr-1 ${syncTimebutlerMutation.isPending ? 'animate-spin' : ''}`} />
-                    {syncTimebutlerMutation.isPending 
-                      ? t('availability.syncing', 'Syncing...') 
-                      : t('availability.syncAllCalendars', 'Sync All Calendars')}
-                  </Button>
-                </div>
-
-                <p className="text-xs text-muted-foreground">
-                  {t('availability.calendarSyncNote', 'Synced absences will appear in the clinic calendar alongside manually entered time-off.')}
-                </p>
               </CardContent>
             </Card>
           </TabsContent>
