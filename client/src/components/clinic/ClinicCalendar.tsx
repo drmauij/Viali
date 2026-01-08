@@ -72,6 +72,7 @@ interface ProviderAbsence {
   startDate: string;
   endDate: string;
   externalId: string | null;
+  notes: string | null;
 }
 
 interface ProviderTimeOff {
@@ -461,18 +462,19 @@ export default function ClinicCalendar({
           dayEnd.setHours(18, 0, 0, 0); // End at 6 PM
           
           const icon = ABSENCE_TYPE_ICONS[absence.absenceType] || ABSENCE_TYPE_ICONS.default;
-          const label = ABSENCE_TYPE_LABELS[absence.absenceType] || ABSENCE_TYPE_LABELS.default;
+          const defaultLabel = ABSENCE_TYPE_LABELS[absence.absenceType] || ABSENCE_TYPE_LABELS.default;
+          const displayLabel = absence.notes || defaultLabel;
           
           absenceBlockEvents.push({
             id: `absence-${absence.id}-${format(currentDate, 'yyyy-MM-dd')}`,
-            title: `${icon} ${label}`,
+            title: `${icon} ${displayLabel}`,
             start: dayStart,
             end: dayEnd,
             resource: absence.providerId,
             appointmentId: absence.id,
             patientId: '',
             patientName: '',
-            serviceName: label,
+            serviceName: displayLabel,
             status: `absence_${absence.absenceType}`,
             notes: null,
             isSurgeryBlock: false,

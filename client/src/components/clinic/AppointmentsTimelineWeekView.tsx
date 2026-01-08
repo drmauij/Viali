@@ -61,6 +61,7 @@ interface ProviderAbsence {
   startDate: string;
   endDate: string;
   externalId: string | null;
+  notes: string | null;
 }
 
 interface ProviderTimeOff {
@@ -307,14 +308,15 @@ export default function AppointmentsTimelineWeekView({
           dayEnd.setHours(18, 0, 0, 0);
           
           const icon = ABSENCE_TYPE_ICONS[absence.absenceType] || ABSENCE_TYPE_ICONS.default;
-          const label = ABSENCE_TYPE_LABELS[absence.absenceType] || ABSENCE_TYPE_LABELS.default;
+          const defaultLabel = ABSENCE_TYPE_LABELS[absence.absenceType] || ABSENCE_TYPE_LABELS.default;
+          const displayLabel = absence.notes || defaultLabel;
           const absenceStatus = `absence_${absence.absenceType}`;
           const statusClass = STATUS_COLORS[absenceStatus] || 'timeline-item-absence-other';
           
           absenceItems.push({
             id: `absence-${absence.id}-${moment(currentDate).format('YYYY-MM-DD')}`,
             group: absence.providerId,
-            title: `${icon} ${label}`,
+            title: `${icon} ${displayLabel}`,
             start_time: moment(dayStart).valueOf(),
             end_time: moment(dayEnd).valueOf(),
             canMove: false,

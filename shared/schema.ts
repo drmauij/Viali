@@ -3648,6 +3648,7 @@ export const providerAbsences = pgTable("provider_absences", {
   // Sync metadata
   syncedAt: timestamp("synced_at").defaultNow(),
   externalId: varchar("external_id"), // Original ID from Timebutler for deduplication
+  notes: text("notes"), // Original label/summary from Timebutler ICS
   
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
