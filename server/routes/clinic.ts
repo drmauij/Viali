@@ -169,12 +169,13 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isC
       return res.status(404).json({ message: "Service not found" });
     }
     
-    const { name, description, price, isShared, sortOrder } = req.body;
+    const { name, description, price, durationMinutes, isShared, sortOrder } = req.body;
     
     const updateData: any = { updatedAt: new Date() };
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
     if (price !== undefined) updateData.price = price.toString();
+    if (durationMinutes !== undefined) updateData.durationMinutes = durationMinutes;
     if (isShared !== undefined) updateData.isShared = isShared;
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
     

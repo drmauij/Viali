@@ -50,6 +50,7 @@ export default function ClinicServices() {
     name: "",
     description: "",
     price: "",
+    durationMinutes: "",
     isShared: false,
   });
 
@@ -84,7 +85,7 @@ export default function ClinicServices() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string; price: string; isShared: boolean }) => {
+    mutationFn: async (data: { name: string; description: string; price: string; durationMinutes: number | null; isShared: boolean }) => {
       return apiRequest('POST', `/api/clinic/${hospitalId}/services`, { ...data, unitId });
     },
     onSuccess: () => {
@@ -99,7 +100,7 @@ export default function ClinicServices() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { id: string; name: string; description: string; price: string; isShared: boolean }) => {
+    mutationFn: async (data: { id: string; name: string; description: string; price: string; durationMinutes: number | null; isShared: boolean }) => {
       return apiRequest('PATCH', `/api/clinic/${hospitalId}/services/${data.id}`, data);
     },
     onSuccess: () => {
@@ -130,7 +131,7 @@ export default function ClinicServices() {
   });
 
   const resetForm = () => {
-    setFormData({ name: "", description: "", price: "", isShared: false });
+    setFormData({ name: "", description: "", price: "", durationMinutes: "", isShared: false });
   };
 
   const handleOpenCreate = () => {
@@ -145,6 +146,7 @@ export default function ClinicServices() {
       name: service.name,
       description: service.description || "",
       price: service.price || "",
+      durationMinutes: service.durationMinutes?.toString() || "",
       isShared: service.isShared || false,
     });
     setDialogOpen(true);
@@ -156,12 +158,15 @@ export default function ClinicServices() {
       return;
     }
 
+    const durationMinutes = formData.durationMinutes ? parseInt(formData.durationMinutes, 10) : null;
+
     if (editingService) {
       updateMutation.mutate({
         id: editingService.id,
         name: formData.name,
         description: formData.description,
         price: formData.price,
+        durationMinutes,
         isShared: formData.isShared,
       });
     } else {
@@ -169,6 +174,7 @@ export default function ClinicServices() {
         name: formData.name,
         description: formData.description,
         price: formData.price,
+        durationMinutes,
         isShared: formData.isShared,
       });
     }
@@ -254,9 +260,16 @@ export default function ClinicServices() {
                     {service.description && (
                       <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
                     )}
-                    <p className="text-lg font-semibold text-primary mt-2">
-                      {formatPrice(service.price)}
-                    </p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <p className="text-lg font-semibold text-primary">
+                        {formatPrice(service.price)}
+                      </p>
+                      {service.durationMinutes && (
+                        <Badge variant="outline" className="text-xs">
+                          {service.durationMinutes} min
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <Button
@@ -315,18 +328,32 @@ export default function ClinicServices() {
                 data-testid="input-service-description"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="price">{t('clinic.services.price')} *</Label>
-              <Input
-                id="price"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                placeholder="0.00"
-                data-testid="input-service-price"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="price">{t('clinic.services.price')} *</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.price}
+                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  placeholder="0.00"
+                  data-testid="input-service-price"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="durationMinutes">{t('clinic.services.duration', 'Duration (min)')}</Label>
+                <Input
+                  id="durationMinutes"
+                  type="number"
+                  min="1"
+                  value={formData.durationMinutes}
+                  onChange={(e) => setFormData({ ...formData, durationMinutes: e.target.value })}
+                  placeholder={t('clinic.services.durationPlaceholder', 'Optional')}
+                  data-testid="input-service-duration"
+                />
+              </div>
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">

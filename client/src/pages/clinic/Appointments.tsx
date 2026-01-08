@@ -95,24 +95,22 @@ export default function ClinicAppointments() {
   const dateLocale = i18n.language === 'de' ? de : enUS;
 
   const { data: providers = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null }[]>({
-    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/bookable-providers`],
+    queryKey: ['bookable-providers', hospitalId, unitId],
     queryFn: async () => {
       const response = await fetch(`/api/clinic/${hospitalId}/units/${unitId}/bookable-providers`, {
         credentials: 'include',
       });
       if (!response.ok) throw new Error('Failed to fetch providers');
       const data = await response.json();
-      console.log('[BookingProviders] Raw data from API:', data);
       // Map the nested user data to flat structure expected by components
-      const mapped = data.map((p: any) => ({
+      return data.map((p: any) => ({
         id: p.userId,
         firstName: p.user?.firstName || null,
         lastName: p.user?.lastName || null,
       }));
-      console.log('[BookingProviders] Mapped providers:', mapped);
-      return mapped;
     },
     enabled: !!hospitalId && !!unitId,
+    staleTime: 0,
   });
 
   const updateAppointmentMutation = useMutation({
