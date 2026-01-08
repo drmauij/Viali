@@ -85,7 +85,7 @@ export default function ClinicServices() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string; price: string; durationMinutes: number | null; isShared: boolean }) => {
+    mutationFn: async (data: { name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean }) => {
       return apiRequest('POST', `/api/clinic/${hospitalId}/services`, { ...data, unitId });
     },
     onSuccess: () => {
@@ -100,7 +100,7 @@ export default function ClinicServices() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { id: string; name: string; description: string; price: string; durationMinutes: number | null; isShared: boolean }) => {
+    mutationFn: async (data: { id: string; name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean }) => {
       return apiRequest('PATCH', `/api/clinic/${hospitalId}/services/${data.id}`, data);
     },
     onSuccess: () => {
@@ -153,19 +153,20 @@ export default function ClinicServices() {
   };
 
   const handleSubmit = () => {
-    if (!formData.name.trim() || !formData.price) {
+    if (!formData.name.trim()) {
       toast({ title: t('clinic.services.requiredFields'), variant: "destructive" });
       return;
     }
 
     const durationMinutes = formData.durationMinutes ? parseInt(formData.durationMinutes, 10) : null;
+    const price = formData.price ? formData.price : null;
 
     if (editingService) {
       updateMutation.mutate({
         id: editingService.id,
         name: formData.name,
         description: formData.description,
-        price: formData.price,
+        price,
         durationMinutes,
         isShared: formData.isShared,
       });
@@ -173,7 +174,7 @@ export default function ClinicServices() {
       createMutation.mutate({
         name: formData.name,
         description: formData.description,
-        price: formData.price,
+        price,
         durationMinutes,
         isShared: formData.isShared,
       });
@@ -194,7 +195,7 @@ export default function ClinicServices() {
   }, [services, searchTerm]);
 
   const formatPrice = (price: string | null) => {
-    if (!price) return "CHF 0.00";
+    if (!price) return "-";
     return `CHF ${parseFloat(price).toFixed(2)}`;
   };
 
@@ -330,7 +331,7 @@ export default function ClinicServices() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="price">{t('clinic.services.price')} *</Label>
+                <Label htmlFor="price">{t('clinic.services.price')}</Label>
                 <Input
                   id="price"
                   type="number"
