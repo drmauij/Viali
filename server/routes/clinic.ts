@@ -1021,6 +1021,57 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabl
 });
 
 // ========================================
+// Clinic Providers Management (Bookable Providers)
+// ========================================
+
+// Get all clinic providers for a unit (includes non-bookable)
+router.get('/api/clinic/:hospitalId/units/:unitId/clinic-providers', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { unitId } = req.params;
+    
+    const providers = await storage.getClinicProviders(unitId);
+    
+    res.json(providers);
+  } catch (error) {
+    console.error("Error fetching clinic providers:", error);
+    res.status(500).json({ message: "Failed to fetch clinic providers" });
+  }
+});
+
+// Get bookable providers for a unit (only those with isBookable=true)
+router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { unitId } = req.params;
+    
+    const providers = await storage.getBookableProviders(unitId);
+    
+    res.json(providers);
+  } catch (error) {
+    console.error("Error fetching bookable providers:", error);
+    res.status(500).json({ message: "Failed to fetch bookable providers" });
+  }
+});
+
+// Toggle provider bookable status
+router.put('/api/clinic/:hospitalId/units/:unitId/clinic-providers/:userId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { unitId, userId } = req.params;
+    const { isBookable } = req.body;
+    
+    if (typeof isBookable !== 'boolean') {
+      return res.status(400).json({ message: "isBookable must be a boolean" });
+    }
+    
+    const provider = await storage.setClinicProviderBookable(unitId, userId, isBookable);
+    
+    res.json(provider);
+  } catch (error) {
+    console.error("Error setting clinic provider bookable status:", error);
+    res.status(500).json({ message: "Failed to update provider status" });
+  }
+});
+
+// ========================================
 // Provider Availability Management
 // ========================================
 
