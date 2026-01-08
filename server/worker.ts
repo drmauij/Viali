@@ -928,6 +928,8 @@ async function processNextScheduledJob(): Promise<boolean> {
     try {
       if (job.jobType === 'auto_questionnaire_dispatch') {
         await processAutoQuestionnaireDispatch(job);
+      } else if (job.jobType === 'sync_timebutler_ics') {
+        await processTimebutlerIcsSync(job);
       }
 
       return true;
@@ -1264,6 +1266,156 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
 }
 
 /**
+ * Process Timebutler ICS sync for a hospital
+ * Syncs absences from all users with configured ICS URLs
+ */
+async function processTimebutlerIcsSync(job: any): Promise<void> {
+  console.log(`[Worker] Starting Timebutler ICS sync for hospital ${job.hospitalId}`);
+  
+  const ical = await import('node-ical');
+  const { userHospitalRoles } = await import("@shared/schema");
+  
+  // Get all users with ICS URLs configured for this hospital
+  const usersWithIcs = await db
+    .selectDistinct({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      timebutlerIcsUrl: users.timebutlerIcsUrl,
+    })
+    .from(users)
+    .innerJoin(
+      userHospitalRoles,
+      and(
+        eq(users.id, userHospitalRoles.userId),
+        eq(userHospitalRoles.hospitalId, job.hospitalId)
+      )
+    )
+    .where(sql`${users.timebutlerIcsUrl} IS NOT NULL AND ${users.timebutlerIcsUrl} != ''`);
+  
+  if (usersWithIcs.length === 0) {
+    await storage.updateScheduledJob(job.id, {
+      status: 'completed',
+      completedAt: new Date(),
+      processedCount: 0,
+      successCount: 0,
+      results: { message: 'No users with ICS URLs configured' },
+    });
+    console.log(`[Worker] No users with ICS URLs for hospital ${job.hospitalId}`);
+    return;
+  }
+  
+  let totalSynced = 0;
+  let usersProcessed = 0;
+  let failedCount = 0;
+  const results: any[] = [];
+  
+  for (const user of usersWithIcs) {
+    try {
+      const events = await ical.async.fromURL(user.timebutlerIcsUrl!);
+      
+      const absences: any[] = [];
+      const now = new Date();
+      const oneYearAgo = new Date(now.getFullYear() - 1, 0, 1);
+      const oneYearAhead = new Date(now.getFullYear() + 1, 11, 31);
+      
+      for (const [key, event] of Object.entries(events)) {
+        if ((event as any).type !== 'VEVENT') continue;
+        
+        const vevent = event as any;
+        const startDate = vevent.start;
+        const endDate = vevent.end;
+        const summary = vevent.summary || 'Absence';
+        
+        if (!startDate || startDate < oneYearAgo || startDate > oneYearAhead) continue;
+        
+        let absenceType = 'other';
+        const lowerSummary = summary.toLowerCase();
+        if (lowerSummary.includes('urlaub') || lowerSummary.includes('vacation') || lowerSummary.includes('holiday')) {
+          absenceType = 'vacation';
+        } else if (lowerSummary.includes('krank') || lowerSummary.includes('sick')) {
+          absenceType = 'sick';
+        } else if (lowerSummary.includes('fortbildung') || lowerSummary.includes('training')) {
+          absenceType = 'training';
+        }
+        
+        absences.push({
+          providerId: user.id,
+          hospitalId: job.hospitalId,
+          absenceType,
+          startDate: startDate instanceof Date ? startDate.toISOString().split('T')[0] : startDate,
+          endDate: endDate instanceof Date ? endDate.toISOString().split('T')[0] : endDate,
+          externalId: `ics-${user.id}-${key}`,
+          notes: summary,
+        });
+      }
+      
+      if (absences.length > 0) {
+        await storage.syncProviderAbsencesForUser(job.hospitalId, user.id, absences);
+      } else {
+        await storage.clearProviderAbsencesForUser(job.hospitalId, user.id);
+      }
+      
+      totalSynced += absences.length;
+      usersProcessed++;
+      results.push({ userId: user.id, name: `${user.firstName} ${user.lastName}`, status: 'success', absencesCount: absences.length });
+    } catch (userError: any) {
+      failedCount++;
+      results.push({ userId: user.id, name: `${user.firstName} ${user.lastName}`, status: 'failed', error: userError.message });
+      console.error(`[Worker] Failed to sync ICS for user ${user.id}:`, userError.message);
+    }
+  }
+  
+  await storage.updateScheduledJob(job.id, {
+    status: 'completed',
+    completedAt: new Date(),
+    processedCount: usersWithIcs.length,
+    successCount: usersProcessed,
+    failedCount,
+    results: { totalSynced, users: results },
+  });
+  
+  console.log(`[Worker] Completed Timebutler ICS sync: ${usersProcessed}/${usersWithIcs.length} users, ${totalSynced} absences synced`);
+}
+
+/**
+ * Schedule Timebutler ICS sync jobs for all hospitals
+ * This runs periodically (every 6 hours) to keep absences in sync
+ */
+async function scheduleTimebutlerIcsSyncJobs(): Promise<void> {
+  try {
+    const allHospitals = await db.select().from(hospitals);
+    const now = new Date();
+    
+    for (const hospital of allHospitals) {
+      // Check if there's already a pending or recent job
+      const lastJob = await storage.getLastScheduledJobForHospital(hospital.id, 'sync_timebutler_ics');
+      
+      if (lastJob) {
+        const hoursSinceLastJob = (now.getTime() - new Date(lastJob.scheduledFor).getTime()) / (1000 * 60 * 60);
+        
+        // Skip if we have a pending/processing job or if last job was less than 6 hours ago
+        if (lastJob.status === 'pending' || lastJob.status === 'processing' || hoursSinceLastJob < 6) {
+          continue;
+        }
+      }
+      
+      // Schedule a new job for now
+      await storage.createScheduledJob({
+        jobType: 'sync_timebutler_ics',
+        hospitalId: hospital.id,
+        scheduledFor: now,
+        status: 'pending',
+      });
+      
+      console.log(`[Worker] Scheduled Timebutler ICS sync job for hospital ${hospital.id}`);
+    }
+  } catch (error: any) {
+    console.error('[Worker] Error scheduling Timebutler ICS sync jobs:', error);
+  }
+}
+
+/**
  * Schedule auto-questionnaire dispatch jobs for all hospitals that need them
  * This runs periodically to ensure jobs are scheduled for each hospital daily
  */
@@ -1358,6 +1510,7 @@ async function workerLoop() {
       // Schedule new auto-questionnaire jobs periodically (every minute)
       if (Date.now() - lastScheduledJobCheck >= SCHEDULED_JOB_CHECK_INTERVAL_MS) {
         await scheduleAutoQuestionnaireJobs();
+        await scheduleTimebutlerIcsSyncJobs();
         lastScheduledJobCheck = Date.now();
       }
       
