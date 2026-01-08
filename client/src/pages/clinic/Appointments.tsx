@@ -446,14 +446,6 @@ function BookingDialog({
     enabled: !!hospitalId && !!unitId,
   });
 
-  const selectedService = services.find(s => s.id === selectedServiceId);
-  const duration = selectedService?.durationMinutes || 30;
-
-  const { data: availableSlots = [], isLoading: slotsLoading } = useQuery<{ startTime: string; endTime: string }[]>({
-    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/available-slots?date=${selectedDate}&duration=${duration}`],
-    enabled: !!hospitalId && !!unitId && !!selectedProviderId && !!selectedDate,
-  });
-
   const createAppointmentMutation = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest("POST", `/api/clinic/${hospitalId}/units/${unitId}/appointments`, data);
@@ -485,12 +477,11 @@ function BookingDialog({
   };
 
   const handleSubmit = () => {
-    if (!selectedPatientId || !selectedProviderId || !selectedDate || !selectedSlot) {
+    const [startTime, endTime] = selectedSlot.split('-');
+    if (!selectedPatientId || !selectedProviderId || !selectedDate || !startTime || !endTime) {
       toast({ title: t('appointments.fillRequired', 'Please fill all required fields'), variant: "destructive" });
       return;
     }
-
-    const [startTime, endTime] = selectedSlot.split('-');
     
     createAppointmentMutation.mutate({
       patientId: selectedPatientId,
@@ -593,32 +584,32 @@ function BookingDialog({
             />
           </div>
 
-          {selectedProviderId && selectedDate && (
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label>{t('appointments.timeSlot', 'Time Slot')} *</Label>
-              {slotsLoading ? (
-                <Skeleton className="h-10 w-full" />
-              ) : availableSlots.length > 0 ? (
-                <div className="grid grid-cols-4 gap-2 mt-1">
-                  {availableSlots.map((slot) => (
-                    <Button
-                      key={`${slot.startTime}-${slot.endTime}`}
-                      variant={selectedSlot === `${slot.startTime}-${slot.endTime}` ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedSlot(`${slot.startTime}-${slot.endTime}`)}
-                      data-testid={`slot-${slot.startTime}`}
-                    >
-                      {slot.startTime}
-                    </Button>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground mt-1">
-                  {t('appointments.noSlots', 'No available slots for this date')}
-                </p>
-              )}
+              <Label>{t('appointments.startTime', 'Start Time')} *</Label>
+              <Input
+                type="time"
+                value={selectedSlot.split('-')[0] || ''}
+                onChange={(e) => {
+                  const endTime = selectedSlot.split('-')[1] || '';
+                  setSelectedSlot(`${e.target.value}-${endTime}`);
+                }}
+                data-testid="input-booking-start-time"
+              />
             </div>
-          )}
+            <div>
+              <Label>{t('appointments.endTime', 'End Time')} *</Label>
+              <Input
+                type="time"
+                value={selectedSlot.split('-')[1] || ''}
+                onChange={(e) => {
+                  const startTime = selectedSlot.split('-')[0] || '';
+                  setSelectedSlot(`${startTime}-${e.target.value}`);
+                }}
+                data-testid="input-booking-end-time"
+              />
+            </div>
+          </div>
 
           <div>
             <Label>{t('appointments.notes', 'Notes')}</Label>
@@ -638,7 +629,7 @@ function BookingDialog({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={createAppointmentMutation.isPending || !selectedPatientId || !selectedProviderId || !selectedDate || !selectedSlot}
+            disabled={createAppointmentMutation.isPending || !selectedPatientId || !selectedProviderId || !selectedDate || !selectedSlot.split('-')[0] || !selectedSlot.split('-')[1]}
             data-testid="button-book-appointment"
           >
             {createAppointmentMutation.isPending ? (
