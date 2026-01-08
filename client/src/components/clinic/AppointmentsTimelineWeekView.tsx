@@ -11,7 +11,7 @@ import moment from "moment";
 import "moment/locale/en-gb";
 import "moment/locale/de";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut } from "lucide-react";
+import { ZoomIn, ZoomOut, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
@@ -92,6 +92,7 @@ interface AppointmentsTimelineWeekViewProps {
   onEventClick?: (appointment: AppointmentWithDetails) => void;
   onEventDrop?: (appointmentId: string, newStart: Date, newEnd: Date, newProviderId: string) => void;
   onCanvasClick?: (providerId: string, time: Date) => void;
+  onProviderClick?: (providerId: string) => void;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -121,6 +122,7 @@ export default function AppointmentsTimelineWeekView({
   onEventClick,
   onEventDrop,
   onCanvasClick,
+  onProviderClick,
 }: AppointmentsTimelineWeekViewProps) {
   const { i18n } = useTranslation();
   const currentStateRef = useRef<Map<string, { providerId: string; start: Date; end: Date }>>(new Map());
@@ -418,6 +420,17 @@ export default function AppointmentsTimelineWeekView({
           sidebarWidth={120}
           stackItems={true}
           buffer={1}
+          groupRenderer={({ group }) => (
+            <button
+              onClick={() => onProviderClick?.(group.id as string)}
+              className="w-full h-full flex items-center justify-center gap-1 hover:bg-muted/50 transition-colors cursor-pointer text-sm font-medium px-1"
+              title="Click to manage availability"
+              data-testid={`provider-sidebar-${group.id}`}
+            >
+              <Settings className="h-3 w-3 opacity-50 flex-shrink-0" />
+              <span className="truncate">{group.title}</span>
+            </button>
+          )}
         >
         <TimelineHeaders>
           <SidebarHeader>

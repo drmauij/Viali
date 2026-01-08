@@ -35,7 +35,6 @@ import {
   Check,
   AlertCircle,
   RefreshCw,
-  Settings,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
@@ -69,6 +68,12 @@ export default function ClinicAppointments() {
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [bookingDefaults, setBookingDefaults] = useState<{ providerId?: string; date?: Date; endDate?: Date }>({});
   const [availabilityDialogOpen, setAvailabilityDialogOpen] = useState(false);
+  const [selectedProviderForAvailability, setSelectedProviderForAvailability] = useState<string | undefined>();
+
+  const handleProviderClick = (providerId: string) => {
+    setSelectedProviderForAvailability(providerId);
+    setAvailabilityDialogOpen(true);
+  };
 
   const activeHospital = useMemo(() => {
     const userHospitals = (user as any)?.hospitals;
@@ -177,14 +182,6 @@ export default function ClinicAppointments() {
         <div className="flex items-center gap-2">
           <Button 
             variant="outline"
-            onClick={() => setAvailabilityDialogOpen(true)}
-            data-testid="button-manage-availability"
-          >
-            <Settings className="h-4 w-4 mr-1" />
-            {t('appointments.manageAvailability', 'Availability')}
-          </Button>
-          <Button 
-            variant="outline"
             onClick={() => syncTimebutlerMutation.mutate()}
             disabled={syncTimebutlerMutation.isPending}
             data-testid="button-sync-timebutler"
@@ -211,6 +208,7 @@ export default function ClinicAppointments() {
           unitId={unitId}
           onBookAppointment={handleBookAppointment}
           onEventClick={handleEventClick}
+          onProviderClick={handleProviderClick}
           statusLegend={
             <div className="flex flex-wrap gap-3 p-4 border-t bg-muted/30 text-sm">
               {Object.entries(STATUS_COLORS).map(([status, colors]) => (
@@ -363,10 +361,14 @@ export default function ClinicAppointments() {
 
       <ManageAvailabilityDialog
         open={availabilityDialogOpen}
-        onOpenChange={setAvailabilityDialogOpen}
+        onOpenChange={(open) => {
+          setAvailabilityDialogOpen(open);
+          if (!open) setSelectedProviderForAvailability(undefined);
+        }}
         hospitalId={hospitalId}
         unitId={unitId}
         providers={providers}
+        initialProviderId={selectedProviderForAvailability}
       />
     </div>
   );

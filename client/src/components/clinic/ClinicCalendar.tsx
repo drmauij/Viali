@@ -145,6 +145,7 @@ interface ClinicCalendarProps {
   unitId: string;
   onBookAppointment?: (data: { providerId: string; date: Date; endDate?: Date }) => void;
   onEventClick?: (appointment: AppointmentWithDetails) => void;
+  onProviderClick?: (providerId: string) => void;
   statusLegend?: React.ReactNode;
 }
 
@@ -153,6 +154,7 @@ export default function ClinicCalendar({
   unitId, 
   onBookAppointment,
   onEventClick,
+  onProviderClick,
   statusLegend,
 }: ClinicCalendarProps) {
   const { t, i18n } = useTranslation();
@@ -916,6 +918,7 @@ export default function ClinicCalendar({
               const endTime = new Date(time.getTime() + 30 * 60 * 1000);
               onBookAppointment?.({ providerId, date: time, endDate: endTime });
             }}
+            onProviderClick={onProviderClick}
           />
         ) : (
           <DragAndDropCalendar
@@ -952,6 +955,19 @@ export default function ClinicCalendar({
                 dateHeader: MonthDateHeader,
               },
               dateCellWrapper: DateCellWrapper,
+              resourceHeader: ({ resource }: { resource: CalendarResource }) => (
+                <button
+                  onClick={() => onProviderClick?.(resource.id)}
+                  className="w-full text-center py-2 px-1 hover:bg-muted/50 transition-colors cursor-pointer font-medium text-sm"
+                  title={t('appointments.clickToManageAvailability', 'Click to manage availability')}
+                  data-testid={`provider-header-${resource.id}`}
+                >
+                  <span className="flex items-center justify-center gap-1">
+                    <Settings className="h-3 w-3 opacity-50" />
+                    {resource.title}
+                  </span>
+                </button>
+              ),
             }}
             messages={{
               today: t('opCalendar.today', 'Today'),
