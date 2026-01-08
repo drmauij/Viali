@@ -196,12 +196,14 @@ import {
   type PersonalTodo,
   type InsertPersonalTodo,
   // Clinic appointment scheduling tables
+  clinicProviders,
   providerAvailability,
   providerTimeOff,
   providerAbsences,
   clinicAppointments,
   timebutlerConfig,
   clinicServices,
+  type ClinicProvider,
   type ProviderAvailability,
   type InsertProviderAvailability,
   type ProviderTimeOff,
@@ -764,10 +766,10 @@ export interface IStorage {
   
   // ========== CLINIC APPOINTMENT SCHEDULING ==========
   
-  // Clinic Providers (bookable providers per unit via user_hospital_roles.isBookable)
-  getClinicProviders(unitId: string): Promise<(UserHospitalRole & { user: User })[]>;
-  getBookableProviders(unitId: string): Promise<(UserHospitalRole & { user: User })[]>;
-  setClinicProviderBookable(unitId: string, userId: string, isBookable: boolean): Promise<UserHospitalRole>;
+  // Clinic Providers (bookable providers at hospital level via clinic_providers table)
+  getClinicProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]>;
+  getBookableProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]>;
+  setClinicProviderBookableByHospital(hospitalId: string, userId: string, isBookable: boolean): Promise<ClinicProvider>;
   
   // Provider Availability
   getProviderAvailability(providerId: string, unitId: string): Promise<ProviderAvailability[]>;
@@ -807,6 +809,14 @@ export interface IStorage {
     startDate?: string;
     endDate?: string;
     status?: string;
+  }): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService })[]>;
+  getClinicAppointmentsByHospital(hospitalId: string, filters?: {
+    providerId?: string;
+    patientId?: string;
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+    unitId?: string;
   }): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService })[]>;
   getClinicAppointment(id: string): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService }) | undefined>;
   createClinicAppointment(appointment: InsertClinicAppointment): Promise<ClinicAppointment>;
@@ -7084,120 +7094,154 @@ export class DatabaseStorage implements IStorage {
 
   // ========== CLINIC APPOINTMENT SCHEDULING ==========
 
-  // Clinic Providers (bookable providers per unit via user_hospital_roles.isBookable)
-  async getClinicProviders(unitId: string): Promise<(UserHospitalRole & { user: User })[]> {
+  // Clinic Providers (bookable providers at hospital level via clinic_providers table)
+  async getClinicProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]> {
+    // Query clinic_providers joined through units to get hospital-level providers
     const results = await db
       .select({
-        role: userHospitalRoles,
+        provider: clinicProviders,
         user: users
       })
-      .from(userHospitalRoles)
-      .innerJoin(users, eq(userHospitalRoles.userId, users.id))
-      .where(eq(userHospitalRoles.unitId, unitId))
+      .from(clinicProviders)
+      .innerJoin(units, eq(clinicProviders.unitId, units.id))
+      .innerJoin(users, eq(clinicProviders.userId, users.id))
+      .where(eq(units.hospitalId, hospitalId))
       .orderBy(asc(users.lastName), asc(users.firstName));
     
-    return results.map(r => ({ ...r.role, user: r.user }));
+    // Deduplicate by userId with OR aggregation for isBookable
+    // User is considered bookable hospital-wide if ANY unit row is bookable
+    const userMap = new Map<string, { provider: ClinicProvider; user: User }>();
+    for (const r of results) {
+      const existing = userMap.get(r.provider.userId);
+      if (!existing) {
+        userMap.set(r.provider.userId, { provider: r.provider, user: r.user });
+      } else if (r.provider.isBookable && !existing.provider.isBookable) {
+        // Found a bookable row - update the aggregated record
+        userMap.set(r.provider.userId, { 
+          provider: { ...existing.provider, isBookable: true }, 
+          user: r.user 
+        });
+      }
+    }
+    return Array.from(userMap.values()).map(v => ({ ...v.provider, user: v.user }));
   }
 
-  async getBookableProviders(unitId: string): Promise<(UserHospitalRole & { user: User })[]> {
+  async getBookableProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]> {
+    // Only returns providers where at least one unit row has isBookable=true
     const results = await db
       .select({
-        role: userHospitalRoles,
+        provider: clinicProviders,
         user: users
       })
-      .from(userHospitalRoles)
-      .innerJoin(users, eq(userHospitalRoles.userId, users.id))
+      .from(clinicProviders)
+      .innerJoin(units, eq(clinicProviders.unitId, units.id))
+      .innerJoin(users, eq(clinicProviders.userId, users.id))
       .where(and(
-        eq(userHospitalRoles.unitId, unitId),
-        eq(userHospitalRoles.isBookable, true)
+        eq(units.hospitalId, hospitalId),
+        eq(clinicProviders.isBookable, true)
       ))
       .orderBy(asc(users.lastName), asc(users.firstName));
     
-    return results.map(r => ({ ...r.role, user: r.user }));
+    // Deduplicate by userId (user may appear in multiple bookable units)
+    const seen = new Set<string>();
+    const unique: (ClinicProvider & { user: User })[] = [];
+    for (const r of results) {
+      if (!seen.has(r.provider.userId)) {
+        seen.add(r.provider.userId);
+        unique.push({ ...r.provider, user: r.user });
+      }
+    }
+    return unique;
   }
 
-  async setClinicProviderBookable(unitId: string, userId: string, isBookable: boolean): Promise<UserHospitalRole> {
-    // Find the user_hospital_role record for this unit/user
+  async setClinicProviderBookableByHospital(hospitalId: string, userId: string, isBookable: boolean): Promise<ClinicProvider> {
+    // Find any existing clinic_provider record for this user in any unit of this hospital
     const existing = await db
-      .select()
-      .from(userHospitalRoles)
+      .select({ provider: clinicProviders, unit: units })
+      .from(clinicProviders)
+      .innerJoin(units, eq(clinicProviders.unitId, units.id))
       .where(and(
-        eq(userHospitalRoles.unitId, unitId),
-        eq(userHospitalRoles.userId, userId)
+        eq(units.hospitalId, hospitalId),
+        eq(clinicProviders.userId, userId)
       ))
       .limit(1);
     
-    let roleRecord: UserHospitalRole;
+    let providerRecord: ClinicProvider;
     
     if (existing.length > 0) {
-      // Update existing
+      // Update existing record
       const [updated] = await db
-        .update(userHospitalRoles)
-        .set({ isBookable })
-        .where(eq(userHospitalRoles.id, existing[0].id))
+        .update(clinicProviders)
+        .set({ isBookable, updatedAt: new Date() })
+        .where(eq(clinicProviders.id, existing[0].provider.id))
         .returning();
-      roleRecord = updated;
+      providerRecord = updated;
     } else {
-      // User doesn't have a role in this unit yet - create one
-      // First, get the unit to find the hospitalId
-      const [unit] = await db.select().from(units).where(eq(units.id, unitId)).limit(1);
-      if (!unit) {
-        throw new Error(`Unit ${unitId} not found`);
-      }
-      
-      // Find user's existing role in another unit of the same hospital to copy the role type
-      const existingRole = await db
+      // Create new record - need to pick a unit in this hospital
+      // Get the first clinic module unit, or any unit if none
+      const [clinicUnit] = await db
         .select()
-        .from(userHospitalRoles)
+        .from(units)
         .where(and(
-          eq(userHospitalRoles.hospitalId, unit.hospitalId),
-          eq(userHospitalRoles.userId, userId)
+          eq(units.hospitalId, hospitalId),
+          eq(units.isClinicModule, true)
         ))
         .limit(1);
       
-      const roleType = existingRole.length > 0 ? existingRole[0].role : 'Doctor';
+      const targetUnit = clinicUnit || (await db
+        .select()
+        .from(units)
+        .where(eq(units.hospitalId, hospitalId))
+        .limit(1))[0];
       
-      // Create new role in this unit
+      if (!targetUnit) {
+        throw new Error(`No units found for hospital ${hospitalId}`);
+      }
+      
       const [created] = await db
-        .insert(userHospitalRoles)
+        .insert(clinicProviders)
         .values({
+          unitId: targetUnit.id,
           userId,
-          hospitalId: unit.hospitalId,
-          unitId,
-          role: roleType,
           isBookable
         })
         .returning();
-      roleRecord = created;
+      providerRecord = created;
     }
     
     // If making bookable, create default availability (Mon-Fri 8:00-18:00) if none exists
     if (isBookable) {
-      const existingAvail = await db
+      // Get any unit in this hospital for availability
+      const [unit] = await db
         .select()
-        .from(providerAvailability)
-        .where(and(
-          eq(providerAvailability.providerId, userId),
-          eq(providerAvailability.unitId, unitId)
-        ))
+        .from(units)
+        .where(eq(units.hospitalId, hospitalId))
         .limit(1);
       
-      if (existingAvail.length === 0) {
-        const defaultAvailability: InsertProviderAvailability[] = [1, 2, 3, 4, 5].map(dayOfWeek => ({
-          providerId: userId,
-          unitId,
-          dayOfWeek,
-          startTime: "08:00",
-          endTime: "18:00",
-          slotDurationMinutes: 30,
-          isActive: true
-        }));
+      if (unit) {
+        const existingAvail = await db
+          .select()
+          .from(providerAvailability)
+          .where(eq(providerAvailability.providerId, userId))
+          .limit(1);
         
-        await db.insert(providerAvailability).values(defaultAvailability);
+        if (existingAvail.length === 0) {
+          const defaultAvailability: InsertProviderAvailability[] = [1, 2, 3, 4, 5].map(dayOfWeek => ({
+            providerId: userId,
+            unitId: unit.id,
+            dayOfWeek,
+            startTime: "08:00",
+            endTime: "18:00",
+            slotDurationMinutes: 30,
+            isActive: true
+          }));
+          
+          await db.insert(providerAvailability).values(defaultAvailability);
+        }
       }
     }
     
-    return roleRecord;
+    return providerRecord;
   }
 
   async getProviderAvailability(providerId: string, unitId: string): Promise<ProviderAvailability[]> {
@@ -7485,6 +7529,52 @@ export class DatabaseStorage implements IStorage {
   }): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService })[]> {
     let conditions = [eq(clinicAppointments.unitId, unitId)];
     
+    if (filters?.providerId) {
+      conditions.push(eq(clinicAppointments.providerId, filters.providerId));
+    }
+    if (filters?.patientId) {
+      conditions.push(eq(clinicAppointments.patientId, filters.patientId));
+    }
+    if (filters?.startDate) {
+      conditions.push(gte(clinicAppointments.appointmentDate, filters.startDate));
+    }
+    if (filters?.endDate) {
+      conditions.push(lte(clinicAppointments.appointmentDate, filters.endDate));
+    }
+    if (filters?.status) {
+      conditions.push(eq(clinicAppointments.status, filters.status as any));
+    }
+    
+    const results = await db
+      .select()
+      .from(clinicAppointments)
+      .leftJoin(patients, eq(clinicAppointments.patientId, patients.id))
+      .leftJoin(users, eq(clinicAppointments.providerId, users.id))
+      .leftJoin(clinicServices, eq(clinicAppointments.serviceId, clinicServices.id))
+      .where(and(...conditions))
+      .orderBy(asc(clinicAppointments.appointmentDate), asc(clinicAppointments.startTime));
+    
+    return results.map(row => ({
+      ...row.clinic_appointments,
+      patient: row.patients || undefined,
+      provider: row.users || undefined,
+      service: row.clinic_services || undefined,
+    }));
+  }
+
+  async getClinicAppointmentsByHospital(hospitalId: string, filters?: {
+    providerId?: string;
+    patientId?: string;
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+    unitId?: string;
+  }): Promise<(ClinicAppointment & { patient?: Patient; provider?: User; service?: ClinicService })[]> {
+    let conditions = [eq(clinicAppointments.hospitalId, hospitalId)];
+    
+    if (filters?.unitId) {
+      conditions.push(eq(clinicAppointments.unitId, filters.unitId));
+    }
     if (filters?.providerId) {
       conditions.push(eq(clinicAppointments.providerId, filters.providerId));
     }

@@ -95,9 +95,9 @@ export default function ClinicAppointments() {
   const dateLocale = i18n.language === 'de' ? de : enUS;
 
   const { data: providers = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null }[]>({
-    queryKey: ['bookable-providers', hospitalId, unitId],
+    queryKey: ['bookable-providers', hospitalId],
     queryFn: async () => {
-      const response = await fetch(`/api/clinic/${hospitalId}/units/${unitId}/bookable-providers`, {
+      const response = await fetch(`/api/clinic/${hospitalId}/bookable-providers`, {
         credentials: 'include',
       });
       if (!response.ok) throw new Error('Failed to fetch providers');
@@ -109,7 +109,7 @@ export default function ClinicAppointments() {
         lastName: p.user?.lastName || null,
       }));
     },
-    enabled: !!hospitalId && !!unitId,
+    enabled: !!hospitalId,
     staleTime: 0,
   });
 
@@ -121,7 +121,7 @@ export default function ClinicAppointments() {
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
-          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/units/${unitId}/appointments`);
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
         }
       });
       toast({ title: t('appointments.statusUpdated', 'Appointment status updated') });
@@ -455,7 +455,7 @@ function BookingDialog({
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
-          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/units/${unitId}/appointments`);
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
         }
       });
       toast({ title: t('appointments.created', 'Appointment created successfully') });

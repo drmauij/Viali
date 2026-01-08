@@ -232,8 +232,8 @@ export default function ClinicCalendar({
   type BookableProvider = ClinicProvider & { user: { id: string; firstName: string | null; lastName: string | null; email: string | null } };
   
   const { data: bookableProviders = [], isLoading: providersLoading } = useQuery<BookableProvider[]>({
-    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/bookable-providers`],
-    enabled: !!hospitalId && !!unitId,
+    queryKey: [`/api/clinic/${hospitalId}/bookable-providers`],
+    enabled: !!hospitalId,
   });
   
   const providers = useMemo(() => {
@@ -252,8 +252,8 @@ export default function ClinicCalendar({
   });
 
   const { data: appointments = [] } = useQuery<AppointmentWithDetails[]>({
-    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/appointments?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`],
-    enabled: !!hospitalId && !!unitId,
+    queryKey: [`/api/clinic/${hospitalId}/appointments?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`],
+    enabled: !!hospitalId,
     refetchInterval: 30000,
   });
 
@@ -583,7 +583,7 @@ export default function ClinicCalendar({
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
-          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/units/${unitId}/appointments`);
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
         }
       });
       toast({ title: t('appointments.rescheduled', 'Appointment rescheduled successfully') });
@@ -592,7 +592,7 @@ export default function ClinicCalendar({
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
-          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/units/${unitId}/appointments`);
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
         }
       });
       toast({ title: t('appointments.rescheduleFailed', 'Failed to reschedule appointment'), variant: "destructive" });

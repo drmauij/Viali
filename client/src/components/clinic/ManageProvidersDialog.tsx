@@ -74,8 +74,8 @@ export default function ManageProvidersDialog({
   });
 
   const { data: clinicProviders = [], isLoading: providersLoading } = useQuery<ClinicProvider[]>({
-    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/clinic-providers`],
-    enabled: !!hospitalId && !!unitId && open,
+    queryKey: [`/api/clinic/${hospitalId}/clinic-providers`],
+    enabled: !!hospitalId && open,
   });
 
   useEffect(() => {
@@ -125,7 +125,7 @@ export default function ManageProvidersDialog({
 
   const toggleProviderMutation = useMutation({
     mutationFn: async ({ userId, isBookable }: { userId: string; isBookable: boolean }) => {
-      return apiRequest('PUT', `/api/clinic/${hospitalId}/units/${unitId}/clinic-providers/${userId}`, {
+      return apiRequest('PUT', `/api/clinic/${hospitalId}/clinic-providers/${userId}`, {
         isBookable
       });
     },

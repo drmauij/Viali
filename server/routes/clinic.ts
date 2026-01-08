@@ -861,7 +861,29 @@ import {
   users,
 } from "@shared/schema";
 
-// List appointments for a unit
+// List appointments for entire hospital (shared calendar)
+router.get('/api/clinic/:hospitalId/appointments', isAuthenticated, isClinicAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { providerId, patientId, startDate, endDate, status, unitId } = req.query;
+    
+    const appointments = await storage.getClinicAppointmentsByHospital(hospitalId, {
+      providerId: providerId as string,
+      patientId: patientId as string,
+      startDate: startDate as string,
+      endDate: endDate as string,
+      status: status as string,
+      unitId: unitId as string,
+    });
+    
+    res.json(appointments);
+  } catch (error) {
+    console.error("Error fetching appointments:", error);
+    res.status(500).json({ message: "Failed to fetch appointments" });
+  }
+});
+
+// List appointments for a unit (legacy endpoint - redirects to hospital query)
 router.get('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticated, isClinicAccess, async (req: any, res) => {
   try {
     const { hospitalId, unitId } = req.params;
@@ -1022,15 +1044,15 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabl
 });
 
 // ========================================
-// Clinic Providers Management (Bookable Providers)
+// Clinic Providers Management (Bookable Providers) - Hospital Level
 // ========================================
 
-// Get all clinic providers for a unit (includes non-bookable)
-router.get('/api/clinic/:hospitalId/units/:unitId/clinic-providers', isAuthenticated, isClinicAccess, async (req, res) => {
+// Get all clinic providers for hospital (includes non-bookable)
+router.get('/api/clinic/:hospitalId/clinic-providers', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
-    const { unitId } = req.params;
+    const { hospitalId } = req.params;
     
-    const providers = await storage.getClinicProviders(unitId);
+    const providers = await storage.getClinicProvidersByHospital(hospitalId);
     
     res.json(providers);
   } catch (error) {
@@ -1039,12 +1061,12 @@ router.get('/api/clinic/:hospitalId/units/:unitId/clinic-providers', isAuthentic
   }
 });
 
-// Get bookable providers for a unit (only those with isBookable=true)
-router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthenticated, isClinicAccess, async (req, res) => {
+// Get bookable providers for hospital (only those with isBookable=true)
+router.get('/api/clinic/:hospitalId/bookable-providers', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
-    const { unitId } = req.params;
+    const { hospitalId } = req.params;
     
-    const providers = await storage.getBookableProviders(unitId);
+    const providers = await storage.getBookableProvidersByHospital(hospitalId);
     
     res.json(providers);
   } catch (error) {
@@ -1053,17 +1075,32 @@ router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthent
   }
 });
 
-// Toggle provider bookable status
-router.put('/api/clinic/:hospitalId/units/:unitId/clinic-providers/:userId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+// Legacy: Get bookable providers for a unit (redirects to hospital-level)
+router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
-    const { unitId, userId } = req.params;
+    const { hospitalId } = req.params;
+    
+    // Use hospital-level query for shared calendar
+    const providers = await storage.getBookableProvidersByHospital(hospitalId);
+    
+    res.json(providers);
+  } catch (error) {
+    console.error("Error fetching bookable providers:", error);
+    res.status(500).json({ message: "Failed to fetch bookable providers" });
+  }
+});
+
+// Toggle provider bookable status (hospital level)
+router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, userId } = req.params;
     const { isBookable } = req.body;
     
     if (typeof isBookable !== 'boolean') {
       return res.status(400).json({ message: "isBookable must be a boolean" });
     }
     
-    const provider = await storage.setClinicProviderBookable(unitId, userId, isBookable);
+    const provider = await storage.setClinicProviderBookableByHospital(hospitalId, userId, isBookable);
     
     res.json(provider);
   } catch (error) {
