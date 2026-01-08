@@ -3705,6 +3705,10 @@ export const clinicAppointments = pgTable("clinic_appointments", {
     enum: ["scheduled", "confirmed", "arrived", "in_progress", "completed", "cancelled", "no_show"] 
   }).default("scheduled").notNull(),
   
+  // Actual times (set when appointment starts/completes)
+  actualStartTime: timestamp("actual_start_time"),
+  actualEndTime: timestamp("actual_end_time"),
+  
   // Notes
   notes: text("notes"),
   cancellationReason: text("cancellation_reason"),
