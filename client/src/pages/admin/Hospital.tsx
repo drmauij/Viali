@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink } from "lucide-react";
+import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus } from "lucide-react";
 import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
@@ -154,8 +154,21 @@ export default function Hospital() {
     hasApiToken?: boolean;
     lastSyncAt?: string;
     lastSyncMessage?: string;
+    userMapping?: Record<string, string>;
   }>({
     queryKey: [`/api/clinic/${activeHospital?.id}/timebutler-config`],
+    enabled: !!activeHospital?.id && isAdmin,
+  });
+  
+  // TimeButler user mapping state
+  const [timebutlerUserMapping, setTimebutlerUserMapping] = useState<Record<string, string>>({});
+  const [showMappingDialog, setShowMappingDialog] = useState(false);
+  const [newMappingTimebutlerId, setNewMappingTimebutlerId] = useState("");
+  const [newMappingProviderId, setNewMappingProviderId] = useState("");
+  
+  // Providers for Timebutler mapping
+  const { data: timebutlerProviders = [] } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
+    queryKey: [`/api/clinic/${activeHospital?.id}/units/all/providers`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
@@ -166,6 +179,10 @@ export default function Hospital() {
       // Don't overwrite token if it's masked
       if (timebutlerConfigData.apiToken && timebutlerConfigData.apiToken !== '********') {
         setTimebutlerApiToken(timebutlerConfigData.apiToken);
+      }
+      // Sync user mapping
+      if (timebutlerConfigData.userMapping) {
+        setTimebutlerUserMapping(timebutlerConfigData.userMapping);
       }
     }
   }, [timebutlerConfigData]);
@@ -290,7 +307,7 @@ export default function Hospital() {
 
   // TimeButler config mutation
   const saveTimebutlerConfigMutation = useMutation({
-    mutationFn: async (data: { apiToken?: string; isEnabled: boolean }) => {
+    mutationFn: async (data: { apiToken?: string; isEnabled: boolean; userMapping?: Record<string, string> }) => {
       const response = await apiRequest("PUT", `/api/clinic/${activeHospital?.id}/timebutler-config`, data);
       return await response.json();
     },
@@ -304,6 +321,30 @@ export default function Hospital() {
       toast({ title: t("common.error"), description: error.message || t("admin.failedToSaveTimebutler", "Failed to save TimeButler configuration"), variant: "destructive" });
     },
   });
+  
+  // Add/remove Timebutler user mapping
+  const addTimebutlerMapping = () => {
+    if (!newMappingTimebutlerId || !newMappingProviderId) return;
+    const newMapping = { ...timebutlerUserMapping, [newMappingTimebutlerId]: newMappingProviderId };
+    setTimebutlerUserMapping(newMapping);
+    saveTimebutlerConfigMutation.mutate({
+      isEnabled: timebutlerEnabled,
+      userMapping: newMapping,
+    });
+    setNewMappingTimebutlerId("");
+    setNewMappingProviderId("");
+    setShowMappingDialog(false);
+  };
+  
+  const removeTimebutlerMapping = (timebutlerId: string) => {
+    const newMapping = { ...timebutlerUserMapping };
+    delete newMapping[timebutlerId];
+    setTimebutlerUserMapping(newMapping);
+    saveTimebutlerConfigMutation.mutate({
+      isEnabled: timebutlerEnabled,
+      userMapping: newMapping,
+    });
+  };
 
   // Template mutations
   const createTemplateMutation = useMutation({
@@ -1684,6 +1725,61 @@ export default function Hospital() {
                   </ol>
                 </div>
 
+                {/* User Mapping Section */}
+                <div className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium">{t("admin.userMappings", "User Mappings")}</h4>
+                      <p className="text-xs text-muted-foreground">
+                        {t("admin.userMappingsDesc", "Map Timebutler User IDs to your staff members")}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowMappingDialog(true)}
+                      data-testid="button-add-timebutler-mapping"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      {t("common.add", "Add")}
+                    </Button>
+                  </div>
+
+                  {Object.entries(timebutlerUserMapping).length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      {t("admin.noMappingsYet", "No user mappings yet. Add mappings to sync absences.")}
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {Object.entries(timebutlerUserMapping).map(([timebutlerId, providerId]) => {
+                        const provider = timebutlerProviders.find(p => p.id === providerId);
+                        return (
+                          <div key={timebutlerId} className="flex items-center justify-between bg-muted/50 rounded px-3 py-2">
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono text-sm bg-background px-2 py-0.5 rounded">
+                                {timebutlerId}
+                              </span>
+                              <i className="fas fa-arrow-right text-muted-foreground text-xs"></i>
+                              <span className="text-sm">
+                                {provider ? `${provider.firstName} ${provider.lastName}` : providerId}
+                              </span>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeTimebutlerMapping(timebutlerId)}
+                              className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                              data-testid={`button-remove-mapping-${timebutlerId}`}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
                 <p className="text-xs text-muted-foreground">
                   <i className="fas fa-info-circle mr-1"></i>
                   {t("admin.timebutlerNote", "TimeButler API allows 12 syncs per day. Syncs happen automatically once daily. Manual syncs can be triggered from Clinic → Availability.")}
@@ -1691,6 +1787,60 @@ export default function Hospital() {
               </div>
             )}
           </div>
+
+          {/* Timebutler User Mapping Dialog */}
+          <Dialog open={showMappingDialog} onOpenChange={setShowMappingDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{t("admin.addUserMapping", "Add User Mapping")}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="timebutler-user-id">{t("admin.timebutlerUserId", "Timebutler User ID")}</Label>
+                  <Input
+                    id="timebutler-user-id"
+                    value={newMappingTimebutlerId}
+                    onChange={(e) => setNewMappingTimebutlerId(e.target.value)}
+                    placeholder={t("admin.enterTimebutlerId", "Enter the User ID from Timebutler")}
+                    data-testid="input-timebutler-user-id"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("admin.findTimebutlerId", "Find this in Timebutler under User Management → User ID column")}
+                  </p>
+                </div>
+                <div>
+                  <Label htmlFor="staff-member">{t("admin.staffMember", "Staff Member")}</Label>
+                  <Select
+                    value={newMappingProviderId}
+                    onValueChange={setNewMappingProviderId}
+                  >
+                    <SelectTrigger data-testid="select-provider-mapping">
+                      <SelectValue placeholder={t("admin.selectStaffMember", "Select staff member")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timebutlerProviders.map(provider => (
+                        <SelectItem key={provider.id} value={provider.id}>
+                          {provider.firstName} {provider.lastName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button variant="outline" onClick={() => setShowMappingDialog(false)}>
+                    {t("common.cancel", "Cancel")}
+                  </Button>
+                  <Button 
+                    onClick={addTimebutlerMapping}
+                    disabled={!newMappingTimebutlerId || !newMappingProviderId}
+                    data-testid="button-save-user-mapping"
+                  >
+                    {t("common.save", "Save")}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Cal.com Integration Card (for RetellAI booking) */}
           <CalcomIntegrationCard hospitalId={activeHospital?.id} />

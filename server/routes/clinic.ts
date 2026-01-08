@@ -1242,35 +1242,56 @@ router.post('/api/clinic/:hospitalId/timebutler-sync', isAuthenticated, isClinic
     const lines = csvData.split('\n');
     const headers = lines[0]?.split(';') || [];
     
-    // Find column indices
+    // Find column indices - support both English and German headers
+    const userIdIdx = headers.findIndex(h => h.toLowerCase() === 'user id' || h.toLowerCase() === 'benutzer id');
     const emailIdx = headers.findIndex(h => h.toLowerCase().includes('email') || h.toLowerCase().includes('e-mail'));
-    const startIdx = headers.findIndex(h => h.toLowerCase().includes('start') || h.toLowerCase().includes('von'));
-    const endIdx = headers.findIndex(h => h.toLowerCase().includes('end') || h.toLowerCase().includes('bis'));
+    const startIdx = headers.findIndex(h => 
+      h.toLowerCase() === 'from' || 
+      h.toLowerCase() === 'von' || 
+      h.toLowerCase().includes('start')
+    );
+    const endIdx = headers.findIndex(h => 
+      h.toLowerCase() === 'to' || 
+      h.toLowerCase() === 'bis' || 
+      h.toLowerCase().includes('end')
+    );
     const typeIdx = headers.findIndex(h => h.toLowerCase().includes('type') || h.toLowerCase().includes('art'));
     
-    if (emailIdx === -1 || startIdx === -1 || endIdx === -1) {
+    // We need either userId or email for user identification, plus dates
+    if ((userIdIdx === -1 && emailIdx === -1) || startIdx === -1 || endIdx === -1) {
       console.error("Could not parse Timebutler CSV headers:", headers);
-      return res.status(500).json({ message: "Could not parse Timebutler response" });
+      return res.status(500).json({ 
+        message: "Could not parse Timebutler response. Expected columns: User ID or Email, From/To dates." 
+      });
     }
     
     const absences: any[] = [];
     const userMapping = config.userMapping || {};
+    let skippedUnmapped = 0;
     
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i];
       if (!line.trim()) continue;
       
       const cols = line.split(';');
-      const email = cols[emailIdx]?.trim();
+      const timebutlerUserId = userIdIdx !== -1 ? cols[userIdIdx]?.trim() : undefined;
+      const email = emailIdx !== -1 ? cols[emailIdx]?.trim() : undefined;
       const startDate = cols[startIdx]?.trim();
       const endDate = cols[endIdx]?.trim();
       const absenceType = cols[typeIdx]?.trim() || 'vacation';
       
-      if (!email || !startDate || !endDate) continue;
+      if (!startDate || !endDate) continue;
+      if (!timebutlerUserId && !email) continue;
       
-      // Map email to provider ID
-      const providerId = userMapping[email];
-      if (!providerId) continue; // Skip unmapped users
+      // Map Timebutler User ID or email to provider ID
+      // userMapping can have entries like { "123": "provider-uuid", "user@email.com": "provider-uuid" }
+      const userKey = timebutlerUserId || email || '';
+      const providerId = userMapping[userKey] || (email ? userMapping[email] : undefined);
+      
+      if (!providerId) {
+        skippedUnmapped++;
+        continue; // Skip unmapped users
+      }
       
       absences.push({
         providerId,
@@ -1278,8 +1299,12 @@ router.post('/api/clinic/:hospitalId/timebutler-sync', isAuthenticated, isClinic
         absenceType,
         startDate,
         endDate,
-        externalId: `${email}-${startDate}-${endDate}`,
+        externalId: `tb-${userKey}-${startDate}-${endDate}`,
       });
+    }
+    
+    if (skippedUnmapped > 0) {
+      console.log(`Timebutler sync: Skipped ${skippedUnmapped} unmapped users`);
     }
     
     // Sync absences to database
