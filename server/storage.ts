@@ -778,6 +778,8 @@ export interface IStorage {
   // Provider Absences (Timebutler sync)
   getProviderAbsences(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderAbsence[]>;
   syncProviderAbsences(hospitalId: string, absences: InsertProviderAbsence[]): Promise<void>;
+  syncProviderAbsencesForUser(hospitalId: string, userId: string, absences: InsertProviderAbsence[]): Promise<void>;
+  clearProviderAbsencesForUser(hospitalId: string, userId: string): Promise<void>;
   
   // Timebutler Config
   getTimebutlerConfig(hospitalId: string): Promise<TimebutlerConfig | undefined>;
@@ -7196,6 +7198,38 @@ export class DatabaseStorage implements IStorage {
           },
         });
     }
+  }
+
+  async syncProviderAbsencesForUser(hospitalId: string, userId: string, absences: InsertProviderAbsence[]): Promise<void> {
+    // Delete existing absences for this user from ICS sync (externalId starts with 'ics-')
+    await db
+      .delete(providerAbsences)
+      .where(
+        and(
+          eq(providerAbsences.hospitalId, hospitalId),
+          eq(providerAbsences.providerId, userId),
+          sql`${providerAbsences.externalId} LIKE 'ics-%'`
+        )
+      );
+    
+    // Insert new absences
+    for (const absence of absences) {
+      await db
+        .insert(providerAbsences)
+        .values({ ...absence, hospitalId, syncedAt: new Date() });
+    }
+  }
+
+  async clearProviderAbsencesForUser(hospitalId: string, userId: string): Promise<void> {
+    await db
+      .delete(providerAbsences)
+      .where(
+        and(
+          eq(providerAbsences.hospitalId, hospitalId),
+          eq(providerAbsences.providerId, userId),
+          sql`${providerAbsences.externalId} LIKE 'ics-%'`
+        )
+      );
   }
 
   async getTimebutlerConfig(hospitalId: string): Promise<TimebutlerConfig | undefined> {

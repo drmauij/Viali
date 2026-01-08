@@ -1334,6 +1334,184 @@ router.post('/api/clinic/:hospitalId/timebutler-sync', isAuthenticated, isClinic
   }
 });
 
+// Sync absences from user's personal Timebutler ICS URL
+router.post('/api/clinic/:hospitalId/sync-user-ics/:userId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, userId } = req.params;
+    const ical = await import('node-ical');
+    
+    // Get user's ICS URL
+    const user = await storage.getUser(userId);
+    
+    if (!user?.timebutlerIcsUrl) {
+      return res.status(400).json({ message: "User has no ICS URL configured" });
+    }
+    
+    // Fetch and parse ICS
+    const events = await ical.async.fromURL(user.timebutlerIcsUrl);
+    
+    const absences: any[] = [];
+    const now = new Date();
+    const oneYearAgo = new Date(now.getFullYear() - 1, 0, 1);
+    const oneYearAhead = new Date(now.getFullYear() + 1, 11, 31);
+    
+    for (const [key, event] of Object.entries(events)) {
+      if ((event as any).type !== 'VEVENT') continue;
+      
+      const vevent = event as any;
+      const startDate = vevent.start;
+      const endDate = vevent.end;
+      const summary = vevent.summary || 'Absence';
+      
+      // Skip events outside our date range
+      if (!startDate || startDate < oneYearAgo || startDate > oneYearAhead) continue;
+      
+      // Determine absence type from summary (common German/English patterns)
+      let absenceType = 'other';
+      const lowerSummary = summary.toLowerCase();
+      if (lowerSummary.includes('urlaub') || lowerSummary.includes('vacation') || lowerSummary.includes('holiday')) {
+        absenceType = 'vacation';
+      } else if (lowerSummary.includes('krank') || lowerSummary.includes('sick')) {
+        absenceType = 'sick';
+      } else if (lowerSummary.includes('fortbildung') || lowerSummary.includes('training')) {
+        absenceType = 'training';
+      }
+      
+      absences.push({
+        providerId: userId,
+        hospitalId,
+        absenceType,
+        startDate: startDate instanceof Date ? startDate.toISOString().split('T')[0] : startDate,
+        endDate: endDate instanceof Date ? endDate.toISOString().split('T')[0] : endDate,
+        externalId: `ics-${userId}-${key}`,
+        notes: summary,
+      });
+    }
+    
+    // Sync absences to database (clears old ones for this user and inserts new)
+    if (absences.length > 0) {
+      await storage.syncProviderAbsencesForUser(hospitalId, userId, absences);
+    } else {
+      // Clear existing absences for this user if no events found
+      await storage.clearProviderAbsencesForUser(hospitalId, userId);
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Synced ${absences.length} absences from ICS`,
+      syncedCount: absences.length,
+    });
+  } catch (error) {
+    console.error("Error syncing user ICS:", error);
+    res.status(500).json({ message: "Failed to sync from ICS URL" });
+  }
+});
+
+// Sync all users' ICS URLs for a hospital
+router.post('/api/clinic/:hospitalId/sync-all-ics', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const ical = await import('node-ical');
+    
+    // Get all users with ICS URLs configured for this hospital
+    const { userHospitalRoles } = await import("@shared/schema");
+    
+    const usersWithIcs = await db
+      .selectDistinct({
+        id: users.id,
+        firstName: users.firstName,
+        lastName: users.lastName,
+        timebutlerIcsUrl: users.timebutlerIcsUrl,
+      })
+      .from(users)
+      .innerJoin(
+        userHospitalRoles,
+        and(
+          eq(users.id, userHospitalRoles.userId),
+          eq(userHospitalRoles.hospitalId, hospitalId)
+        )
+      )
+      .where(sql`${users.timebutlerIcsUrl} IS NOT NULL AND ${users.timebutlerIcsUrl} != ''`);
+    
+    if (usersWithIcs.length === 0) {
+      return res.json({ 
+        success: true, 
+        message: "No users have ICS URLs configured",
+        syncedCount: 0,
+        usersProcessed: 0,
+      });
+    }
+    
+    let totalSynced = 0;
+    let usersProcessed = 0;
+    const errors: string[] = [];
+    
+    for (const user of usersWithIcs) {
+      try {
+        const events = await ical.async.fromURL(user.timebutlerIcsUrl!);
+        
+        const absences: any[] = [];
+        const now = new Date();
+        const oneYearAgo = new Date(now.getFullYear() - 1, 0, 1);
+        const oneYearAhead = new Date(now.getFullYear() + 1, 11, 31);
+        
+        for (const [key, event] of Object.entries(events)) {
+          if ((event as any).type !== 'VEVENT') continue;
+          
+          const vevent = event as any;
+          const startDate = vevent.start;
+          const endDate = vevent.end;
+          const summary = vevent.summary || 'Absence';
+          
+          if (!startDate || startDate < oneYearAgo || startDate > oneYearAhead) continue;
+          
+          let absenceType = 'other';
+          const lowerSummary = summary.toLowerCase();
+          if (lowerSummary.includes('urlaub') || lowerSummary.includes('vacation') || lowerSummary.includes('holiday')) {
+            absenceType = 'vacation';
+          } else if (lowerSummary.includes('krank') || lowerSummary.includes('sick')) {
+            absenceType = 'sick';
+          } else if (lowerSummary.includes('fortbildung') || lowerSummary.includes('training')) {
+            absenceType = 'training';
+          }
+          
+          absences.push({
+            providerId: user.id,
+            hospitalId,
+            absenceType,
+            startDate: startDate instanceof Date ? startDate.toISOString().split('T')[0] : startDate,
+            endDate: endDate instanceof Date ? endDate.toISOString().split('T')[0] : endDate,
+            externalId: `ics-${user.id}-${key}`,
+            notes: summary,
+          });
+        }
+        
+        if (absences.length > 0) {
+          await storage.syncProviderAbsencesForUser(hospitalId, user.id, absences);
+        } else {
+          await storage.clearProviderAbsencesForUser(hospitalId, user.id);
+        }
+        
+        totalSynced += absences.length;
+        usersProcessed++;
+      } catch (userError: any) {
+        errors.push(`${user.firstName} ${user.lastName}: ${userError.message}`);
+      }
+    }
+    
+    res.json({ 
+      success: true, 
+      message: `Synced ${totalSynced} absences from ${usersProcessed} users`,
+      syncedCount: totalSynced,
+      usersProcessed,
+      errors: errors.length > 0 ? errors : undefined,
+    });
+  } catch (error) {
+    console.error("Error syncing all ICS:", error);
+    res.status(500).json({ message: "Failed to sync ICS URLs" });
+  }
+});
+
 // ========================================
 // Providers (users who can have appointments)
 // ========================================
