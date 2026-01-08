@@ -170,17 +170,14 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isC
     }
     
     const { name, description, price, durationMinutes, isShared, sortOrder } = req.body;
-    console.log('[updateService] req.body:', JSON.stringify(req.body));
-    console.log('[updateService] durationMinutes:', durationMinutes, 'type:', typeof durationMinutes);
     
     const updateData: any = { updatedAt: new Date() };
     if (name !== undefined) updateData.name = name;
     if (description !== undefined) updateData.description = description;
-    if (price !== undefined) updateData.price = price.toString();
+    if (price !== undefined) updateData.price = price ? price.toString() : null;
     if (durationMinutes !== undefined) updateData.durationMinutes = durationMinutes;
     if (isShared !== undefined) updateData.isShared = isShared;
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
-    console.log('[updateService] updateData:', JSON.stringify(updateData));
     
     const [updated] = await db
       .update(clinicServices)
@@ -1048,7 +1045,6 @@ router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthent
     const { unitId } = req.params;
     
     const providers = await storage.getBookableProviders(unitId);
-    console.log('[bookable-providers] Raw providers:', JSON.stringify(providers, null, 2));
     
     res.json(providers);
   } catch (error) {
