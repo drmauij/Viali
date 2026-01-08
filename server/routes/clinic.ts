@@ -987,7 +987,25 @@ router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentica
     // Validate update payload with Zod schema
     const validatedData = updateAppointmentSchema.parse(req.body);
     
-    const updated = await storage.updateClinicAppointment(appointmentId, validatedData);
+    // Auto-set actual times based on status transitions
+    const updateData: any = { ...validatedData };
+    const now = new Date();
+    
+    if (validatedData.status === 'in_progress' && existing.status !== 'in_progress') {
+      // Starting the appointment - set actual start time
+      updateData.actualStartTime = now;
+    }
+    
+    if (validatedData.status === 'completed' && existing.status !== 'completed') {
+      // Completing the appointment - set actual end time
+      updateData.actualEndTime = now;
+      // Also set actualStartTime if not already set (edge case: direct completion)
+      if (!existing.actualStartTime) {
+        updateData.actualStartTime = now;
+      }
+    }
+    
+    const updated = await storage.updateClinicAppointment(appointmentId, updateData);
     
     res.json(updated);
   } catch (error) {
