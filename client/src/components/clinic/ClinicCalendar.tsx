@@ -1007,16 +1007,6 @@ export default function ClinicCalendar({
             <UserPlus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
             <span className="hidden sm:inline">{t('appointments.manageProviders', 'Manage Providers')}</span>
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setLocation('/clinic/availability')}
-            data-testid="button-manage-availability"
-            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
-          >
-            <Settings className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-            <span className="hidden sm:inline">{t('appointments.availability', 'Availability')}</span>
-          </Button>
         </div>
       </div>
 
