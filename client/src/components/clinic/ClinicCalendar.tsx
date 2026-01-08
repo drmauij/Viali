@@ -46,6 +46,8 @@ interface CalendarEvent {
   surgeryName?: string;
   isAbsenceBlock?: boolean;
   absenceType?: string;
+  isTimeOffBlock?: boolean;
+  timeOffReason?: string;
 }
 
 interface ProviderSurgery {
@@ -70,6 +72,18 @@ interface ProviderAbsence {
   startDate: string;
   endDate: string;
   externalId: string | null;
+}
+
+interface ProviderTimeOff {
+  id: string;
+  providerId: string;
+  unitId: string;
+  startDate: string;
+  endDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  reason: string | null;
+  notes: string | null;
 }
 
 type CalendarResource = {
@@ -332,6 +346,21 @@ export default function ClinicCalendar({
     refetchInterval: 60000,
   });
 
+  // Fetch provider time offs (manually created)
+  const { data: providerTimeOffs = [] } = useQuery<ProviderTimeOff[]>({
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/time-off`, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/clinic/${hospitalId}/units/${unitId}/time-off?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`,
+        { credentials: 'include' }
+      );
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!hospitalId && !!unitId,
+    refetchInterval: 60000,
+  });
+
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     // Appointment events
     const appointmentEvents = appointments.map((appt) => {
@@ -456,8 +485,64 @@ export default function ClinicCalendar({
         }
       });
 
-    return [...appointmentEvents, ...surgeryBlockEvents, ...absenceBlockEvents];
-  }, [appointments, providerSurgeries, providerAbsences, filteredProviders, dateRange]);
+    // Time off block events (manually set via availability dialog)
+    // Only include time offs where providerId is in the filtered providers list
+    const timeOffBlockEvents: CalendarEvent[] = [];
+    providerTimeOffs
+      .filter((timeOff) => providerIdSet.has(timeOff.providerId))
+      .forEach((timeOff) => {
+        const timeOffStart = new Date(timeOff.startDate);
+        const timeOffEnd = new Date(timeOff.endDate);
+        
+        // Create events for each day in the time off range that falls within dateRange
+        const currentDate = new Date(Math.max(timeOffStart.getTime(), dateRange.start.getTime()));
+        currentDate.setHours(0, 0, 0, 0);
+        
+        const rangeEnd = new Date(Math.min(timeOffEnd.getTime(), dateRange.end.getTime()));
+        rangeEnd.setHours(23, 59, 59, 999);
+        
+        while (currentDate <= rangeEnd) {
+          const dayStart = new Date(currentDate);
+          const dayEnd = new Date(currentDate);
+          
+          // If specific times are set, use them; otherwise use full day (8-18)
+          if (timeOff.startTime && timeOff.endTime) {
+            const [startH, startM] = timeOff.startTime.split(':').map(Number);
+            const [endH, endM] = timeOff.endTime.split(':').map(Number);
+            dayStart.setHours(startH, startM, 0, 0);
+            dayEnd.setHours(endH, endM, 0, 0);
+          } else {
+            dayStart.setHours(8, 0, 0, 0);
+            dayEnd.setHours(18, 0, 0, 0);
+          }
+          
+          const reason = timeOff.reason || 'Time Off';
+          
+          timeOffBlockEvents.push({
+            id: `timeoff-${timeOff.id}-${format(currentDate, 'yyyy-MM-dd')}`,
+            title: `🚫 ${reason}`,
+            start: dayStart,
+            end: dayEnd,
+            resource: timeOff.providerId,
+            appointmentId: timeOff.id,
+            patientId: '',
+            patientName: '',
+            serviceName: reason,
+            status: 'time_off',
+            notes: timeOff.notes,
+            isSurgeryBlock: false,
+            isAbsenceBlock: false,
+            isTimeOffBlock: true,
+            timeOffReason: reason,
+          });
+          
+          // Move to next day
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      });
+
+    return [...appointmentEvents, ...surgeryBlockEvents, ...absenceBlockEvents, ...timeOffBlockEvents];
+  }, [appointments, providerSurgeries, providerAbsences, providerTimeOffs, filteredProviders, dateRange]);
 
   const resources: CalendarResource[] = useMemo(() => {
     return filteredProviders.map((provider) => ({
@@ -618,6 +703,22 @@ export default function ClinicCalendar({
       };
     }
     
+    // Time off blocks: orange, non-interactive
+    if (event.isTimeOffBlock) {
+      return {
+        style: {
+          backgroundColor: '#ea580c',
+          borderColor: '#c2410c',
+          color: '#ffffff',
+          borderRadius: '4px',
+          opacity: 0.9,
+          border: '1px solid',
+          display: 'block',
+          cursor: 'not-allowed',
+        },
+      };
+    }
+    
     const colors = STATUS_COLORS[event.status] || STATUS_COLORS.scheduled;
     const isCancelled = event.status === 'cancelled';
     
@@ -656,6 +757,17 @@ export default function ClinicCalendar({
     if (event.isAbsenceBlock) {
       return (
         <div className="flex flex-col h-full p-1" data-testid={`absence-block-${event.appointmentId}`}>
+          <div className="font-bold text-xs">
+            {event.title}
+          </div>
+        </div>
+      );
+    }
+    
+    // Time off block display
+    if (event.isTimeOffBlock) {
+      return (
+        <div className="flex flex-col h-full p-1" data-testid={`timeoff-block-${event.appointmentId}`}>
           <div className="font-bold text-xs">
             {event.title}
           </div>
@@ -903,6 +1015,7 @@ export default function ClinicCalendar({
             appointments={appointments}
             providerSurgeries={providerSurgeries}
             providerAbsences={providerAbsences}
+            providerTimeOffs={providerTimeOffs}
             selectedDate={selectedDate}
             onEventClick={(appt) => onEventClick?.(appt)}
             onEventDrop={(appointmentId, newStart, newEnd, newProviderId) => {
@@ -940,8 +1053,8 @@ export default function ClinicCalendar({
             onSelectEvent={handleSelectEvent}
             selectable
             resizable
-            draggableAccessor={(event: CalendarEvent) => !event.isSurgeryBlock && !event.isAbsenceBlock}
-            resizableAccessor={(event: CalendarEvent) => !event.isSurgeryBlock && !event.isAbsenceBlock}
+            draggableAccessor={(event: CalendarEvent) => !event.isSurgeryBlock && !event.isAbsenceBlock && !event.isTimeOffBlock}
+            resizableAccessor={(event: CalendarEvent) => !event.isSurgeryBlock && !event.isAbsenceBlock && !event.isTimeOffBlock}
             toolbar={false}
             step={15}
             timeslots={4}

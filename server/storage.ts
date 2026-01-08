@@ -771,6 +771,7 @@ export interface IStorage {
   
   // Provider Time Off
   getProviderTimeOff(providerId: string, unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]>;
+  getProviderTimeOffsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]>;
   createProviderTimeOff(timeOff: InsertProviderTimeOff): Promise<ProviderTimeOff>;
   updateProviderTimeOff(id: string, updates: Partial<ProviderTimeOff>): Promise<ProviderTimeOff>;
   deleteProviderTimeOff(id: string): Promise<void>;
@@ -7161,6 +7162,23 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(providerTimeOff)
       .where(eq(providerTimeOff.id, id));
+  }
+
+  async getProviderTimeOffsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]> {
+    let conditions = [eq(providerTimeOff.unitId, unitId)];
+    
+    if (startDate) {
+      conditions.push(gte(providerTimeOff.endDate, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(providerTimeOff.startDate, endDate));
+    }
+    
+    return await db
+      .select()
+      .from(providerTimeOff)
+      .where(and(...conditions))
+      .orderBy(asc(providerTimeOff.startDate));
   }
 
   async getProviderAbsences(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderAbsence[]> {

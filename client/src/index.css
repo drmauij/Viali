@@ -934,6 +934,34 @@
   line-height: 1.3;
 }
 
+/* Time off blocks (manually created) - orange */
+.timeline-item-timeoff {
+  background-color: hsl(25, 90%, 48%);
+  border: 1px solid hsl(25, 90%, 38%);
+  border-radius: 4px;
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  opacity: 0.9;
+  cursor: not-allowed !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-timeoff {
+  background-color: hsl(25, 90%, 48%) !important;
+  border: 1px solid hsl(25, 90%, 38%) !important;
+  border-radius: 4px !important;
+  cursor: not-allowed !important;
+}
+
+.react-calendar-timeline .rct-item.timeline-item-timeoff .rct-item-content {
+  background-color: hsl(25, 90%, 48%);
+  color: white;
+  padding: 4px 8px;
+  font-size: 12px;
+  white-space: pre-line;
+  line-height: 1.3;
+}
+
 .timeline-item-running {
   background-color: hsl(0, 84%, 60%);
   border: none;

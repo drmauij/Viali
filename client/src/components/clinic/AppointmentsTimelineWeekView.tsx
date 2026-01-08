@@ -63,6 +63,18 @@ interface ProviderAbsence {
   externalId: string | null;
 }
 
+interface ProviderTimeOff {
+  id: string;
+  providerId: string;
+  unitId: string;
+  startDate: string;
+  endDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  reason: string | null;
+  notes: string | null;
+}
+
 const ABSENCE_TYPE_ICONS: Record<string, string> = {
   vacation: '🏖️',
   sick: '🤒',
@@ -88,6 +100,7 @@ interface AppointmentsTimelineWeekViewProps {
   appointments: AppointmentWithDetails[];
   providerSurgeries?: ProviderSurgery[];
   providerAbsences?: ProviderAbsence[];
+  providerTimeOffs?: ProviderTimeOff[];
   selectedDate: Date;
   onEventClick?: (appointment: AppointmentWithDetails) => void;
   onEventDrop?: (appointmentId: string, newStart: Date, newEnd: Date, newProviderId: string) => void;
@@ -118,6 +131,7 @@ export default function AppointmentsTimelineWeekView({
   appointments,
   providerSurgeries = [],
   providerAbsences = [],
+  providerTimeOffs = [],
   selectedDate,
   onEventClick,
   onEventDrop,
@@ -315,15 +329,66 @@ export default function AppointmentsTimelineWeekView({
         }
       });
 
-    return [...appointmentItems, ...surgeryItems, ...absenceItems];
-  }, [appointments, providerSurgeries, providerAbsences, providers, weekRange, onEventClick]);
+    // Time off block items (manually set via availability dialog)
+    // Only include time offs where providerId is in the providers list
+    const timeOffItems: TimelineItem[] = [];
+    providerTimeOffs
+      .filter((timeOff) => providerIdSet.has(timeOff.providerId))
+      .forEach((timeOff) => {
+        const timeOffStart = new Date(timeOff.startDate);
+        const timeOffEnd = new Date(timeOff.endDate);
+        
+        // Create items for each day in the time off range that falls within the week
+        const currentDate = new Date(Math.max(timeOffStart.getTime(), weekRange.start.valueOf()));
+        currentDate.setHours(0, 0, 0, 0);
+        
+        const rangeEnd = new Date(Math.min(timeOffEnd.getTime(), weekRange.end.valueOf()));
+        rangeEnd.setHours(23, 59, 59, 999);
+        
+        while (currentDate <= rangeEnd) {
+          const dayStart = new Date(currentDate);
+          const dayEnd = new Date(currentDate);
+          
+          // If specific times are set, use them; otherwise use full day (8-18)
+          if (timeOff.startTime && timeOff.endTime) {
+            const [startH, startM] = timeOff.startTime.split(':').map(Number);
+            const [endH, endM] = timeOff.endTime.split(':').map(Number);
+            dayStart.setHours(startH, startM, 0, 0);
+            dayEnd.setHours(endH, endM, 0, 0);
+          } else {
+            dayStart.setHours(8, 0, 0, 0);
+            dayEnd.setHours(18, 0, 0, 0);
+          }
+          
+          const reason = timeOff.reason || 'Time Off';
+          
+          timeOffItems.push({
+            id: `timeoff-${timeOff.id}-${moment(currentDate).format('YYYY-MM-DD')}`,
+            group: timeOff.providerId,
+            title: `🚫 ${reason}`,
+            start_time: moment(dayStart).valueOf(),
+            end_time: moment(dayEnd).valueOf(),
+            canMove: false,
+            canResize: false,
+            itemProps: {
+              className: 'timeline-item-timeoff',
+              style: { cursor: 'not-allowed' },
+            },
+          });
+          
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      });
+
+    return [...appointmentItems, ...surgeryItems, ...absenceItems, ...timeOffItems];
+  }, [appointments, providerSurgeries, providerAbsences, providerTimeOffs, providers, weekRange, onEventClick]);
 
   const handleItemMove = (itemId: string | number, dragTime: number, newGroupOrder: number) => {
     if (!onEventDrop) return;
     
     const id = String(itemId);
-    // Don't allow moving surgery or absence blocks
-    if (id.startsWith('surgery-') || id.startsWith('absence-')) return;
+    // Don't allow moving surgery, absence, or time off blocks
+    if (id.startsWith('surgery-') || id.startsWith('absence-') || id.startsWith('timeoff-')) return;
     
     const appt = appointments.find(a => a.id === id);
     if (!appt) return;
@@ -351,8 +416,8 @@ export default function AppointmentsTimelineWeekView({
     if (!onEventDrop) return;
     
     const id = String(itemId);
-    // Don't allow resizing surgery or absence blocks
-    if (id.startsWith('surgery-') || id.startsWith('absence-')) return;
+    // Don't allow resizing surgery, absence, or time off blocks
+    if (id.startsWith('surgery-') || id.startsWith('absence-') || id.startsWith('timeoff-')) return;
     
     const appt = appointments.find(a => a.id === id);
     if (!appt) return;

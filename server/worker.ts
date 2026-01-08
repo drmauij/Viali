@@ -1272,7 +1272,8 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
 async function processTimebutlerIcsSync(job: any): Promise<void> {
   console.log(`[Worker] Starting Timebutler ICS sync for hospital ${job.hospitalId}`);
   
-  const ical = await import('node-ical');
+  const icalModule = await import('node-ical');
+  const ical = icalModule.default || icalModule; // Handle ESM/CJS compatibility
   const { userHospitalRoles } = await import("@shared/schema");
   
   // Get all users with ICS URLs configured for this hospital

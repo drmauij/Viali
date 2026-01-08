@@ -1106,6 +1106,25 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-of
   }
 });
 
+// Get all time off for a unit (for calendar display)
+router.get('/api/clinic/:hospitalId/units/:unitId/time-off', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId, unitId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    const timeOffs = await storage.getProviderTimeOffsForUnit(
+      unitId,
+      startDate as string | undefined,
+      endDate as string | undefined
+    );
+    
+    res.json(timeOffs);
+  } catch (error) {
+    console.error("Error fetching time offs for unit:", error);
+    res.status(500).json({ message: "Failed to fetch time offs" });
+  }
+});
+
 // Delete time off
 router.delete('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
   try {
