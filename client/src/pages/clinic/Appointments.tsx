@@ -102,12 +102,15 @@ export default function ClinicAppointments() {
       });
       if (!response.ok) throw new Error('Failed to fetch providers');
       const data = await response.json();
+      console.log('[BookingProviders] Raw data from API:', data);
       // Map the nested user data to flat structure expected by components
-      return data.map((p: any) => ({
+      const mapped = data.map((p: any) => ({
         id: p.userId,
         firstName: p.user?.firstName || null,
         lastName: p.user?.lastName || null,
       }));
+      console.log('[BookingProviders] Mapped providers:', mapped);
+      return mapped;
     },
     enabled: !!hospitalId && !!unitId,
   });
