@@ -3576,6 +3576,28 @@ export type InsertPersonalTodo = z.infer<typeof insertPersonalTodoSchema>;
 // CLINIC APPOINTMENT SCHEDULING
 // ============================================
 
+// Clinic Providers - Controls which users appear as bookable providers in the calendar
+export const clinicProviders = pgTable("clinic_providers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  isBookable: boolean("is_bookable").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_clinic_providers_unit").on(table.unitId),
+  index("idx_clinic_providers_user").on(table.userId),
+  unique("unique_clinic_provider").on(table.unitId, table.userId),
+]);
+
+export const insertClinicProviderSchema = createInsertSchema(clinicProviders).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+export type InsertClinicProvider = z.infer<typeof insertClinicProviderSchema>;
+export type ClinicProvider = typeof clinicProviders.$inferSelect;
+
 // Provider Availability - Weekly schedule patterns
 export const providerAvailability = pgTable("provider_availability", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
