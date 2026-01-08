@@ -1044,6 +1044,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthent
     const { unitId } = req.params;
     
     const providers = await storage.getBookableProviders(unitId);
+    console.log('[bookable-providers] Raw providers:', JSON.stringify(providers, null, 2));
     
     res.json(providers);
   } catch (error) {
