@@ -7127,6 +7127,8 @@ export class DatabaseStorage implements IStorage {
       ))
       .limit(1);
     
+    let roleRecord: UserHospitalRole;
+    
     if (existing.length > 0) {
       // Update existing
       const [updated] = await db
@@ -7134,37 +7136,68 @@ export class DatabaseStorage implements IStorage {
         .set({ isBookable })
         .where(eq(userHospitalRoles.id, existing[0].id))
         .returning();
-      
-      // If making bookable, create default availability (Mon-Fri 8:00-18:00) if none exists
-      if (isBookable) {
-        const existingAvail = await db
-          .select()
-          .from(providerAvailability)
-          .where(and(
-            eq(providerAvailability.providerId, userId),
-            eq(providerAvailability.unitId, unitId)
-          ))
-          .limit(1);
-        
-        if (existingAvail.length === 0) {
-          const defaultAvailability: InsertProviderAvailability[] = [1, 2, 3, 4, 5].map(dayOfWeek => ({
-            providerId: userId,
-            unitId,
-            dayOfWeek,
-            startTime: "08:00",
-            endTime: "18:00",
-            slotDurationMinutes: 30,
-            isActive: true
-          }));
-          
-          await db.insert(providerAvailability).values(defaultAvailability);
-        }
+      roleRecord = updated;
+    } else {
+      // User doesn't have a role in this unit yet - create one
+      // First, get the unit to find the hospitalId
+      const [unit] = await db.select().from(units).where(eq(units.id, unitId)).limit(1);
+      if (!unit) {
+        throw new Error(`Unit ${unitId} not found`);
       }
       
-      return updated;
-    } else {
-      throw new Error(`User ${userId} does not have a role in unit ${unitId}`);
+      // Find user's existing role in another unit of the same hospital to copy the role type
+      const existingRole = await db
+        .select()
+        .from(userHospitalRoles)
+        .where(and(
+          eq(userHospitalRoles.hospitalId, unit.hospitalId),
+          eq(userHospitalRoles.userId, userId)
+        ))
+        .limit(1);
+      
+      const roleType = existingRole.length > 0 ? existingRole[0].role : 'Doctor';
+      
+      // Create new role in this unit
+      const [created] = await db
+        .insert(userHospitalRoles)
+        .values({
+          userId,
+          hospitalId: unit.hospitalId,
+          unitId,
+          role: roleType,
+          isBookable
+        })
+        .returning();
+      roleRecord = created;
     }
+    
+    // If making bookable, create default availability (Mon-Fri 8:00-18:00) if none exists
+    if (isBookable) {
+      const existingAvail = await db
+        .select()
+        .from(providerAvailability)
+        .where(and(
+          eq(providerAvailability.providerId, userId),
+          eq(providerAvailability.unitId, unitId)
+        ))
+        .limit(1);
+      
+      if (existingAvail.length === 0) {
+        const defaultAvailability: InsertProviderAvailability[] = [1, 2, 3, 4, 5].map(dayOfWeek => ({
+          providerId: userId,
+          unitId,
+          dayOfWeek,
+          startTime: "08:00",
+          endTime: "18:00",
+          slotDurationMinutes: 30,
+          isActive: true
+        }));
+        
+        await db.insert(providerAvailability).values(defaultAvailability);
+      }
+    }
+    
+    return roleRecord;
   }
 
   async getProviderAvailability(providerId: string, unitId: string): Promise<ProviderAvailability[]> {
