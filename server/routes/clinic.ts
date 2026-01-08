@@ -1407,6 +1407,29 @@ router.post('/api/clinic/:hospitalId/sync-user-ics/:userId', isAuthenticated, is
   }
 });
 
+// Queue a Timebutler ICS sync job for the hospital (background worker will process)
+router.post('/api/clinic/:hospitalId/queue-ics-sync', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    // Create a scheduled job that will run immediately
+    await storage.createScheduledJob({
+      jobType: 'sync_timebutler_ics',
+      hospitalId,
+      scheduledFor: new Date(),
+      status: 'pending',
+    });
+    
+    res.json({ 
+      success: true, 
+      message: "Timebutler sync job queued. It will run shortly in the background.",
+    });
+  } catch (error) {
+    console.error("Error queuing ICS sync:", error);
+    res.status(500).json({ message: "Failed to queue sync job" });
+  }
+});
+
 // Sync all users' ICS URLs for a hospital
 router.post('/api/clinic/:hospitalId/sync-all-ics', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
   try {

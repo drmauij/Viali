@@ -4,7 +4,7 @@ import { sendBulkImportCompleteEmail } from './resend';
 import { createGalexisClient, type PriceData, type ProductLookupRequest, type ProductLookupResult } from './services/galexisClient';
 import { createPolymedClient, type PolymedPriceData } from './services/polymedClient';
 import { batchMatchItems, type ItemToMatch } from './services/polymedMatching';
-import { supplierCodes, itemCodes, items, supplierCatalogs, hospitals, patientQuestionnaireLinks, units } from '@shared/schema';
+import { supplierCodes, itemCodes, items, supplierCatalogs, hospitals, patientQuestionnaireLinks, units, users } from '@shared/schema';
 import { eq, and, isNull, isNotNull, sql } from 'drizzle-orm';
 import { db } from './storage';
 import { decryptCredential } from './utils/encryption';
