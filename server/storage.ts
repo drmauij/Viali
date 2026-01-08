@@ -196,12 +196,15 @@ import {
   type PersonalTodo,
   type InsertPersonalTodo,
   // Clinic appointment scheduling tables
+  clinicProviders,
   providerAvailability,
   providerTimeOff,
   providerAbsences,
   clinicAppointments,
   timebutlerConfig,
   clinicServices,
+  type ClinicProvider,
+  type InsertClinicProvider,
   type ProviderAvailability,
   type InsertProviderAvailability,
   type ProviderTimeOff,
@@ -763,6 +766,11 @@ export interface IStorage {
   reorderPersonalTodos(todoIds: string[], status: string): Promise<void>;
   
   // ========== CLINIC APPOINTMENT SCHEDULING ==========
+  
+  // Clinic Providers (bookable providers per unit)
+  getClinicProviders(unitId: string): Promise<(ClinicProvider & { user: User })[]>;
+  getBookableProviders(unitId: string): Promise<(ClinicProvider & { user: User })[]>;
+  setClinicProviderBookable(unitId: string, userId: string, isBookable: boolean): Promise<ClinicProvider>;
   
   // Provider Availability
   getProviderAvailability(providerId: string, unitId: string): Promise<ProviderAvailability[]>;
@@ -7078,6 +7086,83 @@ export class DatabaseStorage implements IStorage {
   }
 
   // ========== CLINIC APPOINTMENT SCHEDULING ==========
+
+  // Clinic Providers (bookable providers per unit)
+  async getClinicProviders(unitId: string): Promise<(ClinicProvider & { user: User })[]> {
+    const results = await db
+      .select({
+        clinicProvider: clinicProviders,
+        user: users
+      })
+      .from(clinicProviders)
+      .innerJoin(users, eq(clinicProviders.userId, users.id))
+      .where(eq(clinicProviders.unitId, unitId))
+      .orderBy(asc(users.lastName), asc(users.firstName));
+    
+    return results.map(r => ({ ...r.clinicProvider, user: r.user }));
+  }
+
+  async getBookableProviders(unitId: string): Promise<(ClinicProvider & { user: User })[]> {
+    const results = await db
+      .select({
+        clinicProvider: clinicProviders,
+        user: users
+      })
+      .from(clinicProviders)
+      .innerJoin(users, eq(clinicProviders.userId, users.id))
+      .where(and(
+        eq(clinicProviders.unitId, unitId),
+        eq(clinicProviders.isBookable, true)
+      ))
+      .orderBy(asc(users.lastName), asc(users.firstName));
+    
+    return results.map(r => ({ ...r.clinicProvider, user: r.user }));
+  }
+
+  async setClinicProviderBookable(unitId: string, userId: string, isBookable: boolean): Promise<ClinicProvider> {
+    // Check if record exists
+    const existing = await db
+      .select()
+      .from(clinicProviders)
+      .where(and(
+        eq(clinicProviders.unitId, unitId),
+        eq(clinicProviders.userId, userId)
+      ))
+      .limit(1);
+    
+    if (existing.length > 0) {
+      // Update existing
+      const [updated] = await db
+        .update(clinicProviders)
+        .set({ isBookable, updatedAt: new Date() })
+        .where(eq(clinicProviders.id, existing[0].id))
+        .returning();
+      return updated;
+    } else {
+      // Insert new
+      const [created] = await db
+        .insert(clinicProviders)
+        .values({ unitId, userId, isBookable })
+        .returning();
+      
+      // If making bookable, create default availability (Mon-Fri 8:00-18:00)
+      if (isBookable) {
+        const defaultAvailability: InsertProviderAvailability[] = [1, 2, 3, 4, 5].map(dayOfWeek => ({
+          providerId: userId,
+          unitId,
+          dayOfWeek,
+          startTime: "08:00",
+          endTime: "18:00",
+          slotDurationMinutes: 30,
+          isActive: true
+        }));
+        
+        await db.insert(providerAvailability).values(defaultAvailability);
+      }
+      
+      return created;
+    }
+  }
 
   async getProviderAvailability(providerId: string, unitId: string): Promise<ProviderAvailability[]> {
     return await db
