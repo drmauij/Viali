@@ -89,7 +89,7 @@ export default function ClinicServices() {
       return apiRequest('POST', `/api/clinic/${hospitalId}/services`, { ...data, unitId });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
       setDialogOpen(false);
       resetForm();
       toast({ title: t('clinic.services.created') });
@@ -104,7 +104,7 @@ export default function ClinicServices() {
       return apiRequest('PATCH', `/api/clinic/${hospitalId}/services/${data.id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
       setDialogOpen(false);
       setEditingService(null);
       resetForm();
@@ -120,7 +120,7 @@ export default function ClinicServices() {
       return apiRequest('DELETE', `/api/clinic/${hospitalId}/services/${serviceId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
       setDeleteDialogOpen(false);
       setServiceToDelete(null);
       toast({ title: t('clinic.services.deleted') });
