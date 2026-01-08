@@ -194,7 +194,7 @@ export default function ManageProvidersDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5" />
@@ -205,8 +205,8 @@ export default function ManageProvidersDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="relative">
+        <div className="space-y-4 overflow-hidden">
+          <div className="relative flex-shrink-0">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder={t('common.search', 'Search...')}
@@ -227,7 +227,7 @@ export default function ManageProvidersDialog({
               <p>{t('appointments.noUsersFound', 'No users found')}</p>
             </div>
           ) : (
-            <div className="max-h-[300px] overflow-y-auto space-y-1 border rounded-lg p-2">
+            <div className="max-h-[300px] overflow-y-auto overflow-x-hidden space-y-1 border rounded-lg p-2">
               {filteredUsers.map((user) => {
                 const roleConfig = ROLE_ICONS[user.role] || ROLE_ICONS.default;
                 const RoleIcon = roleConfig.icon;
