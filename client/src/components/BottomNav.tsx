@@ -120,6 +120,7 @@ export default function BottomNav() {
   const navItems: NavItem[] = useMemo(() => {
     if (activeModule === "anesthesia") {
       const items: NavItem[] = [
+        { id: "appointments", icon: "fas fa-calendar-check", label: t('bottomNav.anesthesia.appointments', 'Appointments'), path: "/anesthesia/appointments" },
         { id: "patients", icon: "fas fa-users", label: t('bottomNav.anesthesia.patients'), path: "/anesthesia/patients" },
       ];
       if (canAccessPreOp) {
@@ -133,6 +134,7 @@ export default function BottomNav() {
     
     if (activeModule === "surgery") {
       const surgeryItems: NavItem[] = [
+        { id: "appointments", icon: "fas fa-calendar-check", label: t('bottomNav.surgery.appointments', 'Appointments'), path: "/surgery/appointments" },
         { id: "patients", icon: "fas fa-users", label: t('bottomNav.surgery.patients'), path: "/surgery/patients" },
       ];
       // Pre-op tab visible for admin and doctor roles - comes BEFORE OP
