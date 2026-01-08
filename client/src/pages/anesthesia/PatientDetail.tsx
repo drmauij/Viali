@@ -706,6 +706,7 @@ export default function PatientDetail() {
   const [newCase, setNewCase] = useState({
     plannedSurgery: "",
     surgeon: "",
+    surgeonId: "",
     plannedDate: "",
     surgeryRoomId: "",
     duration: 180, // Default 3 hours in minutes
@@ -855,6 +856,7 @@ export default function PatientDetail() {
       patientId: string;
       plannedSurgery: string;
       surgeon: string | null;
+      surgeonId?: string | null;
       plannedDate: string;
       surgeryRoomId?: string | null;
       actualEndTime?: string;
@@ -883,7 +885,7 @@ export default function PatientDetail() {
         description: t('anesthesia.patientDetail.successSurgeryCreatedDesc'),
       });
       setIsCreateCaseOpen(false);
-      setNewCase({ plannedSurgery: "", surgeon: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
+      setNewCase({ plannedSurgery: "", surgeon: "", surgeonId: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
     },
     onError: (error: any) => {
       toast({
@@ -1399,6 +1401,7 @@ export default function PatientDetail() {
       patientId: patient.id,
       plannedSurgery: newCase.plannedSurgery,
       surgeon: newCase.surgeon || null,
+      surgeonId: newCase.surgeonId || null,
       plannedDate: newCase.plannedDate,
       surgeryRoomId: newCase.surgeryRoomId || null,
       actualEndTime: endDate.toISOString(),
@@ -2678,8 +2681,19 @@ export default function PatientDetail() {
                     <div className="space-y-2">
                       <Label htmlFor="surgeon">{t('anesthesia.patientDetail.surgeon')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
                       <Select 
-                        value={newCase.surgeon || "none"} 
-                        onValueChange={(value) => setNewCase({ ...newCase, surgeon: value === "none" ? "" : value })}
+                        value={newCase.surgeonId || "none"} 
+                        onValueChange={(value) => {
+                          if (value === "none") {
+                            setNewCase({ ...newCase, surgeon: "", surgeonId: "" });
+                          } else {
+                            const selectedSurgeon = surgeons.find(s => s.id === value);
+                            setNewCase({ 
+                              ...newCase, 
+                              surgeon: selectedSurgeon?.name || "", 
+                              surgeonId: value 
+                            });
+                          }
+                        }}
                         disabled={isLoadingSurgeons}
                       >
                         <SelectTrigger data-testid="select-surgeon">
@@ -2699,7 +2713,7 @@ export default function PatientDetail() {
                             </SelectItem>
                           ) : (
                             surgeons.map((surgeon) => (
-                              <SelectItem key={surgeon.id} value={surgeon.name}>
+                              <SelectItem key={surgeon.id} value={surgeon.id}>
                                 {surgeon.name}
                               </SelectItem>
                             ))
