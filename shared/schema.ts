@@ -86,6 +86,8 @@ export const units = pgTable("units", {
   isSurgeryModule: boolean("is_surgery_module").default(false),
   isBusinessModule: boolean("is_business_module").default(false),
   isClinicModule: boolean("is_clinic_module").default(false),
+  showInventory: boolean("show_inventory").default(true), // UI control: show Inventory module for this unit
+  showAppointments: boolean("show_appointments").default(true), // UI control: show Appointments tab for this unit
   questionnairePhone: varchar("questionnaire_phone"), // Help line phone for patient questionnaire emails
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
