@@ -4241,8 +4241,9 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               <DialogDescription>{t('items.updateItemDetails')}</DialogDescription>
             </DialogHeader>
             <Tabs value={editDialogTab} onValueChange={setEditDialogTab} className="w-full mt-4">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="details" data-testid="tab-item-details">{t('items.itemDetails')}</TabsTrigger>
+                <TabsTrigger value="invoicing" data-testid="tab-item-invoicing">{t('items.invoicing', 'Invoicing')}</TabsTrigger>
                 <TabsTrigger value="codes" data-testid="tab-item-codes">Codes</TabsTrigger>
                 <TabsTrigger value="photo" data-testid="tab-item-photo">{t('items.itemPhoto')}</TabsTrigger>
               </TabsList>
@@ -4282,40 +4283,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 disabled={!canWrite}
                 data-testid="input-edit-description" 
               />
-            </div>
-
-            <div>
-              <Label htmlFor="edit-patientPrice">{t('items.patientPrice', 'Patient Price (CHF)')}</Label>
-              <Input 
-                id="edit-patientPrice" 
-                name="patientPrice" 
-                type="number"
-                step="0.01"
-                min="0"
-                value={editFormData.patientPrice}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, patientPrice: e.target.value }))}
-                disabled={!canWrite}
-                placeholder="0.00"
-                data-testid="input-edit-patient-price" 
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {t('items.patientPriceHint', 'Final price charged to patients for ambulatory invoices')}
-              </p>
-            </div>
-
-            {/* Available for Invoicing Toggle */}
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="edit-isInvoiceable" 
-                name="isInvoiceable"
-                checked={editFormData.isInvoiceable}
-                onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, isInvoiceable: checked === true }))}
-                disabled={!canWrite}
-                data-testid="checkbox-edit-invoiceable" 
-              />
-              <Label htmlFor="edit-isInvoiceable" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>
-                {t('items.availableForInvoicing', 'Available for Invoicing')}
-              </Label>
             </div>
 
             {/* Item Qualities - Controlled and Archived */}
@@ -4540,6 +4507,51 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 {t('items.dailyUsageEstimateHint', 'Manual fallback for runway calculation when no consumption history exists')}
               </p>
             </div>
+              </TabsContent>
+
+              <TabsContent value="invoicing" className="space-y-4 mt-0">
+                {!canWrite && (
+                  <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
+                    <i className="fas fa-eye mr-2"></i>
+                    {t('common.viewOnly')}
+                  </div>
+                )}
+                
+                <div>
+                  <Label htmlFor="edit-patientPrice">{t('items.patientPrice', 'Patient Price (CHF)')}</Label>
+                  <Input 
+                    id="edit-patientPrice" 
+                    name="patientPrice" 
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={editFormData.patientPrice}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, patientPrice: e.target.value }))}
+                    disabled={!canWrite}
+                    placeholder="0.00"
+                    data-testid="input-edit-patient-price" 
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t('items.patientPriceHint', 'Final price charged to patients for ambulatory invoices')}
+                  </p>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="edit-isInvoiceable" 
+                    name="isInvoiceable"
+                    checked={editFormData.isInvoiceable}
+                    onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, isInvoiceable: checked === true }))}
+                    disabled={!canWrite}
+                    data-testid="checkbox-edit-invoiceable" 
+                  />
+                  <Label htmlFor="edit-isInvoiceable" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>
+                    {t('items.availableForInvoicing', 'Available for Invoicing')}
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t('items.availableForInvoicingHint', 'When enabled, this item will appear in the invoice item picker across all units')}
+                </p>
               </TabsContent>
 
               <TabsContent value="codes" className="space-y-6 mt-4">
