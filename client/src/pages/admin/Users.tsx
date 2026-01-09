@@ -1247,8 +1247,7 @@ export default function Users() {
                 <div className="space-y-2 mt-3">
                   {roleLocationPairs.map((pair) => {
                     const unit = units.find(l => l.id === pair.unitId);
-                    const unitType = unit?.type?.toLowerCase() || "";
-                    const showBookable = unitType === "clinic" || unitType === "anesthesia" || unitType === "surgery" || unitType === "or";
+                    const showBookable = !!unit; // Show bookable toggle for all unit types
                     return (
                       <div key={pair.id} className="flex items-center justify-between bg-muted p-2 rounded-md gap-2">
                         <div className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
