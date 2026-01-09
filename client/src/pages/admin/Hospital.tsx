@@ -22,17 +22,18 @@ import { format } from "date-fns";
 import { formatDateLong } from "@/lib/dateUtils";
 import type { Unit } from "@shared/schema";
 
-// Unit type options for dropdown
+// Unit type options for dropdown (alphabetical order)
 const UNIT_TYPES = [
-  { value: "or", labelKey: "admin.unitTypes.or" },
-  { value: "icu", labelKey: "admin.unitTypes.icu" },
-  { value: "er", labelKey: "admin.unitTypes.er" },
-  { value: "ward", labelKey: "admin.unitTypes.ward" },
-  { value: "pharmacy", labelKey: "admin.unitTypes.pharmacy" },
   { value: "anesthesia", labelKey: "admin.unitTypes.anesthesia" },
-  { value: "storage", labelKey: "admin.unitTypes.storage" },
   { value: "business", labelKey: "admin.unitTypes.business" },
   { value: "clinic", labelKey: "admin.unitTypes.clinic" },
+  { value: "er", labelKey: "admin.unitTypes.er" },
+  { value: "icu", labelKey: "admin.unitTypes.icu" },
+  { value: "logistic", labelKey: "admin.unitTypes.logistic" },
+  { value: "or", labelKey: "admin.unitTypes.or" },
+  { value: "pharmacy", labelKey: "admin.unitTypes.pharmacy" },
+  { value: "storage", labelKey: "admin.unitTypes.storage" },
+  { value: "ward", labelKey: "admin.unitTypes.ward" },
 ] as const;
 
 export default function Hospital() {
