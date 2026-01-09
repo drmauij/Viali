@@ -104,7 +104,8 @@
       "invoices": "Invoices",
       "settings": "Company"
     },
-    "services": "Services"
+    "services": "Services",
+    "matches": "Matches"
   },
   "supplierMatches": {
     "title": "Supplier Matches",

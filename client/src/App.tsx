@@ -169,6 +169,7 @@ function Router() {
             <Route path="/inventory/alerts" component={Alerts} />
             <Route path="/inventory/controlled" component={ControlledLog} />
             <Route path="/inventory/checklists" component={Checklists} />
+            <Route path="/inventory/matches" component={SupplierMatches} />
             {/* Anesthesia Module - requires anesthesia unit access */}
             <Route path="/anesthesia">{() => <ProtectedRoute requireAnesthesia><Patients /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/appointments">{() => <ProtectedRoute requireAnesthesia><ClinicAppointments /></ProtectedRoute>}</Route>

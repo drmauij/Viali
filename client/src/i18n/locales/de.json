@@ -104,7 +104,8 @@
       "invoices": "Rechnungen",
       "settings": "Firma"
     },
-    "services": "Leistungen"
+    "services": "Leistungen",
+    "matches": "Zuordnungen"
   },
   "supplierMatches": {
     "title": "Lieferanten-Zuordnungen",
