@@ -56,6 +56,8 @@ export default function Units() {
     isSurgeryModule: false,
     isBusinessModule: false,
     isClinicModule: false,
+    showInventory: true,
+    showAppointments: true,
     questionnairePhone: "",
   });
 
@@ -169,6 +171,8 @@ export default function Units() {
       isSurgeryModule: false,
       isBusinessModule: false,
       isClinicModule: false,
+      showInventory: true,
+      showAppointments: true,
       questionnairePhone: "",
     });
     setEditingUnit(null);
@@ -188,6 +192,8 @@ export default function Units() {
       isSurgeryModule: (unit as any).isSurgeryModule || false,
       isBusinessModule: (unit as any).isBusinessModule || false,
       isClinicModule: (unit as any).isClinicModule || false,
+      showInventory: (unit as any).showInventory !== false, // default true
+      showAppointments: (unit as any).showAppointments !== false, // default true
       questionnairePhone: (unit as any).questionnairePhone || "",
     });
     setUnitDialogOpen(true);
@@ -206,6 +212,8 @@ export default function Units() {
       isSurgeryModule: unitForm.isSurgeryModule,
       isBusinessModule: unitForm.isBusinessModule,
       isClinicModule: unitForm.isClinicModule,
+      showInventory: unitForm.showInventory,
+      showAppointments: unitForm.showAppointments,
       questionnairePhone: unitForm.questionnairePhone || null,
     };
 
@@ -426,6 +434,34 @@ export default function Units() {
                   />
                   <Label htmlFor="is-clinic-module" className="text-sm font-normal cursor-pointer">
                     {t("admin.clinicModule")}
+                  </Label>
+                </div>
+              </div>
+            </div>
+            <Separator />
+            <div>
+              <Label className="text-sm font-medium text-muted-foreground">{t("admin.uiVisibility")}</Label>
+              <div className="space-y-3 mt-2">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="show-inventory"
+                    checked={unitForm.showInventory}
+                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, showInventory: !!checked })}
+                    data-testid="checkbox-show-inventory"
+                  />
+                  <Label htmlFor="show-inventory" className="text-sm font-normal cursor-pointer">
+                    {t("admin.showInventory")}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="show-appointments"
+                    checked={unitForm.showAppointments}
+                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, showAppointments: !!checked })}
+                    data-testid="checkbox-show-appointments"
+                  />
+                  <Label htmlFor="show-appointments" className="text-sm font-normal cursor-pointer">
+                    {t("admin.showAppointments")}
                   </Label>
                 </div>
               </div>

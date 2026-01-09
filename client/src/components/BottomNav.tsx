@@ -171,12 +171,14 @@ export default function BottomNav() {
     }
     
     if (activeModule === "clinic") {
-      const clinicItems: NavItem[] = [
-        { id: "clinic-appointments", icon: "fas fa-calendar-check", label: t('bottomNav.clinic.appointments', 'Appointments'), path: "/clinic/appointments" },
-        { id: "clinic-patients", icon: "fas fa-users", label: t('bottomNav.clinic.patients'), path: "/clinic/patients" },
-        { id: "clinic-questionnaires", icon: "fas fa-file-medical", label: t('bottomNav.clinic.questionnaires', 'Questionnaires'), path: "/clinic/questionnaires" },
-        { id: "clinic-invoices", icon: "fas fa-file-invoice-dollar", label: t('bottomNav.clinic.invoices'), path: "/clinic" },
-      ];
+      const clinicItems: NavItem[] = [];
+      // Only show appointments tab if unit has showAppointments enabled (default true)
+      if (activeHospital?.showAppointments !== false) {
+        clinicItems.push({ id: "clinic-appointments", icon: "fas fa-calendar-check", label: t('bottomNav.clinic.appointments', 'Appointments'), path: "/clinic/appointments" });
+      }
+      clinicItems.push({ id: "clinic-patients", icon: "fas fa-users", label: t('bottomNav.clinic.patients'), path: "/clinic/patients" });
+      clinicItems.push({ id: "clinic-questionnaires", icon: "fas fa-file-medical", label: t('bottomNav.clinic.questionnaires', 'Questionnaires'), path: "/clinic/questionnaires" });
+      clinicItems.push({ id: "clinic-invoices", icon: "fas fa-file-invoice-dollar", label: t('bottomNav.clinic.invoices'), path: "/clinic" });
       return clinicItems;
     }
     
@@ -189,7 +191,7 @@ export default function BottomNav() {
       { id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists'), path: "/inventory/checklists" },
       { id: "matches", icon: "fas fa-link", label: t('bottomNav.matches'), path: "/inventory/matches" },
     ];
-  }, [t, activeModule, canAccessPreOp, activeHospital?.role]);
+  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments]);
 
   const isActive = (path: string) => {
     if (path === "/inventory/items") {

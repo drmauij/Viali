@@ -100,8 +100,12 @@ export default function ModuleDrawer() {
     },
   ];
 
+  // Check unit-level UI visibility flags (default to true if not set)
+  const showInventory = activeHospital?.showInventory !== false;
+  const showAppointments = activeHospital?.showAppointments !== false;
+
   // Business-only users (manager role in business unit without anesthesia/surgery access)
-  // should only see the Business module
+  // should only see the Business module (legacy fallback)
   const isBusinessOnly = hasBusinessAccess && !hasAnesthesiaAccess && !hasSurgeryAccess && !isAdmin;
 
   const modules = allModules.filter(module => {
@@ -115,8 +119,8 @@ export default function ModuleDrawer() {
     if (module.id === "anesthesia" && !hasAnesthesiaAccess) return false;
     // Surgery module only for OR staff (assigned to surgery unit)
     if (module.id === "surgery" && !hasSurgeryAccess) return false;
-    // Business-only users should not see Inventory
-    if (module.id === "inventory" && isBusinessOnly) return false;
+    // Hide Inventory based on unit showInventory flag (or legacy isBusinessOnly check)
+    if (module.id === "inventory" && (!showInventory || isBusinessOnly)) return false;
     return true;
   });
 
