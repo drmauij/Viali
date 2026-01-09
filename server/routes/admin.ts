@@ -201,27 +201,32 @@ router.get('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req,
 router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { name, type, parentId, isAnesthesiaModule, isSurgeryModule, isBusinessModule, isClinicModule } = req.body;
+    const { name, type, parentId, showInventory, showAppointments, questionnairePhone } = req.body;
     
     if (!name) {
       return res.status(400).json({ message: "Unit name is required" });
     }
     
-    // Use explicit flags from request, fallback to type-based derivation
-    const anesthesiaModule = isAnesthesiaModule !== undefined ? isAnesthesiaModule : type === 'anesthesia';
-    const surgeryModule = isSurgeryModule !== undefined ? isSurgeryModule : type === 'or';
-    const businessModule = isBusinessModule !== undefined ? isBusinessModule : type === 'business';
-    const clinicModule = isClinicModule !== undefined ? isClinicModule : type === 'clinic';
+    // Derive module flags from type
+    const isAnesthesiaModule = type === 'anesthesia';
+    const isSurgeryModule = type === 'or';
+    const isBusinessModule = type === 'business';
+    const isClinicModule = type === 'clinic';
+    const isLogisticModule = type === 'logistic';
 
     const unit = await storage.createUnit({
       hospitalId,
       name,
       type: type || null,
       parentId: parentId || null,
-      isAnesthesiaModule: anesthesiaModule,
-      isSurgeryModule: surgeryModule,
-      isBusinessModule: businessModule,
-      isClinicModule: clinicModule,
+      isAnesthesiaModule,
+      isSurgeryModule,
+      isBusinessModule,
+      isClinicModule,
+      isLogisticModule,
+      showInventory: showInventory !== false, // default true
+      showAppointments: showAppointments !== false, // default true
+      questionnairePhone: questionnairePhone || null,
     });
     res.status(201).json(unit);
   } catch (error) {
@@ -233,7 +238,7 @@ router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req
 router.patch('/api/admin/units/:unitId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { unitId } = req.params;
-    const { name, type, parentId, isAnesthesiaModule, isSurgeryModule, isBusinessModule, isClinicModule, questionnairePhone } = req.body;
+    const { name, type, parentId, showInventory, showAppointments, questionnairePhone } = req.body;
     
     const units = await storage.getUnits(req.body.hospitalId);
     const unit = units.find(l => l.id === unitId);
@@ -253,11 +258,18 @@ router.patch('/api/admin/units/:unitId', isAuthenticated, requireWriteAccess, as
     if (type !== undefined) updates.type = type;
     if (parentId !== undefined) updates.parentId = parentId;
     
-    // Accept explicit module flags from request
-    if (isAnesthesiaModule !== undefined) updates.isAnesthesiaModule = isAnesthesiaModule;
-    if (isSurgeryModule !== undefined) updates.isSurgeryModule = isSurgeryModule;
-    if (isBusinessModule !== undefined) updates.isBusinessModule = isBusinessModule;
-    if (isClinicModule !== undefined) updates.isClinicModule = isClinicModule;
+    // Derive module flags from type when type is updated
+    if (type !== undefined) {
+      updates.isAnesthesiaModule = type === 'anesthesia';
+      updates.isSurgeryModule = type === 'or';
+      updates.isBusinessModule = type === 'business';
+      updates.isClinicModule = type === 'clinic';
+      updates.isLogisticModule = type === 'logistic';
+    }
+    
+    // Accept UI visibility flags
+    if (showInventory !== undefined) updates.showInventory = showInventory;
+    if (showAppointments !== undefined) updates.showAppointments = showAppointments;
     
     // Accept questionnaire help phone
     if (questionnairePhone !== undefined) updates.questionnairePhone = questionnairePhone;

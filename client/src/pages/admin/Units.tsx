@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Unit, Hospital } from "@shared/schema";
@@ -52,10 +53,6 @@ export default function Units() {
   const [unitForm, setUnitForm] = useState({
     name: "",
     type: "",
-    isAnesthesiaModule: false,
-    isSurgeryModule: false,
-    isBusinessModule: false,
-    isClinicModule: false,
     showInventory: true,
     showAppointments: true,
     questionnairePhone: "",
@@ -167,10 +164,6 @@ export default function Units() {
     setUnitForm({ 
       name: "", 
       type: "",
-      isAnesthesiaModule: false,
-      isSurgeryModule: false,
-      isBusinessModule: false,
-      isClinicModule: false,
       showInventory: true,
       showAppointments: true,
       questionnairePhone: "",
@@ -188,10 +181,6 @@ export default function Units() {
     setUnitForm({
       name: unit.name,
       type: unit.type || "",
-      isAnesthesiaModule: (unit as any).isAnesthesiaModule || false,
-      isSurgeryModule: (unit as any).isSurgeryModule || false,
-      isBusinessModule: (unit as any).isBusinessModule || false,
-      isClinicModule: (unit as any).isClinicModule || false,
       showInventory: (unit as any).showInventory !== false, // default true
       showAppointments: (unit as any).showAppointments !== false, // default true
       questionnairePhone: (unit as any).questionnairePhone || "",
@@ -208,10 +197,6 @@ export default function Units() {
     const data = {
       name: unitForm.name,
       type: unitForm.type || null,
-      isAnesthesiaModule: unitForm.isAnesthesiaModule,
-      isSurgeryModule: unitForm.isSurgeryModule,
-      isBusinessModule: unitForm.isBusinessModule,
-      isClinicModule: unitForm.isClinicModule,
       showInventory: unitForm.showInventory,
       showAppointments: unitForm.showAppointments,
       questionnairePhone: unitForm.questionnairePhone || null,
@@ -379,64 +364,27 @@ export default function Units() {
               />
             </div>
             <div>
-              <Label htmlFor="unit-type">{t("admin.type")}</Label>
-              <Input
-                id="unit-type"
+              <Label htmlFor="unit-type">{t("admin.unitType")}</Label>
+              <Select
                 value={unitForm.type}
-                onChange={(e) => setUnitForm({ ...unitForm, type: e.target.value })}
-                placeholder={t("admin.typePlaceholder")}
-                data-testid="input-unit-type"
-              />
-            </div>
-            <Separator />
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">{t("admin.enabledModules")}</Label>
-              <div className="space-y-3 mt-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is-anesthesia-module"
-                    checked={unitForm.isAnesthesiaModule}
-                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, isAnesthesiaModule: !!checked })}
-                    data-testid="checkbox-anesthesia-module"
-                  />
-                  <Label htmlFor="is-anesthesia-module" className="text-sm font-normal cursor-pointer">
-                    {t("admin.anesthesiaModule")}
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is-surgery-module"
-                    checked={unitForm.isSurgeryModule}
-                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, isSurgeryModule: !!checked })}
-                    data-testid="checkbox-surgery-module"
-                  />
-                  <Label htmlFor="is-surgery-module" className="text-sm font-normal cursor-pointer">
-                    {t("admin.surgeryModule")}
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is-business-module"
-                    checked={unitForm.isBusinessModule}
-                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, isBusinessModule: !!checked })}
-                    data-testid="checkbox-business-module"
-                  />
-                  <Label htmlFor="is-business-module" className="text-sm font-normal cursor-pointer">
-                    {t("admin.businessModule")}
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is-clinic-module"
-                    checked={unitForm.isClinicModule}
-                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, isClinicModule: !!checked })}
-                    data-testid="checkbox-clinic-module"
-                  />
-                  <Label htmlFor="is-clinic-module" className="text-sm font-normal cursor-pointer">
-                    {t("admin.clinicModule")}
-                  </Label>
-                </div>
-              </div>
+                onValueChange={(value) => setUnitForm({ ...unitForm, type: value })}
+              >
+                <SelectTrigger id="unit-type" data-testid="select-unit-type">
+                  <SelectValue placeholder={t("admin.selectUnitType")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="or">{t("admin.unitTypes.or")}</SelectItem>
+                  <SelectItem value="icu">{t("admin.unitTypes.icu")}</SelectItem>
+                  <SelectItem value="er">{t("admin.unitTypes.er")}</SelectItem>
+                  <SelectItem value="ward">{t("admin.unitTypes.ward")}</SelectItem>
+                  <SelectItem value="pharmacy">{t("admin.unitTypes.pharmacy")}</SelectItem>
+                  <SelectItem value="anesthesia">{t("admin.unitTypes.anesthesia")}</SelectItem>
+                  <SelectItem value="storage">{t("admin.unitTypes.storage")}</SelectItem>
+                  <SelectItem value="business">{t("admin.unitTypes.business")}</SelectItem>
+                  <SelectItem value="clinic">{t("admin.unitTypes.clinic")}</SelectItem>
+                  <SelectItem value="logistic">{t("admin.unitTypes.logistic")}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <Separator />
             <div>
