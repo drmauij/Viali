@@ -105,6 +105,10 @@
       "invoices": "Invoices",
       "settings": "Company"
     },
+    "logistic": {
+      "inventory": "Inventory",
+      "orders": "Orders"
+    },
     "services": "Services",
     "matches": "Matches"
   },
@@ -182,6 +186,10 @@
     "business": {
       "title": "Business Control",
       "description": "Executive dashboards, cost analysis, and operational efficiency metrics"
+    },
+    "logistic": {
+      "title": "Logistic",
+      "description": "Cross-unit inventory and order management for hospital-wide visibility"
     }
   },
   "home": {
@@ -730,7 +738,8 @@
       "anesthesia": "Anesthesia",
       "storage": "Storage / Warehouse",
       "business": "Business / Admin",
-      "clinic": "Clinic"
+      "clinic": "Clinic",
+      "logistic": "Logistic"
     },
     "noLocations": "No Locations",
     "noLocationsMessage": "Get started by adding your first location.",
@@ -3616,5 +3625,15 @@
     "reopen": "Reopen",
     "deleteTask": "Delete task",
     "editTask": "Edit task"
+  },
+  "logistic": {
+    "inventory": "Inventory",
+    "orders": "Orders",
+    "selectUnit": "Select Unit",
+    "selectUnitPlaceholder": "Select a unit...",
+    "viewingInventory": "Viewing inventory for",
+    "noUnitsAvailable": "No units with inventory available.",
+    "filterByUnit": "Filter by Unit",
+    "allUnits": "All Units"
   }
 }

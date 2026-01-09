@@ -105,6 +105,10 @@
       "invoices": "Rechnungen",
       "settings": "Firma"
     },
+    "logistic": {
+      "inventory": "Inventar",
+      "orders": "Bestellungen"
+    },
     "services": "Leistungen",
     "matches": "Zuordnungen"
   },
@@ -182,6 +186,10 @@
     "business": {
       "title": "Geschäftssteuerung",
       "description": "Management-Dashboards, Kostenanalyse und operative Effizienzmetriken"
+    },
+    "logistic": {
+      "title": "Logistik",
+      "description": "Standortübergreifende Inventar- und Bestellverwaltung für spitalweite Übersicht"
     }
   },
   "home": {
@@ -730,7 +738,8 @@
       "anesthesia": "Anästhesie",
       "storage": "Lager",
       "business": "Geschäftsleitung",
-      "clinic": "Praxis"
+      "clinic": "Praxis",
+      "logistic": "Logistik"
     },
     "noLocations": "Keine Standorte",
     "noLocationsMessage": "Beginnen Sie mit dem Hinzufügen Ihres ersten Standorts.",
@@ -3641,5 +3650,15 @@
     "reopen": "Wiedereröffnen",
     "deleteTask": "Aufgabe löschen",
     "editTask": "Aufgabe bearbeiten"
+  },
+  "logistic": {
+    "inventory": "Inventar",
+    "orders": "Bestellungen",
+    "selectUnit": "Standort auswählen",
+    "selectUnitPlaceholder": "Standort auswählen...",
+    "viewingInventory": "Inventar wird angezeigt für",
+    "noUnitsAvailable": "Keine Standorte mit Inventar verfügbar.",
+    "filterByUnit": "Nach Standort filtern",
+    "allUnits": "Alle Standorte"
   }
 }
