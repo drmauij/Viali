@@ -1273,16 +1273,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/orders/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
-      const { status } = req.query;
+      const { status, unitId: queryUnitId } = req.query;
       const userId = req.user.id;
       
       // Verify user has access to this hospital
-      const unitId = await getUserUnitForHospital(userId, hospitalId);
-      if (!unitId) {
+      const userUnitId = await getUserUnitForHospital(userId, hospitalId);
+      if (!userUnitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      const orders = await storage.getOrders(hospitalId, status as string);
+      // Use the query unitId if provided, otherwise use user's unit
+      const filterUnitId = (queryUnitId as string) || userUnitId;
+      
+      // Verify user has access to the requested unit (must match their assigned unit)
+      if (filterUnitId !== userUnitId) {
+        return res.status(403).json({ message: "Access denied to this unit" });
+      }
+      
+      const orders = await storage.getOrders(hospitalId, status as string, filterUnitId);
       res.json(orders);
     } catch (error) {
       console.error("Error fetching orders:", error);

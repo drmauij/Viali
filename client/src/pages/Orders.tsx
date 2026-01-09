@@ -133,8 +133,8 @@ export default function Orders() {
   };
 
   const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
-    queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId],
-    enabled: !!activeHospital?.id,
+    queryKey: [`/api/orders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
 
   const { data: vendors = [] } = useQuery<Vendor[]>({

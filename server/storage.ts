@@ -291,7 +291,7 @@ export interface IStorage {
   getSupplierMatchesByJobId(jobId: string): Promise<(SupplierCode & { item: Item })[]>;
   
   // Order operations
-  getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]>;
+  getOrders(hospitalId: string, status?: string, unitId?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]>;
   createOrder(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   findOrCreateDraftOrder(hospitalId: string, unitId: string, vendorId: string | null, createdBy: string): Promise<Order>;
@@ -1268,17 +1268,22 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  async getOrders(hospitalId: string, status?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]> {
-    let query = db
-      .select()
-      .from(orders)
-      .where(eq(orders.hospitalId, hospitalId));
-
+  async getOrders(hospitalId: string, status?: string, unitId?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]> {
+    const conditions = [eq(orders.hospitalId, hospitalId)];
+    
     if (status) {
-      query = query.where(and(eq(orders.hospitalId, hospitalId), eq(orders.status, status)));
+      conditions.push(eq(orders.status, status));
+    }
+    
+    if (unitId) {
+      conditions.push(eq(orders.unitId, unitId));
     }
 
-    const ordersResult = await query.orderBy(desc(orders.createdAt));
+    const ordersResult = await db
+      .select()
+      .from(orders)
+      .where(and(...conditions))
+      .orderBy(desc(orders.createdAt));
     
     // Fetch related data for each order
     const ordersWithDetails = await Promise.all(
