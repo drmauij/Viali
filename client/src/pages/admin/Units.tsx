@@ -372,17 +372,17 @@ export default function Units() {
                 <SelectTrigger id="unit-type" data-testid="select-unit-type">
                   <SelectValue placeholder={t("admin.selectUnitType")} />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="or">{t("admin.unitTypes.or")}</SelectItem>
-                  <SelectItem value="icu">{t("admin.unitTypes.icu")}</SelectItem>
-                  <SelectItem value="er">{t("admin.unitTypes.er")}</SelectItem>
-                  <SelectItem value="ward">{t("admin.unitTypes.ward")}</SelectItem>
-                  <SelectItem value="pharmacy">{t("admin.unitTypes.pharmacy")}</SelectItem>
+                <SelectContent className="max-h-[300px]">
                   <SelectItem value="anesthesia">{t("admin.unitTypes.anesthesia")}</SelectItem>
-                  <SelectItem value="storage">{t("admin.unitTypes.storage")}</SelectItem>
                   <SelectItem value="business">{t("admin.unitTypes.business")}</SelectItem>
                   <SelectItem value="clinic">{t("admin.unitTypes.clinic")}</SelectItem>
+                  <SelectItem value="er">{t("admin.unitTypes.er")}</SelectItem>
+                  <SelectItem value="icu">{t("admin.unitTypes.icu")}</SelectItem>
                   <SelectItem value="logistic">{t("admin.unitTypes.logistic")}</SelectItem>
+                  <SelectItem value="or">{t("admin.unitTypes.or")}</SelectItem>
+                  <SelectItem value="pharmacy">{t("admin.unitTypes.pharmacy")}</SelectItem>
+                  <SelectItem value="storage">{t("admin.unitTypes.storage")}</SelectItem>
+                  <SelectItem value="ward">{t("admin.unitTypes.ward")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
