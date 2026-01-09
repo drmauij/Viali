@@ -1,0 +1,3 @@
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='clinic_services' AND column_name='is_invoiceable') THEN ALTER TABLE "clinic_services" ADD COLUMN "is_invoiceable" boolean DEFAULT false; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='items' AND column_name='is_invoiceable') THEN ALTER TABLE "items" ADD COLUMN "is_invoiceable" boolean DEFAULT false; END IF; END $$;--> statement-breakpoint
+DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='units' AND column_name='is_logistic_module') THEN ALTER TABLE "units" ADD COLUMN "is_logistic_module" boolean DEFAULT false; END IF; END $$;

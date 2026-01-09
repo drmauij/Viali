@@ -52,6 +52,7 @@ export default function ClinicServices() {
     price: "",
     durationMinutes: "",
     isShared: false,
+    isInvoiceable: false,
   });
 
   const activeHospital = useMemo(() => {
@@ -85,7 +86,7 @@ export default function ClinicServices() {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: { name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean }) => {
+    mutationFn: async (data: { name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean }) => {
       return apiRequest('POST', `/api/clinic/${hospitalId}/services`, { ...data, unitId });
     },
     onSuccess: () => {
@@ -100,7 +101,7 @@ export default function ClinicServices() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (data: { id: string; name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean }) => {
+    mutationFn: async (data: { id: string; name: string; description: string; price: string | null; durationMinutes: number | null; isShared: boolean; isInvoiceable: boolean }) => {
       return apiRequest('PATCH', `/api/clinic/${hospitalId}/services/${data.id}`, data);
     },
     onSuccess: () => {
@@ -131,7 +132,7 @@ export default function ClinicServices() {
   });
 
   const resetForm = () => {
-    setFormData({ name: "", description: "", price: "", durationMinutes: "", isShared: false });
+    setFormData({ name: "", description: "", price: "", durationMinutes: "", isShared: false, isInvoiceable: false });
   };
 
   const handleOpenCreate = () => {
@@ -148,6 +149,7 @@ export default function ClinicServices() {
       price: service.price || "",
       durationMinutes: service.durationMinutes?.toString() || "",
       isShared: service.isShared || false,
+      isInvoiceable: (service as any).isInvoiceable || false,
     });
     setDialogOpen(true);
   };
@@ -169,6 +171,7 @@ export default function ClinicServices() {
         price,
         durationMinutes,
         isShared: formData.isShared,
+        isInvoiceable: formData.isInvoiceable,
       });
     } else {
       createMutation.mutate({
@@ -177,6 +180,7 @@ export default function ClinicServices() {
         price,
         durationMinutes,
         isShared: formData.isShared,
+        isInvoiceable: formData.isInvoiceable,
       });
     }
   };
@@ -358,16 +362,16 @@ export default function ClinicServices() {
             </div>
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <Label htmlFor="isShared">{t('clinic.services.shareWithOtherUnits')}</Label>
+                <Label htmlFor="isInvoiceable">{t('clinic.services.availableForInvoicing', 'Available for Invoicing')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  {t('clinic.services.shareDescription')}
+                  {t('clinic.services.invoiceableDescription', 'Service will appear in invoice item picker')}
                 </p>
               </div>
               <Switch
-                id="isShared"
-                checked={formData.isShared}
-                onCheckedChange={(checked) => setFormData({ ...formData, isShared: checked })}
-                data-testid="switch-service-shared"
+                id="isInvoiceable"
+                checked={formData.isInvoiceable}
+                onCheckedChange={(checked) => setFormData({ ...formData, isInvoiceable: checked })}
+                data-testid="switch-service-invoiceable"
               />
             </div>
           </div>

@@ -643,6 +643,111 @@ router.get('/api/clinic/:hospitalId/items-with-prices', isAuthenticated, isClini
   }
 });
 
+// Get all invoiceable items from all hospital units
+router.get('/api/clinic/:hospitalId/invoiceable-items', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    // Get all items marked as invoiceable from all units in the hospital
+    const invoiceableItems = await db
+      .select({
+        id: items.id,
+        name: items.name,
+        description: items.description,
+        patientPrice: items.patientPrice,
+        unitId: items.unitId,
+      })
+      .from(items)
+      .innerJoin(units, eq(items.unitId, units.id))
+      .where(
+        and(
+          eq(items.hospitalId, hospitalId),
+          eq(items.isInvoiceable, true),
+          eq(items.status, 'active')
+        )
+      )
+      .orderBy(items.name);
+    
+    // Get item codes for all items
+    const itemIds = invoiceableItems.map(item => item.id);
+    const codes = itemIds.length > 0 ? await db
+      .select({
+        itemId: itemCodes.itemId,
+        gtin: itemCodes.gtin,
+        pharmacode: itemCodes.pharmacode,
+      })
+      .from(itemCodes)
+      .where(inArray(itemCodes.itemId, itemIds)) : [];
+    
+    // Get unit names
+    const unitIds = Array.from(new Set(invoiceableItems.map(item => item.unitId)));
+    const unitData = unitIds.length > 0 ? await db
+      .select({ id: units.id, name: units.name })
+      .from(units)
+      .where(inArray(units.id, unitIds)) : [];
+    const unitMap = new Map(unitData.map(u => [u.id, u.name]));
+    
+    // Map codes and unit names to items
+    const codesMap = new Map(codes.map(c => [c.itemId, c]));
+    
+    const enrichedItems = invoiceableItems.map(item => ({
+      ...item,
+      gtin: codesMap.get(item.id)?.gtin || null,
+      pharmacode: codesMap.get(item.id)?.pharmacode || null,
+      unitName: unitMap.get(item.unitId) || null,
+    }));
+    
+    res.json(enrichedItems);
+  } catch (error) {
+    console.error("Error fetching invoiceable items:", error);
+    res.status(500).json({ message: "Failed to fetch invoiceable items" });
+  }
+});
+
+// Get all invoiceable services from all hospital units
+router.get('/api/clinic/:hospitalId/invoiceable-services', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    // Get all services marked as invoiceable from all units in the hospital
+    const invoiceableServices = await db
+      .select({
+        id: clinicServices.id,
+        name: clinicServices.name,
+        description: clinicServices.description,
+        price: clinicServices.price,
+        unitId: clinicServices.unitId,
+      })
+      .from(clinicServices)
+      .innerJoin(units, eq(clinicServices.unitId, units.id))
+      .where(
+        and(
+          eq(clinicServices.hospitalId, hospitalId),
+          eq(clinicServices.isInvoiceable, true)
+        )
+      )
+      .orderBy(clinicServices.name);
+    
+    // Get unit names
+    const unitIds = Array.from(new Set(invoiceableServices.map(s => s.unitId)));
+    const unitData = unitIds.length > 0 ? await db
+      .select({ id: units.id, name: units.name })
+      .from(units)
+      .where(inArray(units.id, unitIds)) : [];
+    const unitMap = new Map(unitData.map(u => [u.id, u.name]));
+    
+    const enrichedServices = invoiceableServices.map(service => ({
+      ...service,
+      unitName: unitMap.get(service.unitId) || null,
+    }));
+    
+    res.json(enrichedServices);
+  } catch (error) {
+    console.error("Error fetching invoiceable services:", error);
+    res.status(500).json({ message: "Failed to fetch invoiceable services" });
+  }
+});
+
 // Get hospital company data for invoices
 router.get('/api/clinic/:hospitalId/company-data', isAuthenticated, isClinicAccess, async (req, res) => {
   try {

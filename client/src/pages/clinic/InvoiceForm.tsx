@@ -138,12 +138,9 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
   });
 
   const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
-    queryKey: ['/api/clinic', hospitalId, 'items-with-prices', unitId],
+    queryKey: ['/api/clinic', hospitalId, 'invoiceable-items'],
     queryFn: async () => {
-      const url = unitId 
-        ? `/api/clinic/${hospitalId}/items-with-prices?unitId=${unitId}`
-        : `/api/clinic/${hospitalId}/items-with-prices`;
-      const res = await fetch(url, {
+      const res = await fetch(`/api/clinic/${hospitalId}/invoiceable-items`, {
         credentials: 'include'
       });
       if (!res.ok) return [];
@@ -153,16 +150,15 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
   });
 
   const { data: services = [] } = useQuery<Service[]>({
-    queryKey: ['/api/clinic', hospitalId, 'services', unitId],
+    queryKey: ['/api/clinic', hospitalId, 'invoiceable-services'],
     queryFn: async () => {
-      const url = `/api/clinic/${hospitalId}/services?unitId=${unitId}&includeShared=true`;
-      const res = await fetch(url, {
+      const res = await fetch(`/api/clinic/${hospitalId}/invoiceable-services`, {
         credentials: 'include'
       });
       if (!res.ok) return [];
       return res.json();
     },
-    enabled: !!hospitalId && !!unitId,
+    enabled: !!hospitalId,
   });
   
   // Filter items based on search for a specific row

@@ -208,6 +208,7 @@ export const items = pgTable("items", {
   sortOrder: integer("sort_order").default(0),
   patientPrice: decimal("patient_price", { precision: 10, scale: 2 }), // Final patient dispensing price for ambulatory invoices
   dailyUsageEstimate: decimal("daily_usage_estimate", { precision: 10, scale: 2 }), // Manual fallback for runway calculation when no consumption history
+  isInvoiceable: boolean("is_invoiceable").default(false), // Whether item appears in invoice item picker across all units
   status: varchar("status").default("active").notNull(), // 'active' | 'archived' - archived items hidden from lists but searchable
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -3172,6 +3173,7 @@ export const clinicServices = pgTable("clinic_services", {
   price: decimal("price", { precision: 10, scale: 2 }),
   durationMinutes: integer("duration_minutes"),
   isShared: boolean("is_shared").default(false).notNull(),
+  isInvoiceable: boolean("is_invoiceable").default(false), // Whether service appears in invoice service picker
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

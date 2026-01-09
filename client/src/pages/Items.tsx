@@ -183,6 +183,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     patientPrice: "",
     dailyUsageEstimate: "",
     status: "active" as "active" | "archived",
+    isInvoiceable: false,
   });
   const [formData, setFormData] = useState({
     name: "",
@@ -789,6 +790,33 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     },
   });
 
+  const bulkInvoiceableMutation = useMutation({
+    mutationFn: async ({ itemIds, isInvoiceable }: { itemIds: string[]; isInvoiceable: boolean }) => {
+      const response = await apiRequest("PATCH", "/api/items/bulk-invoiceable", { 
+        itemIds, 
+        isInvoiceable,
+        hospitalId: activeHospital?.id 
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
+      setIsBulkDeleteMode(false);
+      setSelectedItems(new Set());
+      toast({
+        title: t('common.success'),
+        description: t('items.bulkInvoiceableSuccess', `${data.updatedCount || 0} item(s) updated successfully`),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('items.bulkInvoiceableFailed', 'Failed to update items'),
+        variant: "destructive",
+      });
+    },
+  });
+
   const quickReduceMutation = useMutation({
     mutationFn: async (itemId: string) => {
       const response = await apiRequest("PATCH", `/api/items/${itemId}/reduce-unit`);
@@ -898,6 +926,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       patientPrice: item.patientPrice || "",
       dailyUsageEstimate: item.dailyUsageEstimate || "",
       status: (item.status as "active" | "archived") || "active",
+      isInvoiceable: item.isInvoiceable || false,
     });
     setSelectedUnit(normalizeUnit(item.unit));
     setEditDialogTab("details");
@@ -1450,6 +1479,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       patientPrice: editFormData.patientPrice ? editFormData.patientPrice : null,
       dailyUsageEstimate: editFormData.dailyUsageEstimate ? editFormData.dailyUsageEstimate : null,
       status: editFormData.status,
+      isInvoiceable: editFormData.isInvoiceable,
     };
 
     // Also save codes if they exist
@@ -2857,6 +2887,28 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   </Button>
                 )}
                 <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => bulkInvoiceableMutation.mutate({ itemIds: Array.from(selectedItems), isInvoiceable: true })} 
+                  disabled={selectedItems.size === 0 || bulkInvoiceableMutation.isPending}
+                  data-testid="mark-invoiceable-button" 
+                  className="flex-1 sm:flex-initial"
+                >
+                  <i className="fas fa-file-invoice mr-2"></i>
+                  {t('items.markInvoiceable', 'Invoiceable')} ({selectedItems.size})
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => bulkInvoiceableMutation.mutate({ itemIds: Array.from(selectedItems), isInvoiceable: false })} 
+                  disabled={selectedItems.size === 0 || bulkInvoiceableMutation.isPending}
+                  data-testid="unmark-invoiceable-button" 
+                  className="flex-1 sm:flex-initial"
+                >
+                  <i className="fas fa-file-invoice-dollar mr-2"></i>
+                  {t('items.unmarkInvoiceable', 'Not Invoiceable')} ({selectedItems.size})
+                </Button>
+                <Button 
                   variant="destructive" 
                   size="sm" 
                   onClick={handleBulkDelete} 
@@ -4249,6 +4301,21 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               <p className="text-xs text-muted-foreground mt-1">
                 {t('items.patientPriceHint', 'Final price charged to patients for ambulatory invoices')}
               </p>
+            </div>
+
+            {/* Available for Invoicing Toggle */}
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="edit-isInvoiceable" 
+                name="isInvoiceable"
+                checked={editFormData.isInvoiceable}
+                onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, isInvoiceable: checked === true }))}
+                disabled={!canWrite}
+                data-testid="checkbox-edit-invoiceable" 
+              />
+              <Label htmlFor="edit-isInvoiceable" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>
+                {t('items.availableForInvoicing', 'Available for Invoicing')}
+              </Label>
             </div>
 
             {/* Item Qualities - Controlled and Archived */}
