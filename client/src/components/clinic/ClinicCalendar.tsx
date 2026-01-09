@@ -1018,7 +1018,7 @@ export default function ClinicCalendar({
       </div>
 
       {/* Calendar */}
-      <div className="flex-1 min-h-0 px-4 pb-4">
+      <div className="flex-1 min-h-0 overflow-auto px-4 pb-4">
         <div className="h-full calendar-container">
         {providersLoading ? (
           <div className="flex items-center justify-center h-full">

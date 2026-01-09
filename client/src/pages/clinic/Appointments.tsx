@@ -184,8 +184,8 @@ export default function ClinicAppointments() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)]" data-testid="appointments-page">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-4 gap-3">
+    <div className="flex flex-col h-full overflow-hidden" data-testid="appointments-page">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-4 gap-3 border-b bg-background">
         <div className="flex items-center gap-2">
           <Calendar className="h-6 w-6 text-primary" />
           <h1 className="text-xl font-bold" data-testid="text-page-title">
@@ -218,7 +218,7 @@ export default function ClinicAppointments() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0 overflow-hidden">
         <ClinicCalendar
           hospitalId={hospitalId}
           unitId={unitId}
