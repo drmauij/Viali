@@ -372,7 +372,7 @@ export default function Units() {
                 <SelectTrigger id="unit-type" data-testid="select-unit-type">
                   <SelectValue placeholder={t("admin.selectUnitType")} />
                 </SelectTrigger>
-                <SelectContent className="max-h-[300px]">
+                <SelectContent position="item-aligned">
                   <SelectItem value="anesthesia">{t("admin.unitTypes.anesthesia")}</SelectItem>
                   <SelectItem value="business">{t("admin.unitTypes.business")}</SelectItem>
                   <SelectItem value="clinic">{t("admin.unitTypes.clinic")}</SelectItem>
