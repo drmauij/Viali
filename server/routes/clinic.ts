@@ -225,6 +225,54 @@ router.delete('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, is
   }
 });
 
+// Bulk move services to another unit
+router.post('/api/clinic/:hospitalId/services/bulk-move', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { serviceIds, targetUnitId } = req.body;
+    
+    if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
+      return res.status(400).json({ message: "Service IDs are required" });
+    }
+    
+    if (!targetUnitId) {
+      return res.status(400).json({ message: "Target unit ID is required" });
+    }
+    
+    // Verify target unit belongs to same hospital
+    const targetUnit = await db
+      .select()
+      .from(units)
+      .where(
+        and(
+          eq(units.id, targetUnitId),
+          eq(units.hospitalId, hospitalId)
+        )
+      )
+      .limit(1);
+    
+    if (targetUnit.length === 0) {
+      return res.status(404).json({ message: "Target unit not found or doesn't belong to this hospital" });
+    }
+    
+    // Update all services
+    const result = await db
+      .update(clinicServices)
+      .set({ unitId: targetUnitId, updatedAt: new Date() })
+      .where(
+        and(
+          eq(clinicServices.hospitalId, hospitalId),
+          inArray(clinicServices.id, serviceIds)
+        )
+      );
+    
+    res.json({ movedCount: serviceIds.length, targetUnitId });
+  } catch (error) {
+    console.error("Error bulk moving services:", error);
+    res.status(500).json({ message: "Failed to move services" });
+  }
+});
+
 // ========================================
 // Invoice Number
 // ========================================

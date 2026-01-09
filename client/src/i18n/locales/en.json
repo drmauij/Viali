@@ -2958,7 +2958,16 @@
       "updated": "Service updated",
       "deleted": "Service deleted",
       "deleteConfirmTitle": "Delete Service",
-      "deleteConfirmDescription": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone."
+      "deleteConfirmDescription": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+      "bulkActions": "Bulk Actions",
+      "moveToUnit": "Move",
+      "bulkMoveTitle": "Move Services to Another Unit",
+      "bulkMoveDesc": "Move {{count}} selected service(s) to a different unit.",
+      "bulkMoveSuccess": "{{count}} service(s) moved successfully",
+      "bulkMoveFailed": "Failed to move services",
+      "targetUnit": "Target Unit",
+      "selectUnit": "Select unit...",
+      "moveServices": "Move Services"
     }
   },
   "business": {

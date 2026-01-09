@@ -2959,7 +2959,16 @@
       "updated": "Leistung aktualisiert",
       "deleted": "Leistung gelöscht",
       "deleteConfirmTitle": "Leistung löschen",
-      "deleteConfirmDescription": "Möchten Sie \"{{name}}\" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
+      "deleteConfirmDescription": "Möchten Sie \"{{name}}\" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+      "bulkActions": "Massenaktionen",
+      "moveToUnit": "Verschieben",
+      "bulkMoveTitle": "Leistungen in andere Einheit verschieben",
+      "bulkMoveDesc": "{{count}} ausgewählte Leistung(en) in eine andere Einheit verschieben.",
+      "bulkMoveSuccess": "{{count}} Leistung(en) erfolgreich verschoben",
+      "bulkMoveFailed": "Leistungen konnten nicht verschoben werden",
+      "targetUnit": "Ziel-Einheit",
+      "selectUnit": "Einheit auswählen...",
+      "moveServices": "Leistungen verschieben"
     }
   },
   "business": {

@@ -7,17 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Dialog, 
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogFooter 
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, Pencil, Trash2, Settings, Share2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Settings, Share2, FolderInput, CheckSquare, X } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -30,7 +32,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import type { ClinicService } from "@shared/schema";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { ClinicService, Unit } from "@shared/schema";
 
 interface ServiceWithUnit extends ClinicService {
   unitName?: string;
@@ -45,6 +54,12 @@ export default function ClinicServices() {
   const [editingService, setEditingService] = useState<ServiceWithUnit | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [serviceToDelete, setServiceToDelete] = useState<ServiceWithUnit | null>(null);
+  
+  // Bulk move state
+  const [isBulkMode, setIsBulkMode] = useState(false);
+  const [selectedServices, setSelectedServices] = useState<Set<string>>(new Set());
+  const [bulkMoveDialogOpen, setBulkMoveDialogOpen] = useState(false);
+  const [bulkMoveTargetUnitId, setBulkMoveTargetUnitId] = useState<string>("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -83,6 +98,19 @@ export default function ClinicServices() {
       return res.json();
     },
     enabled: !!hospitalId && !!unitId,
+  });
+
+  // Fetch all units for bulk move
+  const { data: units = [] } = useQuery<Unit[]>({
+    queryKey: ['/api/admin', hospitalId, 'units'],
+    queryFn: async () => {
+      const res = await fetch(`/api/admin/${hospitalId}/units`, {
+        credentials: 'include'
+      });
+      if (!res.ok) throw new Error('Failed to fetch units');
+      return res.json();
+    },
+    enabled: !!hospitalId,
   });
 
   const createMutation = useMutation({
@@ -130,6 +158,59 @@ export default function ClinicServices() {
       toast({ title: t('common.error'), variant: "destructive" });
     },
   });
+
+  const bulkMoveMutation = useMutation({
+    mutationFn: async ({ serviceIds, targetUnitId }: { serviceIds: string[]; targetUnitId: string }) => {
+      const response = await apiRequest('POST', `/api/clinic/${hospitalId}/services/bulk-move`, {
+        serviceIds,
+        targetUnitId,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
+      setIsBulkMode(false);
+      setSelectedServices(new Set());
+      setBulkMoveDialogOpen(false);
+      setBulkMoveTargetUnitId("");
+      toast({
+        title: t('common.success'),
+        description: t('clinic.services.bulkMoveSuccess', `${data.movedCount || 0} service(s) moved successfully`),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('clinic.services.bulkMoveFailed', 'Failed to move services'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleServiceSelection = (serviceId: string) => {
+    setSelectedServices(prev => {
+      const next = new Set(prev);
+      if (next.has(serviceId)) {
+        next.delete(serviceId);
+      } else {
+        next.add(serviceId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedServices.size === filteredServices.length) {
+      setSelectedServices(new Set());
+    } else {
+      setSelectedServices(new Set(filteredServices.map(s => s.id)));
+    }
+  };
+
+  const exitBulkMode = () => {
+    setIsBulkMode(false);
+    setSelectedServices(new Set());
+  };
 
   const resetForm = () => {
     setFormData({ name: "", description: "", price: "", durationMinutes: "", isShared: false, isInvoiceable: false });
@@ -228,10 +309,53 @@ export default function ClinicServices() {
             data-testid="input-search-services"
           />
         </div>
-        <Button onClick={handleOpenCreate} data-testid="button-create-service">
-          <Plus className="h-4 w-4 mr-2" />
-          {t('clinic.services.create')}
-        </Button>
+        {!isBulkMode ? (
+          <>
+            <Button 
+              variant="outline" 
+              onClick={() => setIsBulkMode(true)}
+              data-testid="button-bulk-mode"
+            >
+              <CheckSquare className="h-4 w-4 mr-2" />
+              {t('clinic.services.bulkActions', 'Bulk Actions')}
+            </Button>
+            <Button onClick={handleOpenCreate} data-testid="button-create-service">
+              <Plus className="h-4 w-4 mr-2" />
+              {t('clinic.services.create')}
+            </Button>
+          </>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleSelectAll}
+              data-testid="button-select-all"
+            >
+              {selectedServices.size === filteredServices.length && filteredServices.length > 0 
+                ? t('common.deselectAll', 'Deselect All')
+                : t('common.selectAll', 'Select All')}
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setBulkMoveDialogOpen(true)}
+              disabled={selectedServices.size === 0 || bulkMoveMutation.isPending}
+              data-testid="button-bulk-move"
+            >
+              <FolderInput className="h-4 w-4 mr-2" />
+              {t('clinic.services.moveToUnit', 'Move')} ({selectedServices.size})
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={exitBulkMode}
+              data-testid="button-exit-bulk"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -249,10 +373,26 @@ export default function ClinicServices() {
       ) : (
         <div className="space-y-3">
           {filteredServices.map((service) => (
-            <Card key={service.id} data-testid={`card-service-${service.id}`}>
+            <Card 
+              key={service.id} 
+              data-testid={`card-service-${service.id}`}
+              className={isBulkMode && selectedServices.has(service.id) ? "ring-2 ring-primary" : ""}
+            >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                  {isBulkMode && (
+                    <div className="mr-3 pt-1">
+                      <Checkbox
+                        checked={selectedServices.has(service.id)}
+                        onCheckedChange={() => toggleServiceSelection(service.id)}
+                        data-testid={`checkbox-service-${service.id}`}
+                      />
+                    </div>
+                  )}
+                  <div 
+                    className="flex-1 cursor-pointer" 
+                    onClick={isBulkMode ? () => toggleServiceSelection(service.id) : undefined}
+                  >
                     <div className="flex items-center gap-2">
                       <h3 className="font-medium">{service.name}</h3>
                       {service.isShared && (
@@ -276,27 +416,29 @@ export default function ClinicServices() {
                       )}
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleOpenEdit(service)}
-                      data-testid={`button-edit-service-${service.id}`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setServiceToDelete(service);
-                        setDeleteDialogOpen(true);
-                      }}
-                      data-testid={`button-delete-service-${service.id}`}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
+                  {!isBulkMode && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenEdit(service)}
+                        data-testid={`button-edit-service-${service.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setServiceToDelete(service);
+                          setDeleteDialogOpen(true);
+                        }}
+                        data-testid={`button-delete-service-${service.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -410,6 +552,59 @@ export default function ClinicServices() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Bulk Move Dialog */}
+      <Dialog open={bulkMoveDialogOpen} onOpenChange={(open) => {
+        setBulkMoveDialogOpen(open);
+        if (!open) setBulkMoveTargetUnitId("");
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('clinic.services.bulkMoveTitle', 'Move Services to Another Unit')}</DialogTitle>
+            <DialogDescription>
+              {t('clinic.services.bulkMoveDesc', `Move ${selectedServices.size} selected service(s) to a different unit.`)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t('clinic.services.targetUnit', 'Target Unit')}</Label>
+              <Select value={bulkMoveTargetUnitId} onValueChange={setBulkMoveTargetUnitId}>
+                <SelectTrigger data-testid="select-bulk-move-target">
+                  <SelectValue placeholder={t('clinic.services.selectUnit', 'Select unit...')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {units
+                    .filter(unit => unit.id !== unitId)
+                    .map(unit => (
+                      <SelectItem key={unit.id} value={unit.id}>
+                        {unit.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkMoveDialogOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={() => {
+                if (bulkMoveTargetUnitId && selectedServices.size > 0) {
+                  bulkMoveMutation.mutate({
+                    serviceIds: Array.from(selectedServices),
+                    targetUnitId: bulkMoveTargetUnitId
+                  });
+                }
+              }}
+              disabled={!bulkMoveTargetUnitId || bulkMoveMutation.isPending}
+              data-testid="button-confirm-bulk-move"
+            >
+              {bulkMoveMutation.isPending ? t('common.moving', 'Moving...') : t('clinic.services.moveServices', 'Move Services')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
