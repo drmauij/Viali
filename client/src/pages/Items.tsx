@@ -4243,8 +4243,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
             <Tabs value={editDialogTab} onValueChange={setEditDialogTab} className="w-full mt-4">
               <TabsList className="grid w-full grid-cols-4">
                 <TabsTrigger value="details" data-testid="tab-item-details">{t('items.itemDetails')}</TabsTrigger>
-                <TabsTrigger value="invoicing" data-testid="tab-item-invoicing">{t('items.invoicing', 'Invoicing')}</TabsTrigger>
                 <TabsTrigger value="codes" data-testid="tab-item-codes">Codes</TabsTrigger>
+                <TabsTrigger value="invoicing" data-testid="tab-item-invoicing">{t('items.invoicing', 'Invoicing')}</TabsTrigger>
                 <TabsTrigger value="photo" data-testid="tab-item-photo">{t('items.itemPhoto')}</TabsTrigger>
               </TabsList>
             </Tabs>
