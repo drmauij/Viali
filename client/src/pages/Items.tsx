@@ -254,6 +254,10 @@ export default function Items() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
+  // Bulk move state
+  const [bulkMoveDialogOpen, setBulkMoveDialogOpen] = useState(false);
+  const [bulkMoveTargetUnitId, setBulkMoveTargetUnitId] = useState<string>("");
+  
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
   
@@ -743,6 +747,35 @@ export default function Items() {
       toast({
         title: t('common.error'),
         description: error.message || "Failed to delete items",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const bulkMoveMutation = useMutation({
+    mutationFn: async ({ itemIds, targetUnitId }: { itemIds: string[]; targetUnitId: string }) => {
+      const response = await apiRequest("POST", "/api/items/bulk-move", { 
+        itemIds, 
+        targetUnitId,
+        hospitalId: activeHospital?.id 
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      setIsBulkDeleteMode(false);
+      setSelectedItems(new Set());
+      setBulkMoveDialogOpen(false);
+      setBulkMoveTargetUnitId("");
+      toast({
+        title: t('common.success'),
+        description: t('items.bulkMoveSuccess', `${data.movedCount || 0} item(s) moved successfully`),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('items.bulkMoveFailed', 'Failed to move items'),
         variant: "destructive",
       });
     },
@@ -2800,6 +2833,19 @@ export default function Items() {
                   <Button variant="outline" size="sm" onClick={deselectAllItems} data-testid="deselect-all-items" className="flex-1 sm:flex-initial">
                     <i className="fas fa-times mr-2"></i>
                     Deselect All
+                  </Button>
+                )}
+                {activeHospital?.role === 'admin' && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setBulkMoveDialogOpen(true)} 
+                    disabled={selectedItems.size === 0 || bulkMoveMutation.isPending}
+                    data-testid="move-selected-button" 
+                    className="flex-1 sm:flex-initial"
+                  >
+                    <i className="fas fa-arrow-right-arrow-left mr-2"></i>
+                    {t('items.moveToUnit', 'Move')} ({selectedItems.size})
                   </Button>
                 )}
                 <Button 
@@ -5637,6 +5683,63 @@ export default function Items() {
               data-testid="confirm-bulk-delete-dialog"
             >
               {bulkDeleteMutation.isPending ? 'Deleting...' : 'Delete Items'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Move Dialog */}
+      <Dialog open={bulkMoveDialogOpen} onOpenChange={(open) => {
+        setBulkMoveDialogOpen(open);
+        if (!open) setBulkMoveTargetUnitId("");
+      }}>
+        <DialogContent data-testid="bulk-move-dialog">
+          <DialogHeader>
+            <DialogTitle>{t('items.bulkMoveTitle', 'Move Items to Another Unit')}</DialogTitle>
+            <DialogDescription>
+              {t('items.bulkMoveDesc', `Move ${selectedItems.size} selected item(s) to a different unit. This is an administrative reassignment.`)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label>{t('items.targetUnit', 'Target Unit')}</Label>
+              <Select value={bulkMoveTargetUnitId} onValueChange={setBulkMoveTargetUnitId}>
+                <SelectTrigger data-testid="select-bulk-move-target">
+                  <SelectValue placeholder={t('items.selectUnit', 'Select a unit...')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableDestinationUnits
+                    .filter(unit => (unit as any).showInventory !== false)
+                    .map((unit) => (
+                      <SelectItem key={unit.id} value={unit.id} data-testid={`bulk-move-unit-${unit.id}`}>
+                        {unit.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setBulkMoveDialogOpen(false)}
+              data-testid="cancel-bulk-move-dialog"
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button 
+              onClick={() => {
+                if (bulkMoveTargetUnitId && selectedItems.size > 0) {
+                  bulkMoveMutation.mutate({
+                    itemIds: Array.from(selectedItems),
+                    targetUnitId: bulkMoveTargetUnitId
+                  });
+                }
+              }}
+              disabled={!bulkMoveTargetUnitId || bulkMoveMutation.isPending}
+              data-testid="confirm-bulk-move-dialog"
+            >
+              {bulkMoveMutation.isPending ? t('common.moving', 'Moving...') : t('items.moveItems', 'Move Items')}
             </Button>
           </div>
         </DialogContent>

@@ -32,7 +32,8 @@
     "viewOnlyMode": "View Only Mode",
     "viewOnlyModeDescription": "You are viewing this content as a guest. Editing is disabled.",
     "selectAll": "Select All",
-    "deselectAll": "Deselect All"
+    "deselectAll": "Deselect All",
+    "moving": "Moving..."
   },
   "auth": {
     "login": "Login",
@@ -269,6 +270,14 @@
     "transferSuccess": "Transfer Complete",
     "transferSuccessDesc": "Items have been transferred successfully",
     "transferFailed": "Failed to transfer items",
+    "moveToUnit": "Move",
+    "bulkMoveTitle": "Move Items to Another Unit",
+    "bulkMoveDesc": "Move selected items to a different unit. This is an administrative reassignment.",
+    "bulkMoveSuccess": "Items moved successfully",
+    "bulkMoveFailed": "Failed to move items",
+    "targetUnit": "Target Unit",
+    "selectUnit": "Select a unit...",
+    "moveItems": "Move Items",
     "itemAdded": "Item Added",
     "itemAlreadyAdded": "Item Already Added",
     "itemNotFound": "Item Not Found",

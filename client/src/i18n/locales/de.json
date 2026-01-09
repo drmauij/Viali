@@ -32,7 +32,8 @@
     "viewOnlyMode": "Nur-Lese-Modus",
     "viewOnlyModeDescription": "Sie sehen diesen Inhalt als Gast. Bearbeitung ist deaktiviert.",
     "selectAll": "Alle auswählen",
-    "deselectAll": "Alle abwählen"
+    "deselectAll": "Alle abwählen",
+    "moving": "Wird verschoben..."
   },
   "auth": {
     "login": "Anmelden",
@@ -269,6 +270,14 @@
     "transferSuccess": "Transfer abgeschlossen",
     "transferSuccessDesc": "Artikel wurden erfolgreich transferiert",
     "transferFailed": "Artikeltransfer fehlgeschlagen",
+    "moveToUnit": "Verschieben",
+    "bulkMoveTitle": "Artikel in andere Einheit verschieben",
+    "bulkMoveDesc": "Ausgewählte Artikel in eine andere Einheit verschieben. Dies ist eine administrative Neuzuweisung.",
+    "bulkMoveSuccess": "Artikel erfolgreich verschoben",
+    "bulkMoveFailed": "Artikel konnten nicht verschoben werden",
+    "targetUnit": "Zieleinheit",
+    "selectUnit": "Einheit auswählen...",
+    "moveItems": "Artikel verschieben",
     "itemAdded": "Artikel hinzugefügt",
     "itemAlreadyAdded": "Artikel bereits hinzugefügt",
     "itemNotFound": "Artikel nicht gefunden",

@@ -699,6 +699,79 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
   }
 });
 
+// Bulk move items to another unit (administrative reassignment, not physical transfer)
+router.post('/api/items/bulk-move', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { itemIds, targetUnitId, hospitalId } = req.body;
+    const userId = req.user.id;
+    
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+      return res.status(400).json({ message: "Item IDs array is required" });
+    }
+    
+    if (!targetUnitId) {
+      return res.status(400).json({ message: "Target unit ID is required" });
+    }
+
+    // Verify user has access to the hospital
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hospital = userHospitals.find(h => h.id === hospitalId);
+    if (!hospital) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    // Verify target unit exists and belongs to the same hospital
+    const targetUnit = await storage.getUnit(targetUnitId);
+    if (!targetUnit || targetUnit.hospitalId !== hospitalId) {
+      return res.status(400).json({ message: "Invalid target unit" });
+    }
+
+    const results = {
+      moved: [] as string[],
+      failed: [] as { id: string; reason: string }[]
+    };
+
+    for (const itemId of itemIds) {
+      try {
+        const item = await storage.getItem(itemId);
+        if (!item) {
+          results.failed.push({ id: itemId, reason: "Item not found" });
+          continue;
+        }
+        
+        // Verify item belongs to the same hospital
+        if (item.hospitalId !== hospitalId) {
+          results.failed.push({ id: itemId, reason: "Item belongs to different hospital" });
+          continue;
+        }
+
+        // Skip if already in target unit
+        if (item.unitId === targetUnitId) {
+          results.moved.push(itemId);
+          continue;
+        }
+        
+        // Update item's unitId (simple reassignment)
+        await storage.updateItem(itemId, { unitId: targetUnitId });
+        results.moved.push(itemId);
+      } catch (error: any) {
+        console.error(`Error moving item ${itemId}:`, error);
+        results.failed.push({ id: itemId, reason: error.message || "Unknown error" });
+      }
+    }
+
+    res.json({
+      success: true,
+      movedCount: results.moved.length,
+      failedCount: results.failed.length,
+      results
+    });
+  } catch (error) {
+    console.error("Error bulk moving items:", error);
+    res.status(500).json({ message: "Failed to bulk move items" });
+  }
+});
+
 // Transfer items between units
 router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
