@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,6 +16,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SurgeryPlanningTable } from "@/components/shared/SurgeryPlanningTable";
 import { 
   ClipboardCheck, 
   Loader2, 
@@ -28,13 +30,16 @@ import {
   Wand2,
   Save,
   Pencil,
-  Plus
+  Plus,
+  History
 } from "lucide-react";
 import { SurgeonChecklistTemplateEditor } from "@/components/anesthesia/SurgeonChecklistTemplateEditor";
 import { resolvePlaceholders, type SurgeryContext } from "@shared/checklistPlaceholders";
 import type { SurgeonChecklistTemplate, SurgeonChecklistTemplateItem, Surgery, Patient } from "@shared/schema";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+
+type TabValue = "matrix" | "past";
 
 interface SurgeryWithPatient extends Surgery {
   patient?: Patient;
@@ -57,10 +62,12 @@ export default function ChecklistMatrix() {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const { user } = useAuth();
+  const [, setLocation] = useLocation();
   const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
   const userId = user?.id;
   
+  const [activeTab, setActiveTab] = useState<TabValue>("matrix");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [cellStates, setCellStates] = useState<Record<string, MatrixCellState>>({});
   const [editingCell, setEditingCell] = useState<string | null>(null);
@@ -293,6 +300,13 @@ export default function ChecklistMatrix() {
   const currentTemplate = templates.find(t => t.id === selectedTemplateId);
   const isCurrentDefault = currentTemplate?.isDefault && currentTemplate?.ownerUserId === userId;
 
+  const handlePastSurgeryClick = (surgery: Surgery) => {
+    // Navigate to the patient's detail page with the surgery context
+    if (surgery.patientId) {
+      setLocation(`/surgery/patients/${surgery.patientId}`);
+    }
+  };
+
   if (!hospitalId) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -305,102 +319,144 @@ export default function ChecklistMatrix() {
     <div className="flex flex-col h-full">
       <div className="p-4 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-2">
-            <ClipboardCheck className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-semibold">{t('checklistMatrix.title', 'Checklist Matrix')}</h1>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="h-5 w-5 text-primary" />
+              <h1 className="text-lg font-semibold">{t('checklistMatrix.title', 'Checklist Matrix')}</h1>
+            </div>
+            
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabValue)} className="ml-4">
+              <TabsList>
+                <TabsTrigger value="matrix" data-testid="tab-matrix">
+                  <ClipboardCheck className="h-4 w-4 mr-2" />
+                  {t('checklistMatrix.upcoming', 'Upcoming')}
+                </TabsTrigger>
+                <TabsTrigger value="past" data-testid="tab-past">
+                  <History className="h-4 w-4 mr-2" />
+                  {t('checklistMatrix.pastSurgeries', 'Past')}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
           
-          <div className="flex items-center gap-2 flex-wrap">
-            <Select
-              value={selectedTemplateId || ""}
-              onValueChange={setSelectedTemplateId}
-            >
-              <SelectTrigger className="w-[200px]" data-testid="select-matrix-template">
-                <SelectValue placeholder={t('checklistMatrix.selectTemplate', 'Select template...')} />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map((tpl) => (
-                  <SelectItem key={tpl.id} value={tpl.id}>
-                    <div className="flex items-center gap-2">
-                      {tpl.isDefault && tpl.ownerUserId === userId && (
-                        <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
-                      )}
-                      <span>{tpl.title}</span>
-                      {tpl.isShared && (
-                        <Badge variant="secondary" className="text-[10px] px-1">shared</Badge>
-                      )}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {selectedTemplateId && (
-              <>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setTemplateEditorOpen(true)}
-                        data-testid="button-edit-template"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {t('checklistMatrix.editTemplate', 'Edit template')}
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant={isCurrentDefault ? "secondary" : "outline"}
-                        size="icon"
-                        onClick={() => toggleDefaultMutation.mutate(selectedTemplateId)}
-                        disabled={toggleDefaultMutation.isPending}
-                        data-testid="button-toggle-default"
-                      >
-                        {isCurrentDefault ? (
-                          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
-                        ) : (
-                          <StarOff className="h-4 w-4" />
+          {activeTab === "matrix" && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <Select
+                value={selectedTemplateId || ""}
+                onValueChange={setSelectedTemplateId}
+              >
+                <SelectTrigger className="w-[200px]" data-testid="select-matrix-template">
+                  <SelectValue placeholder={t('checklistMatrix.selectTemplate', 'Select template...')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((tpl) => (
+                    <SelectItem key={tpl.id} value={tpl.id}>
+                      <div className="flex items-center gap-2">
+                        {tpl.isDefault && tpl.ownerUserId === userId && (
+                          <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
                         )}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      {isCurrentDefault 
-                        ? t('checklistMatrix.removeDefault', 'Remove as default')
-                        : t('checklistMatrix.setDefault', 'Set as default template')
-                      }
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                        <span>{tpl.title}</span>
+                        {tpl.isShared && (
+                          <Badge variant="secondary" className="text-[10px] px-1">shared</Badge>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => bulkApplyMutation.mutate()}
-                  disabled={bulkApplyMutation.isPending}
-                  data-testid="button-bulk-apply"
-                >
-                  {bulkApplyMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Wand2 className="h-4 w-4 mr-2" />
-                  )}
-                  {t('checklistMatrix.applyToAll', 'Apply to all')}
-                </Button>
-              </>
-            )}
-          </div>
+              {selectedTemplateId && (
+                <>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => setTemplateEditorOpen(true)}
+                          data-testid="button-edit-template"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {t('checklistMatrix.editTemplate', 'Edit template')}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant={isCurrentDefault ? "secondary" : "outline"}
+                          size="icon"
+                          onClick={() => toggleDefaultMutation.mutate(selectedTemplateId)}
+                          disabled={toggleDefaultMutation.isPending}
+                          data-testid="button-toggle-default"
+                        >
+                          {isCurrentDefault ? (
+                            <Star className="h-4 w-4 text-yellow-500 fill-yellow-500" />
+                          ) : (
+                            <StarOff className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isCurrentDefault 
+                          ? t('checklistMatrix.removeDefault', 'Remove as default')
+                          : t('checklistMatrix.setDefault', 'Set as default template')
+                        }
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => bulkApplyMutation.mutate()}
+                    disabled={bulkApplyMutation.isPending}
+                    data-testid="button-bulk-apply"
+                  >
+                    {bulkApplyMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Wand2 className="h-4 w-4 mr-2" />
+                    )}
+                    {t('checklistMatrix.applyToAll', 'Apply to all')}
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Past Surgeries Tab Content */}
+      {activeTab === "past" && (
+        <div className="flex-1 overflow-auto p-4">
+          <SurgeryPlanningTable
+            moduleContext="surgery"
+            onSurgeryClick={handlePastSurgeryClick}
+            dateFrom={(() => {
+              const past = new Date();
+              past.setFullYear(past.getFullYear() - 2);
+              past.setHours(0, 0, 0, 0);
+              return past;
+            })()}
+            dateTo={(() => {
+              const yesterday = new Date();
+              yesterday.setDate(yesterday.getDate() - 1);
+              yesterday.setHours(23, 59, 59, 999);
+              return yesterday;
+            })()}
+            showFilters={true}
+          />
+        </div>
+      )}
+
+      {/* Matrix Tab Content */}
+      {activeTab === "matrix" && (
       <div className="flex-1 overflow-auto">
         {isLoading ? (
           <div className="p-4 space-y-4">
@@ -630,6 +686,7 @@ export default function ChecklistMatrix() {
           </div>
         )}
       </div>
+      )}
 
       {/* Template Editor Dialog */}
       {hospitalId && (
