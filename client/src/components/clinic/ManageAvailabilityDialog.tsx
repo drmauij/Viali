@@ -259,21 +259,6 @@ export function ManageAvailabilityDialog({
                                   className="w-24"
                                   data-testid={`input-end-dialog-${day.value}`}
                                 />
-                                <Select
-                                  value={String(dayAvail?.slotDurationMinutes || 30)}
-                                  onValueChange={(v) => updateAvailabilityDay(day.value, 'slotDurationMinutes', parseInt(v))}
-                                >
-                                  <SelectTrigger className="w-20" data-testid={`select-duration-dialog-${day.value}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {SLOT_DURATIONS.map((d) => (
-                                      <SelectItem key={d.value} value={String(d.value)}>
-                                        {d.label}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
                               </div>
                             )}
                           </div>
