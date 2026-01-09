@@ -93,7 +93,7 @@ export default function ModuleDrawer() {
     },
     {
       id: "clinic",
-      icon: "fas fa-concierge-bell",
+      icon: "fas fa-hospital-user",
       title: t('modules.clinic.title'),
       description: t('modules.clinic.description'),
       route: "/clinic",

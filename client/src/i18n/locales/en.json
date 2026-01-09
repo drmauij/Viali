@@ -180,8 +180,8 @@
       "description": "User management, hospital settings, and system configuration"
     },
     "clinic": {
-      "title": "Front Desk",
-      "description": "Ambulatory patient check-in, appointments, and invoicing"
+      "title": "Ambulatory",
+      "description": "Outpatient services, appointments, patient check-in, and invoicing"
     },
     "business": {
       "title": "Business Control",

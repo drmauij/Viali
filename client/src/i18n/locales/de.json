@@ -180,8 +180,8 @@
       "description": "Benutzerverwaltung, Krankenhauseinstellungen und Systemkonfiguration"
     },
     "clinic": {
-      "title": "Empfang",
-      "description": "Ambulante Patientenanmeldung, Termine und Rechnungsstellung"
+      "title": "Ambulatorium",
+      "description": "Ambulante Leistungen, Termine, Patientenanmeldung und Rechnungsstellung"
     },
     "business": {
       "title": "Geschäftssteuerung",
