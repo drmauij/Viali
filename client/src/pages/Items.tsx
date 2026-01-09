@@ -2935,9 +2935,9 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 </Button>
                 {canWrite && (
                   <>
-                    <Button variant="outline" size="sm" onClick={() => { setIsBulkDeleteMode(true); setSelectedItems(new Set()); }} data-testid="bulk-delete-button" className="flex-1 sm:flex-initial">
-                      <i className="fas fa-trash mr-2"></i>
-                      Bulk Delete
+                    <Button variant="outline" size="sm" onClick={() => { setIsBulkDeleteMode(true); setSelectedItems(new Set()); }} data-testid="bulk-update-button" className="flex-1 sm:flex-initial">
+                      <i className="fas fa-list-check mr-2"></i>
+                      Bulk Update
                     </Button>
                     <Button variant="outline" size="sm" onClick={() => { setIsBulkEditMode(true); setBulkEditItems({}); }} data-testid="bulk-edit-button" className="flex-1 sm:flex-initial">
                       <i className="fas fa-edit mr-2"></i>
