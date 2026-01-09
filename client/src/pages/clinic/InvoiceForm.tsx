@@ -138,9 +138,9 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
   });
 
   const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
-    queryKey: ['/api/clinic', hospitalId, 'invoiceable-items'],
+    queryKey: ['/api/clinic', hospitalId, 'billable-items'],
     queryFn: async () => {
-      const res = await fetch(`/api/clinic/${hospitalId}/invoiceable-items`, {
+      const res = await fetch(`/api/clinic/${hospitalId}/billable-items`, {
         credentials: 'include'
       });
       if (!res.ok) return [];
@@ -150,9 +150,9 @@ export default function InvoiceForm({ hospitalId, unitId, onSuccess, onCancel }:
   });
 
   const { data: services = [] } = useQuery<Service[]>({
-    queryKey: ['/api/clinic', hospitalId, 'invoiceable-services'],
+    queryKey: ['/api/clinic', hospitalId, 'billable-services'],
     queryFn: async () => {
-      const res = await fetch(`/api/clinic/${hospitalId}/invoiceable-services`, {
+      const res = await fetch(`/api/clinic/${hospitalId}/billable-services`, {
         credentials: 'include'
       });
       if (!res.ok) return [];

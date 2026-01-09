@@ -790,11 +790,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     },
   });
 
-  const bulkInvoiceableMutation = useMutation({
-    mutationFn: async ({ itemIds, isInvoiceable }: { itemIds: string[]; isInvoiceable: boolean }) => {
-      const response = await apiRequest("PATCH", "/api/items/bulk-invoiceable", { 
+  const bulkBillableMutation = useMutation({
+    mutationFn: async ({ itemIds, isBillable }: { itemIds: string[]; isBillable: boolean }) => {
+      const response = await apiRequest("PATCH", "/api/items/bulk-billable", { 
         itemIds, 
-        isInvoiceable,
+        isBillable,
         hospitalId: activeHospital?.id 
       });
       return response.json();
@@ -805,13 +805,13 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       setSelectedItems(new Set());
       toast({
         title: t('common.success'),
-        description: t('items.bulkInvoiceableSuccess', `${data.updatedCount || 0} item(s) updated successfully`),
+        description: t('items.bulkBillableSuccess', `${data.updatedCount || 0} item(s) updated successfully`),
       });
     },
     onError: (error: any) => {
       toast({
         title: t('common.error'),
-        description: error.message || t('items.bulkInvoiceableFailed', 'Failed to update items'),
+        description: error.message || t('items.bulkBillableFailed', 'Failed to update items'),
         variant: "destructive",
       });
     },
@@ -2889,24 +2889,24 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => bulkInvoiceableMutation.mutate({ itemIds: Array.from(selectedItems), isInvoiceable: true })} 
-                  disabled={selectedItems.size === 0 || bulkInvoiceableMutation.isPending}
-                  data-testid="mark-invoiceable-button" 
+                  onClick={() => bulkBillableMutation.mutate({ itemIds: Array.from(selectedItems), isBillable: true })} 
+                  disabled={selectedItems.size === 0 || bulkBillableMutation.isPending}
+                  data-testid="mark-billable-button" 
                   className="flex-1 sm:flex-initial"
                 >
                   <i className="fas fa-file-invoice mr-2"></i>
-                  {t('items.markInvoiceable', 'Invoiceable')} ({selectedItems.size})
+                  {t('items.markBillable', 'Billable')} ({selectedItems.size})
                 </Button>
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  onClick={() => bulkInvoiceableMutation.mutate({ itemIds: Array.from(selectedItems), isInvoiceable: false })} 
-                  disabled={selectedItems.size === 0 || bulkInvoiceableMutation.isPending}
-                  data-testid="unmark-invoiceable-button" 
+                  onClick={() => bulkBillableMutation.mutate({ itemIds: Array.from(selectedItems), isBillable: false })} 
+                  disabled={selectedItems.size === 0 || bulkBillableMutation.isPending}
+                  data-testid="unmark-billable-button" 
                   className="flex-1 sm:flex-initial"
                 >
                   <i className="fas fa-file-invoice-dollar mr-2"></i>
-                  {t('items.unmarkInvoiceable', 'Not Invoiceable')} ({selectedItems.size})
+                  {t('items.unmarkBillable', 'Not Billable')} ({selectedItems.size})
                 </Button>
                 <Button 
                   variant="destructive" 

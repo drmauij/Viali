@@ -643,13 +643,13 @@ router.get('/api/clinic/:hospitalId/items-with-prices', isAuthenticated, isClini
   }
 });
 
-// Get all invoiceable items from all hospital units
-router.get('/api/clinic/:hospitalId/invoiceable-items', isAuthenticated, isClinicAccess, async (req, res) => {
+// Get all billable items from all hospital units
+router.get('/api/clinic/:hospitalId/billable-items', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
-    // Get all items marked as invoiceable from all units in the hospital
-    const invoiceableItems = await db
+    // Get all items marked as billable from all units in the hospital
+    const billableItems = await db
       .select({
         id: items.id,
         name: items.name,
@@ -669,7 +669,7 @@ router.get('/api/clinic/:hospitalId/invoiceable-items', isAuthenticated, isClini
       .orderBy(items.name);
     
     // Get item codes for all items
-    const itemIds = invoiceableItems.map(item => item.id);
+    const itemIds = billableItems.map(item => item.id);
     const codes = itemIds.length > 0 ? await db
       .select({
         itemId: itemCodes.itemId,
@@ -680,7 +680,7 @@ router.get('/api/clinic/:hospitalId/invoiceable-items', isAuthenticated, isClini
       .where(inArray(itemCodes.itemId, itemIds)) : [];
     
     // Get unit names
-    const unitIds = Array.from(new Set(invoiceableItems.map(item => item.unitId)));
+    const unitIds = Array.from(new Set(billableItems.map(item => item.unitId)));
     const unitData = unitIds.length > 0 ? await db
       .select({ id: units.id, name: units.name })
       .from(units)
@@ -690,7 +690,7 @@ router.get('/api/clinic/:hospitalId/invoiceable-items', isAuthenticated, isClini
     // Map codes and unit names to items
     const codesMap = new Map(codes.map(c => [c.itemId, c]));
     
-    const enrichedItems = invoiceableItems.map(item => ({
+    const enrichedItems = billableItems.map(item => ({
       ...item,
       gtin: codesMap.get(item.id)?.gtin || null,
       pharmacode: codesMap.get(item.id)?.pharmacode || null,
@@ -699,18 +699,18 @@ router.get('/api/clinic/:hospitalId/invoiceable-items', isAuthenticated, isClini
     
     res.json(enrichedItems);
   } catch (error) {
-    console.error("Error fetching invoiceable items:", error);
-    res.status(500).json({ message: "Failed to fetch invoiceable items" });
+    console.error("Error fetching billable items:", error);
+    res.status(500).json({ message: "Failed to fetch billable items" });
   }
 });
 
-// Get all invoiceable services from all hospital units
-router.get('/api/clinic/:hospitalId/invoiceable-services', isAuthenticated, isClinicAccess, async (req, res) => {
+// Get all billable services from all hospital units
+router.get('/api/clinic/:hospitalId/billable-services', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
     const { hospitalId } = req.params;
     
-    // Get all services marked as invoiceable from all units in the hospital
-    const invoiceableServices = await db
+    // Get all services marked as billable from all units in the hospital
+    const billableServices = await db
       .select({
         id: clinicServices.id,
         name: clinicServices.name,
@@ -729,22 +729,22 @@ router.get('/api/clinic/:hospitalId/invoiceable-services', isAuthenticated, isCl
       .orderBy(clinicServices.name);
     
     // Get unit names
-    const unitIds = Array.from(new Set(invoiceableServices.map(s => s.unitId)));
+    const unitIds = Array.from(new Set(billableServices.map(s => s.unitId)));
     const unitData = unitIds.length > 0 ? await db
       .select({ id: units.id, name: units.name })
       .from(units)
       .where(inArray(units.id, unitIds)) : [];
     const unitMap = new Map(unitData.map(u => [u.id, u.name]));
     
-    const enrichedServices = invoiceableServices.map(service => ({
+    const enrichedServices = billableServices.map(service => ({
       ...service,
       unitName: unitMap.get(service.unitId) || null,
     }));
     
     res.json(enrichedServices);
   } catch (error) {
-    console.error("Error fetching invoiceable services:", error);
-    res.status(500).json({ message: "Failed to fetch invoiceable services" });
+    console.error("Error fetching billable services:", error);
+    res.status(500).json({ message: "Failed to fetch billable services" });
   }
 });
 

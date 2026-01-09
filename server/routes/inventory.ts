@@ -479,6 +479,65 @@ router.patch('/api/items/bulk-sort', isAuthenticated, requireWriteAccess, async 
   }
 });
 
+// Bulk update isBillable status for multiple items
+router.patch('/api/items/bulk-billable', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { itemIds, isBillable, hospitalId } = req.body;
+    const userId = req.user.id;
+    
+    if (!Array.isArray(itemIds) || itemIds.length === 0) {
+      return res.status(400).json({ message: "Item IDs array is required" });
+    }
+    
+    if (typeof isBillable !== 'boolean') {
+      return res.status(400).json({ message: "isBillable must be a boolean" });
+    }
+
+    // Verify user has access to the hospital
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hospital = userHospitals.find(h => h.id === hospitalId);
+    if (!hospital) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    const results = {
+      updated: [] as string[],
+      failed: [] as { id: string; reason: string }[],
+    };
+
+    for (const itemId of itemIds) {
+      try {
+        const item = await storage.getItem(itemId);
+        if (!item) {
+          results.failed.push({ id: itemId, reason: "Item not found" });
+          continue;
+        }
+
+        if (item.hospitalId !== hospitalId) {
+          results.failed.push({ id: itemId, reason: "Item belongs to different hospital" });
+          continue;
+        }
+
+        await storage.updateItem(itemId, { isInvoiceable: isBillable });
+        results.updated.push(itemId);
+      } catch (error: any) {
+        console.error(`Error updating item ${itemId}:`, error);
+        results.failed.push({ id: itemId, reason: error.message || "Unknown error" });
+      }
+    }
+
+    res.json({
+      success: true,
+      updatedCount: results.updated.length,
+      failedCount: results.failed.length,
+      results
+    });
+  } catch (error) {
+    console.error("Error bulk updating billable status:", error);
+    res.status(500).json({ message: "Failed to bulk update billable status" });
+  }
+});
+
 router.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { itemId } = req.params;
@@ -772,64 +831,6 @@ router.post('/api/items/bulk-move', isAuthenticated, requireWriteAccess, async (
   }
 });
 
-// Bulk update isInvoiceable status for multiple items
-router.patch('/api/items/bulk-invoiceable', isAuthenticated, requireWriteAccess, async (req: any, res) => {
-  try {
-    const { itemIds, isInvoiceable, hospitalId } = req.body;
-    const userId = req.user.id;
-    
-    if (!Array.isArray(itemIds) || itemIds.length === 0) {
-      return res.status(400).json({ message: "Item IDs array is required" });
-    }
-    
-    if (typeof isInvoiceable !== 'boolean') {
-      return res.status(400).json({ message: "isInvoiceable must be a boolean" });
-    }
-
-    // Verify user has access to the hospital
-    const userHospitals = await storage.getUserHospitals(userId);
-    const hospital = userHospitals.find(h => h.id === hospitalId);
-    if (!hospital) {
-      return res.status(403).json({ message: "Access denied to this hospital" });
-    }
-
-    const results = {
-      updated: [] as string[],
-      failed: [] as { id: string; reason: string }[],
-    };
-
-    for (const itemId of itemIds) {
-      try {
-        const item = await storage.getItem(itemId);
-        if (!item) {
-          results.failed.push({ id: itemId, reason: "Item not found" });
-          continue;
-        }
-
-        if (item.hospitalId !== hospitalId) {
-          results.failed.push({ id: itemId, reason: "Item belongs to different hospital" });
-          continue;
-        }
-
-        await storage.updateItem(itemId, { isInvoiceable });
-        results.updated.push(itemId);
-      } catch (error: any) {
-        console.error(`Error updating item ${itemId}:`, error);
-        results.failed.push({ id: itemId, reason: error.message || "Unknown error" });
-      }
-    }
-
-    res.json({
-      success: true,
-      updatedCount: results.updated.length,
-      failedCount: results.failed.length,
-      results
-    });
-  } catch (error) {
-    console.error("Error bulk updating invoiceable status:", error);
-    res.status(500).json({ message: "Failed to bulk update invoiceable status" });
-  }
-});
 
 // Transfer items between units
 router.post('/api/items/transfer', isAuthenticated, requireWriteAccess, async (req: any, res) => {
