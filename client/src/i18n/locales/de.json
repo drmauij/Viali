@@ -180,8 +180,8 @@
       "description": "Benutzerverwaltung, Krankenhauseinstellungen und Systemkonfiguration"
     },
     "clinic": {
-      "title": "Praxis",
-      "description": "Erstellen und verwalten Sie ambulante Rechnungen für Praxisleistungen"
+      "title": "Empfang",
+      "description": "Ambulante Patientenanmeldung, Termine und Rechnungsstellung"
     },
     "business": {
       "title": "Geschäftssteuerung",

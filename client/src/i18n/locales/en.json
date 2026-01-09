@@ -180,8 +180,8 @@
       "description": "User management, hospital settings, and system configuration"
     },
     "clinic": {
-      "title": "Clinic",
-      "description": "Create and manage ambulatory invoices for outpatient services"
+      "title": "Front Desk",
+      "description": "Ambulatory patient check-in, appointments, and invoicing"
     },
     "business": {
       "title": "Business Control",
