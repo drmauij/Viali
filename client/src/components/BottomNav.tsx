@@ -176,7 +176,6 @@ export default function BottomNav() {
         { id: "clinic-patients", icon: "fas fa-users", label: t('bottomNav.clinic.patients'), path: "/clinic/patients" },
         { id: "clinic-questionnaires", icon: "fas fa-file-medical", label: t('bottomNav.clinic.questionnaires', 'Questionnaires'), path: "/clinic/questionnaires" },
         { id: "clinic-invoices", icon: "fas fa-file-invoice-dollar", label: t('bottomNav.clinic.invoices'), path: "/clinic" },
-        { id: "clinic-services", icon: "fas fa-briefcase-medical", label: t('bottomNav.clinic.services'), path: "/clinic/services" },
       ];
       return clinicItems;
     }
@@ -184,10 +183,10 @@ export default function BottomNav() {
     // Inventory module nav items
     return [
       { id: "items", icon: "fas fa-boxes", label: t('bottomNav.items'), path: "/inventory/items" },
+      { id: "services", icon: "fas fa-briefcase-medical", label: t('bottomNav.services', 'Services'), path: "/inventory/services" },
       { id: "orders", icon: "fas fa-file-invoice", label: t('bottomNav.orders'), path: "/inventory/orders" },
       { id: "controlled", icon: "fas fa-shield-halved", label: t('bottomNav.controlled'), path: "/inventory/controlled" },
       { id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists'), path: "/inventory/checklists" },
-      { id: "matches", icon: "fas fa-link", label: t('bottomNav.matches'), path: "/inventory/matches" },
     ];
   }, [t, activeModule, canAccessPreOp, activeHospital?.role]);
 

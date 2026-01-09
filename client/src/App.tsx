@@ -163,12 +163,12 @@ function Router() {
             {/* Inventory Module */}
             <Route path="/inventory" component={Items} />
             <Route path="/inventory/items" component={Items} />
+            <Route path="/inventory/services" component={ClinicServices} />
             <Route path="/inventory/scan" component={Scan} />
             <Route path="/inventory/orders" component={Orders} />
             <Route path="/inventory/alerts" component={Alerts} />
             <Route path="/inventory/controlled" component={ControlledLog} />
             <Route path="/inventory/checklists" component={Checklists} />
-            <Route path="/inventory/matches" component={SupplierMatches} />
             {/* Anesthesia Module - requires anesthesia unit access */}
             <Route path="/anesthesia">{() => <ProtectedRoute requireAnesthesia><Patients /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/appointments">{() => <ProtectedRoute requireAnesthesia><ClinicAppointments /></ProtectedRoute>}</Route>
