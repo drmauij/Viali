@@ -158,8 +158,8 @@
     "title": "Select Module",
     "active": "Active",
     "inventory": {
-      "title": "Inventory Management",
-      "description": "Manage hospital inventory, track stock levels, and create purchase orders"
+      "title": "Inventory & Services",
+      "description": "Manage hospital inventory, stock levels, services, and create purchase orders"
     },
     "anesthesia": {
       "title": "Anesthesia Records",

@@ -158,8 +158,8 @@
     "title": "Modul auswählen",
     "active": "Aktiv",
     "inventory": {
-      "title": "Bestandsverwaltung",
-      "description": "Verwalten Sie Krankenhausbestände, verfolgen Sie Lagerbestände und erstellen Sie Bestellungen"
+      "title": "Inventar & Leistungen",
+      "description": "Verwalten Sie Krankenhausbestände, Lagerbestände, Leistungen und erstellen Sie Bestellungen"
     },
     "anesthesia": {
       "title": "Anästhesie-Aufzeichnungen",

@@ -140,7 +140,7 @@ export default function Landing() {
             <i className="fas fa-prescription-bottle-medical text-3xl text-primary-foreground"></i>
           </div>
           <h1 className="text-3xl font-bold text-foreground">Viali</h1>
-          <p className="text-muted-foreground mt-2">Hospital Inventory Management</p>
+          <p className="text-muted-foreground mt-2">Hospital Inventory & Services</p>
         </div>
         
         {/* Login/Signup Card */}
