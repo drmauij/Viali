@@ -19,7 +19,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Search, Pencil, Trash2, Settings, Share2, FolderInput, CheckSquare, X } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Settings, Share2, FolderInput, CheckSquare, X, Receipt, ReceiptText } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -187,6 +187,34 @@ export default function ClinicServices() {
     },
   });
 
+  const bulkSetBillableMutation = useMutation({
+    mutationFn: async ({ serviceIds, isBillable }: { serviceIds: string[]; isBillable: boolean }) => {
+      const response = await apiRequest('POST', `/api/clinic/${hospitalId}/services/bulk-set-billable`, {
+        serviceIds,
+        isBillable,
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'services', unitId] });
+      setIsBulkMode(false);
+      setSelectedServices(new Set());
+      toast({
+        title: t('common.success'),
+        description: data.isBillable 
+          ? t('clinic.services.bulkSetBillableSuccess', `${data.updatedCount || 0} service(s) set as billable`)
+          : t('clinic.services.bulkSetNotBillableSuccess', `${data.updatedCount || 0} service(s) set as not billable`),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('clinic.services.bulkSetBillableFailed', 'Failed to update billable status'),
+        variant: "destructive",
+      });
+    },
+  });
+
   const toggleServiceSelection = (serviceId: string) => {
     setSelectedServices(prev => {
       const next = new Set(prev);
@@ -345,6 +373,32 @@ export default function ClinicServices() {
             >
               <FolderInput className="h-4 w-4 mr-2" />
               {t('clinic.services.moveToUnit', 'Move')} ({selectedServices.size})
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => bulkSetBillableMutation.mutate({ 
+                serviceIds: Array.from(selectedServices), 
+                isBillable: true 
+              })}
+              disabled={selectedServices.size === 0 || bulkSetBillableMutation.isPending}
+              data-testid="button-bulk-set-billable"
+            >
+              <Receipt className="h-4 w-4 mr-2" />
+              {t('clinic.services.setBillable', 'Set Billable')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => bulkSetBillableMutation.mutate({ 
+                serviceIds: Array.from(selectedServices), 
+                isBillable: false 
+              })}
+              disabled={selectedServices.size === 0 || bulkSetBillableMutation.isPending}
+              data-testid="button-bulk-set-not-billable"
+            >
+              <ReceiptText className="h-4 w-4 mr-2" />
+              {t('clinic.services.setNotBillable', 'Set Not Billable')}
             </Button>
             <Button
               variant="ghost"

@@ -170,7 +170,7 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isC
       return res.status(404).json({ message: "Service not found" });
     }
     
-    const { name, description, price, durationMinutes, isShared, sortOrder } = req.body;
+    const { name, description, price, durationMinutes, isShared, sortOrder, isInvoiceable } = req.body;
     
     const updateData: any = { updatedAt: new Date() };
     if (name !== undefined) updateData.name = name;
@@ -179,6 +179,7 @@ router.patch('/api/clinic/:hospitalId/services/:serviceId', isAuthenticated, isC
     if (durationMinutes !== undefined) updateData.durationMinutes = durationMinutes;
     if (isShared !== undefined) updateData.isShared = isShared;
     if (sortOrder !== undefined) updateData.sortOrder = sortOrder;
+    if (isInvoiceable !== undefined) updateData.isInvoiceable = isInvoiceable;
     
     const [updated] = await db
       .update(clinicServices)
@@ -270,6 +271,38 @@ router.post('/api/clinic/:hospitalId/services/bulk-move', isAuthenticated, isCli
   } catch (error) {
     console.error("Error bulk moving services:", error);
     res.status(500).json({ message: "Failed to move services" });
+  }
+});
+
+// Bulk set billable status for services
+router.post('/api/clinic/:hospitalId/services/bulk-set-billable', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { serviceIds, isBillable } = req.body;
+    
+    if (!Array.isArray(serviceIds) || serviceIds.length === 0) {
+      return res.status(400).json({ message: "Service IDs are required" });
+    }
+    
+    if (typeof isBillable !== 'boolean') {
+      return res.status(400).json({ message: "isBillable must be a boolean" });
+    }
+    
+    // Update all services
+    await db
+      .update(clinicServices)
+      .set({ isInvoiceable: isBillable, updatedAt: new Date() })
+      .where(
+        and(
+          eq(clinicServices.hospitalId, hospitalId),
+          inArray(clinicServices.id, serviceIds)
+        )
+      );
+    
+    res.json({ updatedCount: serviceIds.length, isBillable });
+  } catch (error) {
+    console.error("Error bulk setting billable status:", error);
+    res.status(500).json({ message: "Failed to update billable status" });
   }
 });
 
