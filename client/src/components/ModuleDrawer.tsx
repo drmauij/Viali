@@ -14,6 +14,7 @@ interface ModuleCard {
   adminOnly?: boolean;
   businessOnly?: boolean;
   clinicOnly?: boolean;
+  logisticOnly?: boolean;
 }
 
 export default function ModuleDrawer() {
@@ -44,6 +45,7 @@ export default function ModuleDrawer() {
   const hasSurgeryAccess = activeHospital?.isSurgeryModule === true;
   const hasBusinessAccess = activeHospital?.isBusinessModule === true;
   const hasClinicAccess = activeHospital?.isClinicModule === true;
+  const hasLogisticAccess = activeHospital?.isLogisticModule === true;
   const isAdmin = activeHospital?.role === "admin";
 
   const allModules: ModuleCard[] = [
@@ -98,6 +100,15 @@ export default function ModuleDrawer() {
       color: "bg-emerald-500",
       clinicOnly: true,
     },
+    {
+      id: "logistic",
+      icon: "fas fa-truck-loading",
+      title: t('modules.logistic.title'),
+      description: t('modules.logistic.description'),
+      route: "/logistic/inventory",
+      color: "bg-orange-500",
+      logisticOnly: true,
+    },
   ];
 
   // Check unit-level UI visibility flags (default to true if not set)
@@ -115,6 +126,8 @@ export default function ModuleDrawer() {
     if (module.businessOnly && !hasBusinessAccess) return false;
     // Clinic module only for users assigned to clinic units
     if (module.clinicOnly && !hasClinicAccess) return false;
+    // Logistic module only for users assigned to logistic units
+    if (module.logisticOnly && !hasLogisticAccess) return false;
     // Anesthesia module only for anesthesia staff (assigned to anesthesia unit)
     if (module.id === "anesthesia" && !hasAnesthesiaAccess) return false;
     // Surgery module only for OR staff (assigned to surgery unit)

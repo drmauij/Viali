@@ -86,6 +86,7 @@ export const units = pgTable("units", {
   isSurgeryModule: boolean("is_surgery_module").default(false),
   isBusinessModule: boolean("is_business_module").default(false),
   isClinicModule: boolean("is_clinic_module").default(false),
+  isLogisticModule: boolean("is_logistic_module").default(false), // Logistic module: cross-unit inventory & orders view
   showInventory: boolean("show_inventory").default(true), // UI control: show Inventory module for this unit
   showAppointments: boolean("show_appointments").default(true), // UI control: show Appointments tab for this unit
   questionnairePhone: varchar("questionnaire_phone"), // Help line phone for patient questionnaire emails
