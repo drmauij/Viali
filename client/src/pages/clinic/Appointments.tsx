@@ -184,8 +184,8 @@ export default function ClinicAppointments() {
   }
 
   return (
-    <div className="container mx-auto px-0 py-6 pb-24" data-testid="appointments-page">
-      <div className="flex items-center justify-between px-4 mb-6">
+    <div className="flex flex-col h-[calc(100vh-120px)]" data-testid="appointments-page">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between px-4 py-4 gap-3">
         <div className="flex items-center gap-2">
           <Calendar className="h-6 w-6 text-primary" />
           <h1 className="text-xl font-bold" data-testid="text-page-title">
@@ -193,9 +193,10 @@ export default function ClinicAppointments() {
           </h1>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button 
             variant="outline"
+            size="sm"
             onClick={() => syncTimebutlerMutation.mutate()}
             disabled={syncTimebutlerMutation.isPending}
             data-testid="button-sync-timebutler"
@@ -204,6 +205,7 @@ export default function ClinicAppointments() {
             {t('appointments.syncCalendars', 'Sync Calendars')}
           </Button>
           <Button 
+            size="sm"
             onClick={() => {
               setBookingDefaults({});
               setBookingDialogOpen(true);
@@ -216,7 +218,7 @@ export default function ClinicAppointments() {
         </div>
       </div>
 
-      <div>
+      <div className="flex-1 overflow-hidden">
         <ClinicCalendar
           hospitalId={hospitalId}
           unitId={unitId}

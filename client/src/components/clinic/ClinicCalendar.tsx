@@ -913,7 +913,7 @@ export default function ClinicCalendar({
   }
 
   return (
-    <div className="flex flex-col min-h-screen" data-testid="clinic-calendar">
+    <div className="flex flex-col h-full" data-testid="clinic-calendar">
       {/* Header with view switcher and navigation */}
       <div className="flex flex-wrap items-center gap-3 p-3 sm:p-4 bg-background border-b">
         <div className="flex items-center gap-1.5 sm:gap-2">
