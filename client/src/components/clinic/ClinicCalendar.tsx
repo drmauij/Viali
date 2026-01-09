@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw, UserPlus } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Plus, User, Settings, Filter, Lock, Scissors, Cloud, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { de, enGB } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -20,7 +20,6 @@ import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService, ClinicProvider } from "@shared/schema";
 import AppointmentsTimelineWeekView from "./AppointmentsTimelineWeekView";
 import ProviderFilterDialog from "./ProviderFilterDialog";
-import ManageProvidersDialog from "./ManageProvidersDialog";
 
 const CALENDAR_VIEW_KEY = "clinic_calendar_view";
 const CALENDAR_DATE_KEY = "clinic_calendar_date";
@@ -192,7 +191,6 @@ export default function ClinicCalendar({
   });
 
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
-  const [manageProvidersDialogOpen, setManageProvidersDialogOpen] = useState(false);
   const [selectedProviderIds, setSelectedProviderIds] = useState<Set<string>>(new Set());
   const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
 
@@ -1016,16 +1014,6 @@ export default function ClinicCalendar({
               <span className="hidden sm:inline">{t('appointments.calcomSync', 'Cal.com')}</span>
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setManageProvidersDialogOpen(true)}
-            data-testid="button-manage-providers"
-            className="h-8 px-2 sm:h-9 sm:px-3 text-xs sm:text-sm"
-          >
-            <UserPlus className="h-3 w-3 sm:h-4 sm:w-4 sm:mr-1" />
-            <span className="hidden sm:inline">{t('appointments.manageProviders', 'Manage Providers')}</span>
-          </Button>
         </div>
       </div>
 
@@ -1148,12 +1136,6 @@ export default function ClinicCalendar({
         }}
       />
 
-      <ManageProvidersDialog
-        open={manageProvidersDialogOpen}
-        onOpenChange={setManageProvidersDialogOpen}
-        hospitalId={hospitalId}
-        unitId={unitId}
-      />
     </div>
   );
 }

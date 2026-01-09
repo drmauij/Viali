@@ -68,7 +68,7 @@ interface HospitalUser extends UserHospitalRole {
 }
 
 interface GroupedHospitalUser extends HospitalUser {
-  roles: Array<{ role: string; units: Unit; roleId: string; unitId: string }>;
+  roles: Array<{ role: string; units: Unit; roleId: string; unitId: string; isBookable?: boolean }>;
 }
 
 export default function Users() {
@@ -92,7 +92,7 @@ export default function Users() {
     unitId: "",
     role: "",
   });
-  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; unitId: string }>>([]);
+  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; unitId: string; isBookable?: boolean }>>([]);
   const [newPair, setNewPair] = useState({ role: "", unitId: "" });
   
   // Change password states
@@ -146,7 +146,8 @@ export default function Users() {
             role: userRole.role,
             units: userRole.units,
             roleId: userRole.id,
-            unitId: userRole.unitId
+            unitId: userRole.unitId,
+            isBookable: (userRole as any).isBookable ?? false
           }]
         });
       } else {
@@ -155,7 +156,8 @@ export default function Users() {
           role: userRole.role,
           units: userRole.units,
           roleId: userRole.id,
-          unitId: userRole.unitId
+          unitId: userRole.unitId,
+          isBookable: (userRole as any).isBookable ?? false
         });
       }
     });
@@ -347,6 +349,24 @@ export default function Users() {
     },
   });
 
+  // Update user role bookable status mutation
+  const updateRoleBookableMutation = useMutation({
+    mutationFn: async ({ roleId, isBookable }: { roleId: string; isBookable: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/admin/user-roles/${roleId}/bookable`, {
+        isBookable,
+        hospitalId: activeHospital?.id,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+      toast({ title: t("common.success"), description: t("admin.bookableStatusUpdated") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateBookable"), variant: "destructive" });
+    },
+  });
+
   // Update user email mutation
   const updateUserEmailMutation = useMutation({
     mutationFn: async ({ userId, email }: { userId: string; email: string }) => {
@@ -468,7 +488,8 @@ export default function Users() {
     const userPairs = user.roles?.map((r: any) => ({ 
       id: r.roleId, 
       role: r.role, 
-      unitId: r.unitId 
+      unitId: r.unitId,
+      isBookable: r.isBookable ?? false
     })) || [];
     
     setEditingUserDetails(user.user);
@@ -491,7 +512,8 @@ export default function Users() {
         const userPairs = user.roles?.map((r: any) => ({ 
           id: r.roleId, 
           role: r.role, 
-          unitId: r.unitId 
+          unitId: r.unitId,
+          isBookable: r.isBookable ?? false
         })) || [];
         setRoleLocationPairs(userPairs);
       }
@@ -1225,23 +1247,46 @@ export default function Users() {
                 <div className="space-y-2 mt-3">
                   {roleLocationPairs.map((pair) => {
                     const unit = units.find(l => l.id === pair.unitId);
+                    const unitType = unit?.type?.toLowerCase() || "";
+                    const showBookable = unitType === "clinic" || unitType === "anesthesia" || unitType === "surgery" || unitType === "or";
                     return (
-                      <div key={pair.id} className="flex items-center justify-between bg-muted p-2 rounded-md">
+                      <div key={pair.id} className="flex items-center justify-between bg-muted p-2 rounded-md gap-2">
                         <div className="inline-flex items-center bg-primary/10 border border-primary/20 rounded-full px-3 py-1">
                           <span className="text-xs font-medium text-primary">{getRoleName(pair.role)}</span>
                           <span className="text-xs text-primary/60 mx-1.5">@</span>
                           <span className="text-xs text-primary/80">{unit?.name}</span>
                         </div>
-                        {pair.id && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveRoleLocation(pair.id!)}
-                            data-testid={`button-remove-pair-${pair.id}`}
-                          >
-                            <i className="fas fa-times text-destructive"></i>
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {showBookable && pair.id && (
+                            <div className="flex items-center gap-1.5">
+                              <Label htmlFor={`bookable-${pair.id}`} className="text-xs text-muted-foreground whitespace-nowrap">
+                                {t("admin.bookable")}
+                              </Label>
+                              <Switch
+                                id={`bookable-${pair.id}`}
+                                checked={pair.isBookable ?? false}
+                                onCheckedChange={(checked) => {
+                                  updateRoleBookableMutation.mutate({
+                                    roleId: pair.id!,
+                                    isBookable: checked,
+                                  });
+                                }}
+                                disabled={updateRoleBookableMutation.isPending}
+                                data-testid={`switch-bookable-${pair.id}`}
+                              />
+                            </div>
+                          )}
+                          {pair.id && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleRemoveRoleLocation(pair.id!)}
+                              data-testid={`button-remove-pair-${pair.id}`}
+                            >
+                              <i className="fas fa-times text-destructive"></i>
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}

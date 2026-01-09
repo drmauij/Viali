@@ -299,6 +299,7 @@ router.get('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req,
     const sanitizedUsers = usersData.map(u => ({
       ...u,
       units: u.unit,
+      isBookable: u.isBookable ?? false,
       user: {
         id: u.user.id,
         email: u.user.email,
@@ -853,6 +854,55 @@ router.patch('/api/admin/users/:userId/access', isAuthenticated, requireWriteAcc
   } catch (error) {
     console.error("Error updating user access settings:", error);
     res.status(500).json({ message: "Failed to update user access settings" });
+  }
+});
+
+// Update user role bookable status
+router.patch('/api/admin/user-roles/:roleId/bookable', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { roleId } = req.params;
+    const { isBookable, hospitalId } = req.body;
+    
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID is required" });
+    }
+    
+    if (typeof isBookable !== 'boolean') {
+      return res.status(400).json({ message: "isBookable must be a boolean" });
+    }
+
+    // Check admin access
+    const currentUserId = req.user.id;
+    const hospitals = await storage.getUserHospitals(currentUserId);
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    // Find the role record
+    const [roleRecord] = await db
+      .select()
+      .from(userHospitalRoles)
+      .where(eq(userHospitalRoles.id, roleId));
+    
+    if (!roleRecord) {
+      return res.status(404).json({ message: "Role not found" });
+    }
+
+    // Verify role belongs to the admin's hospital
+    if (roleRecord.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Role does not belong to this hospital" });
+    }
+
+    // Update the isBookable field
+    await db.update(userHospitalRoles)
+      .set({ isBookable })
+      .where(eq(userHospitalRoles.id, roleId));
+
+    res.json({ success: true, isBookable });
+  } catch (error) {
+    console.error("Error updating role bookable status:", error);
+    res.status(500).json({ message: "Failed to update bookable status" });
   }
 });
 
