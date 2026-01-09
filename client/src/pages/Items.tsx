@@ -146,15 +146,17 @@ function DroppableFolder({
 
 interface ItemsProps {
   overrideUnitId?: string;
+  readOnly?: boolean;
 }
 
-export default function Items({ overrideUnitId }: ItemsProps = {}) {
+export default function Items({ overrideUnitId, readOnly = false }: ItemsProps = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
-  const canWrite = useCanWrite();
+  const canWriteHook = useCanWrite();
   
   const effectiveUnitId = overrideUnitId || activeHospital?.unitId;
+  const canWrite = canWriteHook && !readOnly && !overrideUnitId;
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState("name");
@@ -411,12 +413,12 @@ export default function Items({ overrideUnitId }: ItemsProps = {}) {
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
     queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId],
-    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
+    enabled: !!activeHospital?.id && !!effectiveUnitId,
   });
 
   const { data: folders = [] } = useQuery<Folder[]>({
     queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId],
-    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
+    enabled: !!activeHospital?.id && !!effectiveUnitId,
   });
 
   // Fetch runway data for inline stock indicators
@@ -433,7 +435,7 @@ export default function Items({ overrideUnitId }: ItemsProps = {}) {
   }
   const { data: runwayData } = useQuery<RunwayData>({
     queryKey: [`/api/items/${activeHospital?.id}/runway?unitId=${effectiveUnitId}`, effectiveUnitId],
-    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
+    enabled: !!activeHospital?.id && !!effectiveUnitId,
   });
 
   // Create a map for quick runway lookup
@@ -449,8 +451,8 @@ export default function Items({ overrideUnitId }: ItemsProps = {}) {
 
   // Fetch item codes for search by pharmacode/GTIN
   const { data: itemCodesData = [] } = useQuery<{ itemId: string; gtin: string | null; pharmacode: string | null }[]>({
-    queryKey: [`/api/items/${activeHospital?.id}/codes`, activeHospital?.unitId],
-    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
+    queryKey: [`/api/items/${activeHospital?.id}/codes?unitId=${effectiveUnitId}`, effectiveUnitId],
+    enabled: !!activeHospital?.id && !!effectiveUnitId,
   });
 
   // Fetch all units for transfer destination selection
