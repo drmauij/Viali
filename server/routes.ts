@@ -1269,6 +1269,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Logistic Orders - cross-unit view (no unit filtering)
+  app.get('/api/logistic/orders/:hospitalId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const { status } = req.query;
+      const userId = req.user.id;
+      
+      // Verify user has access to this hospital
+      const userUnitId = await getUserUnitForHospital(userId, hospitalId);
+      if (!userUnitId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Get orders for the entire hospital (no unit filter for logistic view)
+      const orders = await storage.getOrders(hospitalId, status as string);
+      res.json(orders);
+    } catch (error) {
+      console.error("Error fetching logistic orders:", error);
+      res.status(500).json({ message: "Failed to fetch orders" });
+    }
+  });
+
   // Orders routes
   app.get('/api/orders/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {

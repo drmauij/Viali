@@ -144,11 +144,17 @@ function DroppableFolder({
   );
 }
 
-export default function Items() {
+interface ItemsProps {
+  overrideUnitId?: string;
+}
+
+export default function Items({ overrideUnitId }: ItemsProps = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
   const canWrite = useCanWrite();
+  
+  const effectiveUnitId = overrideUnitId || activeHospital?.unitId;
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState("name");
@@ -404,12 +410,12 @@ export default function Items() {
   };
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
+    queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId],
     enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
 
   const { data: folders = [] } = useQuery<Folder[]>({
-    queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
+    queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId],
     enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
 
@@ -426,7 +432,7 @@ export default function Items() {
     warningDays: number;
   }
   const { data: runwayData } = useQuery<RunwayData>({
-    queryKey: [`/api/items/${activeHospital?.id}/runway?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
+    queryKey: [`/api/items/${activeHospital?.id}/runway?unitId=${effectiveUnitId}`, effectiveUnitId],
     enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
 
@@ -607,7 +613,7 @@ export default function Items() {
     },
     onSuccess: (data) => {
       if (!data) return;
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       resetForm();
       setAddDialogOpen(false);
       toast({
@@ -651,7 +657,7 @@ export default function Items() {
       return updatedItem;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       setEditDialogOpen(false);
       toast({
         title: t('common.success'),
@@ -673,7 +679,7 @@ export default function Items() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       setEditDialogOpen(false);
       toast({
         title: t('items.deleteItem'),
@@ -709,7 +715,7 @@ export default function Items() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       setTransferDialogOpen(false);
       setTransferItems([]);
       setTransferTargetUnitId("");
@@ -734,7 +740,7 @@ export default function Items() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       setIsBulkDeleteMode(false);
       setSelectedItems(new Set());
       setShowDeleteConfirm(false);
@@ -762,7 +768,7 @@ export default function Items() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       setIsBulkDeleteMode(false);
       setSelectedItems(new Set());
       setBulkMoveDialogOpen(false);
@@ -787,7 +793,7 @@ export default function Items() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       toast({
         title: t('common.success'),
         description: "Unit reduced successfully",
@@ -1025,8 +1031,8 @@ export default function Items() {
     },
     onSuccess: (data) => {
       if (!data) return;
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       setBulkImportOpen(false);
       setBulkImages([]);
       setBulkItems([]);
@@ -1062,7 +1068,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       setIsBulkEditMode(false);
       setBulkEditItems({});
       toast({
@@ -1089,7 +1095,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       setFolderDialogOpen(false);
       setFolderName("");
       toast({
@@ -1112,7 +1118,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       setFolderDialogOpen(false);
       setEditingFolder(null);
       setFolderName("");
@@ -1136,8 +1142,8 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       toast({
         title: t('common.success'),
         description: t('items.folderDeletedSuccess'),
@@ -1158,7 +1164,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
     },
   });
 
@@ -1169,7 +1175,7 @@ export default function Items() {
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
     },
     onError: (error: any) => {
       toast({
@@ -1405,7 +1411,7 @@ export default function Items() {
           imageUrl: compressedImage
         });
         
-        queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+        queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
         
         toast({
           title: t('common.success'),
@@ -5083,7 +5089,7 @@ export default function Items() {
                                   imageUrl: null
                                 });
                                 
-                                queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+                                queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
                                 
                                 toast({
                                   title: t('common.success'),

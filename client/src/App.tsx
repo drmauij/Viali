@@ -56,6 +56,8 @@ import ClinicServices from "@/pages/clinic/Services";
 import ClinicQuestionnaires from "@/pages/clinic/UnassociatedQuestionnaires";
 import ClinicAppointments from "@/pages/clinic/Appointments";
 import PatientQuestionnaire from "@/pages/PatientQuestionnaire";
+import LogisticInventory from "@/pages/logistic/LogisticInventory";
+import LogisticOrders from "@/pages/logistic/LogisticOrders";
 import "@/i18n/config";
 
 // Home redirect component that checks module preference
@@ -82,6 +84,9 @@ function HomeRedirect() {
       return;
     } else if (savedModule === "clinic") {
       navigate("/clinic", { replace: true });
+      return;
+    } else if (savedModule === "logistic") {
+      navigate("/logistic/inventory", { replace: true });
       return;
     }
 
@@ -218,6 +223,10 @@ function Router() {
             <Route path="/clinic/questionnaires">{() => <ProtectedRoute requireClinic><ClinicQuestionnaires /></ProtectedRoute>}</Route>
             <Route path="/clinic/patients">{() => <ProtectedRoute requireClinic><Patients /></ProtectedRoute>}</Route>
             <Route path="/clinic/patients/:id">{() => <ProtectedRoute requireClinic><PatientDetail /></ProtectedRoute>}</Route>
+            {/* Logistic Module - cross-unit inventory & orders view */}
+            <Route path="/logistic">{() => <ProtectedRoute requireLogistic><LogisticInventory /></ProtectedRoute>}</Route>
+            <Route path="/logistic/inventory">{() => <ProtectedRoute requireLogistic><LogisticInventory /></ProtectedRoute>}</Route>
+            <Route path="/logistic/orders">{() => <ProtectedRoute requireLogistic><LogisticOrders /></ProtectedRoute>}</Route>
             <Route path="/signup" component={Signup} />
             {/* Demo/Testing Routes */}
             <Route path="/demo/editable-values" component={EditableValuesDemo} />
