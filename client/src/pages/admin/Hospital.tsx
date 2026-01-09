@@ -584,13 +584,15 @@ export default function Hospital() {
       return;
     }
 
+    // Derive module flags from type selection
+    const type = unitForm.type || null;
     const data = {
       name: unitForm.name,
-      type: unitForm.type || null,
-      isAnesthesiaModule: unitForm.isAnesthesiaModule,
-      isSurgeryModule: unitForm.isSurgeryModule,
-      isBusinessModule: unitForm.isBusinessModule,
-      isClinicModule: unitForm.isClinicModule,
+      type,
+      isAnesthesiaModule: type === "anesthesia",
+      isSurgeryModule: type === "or",
+      isBusinessModule: type === "business",
+      isClinicModule: type === "clinic",
       showInventory: unitForm.showInventory,
       showAppointments: unitForm.showAppointments,
       questionnairePhone: unitForm.questionnairePhone || null,
@@ -1733,11 +1735,10 @@ export default function Hospital() {
 
       {/* Unit Dialog */}
       <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen}>
-        <DialogContent className="max-h-[90vh]">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>{editingUnit ? t("admin.editUnit") : t("admin.addUnit")}</DialogTitle>
           </DialogHeader>
-          <ScrollArea className="max-h-[70vh] pr-4">
           <div className="space-y-4">
             <div>
               <Label htmlFor="unit-name">{t("admin.unitName")} *</Label>
@@ -1766,56 +1767,6 @@ export default function Hospital() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-            <Separator />
-            <div>
-              <Label className="text-sm font-medium text-muted-foreground">{t("admin.enabledModules")}</Label>
-              <div className="space-y-3 mt-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is-anesthesia-module"
-                    checked={unitForm.isAnesthesiaModule}
-                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, isAnesthesiaModule: !!checked })}
-                    data-testid="checkbox-anesthesia-module"
-                  />
-                  <Label htmlFor="is-anesthesia-module" className="text-sm font-normal cursor-pointer">
-                    {t("admin.anesthesiaModule")}
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is-surgery-module"
-                    checked={unitForm.isSurgeryModule}
-                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, isSurgeryModule: !!checked })}
-                    data-testid="checkbox-surgery-module"
-                  />
-                  <Label htmlFor="is-surgery-module" className="text-sm font-normal cursor-pointer">
-                    {t("admin.surgeryModule")}
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is-business-module"
-                    checked={unitForm.isBusinessModule}
-                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, isBusinessModule: !!checked })}
-                    data-testid="checkbox-business-module"
-                  />
-                  <Label htmlFor="is-business-module" className="text-sm font-normal cursor-pointer">
-                    {t("admin.businessModule")}
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is-clinic-module"
-                    checked={unitForm.isClinicModule}
-                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, isClinicModule: !!checked })}
-                    data-testid="checkbox-clinic-module"
-                  />
-                  <Label htmlFor="is-clinic-module" className="text-sm font-normal cursor-pointer">
-                    {t("admin.clinicModule")}
-                  </Label>
-                </div>
-              </div>
             </div>
             <Separator />
             <div>
@@ -1859,19 +1810,18 @@ export default function Hospital() {
                 {t("admin.questionnairePhoneHint")}
               </p>
             </div>
-          </div>
-          </ScrollArea>
-          <div className="flex gap-2 justify-end pt-4">
-            <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>
-              {t("common.cancel")}
-            </Button>
-            <Button
-              onClick={handleSaveUnit}
-              disabled={createUnitMutation.isPending || updateUnitMutation.isPending}
-              data-testid="button-save-unit"
-            >
-              {editingUnit ? t("common.edit") : t("common.save")}
-            </Button>
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button
+                onClick={handleSaveUnit}
+                disabled={createUnitMutation.isPending || updateUnitMutation.isPending}
+                data-testid="button-save-unit"
+              >
+                {editingUnit ? t("common.edit") : t("common.save")}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
