@@ -7512,6 +7512,7 @@ export class DatabaseStorage implements IStorage {
         set: {
           apiKey: config.apiKey,
           webhookSecret: config.webhookSecret,
+          ...(config.feedToken ? { feedToken: config.feedToken } : {}),
           isEnabled: config.isEnabled,
           syncBusyBlocks: config.syncBusyBlocks,
           syncTimebutlerAbsences: config.syncTimebutlerAbsences,
