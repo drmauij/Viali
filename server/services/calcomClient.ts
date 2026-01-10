@@ -62,6 +62,33 @@ export interface CreateOutOfOfficeRequest {
   toUserId?: number;
 }
 
+export interface ListBookingsParams {
+  status?: 'upcoming' | 'recurring' | 'past' | 'cancelled' | 'unconfirmed';
+  attendeeEmail?: string;
+  eventTypeId?: number;
+  afterStart?: string;
+  beforeEnd?: string;
+  take?: number;
+}
+
+export interface RescheduleBookingRequest {
+  start: string;
+  reschedulingReason?: string;
+}
+
+export interface CreateBusyBlockRequest {
+  eventTypeId: number;
+  start: string;
+  end?: string; // If not provided, uses event type duration
+  title: string;
+  metadata?: {
+    sourceType: 'appointment' | 'surgery' | 'timeoff' | 'absence';
+    sourceId: string;
+    hospitalId?: string;
+    patientName?: string;
+  };
+}
+
 export class CalcomClient {
   private apiKey: string;
 
@@ -178,6 +205,143 @@ export class CalcomClient {
         },
       }),
     });
+  }
+
+  /**
+   * Create a busy block with detailed metadata for tracking sync state
+   */
+  async createBusyBlockWithMetadata(request: CreateBusyBlockRequest): Promise<CalcomBooking> {
+    return this.request<CalcomBooking>('/bookings', {
+      method: 'POST',
+      body: JSON.stringify({
+        eventTypeId: request.eventTypeId,
+        start: request.start,
+        attendee: {
+          name: request.title,
+          email: 'system-block@clinic.local',
+          timeZone: 'Europe/Zurich',
+        },
+        metadata: {
+          isBusyBlock: true,
+          blockTitle: request.title,
+          ...request.metadata,
+        },
+      }),
+    });
+  }
+
+  /**
+   * List bookings with filters for reconciliation
+   */
+  async listBookings(params: ListBookingsParams = {}): Promise<CalcomBooking[]> {
+    const searchParams = new URLSearchParams();
+    
+    if (params.status) searchParams.set('status', params.status);
+    if (params.attendeeEmail) searchParams.set('attendeeEmail', params.attendeeEmail);
+    if (params.eventTypeId) searchParams.set('eventTypeId', params.eventTypeId.toString());
+    if (params.afterStart) searchParams.set('afterStart', params.afterStart);
+    if (params.beforeEnd) searchParams.set('beforeEnd', params.beforeEnd);
+    if (params.take) searchParams.set('take', params.take.toString());
+    
+    const query = searchParams.toString();
+    return this.request<CalcomBooking[]>(`/bookings${query ? `?${query}` : ''}`);
+  }
+
+  /**
+   * Reschedule an existing booking to a new time
+   */
+  async rescheduleBooking(bookingUid: string, request: RescheduleBookingRequest): Promise<CalcomBooking> {
+    return this.request<CalcomBooking>(`/bookings/${bookingUid}/reschedule`, {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  /**
+   * Mark a booking as no-show (for missed appointments)
+   */
+  async markNoShow(bookingUid: string, noShow: boolean = true): Promise<void> {
+    await this.request(`/bookings/${bookingUid}/mark-absent`, {
+      method: 'POST',
+      body: JSON.stringify({ noShow }),
+    });
+  }
+
+  /**
+   * Get all system-created busy blocks (our sync blocks) for a date range
+   * Filters by the system email we use for busy blocks
+   */
+  async getSystemBusyBlocks(afterStart?: string, beforeEnd?: string): Promise<CalcomBooking[]> {
+    const bookings = await this.listBookings({
+      attendeeEmail: 'system-block@clinic.local',
+      status: 'upcoming',
+      afterStart,
+      beforeEnd,
+      take: 500,
+    });
+    
+    return bookings.filter(b => b.metadata?.isBusyBlock);
+  }
+
+  /**
+   * Delete/cancel a busy block by its UID
+   */
+  async deleteBusyBlock(bookingUid: string): Promise<void> {
+    await this.cancelBooking(bookingUid, 'System block removed');
+  }
+
+  /**
+   * Sync a single appointment/surgery to Cal.com
+   * Creates or updates the busy block
+   */
+  async syncBusyBlock(
+    eventTypeId: number,
+    existingUid: string | null,
+    start: string,
+    title: string,
+    metadata: CreateBusyBlockRequest['metadata']
+  ): Promise<{ uid: string; action: 'created' | 'updated' | 'unchanged' }> {
+    if (existingUid) {
+      // Check if we need to update
+      try {
+        const existing = await this.getBooking(existingUid);
+        
+        // If the time hasn't changed, no update needed
+        if (existing.startTime === start) {
+          return { uid: existingUid, action: 'unchanged' };
+        }
+        
+        // Reschedule to new time
+        const rescheduled = await this.rescheduleBooking(existingUid, {
+          start,
+          reschedulingReason: 'Schedule update from clinic system',
+        });
+        
+        return { uid: rescheduled.uid, action: 'updated' };
+      } catch (error: any) {
+        // If the booking doesn't exist anymore, create a new one
+        if (error.message?.includes('404')) {
+          const created = await this.createBusyBlockWithMetadata({
+            eventTypeId,
+            start,
+            title,
+            metadata,
+          });
+          return { uid: created.uid, action: 'created' };
+        }
+        throw error;
+      }
+    }
+    
+    // Create new busy block
+    const created = await this.createBusyBlockWithMetadata({
+      eventTypeId,
+      start,
+      title,
+      metadata,
+    });
+    
+    return { uid: created.uid, action: 'created' };
   }
 }
 
