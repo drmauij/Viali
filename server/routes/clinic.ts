@@ -2382,6 +2382,11 @@ router.post('/api/clinic/:hospitalId/calcom-sync/:providerId', isAuthenticated, 
   }
 });
 
+// Cal.com webhook endpoint - GET for verification
+router.get('/api/webhooks/calcom/:hospitalId', async (req, res) => {
+  res.json({ status: 'ok', message: 'Cal.com webhook endpoint ready' });
+});
+
 // Cal.com webhook endpoint (receives booking notifications from Cal.com)
 router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
   try {
