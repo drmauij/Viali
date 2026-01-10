@@ -2882,6 +2882,20 @@
       "uploadFailed": "Failed to upload document"
     }
   },
+  "checklistMatrix": {
+    "title": "Checklist Matrix",
+    "upcoming": "Upcoming",
+    "pastSurgeries": "Past",
+    "applyToAll": "Apply to all",
+    "noTemplates": "No Templates",
+    "noTemplatesDesc": "Create your first checklist template to get started",
+    "createTemplate": "Create Template",
+    "editTemplate": "Edit Template",
+    "setDefault": "Set as Default",
+    "removeDefault": "Remove Default",
+    "noSurgeries": "No upcoming surgeries",
+    "noSurgeriesDesc": "Future surgeries will appear here once scheduled"
+  },
   "clinic": {
     "invoices": {
       "title": "Invoices",

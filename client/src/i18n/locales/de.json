@@ -2881,6 +2881,20 @@
       "uploadFailed": "Dokument konnte nicht hochgeladen werden"
     }
   },
+  "checklistMatrix": {
+    "title": "Checklisten-Matrix",
+    "upcoming": "Geplant",
+    "pastSurgeries": "Vergangene",
+    "applyToAll": "Auf alle anwenden",
+    "noTemplates": "Keine Vorlagen",
+    "noTemplatesDesc": "Erstellen Sie Ihre erste Checklisten-Vorlage",
+    "createTemplate": "Vorlage erstellen",
+    "editTemplate": "Vorlage bearbeiten",
+    "setDefault": "Als Standard festlegen",
+    "removeDefault": "Standard entfernen",
+    "noSurgeries": "Keine geplanten Operationen",
+    "noSurgeriesDesc": "Zukünftige Operationen erscheinen hier nach der Planung"
+  },
   "clinic": {
     "invoices": {
       "title": "Rechnungen",
