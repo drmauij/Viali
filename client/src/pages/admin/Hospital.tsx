@@ -2494,7 +2494,15 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
           <div className="flex items-center gap-2">
             <Switch
               checked={calcomEnabled}
-              onCheckedChange={setCalcomEnabled}
+              onCheckedChange={(checked) => {
+                setCalcomEnabled(checked);
+                saveCalcomConfigMutation.mutate({
+                  isEnabled: checked,
+                  syncBusyBlocks,
+                  syncTimebutlerAbsences,
+                });
+              }}
+              disabled={saveCalcomConfigMutation.isPending}
               data-testid="switch-calcom-enabled"
             />
             <span className={`text-sm ${calcomEnabled ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
