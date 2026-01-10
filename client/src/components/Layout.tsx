@@ -57,16 +57,64 @@ export default function Layout({ children }: LayoutProps) {
     window.dispatchEvent(new CustomEvent("hospital-changed"));
     setActiveHospital(hospital);
     
-    // Determine the correct redirect path based on the new unit's modules
-    let redirectPath = "/inventory/items"; // Default fallback
-    if (hospital.isClinicModule) {
-      redirectPath = "/clinic";
-    } else if (hospital.isBusinessModule) {
-      redirectPath = "/business";
-    } else if (hospital.isAnesthesiaModule) {
-      redirectPath = "/anesthesia/op";
-    } else if (hospital.isSurgeryModule) {
-      redirectPath = "/surgery/op";
+    // Get current path and try to preserve the module page
+    const currentPath = window.location.pathname;
+    
+    // Extract the page type from current path (e.g., "inventory", "op", "patients", "checklists")
+    const pathParts = currentPath.split('/').filter(Boolean);
+    const currentModule = pathParts[0]; // e.g., "anesthesia", "surgery", "clinic", "business", "inventory"
+    const currentPage = pathParts.slice(1).join('/'); // e.g., "inventory", "op", "patients", "checklists/matrix"
+    
+    // Module prefixes for each unit type
+    const getModulePrefix = () => {
+      if (hospital.isClinicModule) return "clinic";
+      if (hospital.isBusinessModule) return "business";
+      if (hospital.isAnesthesiaModule) return "anesthesia";
+      if (hospital.isSurgeryModule) return "surgery";
+      return "inventory";
+    };
+    
+    const newModulePrefix = getModulePrefix();
+    
+    // Pages that exist across OR modules (anesthesia/surgery)
+    const orSharedPages = ["op", "inventory", "patients", "checklists", "checklists/matrix"];
+    
+    // Pages that exist across medical modules (anesthesia/surgery/clinic)
+    const medicalSharedPages = ["patients", "inventory"];
+    
+    // Try to preserve the current page if it exists in the new module
+    let redirectPath: string;
+    
+    // Check if we're moving between OR modules (anesthesia <-> surgery)
+    const isCurrentOrModule = currentModule === "anesthesia" || currentModule === "surgery";
+    const isNewOrModule = hospital.isAnesthesiaModule || hospital.isSurgeryModule;
+    
+    // Check if we're staying in a medical module
+    const isCurrentMedical = ["anesthesia", "surgery", "clinic"].includes(currentModule);
+    const isNewMedical = hospital.isAnesthesiaModule || hospital.isSurgeryModule || hospital.isClinicModule;
+    
+    if (isCurrentOrModule && isNewOrModule && orSharedPages.some(page => currentPage === page || currentPage.startsWith(page + "/"))) {
+      // Moving between OR modules with a shared page - preserve it
+      redirectPath = `/${newModulePrefix}/${currentPage}`;
+    } else if (isCurrentMedical && isNewMedical && medicalSharedPages.some(page => currentPage === page || currentPage.startsWith(page + "/"))) {
+      // Moving between medical modules with a shared page - preserve it
+      redirectPath = `/${newModulePrefix}/${currentPage}`;
+    } else if (currentModule === "inventory" && (hospital.isAnesthesiaModule || hospital.isSurgeryModule || hospital.isClinicModule)) {
+      // Coming from standalone inventory to a module with inventory
+      redirectPath = `/${newModulePrefix}/inventory`;
+    } else {
+      // Default fallback to module home
+      if (hospital.isClinicModule) {
+        redirectPath = "/clinic";
+      } else if (hospital.isBusinessModule) {
+        redirectPath = "/business";
+      } else if (hospital.isAnesthesiaModule) {
+        redirectPath = "/anesthesia/op";
+      } else if (hospital.isSurgeryModule) {
+        redirectPath = "/surgery/op";
+      } else {
+        redirectPath = "/inventory/items";
+      }
     }
     
     // Navigate to the appropriate module page
