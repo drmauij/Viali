@@ -831,6 +831,10 @@ export const surgeries = pgTable("surgeries", {
   archivedAt: timestamp("archived_at"),
   archivedBy: varchar("archived_by").references(() => users.id),
   
+  // Cal.com sync tracking (surgeries push as busy blocks to surgeon's Cal.com)
+  calcomBusyBlockUid: varchar("calcom_busy_block_uid"), // Cal.com busy block UID for sync
+  calcomSyncedAt: timestamp("calcom_synced_at"), // When last synced to Cal.com
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -843,6 +847,7 @@ export const surgeries = pgTable("surgeries", {
   index("idx_surgeries_planned_date").on(table.plannedDate),
   index("idx_surgeries_payment_status").on(table.paymentStatus),
   index("idx_surgeries_archived").on(table.isArchived),
+  index("idx_surgeries_calcom").on(table.calcomBusyBlockUid),
 ]);
 
 // Surgery Notes - Multiple notes per surgery with author tracking
@@ -3724,6 +3729,11 @@ export const clinicAppointments = pgTable("clinic_appointments", {
   reminderSent: boolean("reminder_sent").default(false),
   reminderSentAt: timestamp("reminder_sent_at"),
   
+  // Cal.com sync tracking
+  calcomBookingUid: varchar("calcom_booking_uid"), // Cal.com booking UID for sync
+  calcomSyncedAt: timestamp("calcom_synced_at"), // When last synced to Cal.com
+  calcomSource: varchar("calcom_source", { enum: ["local", "calcom"] }).default("local"), // Origin: created locally or from Cal.com webhook
+  
   // Audit
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -3735,6 +3745,7 @@ export const clinicAppointments = pgTable("clinic_appointments", {
   index("idx_clinic_appointments_provider").on(table.providerId),
   index("idx_clinic_appointments_date").on(table.appointmentDate),
   index("idx_clinic_appointments_status").on(table.status),
+  index("idx_clinic_appointments_calcom").on(table.calcomBookingUid),
 ]);
 
 // Timebutler Sync Configuration - Per hospital settings
