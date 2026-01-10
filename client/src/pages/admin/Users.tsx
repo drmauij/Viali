@@ -18,12 +18,20 @@ import type { Unit, UserHospitalRole, User } from "@shared/schema";
 // Get available roles based on unit type
 // Anesthesia/OR units: doctor, nurse, guest, admin
 // Business units: manager, staff
+// Logistic units: admin, staff
 function getRolesForUnitType(unitType: string | null | undefined): Array<{ value: string; labelKey: string }> {
   const lowerType = (unitType || "").toLowerCase();
   
   if (lowerType === "business") {
     return [
       { value: "manager", labelKey: "admin.roleManager" },
+      { value: "staff", labelKey: "admin.roleStaff" },
+    ];
+  }
+  
+  if (lowerType === "logistic") {
+    return [
+      { value: "admin", labelKey: "admin.roleAdmin" },
       { value: "staff", labelKey: "admin.roleStaff" },
     ];
   }
