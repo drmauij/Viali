@@ -1210,7 +1210,7 @@ router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentica
         // If cancelled/no_show, delete the busy block; otherwise sync updated time
         if (updated.status === 'cancelled' || updated.status === 'no_show') {
           if (updated.calcomBookingUid) {
-            await deleteCalcomBlock(updated.hospitalId, updated.calcomBookingUid);
+            await deleteCalcomBlock(updated.calcomBookingUid, updated.hospitalId);
           }
         } else {
           await syncSingleAppointment(updated.id);
@@ -1250,7 +1250,7 @@ router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentic
       (async () => {
         try {
           const { deleteCalcomBlock } = await import("../services/calcomSync");
-          await deleteCalcomBlock(hospitalId, existing.calcomBookingUid!);
+          await deleteCalcomBlock(existing.calcomBookingUid!, hospitalId);
         } catch (err) {
           console.error(`Failed to delete Cal.com block for appointment ${appointmentId}:`, err);
         }

@@ -1239,7 +1239,7 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
         // If surgery is cancelled/archived, remove from Cal.com; otherwise sync
         if (updatedSurgery.status === 'cancelled' || updatedSurgery.isArchived) {
           if (updatedSurgery.calcomBusyBlockUid) {
-            await deleteCalcomBlock(updatedSurgery.hospitalId, updatedSurgery.calcomBusyBlockUid);
+            await deleteCalcomBlock(updatedSurgery.calcomBusyBlockUid, updatedSurgery.hospitalId);
           }
         } else {
           await syncSingleSurgery(updatedSurgery.id);
@@ -1282,7 +1282,7 @@ router.post('/api/anesthesia/surgeries/:id/archive', isAuthenticated, requireWri
       (async () => {
         try {
           const { deleteCalcomBlock } = await import("../services/calcomSync");
-          await deleteCalcomBlock(archivedSurgery.hospitalId, archivedSurgery.calcomBusyBlockUid!);
+          await deleteCalcomBlock(archivedSurgery.calcomBusyBlockUid!, archivedSurgery.hospitalId);
         } catch (err) {
           console.error(`Failed to delete Cal.com block for archived surgery ${id}:`, err);
         }
