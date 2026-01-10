@@ -2604,11 +2604,16 @@ router.post('/api/clinic/:hospitalId/calcom-test', isAuthenticated, isClinicAcce
     const { createCalcomClient } = await import("../services/calcomClient");
     const calcom = createCalcomClient(config.apiKey);
     
-    const eventTypes = await calcom.getEventTypes();
+    // First test API key validity by getting the authenticated user
+    const me = await calcom.getMe();
+    
+    // Then try to get event types for this user
+    const eventTypes = await calcom.getEventTypes(me.username);
     
     res.json({
       success: true,
       message: "Cal.com API connection successful",
+      user: { username: me.username, email: me.email, name: me.name },
       eventTypes,
     });
   } catch (error: any) {

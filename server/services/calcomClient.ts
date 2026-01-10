@@ -104,7 +104,7 @@ export class CalcomClient {
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'cal-api-version': '2024-08-13',
+      'cal-api-version': '2024-06-14',
       ...(options.headers as Record<string, string> || {}),
     };
 
@@ -129,8 +129,16 @@ export class CalcomClient {
     return data.data || data;
   }
 
-  async getEventTypes(): Promise<CalcomEventType[]> {
-    return this.request<CalcomEventType[]>('/event-types');
+  /**
+   * Get the current authenticated user's profile (good for testing API key validity)
+   */
+  async getMe(): Promise<{ id: number; username: string; email: string; name?: string }> {
+    return this.request('/me');
+  }
+
+  async getEventTypes(username?: string): Promise<CalcomEventType[]> {
+    const params = username ? `?username=${encodeURIComponent(username)}` : '';
+    return this.request<CalcomEventType[]>(`/event-types${params}`);
   }
 
   async getAvailability(
