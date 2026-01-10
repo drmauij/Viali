@@ -2602,6 +2602,194 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
   }
 });
 
+// ICS Calendar Feed for Cal.com integration
+// This endpoint provides a publicly accessible ICS feed of busy times
+// Cal.com subscribes to this to block booked surgery/appointment times
+router.get('/api/calendar/:hospitalId/:providerId/feed.ics', async (req, res) => {
+  try {
+    const { hospitalId, providerId } = req.params;
+    const { token } = req.query;
+    
+    // Verify feed token for security
+    const config = await storage.getCalcomConfig(hospitalId);
+    if (!config?.feedToken || config.feedToken !== token) {
+      return res.status(401).send('Unauthorized');
+    }
+    
+    // Get provider mapping to verify provider is configured
+    const mappings = await storage.getCalcomProviderMappings(hospitalId);
+    const mapping = mappings.find(m => m.providerId === providerId && m.isEnabled);
+    if (!mapping) {
+      return res.status(404).send('Provider not found');
+    }
+    
+    // Date range: from 7 days ago to 6 months ahead
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 7);
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + 6);
+    
+    const { clinicAppointments, surgeries, users } = await import("@shared/schema");
+    
+    // Get provider info
+    const [provider] = await db.select().from(users).where(eq(users.id, providerId));
+    const providerName = provider ? `${provider.firstName || ''} ${provider.lastName || ''}`.trim() || provider.email : 'Provider';
+    
+    // Get appointments for this provider
+    const appointments = await db
+      .select()
+      .from(clinicAppointments)
+      .where(
+        and(
+          eq(clinicAppointments.providerId, providerId),
+          gte(clinicAppointments.appointmentDate, startDate.toISOString().split('T')[0]),
+          lte(clinicAppointments.appointmentDate, endDate.toISOString().split('T')[0]),
+          sql`${clinicAppointments.status} NOT IN ('cancelled', 'no_show')`
+        )
+      );
+    
+    // Get surgeries for this surgeon
+    const surgeryList = await db
+      .select()
+      .from(surgeries)
+      .where(
+        and(
+          eq(surgeries.surgeonId, providerId),
+          gte(surgeries.plannedDate, startDate),
+          lte(surgeries.plannedDate, endDate),
+          sql`${surgeries.status} != 'cancelled'`
+        )
+      );
+    
+    // Generate ICS content
+    const events: string[] = [];
+    
+    // Add appointments
+    for (const apt of appointments) {
+      const startDt = new Date(`${apt.appointmentDate}T${apt.startTime || '09:00'}:00`);
+      const endDt = apt.endTime 
+        ? new Date(`${apt.appointmentDate}T${apt.endTime}:00`)
+        : new Date(startDt.getTime() + 30 * 60000); // default 30 min
+      
+      events.push(generateIcsEvent({
+        uid: `apt-${apt.id}@viali.app`,
+        summary: `Clinic Appointment`,
+        start: startDt,
+        end: endDt,
+        description: apt.notes || '',
+      }));
+    }
+    
+    // Add surgeries - plannedDate is a timestamp that includes both date and time
+    for (const surgery of surgeryList) {
+      const startDt = surgery.plannedDate;
+      // Default surgery duration is 2 hours if no end time info available
+      const endDt = new Date(startDt.getTime() + 120 * 60000);
+      
+      events.push(generateIcsEvent({
+        uid: `surgery-${surgery.id}@viali.app`,
+        summary: `Surgery: ${surgery.plannedSurgery}`,
+        start: startDt,
+        end: endDt,
+        description: surgery.notes || '',
+      }));
+    }
+    
+    // VTIMEZONE component for Europe/Zurich (required for proper timezone handling)
+    const vtimezone = [
+      'BEGIN:VTIMEZONE',
+      'TZID:Europe/Zurich',
+      'BEGIN:DAYLIGHT',
+      'TZOFFSETFROM:+0100',
+      'TZOFFSETTO:+0200',
+      'TZNAME:CEST',
+      'DTSTART:19700329T020000',
+      'RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU',
+      'END:DAYLIGHT',
+      'BEGIN:STANDARD',
+      'TZOFFSETFROM:+0200',
+      'TZOFFSETTO:+0100',
+      'TZNAME:CET',
+      'DTSTART:19701025T030000',
+      'RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU',
+      'END:STANDARD',
+      'END:VTIMEZONE',
+    ].join('\r\n');
+    
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Viali//Calendar Feed//EN',
+      'CALSCALE:GREGORIAN',
+      'METHOD:PUBLISH',
+      `X-WR-CALNAME:${providerName} - Busy Times`,
+      'X-WR-TIMEZONE:Europe/Zurich',
+      vtimezone,
+      ...events,
+      'END:VCALENDAR'
+    ].join('\r\n');
+    
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="calendar.ics"');
+    res.send(icsContent);
+  } catch (error: any) {
+    console.error("Error generating ICS feed:", error);
+    res.status(500).send('Error generating calendar feed');
+  }
+});
+
+// Helper function to generate ICS event with proper timezone handling
+function generateIcsEvent(params: {
+  uid: string;
+  summary: string;
+  start: Date;
+  end: Date;
+  description?: string;
+  timezone?: string;
+}): string {
+  const tz = params.timezone || 'Europe/Zurich';
+  
+  // Convert UTC Date to target timezone components using Intl.DateTimeFormat
+  // This ensures UTC timestamps from the database are correctly displayed in local time
+  const formatIcsLocalDate = (date: Date): string => {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+    
+    const parts = formatter.formatToParts(date);
+    const get = (type: string) => parts.find(p => p.type === type)?.value || '00';
+    
+    return `${get('year')}${get('month')}${get('day')}T${get('hour')}${get('minute')}${get('second')}`;
+  };
+  
+  // UTC format for DTSTAMP (required to be in UTC)
+  const formatIcsUtcDate = (date: Date): string => {
+    return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+  };
+  
+  const now = new Date();
+  
+  return [
+    'BEGIN:VEVENT',
+    `UID:${params.uid}`,
+    `DTSTAMP:${formatIcsUtcDate(now)}`,
+    `DTSTART;TZID=${tz}:${formatIcsLocalDate(params.start)}`,
+    `DTEND;TZID=${tz}:${formatIcsLocalDate(params.end)}`,
+    `SUMMARY:${params.summary}`,
+    params.description ? `DESCRIPTION:${params.description.replace(/\n/g, '\\n')}` : '',
+    'TRANSP:OPAQUE',
+    'STATUS:CONFIRMED',
+    'END:VEVENT'
+  ].filter(Boolean).join('\r\n');
+}
+
 // Test Cal.com API connection
 router.post('/api/clinic/:hospitalId/calcom-test', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
@@ -2632,6 +2820,105 @@ router.post('/api/clinic/:hospitalId/calcom-test', isAuthenticated, isClinicAcce
     res.status(400).json({ 
       success: false, 
       message: "Failed to connect to Cal.com API",
+      error: error.message 
+    });
+  }
+});
+
+// Get ICS feed URLs for all mapped providers
+router.get('/api/clinic/:hospitalId/calcom-feeds', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    const config = await storage.getCalcomConfig(hospitalId);
+    if (!config) {
+      return res.status(404).json({ message: "Cal.com not configured" });
+    }
+    
+    // Generate feed token if not exists
+    let feedToken = config.feedToken;
+    if (!feedToken) {
+      feedToken = crypto.randomUUID().replace(/-/g, '');
+      await storage.upsertCalcomConfig({
+        ...config,
+        feedToken,
+      });
+    }
+    
+    const mappings = await storage.getCalcomProviderMappings(hospitalId);
+    const enabledMappings = mappings.filter(m => m.isEnabled);
+    
+    // Get base URL from request or environment
+    const baseUrl = process.env.APP_BASE_URL || `${req.protocol}://${req.get('host')}`;
+    
+    const feeds = enabledMappings.map(m => ({
+      providerId: m.providerId,
+      feedUrl: `${baseUrl}/api/calendar/${hospitalId}/${m.providerId}/feed.ics?token=${feedToken}`,
+      calcomEventTypeId: m.calcomEventTypeId,
+    }));
+    
+    res.json({
+      feedToken,
+      feeds,
+    });
+  } catch (error: any) {
+    console.error("Error getting Cal.com feeds:", error);
+    res.status(500).json({ message: "Failed to get feed URLs", error: error.message });
+  }
+});
+
+// Subscribe ICS feeds to Cal.com
+router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    const config = await storage.getCalcomConfig(hospitalId);
+    if (!config?.apiKey) {
+      return res.status(400).json({ message: "Cal.com API key not configured" });
+    }
+    
+    // Generate feed token if not exists
+    let feedToken = config.feedToken;
+    if (!feedToken) {
+      feedToken = crypto.randomUUID().replace(/-/g, '');
+      await storage.upsertCalcomConfig({
+        ...config,
+        feedToken,
+      });
+    }
+    
+    const mappings = await storage.getCalcomProviderMappings(hospitalId);
+    const enabledMappings = mappings.filter(m => m.isEnabled);
+    
+    if (enabledMappings.length === 0) {
+      return res.status(400).json({ message: "No provider mappings configured" });
+    }
+    
+    // Get base URL - use production URL for Cal.com subscription
+    const baseUrl = process.env.APP_BASE_URL || 'https://use.viali.app';
+    
+    // Generate feed URLs
+    const feedUrls = enabledMappings.map(m => 
+      `${baseUrl}/api/calendar/${hospitalId}/${m.providerId}/feed.ics?token=${feedToken}`
+    );
+    
+    const { createCalcomClient } = await import("../services/calcomClient");
+    const calcom = createCalcomClient(config.apiKey);
+    
+    // Subscribe to all feeds
+    const result = await calcom.subscribeToIcsFeed(feedUrls);
+    
+    res.json({
+      success: true,
+      message: `Subscribed ${feedUrls.length} calendar feed(s) to Cal.com`,
+      calendarId: result.id,
+      feedUrls,
+    });
+  } catch (error: any) {
+    console.error("Error subscribing ICS feeds to Cal.com:", error);
+    res.status(500).json({ 
+      success: false,
+      message: "Failed to subscribe feeds to Cal.com", 
       error: error.message 
     });
   }

@@ -3868,6 +3868,9 @@ export const calcomConfig = pgTable("calcom_config", {
   // Webhook secret for verifying incoming webhooks from Cal.com
   webhookSecret: varchar("webhook_secret"),
   
+  // ICS feed token for secure calendar feed access
+  feedToken: varchar("feed_token"),
+  
   // Sync settings
   isEnabled: boolean("is_enabled").default(false),
   syncBusyBlocks: boolean("sync_busy_blocks").default(true), // Push appointments as busy blocks

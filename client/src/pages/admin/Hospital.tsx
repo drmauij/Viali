@@ -2446,6 +2446,36 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
     },
   });
 
+  // ICS feeds query for calendar sync
+  const { data: feedsData } = useQuery<{
+    feedToken: string;
+    feeds: Array<{ providerId: string; feedUrl: string; calcomEventTypeId: string }>;
+  }>({
+    queryKey: [`/api/clinic/${hospitalId}/calcom-feeds`],
+    enabled: !!hospitalId && calcomEnabled && calcomMappings.length > 0,
+  });
+
+  // Subscribe ICS feeds to Cal.com mutation
+  const subscribeFeedsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/calcom-subscribe-feeds`);
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      toast({ 
+        title: t("common.success"), 
+        description: `Subscribed ${data.feedUrls?.length || 0} calendar feed(s) to Cal.com`,
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: t("common.error"), 
+        description: error.message || "Failed to subscribe feeds to Cal.com", 
+        variant: "destructive" 
+      });
+    },
+  });
+
   if (!hospitalId) return null;
 
   return (
@@ -2616,6 +2646,65 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
               </div>
             )}
 
+            {/* Calendar Sync Section */}
+            {calcomMappings.length > 0 && calcomEnabled && (
+              <div className="border-t border-border pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <h4 className="font-medium">Calendar Sync (Busy Time Blocking)</h4>
+                    <p className="text-xs text-muted-foreground">
+                      Subscribe your clinic calendar to Cal.com to block booked surgery/appointment times
+                    </p>
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={() => subscribeFeedsMutation.mutate()}
+                    disabled={subscribeFeedsMutation.isPending}
+                    data-testid="button-subscribe-feeds"
+                  >
+                    {subscribeFeedsMutation.isPending ? (
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                    ) : (
+                      <i className="fas fa-sync mr-2"></i>
+                    )}
+                    Subscribe to Cal.com
+                  </Button>
+                </div>
+                
+                {feedsData?.feeds && feedsData.feeds.length > 0 && (
+                  <div className="space-y-2 text-xs">
+                    <p className="text-muted-foreground">
+                      The following calendar feeds are available for each provider:
+                    </p>
+                    {feedsData.feeds.map((feed) => {
+                      const provider = providers.find(p => p.id === feed.providerId);
+                      return (
+                        <div key={feed.providerId} className="bg-muted/50 p-2 rounded">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">
+                              {provider ? `${provider.firstName} ${provider.lastName}` : feed.providerId.substring(0, 8)}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 text-xs"
+                              onClick={() => {
+                                navigator.clipboard.writeText(feed.feedUrl);
+                                toast({ title: "Copied!", description: "Feed URL copied to clipboard" });
+                              }}
+                            >
+                              <i className="fas fa-copy mr-1"></i>
+                              Copy URL
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Instructions */}
             <div className="bg-muted/50 rounded-lg p-4 text-sm">
               <h4 className="font-medium mb-2">How to set up Cal.com + RetellAI booking</h4>
@@ -2624,6 +2713,7 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                 <li>Go to Settings → Developer → API Keys and generate a new API key</li>
                 <li>Paste the API key here and save</li>
                 <li>Add provider mappings to link each doctor to their Cal.com event type</li>
+                <li>Click "Subscribe to Cal.com" to sync your clinic calendar (blocks booked times)</li>
                 <li>Set up RetellAI with your Cal.com Event Type ID for booking</li>
                 <li>Configure a webhook in Cal.com pointing to your app's webhook URL</li>
               </ol>

@@ -351,6 +351,27 @@ export class CalcomClient {
     
     return { uid: created.uid, action: 'created' };
   }
+
+  /**
+   * Subscribe to an ICS calendar feed in Cal.com
+   * This allows Cal.com to read busy times from external calendars
+   */
+  async subscribeToIcsFeed(urls: string[]): Promise<{ id: number; type: string }> {
+    return this.request<{ id: number; type: string }>('/calendars/ics-feed/save', {
+      method: 'POST',
+      body: JSON.stringify({
+        urls,
+        readOnly: true,
+      }),
+    });
+  }
+
+  /**
+   * Check connected calendars
+   */
+  async getConnectedCalendars(): Promise<Array<{ id: number; type: string; primary: boolean }>> {
+    return this.request<Array<{ id: number; type: string; primary: boolean }>>('/calendars');
+  }
 }
 
 export function createCalcomClient(apiKey: string): CalcomClient {
