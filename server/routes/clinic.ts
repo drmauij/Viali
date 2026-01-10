@@ -2186,104 +2186,28 @@ router.delete('/api/clinic/:hospitalId/calcom-mappings/:mappingId', isAuthentica
   }
 });
 
-// Trigger Cal.com sync for ALL providers with mappings (push appointments + absences as busy blocks)
+// Trigger full Cal.com sync for ALL providers with mappings (push appointments + surgeries as busy blocks)
 router.post('/api/clinic/:hospitalId/calcom-sync', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     
-    const config = await storage.getCalcomConfig(hospitalId);
-    if (!config?.isEnabled || !config.apiKey) {
-      return res.status(400).json({ message: "Cal.com is not configured or enabled" });
-    }
+    const { fullSync } = await import("../services/calcomSync");
+    const result = await fullSync(hospitalId);
     
-    const mappings = await storage.getCalcomProviderMappings(hospitalId);
-    const enabledMappings = mappings.filter(m => m.isEnabled);
-    
-    if (enabledMappings.length === 0) {
-      return res.status(400).json({ message: "No provider mappings configured" });
-    }
-    
-    const { createCalcomClient } = await import("../services/calcomClient");
-    const calcom = createCalcomClient(config.apiKey);
-    
-    const syncStartDate = new Date().toISOString().split('T')[0];
-    const syncEndDateObj = new Date();
-    syncEndDateObj.setMonth(syncEndDateObj.getMonth() + 3);
-    const syncEndDate = syncEndDateObj.toISOString().split('T')[0];
-    
-    let totalBlocks = 0;
-    const allErrors: string[] = [];
-    
-    for (const mapping of enabledMappings) {
-      try {
-        if (config.syncBusyBlocks) {
-          const { clinicAppointments: appts } = await import("@shared/schema");
-          
-          const appointments = await db
-            .select()
-            .from(appts)
-            .where(
-              and(
-                eq(appts.providerId, mapping.providerId),
-                gte(appts.appointmentDate, syncStartDate),
-                lte(appts.appointmentDate, syncEndDate),
-                sql`${appts.status} NOT IN ('cancelled', 'no_show')`
-              )
-            );
-          
-          for (const apt of appointments) {
-            try {
-              const startDateTime = `${apt.appointmentDate}T${apt.startTime}:00`;
-              const endDateTime = `${apt.appointmentDate}T${apt.endTime}:00`;
-              
-              await calcom.createOutOfOffice({
-                start: startDateTime,
-                end: endDateTime,
-                notes: `Clinic appointment: ${apt.id}`,
-              });
-              totalBlocks++;
-            } catch (err: any) {
-              if (!err.message?.includes('already exists')) {
-                allErrors.push(`Appointment ${apt.id}: ${err.message}`);
-              }
-            }
-          }
-        }
-        
-        if (config.syncTimebutlerAbsences) {
-          const absences = await storage.getProviderAbsences(hospitalId, syncStartDate, syncEndDate);
-          const providerAbsences = absences.filter(a => a.providerId === mapping.providerId);
-          
-          for (const absence of providerAbsences) {
-            try {
-              await calcom.createOutOfOffice({
-                start: `${absence.startDate}T00:00:00`,
-                end: `${absence.endDate}T23:59:59`,
-                notes: `Timebutler: ${absence.absenceType}`,
-              });
-              totalBlocks++;
-            } catch (err: any) {
-              if (!err.message?.includes('already exists')) {
-                allErrors.push(`Absence ${absence.id}: ${err.message}`);
-              }
-            }
-          }
-        }
-      } catch (err: any) {
-        allErrors.push(`Provider ${mapping.providerId}: ${err.message}`);
-      }
-    }
+    const totalSynced = result.appointments.synced + result.surgeries.synced;
+    const allErrors = [...result.appointments.errors, ...result.surgeries.errors];
     
     await storage.upsertCalcomConfig({
-      ...config,
+      hospitalId,
       lastSyncAt: new Date(),
       lastSyncError: allErrors.length > 0 ? allErrors.slice(0, 5).join('; ') : null,
     });
     
     res.json({
       success: true,
-      syncedBlocks: totalBlocks,
-      providersProcessed: enabledMappings.length,
+      syncedBlocks: totalSynced,
+      appointments: result.appointments,
+      surgeries: result.surgeries,
       errors: allErrors.slice(0, 10),
     });
   } catch (error: any) {
@@ -2491,6 +2415,9 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
         return res.json({ received: true, processed: false, reason: 'No clinic unit found' });
       }
       
+      const durationMs = endDate.getTime() - startDate.getTime();
+      const durationMinutes = Math.round(durationMs / (1000 * 60));
+      
       const [appointment] = await db
         .insert(appts)
         .values({
@@ -2501,16 +2428,88 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
           appointmentDate,
           startTime: startTimeStr,
           endTime: endTimeStr,
+          durationMinutes,
           status: 'scheduled',
           notes: `Booked via Cal.com (RetellAI). Booking ID: ${payload.uid}`,
+          calcomBookingUid: payload.uid,
+          calcomSource: 'calcom',
+          calcomSyncedAt: new Date(),
         })
         .returning();
       
       console.log(`Created appointment ${appointment.id} from Cal.com booking ${payload.uid}`);
       
       res.json({ received: true, processed: true, appointmentId: appointment.id });
+    } else if (triggerEvent === 'BOOKING_RESCHEDULED') {
+      const { uid, startTime, endTime } = payload;
+      
+      if (!uid) {
+        return res.json({ received: true, processed: false, reason: 'No booking UID' });
+      }
+      
+      const { clinicAppointments: appts } = await import("@shared/schema");
+      
+      const [existing] = await db
+        .select()
+        .from(appts)
+        .where(eq(appts.calcomBookingUid, uid))
+        .limit(1);
+      
+      if (!existing) {
+        return res.json({ received: true, processed: false, reason: 'Appointment not found for rescheduled booking' });
+      }
+      
+      const newStartDate = new Date(startTime);
+      const newEndDate = new Date(endTime);
+      const newDurationMs = newEndDate.getTime() - newStartDate.getTime();
+      
+      await db
+        .update(appts)
+        .set({
+          appointmentDate: newStartDate.toISOString().split('T')[0],
+          startTime: newStartDate.toISOString().split('T')[1].substring(0, 5),
+          endTime: newEndDate.toISOString().split('T')[1].substring(0, 5),
+          durationMinutes: Math.round(newDurationMs / (1000 * 60)),
+          calcomSyncedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(appts.id, existing.id));
+      
+      console.log(`Rescheduled appointment ${existing.id} from Cal.com booking ${uid}`);
+      
+      res.json({ received: true, processed: true, appointmentId: existing.id, action: 'rescheduled' });
     } else if (triggerEvent === 'BOOKING_CANCELLED') {
-      res.json({ received: true, processed: false, reason: 'Cancellation handling not implemented' });
+      const { uid } = payload;
+      
+      if (!uid) {
+        return res.json({ received: true, processed: false, reason: 'No booking UID' });
+      }
+      
+      const { clinicAppointments: appts } = await import("@shared/schema");
+      
+      const [existing] = await db
+        .select()
+        .from(appts)
+        .where(eq(appts.calcomBookingUid, uid))
+        .limit(1);
+      
+      if (!existing) {
+        return res.json({ received: true, processed: false, reason: 'Appointment not found for cancelled booking' });
+      }
+      
+      await db
+        .update(appts)
+        .set({
+          status: 'cancelled',
+          cancellationReason: 'Cancelled via Cal.com',
+          calcomSyncedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(appts.id, existing.id));
+      
+      console.log(`Cancelled appointment ${existing.id} from Cal.com booking ${uid}`);
+      
+      res.json({ received: true, processed: true, appointmentId: existing.id, action: 'cancelled' });
     } else {
       res.json({ received: true, processed: false, reason: `Unknown event: ${triggerEvent}` });
     }
