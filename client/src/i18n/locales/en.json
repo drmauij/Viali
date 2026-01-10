@@ -33,7 +33,8 @@
     "viewOnlyModeDescription": "You are viewing this content as a guest. Editing is disabled.",
     "selectAll": "Select All",
     "deselectAll": "Deselect All",
-    "moving": "Moving..."
+    "moving": "Moving...",
+    "removing": "Removing..."
   },
   "auth": {
     "login": "Login",
@@ -853,6 +854,15 @@
     "bookable": "Bookable",
     "bookableStatusUpdated": "Bookable status updated",
     "failedToUpdateBookable": "Failed to update bookable status",
+    "defaultLogin": "Default",
+    "defaultLoginStatusUpdated": "Default login updated",
+    "failedToUpdateDefaultLogin": "Failed to update default login",
+    "lastRoleWarning": "Last Role Warning",
+    "lastRoleWarningTitle": "Remove Last Role?",
+    "lastRoleWarningMessage": "This is the user's last role assignment. Removing it will remove them from your hospital user list (but not delete their account). They can be re-added later by searching their email.",
+    "existingUserDetected": "Existing User Detected",
+    "existingUserWillBeAdded": "This email belongs to an existing user who will be added to your hospital.",
+    "checkingEmail": "Checking email...",
     "email": "Email Address",
     "emailPlaceholder": "user@example.com",
     "emailRequired": "Email address is required",

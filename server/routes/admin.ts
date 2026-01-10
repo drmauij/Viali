@@ -430,6 +430,10 @@ router.post('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req
       hospitalId,
       unitId,
       role,
+      isBookable: false,
+      isDefaultLogin: false,
+      calcomUserId: null,
+      calcomEventTypeId: null,
     });
     res.status(201).json(userRole);
   } catch (error) {
@@ -513,6 +517,10 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
       hospitalId,
       unitId,
       role,
+      isBookable: false,
+      isDefaultLogin: false,
+      calcomUserId: null,
+      calcomEventTypeId: null,
     });
 
     const hospital = await storage.getHospital(hospitalId);
@@ -583,6 +591,10 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
         hospitalId,
         unitId,
         role,
+        isBookable: false,
+        isDefaultLogin: false,
+        calcomUserId: null,
+        calcomEventTypeId: null,
       });
 
       const hospital = await storage.getHospital(hospitalId);
@@ -636,6 +648,10 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
       hospitalId,
       unitId,
       role,
+      isBookable: false,
+      isDefaultLogin: false,
+      calcomUserId: null,
+      calcomEventTypeId: null,
     });
 
     const hospital = await storage.getHospital(hospitalId);
@@ -915,6 +931,99 @@ router.patch('/api/admin/user-roles/:roleId/bookable', isAuthenticated, requireW
   } catch (error) {
     console.error("Error updating role bookable status:", error);
     res.status(500).json({ message: "Failed to update bookable status" });
+  }
+});
+
+// Update user role default login status
+router.patch('/api/admin/user-roles/:roleId/default-login', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { roleId } = req.params;
+    const { isDefaultLogin, hospitalId } = req.body;
+    
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID is required" });
+    }
+    
+    if (typeof isDefaultLogin !== 'boolean') {
+      return res.status(400).json({ message: "isDefaultLogin must be a boolean" });
+    }
+
+    // Check admin access
+    const currentUserId = req.user.id;
+    const hospitals = await storage.getUserHospitals(currentUserId);
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    // Find the role record
+    const [roleRecord] = await db
+      .select()
+      .from(userHospitalRoles)
+      .where(eq(userHospitalRoles.id, roleId));
+    
+    if (!roleRecord) {
+      return res.status(404).json({ message: "Role not found" });
+    }
+
+    // Verify role belongs to the admin's hospital
+    if (roleRecord.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Role does not belong to this hospital" });
+    }
+
+    // If setting as default, unset all other defaults for this user in this hospital
+    if (isDefaultLogin) {
+      await db.update(userHospitalRoles)
+        .set({ isDefaultLogin: false })
+        .where(
+          and(
+            eq(userHospitalRoles.userId, roleRecord.userId),
+            eq(userHospitalRoles.hospitalId, hospitalId)
+          )
+        );
+    }
+
+    // Update the isDefaultLogin field
+    await db.update(userHospitalRoles)
+      .set({ isDefaultLogin })
+      .where(eq(userHospitalRoles.id, roleId));
+
+    res.json({ success: true, isDefaultLogin });
+  } catch (error) {
+    console.error("Error updating role default login status:", error);
+    res.status(500).json({ message: "Failed to update default login status" });
+  }
+});
+
+// Check if email exists (for real-time detection during user creation)
+router.get('/api/admin/:hospitalId/check-email', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { email } = req.query;
+    
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const existingUser = await storage.searchUserByEmail(email);
+    
+    if (!existingUser) {
+      return res.json({ exists: false });
+    }
+
+    // Check if user is already in this hospital
+    const userHospitals = await storage.getUserHospitals(existingUser.id);
+    const alreadyInHospital = userHospitals.some(h => h.id === hospitalId);
+
+    const { passwordHash: _, ...sanitizedUser } = existingUser;
+    res.json({ 
+      exists: true, 
+      alreadyInHospital,
+      user: sanitizedUser
+    });
+  } catch (error) {
+    console.error("Error checking email:", error);
+    res.status(500).json({ message: "Failed to check email" });
   }
 });
 

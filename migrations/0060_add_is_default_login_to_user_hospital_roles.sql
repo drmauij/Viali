@@ -1,0 +1,1 @@
+ALTER TABLE "user_hospital_roles" ADD COLUMN "is_default_login" boolean DEFAULT false;

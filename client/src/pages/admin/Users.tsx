@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail, Users as UsersIcon, UserCog, ArrowRightLeft } from "lucide-react";
+import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail, Users as UsersIcon, UserCog, ArrowRightLeft, AlertTriangle, Star, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { Unit, UserHospitalRole, User } from "@shared/schema";
 
 // Get available roles based on unit type
@@ -76,7 +77,7 @@ interface HospitalUser extends UserHospitalRole {
 }
 
 interface GroupedHospitalUser extends HospitalUser {
-  roles: Array<{ role: string; units: Unit; roleId: string; unitId: string; isBookable?: boolean }>;
+  roles: Array<{ role: string; units: Unit; roleId: string; unitId: string; isBookable?: boolean; isDefaultLogin?: boolean }>;
 }
 
 export default function Users() {
@@ -100,7 +101,7 @@ export default function Users() {
     unitId: "",
     role: "",
   });
-  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; unitId: string; isBookable?: boolean }>>([]);
+  const [roleLocationPairs, setRoleLocationPairs] = useState<Array<{ id?: string; role: string; unitId: string; isBookable?: boolean; isDefaultLogin?: boolean }>>([]);
   const [newPair, setNewPair] = useState({ role: "", unitId: "" });
   
   // Change password states
@@ -113,6 +114,15 @@ export default function Users() {
   const [existingUserDialogOpen, setExistingUserDialogOpen] = useState(false);
   const [existingUserInfo, setExistingUserInfo] = useState<User | null>(null);
   const [existingUserAlreadyInHospital, setExistingUserAlreadyInHospital] = useState(false);
+
+  // Real-time email check states
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [detectedExistingUser, setDetectedExistingUser] = useState<User | null>(null);
+  const [detectedUserAlreadyInHospital, setDetectedUserAlreadyInHospital] = useState(false);
+
+  // Last role warning dialog state
+  const [lastRoleWarningOpen, setLastRoleWarningOpen] = useState(false);
+  const [pendingRemoveRoleId, setPendingRemoveRoleId] = useState<string | null>(null);
 
   // Tab state for user types
   const [activeTab, setActiveTab] = useState<"appUsers" | "staffMembers">("appUsers");
@@ -155,7 +165,8 @@ export default function Users() {
             units: userRole.units,
             roleId: userRole.id,
             unitId: userRole.unitId,
-            isBookable: (userRole as any).isBookable ?? false
+            isBookable: (userRole as any).isBookable ?? false,
+            isDefaultLogin: (userRole as any).isDefaultLogin ?? false
           }]
         });
       } else {
@@ -165,7 +176,8 @@ export default function Users() {
           units: userRole.units,
           roleId: userRole.id,
           unitId: userRole.unitId,
-          isBookable: (userRole as any).isBookable ?? false
+          isBookable: (userRole as any).isBookable ?? false,
+          isDefaultLogin: (userRole as any).isDefaultLogin ?? false
         });
       }
     });
@@ -375,6 +387,24 @@ export default function Users() {
     },
   });
 
+  // Update user role default login status mutation
+  const updateRoleDefaultLoginMutation = useMutation({
+    mutationFn: async ({ roleId, isDefaultLogin }: { roleId: string; isDefaultLogin: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/admin/user-roles/${roleId}/default-login`, {
+        isDefaultLogin,
+        hospitalId: activeHospital?.id,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+      toast({ title: t("common.success"), description: t("admin.defaultLoginStatusUpdated") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateDefaultLogin"), variant: "destructive" });
+    },
+  });
+
   // Update user email mutation
   const updateUserEmailMutation = useMutation({
     mutationFn: async ({ userId, email }: { userId: string; email: string }) => {
@@ -456,7 +486,47 @@ export default function Users() {
 
   const resetUserForm = () => {
     setUserForm({ email: "", password: "", firstName: "", lastName: "", unitId: "", role: "" });
+    setDetectedExistingUser(null);
+    setDetectedUserAlreadyInHospital(false);
+    setIsCheckingEmail(false);
   };
+
+  // Real-time email check with debounce
+  useEffect(() => {
+    if (!userDialogOpen || !activeHospital?.id) return;
+    
+    const email = userForm.email.trim();
+    if (!email || email.length < 5 || !email.includes('@')) {
+      setDetectedExistingUser(null);
+      setDetectedUserAlreadyInHospital(false);
+      return;
+    }
+
+    setIsCheckingEmail(true);
+    const timer = setTimeout(async () => {
+      try {
+        const response = await fetch(`/api/admin/${activeHospital.id}/check-email?email=${encodeURIComponent(email)}`, {
+          credentials: 'include'
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.exists) {
+            setDetectedExistingUser(data.user);
+            setDetectedUserAlreadyInHospital(data.alreadyInHospital);
+          } else {
+            setDetectedExistingUser(null);
+            setDetectedUserAlreadyInHospital(false);
+          }
+        }
+      } catch (error) {
+        console.error('Email check failed:', error);
+      } finally {
+        setIsCheckingEmail(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [userForm.email, userDialogOpen, activeHospital?.id]);
 
   const handleCreateUser = () => {
     resetUserForm();
@@ -497,7 +567,8 @@ export default function Users() {
       id: r.roleId, 
       role: r.role, 
       unitId: r.unitId,
-      isBookable: r.isBookable ?? false
+      isBookable: r.isBookable ?? false,
+      isDefaultLogin: r.isDefaultLogin ?? false
     })) || [];
     
     setEditingUserDetails(user.user);
@@ -521,7 +592,8 @@ export default function Users() {
           id: r.roleId, 
           role: r.role, 
           unitId: r.unitId,
-          isBookable: r.isBookable ?? false
+          isBookable: r.isBookable ?? false,
+          isDefaultLogin: r.isDefaultLogin ?? false
         })) || [];
         setRoleLocationPairs(userPairs);
       }
@@ -665,8 +737,28 @@ export default function Users() {
   const handleRemoveRoleLocation = async (pairId: string) => {
     if (deleteUserRoleMutation.isPending) return;
 
+    // Check if this is the last role
+    if (roleLocationPairs.length === 1) {
+      setPendingRemoveRoleId(pairId);
+      setLastRoleWarningOpen(true);
+      return;
+    }
+
     if (window.confirm(t("admin.removeRoleLocationConfirm"))) {
       await deleteUserRoleMutation.mutateAsync(pairId);
+    }
+  };
+
+  const confirmRemoveLastRole = async () => {
+    if (!pendingRemoveRoleId) return;
+    try {
+      await deleteUserRoleMutation.mutateAsync(pendingRemoveRoleId);
+      setLastRoleWarningOpen(false);
+      setPendingRemoveRoleId(null);
+      setEditUserDialogOpen(false);
+    } catch (error) {
+      setLastRoleWarningOpen(false);
+      setPendingRemoveRoleId(null);
     }
   };
 
@@ -900,26 +992,51 @@ export default function Users() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="user-email">{t("admin.email")} *</Label>
-              <Input
-                id="user-email"
-                type="email"
-                value={userForm.email}
-                onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
-                placeholder={t("admin.emailPlaceholder")}
-                data-testid="input-user-email"
-              />
+              <div className="relative">
+                <Input
+                  id="user-email"
+                  type="email"
+                  value={userForm.email}
+                  onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                  placeholder={t("admin.emailPlaceholder")}
+                  data-testid="input-user-email"
+                />
+                {isCheckingEmail && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Existing user detected alert */}
+            {detectedExistingUser && (
+              <Alert className={detectedUserAlreadyInHospital ? "border-red-200 bg-red-50" : "border-blue-200 bg-blue-50"}>
+                <UserCheck className="h-4 w-4" />
+                <AlertDescription className="text-sm">
+                  {detectedUserAlreadyInHospital ? (
+                    <span className="text-red-700">{t("admin.userAlreadyInHospital")}</span>
+                  ) : (
+                    <span className="text-blue-700">
+                      <strong>{t("admin.existingUserDetected")}</strong>: {detectedExistingUser.firstName} {detectedExistingUser.lastName}. {t("admin.existingUserWillBeAdded")}
+                    </span>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div>
-              <Label htmlFor="user-password">{t("admin.password")} *</Label>
+              <Label htmlFor="user-password">{t("admin.password")} {!detectedExistingUser && "*"}</Label>
               <div className="flex gap-2">
                 <Input
                   id="user-password"
                   type="text"
-                  value={userForm.password}
+                  value={detectedExistingUser ? "" : userForm.password}
                   onChange={(e) => setUserForm({ ...userForm, password: e.target.value })}
-                  placeholder={t("admin.passwordPlaceholder")}
+                  placeholder={detectedExistingUser ? "(using existing password)" : t("admin.passwordPlaceholder")}
                   data-testid="input-user-password"
                   className="flex-1"
+                  disabled={!!detectedExistingUser}
                 />
                 <Button
                   type="button"
@@ -928,6 +1045,7 @@ export default function Users() {
                   onClick={() => setUserForm({ ...userForm, password: generateSecurePassword() })}
                   title={t("admin.generatePassword")}
                   data-testid="button-generate-password"
+                  disabled={!!detectedExistingUser}
                 >
                   <Wand2 className="h-4 w-4" />
                 </Button>
@@ -935,23 +1053,25 @@ export default function Users() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label htmlFor="user-first-name">{t("admin.firstName")} *</Label>
+                <Label htmlFor="user-first-name">{t("admin.firstName")} {!detectedExistingUser && "*"}</Label>
                 <Input
                   id="user-first-name"
-                  value={userForm.firstName}
+                  value={detectedExistingUser ? detectedExistingUser.firstName || "" : userForm.firstName}
                   onChange={(e) => setUserForm({ ...userForm, firstName: e.target.value })}
                   placeholder={t("admin.firstNamePlaceholder")}
                   data-testid="input-user-first-name"
+                  disabled={!!detectedExistingUser}
                 />
               </div>
               <div>
-                <Label htmlFor="user-last-name">{t("admin.lastName")} *</Label>
+                <Label htmlFor="user-last-name">{t("admin.lastName")} {!detectedExistingUser && "*"}</Label>
                 <Input
                   id="user-last-name"
-                  value={userForm.lastName}
+                  value={detectedExistingUser ? detectedExistingUser.lastName || "" : userForm.lastName}
                   onChange={(e) => setUserForm({ ...userForm, lastName: e.target.value })}
                   placeholder={t("admin.lastNamePlaceholder")}
                   data-testid="input-user-last-name"
+                  disabled={!!detectedExistingUser}
                 />
               </div>
             </div>
@@ -1264,6 +1384,25 @@ export default function Users() {
                           <span className="text-xs text-primary/80">{unit?.name}</span>
                         </div>
                         <div className="flex items-center gap-2">
+                          {pair.id && (
+                            <div className="flex items-center gap-1.5">
+                              <Label htmlFor={`default-${pair.id}`} className="text-xs text-muted-foreground whitespace-nowrap">
+                                {t("admin.defaultLogin")}
+                              </Label>
+                              <Switch
+                                id={`default-${pair.id}`}
+                                checked={pair.isDefaultLogin ?? false}
+                                onCheckedChange={(checked) => {
+                                  updateRoleDefaultLoginMutation.mutate({
+                                    roleId: pair.id!,
+                                    isDefaultLogin: checked,
+                                  });
+                                }}
+                                disabled={updateRoleDefaultLoginMutation.isPending}
+                                data-testid={`switch-default-${pair.id}`}
+                              />
+                            </div>
+                          )}
                           {showBookable && pair.id && (
                             <div className="flex items-center gap-1.5">
                               <Label htmlFor={`bookable-${pair.id}`} className="text-xs text-muted-foreground whitespace-nowrap">
@@ -1537,6 +1676,46 @@ export default function Users() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Last Role Warning Dialog */}
+      <Dialog open={lastRoleWarningOpen} onOpenChange={(open) => {
+        setLastRoleWarningOpen(open);
+        if (!open) {
+          setPendingRemoveRoleId(null);
+        }
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-orange-600">
+              <AlertTriangle className="h-5 w-5" />
+              {t("admin.lastRoleWarningTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("admin.lastRoleWarningMessage")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setLastRoleWarningOpen(false);
+                setPendingRemoveRoleId(null);
+              }}
+              data-testid="button-cancel-remove-last-role"
+            >
+              {t("common.cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmRemoveLastRole}
+              disabled={deleteUserRoleMutation.isPending}
+              data-testid="button-confirm-remove-last-role"
+            >
+              {deleteUserRoleMutation.isPending ? t("common.removing") : t("admin.removeFromHospital")}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
