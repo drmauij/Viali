@@ -227,7 +227,7 @@ import {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, and, desc, asc, sql, inArray, lte, gte, or, ilike, isNull } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, lte, gte, lt, or, ilike, isNull } from "drizzle-orm";
 import { calculateInventoryForMedication, calculateRateControlledAmpules, calculateRateControlledVolume, volumeToAmpules } from "./services/inventoryCalculations";
 import { encryptCredential, decryptCredential } from "./utils/encryption";
 
