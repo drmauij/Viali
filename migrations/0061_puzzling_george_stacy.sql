@@ -1,0 +1,1 @@
+ALTER TABLE "calcom_config" ADD COLUMN "feed_token" varchar;

@@ -428,6 +428,13 @@
       "when": 1768020743516,
       "tag": "0060_add_is_default_login_to_user_hospital_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1768060352978,
+      "tag": "0061_puzzling_george_stacy",
+      "breakpoints": true
     }
   ]
 }
