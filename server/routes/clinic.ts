@@ -2395,9 +2395,15 @@ router.post('/api/webhooks/calcom/:hospitalId', async (req, res) => {
     
     console.log(`Cal.com webhook received: ${triggerEvent}`, JSON.stringify(payload, null, 2));
     
+    // Handle ping test from Cal.com (no triggerEvent or PING event)
+    if (!triggerEvent || triggerEvent === 'PING') {
+      return res.json({ status: 'ok', message: 'Webhook endpoint ready' });
+    }
+    
     const config = await storage.getCalcomConfig(hospitalId);
     if (!config?.isEnabled) {
-      return res.status(400).json({ message: "Cal.com integration not enabled" });
+      // Still acknowledge the webhook but don't process
+      return res.json({ received: true, processed: false, reason: 'Cal.com integration not enabled' });
     }
     
     if (triggerEvent === 'BOOKING_CREATED') {
