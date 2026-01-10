@@ -20,8 +20,11 @@ import {
   Users, 
   BedDouble,
   UserPlus,
-  FileText
+  FileText,
+  AlertTriangle,
+  XCircle
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useActiveHospital } from '@/hooks/useActiveHospital';
@@ -88,6 +91,25 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
       return res.json();
     },
     enabled: open && !!hospitalId,
+  });
+
+  // Fetch staff availability for the selected date
+  const staffIdsForAvailability = useMemo(() => {
+    return staffOptions.map(s => s.id).join(',');
+  }, [staffOptions]);
+
+  const { data: staffAvailability = {} } = useQuery<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' }>>({
+    queryKey: ['/api/clinic/staff-availability', hospitalId, dateString, staffIdsForAvailability],
+    queryFn: async () => {
+      if (!staffIdsForAvailability) return {};
+      const res = await fetch(`/api/clinic/${hospitalId}/staff-availability?date=${dateString}&staffIds=${staffIdsForAvailability}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) return {};
+      return res.json();
+    },
+    enabled: open && !!hospitalId && staffOptions.length > 0,
+    staleTime: 30000, // Cache for 30 seconds
   });
   
   const { data: currentStaffPool = [] } = useQuery<any[]>({
@@ -299,6 +321,9 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                 const colorClass = staff.baseRole === 'doctor' 
                   ? 'text-green-600 dark:text-green-400' 
                   : 'text-purple-600 dark:text-purple-400';
+                const availability = staffAvailability[staff.id];
+                const isBusy = availability?.status === 'busy';
+                const isWarning = availability?.status === 'warning';
                 
                 return (
                   <div
@@ -306,16 +331,20 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                     className={`flex items-center gap-3 p-2 rounded-md cursor-pointer transition-colors ${
                       isAlreadyPlanned 
                         ? 'bg-muted/50 opacity-60 cursor-not-allowed' 
-                        : isSelected 
-                          ? 'bg-primary/10 border border-primary' 
-                          : 'hover:bg-accent'
+                        : isBusy
+                          ? 'bg-red-50 dark:bg-red-950/20 opacity-70 cursor-not-allowed'
+                          : isSelected 
+                            ? 'bg-primary/10 border border-primary' 
+                            : isWarning 
+                              ? 'bg-yellow-50 dark:bg-yellow-950/20 hover:bg-yellow-100 dark:hover:bg-yellow-900/30'
+                              : 'hover:bg-accent'
                     }`}
-                    onClick={() => !isAlreadyPlanned && toggleSelection(staff.id)}
+                    onClick={() => !isAlreadyPlanned && !isBusy && toggleSelection(staff.id)}
                     data-testid={`staff-option-${staff.id}`}
                   >
                     <Checkbox
                       checked={isSelected || isAlreadyPlanned}
-                      disabled={isAlreadyPlanned}
+                      disabled={isAlreadyPlanned || isBusy}
                       className="pointer-events-none"
                     />
                     <Icon className={`h-4 w-4 flex-shrink-0 ${colorClass}`} />
@@ -325,7 +354,41 @@ export default function PlanStaffDialog({ open, onOpenChange, selectedDate, hosp
                         <div className="text-xs text-muted-foreground truncate">{staff.email}</div>
                       )}
                     </div>
-                    {isAlreadyPlanned && (
+                    {isBusy && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="destructive" className="text-[10px] px-1.5 gap-1">
+                              <XCircle className="h-3 w-3" />
+                              {t('staffPool.busy', 'Busy')}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">
+                              {t('staffPool.busyTooltip', 'Has {{hours}}h+ of clinic appointments', { hours: Math.round((availability?.busyMinutes || 0) / 60 * 10) / 10 })}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                    {isWarning && !isBusy && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge variant="outline" className="text-[10px] px-1.5 gap-1 border-yellow-500 text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/30">
+                              <AlertTriangle className="h-3 w-3" />
+                              {availability?.busyPercentage || 0}%
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">
+                              {t('staffPool.warningTooltip', 'Has {{hours}}h of clinic appointments ({{percent}}% of day)', { hours: Math.round((availability?.busyMinutes || 0) / 60 * 10) / 10, percent: availability?.busyPercentage || 0 })}
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                    {isAlreadyPlanned && !isBusy && !isWarning && (
                       <Badge variant="secondary" className="text-[10px] px-1.5">
                         {t('staffPool.alreadyPlanned', 'Planned')}
                       </Badge>

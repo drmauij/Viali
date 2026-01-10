@@ -662,7 +662,9 @@ export interface IStorage {
   
   // Checklist Matrix operations
   getFutureSurgeriesWithPatients(hospitalId: string): Promise<(Surgery & { patient?: Patient })[]>;
+  getPastSurgeriesWithPatients(hospitalId: string, limit?: number): Promise<(Surgery & { patient?: Patient })[]>;
   getChecklistMatrixEntries(templateId: string, hospitalId: string): Promise<SurgeryPreOpChecklistEntry[]>;
+  getPastChecklistMatrixEntries(templateId: string, hospitalId: string, limit?: number): Promise<SurgeryPreOpChecklistEntry[]>;
   toggleSurgeonChecklistTemplateDefault(templateId: string, userId: string): Promise<SurgeonChecklistTemplate>;
   applyTemplateToFutureSurgeries(templateId: string, hospitalId: string): Promise<number>;
   
@@ -6206,6 +6208,27 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
+  async getPastSurgeriesWithPatients(hospitalId: string, limit: number = 100): Promise<(Surgery & { patient?: Patient })[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const surgeriesWithPatients = await db
+      .select()
+      .from(surgeries)
+      .leftJoin(patients, eq(surgeries.patientId, patients.id))
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        lt(surgeries.plannedDate, today)
+      ))
+      .orderBy(desc(surgeries.plannedDate))
+      .limit(limit);
+
+    return surgeriesWithPatients.map(row => ({
+      ...row.surgeries,
+      patient: row.patients || undefined,
+    }));
+  }
+
   async getChecklistMatrixEntries(templateId: string, hospitalId: string): Promise<SurgeryPreOpChecklistEntry[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -6221,6 +6244,26 @@ export class DatabaseStorage implements IStorage {
         eq(surgeries.hospitalId, hospitalId),
         gte(surgeries.plannedDate, today)
       ));
+
+    return entries.map(row => row.entry);
+  }
+
+  async getPastChecklistMatrixEntries(templateId: string, hospitalId: string, limit: number = 100): Promise<SurgeryPreOpChecklistEntry[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const entries = await db
+      .select({
+        entry: surgeryPreOpChecklistEntries,
+      })
+      .from(surgeryPreOpChecklistEntries)
+      .innerJoin(surgeries, eq(surgeryPreOpChecklistEntries.surgeryId, surgeries.id))
+      .where(and(
+        eq(surgeryPreOpChecklistEntries.templateId, templateId),
+        eq(surgeries.hospitalId, hospitalId),
+        lt(surgeries.plannedDate, today)
+      ))
+      .limit(limit);
 
     return entries.map(row => row.entry);
   }
@@ -7774,6 +7817,95 @@ export class DatabaseStorage implements IStorage {
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+  }
+
+  async getStaffAvailabilityForDate(
+    staffId: string,
+    hospitalId: string,
+    date: string
+  ): Promise<{ busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' }> {
+    const WORKDAY_MINUTES = 480; // 8 hours
+
+    // Get clinic appointments for this staff on this date (exclude cancelled/no_show)
+    const appointments = await db
+      .select({
+        durationMinutes: clinicAppointments.durationMinutes,
+      })
+      .from(clinicAppointments)
+      .where(and(
+        eq(clinicAppointments.providerId, staffId),
+        eq(clinicAppointments.appointmentDate, date),
+        sql`${clinicAppointments.status} NOT IN ('cancelled', 'no_show')`
+      ));
+
+    // Sum up total busy minutes from appointments
+    const busyMinutes = appointments.reduce((sum, apt) => sum + (apt.durationMinutes || 0), 0);
+    const busyPercentage = Math.min(100, Math.round((busyMinutes / WORKDAY_MINUTES) * 100));
+
+    // Determine status: <80% = available, 80-100% = warning, 100%+ = busy
+    let status: 'available' | 'warning' | 'busy' = 'available';
+    if (busyPercentage >= 100) {
+      status = 'busy';
+    } else if (busyPercentage >= 80) {
+      status = 'warning';
+    }
+
+    return { busyMinutes, busyPercentage, status };
+  }
+
+  async getMultipleStaffAvailability(
+    staffIds: string[],
+    hospitalId: string,
+    date: string
+  ): Promise<Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' }>> {
+    if (staffIds.length === 0) {
+      return {};
+    }
+
+    const WORKDAY_MINUTES = 480;
+
+    // Get all clinic appointments for these staff on this date in one query
+    const appointments = await db
+      .select({
+        providerId: clinicAppointments.providerId,
+        durationMinutes: clinicAppointments.durationMinutes,
+      })
+      .from(clinicAppointments)
+      .where(and(
+        sql`${clinicAppointments.providerId} IN ${staffIds}`,
+        eq(clinicAppointments.appointmentDate, date),
+        sql`${clinicAppointments.status} NOT IN ('cancelled', 'no_show')`
+      ));
+
+    // Aggregate by staff
+    const result: Record<string, { busyMinutes: number; busyPercentage: number; status: 'available' | 'warning' | 'busy' }> = {};
+
+    // Initialize all staff with 0 minutes
+    for (const staffId of staffIds) {
+      result[staffId] = { busyMinutes: 0, busyPercentage: 0, status: 'available' };
+    }
+
+    // Sum up durations per staff
+    for (const apt of appointments) {
+      if (apt.providerId && result[apt.providerId]) {
+        result[apt.providerId].busyMinutes += apt.durationMinutes || 0;
+      }
+    }
+
+    // Calculate percentages and status
+    for (const staffId of staffIds) {
+      const busyMinutes = result[staffId].busyMinutes;
+      const busyPercentage = Math.min(100, Math.round((busyMinutes / WORKDAY_MINUTES) * 100));
+      let status: 'available' | 'warning' | 'busy' = 'available';
+      if (busyPercentage >= 100) {
+        status = 'busy';
+      } else if (busyPercentage >= 80) {
+        status = 'warning';
+      }
+      result[staffId] = { busyMinutes, busyPercentage, status };
+    }
+
+    return result;
   }
 
   async getClinicServices(unitId: string): Promise<ClinicService[]> {

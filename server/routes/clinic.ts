@@ -1110,6 +1110,38 @@ router.get('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthenticate
   }
 });
 
+// Get staff availability for a specific date (for Plan Staff dialog)
+router.get('/api/clinic/:hospitalId/staff-availability', isAuthenticated, isClinicAccess, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { staffIds, date } = req.query;
+    
+    if (!date) {
+      return res.status(400).json({ message: "Date is required" });
+    }
+    
+    // Parse staffIds - can be comma-separated or array
+    let staffIdList: string[] = [];
+    if (staffIds) {
+      if (Array.isArray(staffIds)) {
+        staffIdList = staffIds as string[];
+      } else {
+        staffIdList = (staffIds as string).split(',').filter(Boolean);
+      }
+    }
+    
+    if (staffIdList.length === 0) {
+      return res.json({});
+    }
+    
+    const availability = await storage.getMultipleStaffAvailability(staffIdList, hospitalId, date as string);
+    res.json(availability);
+  } catch (error) {
+    console.error("Error fetching staff availability:", error);
+    res.status(500).json({ message: "Failed to fetch staff availability" });
+  }
+});
+
 // Create appointment
 router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
   try {

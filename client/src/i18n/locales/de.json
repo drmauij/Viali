@@ -2893,7 +2893,15 @@
     "setDefault": "Als Standard festlegen",
     "removeDefault": "Standard entfernen",
     "noSurgeries": "Keine geplanten Operationen",
-    "noSurgeriesDesc": "Zukünftige Operationen erscheinen hier nach der Planung"
+    "noSurgeriesDesc": "Zukünftige Operationen erscheinen hier nach der Planung",
+    "noPastSurgeries": "Keine vergangenen Operationen gefunden",
+    "patient": "Patient",
+    "date": "Datum",
+    "surgery": "Operation",
+    "status": "Status",
+    "complete": "Alle Punkte erledigt",
+    "incomplete": "{{remaining}} Punkte ausstehend",
+    "unknownPatient": "Unbekannter Patient"
   },
   "clinic": {
     "invoices": {
@@ -3678,7 +3686,10 @@
     "planSelected": "Planen",
     "createChoice": "Wie möchten Sie \"{{name}}\" hinzufügen?",
     "createAsUser": "Als Benutzer",
-    "createAsText": "Nur Text"
+    "createAsText": "Nur Text",
+    "busy": "Belegt",
+    "busyTooltip": "Hat {{hours}}h+ Praxistermine",
+    "warningTooltip": "Hat {{hours}}h Praxistermine ({{percent}}% des Tages)"
   },
   "todoList": {
     "title": "To-Do",

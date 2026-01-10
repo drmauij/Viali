@@ -197,6 +197,29 @@ router.get("/api/surgeries/future", isAuthenticated, async (req: any, res) => {
   }
 });
 
+router.get("/api/surgeries/past", isAuthenticated, async (req: any, res) => {
+  try {
+    const hospitalId = req.query.hospitalId as string;
+    const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
+    const userId = req.user?.id as string;
+    
+    if (!hospitalId) {
+      return res.status(400).json({ error: "hospitalId is required" });
+    }
+
+    const hasAccess = await userHasHospitalAccess(userId, hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ error: "No access to this hospital" });
+    }
+
+    const surgeries = await storage.getPastSurgeriesWithPatients(hospitalId, limit);
+    res.json(surgeries);
+  } catch (error) {
+    console.error("Error fetching past surgeries:", error);
+    res.status(500).json({ error: "Failed to fetch past surgeries" });
+  }
+});
+
 router.get("/api/surgeon-checklists/matrix", isAuthenticated, async (req: any, res) => {
   try {
     const { templateId, hospitalId } = req.query;
@@ -216,6 +239,32 @@ router.get("/api/surgeon-checklists/matrix", isAuthenticated, async (req: any, r
   } catch (error) {
     console.error("Error fetching checklist matrix:", error);
     res.status(500).json({ error: "Failed to fetch matrix data" });
+  }
+});
+
+router.get("/api/surgeon-checklists/matrix/past", isAuthenticated, async (req: any, res) => {
+  try {
+    const { templateId, hospitalId, limit } = req.query;
+    const userId = req.user?.id as string;
+    
+    if (!templateId || !hospitalId) {
+      return res.status(400).json({ error: "templateId and hospitalId are required" });
+    }
+
+    const hasAccess = await userHasHospitalAccess(userId, hospitalId as string);
+    if (!hasAccess) {
+      return res.status(403).json({ error: "No access to this hospital" });
+    }
+
+    const entries = await storage.getPastChecklistMatrixEntries(
+      templateId as string, 
+      hospitalId as string,
+      limit ? parseInt(limit as string, 10) : 100
+    );
+    res.json({ entries });
+  } catch (error) {
+    console.error("Error fetching past checklist matrix:", error);
+    res.status(500).json({ error: "Failed to fetch past matrix data" });
   }
 });
 

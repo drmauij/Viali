@@ -17,7 +17,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SurgeryPlanningTable } from "@/components/shared/SurgeryPlanningTable";
 import { 
   ClipboardCheck, 
   Loader2, 
@@ -127,6 +126,59 @@ export default function ChecklistMatrix() {
     },
     enabled: !!selectedTemplateId && !!hospitalId,
   });
+
+  // Past surgeries query
+  const { data: pastSurgeriesData, isLoading: pastSurgeriesLoading } = useQuery<SurgeryWithPatient[]>({
+    queryKey: ['/api/surgeries/past', hospitalId],
+    queryFn: async () => {
+      const res = await fetch(`/api/surgeries/past?hospitalId=${hospitalId}&limit=100`);
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    },
+    enabled: !!hospitalId && activeTab === "past",
+  });
+
+  // Filter past surgeries: doctors/surgeons only see their own surgeries
+  const pastSurgeries = useMemo(() => {
+    const allSurgeries = pastSurgeriesData || [];
+    if (isSurgeonOrDoctor && userId) {
+      return allSurgeries.filter(surgery => surgery.surgeonId === userId);
+    }
+    return allSurgeries;
+  }, [pastSurgeriesData, isSurgeonOrDoctor, userId]);
+
+  // Past matrix data query
+  const { data: pastMatrixData, isLoading: pastMatrixLoading } = useQuery<{ entries: ChecklistEntryData[] }>({
+    queryKey: ['/api/surgeon-checklists/matrix/past', selectedTemplateId, hospitalId],
+    queryFn: async () => {
+      const res = await fetch(`/api/surgeon-checklists/matrix/past?templateId=${selectedTemplateId}&hospitalId=${hospitalId}&limit=100`);
+      return res.json();
+    },
+    enabled: !!selectedTemplateId && !!hospitalId && activeTab === "past",
+  });
+
+  // Past cell states (read-only for past surgeries)
+  const [pastCellStates, setPastCellStates] = useState<Record<string, MatrixCellState>>({});
+
+  useEffect(() => {
+    if (pastMatrixData?.entries) {
+      const newStates: Record<string, MatrixCellState> = {};
+      pastMatrixData.entries.forEach(entry => {
+        const key = `${entry.surgeryId}-${entry.itemId}`;
+        newStates[key] = {
+          checked: entry.checked,
+          note: entry.note || "",
+          isDirty: false,
+        };
+      });
+      setPastCellStates(newStates);
+    }
+  }, [pastMatrixData]);
+
+  const getPastCellState = (surgeryId: string, itemId: string): MatrixCellState => {
+    const key = `${surgeryId}-${itemId}`;
+    return pastCellStates[key] || { checked: false, note: "", isDirty: false };
+  };
 
   useEffect(() => {
     if (templates.length > 0) {
@@ -295,7 +347,18 @@ export default function ChecklistMatrix() {
     return { checked, total: items.length };
   };
 
+  const getPastCompletionStats = (surgeryId: string, items: SurgeonChecklistTemplateItem[]) => {
+    let checked = 0;
+    items.forEach(item => {
+      if (getPastCellState(surgeryId, item.id).checked) {
+        checked++;
+      }
+    });
+    return { checked, total: items.length };
+  };
+
   const isLoading = templatesLoading || templateLoading || surgeriesLoading || matrixLoading;
+  const isPastLoading = templatesLoading || templateLoading || pastSurgeriesLoading || pastMatrixLoading;
 
   const currentTemplate = templates.find(t => t.id === selectedTemplateId);
   const isCurrentDefault = currentTemplate?.isDefault && currentTemplate?.ownerUserId === userId;
@@ -434,24 +497,171 @@ export default function ChecklistMatrix() {
 
       {/* Past Surgeries Tab Content */}
       {activeTab === "past" && (
-        <div className="flex-1 overflow-auto p-4">
-          <SurgeryPlanningTable
-            moduleContext="surgery"
-            onSurgeryClick={handlePastSurgeryClick}
-            dateFrom={(() => {
-              const past = new Date();
-              past.setFullYear(past.getFullYear() - 2);
-              past.setHours(0, 0, 0, 0);
-              return past;
-            })()}
-            dateTo={(() => {
-              const yesterday = new Date();
-              yesterday.setDate(yesterday.getDate() - 1);
-              yesterday.setHours(23, 59, 59, 999);
-              return yesterday;
-            })()}
-            showFilters={true}
-          />
+        <div className="flex-1 overflow-auto">
+          {isPastLoading ? (
+            <div className="p-4 space-y-4">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-64 w-full" />
+            </div>
+          ) : !selectedTemplate || !selectedTemplate.items.length ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center text-muted-foreground">
+                <ClipboardCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="mb-4">{t('checklistMatrix.noTemplate', 'Select a template to view the matrix')}</p>
+                <Button
+                  variant="outline"
+                  onClick={() => setTemplateEditorOpen(true)}
+                  data-testid="button-create-template-past-empty"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  {t('checklistMatrix.createTemplate', 'Create Template')}
+                </Button>
+              </div>
+            </div>
+          ) : pastSurgeries.length === 0 ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center text-muted-foreground">
+                <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>{t('checklistMatrix.noPastSurgeries', 'No past surgeries found')}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="h-full overflow-x-auto overflow-y-auto pr-4 py-4">
+              <table className="w-full border-collapse text-sm" style={{ borderSpacing: 0 }}>
+                <thead>
+                  <tr className="border-b bg-muted/50">
+                    <th className="sticky left-0 z-20 pl-4 pr-3 py-2 text-left font-medium min-w-[200px] bg-muted border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]">
+                      {t('checklistMatrix.patient', 'Patient')}
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium min-w-[100px]">
+                      {t('checklistMatrix.date', 'Date')}
+                    </th>
+                    <th className="px-3 py-2 text-left font-medium min-w-[150px]">
+                      {t('checklistMatrix.surgery', 'Surgery')}
+                    </th>
+                    <th className="px-3 py-2 text-center font-medium min-w-[80px]">
+                      {t('checklistMatrix.status', 'Status')}
+                    </th>
+                    {selectedTemplate.items.map((item) => (
+                      <th 
+                        key={item.id} 
+                        className="px-2 py-2 text-center font-medium min-w-[120px] max-w-[150px]"
+                        title={item.label}
+                      >
+                        <div className="truncate text-xs">
+                          {item.label.length > 20 ? `${item.label.slice(0, 20)}...` : item.label}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {pastSurgeries.map((surgery) => {
+                    const stats = getPastCompletionStats(surgery.id, selectedTemplate.items);
+                    const isComplete = stats.checked === stats.total;
+                    const surgeryContext = getSurgeryContext(surgery);
+                    
+                    return (
+                      <tr key={surgery.id} className="border-b hover:bg-muted/30 group">
+                        <td className="sticky left-0 z-20 pl-4 pr-3 py-2 font-medium bg-background border-r shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] group-hover:bg-muted/30">
+                          {surgery.patient ? (
+                            <Link 
+                              href={`/surgery/patients/${surgery.patient.id}`}
+                              className="flex flex-col hover:text-primary transition-colors cursor-pointer"
+                              data-testid={`link-past-patient-${surgery.patient.id}`}
+                            >
+                              <span className="truncate max-w-[180px] underline-offset-2 hover:underline">
+                                {`${surgery.patient.surname}, ${surgery.patient.firstName}`}
+                              </span>
+                              {surgery.patient.birthday && (
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(surgery.patient.birthday), 'dd.MM.yyyy')}
+                                </span>
+                              )}
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground">
+                              {t('checklistMatrix.unknownPatient', 'Unknown Patient')}
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-2">
+                          {surgery.plannedDate ? (
+                            <div className="flex flex-col">
+                              <span>{format(new Date(surgery.plannedDate), 'dd.MM.yyyy', { locale: i18n.language === 'de' ? de : undefined })}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {format(new Date(surgery.plannedDate), 'HH:mm')}
+                              </span>
+                            </div>
+                          ) : '-'}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className="truncate block max-w-[140px] text-left"
+                            title={surgery.plannedSurgery || ''}
+                          >
+                            {surgery.plannedSurgery || '-'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Badge variant={isComplete ? "default" : "secondary"} className="gap-1">
+                                  {isComplete ? (
+                                    <CheckCircle2 className="h-3 w-3" />
+                                  ) : (
+                                    <Circle className="h-3 w-3" />
+                                  )}
+                                  {stats.checked}/{stats.total}
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {isComplete 
+                                  ? t('checklistMatrix.complete', 'All items complete')
+                                  : t('checklistMatrix.incomplete', '{{remaining}} items remaining', { remaining: stats.total - stats.checked })
+                                }
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </td>
+                        {selectedTemplate.items.map((item) => {
+                          const cellState = getPastCellState(surgery.id, item.id);
+                          const resolvedLabel = resolvePlaceholders(item.label, surgeryContext);
+                          const hasNote = cellState.note && cellState.note.length > 0;
+                          
+                          return (
+                            <td key={item.id} className="px-2 py-2 text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Checkbox
+                                  checked={cellState.checked}
+                                  disabled={true}
+                                  className="cursor-default"
+                                  data-testid={`checkbox-past-${surgery.id}-${item.id}`}
+                                />
+                                {hasNote && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger>
+                                        <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-[200px]">
+                                        <p className="text-xs">{cellState.note}</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
