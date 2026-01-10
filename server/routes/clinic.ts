@@ -1135,6 +1135,16 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
     
     const appointment = await storage.createClinicAppointment(validatedData);
     
+    // Async sync to Cal.com (don't block response)
+    (async () => {
+      try {
+        const { syncSingleAppointment } = await import("../services/calcomSync");
+        await syncSingleAppointment(appointment.id);
+      } catch (err) {
+        console.error(`Failed to sync appointment ${appointment.id} to Cal.com:`, err);
+      }
+    })();
+    
     res.status(201).json(appointment);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -1193,6 +1203,23 @@ router.patch('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentica
     
     const updated = await storage.updateClinicAppointment(appointmentId, updateData);
     
+    // Async sync to Cal.com (don't block response)
+    (async () => {
+      try {
+        const { syncSingleAppointment, deleteCalcomBlock } = await import("../services/calcomSync");
+        // If cancelled/no_show, delete the busy block; otherwise sync updated time
+        if (updated.status === 'cancelled' || updated.status === 'no_show') {
+          if (updated.calcomBookingUid) {
+            await deleteCalcomBlock(updated.hospitalId, updated.calcomBookingUid);
+          }
+        } else {
+          await syncSingleAppointment(updated.id);
+        }
+      } catch (err) {
+        console.error(`Failed to sync appointment ${updated.id} to Cal.com:`, err);
+      }
+    })();
+    
     res.json(updated);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -1216,6 +1243,18 @@ router.delete('/api/clinic/:hospitalId/appointments/:appointmentId', isAuthentic
     // Security: Verify appointment belongs to this hospital
     if (existing.hospitalId !== hospitalId) {
       return res.status(403).json({ message: "Access denied to this appointment" });
+    }
+    
+    // Delete from Cal.com if synced (async, don't block response)
+    if (existing.calcomBookingUid) {
+      (async () => {
+        try {
+          const { deleteCalcomBlock } = await import("../services/calcomSync");
+          await deleteCalcomBlock(hospitalId, existing.calcomBookingUid!);
+        } catch (err) {
+          console.error(`Failed to delete Cal.com block for appointment ${appointmentId}:`, err);
+        }
+      })();
     }
     
     await storage.deleteClinicAppointment(appointmentId);

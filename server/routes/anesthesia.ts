@@ -1177,6 +1177,16 @@ router.post('/api/anesthesia/surgeries', isAuthenticated, requireWriteAccess, as
 
     const newSurgery = await storage.createSurgery(validatedData);
     
+    // Async sync to Cal.com (don't block response)
+    (async () => {
+      try {
+        const { syncSingleSurgery } = await import("../services/calcomSync");
+        await syncSingleSurgery(newSurgery.id);
+      } catch (err) {
+        console.error(`Failed to sync surgery ${newSurgery.id} to Cal.com:`, err);
+      }
+    })();
+    
     res.status(201).json(newSurgery);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -1222,6 +1232,23 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
 
     const updatedSurgery = await storage.updateSurgery(id, updateData);
     
+    // Async sync to Cal.com (don't block response)
+    (async () => {
+      try {
+        const { syncSingleSurgery, deleteCalcomBlock } = await import("../services/calcomSync");
+        // If surgery is cancelled/archived, remove from Cal.com; otherwise sync
+        if (updatedSurgery.status === 'cancelled' || updatedSurgery.isArchived) {
+          if (updatedSurgery.calcomBusyBlockUid) {
+            await deleteCalcomBlock(updatedSurgery.hospitalId, updatedSurgery.calcomBusyBlockUid);
+          }
+        } else {
+          await syncSingleSurgery(updatedSurgery.id);
+        }
+      } catch (err) {
+        console.error(`Failed to sync surgery ${updatedSurgery.id} to Cal.com:`, err);
+      }
+    })();
+    
     res.json(updatedSurgery);
   } catch (error) {
     console.error("Error updating surgery:", error);
@@ -1250,6 +1277,18 @@ router.post('/api/anesthesia/surgeries/:id/archive', isAuthenticated, requireWri
 
     const archivedSurgery = await storage.archiveSurgery(id, userId);
     
+    // Async delete from Cal.com when archived (don't block response)
+    if (archivedSurgery.calcomBusyBlockUid) {
+      (async () => {
+        try {
+          const { deleteCalcomBlock } = await import("../services/calcomSync");
+          await deleteCalcomBlock(archivedSurgery.hospitalId, archivedSurgery.calcomBusyBlockUid!);
+        } catch (err) {
+          console.error(`Failed to delete Cal.com block for archived surgery ${id}:`, err);
+        }
+      })();
+    }
+    
     res.json({ message: "Surgery archived successfully", surgery: archivedSurgery });
   } catch (error) {
     console.error("Error archiving surgery:", error);
@@ -1277,6 +1316,16 @@ router.post('/api/anesthesia/surgeries/:id/unarchive', isAuthenticated, requireW
     }
 
     const restoredSurgery = await storage.unarchiveSurgery(id);
+    
+    // Async sync to Cal.com when unarchived (don't block response)
+    (async () => {
+      try {
+        const { syncSingleSurgery } = await import("../services/calcomSync");
+        await syncSingleSurgery(restoredSurgery.id);
+      } catch (err) {
+        console.error(`Failed to sync restored surgery ${id} to Cal.com:`, err);
+      }
+    })();
     
     res.json({ message: "Surgery restored successfully", surgery: restoredSurgery });
   } catch (error) {
