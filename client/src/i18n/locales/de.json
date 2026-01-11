@@ -3715,5 +3715,16 @@
     "noUnitsAvailable": "Keine Standorte mit Inventar verfügbar.",
     "filterByUnit": "Nach Standort filtern",
     "allUnits": "Alle Standorte"
+  },
+  "chat": {
+    "editingMessage": "Nachricht bearbeiten",
+    "editMessagePlaceholder": "Ihre Nachricht bearbeiten...",
+    "messageEdited": "Nachricht bearbeitet",
+    "messageEditedDescription": "Ihre Nachricht wurde aktualisiert.",
+    "failedToEditMessage": "Nachricht konnte nicht bearbeitet werden. Bitte versuchen Sie es erneut.",
+    "messageDeleted": "Nachricht gelöscht",
+    "messageDeletedDescription": "Die Nachricht wurde entfernt.",
+    "failedToDeleteMessage": "Nachricht konnte nicht gelöscht werden. Bitte versuchen Sie es erneut.",
+    "confirmDeleteMessage": "Sind Sie sicher, dass Sie diese Nachricht löschen möchten?"
   }
 }

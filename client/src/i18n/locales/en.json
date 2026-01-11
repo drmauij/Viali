@@ -3692,5 +3692,16 @@
     "noUnitsAvailable": "No units with inventory available.",
     "filterByUnit": "Filter by Unit",
     "allUnits": "All Units"
+  },
+  "chat": {
+    "editingMessage": "Editing Message",
+    "editMessagePlaceholder": "Edit your message...",
+    "messageEdited": "Message Edited",
+    "messageEditedDescription": "Your message has been updated.",
+    "failedToEditMessage": "Failed to edit message. Please try again.",
+    "messageDeleted": "Message Deleted",
+    "messageDeletedDescription": "The message has been removed.",
+    "failedToDeleteMessage": "Failed to delete message. Please try again.",
+    "confirmDeleteMessage": "Are you sure you want to delete this message?"
   }
 }

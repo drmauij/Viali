@@ -36,7 +36,9 @@ import {
   Play,
   CheckCircle2,
   GripVertical,
-  ListTodo
+  ListTodo,
+  Pencil,
+  Check
 } from "lucide-react";
 import html2canvas from "html2canvas";
 import { format, isToday, isYesterday } from "date-fns";
@@ -185,6 +187,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const [editingTodo, setEditingTodo] = useState<{ id: string; title: string; description?: string } | null>(null);
   const [newTodoTitle, setNewTodoTitle] = useState("");
   const [draggedTodo, setDraggedTodo] = useState<string | null>(null);
+  const [dragOverTodo, setDragOverTodo] = useState<string | null>(null);
   const [todoMentionActive, setTodoMentionActive] = useState(false);
   const [todoMentionSearch, setTodoMentionSearch] = useState("");
   const [todoMentionStartIndex, setTodoMentionStartIndex] = useState(-1);
@@ -220,6 +223,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [selectedContacts, setSelectedContacts] = useState<Array<{id: string; name: string}>>([]);
   const [contactSearchQuery, setContactSearchQuery] = useState("");
+  const [editingMessage, setEditingMessage] = useState<{ id: string; content: string } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -388,20 +392,66 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
 
   const handleDragEnd = () => {
     setDraggedTodo(null);
+    setDragOverTodo(null);
   };
 
-  const handleDrop = (targetStatus: 'todo' | 'running' | 'completed') => {
+  const handleDrop = (targetStatus: 'todo' | 'running' | 'completed', targetTodoId?: string) => {
     if (!draggedTodo) return;
     
     const todo = todos.find(t => t.id === draggedTodo);
-    if (!todo || todo.status === targetStatus) {
+    if (!todo) {
       setDraggedTodo(null);
+      setDragOverTodo(null);
       return;
     }
 
-    // Update the todo status
-    updateTodoMutation.mutate({ id: draggedTodo, updates: { status: targetStatus } });
+    // Get existing todos in target column (excluding the dragged one which may be from any column)
+    const columnTodos = todos
+      .filter(t => t.status === targetStatus && t.id !== draggedTodo)
+      .sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+    
+    // Build new order - dragged item will be included and get its status updated by the reorder API
+    let newOrder: string[];
+    if (targetTodoId && targetTodoId !== draggedTodo) {
+      // Insert before the target todo
+      const targetIndex = columnTodos.findIndex(t => t.id === targetTodoId);
+      if (targetIndex >= 0) {
+        newOrder = [
+          ...columnTodos.slice(0, targetIndex).map(t => t.id),
+          draggedTodo,
+          ...columnTodos.slice(targetIndex).map(t => t.id)
+        ];
+      } else {
+        // Target not found, add to end
+        newOrder = [...columnTodos.map(t => t.id), draggedTodo];
+      }
+    } else {
+      // No target, add to end of column
+      newOrder = [...columnTodos.map(t => t.id), draggedTodo];
+    }
+
+    // Call reorder mutation which updates both position AND status for all items in the list
+    reorderTodosMutation.mutate({ todoIds: newOrder, status: targetStatus });
     setDraggedTodo(null);
+    setDragOverTodo(null);
+  };
+
+  const handleTodoDragOver = (e: React.DragEvent, todoId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (draggedTodo && draggedTodo !== todoId) {
+      setDragOverTodo(todoId);
+    }
+  };
+
+  const handleTodoDragLeave = () => {
+    setDragOverTodo(null);
+  };
+
+  const handleTodoDropOn = (e: React.DragEvent, targetTodoId: string, targetStatus: 'todo' | 'running' | 'completed') => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleDrop(targetStatus, targetTodoId);
   };
 
   // Todo patient mention suggestions
@@ -730,6 +780,48 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
       toast({
         title: "Error",
         description: "Failed to delete conversation. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const editMessageMutation = useMutation({
+    mutationFn: async ({ messageId, content }: { messageId: string; content: string }) => {
+      const response = await apiRequest("PATCH", `/api/chat/messages/${messageId}`, { content });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/chat/conversations', selectedConversation?.id, 'messages'] });
+      setEditingMessage(null);
+      toast({
+        title: t('chat.messageEdited'),
+        description: t('chat.messageEditedDescription'),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('chat.failedToEditMessage'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (messageId: string) => {
+      await apiRequest("DELETE", `/api/chat/messages/${messageId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/chat/conversations', selectedConversation?.id, 'messages'] });
+      toast({
+        title: t('chat.messageDeleted'),
+        description: t('chat.messageDeletedDescription'),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('chat.failedToDeleteMessage'),
         variant: "destructive",
       });
     },
@@ -1689,7 +1781,10 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 draggable
                                 onDragStart={() => handleDragStart(todo.id)}
                                 onDragEnd={handleDragEnd}
-                                className={`bg-card border border-border rounded-lg p-3 shadow-sm hover:shadow-md transition-all group overflow-hidden ${draggedTodo === todo.id ? 'opacity-50' : ''}`}
+                                onDragOver={(e) => handleTodoDragOver(e, todo.id)}
+                                onDragLeave={handleTodoDragLeave}
+                                onDrop={(e) => handleTodoDropOn(e, todo.id, 'todo')}
+                                className={`bg-card border rounded-lg p-3 shadow-sm hover:shadow-md transition-all group overflow-hidden ${draggedTodo === todo.id ? 'opacity-50' : ''} ${dragOverTodo === todo.id ? 'border-primary ring-2 ring-primary/30' : 'border-border'}`}
                                 data-testid={`todo-item-${todo.id}`}
                               >
                                 <div className="flex items-start gap-2 overflow-hidden">
@@ -1766,7 +1861,10 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 draggable
                                 onDragStart={() => handleDragStart(todo.id)}
                                 onDragEnd={handleDragEnd}
-                                className={`bg-card border border-blue-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-all group overflow-hidden ${draggedTodo === todo.id ? 'opacity-50' : ''}`}
+                                onDragOver={(e) => handleTodoDragOver(e, todo.id)}
+                                onDragLeave={handleTodoDragLeave}
+                                onDrop={(e) => handleTodoDropOn(e, todo.id, 'running')}
+                                className={`bg-card border rounded-lg p-3 shadow-sm hover:shadow-md transition-all group overflow-hidden ${draggedTodo === todo.id ? 'opacity-50' : ''} ${dragOverTodo === todo.id ? 'border-primary ring-2 ring-primary/30' : 'border-blue-500/30'}`}
                                 data-testid={`todo-item-${todo.id}`}
                               >
                                 <div className="flex items-start gap-2 overflow-hidden">
@@ -1843,7 +1941,10 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 draggable
                                 onDragStart={() => handleDragStart(todo.id)}
                                 onDragEnd={handleDragEnd}
-                                className={`bg-card border border-green-500/30 rounded-lg p-3 shadow-sm hover:shadow-md transition-all group opacity-70 overflow-hidden ${draggedTodo === todo.id ? 'opacity-30' : ''}`}
+                                onDragOver={(e) => handleTodoDragOver(e, todo.id)}
+                                onDragLeave={handleTodoDragLeave}
+                                onDrop={(e) => handleTodoDropOn(e, todo.id, 'completed')}
+                                className={`bg-card border rounded-lg p-3 shadow-sm hover:shadow-md transition-all group opacity-70 overflow-hidden ${draggedTodo === todo.id ? 'opacity-30' : ''} ${dragOverTodo === todo.id ? 'border-primary ring-2 ring-primary/30' : 'border-green-500/30'}`}
                                 data-testid={`todo-item-${todo.id}`}
                               >
                                 <div className="flex items-start gap-2 overflow-hidden">
@@ -2105,6 +2206,34 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                     <ListTodo className="w-3 h-3" />
                                   </Button>
                                 )}
+                                {isOwnMessage && !msg.isDeleted && (
+                                  <>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      onClick={() => setEditingMessage({ id: msg.id, content: msg.content })}
+                                      title={t('common.edit')}
+                                      data-testid={`button-edit-message-${msg.id}`}
+                                    >
+                                      <Pencil className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+                                      onClick={() => {
+                                        if (confirm(t('chat.confirmDeleteMessage'))) {
+                                          deleteMessageMutation.mutate(msg.id);
+                                        }
+                                      }}
+                                      title={t('common.delete')}
+                                      data-testid={`button-delete-message-${msg.id}`}
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -2125,6 +2254,54 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
               </ScrollArea>
 
               <div className="p-4 border-t border-border">
+                {editingMessage && (
+                  <div className="mb-3 p-3 bg-accent/50 rounded-lg border border-border">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Pencil className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">{t('chat.editingMessage')}</span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 ml-auto"
+                        onClick={() => setEditingMessage(null)}
+                        data-testid="button-cancel-edit-message"
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        value={editingMessage.content}
+                        onChange={(e) => setEditingMessage({ ...editingMessage, content: e.target.value })}
+                        placeholder={t('chat.editMessagePlaceholder')}
+                        className="flex-1"
+                        data-testid="input-edit-message"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            if (editingMessage.content.trim()) {
+                              editMessageMutation.mutate({ messageId: editingMessage.id, content: editingMessage.content.trim() });
+                            }
+                          } else if (e.key === 'Escape') {
+                            setEditingMessage(null);
+                          }
+                        }}
+                      />
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (editingMessage.content.trim()) {
+                            editMessageMutation.mutate({ messageId: editingMessage.id, content: editingMessage.content.trim() });
+                          }
+                        }}
+                        disabled={!editingMessage.content.trim() || editMessageMutation.isPending}
+                        data-testid="button-save-edit-message"
+                      >
+                        {editMessageMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 <input
                   ref={fileInputRef}
                   type="file"
