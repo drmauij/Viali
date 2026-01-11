@@ -810,25 +810,6 @@ export default function Hospital() {
         <h1 className="text-2xl font-bold text-foreground">{t("admin.hospital")}</h1>
       </div>
 
-      {/* Hospital Info Card */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-foreground text-lg">{activeHospital?.name}</h3>
-            <p className="text-sm text-muted-foreground">{t("admin.hospitalName")}</p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleEditHospitalName}
-            data-testid="button-edit-hospital"
-          >
-            <i className="fas fa-edit mr-2"></i>
-            {t("admin.editName")}
-          </Button>
-        </div>
-      </div>
-
       {/* Menu Tab Navigation */}
       <div className="border-b border-border">
         <nav className="flex gap-0 overflow-x-auto" aria-label="Tabs">
@@ -930,6 +911,19 @@ export default function Hospital() {
             </h2>
             
             <div className="space-y-6">
+              {/* Hospital Name (System name) - First Field */}
+              <div>
+                <Label htmlFor="hospital-name-inline">{t("admin.hospitalNameLabel")} *</Label>
+                <Input
+                  id="hospital-name-inline"
+                  value={hospitalForm.name}
+                  onChange={(e) => setHospitalForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder={t("admin.hospitalNamePlaceholder")}
+                  data-testid="input-hospital-name-inline"
+                />
+                <p className="text-xs text-muted-foreground mt-1">{t("admin.hospitalNameHint")}</p>
+              </div>
+
               {/* Logo Section */}
               <div className="flex gap-6">
                 <div className="flex-shrink-0">
@@ -1105,19 +1099,6 @@ export default function Hospital() {
                     <p className="text-xs text-muted-foreground mt-1">{t("admin.runwayLookbackHint")}</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Hospital Name (System name) */}
-              <div className="pt-4 border-t">
-                <Label htmlFor="hospital-name-inline">{t("admin.hospitalNameLabel")} *</Label>
-                <Input
-                  id="hospital-name-inline"
-                  value={hospitalForm.name}
-                  onChange={(e) => setHospitalForm(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder={t("admin.hospitalNamePlaceholder")}
-                  data-testid="input-hospital-name-inline"
-                />
-                <p className="text-xs text-muted-foreground mt-1">{t("admin.hospitalNameHint")}</p>
               </div>
 
               <div className="flex justify-end pt-4">
