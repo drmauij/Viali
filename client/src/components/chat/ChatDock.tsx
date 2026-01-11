@@ -1788,6 +1788,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 data-testid={`todo-item-${todo.id}`}
                               >
                                 <div className="flex items-start gap-2 overflow-hidden">
+                                  <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab shrink-0 mt-0.5" />
                                   <span className="text-sm text-foreground flex-1 break-words overflow-hidden whitespace-pre-wrap">{formatTodoTitle(todo.title)}</span>
                                 </div>
                                 <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border flex-wrap">
@@ -1868,6 +1869,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 data-testid={`todo-item-${todo.id}`}
                               >
                                 <div className="flex items-start gap-2 overflow-hidden">
+                                  <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab shrink-0 mt-0.5" />
                                   <span className="text-sm text-foreground flex-1 break-words overflow-hidden whitespace-pre-wrap">{formatTodoTitle(todo.title)}</span>
                                 </div>
                                 <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border flex-wrap">
@@ -1948,6 +1950,7 @@ export default function ChatDock({ isOpen, onClose, activeHospital, onOpenPatien
                                 data-testid={`todo-item-${todo.id}`}
                               >
                                 <div className="flex items-start gap-2 overflow-hidden">
+                                  <GripVertical className="w-4 h-4 text-muted-foreground cursor-grab shrink-0 mt-0.5" />
                                   <span className="text-sm text-foreground flex-1 break-words overflow-hidden whitespace-pre-wrap">{formatTodoTitle(todo.title, true)}</span>
                                 </div>
                                 <div className="flex items-center gap-1 mt-2 pt-2 border-t border-border flex-wrap">
