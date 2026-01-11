@@ -187,8 +187,6 @@ export default function BottomNav() {
       { id: "items", icon: "fas fa-boxes", label: t('bottomNav.items'), path: "/inventory/items" },
       { id: "services", icon: "fas fa-briefcase-medical", label: t('bottomNav.services', 'Services'), path: "/inventory/services" },
       { id: "orders", icon: "fas fa-file-invoice", label: t('bottomNav.orders'), path: "/inventory/orders" },
-      { id: "controlled", icon: "fas fa-shield-halved", label: t('bottomNav.controlled'), path: "/inventory/controlled" },
-      { id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists'), path: "/inventory/checklists" },
       { id: "matches", icon: "fas fa-link", label: t('bottomNav.matches'), path: "/inventory/matches" },
     ];
   }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments]);
