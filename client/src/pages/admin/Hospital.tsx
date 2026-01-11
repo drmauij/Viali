@@ -42,7 +42,7 @@ export default function Hospital() {
   const { toast } = useToast();
 
   // Internal tab state
-  const [activeTab, setActiveTab] = useState<"units" | "rooms" | "checklists" | "suppliers" | "integrations">("units");
+  const [activeTab, setActiveTab] = useState<"settings" | "data" | "units" | "rooms" | "checklists" | "suppliers" | "integrations">("settings");
   
   // Rooms management state
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
@@ -438,15 +438,15 @@ export default function Hospital() {
     }
   };
 
-  // Fetch full hospital data
+  // Fetch full hospital data (for settings tab or dialog)
   const { data: fullHospitalData } = useQuery<any>({
     queryKey: [`/api/admin/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id && isAdmin && hospitalDialogOpen,
+    enabled: !!activeHospital?.id && isAdmin && (hospitalDialogOpen || activeTab === "settings"),
   });
 
   // Initialize form when hospital data is loaded
   useEffect(() => {
-    if (fullHospitalData && hospitalDialogOpen) {
+    if (fullHospitalData && (hospitalDialogOpen || activeTab === "settings")) {
       setHospitalForm({
         name: fullHospitalData.name || "",
         companyName: fullHospitalData.companyName || "",
@@ -462,7 +462,7 @@ export default function Hospital() {
         runwayLookbackDays: fullHospitalData.runwayLookbackDays ?? 30,
       });
     }
-  }, [fullHospitalData, hospitalDialogOpen]);
+  }, [fullHospitalData, hospitalDialogOpen, activeTab]);
 
   // Hospital mutation
   const updateHospitalMutation = useMutation({
@@ -829,181 +829,32 @@ export default function Hospital() {
         </div>
       </div>
 
-      {/* Seed Default Data Card */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-foreground text-lg">
-              <i className="fas fa-database mr-2 text-primary"></i>
-              {t("admin.defaultDataSetup", "Default Data Setup")}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {t("admin.defaultDataSetupDescription", "Populate hospital with default units, surgery rooms, administration groups, and medications")}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              <i className="fas fa-info-circle mr-1"></i>
-              {t("admin.defaultDataSetupNote", "Only adds missing items - never replaces existing data")}
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setSeedDialogOpen(true)}
-            disabled={seedHospitalMutation.isPending}
-            data-testid="button-seed-hospital"
-          >
-            {seedHospitalMutation.isPending ? (
-              <>
-                <i className="fas fa-spinner fa-spin mr-2"></i>
-                {t("admin.seeding", "Seeding...")}
-              </>
-            ) : (
-              <>
-                <i className="fas fa-seedling mr-2"></i>
-                {t("admin.seedDefaultData", "Seed Default Data")}
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {/* Reset Lists Card */}
-      <div className="bg-card border border-destructive/30 rounded-lg p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="font-semibold text-foreground text-lg">
-              <i className="fas fa-rotate-right mr-2 text-destructive"></i>
-              {t("admin.resetLists", "Reset Lists")}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {t("admin.resetListsDescription", "Reset allergies, medications, and checklists to default values")}
-            </p>
-            <p className="text-xs text-destructive mt-1">
-              <i className="fas fa-exclamation-triangle mr-1"></i>
-              {t("admin.resetListsWarning", "Warning: This will replace all customizations with defaults")}
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="border-destructive text-destructive hover:bg-destructive/10"
-            onClick={() => setResetListsDialogOpen(true)}
-            disabled={resetListsMutation.isPending}
-            data-testid="button-reset-lists"
-          >
-            {resetListsMutation.isPending ? (
-              <>
-                <i className="fas fa-spinner fa-spin mr-2"></i>
-                {t("admin.resetting", "Resetting...")}
-              </>
-            ) : (
-              <>
-                <i className="fas fa-rotate-right mr-2"></i>
-                {t("admin.resetLists", "Reset Lists")}
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-
-      {/* Open Questionnaire Link Card */}
-      <div className="bg-card border border-border rounded-lg p-4">
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-foreground text-lg flex items-center gap-2">
-                <LinkIcon className="h-5 w-5 text-primary" />
-                {t("admin.openQuestionnaireLink", "Open Questionnaire Link")}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {t("admin.openQuestionnaireLinkDescription", "Public link for patients to fill out pre-operative questionnaires without being pre-registered")}
-              </p>
-            </div>
-          </div>
-          
-          {questionnaireTokenData?.questionnaireToken ? (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                <Input
-                  value={getQuestionnaireUrl() || ""}
-                  readOnly
-                  className="flex-1 bg-background text-sm font-mono"
-                  data-testid="input-questionnaire-url"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCopyLink}
-                  data-testid="button-copy-questionnaire-link"
-                >
-                  {linkCopied ? (
-                    <Check className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => generateQuestionnaireTokenMutation.mutate()}
-                  disabled={generateQuestionnaireTokenMutation.isPending}
-                  data-testid="button-regenerate-questionnaire-link"
-                >
-                  {generateQuestionnaireTokenMutation.isPending ? (
-                    <i className="fas fa-spinner fa-spin mr-2"></i>
-                  ) : (
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                  )}
-                  {t("admin.regenerateLink", "Regenerate Link")}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="text-destructive border-destructive/50 hover:bg-destructive/10"
-                  onClick={() => {
-                    if (confirm(t("admin.disableLinkConfirm", "Are you sure you want to disable this link? Patients won't be able to access the form."))) {
-                      deleteQuestionnaireTokenMutation.mutate();
-                    }
-                  }}
-                  disabled={deleteQuestionnaireTokenMutation.isPending}
-                  data-testid="button-disable-questionnaire-link"
-                >
-                  {deleteQuestionnaireTokenMutation.isPending ? (
-                    <i className="fas fa-spinner fa-spin mr-2"></i>
-                  ) : (
-                    <Trash2 className="h-4 w-4 mr-2" />
-                  )}
-                  {t("admin.disableLink", "Disable Link")}
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <p className="text-sm text-muted-foreground">
-                {t("admin.noQuestionnaireLinkGenerated", "No questionnaire link has been generated yet.")}
-              </p>
-              <Button
-                size="sm"
-                onClick={() => generateQuestionnaireTokenMutation.mutate()}
-                disabled={generateQuestionnaireTokenMutation.isPending}
-                data-testid="button-generate-questionnaire-link"
-              >
-                {generateQuestionnaireTokenMutation.isPending ? (
-                  <i className="fas fa-spinner fa-spin mr-2"></i>
-                ) : (
-                  <LinkIcon className="h-4 w-4 mr-2" />
-                )}
-                {t("admin.generateLink", "Generate Link")}
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* Internal Tab Switcher */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
+        <button
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === "settings"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+          onClick={() => setActiveTab("settings")}
+          data-testid="tab-settings"
+        >
+          <Settings className="h-4 w-4 mr-2 inline" />
+          {t("admin.generalSettings", "General Settings")}
+        </button>
+        <button
+          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === "data"
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted text-muted-foreground hover:bg-muted/80"
+          }`}
+          onClick={() => setActiveTab("data")}
+          data-testid="tab-data"
+        >
+          <i className="fas fa-database mr-2"></i>
+          {t("admin.dataAndLists", "Data & Lists")}
+        </button>
         <button
           className={`px-4 py-2 rounded-lg font-medium transition-colors ${
             activeTab === "units"
@@ -1065,6 +916,400 @@ export default function Hospital() {
           {t("admin.integrations", "Integrations")}
         </button>
       </div>
+
+      {/* General Settings Tab Content */}
+      {activeTab === "settings" && (
+        <div className="space-y-6">
+          {/* Company Settings Section */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+              <i className="fas fa-building text-primary"></i>
+              {t("admin.companySettings", "Company Settings")}
+            </h2>
+            
+            <div className="space-y-6">
+              {/* Logo Section */}
+              <div className="flex gap-6">
+                <div className="flex-shrink-0">
+                  <div className="w-32 h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
+                    {hospitalForm.companyLogoUrl ? (
+                      <img 
+                        src={hospitalForm.companyLogoUrl} 
+                        alt="Company Logo" 
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <i className="fas fa-building text-4xl text-muted-foreground"></i>
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    <label htmlFor="logo-upload-inline" className="cursor-pointer">
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full"
+                        disabled={isUploadingLogo}
+                        asChild
+                      >
+                        <span>
+                          <i className="fas fa-upload mr-2"></i>
+                          {isUploadingLogo ? t("common.loading") : t("admin.uploadLogo")}
+                        </span>
+                      </Button>
+                      <input
+                        id="logo-upload-inline"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleLogoUpload}
+                        data-testid="input-logo-upload-inline"
+                      />
+                    </label>
+                    <p className="text-xs text-muted-foreground mt-1 text-center">{t("admin.logoMaxSize")}</p>
+                  </div>
+                </div>
+
+                {/* Company Data Section */}
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <Label htmlFor="company-name-inline">{t("admin.companyName")} *</Label>
+                    <Input
+                      id="company-name-inline"
+                      value={hospitalForm.companyName}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, companyName: e.target.value }))}
+                      placeholder={t("admin.companyNamePlaceholder")}
+                      data-testid="input-company-name-inline"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <Label htmlFor="company-street-inline">{t("admin.companyStreet")}</Label>
+                      <Input
+                        id="company-street-inline"
+                        value={hospitalForm.companyStreet}
+                        onChange={(e) => setHospitalForm(prev => ({ ...prev, companyStreet: e.target.value }))}
+                        placeholder={t("admin.companyStreetPlaceholder")}
+                        data-testid="input-company-street-inline"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="company-postal-code-inline">{t("admin.companyPostalCode")}</Label>
+                      <Input
+                        id="company-postal-code-inline"
+                        value={hospitalForm.companyPostalCode}
+                        onChange={(e) => setHospitalForm(prev => ({ ...prev, companyPostalCode: e.target.value }))}
+                        placeholder="8000"
+                        data-testid="input-company-postal-code-inline"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="company-city-inline">{t("admin.companyCity")}</Label>
+                    <Input
+                      id="company-city-inline"
+                      value={hospitalForm.companyCity}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, companyCity: e.target.value }))}
+                      placeholder={t("admin.companyCityPlaceholder")}
+                      data-testid="input-company-city-inline"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Contact Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="company-phone-inline">{t("admin.companyPhone")}</Label>
+                  <Input
+                    id="company-phone-inline"
+                    value={hospitalForm.companyPhone}
+                    onChange={(e) => setHospitalForm(prev => ({ ...prev, companyPhone: e.target.value }))}
+                    placeholder="+41 44 123 45 67"
+                    data-testid="input-company-phone-inline"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="company-fax-inline">{t("admin.companyFax")}</Label>
+                  <Input
+                    id="company-fax-inline"
+                    value={hospitalForm.companyFax}
+                    onChange={(e) => setHospitalForm(prev => ({ ...prev, companyFax: e.target.value }))}
+                    placeholder="+41 44 123 45 68"
+                    data-testid="input-company-fax-inline"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="company-email-inline">{t("admin.companyEmail")}</Label>
+                <Input
+                  id="company-email-inline"
+                  type="email"
+                  value={hospitalForm.companyEmail}
+                  onChange={(e) => setHospitalForm(prev => ({ ...prev, companyEmail: e.target.value }))}
+                  placeholder="info@klinik.ch"
+                  data-testid="input-company-email-inline"
+                />
+              </div>
+
+              {/* Stock Runway Alert Configuration */}
+              <div className="pt-4 border-t">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <i className="fas fa-chart-line text-primary"></i>
+                  {t("admin.runwayConfigTitle")}
+                </h4>
+                <p className="text-sm text-muted-foreground mb-4">{t("admin.runwayConfigDescription")}</p>
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="runway-target-inline">{t("admin.runwayTargetDays")}</Label>
+                    <Input
+                      id="runway-target-inline"
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={hospitalForm.runwayTargetDays}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, runwayTargetDays: parseInt(e.target.value) || 14 }))}
+                      data-testid="input-runway-target-inline"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">{t("admin.runwayTargetHint")}</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="runway-warning-inline">{t("admin.runwayWarningDays")}</Label>
+                    <Input
+                      id="runway-warning-inline"
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={hospitalForm.runwayWarningDays}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, runwayWarningDays: parseInt(e.target.value) || 7 }))}
+                      data-testid="input-runway-warning-inline"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">{t("admin.runwayWarningHint")}</p>
+                  </div>
+                  <div>
+                    <Label htmlFor="runway-lookback-inline">{t("admin.runwayLookbackDays")}</Label>
+                    <Input
+                      id="runway-lookback-inline"
+                      type="number"
+                      min={7}
+                      max={365}
+                      value={hospitalForm.runwayLookbackDays}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, runwayLookbackDays: parseInt(e.target.value) || 30 }))}
+                      data-testid="input-runway-lookback-inline"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">{t("admin.runwayLookbackHint")}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Hospital Name (System name) */}
+              <div className="pt-4 border-t">
+                <Label htmlFor="hospital-name-inline">{t("admin.hospitalNameLabel")} *</Label>
+                <Input
+                  id="hospital-name-inline"
+                  value={hospitalForm.name}
+                  onChange={(e) => setHospitalForm(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder={t("admin.hospitalNamePlaceholder")}
+                  data-testid="input-hospital-name-inline"
+                />
+                <p className="text-xs text-muted-foreground mt-1">{t("admin.hospitalNameHint")}</p>
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <Button
+                  onClick={handleSaveHospital}
+                  disabled={updateHospitalMutation.isPending || isUploadingLogo}
+                  data-testid="button-save-hospital-inline"
+                >
+                  <i className="fas fa-save mr-2"></i>
+                  {t("common.save")}
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Open Questionnaire Link Section */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-foreground text-lg flex items-center gap-2">
+                    <LinkIcon className="h-5 w-5 text-primary" />
+                    {t("admin.openQuestionnaireLink", "Open Questionnaire Link")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.openQuestionnaireLinkDescription", "Public link for patients to fill out pre-operative questionnaires without being pre-registered")}
+                  </p>
+                </div>
+              </div>
+              
+              {questionnaireTokenData?.questionnaireToken ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                    <Input
+                      value={getQuestionnaireUrl() || ""}
+                      readOnly
+                      className="flex-1 bg-background text-sm font-mono"
+                      data-testid="input-questionnaire-url-inline"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyLink}
+                      data-testid="button-copy-questionnaire-link-inline"
+                    >
+                      {linkCopied ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateQuestionnaireTokenMutation.mutate()}
+                      disabled={generateQuestionnaireTokenMutation.isPending}
+                      data-testid="button-regenerate-questionnaire-link-inline"
+                    >
+                      {generateQuestionnaireTokenMutation.isPending ? (
+                        <i className="fas fa-spinner fa-spin mr-2"></i>
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      {t("admin.regenerateLink", "Regenerate Link")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                      onClick={() => {
+                        if (confirm(t("admin.disableLinkConfirm", "Are you sure you want to disable this link? Patients won't be able to access the form."))) {
+                          deleteQuestionnaireTokenMutation.mutate();
+                        }
+                      }}
+                      disabled={deleteQuestionnaireTokenMutation.isPending}
+                      data-testid="button-disable-questionnaire-link-inline"
+                    >
+                      {deleteQuestionnaireTokenMutation.isPending ? (
+                        <i className="fas fa-spinner fa-spin mr-2"></i>
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-2" />
+                      )}
+                      {t("admin.disableLink", "Disable Link")}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.noQuestionnaireLinkGenerated", "No questionnaire link has been generated yet.")}
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => generateQuestionnaireTokenMutation.mutate()}
+                    disabled={generateQuestionnaireTokenMutation.isPending}
+                    data-testid="button-generate-questionnaire-link-inline"
+                  >
+                    {generateQuestionnaireTokenMutation.isPending ? (
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                    ) : (
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                    )}
+                    {t("admin.generateLink", "Generate Link")}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Data & Lists Tab Content */}
+      {activeTab === "data" && (
+        <div className="space-y-4">
+          {/* Seed Default Data Card */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground text-lg">
+                  <i className="fas fa-database mr-2 text-primary"></i>
+                  {t("admin.defaultDataSetup", "Default Data Setup")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("admin.defaultDataSetupDescription", "Populate hospital with default units, surgery rooms, administration groups, and medications")}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  <i className="fas fa-info-circle mr-1"></i>
+                  {t("admin.defaultDataSetupNote", "Only adds missing items - never replaces existing data")}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSeedDialogOpen(true)}
+                disabled={seedHospitalMutation.isPending}
+                data-testid="button-seed-hospital"
+              >
+                {seedHospitalMutation.isPending ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                    {t("admin.seeding", "Seeding...")}
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-seedling mr-2"></i>
+                    {t("admin.seedDefaultData", "Seed Default Data")}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Reset Lists Card */}
+          <div className="bg-card border border-destructive/30 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground text-lg">
+                  <i className="fas fa-rotate-right mr-2 text-destructive"></i>
+                  {t("admin.resetLists", "Reset Lists")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("admin.resetListsDescription", "Reset allergies, medications, and checklists to default values")}
+                </p>
+                <p className="text-xs text-destructive mt-1">
+                  <i className="fas fa-exclamation-triangle mr-1"></i>
+                  {t("admin.resetListsWarning", "Warning: This will replace all customizations with defaults")}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-destructive text-destructive hover:bg-destructive/10"
+                onClick={() => setResetListsDialogOpen(true)}
+                disabled={resetListsMutation.isPending}
+                data-testid="button-reset-lists"
+              >
+                {resetListsMutation.isPending ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                    {t("admin.resetting", "Resetting...")}
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-rotate-right mr-2"></i>
+                    {t("admin.resetLists", "Reset Lists")}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Units Tab Content */}
       {activeTab === "units" && (
