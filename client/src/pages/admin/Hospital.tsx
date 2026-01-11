@@ -829,92 +829,94 @@ export default function Hospital() {
         </div>
       </div>
 
-      {/* Internal Tab Switcher */}
-      <div className="flex gap-2 flex-wrap">
-        <button
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === "settings"
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-          onClick={() => setActiveTab("settings")}
-          data-testid="tab-settings"
-        >
-          <Settings className="h-4 w-4 mr-2 inline" />
-          {t("admin.generalSettings", "General Settings")}
-        </button>
-        <button
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === "data"
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-          onClick={() => setActiveTab("data")}
-          data-testid="tab-data"
-        >
-          <i className="fas fa-database mr-2"></i>
-          {t("admin.dataAndLists", "Data & Lists")}
-        </button>
-        <button
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === "units"
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-          onClick={() => setActiveTab("units")}
-          data-testid="tab-units"
-        >
-          <i className="fas fa-location-dot mr-2"></i>
-          {t("admin.units")}
-        </button>
-        <button
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === "rooms"
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-          onClick={() => setActiveTab("rooms")}
-          data-testid="tab-rooms"
-        >
-          <i className="fas fa-door-open mr-2"></i>
-          {t("admin.rooms", "Rooms")}
-        </button>
-        <button
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === "checklists"
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-          onClick={() => setActiveTab("checklists")}
-          data-testid="tab-checklists"
-        >
-          <i className="fas fa-clipboard-check mr-2"></i>
-          {t("admin.checklists")}
-        </button>
-        <button
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === "suppliers"
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-          onClick={() => setActiveTab("suppliers")}
-          data-testid="tab-suppliers"
-        >
-          <i className="fas fa-truck mr-2"></i>
-          Suppliers
-        </button>
-        <button
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            activeTab === "integrations"
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted text-muted-foreground hover:bg-muted/80"
-          }`}
-          onClick={() => setActiveTab("integrations")}
-          data-testid="tab-integrations"
-        >
-          <Settings className="h-4 w-4 mr-2 inline" />
-          {t("admin.integrations", "Integrations")}
-        </button>
+      {/* Menu Tab Navigation */}
+      <div className="border-b border-border">
+        <nav className="flex gap-0 overflow-x-auto" aria-label="Tabs">
+          <button
+            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              activeTab === "settings"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+            onClick={() => setActiveTab("settings")}
+            data-testid="tab-settings"
+          >
+            <Settings className="h-4 w-4 mr-2 inline" />
+            {t("admin.generalSettings", "General Settings")}
+          </button>
+          <button
+            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              activeTab === "data"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+            onClick={() => setActiveTab("data")}
+            data-testid="tab-data"
+          >
+            <i className="fas fa-database mr-2"></i>
+            {t("admin.dataAndLists", "Data & Lists")}
+          </button>
+          <button
+            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              activeTab === "units"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+            onClick={() => setActiveTab("units")}
+            data-testid="tab-units"
+          >
+            <i className="fas fa-location-dot mr-2"></i>
+            {t("admin.units")}
+          </button>
+          <button
+            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              activeTab === "rooms"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+            onClick={() => setActiveTab("rooms")}
+            data-testid="tab-rooms"
+          >
+            <i className="fas fa-door-open mr-2"></i>
+            {t("admin.rooms", "Rooms")}
+          </button>
+          <button
+            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              activeTab === "checklists"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+            onClick={() => setActiveTab("checklists")}
+            data-testid="tab-checklists"
+          >
+            <i className="fas fa-clipboard-check mr-2"></i>
+            {t("admin.checklists")}
+          </button>
+          <button
+            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              activeTab === "suppliers"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+            onClick={() => setActiveTab("suppliers")}
+            data-testid="tab-suppliers"
+          >
+            <i className="fas fa-truck mr-2"></i>
+            Suppliers
+          </button>
+          <button
+            className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              activeTab === "integrations"
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+            onClick={() => setActiveTab("integrations")}
+            data-testid="tab-integrations"
+          >
+            <Settings className="h-4 w-4 mr-2 inline" />
+            {t("admin.integrations", "Integrations")}
+          </button>
+        </nav>
       </div>
 
       {/* General Settings Tab Content */}
