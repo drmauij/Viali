@@ -156,7 +156,9 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const canWriteHook = useCanWrite();
   
   const effectiveUnitId = overrideUnitId || activeHospital?.unitId;
-  const canWrite = canWriteHook && !readOnly && !overrideUnitId;
+  // Logistics module users can edit items from any unit they can view
+  const hasLogisticsAccess = activeHospital?.isLogisticModule === true;
+  const canWrite = canWriteHook && !readOnly && (!overrideUnitId || hasLogisticsAccess);
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState("name");

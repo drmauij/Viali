@@ -19,7 +19,8 @@ import {
   getUserUnitForHospital,
   getActiveUnitIdFromRequest,
   checkLicenseLimit,
-  requireWriteAccess
+  requireWriteAccess,
+  hasLogisticsAccess
 } from "../utils";
 
 interface AuthenticatedRequest extends Request {
@@ -555,8 +556,12 @@ router.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (r
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
     
+    // Allow access if user's unit matches the item's unit OR if user has logistics access
     if (unitId !== item.unitId) {
-      return res.status(403).json({ message: "Access denied to this item" });
+      const userHasLogisticsAccess = await hasLogisticsAccess(userId, item.hospitalId);
+      if (!userHasLogisticsAccess) {
+        return res.status(403).json({ message: "Access denied to this item" });
+      }
     }
     
     if (item.controlled && req.body.currentUnits !== undefined && req.body.currentUnits !== item.currentUnits) {
@@ -629,8 +634,16 @@ router.patch('/api/items/:itemId/reduce-unit', isAuthenticated, requireWriteAcce
     }
     
     const unitId = await getUserUnitForHospital(userId, item.hospitalId, activeUnitId || undefined);
-    if (!unitId || unitId !== item.unitId) {
+    if (!unitId) {
       return res.status(403).json({ message: "Access denied to this item" });
+    }
+    
+    // Allow access if user's unit matches the item's unit OR if user has logistics access
+    if (unitId !== item.unitId) {
+      const userHasLogisticsAccess = await hasLogisticsAccess(userId, item.hospitalId);
+      if (!userHasLogisticsAccess) {
+        return res.status(403).json({ message: "Access denied to this item" });
+      }
     }
     
     if (item.controlled) {
@@ -695,9 +708,12 @@ router.delete('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
     
-    // Verify item belongs to user's active unit
+    // Allow access if user's unit matches the item's unit OR if user has logistics access
     if (item.unitId !== unitId) {
-      return res.status(403).json({ message: "Access denied to this item" });
+      const userHasLogisticsAccess = await hasLogisticsAccess(userId, item.hospitalId);
+      if (!userHasLogisticsAccess) {
+        return res.status(403).json({ message: "Access denied to this item" });
+      }
     }
     
     await storage.deleteItem(itemId);
@@ -733,9 +749,18 @@ router.post('/api/items/bulk-delete', isAuthenticated, requireWriteAccess, async
         
         // Use active unit from request header, or fall back to user's default unit
         const unitId = await getUserUnitForHospital(userId, item.hospitalId, activeUnitId || undefined);
-        if (!unitId || unitId !== item.unitId) {
+        if (!unitId) {
           results.failed.push({ id: itemId, reason: "Access denied" });
           continue;
+        }
+        
+        // Allow access if user's unit matches the item's unit OR if user has logistics access
+        if (unitId !== item.unitId) {
+          const userHasLogisticsAccess = await hasLogisticsAccess(userId, item.hospitalId);
+          if (!userHasLogisticsAccess) {
+            results.failed.push({ id: itemId, reason: "Access denied" });
+            continue;
+          }
         }
         
         await storage.deleteItem(itemId);
