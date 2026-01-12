@@ -374,12 +374,12 @@ export default function ClinicCalendar({
     refetchInterval: 60000,
   });
 
-  // Fetch provider time offs (manually created)
+  // Fetch provider time offs (manually created) - expanded for recurring entries
   const { data: providerTimeOffs = [] } = useQuery<ProviderTimeOff[]>({
-    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/time-off`, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/time-off`, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd'), 'expanded'],
     queryFn: async () => {
       const response = await fetch(
-        `/api/clinic/${hospitalId}/units/${unitId}/time-off?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`,
+        `/api/clinic/${hospitalId}/units/${unitId}/time-off?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}&expand=true`,
         { credentials: 'include' }
       );
       if (!response.ok) return [];

@@ -33,6 +33,7 @@ import {
   CalendarCheck,
   Settings,
   Info,
+  Repeat,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
@@ -467,13 +468,32 @@ export function ManageAvailabilityDialog({
                           className="flex items-center justify-between p-2 rounded-lg border"
                           data-testid={`timeoff-dialog-${item.id}`}
                         >
-                          <div className="text-sm">
-                            <div className="font-medium">
+                          <div className="text-sm flex-1">
+                            <div className="font-medium flex items-center gap-2">
+                              {item.isRecurring && (
+                                <Repeat className="h-4 w-4 text-blue-500" />
+                              )}
                               {format(parseISO(item.startDate), 'PP', { locale: dateLocale })}
-                              {item.startDate !== item.endDate && (
+                              {!item.isRecurring && item.startDate !== item.endDate && (
                                 <> - {format(parseISO(item.endDate), 'PP', { locale: dateLocale })}</>
                               )}
                             </div>
+                            {item.isRecurring && (
+                              <p className="text-xs text-blue-600">
+                                {item.recurrencePattern === 'weekly' && t('availability.weekly', 'Weekly')}
+                                {item.recurrencePattern === 'biweekly' && t('availability.biweekly', 'Every 2 Weeks')}
+                                {item.recurrencePattern === 'monthly' && t('availability.monthly', 'Monthly')}
+                                {item.recurrenceDaysOfWeek && item.recurrenceDaysOfWeek.length > 0 && (
+                                  <> ({item.recurrenceDaysOfWeek.map(d => DAY_NAMES[d]).join(', ')})</>
+                                )}
+                                {item.recurrenceEndDate && (
+                                  <> until {format(parseISO(item.recurrenceEndDate), 'PP', { locale: dateLocale })}</>
+                                )}
+                                {item.recurrenceCount && (
+                                  <> ({item.recurrenceCount} times)</>
+                                )}
+                              </p>
+                            )}
                             {item.reason && (
                               <p className="text-muted-foreground">{item.reason}</p>
                             )}
@@ -515,6 +535,8 @@ export function ManageAvailabilityDialog({
   );
 }
 
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
 function TimeOffDialog({
   open,
   onOpenChange,
@@ -533,14 +555,34 @@ function TimeOffDialog({
   const [isFullDay, setIsFullDay] = useState(true);
   const [startTime, setStartTime] = useState("08:00");
   const [endTime, setEndTime] = useState("17:00");
+  
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrencePattern, setRecurrencePattern] = useState<string>('weekly');
+  const [recurrenceDaysOfWeek, setRecurrenceDaysOfWeek] = useState<number[]>([]);
+  const [recurrenceEndType, setRecurrenceEndType] = useState<'never' | 'date' | 'count'>('never');
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState<string>('');
+  const [recurrenceCount, setRecurrenceCount] = useState<number>(10);
+
+  const toggleDayOfWeek = (day: number) => {
+    if (recurrenceDaysOfWeek.includes(day)) {
+      setRecurrenceDaysOfWeek(recurrenceDaysOfWeek.filter(d => d !== day));
+    } else {
+      setRecurrenceDaysOfWeek([...recurrenceDaysOfWeek, day]);
+    }
+  };
 
   const handleSubmit = () => {
     onSubmit({
       startDate,
-      endDate,
+      endDate: isRecurring ? startDate : endDate,
       reason: reason || null,
       startTime: isFullDay ? null : startTime,
       endTime: isFullDay ? null : endTime,
+      isRecurring,
+      recurrencePattern: isRecurring ? recurrencePattern : null,
+      recurrenceDaysOfWeek: isRecurring && recurrenceDaysOfWeek.length > 0 ? recurrenceDaysOfWeek : null,
+      recurrenceEndDate: isRecurring && recurrenceEndType === 'date' ? recurrenceEndDate : null,
+      recurrenceCount: isRecurring && recurrenceEndType === 'count' ? recurrenceCount : null,
     });
   };
 
@@ -617,6 +659,99 @@ function TimeOffDialog({
               placeholder={t('availability.reasonPlaceholder', 'e.g., Vacation, Conference')}
               data-testid="input-timeoff-reason-nested"
             />
+          </div>
+
+          <div className="border-t pt-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={isRecurring}
+                onCheckedChange={setIsRecurring}
+                data-testid="switch-recurring-nested"
+              />
+              <Label className="font-medium">{t('availability.recurring', 'Recurring Time Off')}</Label>
+            </div>
+
+            {isRecurring && (
+              <>
+                <div>
+                  <Label>{t('availability.pattern', 'Repeat Pattern')}</Label>
+                  <Select value={recurrencePattern} onValueChange={setRecurrencePattern}>
+                    <SelectTrigger data-testid="select-pattern-nested">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="weekly">{t('availability.weekly', 'Weekly')}</SelectItem>
+                      <SelectItem value="biweekly">{t('availability.biweekly', 'Every 2 Weeks')}</SelectItem>
+                      <SelectItem value="monthly">{t('availability.monthly', 'Monthly')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(recurrencePattern === 'weekly' || recurrencePattern === 'biweekly') && (
+                  <div>
+                    <Label className="mb-2 block">{t('availability.daysOfWeek', 'Days of Week')}</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {DAY_NAMES.map((day, index) => (
+                        <Button
+                          key={index}
+                          type="button"
+                          variant={recurrenceDaysOfWeek.includes(index) ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => toggleDayOfWeek(index)}
+                          data-testid={`button-day-${index}-nested`}
+                        >
+                          {day}
+                        </Button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t('availability.daysHint', 'Leave empty to repeat on the same day each week')}
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <Label>{t('availability.ends', 'Ends')}</Label>
+                  <Select value={recurrenceEndType} onValueChange={(v) => setRecurrenceEndType(v as any)}>
+                    <SelectTrigger data-testid="select-end-type-nested">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="never">{t('availability.never', 'Never')}</SelectItem>
+                      <SelectItem value="date">{t('availability.onDate', 'On Date')}</SelectItem>
+                      <SelectItem value="count">{t('availability.afterOccurrences', 'After X Occurrences')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {recurrenceEndType === 'date' && (
+                  <div>
+                    <Label>{t('availability.endDate', 'End Date')}</Label>
+                    <Input
+                      type="date"
+                      value={recurrenceEndDate}
+                      onChange={(e) => setRecurrenceEndDate(e.target.value)}
+                      min={startDate}
+                      data-testid="input-recurrence-end-date-nested"
+                    />
+                  </div>
+                )}
+
+                {recurrenceEndType === 'count' && (
+                  <div>
+                    <Label>{t('availability.occurrences', 'Number of Occurrences')}</Label>
+                    <Input
+                      type="number"
+                      value={recurrenceCount}
+                      onChange={(e) => setRecurrenceCount(parseInt(e.target.value) || 10)}
+                      min={1}
+                      max={365}
+                      data-testid="input-recurrence-count-nested"
+                    />
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 
