@@ -139,26 +139,8 @@ export default function LogisticOrders() {
 
   return (
     <div className="flex flex-col h-full">
-      <Tabs defaultValue="orders" className="flex flex-col flex-1">
-        <div className="border-b bg-background sticky top-0 z-10">
-          <div className="container px-4">
-            <TabsList className="h-12">
-              <TabsTrigger value="inventory" asChild>
-                <Link href="/logistic/inventory" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
-                  <i className="fas fa-boxes mr-2"></i>
-                  {t('logistic.inventory', 'Inventory')}
-                </Link>
-              </TabsTrigger>
-              <TabsTrigger value="orders" className="data-[state=active]:bg-primary/10">
-                <i className="fas fa-clipboard-list mr-2"></i>
-                {t('logistic.orders', 'Orders')}
-              </TabsTrigger>
-            </TabsList>
-          </div>
-        </div>
-
-        <TabsContent value="orders" className="flex-1 m-0">
-          <div className="bg-muted/30 border-b py-3 px-4">
+      <div className="flex-1">
+        <div className="bg-muted/30 border-b py-3 px-4">
             <div className="container flex items-center gap-4">
               <label className="text-sm font-medium text-muted-foreground">
                 {t('logistic.filterByUnit', 'Filter by Unit')}:
@@ -242,8 +224,7 @@ export default function LogisticOrders() {
               </div>
             )}
           </div>
-        </TabsContent>
-      </Tabs>
+      </div>
 
       <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
         <DialogContent className="max-w-2xl" data-testid="order-detail-dialog">

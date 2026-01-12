@@ -38,26 +38,8 @@ export default function LogisticInventory() {
 
   return (
     <div className="flex flex-col h-full">
-      <Tabs defaultValue="inventory" className="flex flex-col flex-1">
-        <div className="border-b bg-background sticky top-0 z-10">
-          <div className="container px-4">
-            <TabsList className="h-12">
-              <TabsTrigger value="inventory" className="data-[state=active]:bg-primary/10">
-                <i className="fas fa-boxes mr-2"></i>
-                {t('logistic.inventory', 'Inventory')}
-              </TabsTrigger>
-              <TabsTrigger value="orders" asChild>
-                <Link href="/logistic/orders" className="inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50">
-                  <i className="fas fa-clipboard-list mr-2"></i>
-                  {t('logistic.orders', 'Orders')}
-                </Link>
-              </TabsTrigger>
-            </TabsList>
-          </div>
-        </div>
-
-        <TabsContent value="inventory" className="flex-1 m-0">
-          <div className="bg-muted/30 border-b py-3 px-4">
+      <div className="flex-1">
+        <div className="bg-muted/30 border-b py-3 px-4">
             <div className="container flex flex-wrap items-center gap-4">
               <label className="text-sm font-medium text-muted-foreground">
                 {t('logistic.selectUnit', 'Select Unit')}:
@@ -143,8 +125,7 @@ export default function LogisticInventory() {
               </Card>
             </div>
           )}
-        </TabsContent>
-      </Tabs>
+      </div>
     </div>
   );
 }
