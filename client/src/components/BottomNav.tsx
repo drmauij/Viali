@@ -182,6 +182,13 @@ export default function BottomNav() {
       return clinicItems;
     }
     
+    if (activeModule === "logistic") {
+      return [
+        { id: "logistic-inventory", icon: "fas fa-boxes", label: t('bottomNav.logistic.inventory', 'Inventory'), path: "/logistic/inventory" },
+        { id: "logistic-orders", icon: "fas fa-clipboard-list", label: t('bottomNav.logistic.orders', 'Orders'), path: "/logistic/orders" },
+      ];
+    }
+    
     // Inventory module nav items
     return [
       { id: "items", icon: "fas fa-boxes", label: t('bottomNav.items'), path: "/inventory/items" },

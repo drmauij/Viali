@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useLocation } from "wouter";
 
-export type Module = "inventory" | "anesthesia" | "surgery" | "admin" | "business" | "clinic";
+export type Module = "inventory" | "anesthesia" | "surgery" | "admin" | "business" | "clinic" | "logistic";
 
 export interface ModuleContextType {
   activeModule: Module;
@@ -23,6 +23,7 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
     if (saved === "admin") return "admin";
     if (saved === "business") return "business";
     if (saved === "clinic") return "clinic";
+    if (saved === "logistic") return "logistic";
     return "inventory";
   });
 
@@ -51,6 +52,9 @@ export function ModuleProvider({ children }: { children: ReactNode }) {
     } else if (location?.startsWith("/clinic")) {
       setActiveModuleState("clinic");
       localStorage.setItem("activeModule", "clinic");
+    } else if (location?.startsWith("/logistic")) {
+      setActiveModuleState("logistic");
+      localStorage.setItem("activeModule", "logistic");
     }
     // Note: old routes like /items, /orders will be redirected or removed
   }, [location]);
