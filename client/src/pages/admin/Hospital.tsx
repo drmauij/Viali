@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus } from "lucide-react";
+import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus, MessageSquare } from "lucide-react";
 import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
@@ -1824,6 +1824,9 @@ export default function Hospital() {
 
           {/* Cal.com Integration Card (for RetellAI booking) */}
           <CalcomIntegrationCard hospitalId={activeHospital?.id} />
+
+          {/* Vonage SMS Integration Card */}
+          <VonageIntegrationCard hospitalId={activeHospital?.id} />
         </div>
       )}
 
@@ -3012,6 +3015,319 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
               >
                 {addMappingMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : null}
                 Add Mapping
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// Vonage SMS Integration Card Component
+function VonageIntegrationCard({ hospitalId }: { hospitalId?: string }) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  
+  const [vonageApiKey, setVonageApiKey] = useState("");
+  const [vonageApiSecret, setVonageApiSecret] = useState("");
+  const [vonageFromNumber, setVonageFromNumber] = useState("");
+  const [vonageEnabled, setVonageEnabled] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [showApiSecret, setShowApiSecret] = useState(false);
+  const [testPhoneNumber, setTestPhoneNumber] = useState("");
+  const [showTestDialog, setShowTestDialog] = useState(false);
+
+  // Vonage config query
+  const { data: vonageConfigData, isLoading: vonageLoading } = useQuery<{
+    hospitalId: string;
+    isEnabled?: boolean;
+    hasApiKey?: boolean;
+    hasApiSecret?: boolean;
+    hasFromNumber?: boolean;
+    lastTestedAt?: string;
+    lastTestStatus?: string;
+    lastTestError?: string;
+  }>({
+    queryKey: [`/api/admin/${hospitalId}/integrations/vonage`],
+    enabled: !!hospitalId,
+  });
+
+  // Sync Vonage state when data is fetched
+  useEffect(() => {
+    if (vonageConfigData) {
+      setVonageEnabled(vonageConfigData.isEnabled || false);
+    }
+  }, [vonageConfigData]);
+
+  // Vonage config mutation
+  const saveVonageConfigMutation = useMutation({
+    mutationFn: async (data: { apiKey?: string; apiSecret?: string; fromNumber?: string; isEnabled: boolean }) => {
+      const response = await apiRequest("PUT", `/api/admin/${hospitalId}/integrations/vonage`, data);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/integrations/vonage`] });
+      toast({ title: t("common.success"), description: "Vonage configuration saved" });
+      setVonageApiKey("");
+      setVonageApiSecret("");
+      setVonageFromNumber("");
+      setShowApiKey(false);
+      setShowApiSecret(false);
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to save Vonage configuration", variant: "destructive" });
+    },
+  });
+
+  // Test Vonage connection mutation
+  const testVonageMutation = useMutation({
+    mutationFn: async (testNumber?: string) => {
+      const response = await apiRequest("POST", `/api/admin/${hospitalId}/integrations/vonage/test`, { testPhoneNumber: testNumber });
+      return await response.json();
+    },
+    onSuccess: () => {
+      toast({ 
+        title: t("common.success"), 
+        description: "Test SMS sent successfully! Check your phone.",
+      });
+      setShowTestDialog(false);
+      setTestPhoneNumber("");
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/integrations/vonage`] });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to send test SMS", variant: "destructive" });
+    },
+  });
+
+  // Delete Vonage config mutation
+  const deleteVonageConfigMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("DELETE", `/api/admin/${hospitalId}/integrations/vonage`);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${hospitalId}/integrations/vonage`] });
+      toast({ title: t("common.success"), description: "Vonage configuration removed" });
+      setVonageEnabled(false);
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to remove Vonage configuration", variant: "destructive" });
+    },
+  });
+
+  if (!hospitalId) return null;
+
+  const isConfigured = vonageConfigData?.hasApiKey && vonageConfigData?.hasApiSecret && vonageConfigData?.hasFromNumber;
+
+  return (
+    <>
+      <div className="bg-card border border-border rounded-lg p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+              <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-foreground">Vonage SMS</h3>
+              <p className="text-sm text-muted-foreground">Send SMS messages to patients using your own Vonage account</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={vonageEnabled}
+              onCheckedChange={(checked) => {
+                setVonageEnabled(checked);
+                saveVonageConfigMutation.mutate({ isEnabled: checked });
+              }}
+              disabled={saveVonageConfigMutation.isPending || !isConfigured}
+              data-testid="switch-vonage-enabled"
+            />
+            <span className={`text-sm ${vonageEnabled && isConfigured ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`}>
+              {vonageEnabled && isConfigured ? t("common.enabled", "Enabled") : t("common.disabled", "Disabled")}
+            </span>
+          </div>
+        </div>
+
+        {vonageLoading ? (
+          <div className="text-center py-4">
+            <i className="fas fa-spinner fa-spin text-xl text-primary"></i>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {/* Current Status */}
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-muted-foreground">{t("admin.status", "Status")}:</span>
+              {isConfigured ? (
+                <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <i className="fas fa-check-circle"></i>
+                  Credentials configured
+                </span>
+              ) : (
+                <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                  <i className="fas fa-exclamation-triangle"></i>
+                  Credentials not configured
+                </span>
+              )}
+            </div>
+
+            {vonageConfigData?.lastTestedAt && (
+              <div className="text-sm text-muted-foreground">
+                <span>Last test:</span>{" "}
+                <span>{new Date(vonageConfigData.lastTestedAt).toLocaleString()}</span>
+                {vonageConfigData.lastTestStatus === 'success' ? (
+                  <span className="ml-2 text-green-500">✓ Success</span>
+                ) : vonageConfigData.lastTestStatus === 'failed' ? (
+                  <span className="ml-2 text-red-500">✗ Failed{vonageConfigData.lastTestError ? `: ${vonageConfigData.lastTestError}` : ''}</span>
+                ) : null}
+              </div>
+            )}
+
+            {/* Credentials Form */}
+            <div className="space-y-3 border-t border-border pt-4">
+              <div>
+                <Label htmlFor="vonage-api-key">API Key</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="vonage-api-key"
+                    type={showApiKey ? "text" : "password"}
+                    value={vonageApiKey}
+                    onChange={(e) => setVonageApiKey(e.target.value)}
+                    placeholder={vonageConfigData?.hasApiKey ? "••••••••" : "Enter API Key"}
+                    data-testid="input-vonage-api-key"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowApiKey(!showApiKey)}
+                  >
+                    {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="vonage-api-secret">API Secret</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="vonage-api-secret"
+                    type={showApiSecret ? "text" : "password"}
+                    value={vonageApiSecret}
+                    onChange={(e) => setVonageApiSecret(e.target.value)}
+                    placeholder={vonageConfigData?.hasApiSecret ? "••••••••" : "Enter API Secret"}
+                    data-testid="input-vonage-api-secret"
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowApiSecret(!showApiSecret)}
+                  >
+                    {showApiSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              
+              <div>
+                <Label htmlFor="vonage-from-number">From Number</Label>
+                <Input
+                  id="vonage-from-number"
+                  type="text"
+                  value={vonageFromNumber}
+                  onChange={(e) => setVonageFromNumber(e.target.value)}
+                  placeholder={vonageConfigData?.hasFromNumber ? "••••••••" : "+41xxxxxxxxx"}
+                  data-testid="input-vonage-from-number"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  The phone number registered with Vonage (in E.164 format)
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowTestDialog(true)}
+                  disabled={testVonageMutation.isPending || !isConfigured}
+                  data-testid="button-test-vonage"
+                >
+                  {testVonageMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : null}
+                  Test SMS
+                </Button>
+                <Button
+                  onClick={() => saveVonageConfigMutation.mutate({
+                    apiKey: vonageApiKey || undefined,
+                    apiSecret: vonageApiSecret || undefined,
+                    fromNumber: vonageFromNumber || undefined,
+                    isEnabled: vonageEnabled,
+                  })}
+                  disabled={saveVonageConfigMutation.isPending || (!vonageApiKey && !vonageApiSecret && !vonageFromNumber)}
+                  data-testid="button-save-vonage"
+                >
+                  {saveVonageConfigMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : <i className="fas fa-save mr-2"></i>}
+                  {t("common.save", "Save")}
+                </Button>
+                {isConfigured && (
+                  <Button
+                    variant="destructive"
+                    onClick={() => deleteVonageConfigMutation.mutate()}
+                    disabled={deleteVonageConfigMutation.isPending}
+                    data-testid="button-delete-vonage"
+                  >
+                    {deleteVonageConfigMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : <Trash2 className="h-4 w-4 mr-2" />}
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="bg-muted/50 rounded-lg p-4 text-sm">
+              <h4 className="font-medium mb-2">How to set up Vonage SMS</h4>
+              <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                <li>Create a Vonage account at <a href="https://www.vonage.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">vonage.com</a></li>
+                <li>Navigate to Dashboard → API Settings to find your API Key and Secret</li>
+                <li>Purchase a phone number for sending SMS</li>
+                <li>Enter your credentials above and save</li>
+                <li>Use the "Test SMS" button to verify the configuration</li>
+              </ol>
+              <p className="mt-3 text-xs text-muted-foreground">
+                <strong>Note:</strong> SMS messages will be sent from your Vonage number. Standard SMS rates apply based on your Vonage plan.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Test SMS Dialog */}
+      <Dialog open={showTestDialog} onOpenChange={setShowTestDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Test SMS</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="test-phone">Phone Number</Label>
+              <Input
+                id="test-phone"
+                type="tel"
+                value={testPhoneNumber}
+                onChange={(e) => setTestPhoneNumber(e.target.value)}
+                placeholder="+41791234567"
+                data-testid="input-test-phone"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter a phone number to receive the test SMS. Leave empty to send to the configured from number.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setShowTestDialog(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => testVonageMutation.mutate(testPhoneNumber || undefined)}
+                disabled={testVonageMutation.isPending}
+              >
+                {testVonageMutation.isPending ? <i className="fas fa-spinner fa-spin mr-2"></i> : null}
+                Send Test
               </Button>
             </div>
           </div>
