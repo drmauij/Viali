@@ -95,15 +95,21 @@ export default function Layout({ children }: LayoutProps) {
     const isCurrentMedical = ["anesthesia", "surgery", "clinic"].includes(currentModule);
     const isNewMedical = hospital.isAnesthesiaModule || hospital.isSurgeryModule || hospital.isClinicModule;
     
-    if (isCurrentOrModule && isNewOrModule && orSharedPages.some(page => currentPage === page || currentPage.startsWith(page + "/"))) {
-      // Moving between OR modules with a shared page - preserve it
+    // Pages that actually exist in each module - only preserve if target module has the page
+    const modulePages: Record<string, string[]> = {
+      anesthesia: ["op", "patients", "pacu", "preop", "settings", "appointments"],
+      surgery: ["op", "patients", "preop", "checklists"],
+      clinic: ["patients", "appointments", "questionnaires"],
+      logistic: ["inventory", "orders"],
+      inventory: ["items", "services", "orders", "matches"],
+    };
+    
+    if (isCurrentOrModule && isNewOrModule && orSharedPages.some(page => currentPage === page || currentPage.startsWith(page + "/")) && currentPage !== "inventory") {
+      // Moving between OR modules with a shared page (excluding inventory which doesn't exist) - preserve it
       redirectPath = `/${newModulePrefix}/${currentPage}`;
-    } else if (isCurrentMedical && isNewMedical && medicalSharedPages.some(page => currentPage === page || currentPage.startsWith(page + "/"))) {
-      // Moving between medical modules with a shared page - preserve it
-      redirectPath = `/${newModulePrefix}/${currentPage}`;
-    } else if (currentModule === "inventory" && (hospital.isAnesthesiaModule || hospital.isSurgeryModule || hospital.isClinicModule)) {
-      // Coming from standalone inventory to a module with inventory
-      redirectPath = `/${newModulePrefix}/inventory`;
+    } else if (isCurrentMedical && isNewMedical && currentPage === "patients") {
+      // Only "patients" is shared across medical modules
+      redirectPath = `/${newModulePrefix}/patients`;
     } else {
       // Default fallback to module home
       if (hospital.isClinicModule) {
