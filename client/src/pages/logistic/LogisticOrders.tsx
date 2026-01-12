@@ -54,13 +54,13 @@ export default function LogisticOrders() {
   const [filterUnitId, setFilterUnitId] = useState<string>("all");
 
   const { data: allUnits = [] } = useQuery<Unit[]>({
-    queryKey: [`/api/units/${activeHospital?.hospitalId}`],
-    enabled: !!activeHospital?.hospitalId,
+    queryKey: [`/api/units/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
   });
 
   const { data: allOrders = [], isLoading } = useQuery<OrderWithDetails[]>({
-    queryKey: [`/api/logistic/orders/${activeHospital?.hospitalId}`],
-    enabled: !!activeHospital?.hospitalId,
+    queryKey: [`/api/logistic/orders/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
   });
 
   const filteredOrders = useMemo(() => {
@@ -78,7 +78,7 @@ export default function LogisticOrders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/logistic/orders/${activeHospital?.hospitalId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/logistic/orders/${activeHospital?.id}`] });
       toast({ title: t('orders.statusUpdated', 'Order status updated') });
     },
     onError: () => {

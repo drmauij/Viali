@@ -1381,6 +1381,7 @@ router.get('/api/supplier-matches/:hospitalId/confirmed', isAuthenticated, async
 router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
+    const { unitId: queryUnitId } = req.query;
     const userId = req.user.id;
     
     const userHospitals = await storage.getUserHospitals(userId);
@@ -1391,9 +1392,24 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
     
     // Get active unit from request header to filter items by unit (same as standard inventory)
     const activeUnitId = getActiveUnitIdFromRequest(req);
-    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
-    if (!unitId) {
+    const userUnitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
+    if (!userUnitId) {
       return res.status(403).json({ message: "Access denied - no unit access" });
+    }
+    
+    // Allow cross-unit access if user's unit has isLogisticModule enabled
+    let unitId = userUnitId;
+    if (queryUnitId && queryUnitId !== userUnitId) {
+      const userUnit = await storage.getUnit(userUnitId);
+      if (!userUnit?.isLogisticModule) {
+        return res.status(403).json({ message: "Access denied - logistics module required for cross-unit access" });
+      }
+      // Verify the requested unit belongs to this hospital
+      const requestedUnit = await storage.getUnit(queryUnitId as string);
+      if (!requestedUnit || requestedUnit.hospitalId !== hospitalId) {
+        return res.status(403).json({ message: "Invalid unit for this hospital" });
+      }
+      unitId = queryUnitId as string;
     }
     
     // Get all items for this hospital filtered by unit

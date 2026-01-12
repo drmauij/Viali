@@ -1270,6 +1270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Logistic Orders - cross-unit view (no unit filtering)
+  // Only available to users whose unit has isLogisticModule: true
   app.get('/api/logistic/orders/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
@@ -1280,6 +1281,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userUnitId = await getUserUnitForHospital(userId, hospitalId);
       if (!userUnitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Verify user's unit has isLogisticModule enabled
+      const userUnit = await storage.getUnit(userUnitId);
+      if (!userUnit?.isLogisticModule) {
+        return res.status(403).json({ message: "Access denied - logistics module required" });
       }
       
       // Get orders for the entire hospital (no unit filter for logistic view)
