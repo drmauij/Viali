@@ -157,7 +157,7 @@ export default function ChecklistMatrix() {
     enabled: !!selectedTemplateId && !!hospitalId && activeTab === "past",
   });
 
-  // Past cell states (read-only for past surgeries)
+  // Past cell states (now editable)
   const [pastCellStates, setPastCellStates] = useState<Record<string, MatrixCellState>>({});
 
   useEffect(() => {
@@ -178,6 +178,18 @@ export default function ChecklistMatrix() {
   const getPastCellState = (surgeryId: string, itemId: string): MatrixCellState => {
     const key = `${surgeryId}-${itemId}`;
     return pastCellStates[key] || { checked: false, note: "", isDirty: false };
+  };
+
+  const updatePastCellState = (surgeryId: string, itemId: string, updates: Partial<MatrixCellState>) => {
+    const key = `${surgeryId}-${itemId}`;
+    setPastCellStates(prev => ({
+      ...prev,
+      [key]: {
+        ...getPastCellState(surgeryId, itemId),
+        ...updates,
+        isDirty: true,
+      },
+    }));
   };
 
   useEffect(() => {
@@ -324,6 +336,69 @@ export default function ChecklistMatrix() {
     setEditingNote(current.note);
   };
 
+  // Past surgery mutation (same API, different state handling)
+  const savePastCellMutation = useMutation({
+    mutationFn: async ({ surgeryId, itemId, checked, note }: { surgeryId: string; itemId: string; checked: boolean; note: string }) => {
+      if (!selectedTemplateId) throw new Error("No template selected");
+      const res = await apiRequest("PUT", `/api/surgeries/${surgeryId}/checklist/entry`, {
+        templateId: selectedTemplateId,
+        itemId,
+        checked,
+        note: note || null,
+      });
+      return res.json();
+    },
+    onSuccess: (_, variables) => {
+      const key = `${variables.surgeryId}-${variables.itemId}`;
+      setPastCellStates(prev => ({
+        ...prev,
+        [key]: {
+          ...prev[key],
+          isDirty: false,
+        },
+      }));
+      setSavingCell(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/matrix/past', selectedTemplateId, hospitalId] });
+    },
+    onError: () => {
+      setSavingCell(null);
+      toast({ title: t('checklistMatrix.saveFailed', 'Failed to save'), variant: "destructive" });
+    },
+  });
+
+  const handlePastCellCheck = (surgeryId: string, itemId: string) => {
+    const cellKey = `${surgeryId}-${itemId}`;
+    const current = getPastCellState(surgeryId, itemId);
+    const newChecked = !current.checked;
+    setSavingCell(cellKey);
+    updatePastCellState(surgeryId, itemId, { checked: newChecked });
+    savePastCellMutation.mutate({
+      surgeryId,
+      itemId,
+      checked: newChecked,
+      note: current.note,
+    });
+  };
+
+  const handlePastNoteSubmit = (surgeryId: string, itemId: string) => {
+    const current = getPastCellState(surgeryId, itemId);
+    savePastCellMutation.mutate({
+      surgeryId,
+      itemId,
+      checked: current.checked,
+      note: editingNote,
+    });
+    updatePastCellState(surgeryId, itemId, { note: editingNote });
+    setEditingCell(null);
+    setEditingNote("");
+  };
+
+  const openPastNoteEditor = (surgeryId: string, itemId: string) => {
+    const current = getPastCellState(surgeryId, itemId);
+    setEditingCell(`${surgeryId}-${itemId}`);
+    setEditingNote(current.note);
+  };
+
   const getSurgeryContext = (surgery: SurgeryWithPatient): SurgeryContext => ({
     price: surgery.price || null,
     admissionTime: surgery.admissionTime || null,
@@ -355,6 +430,13 @@ export default function ChecklistMatrix() {
       }
     });
     return { checked, total: items.length };
+  };
+
+  const getStatusColor = (checked: number, total: number): { bg: string; text: string; icon: typeof CheckCircle2 } => {
+    if (total === 0) return { bg: "bg-gray-100 dark:bg-gray-800", text: "text-gray-600 dark:text-gray-400", icon: Circle };
+    if (checked === 0) return { bg: "bg-red-100 dark:bg-red-900/30", text: "text-red-600 dark:text-red-400", icon: AlertCircle };
+    if (checked === total) return { bg: "bg-green-100 dark:bg-green-900/30", text: "text-green-600 dark:text-green-400", icon: CheckCircle2 };
+    return { bg: "bg-yellow-100 dark:bg-yellow-900/30", text: "text-yellow-600 dark:text-yellow-400", icon: Circle };
   };
 
   const isLoading = templatesLoading || templateLoading || surgeriesLoading || matrixLoading;
@@ -604,53 +686,118 @@ export default function ChecklistMatrix() {
                           </span>
                         </td>
                         <td className="px-3 py-2 text-center">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Badge variant={isComplete ? "default" : "secondary"} className="gap-1">
-                                  {isComplete ? (
-                                    <CheckCircle2 className="h-3 w-3" />
-                                  ) : (
-                                    <Circle className="h-3 w-3" />
-                                  )}
-                                  {stats.checked}/{stats.total}
-                                </Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                {isComplete 
-                                  ? t('checklistMatrix.complete', 'All items complete')
-                                  : t('checklistMatrix.incomplete', '{{remaining}} items remaining', { remaining: stats.total - stats.checked })
-                                }
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                          {(() => {
+                            const statusColor = getStatusColor(stats.checked, stats.total);
+                            const StatusIcon = statusColor.icon;
+                            return (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger>
+                                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusColor.bg} ${statusColor.text}`}>
+                                      <StatusIcon className="h-3 w-3" />
+                                      {stats.checked}/{stats.total}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {stats.checked === stats.total 
+                                      ? t('checklistMatrix.complete', 'All items complete')
+                                      : stats.checked === 0
+                                        ? t('checklistMatrix.noneComplete', 'No items checked')
+                                        : t('checklistMatrix.incomplete', '{{remaining}} items remaining', { remaining: stats.total - stats.checked })
+                                    }
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            );
+                          })()}
                         </td>
                         {selectedTemplate.items.map((item) => {
+                          const cellKey = `${surgery.id}-${item.id}`;
                           const cellState = getPastCellState(surgery.id, item.id);
                           const resolvedLabel = resolvePlaceholders(item.label, surgeryContext);
                           const hasNote = cellState.note && cellState.note.length > 0;
+                          const isEditing = editingCell === cellKey;
                           
                           return (
                             <td key={item.id} className="px-2 py-2 text-center">
                               <div className="flex items-center justify-center gap-1">
                                 <Checkbox
                                   checked={cellState.checked}
-                                  disabled={true}
-                                  className="cursor-default"
+                                  onCheckedChange={() => handlePastCellCheck(surgery.id, item.id)}
+                                  disabled={savingCell === cellKey}
                                   data-testid={`checkbox-past-${surgery.id}-${item.id}`}
                                 />
-                                {hasNote && (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger>
-                                        <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <Popover 
+                                      open={isEditing} 
+                                      onOpenChange={(open) => {
+                                        if (!open) {
+                                          setEditingCell(null);
+                                          setEditingNote("");
+                                        }
+                                      }}
+                                    >
+                                      <TooltipTrigger asChild>
+                                        <PopoverTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-6 w-6"
+                                            onClick={() => openPastNoteEditor(surgery.id, item.id)}
+                                            data-testid={`button-past-note-${surgery.id}-${item.id}`}
+                                          >
+                                            <MessageSquare 
+                                              className={`h-3 w-3 ${hasNote ? 'text-primary fill-primary/20' : 'text-muted-foreground'}`} 
+                                            />
+                                          </Button>
+                                        </PopoverTrigger>
                                       </TooltipTrigger>
-                                      <TooltipContent className="max-w-[200px]">
-                                        <p className="text-xs">{cellState.note}</p>
+                                      <PopoverContent className="w-80" align="center">
+                                        <div className="space-y-2">
+                                          <h4 className="font-medium text-sm">{resolvedLabel}</h4>
+                                          <Textarea
+                                            value={editingNote}
+                                            onChange={(e) => setEditingNote(e.target.value)}
+                                            placeholder={t('checklistMatrix.addNote', 'Add a note... Use # for placeholders')}
+                                            rows={3}
+                                            className="text-sm"
+                                            data-testid={`textarea-past-note-${surgery.id}-${item.id}`}
+                                          />
+                                          <div className="flex justify-end gap-2">
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={() => {
+                                                setEditingCell(null);
+                                                setEditingNote("");
+                                              }}
+                                            >
+                                              {t('common.cancel', 'Cancel')}
+                                            </Button>
+                                            <Button
+                                              size="sm"
+                                              onClick={() => handlePastNoteSubmit(surgery.id, item.id)}
+                                              disabled={savePastCellMutation.isPending}
+                                            >
+                                              {savePastCellMutation.isPending ? (
+                                                <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                                              ) : (
+                                                <Save className="h-4 w-4 mr-1" />
+                                              )}
+                                              {t('common.save', 'Save')}
+                                            </Button>
+                                          </div>
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                    {hasNote && (
+                                      <TooltipContent className="max-w-[300px]" side="top">
+                                        <p className="whitespace-pre-wrap">{resolvePlaceholders(cellState.note, surgeryContext)}</p>
                                       </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
+                                    )}
+                                  </Tooltip>
+                                </TooltipProvider>
                               </div>
                             </td>
                           );
@@ -776,26 +923,30 @@ export default function ChecklistMatrix() {
                             </button>
                           </td>
                           <td className="px-3 py-2 text-center">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <Badge variant={isComplete ? "default" : "secondary"} className="gap-1">
-                                    {isComplete ? (
-                                      <CheckCircle2 className="h-3 w-3" />
-                                    ) : (
-                                      <Circle className="h-3 w-3" />
-                                    )}
-                                    {stats.checked}/{stats.total}
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  {isComplete 
-                                    ? t('checklistMatrix.complete', 'All items complete')
-                                    : t('checklistMatrix.incomplete', '{{remaining}} items remaining', { remaining: stats.total - stats.checked })
-                                  }
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
+                            {(() => {
+                              const statusColor = getStatusColor(stats.checked, stats.total);
+                              const StatusIcon = statusColor.icon;
+                              return (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger>
+                                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${statusColor.bg} ${statusColor.text}`}>
+                                        <StatusIcon className="h-3 w-3" />
+                                        {stats.checked}/{stats.total}
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      {stats.checked === stats.total 
+                                        ? t('checklistMatrix.complete', 'All items complete')
+                                        : stats.checked === 0
+                                          ? t('checklistMatrix.noneComplete', 'No items checked')
+                                          : t('checklistMatrix.incomplete', '{{remaining}} items remaining', { remaining: stats.total - stats.checked })
+                                      }
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              );
+                            })()}
                           </td>
                           {selectedTemplate.items.map((item) => {
                             const cellKey = `${surgery.id}-${item.id}`;
