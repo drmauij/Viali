@@ -150,7 +150,7 @@ async function resolveHospitalIdFromRequest(req: any): Promise<string | null> {
   return null;
 }
 
-// Middleware to verify user has read access to the hospital
+// Middleware to verify user has read access to the hospital (lenient - allows if hospitalId not found)
 export async function requireHospitalAccess(req: any, res: Response, next: NextFunction) {
   try {
     const userId = req.user?.id;
@@ -181,6 +181,80 @@ export async function requireHospitalAccess(req: any, res: Response, next: NextF
     next();
   } catch (error) {
     console.error("Error checking hospital access:", error);
+    res.status(500).json({ message: "Error checking permissions" });
+  }
+}
+
+// STRICT middleware - fails if hospitalId cannot be resolved (use for multi-tenant routes)
+export async function requireStrictHospitalAccess(req: any, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    const hospitalId = await resolveHospitalIdFromRequest(req);
+    
+    if (!hospitalId) {
+      console.error(`[Access Control] STRICT: Missing hospitalId for ${req.method} ${req.path}`);
+      return res.status(400).json({ 
+        message: "Hospital context required. Please select a hospital.",
+        code: "HOSPITAL_ID_REQUIRED"
+      });
+    }
+    
+    const hasAccess = await userHasHospitalAccess(userId, hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ 
+        message: "Access denied. You do not have access to this hospital's data.",
+        code: "HOSPITAL_ACCESS_DENIED"
+      });
+    }
+    
+    // Store the resolved hospitalId for use by route handlers
+    req.resolvedHospitalId = hospitalId;
+    req.verifiedHospitalId = hospitalId; // Alias for clarity
+    next();
+  } catch (error) {
+    console.error("Error checking hospital access:", error);
+    res.status(500).json({ message: "Error checking permissions" });
+  }
+}
+
+// STRICT middleware for admin-only access to hospital
+export async function requireHospitalAdmin(req: any, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    const hospitalId = await resolveHospitalIdFromRequest(req);
+    
+    if (!hospitalId) {
+      return res.status(400).json({ 
+        message: "Hospital context required.",
+        code: "HOSPITAL_ID_REQUIRED"
+      });
+    }
+    
+    const hospitals = await storage.getUserHospitals(userId);
+    const hospital = hospitals.find(h => h.id === hospitalId && h.role === 'admin');
+    
+    if (!hospital) {
+      return res.status(403).json({ 
+        message: "Admin access required for this operation.",
+        code: "ADMIN_ACCESS_REQUIRED"
+      });
+    }
+    
+    req.resolvedHospitalId = hospitalId;
+    req.verifiedHospitalId = hospitalId;
+    req.resolvedRole = 'admin';
+    next();
+  } catch (error) {
+    console.error("Error checking admin access:", error);
     res.status(500).json({ message: "Error checking permissions" });
   }
 }
@@ -216,7 +290,7 @@ async function getActiveRoleFromRequest(req: any, userId: string, hospitalId: st
   return availableRoles[0] || null;
 }
 
-// Middleware to verify user has write access (non-guest role) to the hospital
+// Middleware to verify user has write access (non-guest role) to the hospital (lenient)
 export async function requireWriteAccess(req: any, res: Response, next: NextFunction) {
   try {
     const userId = req.user?.id;
@@ -281,4 +355,68 @@ export async function requireWriteAccess(req: any, res: Response, next: NextFunc
     console.error("Error checking write access:", error);
     res.status(500).json({ message: "Error checking permissions" });
   }
+}
+
+// STRICT middleware for write access - fails if hospitalId cannot be resolved
+export async function requireStrictWriteAccess(req: any, res: Response, next: NextFunction) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    const hospitalId = await resolveHospitalIdFromRequest(req);
+    
+    if (!hospitalId) {
+      console.error(`[Access Control] STRICT: Missing hospitalId for write on ${req.method} ${req.path}`);
+      return res.status(400).json({ 
+        message: "Hospital context required. Please select a hospital.",
+        code: "HOSPITAL_ID_REQUIRED"
+      });
+    }
+    
+    // Verify user has access to this hospital
+    const hasAccess = await userHasHospitalAccess(userId, hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ 
+        message: "Access denied. You do not have access to this hospital's data.",
+        code: "HOSPITAL_ACCESS_DENIED"
+      });
+    }
+    
+    // Get the active role and verify write permission
+    const role = await getActiveRoleFromRequest(req, userId, hospitalId);
+    
+    if (!canWrite(role)) {
+      return res.status(403).json({ 
+        message: "Insufficient permissions. Guest users have read-only access.",
+        code: "READ_ONLY_ACCESS"
+      });
+    }
+    
+    // Store the resolved hospitalId and role for use by route handlers
+    req.resolvedHospitalId = hospitalId;
+    req.verifiedHospitalId = hospitalId;
+    req.resolvedRole = role;
+    next();
+  } catch (error) {
+    console.error("Error checking write access:", error);
+    res.status(500).json({ message: "Error checking permissions" });
+  }
+}
+
+// Helper to verify a record belongs to the expected hospital (for use in route handlers)
+export async function verifyRecordBelongsToHospital(
+  recordHospitalId: string | null | undefined,
+  expectedHospitalId: string,
+  recordType: string = 'Record'
+): Promise<{ valid: boolean; error?: string }> {
+  if (!recordHospitalId) {
+    return { valid: false, error: `${recordType} not found` };
+  }
+  if (recordHospitalId !== expectedHospitalId) {
+    console.error(`[Access Control] Hospital mismatch: ${recordType} belongs to ${recordHospitalId}, user accessing ${expectedHospitalId}`);
+    return { valid: false, error: `Access denied to this ${recordType.toLowerCase()}` };
+  }
+  return { valid: true };
 }
