@@ -227,6 +227,9 @@ import {
   type InsertCalcomConfig,
   type CalcomProviderMapping,
   type InsertCalcomProviderMapping,
+  hospitalVonageConfigs,
+  type HospitalVonageConfig,
+  type InsertHospitalVonageConfig,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -816,6 +819,11 @@ export interface IStorage {
   upsertCalcomProviderMapping(mapping: InsertCalcomProviderMapping): Promise<CalcomProviderMapping>;
   deleteCalcomProviderMapping(id: string): Promise<void>;
   updateCalcomProviderMappingBusyBlocks(id: string, busyBlockMapping: Record<string, string>): Promise<CalcomProviderMapping>;
+  
+  // Hospital Vonage SMS Config
+  getHospitalVonageConfig(hospitalId: string): Promise<HospitalVonageConfig | undefined>;
+  upsertHospitalVonageConfig(config: InsertHospitalVonageConfig): Promise<HospitalVonageConfig>;
+  updateHospitalVonageTestStatus(hospitalId: string, status: 'success' | 'failed', error?: string): Promise<void>;
   
   // Clinic Appointments
   getClinicAppointments(unitId: string, filters?: {
@@ -7673,6 +7681,44 @@ export class DatabaseStorage implements IStorage {
       .where(eq(calcomProviderMappings.id, id))
       .returning();
     return updated;
+  }
+
+  async getHospitalVonageConfig(hospitalId: string): Promise<HospitalVonageConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(hospitalVonageConfigs)
+      .where(eq(hospitalVonageConfigs.hospitalId, hospitalId));
+    return config;
+  }
+
+  async upsertHospitalVonageConfig(config: InsertHospitalVonageConfig): Promise<HospitalVonageConfig> {
+    const [upserted] = await db
+      .insert(hospitalVonageConfigs)
+      .values(config)
+      .onConflictDoUpdate({
+        target: hospitalVonageConfigs.hospitalId,
+        set: {
+          encryptedApiKey: config.encryptedApiKey,
+          encryptedApiSecret: config.encryptedApiSecret,
+          encryptedFromNumber: config.encryptedFromNumber,
+          isEnabled: config.isEnabled,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return upserted;
+  }
+
+  async updateHospitalVonageTestStatus(hospitalId: string, status: 'success' | 'failed', error?: string): Promise<void> {
+    await db
+      .update(hospitalVonageConfigs)
+      .set({
+        lastTestedAt: new Date(),
+        lastTestStatus: status,
+        lastTestError: error || null,
+        updatedAt: new Date(),
+      })
+      .where(eq(hospitalVonageConfigs.hospitalId, hospitalId));
   }
 
   async getClinicAppointments(unitId: string, filters?: {

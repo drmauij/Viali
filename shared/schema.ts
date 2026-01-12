@@ -3987,3 +3987,35 @@ export type CalcomConfig = typeof calcomConfig.$inferSelect;
 export type InsertCalcomConfig = z.infer<typeof insertCalcomConfigSchema>;
 export type CalcomProviderMapping = typeof calcomProviderMappings.$inferSelect;
 export type InsertCalcomProviderMapping = z.infer<typeof insertCalcomProviderMappingSchema>;
+
+// Hospital Vonage SMS Config - Per-hospital Vonage credentials
+export const hospitalVonageConfigs = pgTable("hospital_vonage_configs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }).unique(),
+  
+  encryptedApiKey: varchar("encrypted_api_key"),
+  encryptedApiSecret: varchar("encrypted_api_secret"),
+  encryptedFromNumber: varchar("encrypted_from_number"),
+  
+  isEnabled: boolean("is_enabled").default(true),
+  lastTestedAt: timestamp("last_tested_at"),
+  lastTestStatus: varchar("last_test_status"), // 'success' | 'failed'
+  lastTestError: text("last_test_error"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_hospital_vonage_configs_hospital").on(table.hospitalId),
+]);
+
+export const insertHospitalVonageConfigSchema = createInsertSchema(hospitalVonageConfigs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastTestedAt: true,
+  lastTestStatus: true,
+  lastTestError: true,
+});
+
+export type HospitalVonageConfig = typeof hospitalVonageConfigs.$inferSelect;
+export type InsertHospitalVonageConfig = z.infer<typeof insertHospitalVonageConfigSchema>;
