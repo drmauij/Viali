@@ -157,6 +157,11 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
     enabled: logisticMode && !!activeHospital?.id,
   });
   
+  // Filter to only units with inventory module enabled
+  const inventoryUnits = useMemo(() => {
+    return allUnits.filter(unit => (unit as any).showInventory !== false);
+  }, [allUnits]);
+  
   // Filter orders by unit when in logistics mode
   const orders = useMemo(() => {
     if (!logisticMode || filterUnitId === "all") return allOrders;
@@ -182,10 +187,10 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
     }
   };
   
-  // Helper to get unit name from allUnits (only available in logistics mode)
+  // Helper to get unit name from inventoryUnits (only available in logistics mode)
   const getUnitName = (unitId: string) => {
-    if (!logisticMode || !allUnits) return '';
-    const unit = allUnits.find(u => u.id === unitId);
+    if (!logisticMode || !inventoryUnits) return '';
+    const unit = inventoryUnits.find(u => u.id === unitId);
     return unit?.name || '';
   };
 
@@ -953,7 +958,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('logistic.allUnits', 'All Units')}</SelectItem>
-              {allUnits.map((unit) => (
+              {inventoryUnits.map((unit) => (
                 <SelectItem key={unit.id} value={unit.id}>
                   {unit.name}
                 </SelectItem>
