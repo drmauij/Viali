@@ -15,6 +15,7 @@ interface Hospital {
   isSurgeryModule?: boolean;
   isBusinessModule?: boolean;
   isClinicModule?: boolean;
+  isLogisticModule?: boolean;
 }
 
 interface LayoutProps {
@@ -71,6 +72,7 @@ export default function Layout({ children }: LayoutProps) {
       if (hospital.isBusinessModule) return "business";
       if (hospital.isAnesthesiaModule) return "anesthesia";
       if (hospital.isSurgeryModule) return "surgery";
+      if (hospital.isLogisticModule) return "logistic";
       return "inventory";
     };
     
@@ -112,6 +114,8 @@ export default function Layout({ children }: LayoutProps) {
         redirectPath = "/anesthesia/op";
       } else if (hospital.isSurgeryModule) {
         redirectPath = "/surgery/op";
+      } else if (hospital.isLogisticModule) {
+        redirectPath = "/logistic/inventory";
       } else {
         redirectPath = "/inventory/items";
       }

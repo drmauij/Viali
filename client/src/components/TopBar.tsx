@@ -21,6 +21,7 @@ interface Hospital {
   isSurgeryModule?: boolean;
   isBusinessModule?: boolean;
   isClinicModule?: boolean;
+  isLogisticModule?: boolean;
 }
 
 interface TopBarProps {
