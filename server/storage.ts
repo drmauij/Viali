@@ -6268,7 +6268,8 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(patients, eq(surgeries.patientId, patients.id))
       .where(and(
         eq(surgeries.hospitalId, hospitalId),
-        gte(surgeries.plannedDate, today)
+        gte(surgeries.plannedDate, today),
+        eq(surgeries.isArchived, false)
       ))
       .orderBy(asc(surgeries.plannedDate));
 
@@ -6288,7 +6289,8 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(patients, eq(surgeries.patientId, patients.id))
       .where(and(
         eq(surgeries.hospitalId, hospitalId),
-        lt(surgeries.plannedDate, today)
+        lt(surgeries.plannedDate, today),
+        eq(surgeries.isArchived, false)
       ))
       .orderBy(desc(surgeries.plannedDate))
       .limit(limit);
@@ -6312,7 +6314,8 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(surgeryPreOpChecklistEntries.templateId, templateId),
         eq(surgeries.hospitalId, hospitalId),
-        gte(surgeries.plannedDate, today)
+        gte(surgeries.plannedDate, today),
+        eq(surgeries.isArchived, false)
       ));
 
     return entries.map(row => row.entry);
@@ -6331,7 +6334,8 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(surgeryPreOpChecklistEntries.templateId, templateId),
         eq(surgeries.hospitalId, hospitalId),
-        lt(surgeries.plannedDate, today)
+        lt(surgeries.plannedDate, today),
+        eq(surgeries.isArchived, false)
       ))
       .limit(limit);
 
