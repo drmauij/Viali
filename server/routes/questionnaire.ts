@@ -750,7 +750,7 @@ router.post('/api/questionnaire/links/:linkId/send-sms', isAuthenticated, requir
       message += `\n\nBei Fragen / Questions: ${helpPhone}`;
     }
     
-    const result = await sendSms(phone, message);
+    const result = await sendSms(phone, message, hospitalId);
     
     if (!result.success) {
       return res.status(500).json({ message: `Failed to send SMS: ${result.error}` });

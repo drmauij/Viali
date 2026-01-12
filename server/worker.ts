@@ -1077,7 +1077,7 @@ async function sendQuestionnaireSms(
       message += `\n\nBei Fragen / Questions: ${helpPhone}`;
     }
 
-    const result = await sendSms(patientPhone, message);
+    const result = await sendSms(patientPhone, message, hospitalId);
     
     if (result.success) {
       console.log(`[Worker] SMS sent to ${patientPhone}, UUID: ${result.messageUuid}`);

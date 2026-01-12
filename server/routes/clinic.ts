@@ -3306,4 +3306,197 @@ router.post('/api/clinic/:hospitalId/calcom-subscribe-feeds', isAuthenticated, i
   }
 });
 
+// ==========================================
+// Hospital Vonage SMS Configuration Routes
+// ==========================================
+
+import { encryptCredential, decryptCredential } from "../utils/encryption";
+
+// Get Vonage SMS configuration for a hospital
+router.get('/api/admin/:hospitalId/integrations/vonage', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    // Verify user has admin access to this hospital
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const hospital = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
+    if (!hospital) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    const config = await storage.getHospitalVonageConfig(hospitalId);
+    
+    if (!config) {
+      return res.json({
+        hospitalId,
+        isEnabled: false,
+        hasApiKey: false,
+        hasApiSecret: false,
+        hasFromNumber: false,
+        lastTestedAt: null,
+        lastTestStatus: null,
+        lastTestError: null,
+      });
+    }
+    
+    res.json({
+      hospitalId: config.hospitalId,
+      isEnabled: config.isEnabled,
+      hasApiKey: !!config.encryptedApiKey,
+      hasApiSecret: !!config.encryptedApiSecret,
+      hasFromNumber: !!config.encryptedFromNumber,
+      lastTestedAt: config.lastTestedAt,
+      lastTestStatus: config.lastTestStatus,
+      lastTestError: config.lastTestError,
+    });
+  } catch (error) {
+    console.error("Error fetching Vonage config:", error);
+    res.status(500).json({ message: "Failed to fetch Vonage configuration" });
+  }
+});
+
+// Save Vonage SMS configuration for a hospital
+router.put('/api/admin/:hospitalId/integrations/vonage', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { apiKey, apiSecret, fromNumber, isEnabled } = req.body;
+    
+    // Verify user has admin access to this hospital
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const hospital = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
+    if (!hospital) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    const existing = await storage.getHospitalVonageConfig(hospitalId);
+    
+    // Encrypt credentials if provided
+    const encryptedApiKey = apiKey ? encryptCredential(apiKey) : existing?.encryptedApiKey;
+    const encryptedApiSecret = apiSecret ? encryptCredential(apiSecret) : existing?.encryptedApiSecret;
+    const encryptedFromNumber = fromNumber ? encryptCredential(fromNumber) : existing?.encryptedFromNumber;
+    
+    const config = await storage.upsertHospitalVonageConfig({
+      hospitalId,
+      encryptedApiKey,
+      encryptedApiSecret,
+      encryptedFromNumber,
+      isEnabled: isEnabled ?? existing?.isEnabled ?? true,
+    });
+    
+    res.json({
+      hospitalId: config.hospitalId,
+      isEnabled: config.isEnabled,
+      hasApiKey: !!config.encryptedApiKey,
+      hasApiSecret: !!config.encryptedApiSecret,
+      hasFromNumber: !!config.encryptedFromNumber,
+      lastTestedAt: config.lastTestedAt,
+      lastTestStatus: config.lastTestStatus,
+      lastTestError: config.lastTestError,
+    });
+  } catch (error) {
+    console.error("Error saving Vonage config:", error);
+    res.status(500).json({ message: "Failed to save Vonage configuration" });
+  }
+});
+
+// Test Vonage SMS configuration
+router.post('/api/admin/:hospitalId/integrations/vonage/test', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { testPhoneNumber } = req.body;
+    
+    // Verify user has admin access to this hospital
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const hospital = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
+    if (!hospital) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    const config = await storage.getHospitalVonageConfig(hospitalId);
+    if (!config || !config.encryptedApiKey || !config.encryptedApiSecret || !config.encryptedFromNumber) {
+      return res.status(400).json({ message: "Vonage credentials not fully configured" });
+    }
+    
+    // Decrypt credentials
+    const apiKey = decryptCredential(config.encryptedApiKey);
+    const apiSecret = decryptCredential(config.encryptedApiSecret);
+    const fromNumber = decryptCredential(config.encryptedFromNumber);
+    
+    if (!apiKey || !apiSecret || !fromNumber) {
+      await storage.updateHospitalVonageTestStatus(hospitalId, 'failed', 'Failed to decrypt credentials');
+      return res.status(500).json({ message: "Failed to decrypt credentials" });
+    }
+    
+    // Test by sending SMS
+    const { Vonage } = await import('@vonage/server-sdk');
+    const vonage = new Vonage({ apiKey, apiSecret });
+    
+    const testNumber = testPhoneNumber || fromNumber;
+    const vonageTo = testNumber.replace(/^\+/, '');
+    const vonageFrom = fromNumber.replace(/^\+/, '');
+    
+    const response = await vonage.sms.send({
+      to: vonageTo,
+      from: vonageFrom,
+      text: `Viali SMS test - ${hospital.name}. Your Vonage integration is working correctly!`,
+    });
+    
+    const firstMessage = response.messages[0];
+    
+    if (firstMessage.status === '0') {
+      await storage.updateHospitalVonageTestStatus(hospitalId, 'success');
+      res.json({ 
+        success: true, 
+        message: "Test SMS sent successfully",
+        messageId: firstMessage.messageId,
+      });
+    } else {
+      const errorMsg = firstMessage.errorText || 'Unknown Vonage error';
+      await storage.updateHospitalVonageTestStatus(hospitalId, 'failed', errorMsg);
+      res.status(400).json({ 
+        success: false, 
+        message: errorMsg,
+      });
+    }
+  } catch (error: any) {
+    console.error("Error testing Vonage config:", error);
+    const errorMsg = error.message || 'Failed to test Vonage configuration';
+    
+    try {
+      const { hospitalId } = req.params;
+      await storage.updateHospitalVonageTestStatus(hospitalId, 'failed', errorMsg);
+    } catch {}
+    
+    res.status(500).json({ message: errorMsg });
+  }
+});
+
+// Delete Vonage SMS configuration
+router.delete('/api/admin/:hospitalId/integrations/vonage', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    // Verify user has admin access to this hospital
+    const userHospitals = await storage.getUserHospitals(req.user.id);
+    const hospital = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
+    if (!hospital) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    // Clear the config by setting everything to null
+    await storage.upsertHospitalVonageConfig({
+      hospitalId,
+      encryptedApiKey: null,
+      encryptedApiSecret: null,
+      encryptedFromNumber: null,
+      isEnabled: false,
+    });
+    
+    res.json({ success: true, message: "Vonage configuration removed" });
+  } catch (error) {
+    console.error("Error deleting Vonage config:", error);
+    res.status(500).json({ message: "Failed to delete Vonage configuration" });
+  }
+});
+
 export default router;

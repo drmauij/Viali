@@ -1,55 +1,90 @@
 // Vonage SMS integration for sending SMS messages
 import { Vonage } from '@vonage/server-sdk';
+import { storage } from './storage';
+import { decryptCredential } from './utils/encryption';
 
 interface VonageCredentials {
   apiKey: string;
   apiSecret: string;
   fromNumber: string;
+  source: 'hospital' | 'default';
 }
 
-function getVonageCredentials(): VonageCredentials {
+function getDefaultVonageCredentials(): VonageCredentials | null {
   const apiKey = process.env.VONAGE_API_KEY;
   const apiSecret = process.env.VONAGE_API_SECRET;
   const fromNumber = process.env.VONAGE_FROM_NUMBER;
 
-  if (!apiKey) {
-    throw new Error('VONAGE_API_KEY environment variable is required');
+  if (!apiKey || !apiSecret || !fromNumber) {
+    return null;
   }
 
-  if (!apiSecret) {
-    throw new Error('VONAGE_API_SECRET environment variable is required');
-  }
-
-  if (!fromNumber) {
-    throw new Error('VONAGE_FROM_NUMBER environment variable is required');
-  }
-
-  return { apiKey, apiSecret, fromNumber };
+  return { apiKey, apiSecret, fromNumber, source: 'default' };
 }
 
-function getVonageClient(): Vonage {
-  const { apiKey, apiSecret } = getVonageCredentials();
-  return new Vonage({
-    apiKey,
-    apiSecret,
-  });
+async function getHospitalVonageCredentials(hospitalId: string): Promise<VonageCredentials | null> {
+  try {
+    const config = await storage.getHospitalVonageConfig(hospitalId);
+    
+    if (!config || !config.isEnabled || !config.encryptedApiKey || !config.encryptedApiSecret || !config.encryptedFromNumber) {
+      return null;
+    }
+    
+    const apiKey = decryptCredential(config.encryptedApiKey);
+    const apiSecret = decryptCredential(config.encryptedApiSecret);
+    const fromNumber = decryptCredential(config.encryptedFromNumber);
+    
+    if (!apiKey || !apiSecret || !fromNumber) {
+      console.warn(`[SMS] Failed to decrypt Vonage credentials for hospital ${hospitalId}`);
+      return null;
+    }
+    
+    return { apiKey, apiSecret, fromNumber, source: 'hospital' };
+  } catch (error) {
+    console.error(`[SMS] Error fetching hospital Vonage config:`, error);
+    return null;
+  }
+}
+
+async function getVonageCredentials(hospitalId?: string): Promise<VonageCredentials> {
+  // Try hospital-specific credentials first
+  if (hospitalId) {
+    const hospitalCreds = await getHospitalVonageCredentials(hospitalId);
+    if (hospitalCreds) {
+      return hospitalCreds;
+    }
+  }
+  
+  // Fall back to default credentials
+  const defaultCreds = getDefaultVonageCredentials();
+  if (defaultCreds) {
+    return defaultCreds;
+  }
+  
+  throw new Error('No Vonage credentials available - neither hospital-specific nor default');
+}
+
+function getVonageClient(apiKey: string, apiSecret: string): Vonage {
+  return new Vonage({ apiKey, apiSecret });
 }
 
 export interface SendSmsResult {
   success: boolean;
   messageUuid?: string;
   error?: string;
+  source?: 'hospital' | 'default';
 }
 
 /**
  * Send an SMS message using Vonage
  * @param to - Destination phone number in E.164 format (e.g., +41791234567)
  * @param message - The SMS message text
+ * @param hospitalId - Optional hospital ID to use hospital-specific Vonage credentials
  */
-export async function sendSms(to: string, message: string): Promise<SendSmsResult> {
+export async function sendSms(to: string, message: string, hospitalId?: string): Promise<SendSmsResult> {
   try {
-    const { fromNumber } = getVonageCredentials();
-    const vonage = getVonageClient();
+    const credentials = await getVonageCredentials(hospitalId);
+    const vonage = getVonageClient(credentials.apiKey, credentials.apiSecret);
 
     // Ensure phone number is in E.164 format
     const normalizedTo = normalizePhoneNumber(to);
@@ -63,9 +98,9 @@ export async function sendSms(to: string, message: string): Promise<SendSmsResul
 
     // Remove + prefix for Vonage (it expects numbers without +)
     const vonageTo = normalizedTo.replace(/^\+/, '');
-    const vonageFrom = fromNumber.replace(/^\+/, '');
+    const vonageFrom = credentials.fromNumber.replace(/^\+/, '');
 
-    console.log(`[SMS] Sending SMS to ${normalizedTo} from ${fromNumber}`);
+    console.log(`[SMS] Sending SMS to ${normalizedTo} from ${credentials.fromNumber} (source: ${credentials.source}${hospitalId ? `, hospital: ${hospitalId}` : ''})`);
     
     const response = await vonage.sms.send({
       to: vonageTo,
@@ -80,12 +115,14 @@ export async function sendSms(to: string, message: string): Promise<SendSmsResul
       return {
         success: true,
         messageUuid: firstMessage.messageId,
+        source: credentials.source,
       };
     } else {
       console.error(`[SMS] Failed to send: ${firstMessage.errorText}`);
       return {
         success: false,
         error: firstMessage.errorText || 'Unknown Vonage error',
+        source: credentials.source,
       };
     }
   } catch (error) {
@@ -145,7 +182,7 @@ function normalizePhoneNumber(phone: string): string | null {
 }
 
 /**
- * Check if SMS is configured
+ * Check if SMS is configured (either default or for a specific hospital)
  */
 export function isSmsConfigured(): boolean {
   return !!(
@@ -153,4 +190,19 @@ export function isSmsConfigured(): boolean {
     process.env.VONAGE_API_SECRET &&
     process.env.VONAGE_FROM_NUMBER
   );
+}
+
+/**
+ * Check if SMS is configured for a specific hospital
+ */
+export async function isSmsConfiguredForHospital(hospitalId: string): Promise<boolean> {
+  try {
+    const config = await storage.getHospitalVonageConfig(hospitalId);
+    if (config && config.isEnabled && config.encryptedApiKey && config.encryptedApiSecret && config.encryptedFromNumber) {
+      return true;
+    }
+  } catch {}
+  
+  // Fall back to default
+  return isSmsConfigured();
 }
