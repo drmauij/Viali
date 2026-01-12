@@ -132,8 +132,8 @@ export default function ModuleDrawer() {
     if (module.id === "anesthesia" && !hasAnesthesiaAccess) return false;
     // Surgery module only for OR staff (assigned to surgery unit)
     if (module.id === "surgery" && !hasSurgeryAccess) return false;
-    // Hide Inventory based on unit showInventory flag (or legacy isBusinessOnly check)
-    if (module.id === "inventory" && (!showInventory || isBusinessOnly)) return false;
+    // Hide Inventory based on unit showInventory flag, legacy isBusinessOnly check, or logistic units (they have their own inventory view)
+    if (module.id === "inventory" && (!showInventory || isBusinessOnly || hasLogisticAccess)) return false;
     return true;
   });
 
