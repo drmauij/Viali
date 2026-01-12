@@ -1343,22 +1343,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status, unitId: queryUnitId } = req.query;
       const userId = req.user.id;
       
-      // Verify user has access to this hospital
-      const userUnitId = await getUserUnitForHospital(userId, hospitalId);
-      if (!userUnitId) {
+      // Get all hospitals/units the user has access to
+      const userHospitals = await storage.getUserHospitals(userId);
+      const userUnitsForHospital = userHospitals.filter(h => h.id === hospitalId);
+      
+      if (userUnitsForHospital.length === 0) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // Use the query unitId if provided, otherwise use user's unit
-      const filterUnitId = (queryUnitId as string) || userUnitId;
-      
-      // Verify user has access to the requested unit (must match their assigned unit)
-      if (filterUnitId !== userUnitId) {
-        return res.status(403).json({ message: "Access denied to this unit" });
+      // If a specific unitId is requested, verify user has access to it
+      if (queryUnitId) {
+        const hasAccessToUnit = userUnitsForHospital.some(h => h.unitId === queryUnitId);
+        if (!hasAccessToUnit) {
+          return res.status(403).json({ message: "Access denied to this unit" });
+        }
+        const orders = await storage.getOrders(hospitalId, status as string, queryUnitId as string);
+        return res.json(orders);
       }
       
-      const orders = await storage.getOrders(hospitalId, status as string, filterUnitId);
-      res.json(orders);
+      // No specific unit requested - return orders for all user's units
+      const userUnitIds = userUnitsForHospital.map(h => h.unitId).filter(Boolean) as string[];
+      if (userUnitIds.length === 1) {
+        const orders = await storage.getOrders(hospitalId, status as string, userUnitIds[0]);
+        return res.json(orders);
+      }
+      
+      // Multiple units - get orders for all of them
+      const allOrders = [];
+      for (const unitId of userUnitIds) {
+        const unitOrders = await storage.getOrders(hospitalId, status as string, unitId);
+        allOrders.push(...unitOrders);
+      }
+      // Remove duplicates and sort by createdAt
+      const uniqueOrders = Array.from(new Map(allOrders.map(o => [o.id, o])).values());
+      uniqueOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      res.json(uniqueOrders);
     } catch (error) {
       console.error("Error fetching orders:", error);
       res.status(500).json({ message: "Failed to fetch orders" });

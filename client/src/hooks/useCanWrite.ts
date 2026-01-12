@@ -1,6 +1,6 @@
 import { useActiveHospital } from "./useActiveHospital";
 
-const WRITE_ROLES = ["admin", "doctor", "nurse"];
+const WRITE_ROLES = ["admin", "manager", "doctor", "nurse", "staff"];
 
 export function useCanWrite(): boolean {
   const activeHospital = useActiveHospital();
