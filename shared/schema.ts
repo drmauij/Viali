@@ -3647,13 +3647,14 @@ export const providerAvailability = pgTable("provider_availability", {
   index("idx_provider_availability_day").on(table.dayOfWeek),
 ]);
 
-// Provider Time Off - Manual holidays and blocked dates
+// Provider Time Off - Manual holidays and blocked dates with optional recurrence
 export const providerTimeOff = pgTable("provider_time_off", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   providerId: varchar("provider_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
   
-  // Date range (inclusive)
+  // Date range (inclusive) - for non-recurring, this is the actual date
+  // For recurring, startDate is the first occurrence
   startDate: date("start_date").notNull(),
   endDate: date("end_date").notNull(),
   
@@ -3664,11 +3665,22 @@ export const providerTimeOff = pgTable("provider_time_off", {
   reason: varchar("reason"), // holiday, personal, training, etc.
   notes: text("notes"),
   
+  // Recurrence settings
+  isRecurring: boolean("is_recurring").default(false).notNull(),
+  recurrencePattern: varchar("recurrence_pattern"), // 'weekly', 'biweekly', 'monthly'
+  recurrenceDaysOfWeek: integer("recurrence_days_of_week").array(), // [0,1,2,3,4,5,6] for Sun-Sat
+  recurrenceEndDate: date("recurrence_end_date"), // null = indefinite
+  recurrenceCount: integer("recurrence_count"), // alternative to end date
+  
+  // Parent reference for generated instances (null for parent rules)
+  parentRuleId: varchar("parent_rule_id"),
+  
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_provider_time_off_provider").on(table.providerId),
   index("idx_provider_time_off_dates").on(table.startDate, table.endDate),
+  index("idx_provider_time_off_recurring").on(table.isRecurring),
 ]);
 
 // Provider Availability Windows - Date-specific availability overrides
