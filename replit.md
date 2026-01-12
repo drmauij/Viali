@@ -26,6 +26,22 @@ The backend is built with Express.js and TypeScript, utilizing a PostgreSQL data
 ### Authentication & Authorization
 Viali implements a hybrid authentication strategy (Google OAuth and local email/password) combined with robust role-based and multi-hospital authorization. A comprehensive user management system handles user creation, password changes, and hospital assignments, enforcing data isolation between hospitals at the API layer.
 
+### Multi-Hospital Data Isolation Security
+The system implements strict data isolation between hospitals using a centralized access control infrastructure:
+
+- **Resource Resolver (`getHospitalIdFromResource`)**: Centralized function that derives hospitalId from any resource ID (items, orders, lots, alerts, surgery rooms, medication groups, administration groups, units, user roles, etc.)
+- **`requireResourceAccess` middleware**: Factory that extracts resource ID from route params, looks up hospitalId via resolver, and verifies user has access to that hospital
+- **`requireResourceAdmin` middleware**: Variant that requires admin role for the resource's hospital
+- **Route-level validation**: All routes that accept resource IDs verify the resource belongs to the user's authorized hospitals
+- **Payload sanitization**: Update routes strip hospital-linked fields (itemId, hospitalId, unitId) from payloads to prevent cross-hospital reassignment
+
+Key protected routes include:
+- Item supplier codes: Verifies supplierId belongs to itemId, strips dangerous fields from updates
+- Item lots: Verifies lotId belongs to itemId
+- Admin unit management: Uses requireResourceAdmin to verify admin role for unit's hospital
+- Admin user role management: Uses requireResourceAdmin to verify admin role for role's hospital
+- Anesthesia configuration: Surgery rooms, medication groups, administration groups all use requireResourceAccess
+
 ### Database Schema
 The database schema includes entities for Users, Hospitals, Items, StockLevels, Lots, Orders, Activities, and Alerts, using UUID primary keys, timestamp tracking, and JSONB fields with Zod validation. Schema changes are managed via Drizzle ORM, with an automated, idempotent migration workflow. A significant design choice for the Anesthesia module is the redesign of vitals storage to a single row per record with arrays of points for improved performance and granular CRUD.
 

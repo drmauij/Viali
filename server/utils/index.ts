@@ -10,6 +10,8 @@ export {
   requireStrictHospitalAccess,
   requireStrictWriteAccess,
   requireHospitalAdmin,
+  requireResourceAccess,
+  requireResourceAdmin,
   verifyRecordBelongsToHospital,
   userHasHospitalAccess,
   getHospitalIdFromResource,

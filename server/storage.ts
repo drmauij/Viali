@@ -275,6 +275,7 @@ export interface IStorage {
   
   // Lot operations
   getLots(itemId: string): Promise<Lot[]>;
+  getLotById(lotId: string): Promise<Lot | undefined>;
   createLot(lot: Omit<Lot, 'id' | 'createdAt'>): Promise<Lot>;
   updateLot(id: string, updates: Partial<Lot>): Promise<Lot>;
   deleteLot(id: string): Promise<void>;
@@ -299,6 +300,8 @@ export interface IStorage {
   // Order operations
   getOrders(hospitalId: string, status?: string, unitId?: string): Promise<(Order & { vendor: Vendor | null; orderLines: (OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } })[] })[]>;
   createOrder(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>): Promise<Order>;
+  getOrderById(orderId: string): Promise<Order | undefined>;
+  getOrderLineById(lineId: string): Promise<OrderLine | undefined>;
   updateOrderStatus(id: string, status: string): Promise<Order>;
   findOrCreateDraftOrder(hospitalId: string, unitId: string, vendorId: string | null, createdBy: string): Promise<Order>;
   addItemToOrder(orderId: string, itemId: string, qty: number, packSize: number): Promise<OrderLine>;
@@ -320,6 +323,7 @@ export interface IStorage {
   
   // Alert operations
   getAlerts(hospitalId: string, unitId: string, acknowledged?: boolean): Promise<(Alert & { item?: Item; lot?: Lot })[]>;
+  getAlertById(id: string): Promise<Alert | undefined>;
   acknowledgeAlert(id: string, userId: string): Promise<Alert>;
   snoozeAlert(id: string, until: Date): Promise<Alert>;
   
@@ -343,6 +347,7 @@ export interface IStorage {
   
   // Admin - User management
   getHospitalUsers(hospitalId: string): Promise<(UserHospitalRole & { user: User; unit: Unit })[]>;
+  getUserHospitalRoleById(id: string): Promise<UserHospitalRole | undefined>;
   createUserHospitalRole(data: Omit<UserHospitalRole, 'id' | 'createdAt'>): Promise<UserHospitalRole>;
   updateUserHospitalRole(id: string, updates: Partial<UserHospitalRole>): Promise<UserHospitalRole>;
   deleteUserHospitalRole(id: string): Promise<void>;
@@ -386,11 +391,13 @@ export interface IStorage {
   
   // Medication Group operations
   getMedicationGroups(hospitalId: string): Promise<MedicationGroup[]>;
+  getMedicationGroupById(id: string): Promise<MedicationGroup | undefined>;
   createMedicationGroup(group: InsertMedicationGroup): Promise<MedicationGroup>;
   deleteMedicationGroup(id: string): Promise<void>;
 
   // Administration Group operations
   getAdministrationGroups(hospitalId: string): Promise<AdministrationGroup[]>;
+  getAdministrationGroupById(id: string): Promise<AdministrationGroup | undefined>;
   createAdministrationGroup(group: InsertAdministrationGroup): Promise<AdministrationGroup>;
   updateAdministrationGroup(id: string, updates: { name: string }): Promise<AdministrationGroup>;
   deleteAdministrationGroup(id: string): Promise<void>;
@@ -398,6 +405,7 @@ export interface IStorage {
   
   // Surgery Room operations
   getSurgeryRooms(hospitalId: string): Promise<SurgeryRoom[]>;
+  getSurgeryRoomById(id: string): Promise<SurgeryRoom | undefined>;
   createSurgeryRoom(room: InsertSurgeryRoom): Promise<SurgeryRoom>;
   updateSurgeryRoom(id: string, room: Partial<InsertSurgeryRoom>): Promise<SurgeryRoom>;
   deleteSurgeryRoom(id: string): Promise<void>;
@@ -1122,6 +1130,11 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(lots.expiryDate));
   }
 
+  async getLotById(lotId: string): Promise<Lot | undefined> {
+    const [lot] = await db.select().from(lots).where(eq(lots.id, lotId));
+    return lot;
+  }
+
   async createLot(lot: Omit<Lot, 'id' | 'createdAt'>): Promise<Lot> {
     const [created] = await db.insert(lots).values(lot).returning();
     return created;
@@ -1377,6 +1390,16 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  async getOrderById(orderId: string): Promise<Order | undefined> {
+    const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+    return order;
+  }
+
+  async getOrderLineById(lineId: string): Promise<OrderLine | undefined> {
+    const [line] = await db.select().from(orderLines).where(eq(orderLines.id, lineId));
+    return line;
+  }
+
   async updateOrderStatus(id: string, status: string): Promise<Order> {
     const updateData: { status: string; updatedAt: Date; sentAt?: Date } = { 
       status, 
@@ -1619,6 +1642,11 @@ export class DatabaseStorage implements IStorage {
     return await query.orderBy(desc(alerts.createdAt));
   }
 
+  async getAlertById(id: string): Promise<Alert | undefined> {
+    const [alert] = await db.select().from(alerts).where(eq(alerts.id, id));
+    return alert;
+  }
+
   async acknowledgeAlert(id: string, userId: string): Promise<Alert> {
     const [updated] = await db
       .update(alerts)
@@ -1809,6 +1837,11 @@ export class DatabaseStorage implements IStorage {
 
   async deleteUserHospitalRole(id: string): Promise<void> {
     await db.delete(userHospitalRoles).where(eq(userHospitalRoles.id, id));
+  }
+
+  async getUserHospitalRoleById(id: string): Promise<UserHospitalRole | undefined> {
+    const [role] = await db.select().from(userHospitalRoles).where(eq(userHospitalRoles.id, id));
+    return role;
   }
 
   async searchUserByEmail(email: string): Promise<User | undefined> {
@@ -2321,6 +2354,11 @@ export class DatabaseStorage implements IStorage {
     return groups;
   }
 
+  async getMedicationGroupById(id: string): Promise<MedicationGroup | undefined> {
+    const [group] = await db.select().from(medicationGroups).where(eq(medicationGroups.id, id));
+    return group;
+  }
+
   async createMedicationGroup(group: InsertMedicationGroup): Promise<MedicationGroup> {
     const [newGroup] = await db
       .insert(medicationGroups)
@@ -2342,6 +2380,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(administrationGroups.hospitalId, hospitalId))
       .orderBy(asc(administrationGroups.sortOrder), asc(administrationGroups.name));
     return groups;
+  }
+
+  async getAdministrationGroupById(id: string): Promise<AdministrationGroup | undefined> {
+    const [group] = await db.select().from(administrationGroups).where(eq(administrationGroups.id, id));
+    return group;
   }
 
   async createAdministrationGroup(group: InsertAdministrationGroup): Promise<AdministrationGroup> {
@@ -2417,6 +2460,11 @@ export class DatabaseStorage implements IStorage {
       .where(eq(surgeryRooms.hospitalId, hospitalId))
       .orderBy(asc(surgeryRooms.sortOrder), asc(surgeryRooms.name));
     return rooms;
+  }
+
+  async getSurgeryRoomById(id: string): Promise<SurgeryRoom | undefined> {
+    const [room] = await db.select().from(surgeryRooms).where(eq(surgeryRooms.id, id));
+    return room;
   }
 
   async createSurgeryRoom(room: InsertSurgeryRoom): Promise<SurgeryRoom> {

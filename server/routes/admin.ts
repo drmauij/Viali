@@ -4,7 +4,7 @@ import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
 import { users, userHospitalRoles, activities } from "@shared/schema";
 import { eq, and, sql } from "drizzle-orm";
-import { requireWriteAccess } from "../utils";
+import { requireWriteAccess, requireResourceAdmin } from "../utils";
 
 interface AuthenticatedRequest extends Request {
   user: {
@@ -235,23 +235,10 @@ router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req
   }
 });
 
-router.patch('/api/admin/units/:unitId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/admin/units/:unitId', isAuthenticated, requireResourceAdmin('unitId'), async (req: any, res) => {
   try {
     const { unitId } = req.params;
     const { name, type, parentId, showInventory, showAppointments, questionnairePhone } = req.body;
-    
-    const units = await storage.getUnits(req.body.hospitalId);
-    const unit = units.find(l => l.id === unitId);
-    if (!unit) {
-      return res.status(404).json({ message: "Unit not found" });
-    }
-    
-    const userId = req.user.id;
-    const hospitals = await storage.getUserHospitals(userId);
-    const hospital = hospitals.find(h => h.id === unit.hospitalId);
-    if (!hospital || hospital.role !== 'admin') {
-      return res.status(403).json({ message: "Admin access required" });
-    }
     
     const updates: any = {};
     if (name !== undefined) updates.name = name;
@@ -282,19 +269,9 @@ router.patch('/api/admin/units/:unitId', isAuthenticated, requireWriteAccess, as
   }
 });
 
-router.delete('/api/admin/units/:unitId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.delete('/api/admin/units/:unitId', isAuthenticated, requireResourceAdmin('unitId'), async (req: any, res) => {
   try {
     const { unitId } = req.params;
-    const { hospitalId } = req.query;
-    const userId = req.user.id;
-    
-    const hospitals = await storage.getUserHospitals(userId);
-    const adminUnits = hospitals.filter(h => h.id === hospitalId && h.role === 'admin');
-    
-    if (adminUnits.length === 0) {
-      return res.status(403).json({ message: "Admin access required" });
-    }
-    
     await storage.deleteUnit(unitId);
     res.json({ success: true });
   } catch (error) {
@@ -442,17 +419,10 @@ router.post('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req
   }
 });
 
-router.patch('/api/admin/users/:roleId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/admin/users/:roleId', isAuthenticated, requireResourceAdmin('roleId'), async (req: any, res) => {
   try {
     const { roleId } = req.params;
-    const { unitId, role, hospitalId } = req.body;
-    
-    const userId = req.user.id;
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
-    if (!hasAdminRole) {
-      return res.status(403).json({ message: "Admin access required" });
-    }
+    const { unitId, role } = req.body;
     
     const updates: any = {};
     if (unitId !== undefined) updates.unitId = unitId;
@@ -466,18 +436,9 @@ router.patch('/api/admin/users/:roleId', isAuthenticated, requireWriteAccess, as
   }
 });
 
-router.delete('/api/admin/users/:roleId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.delete('/api/admin/users/:roleId', isAuthenticated, requireResourceAdmin('roleId'), async (req: any, res) => {
   try {
     const { roleId } = req.params;
-    const { hospitalId } = req.query;
-    
-    const userId = req.user.id;
-    const hospitals = await storage.getUserHospitals(userId);
-    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
-    if (!hasAdminRole) {
-      return res.status(403).json({ message: "Admin access required" });
-    }
-    
     await storage.deleteUserHospitalRole(roleId);
     res.json({ success: true });
   } catch (error) {

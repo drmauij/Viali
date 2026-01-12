@@ -82,6 +82,7 @@ import {
   getUserUnitForHospital,
   getUserRole,
   requireWriteAccess,
+  requireResourceAccess,
 } from "../utils";
 import { requireAdminRole } from "./middleware";
 import { broadcastAnesthesiaUpdate } from "../socket";
@@ -325,7 +326,7 @@ router.post('/api/medication-groups', isAuthenticated, requireWriteAccess, async
   }
 });
 
-router.delete('/api/medication-groups/:groupId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.delete('/api/medication-groups/:groupId', isAuthenticated, requireResourceAccess('groupId', true), async (req: any, res) => {
   try {
     const { groupId } = req.params;
     await storage.deleteMedicationGroup(groupId);
@@ -383,7 +384,7 @@ router.put('/api/administration-groups/reorder', isAuthenticated, requireWriteAc
   }
 });
 
-router.put('/api/administration-groups/:groupId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.put('/api/administration-groups/:groupId', isAuthenticated, requireResourceAccess('groupId', true), async (req: any, res) => {
   try {
     const { groupId } = req.params;
     const { name } = req.body;
@@ -400,7 +401,7 @@ router.put('/api/administration-groups/:groupId', isAuthenticated, requireWriteA
   }
 });
 
-router.delete('/api/administration-groups/:groupId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.delete('/api/administration-groups/:groupId', isAuthenticated, requireResourceAccess('groupId', true), async (req: any, res) => {
   try {
     const { groupId } = req.params;
     await storage.deleteAdministrationGroup(groupId);
@@ -438,7 +439,7 @@ router.post('/api/surgery-rooms', isAuthenticated, requireWriteAccess, async (re
   }
 });
 
-router.put('/api/surgery-rooms/:roomId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.put('/api/surgery-rooms/:roomId', isAuthenticated, requireResourceAccess('roomId', true), async (req: any, res) => {
   try {
     const { roomId } = req.params;
     const { name } = req.body;
@@ -455,7 +456,7 @@ router.put('/api/surgery-rooms/:roomId', isAuthenticated, requireWriteAccess, as
   }
 });
 
-router.delete('/api/surgery-rooms/:roomId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.delete('/api/surgery-rooms/:roomId', isAuthenticated, requireResourceAccess('roomId', true), async (req: any, res) => {
   try {
     const { roomId } = req.params;
     await storage.deleteSurgeryRoom(roomId);

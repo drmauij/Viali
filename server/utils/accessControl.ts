@@ -13,11 +13,40 @@ export async function getHospitalIdFromResource(params: {
   anesthesiaRecordId?: string;
   recordId?: string;
   preOpId?: string;
+  itemId?: string;
+  orderId?: string;
+  orderLineId?: string;
+  alertId?: string;
+  lotId?: string;
+  noteId?: string;
+  todoId?: string;
+  roomId?: string;
+  groupId?: string;
+  surgeryRoomId?: string;
+  medicationGroupId?: string;
+  administrationGroupId?: string;
+  unitId?: string;
+  roleId?: string;
 }): Promise<string | null> {
-  // Try surgery ID first
+  // Direct hospitalId resources
   if (params.surgeryId) {
     const surgery = await storage.getSurgery(params.surgeryId);
     return surgery?.hospitalId || null;
+  }
+
+  if (params.itemId) {
+    const item = await storage.getItem(params.itemId);
+    return item?.hospitalId || null;
+  }
+
+  if (params.orderId) {
+    const order = await storage.getOrderById(params.orderId);
+    return order?.hospitalId || null;
+  }
+
+  if (params.alertId) {
+    const alert = await storage.getAlertById(params.alertId);
+    return alert?.hospitalId || null;
   }
   
   // Try anesthesia record ID (need to get surgeryId first, then hospitalId)
@@ -40,8 +69,169 @@ export async function getHospitalIdFromResource(params: {
     }
     return null;
   }
+
+  // Order line → order → hospital
+  if (params.orderLineId) {
+    const line = await storage.getOrderLineById(params.orderLineId);
+    if (line?.orderId) {
+      const order = await storage.getOrderById(line.orderId);
+      return order?.hospitalId || null;
+    }
+    return null;
+  }
+
+  // Lot → item → hospital
+  if (params.lotId) {
+    const lot = await storage.getLotById(params.lotId);
+    if (lot?.itemId) {
+      const item = await storage.getItem(lot.itemId);
+      return item?.hospitalId || null;
+    }
+    return null;
+  }
+  
+  // Surgery room resolution (roomId or surgeryRoomId)
+  if (params.roomId || params.surgeryRoomId) {
+    const roomId = params.roomId || params.surgeryRoomId;
+    const room = await storage.getSurgeryRoomById(roomId!);
+    return room?.hospitalId || null;
+  }
+  
+  // Medication group resolution (groupId might be medication or administration, try both)
+  if (params.medicationGroupId) {
+    const group = await storage.getMedicationGroupById(params.medicationGroupId);
+    return group?.hospitalId || null;
+  }
+  
+  // Administration group resolution
+  if (params.administrationGroupId) {
+    const group = await storage.getAdministrationGroupById(params.administrationGroupId);
+    return group?.hospitalId || null;
+  }
+  
+  // Generic groupId - try medication group first, then administration group
+  if (params.groupId) {
+    const medGroup = await storage.getMedicationGroupById(params.groupId);
+    if (medGroup) return medGroup.hospitalId;
+    const adminGroup = await storage.getAdministrationGroupById(params.groupId);
+    if (adminGroup) return adminGroup.hospitalId;
+    return null;
+  }
+  
+  // Unit resolution
+  if (params.unitId) {
+    const unit = await storage.getUnit(params.unitId);
+    return unit?.hospitalId || null;
+  }
+  
+  // User hospital role resolution
+  if (params.roleId) {
+    const role = await storage.getUserHospitalRoleById(params.roleId);
+    return role?.hospitalId || null;
+  }
   
   return null;
+}
+
+// Middleware factory for resource-based access control
+// Usage: app.get('/api/items/:itemId/codes', isAuthenticated, requireResourceAccess('itemId'), handler)
+export function requireResourceAccess(paramName: string, requireWrite: boolean = false) {
+  return async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const resourceId = req.params[paramName];
+      if (!resourceId) {
+        return res.status(400).json({ message: `Missing required parameter: ${paramName}` });
+      }
+
+      // Build params object for getHospitalIdFromResource
+      const params: Record<string, string> = {};
+      params[paramName] = resourceId;
+
+      const hospitalId = await getHospitalIdFromResource(params);
+      if (!hospitalId) {
+        return res.status(404).json({ message: "Resource not found" });
+      }
+
+      // Verify user has access to this hospital
+      const hasAccess = await userHasHospitalAccess(userId, hospitalId);
+      if (!hasAccess) {
+        return res.status(403).json({ 
+          message: "Access denied. You do not have access to this resource.",
+          code: "RESOURCE_ACCESS_DENIED"
+        });
+      }
+
+      // If write access required, check role
+      if (requireWrite) {
+        const role = await getUserRole(userId, hospitalId);
+        if (!canWrite(role)) {
+          return res.status(403).json({ 
+            message: "Insufficient permissions. Guest users have read-only access.",
+            code: "READ_ONLY_ACCESS"
+          });
+        }
+        req.resolvedRole = role;
+      }
+
+      // Store verified hospital info for route handlers
+      req.verifiedHospitalId = hospitalId;
+      req.resolvedHospitalId = hospitalId;
+      next();
+    } catch (error) {
+      console.error(`Error checking resource access for ${paramName}:`, error);
+      res.status(500).json({ message: "Error checking resource permissions" });
+    }
+  };
+}
+
+// Middleware factory for admin-only resource access control
+// Verifies user is admin for the hospital that owns the resource
+export function requireResourceAdmin(paramName: string) {
+  return async (req: any, res: Response, next: NextFunction) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const resourceId = req.params[paramName];
+      if (!resourceId) {
+        return res.status(400).json({ message: `Missing required parameter: ${paramName}` });
+      }
+
+      // Build params object for getHospitalIdFromResource
+      const params: Record<string, string> = {};
+      params[paramName] = resourceId;
+
+      const hospitalId = await getHospitalIdFromResource(params);
+      if (!hospitalId) {
+        return res.status(404).json({ message: "Resource not found" });
+      }
+
+      // Verify user has admin role for this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+      if (!hasAdminRole) {
+        return res.status(403).json({ 
+          message: "Admin access required for this resource.",
+          code: "ADMIN_ACCESS_REQUIRED"
+        });
+      }
+
+      // Store verified hospital info for route handlers
+      req.verifiedHospitalId = hospitalId;
+      req.resolvedHospitalId = hospitalId;
+      next();
+    } catch (error) {
+      console.error(`Error checking admin resource access for ${paramName}:`, error);
+      res.status(500).json({ message: "Error checking resource permissions" });
+    }
+  };
 }
 
 // Check if user has any access (read or write) to a hospital

@@ -97,6 +97,7 @@ import {
   checkLicenseLimit,
   requireWriteAccess,
   requireHospitalAccess,
+  requireResourceAccess,
   canWrite,
   isUserInLogisticUnit
 } from "./utils";
@@ -765,7 +766,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== Item Codes Routes ====================
   
   // Get item codes (universal identifiers) for an item
-  app.get('/api/items/:itemId/codes', isAuthenticated, async (req: any, res) => {
+  app.get('/api/items/:itemId/codes', isAuthenticated, requireResourceAccess('itemId'), async (req: any, res) => {
     try {
       const { itemId } = req.params;
       const code = await storage.getItemCode(itemId);
@@ -777,7 +778,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create or update item codes
-  app.put('/api/items/:itemId/codes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  app.put('/api/items/:itemId/codes', isAuthenticated, requireResourceAccess('itemId', true), async (req: any, res) => {
     try {
       const { itemId } = req.params;
       const validatedData = insertItemCodeSchema.omit({ itemId: true }).parse(req.body);
@@ -790,7 +791,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete item codes
-  app.delete('/api/items/:itemId/codes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  app.delete('/api/items/:itemId/codes', isAuthenticated, requireResourceAccess('itemId', true), async (req: any, res) => {
     try {
       const { itemId } = req.params;
       await storage.deleteItemCode(itemId);
@@ -804,7 +805,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== Supplier Codes Routes ====================
   
   // Get supplier codes for an item
-  app.get('/api/items/:itemId/suppliers', isAuthenticated, async (req: any, res) => {
+  app.get('/api/items/:itemId/suppliers', isAuthenticated, requireResourceAccess('itemId'), async (req: any, res) => {
     try {
       const { itemId } = req.params;
       const codes = await storage.getSupplierCodes(itemId);
@@ -816,7 +817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add a supplier code
-  app.post('/api/items/:itemId/suppliers', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  app.post('/api/items/:itemId/suppliers', isAuthenticated, requireResourceAccess('itemId', true), async (req: any, res) => {
     try {
       const { itemId } = req.params;
       // When manually added by user, auto-confirm the match since user explicitly added it
@@ -834,10 +835,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a supplier code
-  app.put('/api/items/:itemId/suppliers/:supplierId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  app.put('/api/items/:itemId/suppliers/:supplierId', isAuthenticated, requireResourceAccess('itemId', true), async (req: any, res) => {
     try {
-      const { supplierId } = req.params;
-      const validatedData = insertSupplierCodeSchema.partial().parse(req.body);
+      const { itemId, supplierId } = req.params;
+      
+      // Verify supplierId belongs to this itemId
+      const supplierCode = await storage.getSupplierCode(supplierId);
+      if (!supplierCode || supplierCode.itemId !== itemId) {
+        return res.status(404).json({ message: "Supplier code not found for this item" });
+      }
+      
+      // Omit itemId, hospitalId, and unitId from updates to prevent cross-hospital reassignment
+      const { itemId: _itemId, hospitalId: _hospitalId, unitId: _unitId, ...safeBody } = req.body;
+      const validatedData = insertSupplierCodeSchema.partial().parse(safeBody);
       const code = await storage.updateSupplierCode(supplierId, validatedData);
       res.json(code);
     } catch (error: any) {
@@ -847,9 +857,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a supplier code
-  app.delete('/api/items/:itemId/suppliers/:supplierId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  app.delete('/api/items/:itemId/suppliers/:supplierId', isAuthenticated, requireResourceAccess('itemId', true), async (req: any, res) => {
     try {
-      const { supplierId } = req.params;
+      const { itemId, supplierId } = req.params;
+      
+      // Verify supplierId belongs to this itemId
+      const supplierCode = await storage.getSupplierCode(supplierId);
+      if (!supplierCode || supplierCode.itemId !== itemId) {
+        return res.status(404).json({ message: "Supplier code not found for this item" });
+      }
+      
       await storage.deleteSupplierCode(supplierId);
       res.json({ success: true });
     } catch (error: any) {
@@ -859,9 +876,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Set preferred supplier
-  app.post('/api/items/:itemId/suppliers/:supplierId/set-preferred', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  app.post('/api/items/:itemId/suppliers/:supplierId/set-preferred', isAuthenticated, requireResourceAccess('itemId', true), async (req: any, res) => {
     try {
       const { itemId, supplierId } = req.params;
+      
+      // Verify supplierId belongs to this itemId
+      const supplierCode = await storage.getSupplierCode(supplierId);
+      if (!supplierCode || supplierCode.itemId !== itemId) {
+        return res.status(404).json({ message: "Supplier code not found for this item" });
+      }
+      
       await storage.setPreferredSupplier(itemId, supplierId);
       res.json({ success: true });
     } catch (error: any) {
@@ -873,7 +897,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ==================== Lot Routes ====================
   
   // Get lots for an item
-  app.get('/api/items/:itemId/lots', isAuthenticated, async (req: any, res) => {
+  app.get('/api/items/:itemId/lots', isAuthenticated, requireResourceAccess('itemId'), async (req: any, res) => {
     try {
       const { itemId } = req.params;
       const itemLots = await storage.getLots(itemId);
@@ -885,7 +909,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Add a lot
-  app.post('/api/items/:itemId/lots', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  app.post('/api/items/:itemId/lots', isAuthenticated, requireResourceAccess('itemId', true), async (req: any, res) => {
     try {
       const { itemId } = req.params;
       const { lotNumber, expiryDate, unitId, qty } = req.body;
@@ -909,10 +933,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update a lot
-  app.put('/api/items/:itemId/lots/:lotId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  app.put('/api/items/:itemId/lots/:lotId', isAuthenticated, requireResourceAccess('itemId', true), async (req: any, res) => {
     try {
-      const { lotId } = req.params;
+      const { itemId, lotId } = req.params;
       const { lotNumber, expiryDate, qty } = req.body;
+      
+      // Verify lotId belongs to this itemId
+      const existingLot = await storage.getLotById(lotId);
+      if (!existingLot || existingLot.itemId !== itemId) {
+        return res.status(404).json({ message: "Lot not found for this item" });
+      }
       
       const updates: any = {};
       if (lotNumber !== undefined) updates.lotNumber = lotNumber;
@@ -928,9 +958,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete a lot
-  app.delete('/api/items/:itemId/lots/:lotId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  app.delete('/api/items/:itemId/lots/:lotId', isAuthenticated, requireResourceAccess('itemId', true), async (req: any, res) => {
     try {
-      const { lotId } = req.params;
+      const { itemId, lotId } = req.params;
+      
+      // Verify lotId belongs to this itemId
+      const existingLot = await storage.getLotById(lotId);
+      if (!existingLot || existingLot.itemId !== itemId) {
+        return res.status(404).json({ message: "Lot not found for this item" });
+      }
+      
       await storage.deleteLot(lotId);
       res.json({ success: true });
     } catch (error: any) {
@@ -2678,6 +2715,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { alertId } = req.params;
       const userId = req.user.id;
       
+      // Get alert and verify hospital access
+      const existingAlert = await storage.getAlertById(alertId);
+      if (!existingAlert) {
+        return res.status(404).json({ message: "Alert not found" });
+      }
+      
+      // Verify user has access to the hospital this alert belongs to
+      const unitId = await getUserUnitForHospital(userId, existingAlert.hospitalId);
+      if (!unitId) {
+        return res.status(403).json({ message: "Access denied to this alert" });
+      }
+      
       const alert = await storage.acknowledgeAlert(alertId, userId);
       res.json(alert);
     } catch (error) {
@@ -2686,13 +2735,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/alerts/:alertId/snooze', isAuthenticated, requireWriteAccess, async (req, res) => {
+  app.post('/api/alerts/:alertId/snooze', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { alertId } = req.params;
       const { until } = req.body;
+      const userId = req.user.id;
       
       if (!until) {
         return res.status(400).json({ message: "Snooze until date is required" });
+      }
+      
+      // Get alert and verify hospital access
+      const existingAlert = await storage.getAlertById(alertId);
+      if (!existingAlert) {
+        return res.status(404).json({ message: "Alert not found" });
+      }
+      
+      // Verify user has access to the hospital this alert belongs to
+      const unitId = await getUserUnitForHospital(userId, existingAlert.hospitalId);
+      if (!unitId) {
+        return res.status(403).json({ message: "Access denied to this alert" });
       }
       
       const alert = await storage.snoozeAlert(alertId, new Date(until));
