@@ -114,6 +114,20 @@ export function isGuest(role: string | null): boolean {
   return role === 'guest';
 }
 
+// Check if user's active unit is a logistics unit (has isLogisticModule: true)
+// Logistics users can manage orders from any unit in the hospital
+export async function isUserInLogisticUnit(
+  userId: string, 
+  hospitalId: string, 
+  activeUnitId?: string
+): Promise<boolean> {
+  const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId);
+  if (!unitId) return false;
+  
+  const unit = await storage.getUnit(unitId);
+  return unit?.isLogisticModule === true;
+}
+
 // Helper to resolve hospitalId from request parameters
 async function resolveHospitalIdFromRequest(req: any): Promise<string | null> {
   // 1. Try X-Active-Hospital-Id header (most reliable)

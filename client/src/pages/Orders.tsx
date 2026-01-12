@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
 import SignaturePad from "@/components/SignaturePad";
 import type { Order, Vendor, OrderLine, Item, StockLevel, Unit } from "@shared/schema";
 import jsPDF from "jspdf";
@@ -62,7 +64,11 @@ const getStockStatus = (item: Item & { stockLevel?: StockLevel }) => {
   return { color: "text-success", status: "Good" };
 };
 
-export default function Orders() {
+interface OrdersProps {
+  logisticMode?: boolean;
+}
+
+export default function Orders({ logisticMode = false }: OrdersProps) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const activeHospital = useActiveHospital();
@@ -80,6 +86,9 @@ export default function Orders() {
   const [orderNotes, setOrderNotes] = useState("");
   const [editingLineNotes, setEditingLineNotes] = useState<string | null>(null);
   const [lineNotes, setLineNotes] = useState("");
+  
+  // Logistics mode: filter by unit
+  const [filterUnitId, setFilterUnitId] = useState<string>("all");
   
   const [showReceiveDialog, setShowReceiveDialog] = useState(false);
   const [selectedLineToReceive, setSelectedLineToReceive] = useState<(OrderLine & { item: Item & { hospitalUnit?: Unit; stockLevel?: StockLevel } }) | null>(null);
@@ -132,10 +141,27 @@ export default function Orders() {
     }, 0);
   };
 
-  const { data: orders = [], isLoading } = useQuery<OrderWithDetails[]>({
-    queryKey: [`/api/orders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
-    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
+  // Use different endpoints for logistic vs standard mode
+  const ordersQueryKey = logisticMode 
+    ? [`/api/logistic/orders/${activeHospital?.id}`]
+    : [`/api/orders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId];
+  
+  const { data: allOrders = [], isLoading } = useQuery<OrderWithDetails[]>({
+    queryKey: ordersQueryKey,
+    enabled: logisticMode ? !!activeHospital?.id : (!!activeHospital?.id && !!activeHospital?.unitId),
   });
+  
+  // For logistics mode, fetch all units for the filter
+  const { data: allUnits = [] } = useQuery<Unit[]>({
+    queryKey: [`/api/units/${activeHospital?.id}`],
+    enabled: logisticMode && !!activeHospital?.id,
+  });
+  
+  // Filter orders by unit when in logistics mode
+  const orders = useMemo(() => {
+    if (!logisticMode || filterUnitId === "all") return allOrders;
+    return allOrders.filter(order => order.unitId === filterUnitId);
+  }, [logisticMode, filterUnitId, allOrders]);
 
   const { data: vendors = [] } = useQuery<Vendor[]>({
     queryKey: [`/api/vendors/${activeHospital?.id}`, activeHospital?.unitId],
@@ -146,6 +172,22 @@ export default function Orders() {
     queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
     enabled: !!activeHospital?.id && !!activeHospital?.unitId,
   });
+  
+  // Helper to invalidate order caches (works for both standard and logistics mode)
+  const invalidateOrderCaches = () => {
+    queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+    queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
+    if (logisticMode) {
+      queryClient.invalidateQueries({ queryKey: [`/api/logistic/orders/${activeHospital?.id}`] });
+    }
+  };
+  
+  // Helper to get unit name from allUnits (only available in logistics mode)
+  const getUnitName = (unitId: string) => {
+    if (!logisticMode || !allUnits) return '';
+    const unit = allUnits.find(u => u.id === unitId);
+    return unit?.name || '';
+  };
 
   useEffect(() => {
     if (selectedOrder && orders.length > 0) {
@@ -178,7 +220,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      invalidateOrderCaches();
       setNewOrderDialogOpen(false);
       toast({
         title: t('orders.orderCreated'),
@@ -200,9 +242,8 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      invalidateOrderCaches();
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
       toast({
         title: t('orders.orderUpdated'),
         description: t('orders.orderStatusUpdated'),
@@ -235,8 +276,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
+      invalidateOrderCaches();
       setEditingLineId(null);
       toast({
         title: t('orders.orderUpdated'),
@@ -258,8 +298,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
+      invalidateOrderCaches();
       toast({
         title: t('orders.itemRemoved'),
         description: t('orders.itemRemovedSuccess'),
@@ -280,8 +319,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
+      invalidateOrderCaches();
       setEditOrderDialogOpen(false);
       setSelectedOrder(null);
       toast({
@@ -418,7 +456,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      invalidateOrderCaches();
       toast({
         title: t('orders.itemAdded'),
         description: t('orders.itemAddedSuccess'),
@@ -446,7 +484,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      invalidateOrderCaches();
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
       toast({
         title: "Item Received",
@@ -482,7 +520,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      invalidateOrderCaches();
       setEditingOrderNotes(false);
       toast({
         title: t('common.success'),
@@ -504,7 +542,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      invalidateOrderCaches();
       setEditingLineNotes(null);
       toast({
         title: t('common.success'),
@@ -526,8 +564,7 @@ export default function Orders() {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
+      invalidateOrderCaches();
       
       // If main order was deleted, close the dialog to avoid showing stale data
       if (data.mainOrderDeleted) {
@@ -599,7 +636,7 @@ export default function Orders() {
     },
     onSettled: () => {
       // Sync with server after mutation
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      invalidateOrderCaches();
     },
   });
 
@@ -615,7 +652,7 @@ export default function Orders() {
         description: t('orders.ordersMerged'),
       });
       setSelectedSentOrders(new Set());
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      invalidateOrderCaches();
     },
     onError: () => {
       toast({
@@ -831,8 +868,9 @@ export default function Orders() {
     return Array.from(locations).join(", ");
   };
 
-  // Check if the user can edit/modify this order (must be from same unit)
+  // Check if the user can edit/modify this order (must be from same unit OR in logistics mode)
   const canEditOrder = (order: OrderWithDetails) => {
+    if (logisticMode) return true; // Logistics users can edit any order
     return activeHospital?.unitId === order.unitId;
   };
 
@@ -892,14 +930,41 @@ export default function Orders() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">{t('orders.title')}</h1>
-        {canWrite && (
+        <h1 className="text-2xl font-bold text-foreground">
+          {logisticMode ? t('logistic.orders', 'Orders') : t('orders.title')}
+        </h1>
+        {canWrite && !logisticMode && (
           <Button size="sm" onClick={handleNewOrder} data-testid="add-order-button">
             <i className="fas fa-plus mr-2"></i>
             {t('orders.newOrder')}
           </Button>
         )}
       </div>
+
+      {/* Logistics mode: Unit filter bar */}
+      {logisticMode && (
+        <div className="bg-muted/30 border rounded-lg p-3 flex items-center gap-4">
+          <label className="text-sm font-medium text-muted-foreground">
+            {t('logistic.filterByUnit', 'Filter by Unit')}:
+          </label>
+          <Select value={filterUnitId} onValueChange={setFilterUnitId}>
+            <SelectTrigger className="w-[250px]" data-testid="logistic-orders-unit-filter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t('logistic.allUnits', 'All Units')}</SelectItem>
+              {allUnits.map((unit) => (
+                <SelectItem key={unit.id} value={unit.id}>
+                  {unit.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <span className="text-sm text-muted-foreground ml-auto">
+            {orders.length} {t('orders.totalOrders', 'orders')}
+          </span>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="text-center py-8">
@@ -932,7 +997,15 @@ export default function Orders() {
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
+                          {logisticMode && (
+                            <Badge variant="outline" className="text-xs">
+                              <i className="fas fa-building mr-1"></i>
+                              {getUnitName(order.unitId) || 'Unknown Unit'}
+                            </Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">
                           <i className="fas fa-map-marker-alt mr-1"></i>
                           {getOrderLocation(order)}
@@ -1041,6 +1114,12 @@ export default function Orders() {
                           data-testid={`select-order-${order.id}`}
                         />
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
+                        {logisticMode && (
+                          <Badge variant="outline" className="text-xs">
+                            <i className="fas fa-building mr-1"></i>
+                            {getUnitName(order.unitId) || 'Unknown Unit'}
+                          </Badge>
+                        )}
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
                         {t('orders.sent')}
@@ -1112,7 +1191,15 @@ export default function Orders() {
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div>
-                        <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
+                          {logisticMode && (
+                            <Badge variant="outline" className="text-xs">
+                              <i className="fas fa-building mr-1"></i>
+                              {getUnitName(order.unitId) || 'Unknown Unit'}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
                         {t('orders.received')}

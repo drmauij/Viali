@@ -97,7 +97,8 @@ import {
   checkLicenseLimit,
   requireWriteAccess,
   requireHospitalAccess,
-  canWrite
+  canWrite,
+  isUserInLogisticUnit
 } from "./utils";
 import {
   analyzeMonitorImage,
@@ -1528,8 +1529,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // Verify user belongs to the same unit as the order
-      if (unitId !== order.unitId) {
+      // Verify user belongs to the same unit as the order OR is in a logistics unit
+      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
+      if (unitId !== order.unitId && !isLogistic) {
         console.log('[Order Status Update] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
@@ -1564,8 +1566,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // Verify user belongs to the same unit as the order
-      if (unitId !== order.unitId) {
+      // Verify user belongs to the same unit as the order OR is in a logistics unit
+      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
+      if (unitId !== order.unitId && !isLogistic) {
         console.log('[Order Notes Update] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
@@ -1610,8 +1613,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // Verify user belongs to the same unit as the order
-      if (unitId !== order.unitId) {
+      // Verify user belongs to the same unit as the order OR is in a logistics unit
+      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
+      if (unitId !== order.unitId && !isLogistic) {
         console.log('[Order Line Update] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
@@ -1675,8 +1679,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // Verify user belongs to the same unit as the order
-      if (unitId !== order.unitId) {
+      // Verify user belongs to the same unit as the order OR is in a logistics unit
+      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
+      if (unitId !== order.unitId && !isLogistic) {
         console.log('[Move to Secondary] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
@@ -1785,8 +1790,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // Verify user belongs to the same unit as the order
-      if (unitId !== order.unitId) {
+      // Verify user belongs to the same unit as the order OR is in a logistics unit
+      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
+      if (unitId !== order.unitId && !isLogistic) {
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
@@ -1842,8 +1848,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // Verify user belongs to the same unit as the order
-      if (unitId !== order.unitId) {
+      // Verify user belongs to the same unit as the order OR is in a logistics unit
+      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
+      if (unitId !== order.unitId && !isLogistic) {
         console.log('[Order Line Receive] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
         return res.status(403).json({ message: "Access denied: you can only receive items for orders from your unit" });
       }
@@ -1970,8 +1977,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // Verify user belongs to the same unit as the order
-      if (unitId !== order.unitId) {
+      // Verify user belongs to the same unit as the order OR is in a logistics unit
+      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
+      if (unitId !== order.unitId && !isLogistic) {
         console.log('[Order Line Delete] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
@@ -2022,8 +2030,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // Verify user belongs to the same unit as the order
-      if (unitId !== order.unitId) {
+      // Verify user belongs to the same unit as the order OR is in a logistics unit
+      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
+      if (unitId !== order.unitId && !isLogistic) {
         console.log('[Order Delete] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
         return res.status(403).json({ message: "Access denied: you can only delete orders from your unit" });
       }

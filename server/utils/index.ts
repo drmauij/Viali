@@ -9,6 +9,7 @@ export {
   requireHospitalAccess,
   userHasHospitalAccess,
   getHospitalIdFromResource,
+  isUserInLogisticUnit,
   WRITE_ROLES,
   READ_ONLY_ROLES
 } from "./accessControl";
