@@ -99,7 +99,9 @@ import {
   requireHospitalAccess,
   requireResourceAccess,
   canWrite,
-  isUserInLogisticUnit
+  isUserInLogisticUnit,
+  hasLogisticsAccess,
+  canAccessOrder
 } from "./utils";
 import {
   analyzeMonitorImage,
@@ -1308,22 +1310,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Logistic Orders - cross-unit view (no unit filtering)
-  // Only available to users whose unit has isLogisticModule: true
+  // Only available to users who have at least one unit with isLogisticModule: true
   app.get('/api/logistic/orders/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
       const { status } = req.query;
       const userId = req.user.id;
       
-      // Verify user has access to this hospital
-      const userUnitId = await getUserUnitForHospital(userId, hospitalId);
-      if (!userUnitId) {
+      // Get all user's units for this hospital
+      const userHospitals = await storage.getUserHospitals(userId);
+      const userUnitsForHospital = userHospitals.filter(h => h.id === hospitalId);
+      
+      if (userUnitsForHospital.length === 0) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // Verify user's unit has isLogisticModule enabled
-      const userUnit = await storage.getUnit(userUnitId);
-      if (!userUnit?.isLogisticModule) {
+      // Check if any of the user's units has isLogisticModule enabled
+      const unitIds = userUnitsForHospital.map(h => h.unitId).filter(Boolean) as string[];
+      let hasLogisticAccess = false;
+      
+      for (const unitId of unitIds) {
+        const unit = await storage.getUnit(unitId);
+        if (unit?.isLogisticModule) {
+          hasLogisticAccess = true;
+          break;
+        }
+      }
+      
+      if (!hasLogisticAccess) {
         return res.status(403).json({ message: "Access denied - logistics module required" });
       }
       
@@ -1336,7 +1350,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Orders routes
+  // Orders routes - shows only orders for the specified unit
+  // Each unit sees only their own orders
   app.get('/api/orders/:hospitalId', isAuthenticated, async (req: any, res) => {
     try {
       const { hospitalId } = req.params;
@@ -1351,33 +1366,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // If a specific unitId is requested, verify user has access to it
-      if (queryUnitId) {
-        const hasAccessToUnit = userUnitsForHospital.some(h => h.unitId === queryUnitId);
+      // Get the unit to filter by - either from query or from X-Active-Unit-Id header
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const filterUnitId = (queryUnitId as string) || activeUnitId;
+      
+      if (filterUnitId) {
+        // Verify user has access to the requested unit
+        const hasAccessToUnit = userUnitsForHospital.some(h => h.unitId === filterUnitId);
         if (!hasAccessToUnit) {
           return res.status(403).json({ message: "Access denied to this unit" });
         }
-        const orders = await storage.getOrders(hospitalId, status as string, queryUnitId as string);
+        const orders = await storage.getOrders(hospitalId, status as string, filterUnitId);
         return res.json(orders);
       }
       
-      // No specific unit requested - return orders for all user's units
-      const userUnitIds = userUnitsForHospital.map(h => h.unitId).filter(Boolean) as string[];
-      if (userUnitIds.length === 1) {
-        const orders = await storage.getOrders(hospitalId, status as string, userUnitIds[0]);
-        return res.json(orders);
+      // No specific unit requested - use the first unit the user has access to
+      const defaultUnitId = userUnitsForHospital[0]?.unitId;
+      if (!defaultUnitId) {
+        return res.status(403).json({ message: "No unit access found" });
       }
       
-      // Multiple units - get orders for all of them
-      const allOrders = [];
-      for (const unitId of userUnitIds) {
-        const unitOrders = await storage.getOrders(hospitalId, status as string, unitId);
-        allOrders.push(...unitOrders);
-      }
-      // Remove duplicates and sort by createdAt
-      const uniqueOrders = Array.from(new Map(allOrders.map(o => [o.id, o])).values());
-      uniqueOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-      res.json(uniqueOrders);
+      const orders = await storage.getOrders(hospitalId, status as string, defaultUnitId);
+      res.json(orders);
     } catch (error) {
       console.error("Error fetching orders:", error);
       res.status(500).json({ message: "Failed to fetch orders" });
@@ -1575,20 +1585,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
       
-      // Verify user has access to this hospital and unit
-      const activeUnitId = getActiveUnitIdFromRequest(req);
-      console.log('[Order Status Update] Active Unit ID from header:', activeUnitId);
-      console.log('[Order Status Update] Order Unit ID:', order.unitId);
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
-      console.log('[Order Status Update] Resolved Unit ID:', unitId);
-      if (!unitId) {
-        return res.status(403).json({ message: "Access denied to this hospital" });
-      }
-      
-      // Verify user belongs to the same unit as the order OR is in a logistics unit
-      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
-      if (unitId !== order.unitId && !isLogistic) {
-        console.log('[Order Status Update] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
+      // Verify user can access this order (direct unit access or logistics access)
+      const canAccess = await canAccessOrder(userId, order.hospitalId, order.unitId);
+      if (!canAccess) {
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
@@ -1612,20 +1611,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
       
-      // Verify user has access to this hospital and unit
-      const activeUnitId = getActiveUnitIdFromRequest(req);
-      console.log('[Order Notes Update] Active Unit ID from header:', activeUnitId);
-      console.log('[Order Notes Update] Order Unit ID:', order.unitId);
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
-      console.log('[Order Notes Update] Resolved Unit ID:', unitId);
-      if (!unitId) {
-        return res.status(403).json({ message: "Access denied to this hospital" });
-      }
-      
-      // Verify user belongs to the same unit as the order OR is in a logistics unit
-      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
-      if (unitId !== order.unitId && !isLogistic) {
-        console.log('[Order Notes Update] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
+      // Verify user can access this order (direct unit access or logistics access)
+      const canAccess = await canAccessOrder(userId, order.hospitalId, order.unitId);
+      if (!canAccess) {
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
@@ -1659,20 +1647,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
       
-      // Verify user has access to this hospital and unit
-      const activeUnitId = getActiveUnitIdFromRequest(req);
-      console.log('[Order Line Update] Active Unit ID from header:', activeUnitId);
-      console.log('[Order Line Update] Order Unit ID:', order.unitId);
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
-      console.log('[Order Line Update] Resolved Unit ID:', unitId);
-      if (!unitId) {
-        return res.status(403).json({ message: "Access denied to this hospital" });
-      }
-      
-      // Verify user belongs to the same unit as the order OR is in a logistics unit
-      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
-      if (unitId !== order.unitId && !isLogistic) {
-        console.log('[Order Line Update] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
+      // Verify user can access this order (direct unit access or logistics access)
+      const canAccess = await canAccessOrder(userId, order.hospitalId, order.unitId);
+      if (!canAccess) {
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
@@ -1725,20 +1702,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Can only move items from draft orders" });
       }
       
-      // Verify user has access to this hospital and unit
-      const activeUnitId = getActiveUnitIdFromRequest(req);
-      console.log('[Move to Secondary] Active Unit ID from header:', activeUnitId);
-      console.log('[Move to Secondary] Order Unit ID:', order.unitId);
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
-      console.log('[Move to Secondary] Resolved Unit ID:', unitId);
-      if (!unitId) {
-        return res.status(403).json({ message: "Access denied to this hospital" });
-      }
-      
-      // Verify user belongs to the same unit as the order OR is in a logistics unit
-      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
-      if (unitId !== order.unitId && !isLogistic) {
-        console.log('[Move to Secondary] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
+      // Verify user can access this order (direct unit access or logistics access)
+      const canAccess = await canAccessOrder(userId, order.hospitalId, order.unitId);
+      if (!canAccess) {
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
@@ -1839,16 +1805,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Can only toggle offline worked for draft or sent orders" });
       }
       
-      // Verify user has access to this hospital and unit
-      const activeUnitId = getActiveUnitIdFromRequest(req);
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
-      if (!unitId) {
-        return res.status(403).json({ message: "Access denied to this hospital" });
-      }
-      
-      // Verify user belongs to the same unit as the order OR is in a logistics unit
-      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
-      if (unitId !== order.unitId && !isLogistic) {
+      // Verify user can access this order (direct unit access or logistics access)
+      const canAccess = await canAccessOrder(userId, order.hospitalId, order.unitId);
+      if (!canAccess) {
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
@@ -1894,20 +1853,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Item already received" });
       }
       
-      // Verify user has access to this hospital and unit
-      const activeUnitId = getActiveUnitIdFromRequest(req);
-      console.log('[Order Line Receive] Active Unit ID from header:', activeUnitId);
-      console.log('[Order Line Receive] Order Unit ID:', order.unitId);
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
-      console.log('[Order Line Receive] Resolved Unit ID:', unitId);
-      if (!unitId) {
-        return res.status(403).json({ message: "Access denied to this hospital" });
-      }
-      
-      // Verify user belongs to the same unit as the order OR is in a logistics unit
-      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
-      if (unitId !== order.unitId && !isLogistic) {
-        console.log('[Order Line Receive] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
+      // Verify user can access this order (direct unit access or logistics access)
+      const canAccess = await canAccessOrder(userId, order.hospitalId, order.unitId);
+      if (!canAccess) {
         return res.status(403).json({ message: "Access denied: you can only receive items for orders from your unit" });
       }
       
@@ -2023,20 +1971,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
       
-      // Verify user has access to this hospital and unit
-      const activeUnitId = getActiveUnitIdFromRequest(req);
-      console.log('[Order Line Delete] Active Unit ID from header:', activeUnitId);
-      console.log('[Order Line Delete] Order Unit ID:', order.unitId);
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
-      console.log('[Order Line Delete] Resolved Unit ID:', unitId);
-      if (!unitId) {
-        return res.status(403).json({ message: "Access denied to this hospital" });
-      }
-      
-      // Verify user belongs to the same unit as the order OR is in a logistics unit
-      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
-      if (unitId !== order.unitId && !isLogistic) {
-        console.log('[Order Line Delete] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
+      // Verify user can access this order (direct unit access or logistics access)
+      const canAccess = await canAccessOrder(userId, order.hospitalId, order.unitId);
+      if (!canAccess) {
         return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
       }
       
@@ -2076,20 +2013,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
       
-      // Verify user has access to this hospital and unit
-      const activeUnitId = getActiveUnitIdFromRequest(req);
-      console.log('[Order Delete] Active Unit ID from header:', activeUnitId);
-      console.log('[Order Delete] Order Unit ID:', order.unitId);
-      const unitId = await getUserUnitForHospital(userId, order.hospitalId, activeUnitId);
-      console.log('[Order Delete] Resolved Unit ID:', unitId);
-      if (!unitId) {
-        return res.status(403).json({ message: "Access denied to this hospital" });
-      }
-      
-      // Verify user belongs to the same unit as the order OR is in a logistics unit
-      const isLogistic = await isUserInLogisticUnit(userId, order.hospitalId, activeUnitId || undefined);
-      if (unitId !== order.unitId && !isLogistic) {
-        console.log('[Order Delete] Unit mismatch! Resolved:', unitId, 'vs Order:', order.unitId);
+      // Verify user can access this order (direct unit access or logistics access)
+      const canAccess = await canAccessOrder(userId, order.hospitalId, order.unitId);
+      if (!canAccess) {
         return res.status(403).json({ message: "Access denied: you can only delete orders from your unit" });
       }
       

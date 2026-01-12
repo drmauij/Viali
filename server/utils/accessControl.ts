@@ -318,6 +318,48 @@ export async function isUserInLogisticUnit(
   return unit?.isLogisticModule === true;
 }
 
+// Check if user has logistics access for a hospital (any of their units has isLogisticModule: true)
+// This allows logistic users to manage orders from ALL units in the hospital
+export async function hasLogisticsAccess(
+  userId: string, 
+  hospitalId: string
+): Promise<boolean> {
+  const userHospitals = await storage.getUserHospitals(userId);
+  const userUnitsForHospital = userHospitals.filter(h => h.id === hospitalId);
+  
+  if (userUnitsForHospital.length === 0) return false;
+  
+  const unitIds = userUnitsForHospital.map(h => h.unitId).filter(Boolean) as string[];
+  
+  for (const unitId of unitIds) {
+    const unit = await storage.getUnit(unitId);
+    if (unit?.isLogisticModule) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+// Check if user can access a specific order (either owns the unit or has logistics access)
+export async function canAccessOrder(
+  userId: string,
+  hospitalId: string,
+  orderUnitId: string
+): Promise<boolean> {
+  const userHospitals = await storage.getUserHospitals(userId);
+  const userUnitsForHospital = userHospitals.filter(h => h.id === hospitalId);
+  
+  if (userUnitsForHospital.length === 0) return false;
+  
+  // Check if user has direct access to the order's unit
+  const hasDirectAccess = userUnitsForHospital.some(h => h.unitId === orderUnitId);
+  if (hasDirectAccess) return true;
+  
+  // Check if user has logistics access (any of their units has isLogisticModule)
+  return hasLogisticsAccess(userId, hospitalId);
+}
+
 // Helper to resolve hospitalId from request parameters
 async function resolveHospitalIdFromRequest(req: any): Promise<string | null> {
   // 1. Try X-Active-Hospital-Id header (most reliable)
