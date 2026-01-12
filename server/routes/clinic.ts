@@ -15,9 +15,118 @@ import {
   itemCodes,
   units,
   hospitals,
+  ProviderTimeOff,
 } from "@shared/schema";
 import { eq, and, desc, sql, max, inArray, or, gte, lte } from "drizzle-orm";
 import { z } from "zod";
+import { addDays, addWeeks, addMonths, format, parseISO, isBefore, isAfter, getDay, startOfDay, endOfDay } from "date-fns";
+
+// Helper to expand recurring time off into individual date entries
+interface ExpandedTimeOff extends ProviderTimeOff {
+  isExpanded?: boolean;
+  originalRuleId?: string;
+  expandedDate?: string;
+}
+
+function expandRecurringTimeOff(
+  timeOffs: ProviderTimeOff[], 
+  rangeStart: string, 
+  rangeEnd: string
+): ExpandedTimeOff[] {
+  const results: ExpandedTimeOff[] = [];
+  const startDate = parseISO(rangeStart);
+  const endDate = parseISO(rangeEnd);
+  
+  for (const timeOff of timeOffs) {
+    if (!timeOff.isRecurring) {
+      results.push(timeOff);
+      continue;
+    }
+    
+    // Expand recurring time off
+    const pattern = timeOff.recurrencePattern;
+    const daysOfWeek = timeOff.recurrenceDaysOfWeek || [];
+    const recurrenceEndDate = timeOff.recurrenceEndDate ? parseISO(timeOff.recurrenceEndDate) : null;
+    const maxCount = timeOff.recurrenceCount || 365; // Default max 1 year of occurrences
+    
+    let currentDate = parseISO(timeOff.startDate);
+    let count = 0;
+    
+    // Move to start of range if current date is before
+    while (isBefore(currentDate, startDate) && count < maxCount) {
+      if (pattern === 'weekly') {
+        currentDate = addWeeks(currentDate, 1);
+      } else if (pattern === 'biweekly') {
+        currentDate = addWeeks(currentDate, 2);
+      } else if (pattern === 'monthly') {
+        currentDate = addMonths(currentDate, 1);
+      } else {
+        currentDate = addDays(currentDate, 1);
+      }
+      count++;
+    }
+    
+    // Generate occurrences within the date range
+    while (
+      !isAfter(currentDate, endDate) && 
+      count < maxCount &&
+      (!recurrenceEndDate || !isAfter(currentDate, recurrenceEndDate))
+    ) {
+      const dayOfWeek = getDay(currentDate);
+      
+      // For weekly/biweekly patterns with specific days
+      if (pattern === 'weekly' || pattern === 'biweekly') {
+        if (daysOfWeek.length === 0 || daysOfWeek.includes(dayOfWeek)) {
+          const expandedDate = format(currentDate, 'yyyy-MM-dd');
+          results.push({
+            ...timeOff,
+            startDate: expandedDate,
+            endDate: expandedDate,
+            isExpanded: true,
+            originalRuleId: timeOff.id,
+            expandedDate,
+          });
+        }
+        
+        // Move to next occurrence
+        if (pattern === 'weekly') {
+          currentDate = addWeeks(currentDate, 1);
+        } else {
+          currentDate = addWeeks(currentDate, 2);
+        }
+      } else if (pattern === 'monthly') {
+        const expandedDate = format(currentDate, 'yyyy-MM-dd');
+        results.push({
+          ...timeOff,
+          startDate: expandedDate,
+          endDate: expandedDate,
+          isExpanded: true,
+          originalRuleId: timeOff.id,
+          expandedDate,
+        });
+        currentDate = addMonths(currentDate, 1);
+      } else {
+        // Daily - check if day matches
+        if (daysOfWeek.length === 0 || daysOfWeek.includes(dayOfWeek)) {
+          const expandedDate = format(currentDate, 'yyyy-MM-dd');
+          results.push({
+            ...timeOff,
+            startDate: expandedDate,
+            endDate: expandedDate,
+            isExpanded: true,
+            originalRuleId: timeOff.id,
+            expandedDate,
+          });
+        }
+        currentDate = addDays(currentDate, 1);
+      }
+      
+      count++;
+    }
+  }
+  
+  return results;
+}
 
 const router = Router();
 
@@ -1473,16 +1582,27 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-of
 });
 
 // Get all time off for a unit (for calendar display)
+// Expands recurring time off into individual occurrences for the requested date range
 router.get('/api/clinic/:hospitalId/units/:unitId/time-off', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
     const { hospitalId, unitId } = req.params;
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, expand } = req.query;
     
     const timeOffs = await storage.getProviderTimeOffsForUnit(
       unitId,
       startDate as string | undefined,
       endDate as string | undefined
     );
+    
+    // If expand=true and we have date range, expand recurring time off
+    if (expand === 'true' && startDate && endDate) {
+      const expandedTimeOffs = expandRecurringTimeOff(
+        timeOffs,
+        startDate as string,
+        endDate as string
+      );
+      return res.json(expandedTimeOffs);
+    }
     
     res.json(timeOffs);
   } catch (error) {
