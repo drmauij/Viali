@@ -48,6 +48,8 @@ interface CalendarEvent {
   absenceType?: string;
   isTimeOffBlock?: boolean;
   timeOffReason?: string;
+  isAvailabilityWindow?: boolean;
+  windowId?: string;
 }
 
 interface ProviderSurgery {
@@ -84,6 +86,17 @@ interface ProviderTimeOff {
   startTime: string | null;
   endTime: string | null;
   reason: string | null;
+  notes: string | null;
+}
+
+interface ProviderAvailabilityWindowData {
+  id: string;
+  providerId: string;
+  unitId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  slotDurationMinutes: number;
   notes: string | null;
 }
 
@@ -125,6 +138,8 @@ const STATUS_COLORS: Record<string, { bg: string; border: string }> = {
   cancelled: { bg: '#ef4444', border: '#dc2626' },
   no_show: { bg: '#8b5cf6', border: '#7c3aed' },
   surgery_block: { bg: '#9ca3af', border: '#6b7280' },
+  // Availability window (green, shows when provider IS available)
+  availability_window: { bg: '#22c55e', border: '#16a34a' },
   // All absence types are red
   absence_vacation: { bg: '#dc2626', border: '#b91c1c' },
   absence_sick: { bg: '#dc2626', border: '#b91c1c' },
@@ -374,6 +389,30 @@ export default function ClinicCalendar({
     refetchInterval: 60000,
   });
 
+  // Fetch provider availability windows (date-specific availability)
+  const { data: availabilityWindows = [] } = useQuery<ProviderAvailabilityWindowData[]>({
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/availability-windows`, format(dateRange.start, 'yyyy-MM-dd'), format(dateRange.end, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const response = await fetch(
+        `/api/clinic/${hospitalId}/units/${unitId}/availability-windows?startDate=${format(dateRange.start, 'yyyy-MM-dd')}&endDate=${format(dateRange.end, 'yyyy-MM-dd')}`,
+        { credentials: 'include' }
+      );
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!hospitalId && !!unitId,
+    refetchInterval: 60000,
+  });
+
+  // Get provider availability modes to determine which providers need windows displayed
+  const providerModes = useMemo(() => {
+    const modes: Record<string, string> = {};
+    bookableProviders.forEach(bp => {
+      modes[bp.userId] = bp.availabilityMode || 'always_available';
+    });
+    return modes;
+  }, [bookableProviders]);
+
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     // Appointment events
     const appointmentEvents = appointments.map((appt) => {
@@ -574,8 +613,46 @@ export default function ClinicCalendar({
         }
       });
 
-    return [...appointmentEvents, ...surgeryBlockEvents, ...absenceBlockEvents, ...timeOffBlockEvents];
-  }, [appointments, providerSurgeries, providerAbsences, providerTimeOffs, filteredProviders, dateRange]);
+    // Availability window events (green, shows when provider IS available)
+    // Only display windows for providers with "windows_required" mode
+    const availabilityWindowEvents: CalendarEvent[] = [];
+    availabilityWindows
+      .filter((window) => providerIdSet.has(window.providerId))
+      .forEach((window) => {
+        const windowDate = new Date(window.date);
+        const [startH, startM] = window.startTime.split(':').map(Number);
+        const [endH, endM] = window.endTime.split(':').map(Number);
+        
+        const dayStart = new Date(windowDate);
+        dayStart.setHours(startH, startM, 0, 0);
+        
+        const dayEnd = new Date(windowDate);
+        dayEnd.setHours(endH, endM, 0, 0);
+        
+        const notes = window.notes || 'Available';
+        
+        availabilityWindowEvents.push({
+          id: `window-${window.id}`,
+          title: `✓ ${notes}`,
+          start: dayStart,
+          end: dayEnd,
+          resource: window.providerId,
+          appointmentId: '',
+          patientId: '',
+          patientName: '',
+          serviceName: notes,
+          status: 'availability_window',
+          notes: window.notes,
+          isSurgeryBlock: false,
+          isAbsenceBlock: false,
+          isTimeOffBlock: false,
+          isAvailabilityWindow: true,
+          windowId: window.id,
+        });
+      });
+
+    return [...appointmentEvents, ...surgeryBlockEvents, ...absenceBlockEvents, ...timeOffBlockEvents, ...availabilityWindowEvents];
+  }, [appointments, providerSurgeries, providerAbsences, providerTimeOffs, availabilityWindows, filteredProviders, dateRange]);
 
   const resources: CalendarResource[] = useMemo(() => {
     return filteredProviders.map((provider) => ({
@@ -652,8 +729,8 @@ export default function ClinicCalendar({
   });
 
   const handleEventDrop = useCallback(async ({ event, start, end, resourceId }: any) => {
-    // Don't allow dragging surgery or absence blocks
-    if (event.isSurgeryBlock || event.isAbsenceBlock) return;
+    // Don't allow dragging surgery, absence, time off, or availability window blocks
+    if (event.isSurgeryBlock || event.isAbsenceBlock || event.isTimeOffBlock || event.isAvailabilityWindow) return;
     
     const appointmentId = event.appointmentId;
     const newProviderId = resourceId || event.resource;
@@ -668,8 +745,8 @@ export default function ClinicCalendar({
   }, [rescheduleAppointmentMutation]);
 
   const handleEventResize = useCallback(async ({ event, start, end }: any) => {
-    // Don't allow resizing surgery or absence blocks
-    if (event.isSurgeryBlock || event.isAbsenceBlock) return;
+    // Don't allow resizing surgery, absence, time off, or availability window blocks
+    if (event.isSurgeryBlock || event.isAbsenceBlock || event.isTimeOffBlock || event.isAvailabilityWindow) return;
     
     rescheduleAppointmentMutation.mutate({
       appointmentId: event.appointmentId,
@@ -692,8 +769,11 @@ export default function ClinicCalendar({
   }, [currentView, onBookAppointment]);
 
   const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
-    // Don't allow clicking on surgery or absence blocks
-    if (event.isSurgeryBlock || event.isAbsenceBlock) return;
+    // Don't allow clicking on non-appointment blocks
+    if (event.isSurgeryBlock || event.isAbsenceBlock || event.isTimeOffBlock || event.isAvailabilityWindow) return;
+    
+    // Skip if no valid appointmentId
+    if (!event.appointmentId) return;
     
     if (onEventClick) {
       const appointment = appointments.find(a => a.id === event.appointmentId);
@@ -748,6 +828,22 @@ export default function ClinicCalendar({
           border: '1px solid',
           display: 'block',
           cursor: 'not-allowed',
+        },
+      };
+    }
+    
+    // Availability windows: green, shows when provider IS available
+    if (event.isAvailabilityWindow) {
+      return {
+        style: {
+          backgroundColor: '#22c55e',
+          borderColor: '#16a34a',
+          color: '#ffffff',
+          borderRadius: '4px',
+          opacity: 0.6,
+          border: '2px dashed',
+          display: 'block',
+          cursor: 'default',
         },
       };
     }

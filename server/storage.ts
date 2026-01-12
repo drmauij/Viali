@@ -208,6 +208,9 @@ import {
   type InsertProviderAvailability,
   type ProviderTimeOff,
   type InsertProviderTimeOff,
+  providerAvailabilityWindows,
+  type ProviderAvailabilityWindow,
+  type InsertProviderAvailabilityWindow,
   type ProviderAbsence,
   type InsertProviderAbsence,
   type ClinicAppointment,
@@ -777,6 +780,16 @@ export interface IStorage {
   getProviderAvailability(providerId: string, unitId: string): Promise<ProviderAvailability[]>;
   setProviderAvailability(providerId: string, unitId: string, availability: InsertProviderAvailability[]): Promise<ProviderAvailability[]>;
   updateProviderAvailability(id: string, updates: Partial<ProviderAvailability>): Promise<ProviderAvailability>;
+  
+  // Provider Availability Mode (on clinicProviders)
+  updateProviderAvailabilityMode(hospitalId: string, userId: string, mode: 'always_available' | 'windows_required'): Promise<ClinicProvider>;
+  
+  // Provider Availability Windows (date-specific availability)
+  getProviderAvailabilityWindows(providerId: string, unitId: string, startDate?: string, endDate?: string): Promise<ProviderAvailabilityWindow[]>;
+  getProviderAvailabilityWindowsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<ProviderAvailabilityWindow[]>;
+  createProviderAvailabilityWindow(window: InsertProviderAvailabilityWindow): Promise<ProviderAvailabilityWindow>;
+  updateProviderAvailabilityWindow(id: string, updates: Partial<ProviderAvailabilityWindow>): Promise<ProviderAvailabilityWindow>;
+  deleteProviderAvailabilityWindow(id: string): Promise<void>;
   
   // Provider Time Off
   getProviderTimeOff(providerId: string, unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]>;
@@ -7400,6 +7413,91 @@ export class DatabaseStorage implements IStorage {
       .from(providerTimeOff)
       .where(and(...conditions))
       .orderBy(asc(providerTimeOff.startDate));
+  }
+
+  async updateProviderAvailabilityMode(hospitalId: string, userId: string, mode: 'always_available' | 'windows_required'): Promise<ClinicProvider> {
+    const existing = await db
+      .select({ provider: clinicProviders, unit: units })
+      .from(clinicProviders)
+      .innerJoin(units, eq(clinicProviders.unitId, units.id))
+      .where(
+        and(
+          eq(units.hospitalId, hospitalId),
+          eq(clinicProviders.userId, userId)
+        )
+      );
+    
+    if (existing.length === 0) {
+      throw new Error('Provider not found');
+    }
+    
+    const [updated] = await db
+      .update(clinicProviders)
+      .set({ availabilityMode: mode, updatedAt: new Date() })
+      .where(eq(clinicProviders.id, existing[0].provider.id))
+      .returning();
+    
+    return updated;
+  }
+
+  async getProviderAvailabilityWindows(providerId: string, unitId: string, startDate?: string, endDate?: string): Promise<ProviderAvailabilityWindow[]> {
+    let conditions = [
+      eq(providerAvailabilityWindows.providerId, providerId),
+      eq(providerAvailabilityWindows.unitId, unitId)
+    ];
+    
+    if (startDate) {
+      conditions.push(gte(providerAvailabilityWindows.date, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(providerAvailabilityWindows.date, endDate));
+    }
+    
+    return await db
+      .select()
+      .from(providerAvailabilityWindows)
+      .where(and(...conditions))
+      .orderBy(asc(providerAvailabilityWindows.date));
+  }
+
+  async getProviderAvailabilityWindowsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<ProviderAvailabilityWindow[]> {
+    let conditions = [eq(providerAvailabilityWindows.unitId, unitId)];
+    
+    if (startDate) {
+      conditions.push(gte(providerAvailabilityWindows.date, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(providerAvailabilityWindows.date, endDate));
+    }
+    
+    return await db
+      .select()
+      .from(providerAvailabilityWindows)
+      .where(and(...conditions))
+      .orderBy(asc(providerAvailabilityWindows.date));
+  }
+
+  async createProviderAvailabilityWindow(window: InsertProviderAvailabilityWindow): Promise<ProviderAvailabilityWindow> {
+    const [created] = await db
+      .insert(providerAvailabilityWindows)
+      .values(window)
+      .returning();
+    return created;
+  }
+
+  async updateProviderAvailabilityWindow(id: string, updates: Partial<ProviderAvailabilityWindow>): Promise<ProviderAvailabilityWindow> {
+    const [updated] = await db
+      .update(providerAvailabilityWindows)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(providerAvailabilityWindows.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteProviderAvailabilityWindow(id: string): Promise<void> {
+    await db
+      .delete(providerAvailabilityWindows)
+      .where(eq(providerAvailabilityWindows.id, id));
   }
 
   async getProviderAbsences(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderAbsence[]> {

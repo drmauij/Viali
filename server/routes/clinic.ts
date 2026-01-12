@@ -1506,6 +1506,136 @@ router.delete('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, is
 });
 
 // ========================================
+// Provider Availability Mode
+// ========================================
+
+// Update provider availability mode
+router.put('/api/clinic/:hospitalId/providers/:userId/availability-mode', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, userId } = req.params;
+    const { mode } = req.body;
+    
+    if (!['always_available', 'windows_required'].includes(mode)) {
+      return res.status(400).json({ message: "Invalid mode. Must be 'always_available' or 'windows_required'" });
+    }
+    
+    const provider = await storage.updateProviderAvailabilityMode(hospitalId, userId, mode);
+    
+    res.json(provider);
+  } catch (error) {
+    console.error("Error updating provider availability mode:", error);
+    res.status(500).json({ message: "Failed to update availability mode" });
+  }
+});
+
+// ========================================
+// Provider Availability Windows (date-specific)
+// ========================================
+
+// Get provider availability windows
+router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability-windows', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { unitId, providerId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    const windows = await storage.getProviderAvailabilityWindows(
+      providerId, 
+      unitId,
+      startDate as string | undefined,
+      endDate as string | undefined
+    );
+    
+    res.json(windows);
+  } catch (error) {
+    console.error("Error fetching provider availability windows:", error);
+    res.status(500).json({ message: "Failed to fetch availability windows" });
+  }
+});
+
+// Get all availability windows for a unit (for calendar display)
+router.get('/api/clinic/:hospitalId/units/:unitId/availability-windows', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { unitId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    const windows = await storage.getProviderAvailabilityWindowsForUnit(
+      unitId,
+      startDate as string | undefined,
+      endDate as string | undefined
+    );
+    
+    res.json(windows);
+  } catch (error) {
+    console.error("Error fetching availability windows for unit:", error);
+    res.status(500).json({ message: "Failed to fetch availability windows" });
+  }
+});
+
+// Create availability window
+router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability-windows', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { unitId, providerId } = req.params;
+    const userId = req.user.id;
+    
+    const { date, startTime, endTime, slotDurationMinutes, notes } = req.body;
+    
+    if (!date || !startTime || !endTime) {
+      return res.status(400).json({ message: "Date, start time, and end time are required" });
+    }
+    
+    const window = await storage.createProviderAvailabilityWindow({
+      providerId,
+      unitId,
+      date,
+      startTime,
+      endTime,
+      slotDurationMinutes: slotDurationMinutes || 30,
+      notes: notes || null,
+      createdBy: userId,
+    });
+    
+    res.status(201).json(window);
+  } catch (error) {
+    console.error("Error creating availability window:", error);
+    res.status(500).json({ message: "Failed to create availability window" });
+  }
+});
+
+// Update availability window
+router.put('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { windowId } = req.params;
+    const { startTime, endTime, slotDurationMinutes, notes } = req.body;
+    
+    const window = await storage.updateProviderAvailabilityWindow(windowId, {
+      startTime,
+      endTime,
+      slotDurationMinutes,
+      notes,
+    });
+    
+    res.json(window);
+  } catch (error) {
+    console.error("Error updating availability window:", error);
+    res.status(500).json({ message: "Failed to update availability window" });
+  }
+});
+
+// Delete availability window
+router.delete('/api/clinic/:hospitalId/availability-windows/:windowId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { windowId } = req.params;
+    
+    await storage.deleteProviderAvailabilityWindow(windowId);
+    
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting availability window:", error);
+    res.status(500).json({ message: "Failed to delete availability window" });
+  }
+});
+
+// ========================================
 // Provider Absences (Timebutler sync)
 // ========================================
 

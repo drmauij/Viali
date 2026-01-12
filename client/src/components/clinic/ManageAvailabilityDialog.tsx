@@ -22,18 +22,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Clock,
   Save,
   Plus,
   Trash2,
   CalendarOff,
+  CalendarCheck,
+  Settings,
+  Info,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { ProviderAvailability, ProviderTimeOff } from "@shared/schema";
+import type { ProviderAvailability, ProviderTimeOff, ProviderAvailabilityWindow, ClinicProvider } from "@shared/schema";
 
 const DAYS_OF_WEEK = [
   { value: 1, label: "Monday" },
@@ -43,14 +48,6 @@ const DAYS_OF_WEEK = [
   { value: 5, label: "Friday" },
   { value: 6, label: "Saturday" },
   { value: 0, label: "Sunday" },
-];
-
-const SLOT_DURATIONS = [
-  { value: 15, label: "15 min" },
-  { value: 30, label: "30 min" },
-  { value: 45, label: "45 min" },
-  { value: 60, label: "60 min" },
-  { value: 90, label: "90 min" },
 ];
 
 interface ManageAvailabilityDialogProps {
@@ -75,6 +72,7 @@ export function ManageAvailabilityDialog({
   const [selectedProviderId, setSelectedProviderId] = useState<string>(initialProviderId || "");
   const [editAvailability, setEditAvailability] = useState<Partial<ProviderAvailability>[]>([]);
   const [timeOffDialogOpen, setTimeOffDialogOpen] = useState(false);
+  const [windowDialogOpen, setWindowDialogOpen] = useState(false);
   const dateLocale = i18n.language === 'de' ? de : enUS;
 
   useEffect(() => {
@@ -83,6 +81,14 @@ export function ManageAvailabilityDialog({
     }
   }, [open, initialProviderId]);
 
+  const { data: clinicProviders = [] } = useQuery<(ClinicProvider & { user: any })[]>({
+    queryKey: [`/api/clinic/${hospitalId}/bookable-providers`],
+    enabled: !!hospitalId && open,
+  });
+
+  const selectedProviderData = clinicProviders.find(p => p.userId === selectedProviderId);
+  const availabilityMode = selectedProviderData?.availabilityMode || 'always_available';
+
   const { data: availability = [], isLoading: availabilityLoading } = useQuery<ProviderAvailability[]>({
     queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/availability`],
     enabled: !!hospitalId && !!unitId && !!selectedProviderId && open,
@@ -90,6 +96,11 @@ export function ManageAvailabilityDialog({
 
   const { data: timeOff = [] } = useQuery<ProviderTimeOff[]>({
     queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/time-off`],
+    enabled: !!hospitalId && !!unitId && !!selectedProviderId && open,
+  });
+
+  const { data: availabilityWindows = [] } = useQuery<ProviderAvailabilityWindow[]>({
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/availability-windows`],
     enabled: !!hospitalId && !!unitId && !!selectedProviderId && open,
   });
 
@@ -112,6 +123,19 @@ export function ManageAvailabilityDialog({
       })));
     }
   }, [availability, selectedProviderId]);
+
+  const updateAvailabilityModeMutation = useMutation({
+    mutationFn: async (mode: string) => {
+      return apiRequest("PUT", `/api/clinic/${hospitalId}/providers/${selectedProviderId}/availability-mode`, { mode });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/bookable-providers`] });
+      toast({ title: t('availability.modeUpdated', 'Availability mode updated') });
+    },
+    onError: () => {
+      toast({ title: t('availability.modeError', 'Failed to update availability mode'), variant: "destructive" });
+    },
+  });
 
   const saveAvailabilityMutation = useMutation({
     mutationFn: async (data: Partial<ProviderAvailability>[]) => {
@@ -149,6 +173,30 @@ export function ManageAvailabilityDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/time-off`] });
       toast({ title: t('availability.timeOffDeleted', 'Time off deleted') });
+    },
+  });
+
+  const createWindowMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", `/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/availability-windows`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/availability-windows`] });
+      toast({ title: t('availability.windowCreated', 'Availability window created') });
+      setWindowDialogOpen(false);
+    },
+    onError: () => {
+      toast({ title: t('availability.windowError', 'Failed to create availability window'), variant: "destructive" });
+    },
+  });
+
+  const deleteWindowMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/clinic/${hospitalId}/availability-windows/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/providers/${selectedProviderId}/availability-windows`] });
+      toast({ title: t('availability.windowDeleted', 'Availability window deleted') });
     },
   });
 
@@ -200,19 +248,82 @@ export function ManageAvailabilityDialog({
             </Select>
 
             {selectedProviderId && (
-              <Tabs defaultValue="schedule" className="space-y-4">
-                <TabsList className="w-full">
-                  <TabsTrigger value="schedule" className="flex-1" data-testid="tab-schedule-dialog">
-                    <Clock className="h-4 w-4 mr-1" />
-                    {t('availability.weeklySchedule', 'Weekly Schedule')}
+              <Tabs defaultValue="mode" className="space-y-4">
+                <TabsList className="w-full grid grid-cols-4">
+                  <TabsTrigger value="mode" className="text-xs" data-testid="tab-mode-dialog">
+                    <Settings className="h-4 w-4 mr-1 hidden sm:block" />
+                    {t('availability.mode', 'Mode')}
                   </TabsTrigger>
-                  <TabsTrigger value="timeoff" className="flex-1" data-testid="tab-timeoff-dialog">
-                    <CalendarOff className="h-4 w-4 mr-1" />
+                  <TabsTrigger value="schedule" className="text-xs" data-testid="tab-schedule-dialog">
+                    <Clock className="h-4 w-4 mr-1 hidden sm:block" />
+                    {t('availability.schedule', 'Schedule')}
+                  </TabsTrigger>
+                  <TabsTrigger value="windows" className="text-xs" data-testid="tab-windows-dialog">
+                    <CalendarCheck className="h-4 w-4 mr-1 hidden sm:block" />
+                    {t('availability.windows', 'Windows')}
+                  </TabsTrigger>
+                  <TabsTrigger value="timeoff" className="text-xs" data-testid="tab-timeoff-dialog">
+                    <CalendarOff className="h-4 w-4 mr-1 hidden sm:block" />
                     {t('availability.timeOff', 'Time Off')}
                   </TabsTrigger>
                 </TabsList>
 
+                <TabsContent value="mode" className="space-y-4">
+                  <div className="p-4 border rounded-lg bg-muted/30">
+                    <div className="flex items-start gap-2 mb-4">
+                      <Info className="h-4 w-4 mt-1 text-blue-500" />
+                      <p className="text-sm text-muted-foreground">
+                        {t('availability.modeDescription', 'Choose how this provider\'s availability is determined. This affects when patients can book appointments.')}
+                      </p>
+                    </div>
+                    
+                    <RadioGroup
+                      value={availabilityMode}
+                      onValueChange={(value) => updateAvailabilityModeMutation.mutate(value)}
+                      className="space-y-4"
+                    >
+                      <div className="flex items-start space-x-3 p-3 border rounded-lg bg-background">
+                        <RadioGroupItem value="always_available" id="always_available" data-testid="radio-always-available" />
+                        <div className="flex-1">
+                          <Label htmlFor="always_available" className="font-medium cursor-pointer">
+                            {t('availability.alwaysAvailable', 'Always Available')}
+                          </Label>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {t('availability.alwaysAvailableDesc', 'Provider is bookable during weekly schedule hours, except when blocked by surgeries, time-off, or absences.')}
+                          </p>
+                          <Badge variant="secondary" className="mt-2">
+                            {t('availability.default', 'Default')}
+                          </Badge>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start space-x-3 p-3 border rounded-lg bg-background">
+                        <RadioGroupItem value="windows_required" id="windows_required" data-testid="radio-windows-required" />
+                        <div className="flex-1">
+                          <Label htmlFor="windows_required" className="font-medium cursor-pointer">
+                            {t('availability.windowsRequired', 'Windows Required')}
+                          </Label>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {t('availability.windowsRequiredDesc', 'Provider is ONLY bookable during explicitly defined weekly schedule OR specific availability windows. Use this for surgeons who are only available after certain hours, or on-demand providers.')}
+                          </p>
+                          <Badge variant="outline" className="mt-2">
+                            {t('availability.restrictive', 'Restrictive')}
+                          </Badge>
+                        </div>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                </TabsContent>
+
                 <TabsContent value="schedule" className="space-y-4">
+                  <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/30 text-sm">
+                    <p className="text-blue-800 dark:text-blue-300">
+                      {availabilityMode === 'windows_required' 
+                        ? t('availability.scheduleInfoRestricted', 'This provider uses Windows Required mode. They will ONLY be bookable during these hours.')
+                        : t('availability.scheduleInfoDefault', 'This provider is bookable during these hours unless blocked by surgeries or time-off.')}
+                    </p>
+                  </div>
+
                   {availabilityLoading ? (
                     <div className="space-y-2">
                       {[...Array(5)].map((_, i) => (
@@ -280,6 +391,62 @@ export function ManageAvailabilityDialog({
                   )}
                 </TabsContent>
 
+                <TabsContent value="windows" className="space-y-4">
+                  <div className="p-3 border rounded-lg bg-green-50 dark:bg-green-950/30 text-sm">
+                    <p className="text-green-800 dark:text-green-300">
+                      {t('availability.windowsDescription', 'Add specific dates and times when the provider is available. These are one-time availability slots that override or add to the weekly schedule.')}
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button onClick={() => setWindowDialogOpen(true)} size="sm" data-testid="button-add-window-dialog">
+                      <Plus className="h-4 w-4 mr-1" />
+                      {t('availability.addWindow', 'Add Availability Window')}
+                    </Button>
+                  </div>
+
+                  {availabilityWindows.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <CalendarCheck className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>{t('availability.noWindows', 'No availability windows defined')}</p>
+                      <p className="text-sm mt-1">
+                        {availabilityMode === 'windows_required' 
+                          ? t('availability.noWindowsHintRestricted', 'Add windows to make this provider bookable on specific dates.')
+                          : t('availability.noWindowsHint', 'Windows are optional. Add them to open extra slots outside the regular schedule.')}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                      {availabilityWindows.map((window) => (
+                        <div
+                          key={window.id}
+                          className="flex items-center justify-between p-3 rounded-lg border bg-green-50/50 dark:bg-green-950/20"
+                          data-testid={`window-dialog-${window.id}`}
+                        >
+                          <div className="text-sm">
+                            <div className="font-medium text-green-800 dark:text-green-300">
+                              {format(parseISO(window.date), 'EEEE, PP', { locale: dateLocale })}
+                            </div>
+                            <div className="text-muted-foreground">
+                              {window.startTime} - {window.endTime}
+                              {window.notes && <span className="ml-2">({window.notes})</span>}
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteWindowMutation.mutate(window.id)}
+                            disabled={deleteWindowMutation.isPending}
+                            data-testid={`button-delete-window-dialog-${window.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </TabsContent>
+
                 <TabsContent value="timeoff" className="space-y-4">
                   <div className="flex justify-end">
                     <Button onClick={() => setTimeOffDialogOpen(true)} size="sm" data-testid="button-add-timeoff-dialog">
@@ -336,6 +503,13 @@ export function ManageAvailabilityDialog({
         onOpenChange={setTimeOffDialogOpen}
         onSubmit={(data) => createTimeOffMutation.mutate(data)}
         isPending={createTimeOffMutation.isPending}
+      />
+
+      <AvailabilityWindowDialog
+        open={windowDialogOpen}
+        onOpenChange={setWindowDialogOpen}
+        onSubmit={(data) => createWindowMutation.mutate(data)}
+        isPending={createWindowMutation.isPending}
       />
     </>
   );
@@ -451,6 +625,99 @@ function TimeOffDialog({
             {t('common.cancel', 'Cancel')}
           </Button>
           <Button onClick={handleSubmit} disabled={isPending} data-testid="button-save-timeoff-nested">
+            {isPending ? t('common.saving', 'Saving...') : t('common.save', 'Save')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AvailabilityWindowDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+  isPending,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (data: any) => void;
+  isPending: boolean;
+}) {
+  const { t } = useTranslation();
+  const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [startTime, setStartTime] = useState("09:00");
+  const [endTime, setEndTime] = useState("17:00");
+  const [notes, setNotes] = useState("");
+
+  const handleSubmit = () => {
+    onSubmit({
+      date,
+      startTime,
+      endTime,
+      notes: notes || null,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>{t('availability.addWindow', 'Add Availability Window')}</DialogTitle>
+          <DialogDescription>
+            {t('availability.windowFormDescription', 'Define when the provider is available on a specific date')}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <Label>{t('availability.date', 'Date')}</Label>
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              min={format(new Date(), 'yyyy-MM-dd')}
+              data-testid="input-window-date"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>{t('availability.startTime', 'Start Time')}</Label>
+              <Input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                data-testid="input-window-start-time"
+              />
+            </div>
+            <div>
+              <Label>{t('availability.endTime', 'End Time')}</Label>
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                data-testid="input-window-end-time"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label>{t('availability.notes', 'Notes (optional)')}</Label>
+            <Input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={t('availability.windowNotesPlaceholder', 'e.g., Morning consultations only')}
+              data-testid="input-window-notes"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t('common.cancel', 'Cancel')}
+          </Button>
+          <Button onClick={handleSubmit} disabled={isPending} data-testid="button-save-window">
             {isPending ? t('common.saving', 'Saving...') : t('common.save', 'Save')}
           </Button>
         </DialogFooter>

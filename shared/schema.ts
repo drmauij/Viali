@@ -3596,6 +3596,14 @@ export const clinicProviders = pgTable("clinic_providers", {
   unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   isBookable: boolean("is_bookable").default(true).notNull(),
+  
+  // Availability Mode: 
+  // - "always_available" (default): Provider is bookable 24/7 except when blocked (surgeries, time-off, absences)
+  // - "windows_required": Provider is ONLY bookable during defined availability windows
+  availabilityMode: varchar("availability_mode", { 
+    enum: ["always_available", "windows_required"] 
+  }).default("always_available").notNull(),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -3661,6 +3669,36 @@ export const providerTimeOff = pgTable("provider_time_off", {
 }, (table) => [
   index("idx_provider_time_off_provider").on(table.providerId),
   index("idx_provider_time_off_dates").on(table.startDate, table.endDate),
+]);
+
+// Provider Availability Windows - Date-specific availability overrides
+// Used for:
+// 1. On-demand providers who only come on specific days (add windows when available)
+// 2. Overriding recurring schedule for specific dates (e.g., working an extra Saturday)
+export const providerAvailabilityWindows = pgTable("provider_availability_windows", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  providerId: varchar("provider_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  
+  // Specific date for this availability window
+  date: date("date").notNull(),
+  
+  // Time range when provider IS available
+  startTime: varchar("start_time").notNull(), // e.g., "10:00"
+  endTime: varchar("end_time").notNull(), // e.g., "16:00"
+  
+  // Slot configuration (inherits from weekly schedule if null)
+  slotDurationMinutes: integer("slot_duration_minutes").default(30),
+  
+  notes: text("notes"),
+  
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_provider_avail_windows_provider").on(table.providerId),
+  index("idx_provider_avail_windows_unit").on(table.unitId),
+  index("idx_provider_avail_windows_date").on(table.date),
 ]);
 
 // Provider Absences - Synced from Timebutler
@@ -3784,6 +3822,12 @@ export const insertProviderTimeOffSchema = createInsertSchema(providerTimeOff).o
   createdAt: true,
 });
 
+export const insertProviderAvailabilityWindowSchema = createInsertSchema(providerAvailabilityWindows).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
 export const insertProviderAbsenceSchema = createInsertSchema(providerAbsences).omit({
   id: true,
   createdAt: true,
@@ -3807,6 +3851,8 @@ export type ProviderAvailability = typeof providerAvailability.$inferSelect;
 export type InsertProviderAvailability = z.infer<typeof insertProviderAvailabilitySchema>;
 export type ProviderTimeOff = typeof providerTimeOff.$inferSelect;
 export type InsertProviderTimeOff = z.infer<typeof insertProviderTimeOffSchema>;
+export type ProviderAvailabilityWindow = typeof providerAvailabilityWindows.$inferSelect;
+export type InsertProviderAvailabilityWindow = z.infer<typeof insertProviderAvailabilityWindowSchema>;
 export type ProviderAbsence = typeof providerAbsences.$inferSelect;
 export type InsertProviderAbsence = z.infer<typeof insertProviderAbsenceSchema>;
 export type ClinicAppointment = typeof clinicAppointments.$inferSelect;
