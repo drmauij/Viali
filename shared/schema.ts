@@ -105,6 +105,12 @@ export const userHospitalRoles = pgTable("user_hospital_roles", {
   role: varchar("role").notNull(), // doctor, nurse, admin
   isBookable: boolean("is_bookable").default(false), // Whether user can be booked for appointments in this unit
   isDefaultLogin: boolean("is_default_login").default(false), // Default unit/role to load on login
+  // Availability Mode (migrated from clinic_providers):
+  // - "always_available" (default): Provider is bookable 24/7 except when blocked
+  // - "windows_required": Provider is ONLY bookable during defined availability windows
+  availabilityMode: varchar("availability_mode", { 
+    enum: ["always_available", "windows_required"] 
+  }).default("always_available"),
   calcomUserId: integer("calcom_user_id"), // Cal.com user ID for bi-directional sync
   calcomEventTypeId: integer("calcom_event_type_id"), // Cal.com event type ID for creating bookings
   createdAt: timestamp("created_at").defaultNow(),
