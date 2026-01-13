@@ -409,6 +409,7 @@ router.post('/api/admin/:hospitalId/users', isAuthenticated, isAdmin, async (req
       role,
       isBookable: false,
       isDefaultLogin: false,
+      availabilityMode: 'always_available',
       calcomUserId: null,
       calcomEventTypeId: null,
     });
@@ -480,6 +481,7 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
       role,
       isBookable: false,
       isDefaultLogin: false,
+      availabilityMode: 'always_available',
       calcomUserId: null,
       calcomEventTypeId: null,
     });
@@ -554,6 +556,7 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
         role,
         isBookable: false,
         isDefaultLogin: false,
+        availabilityMode: 'always_available',
         calcomUserId: null,
         calcomEventTypeId: null,
       });
@@ -611,6 +614,7 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
       role,
       isBookable: false,
       isDefaultLogin: false,
+      availabilityMode: 'always_available',
       calcomUserId: null,
       calcomEventTypeId: null,
     });
@@ -884,13 +888,27 @@ router.patch('/api/admin/user-roles/:roleId/bookable', isAuthenticated, requireW
     }
 
     // Update the isBookable field in userHospitalRoles
+    // No need to sync clinicProviders anymore - appointments now read from userHospitalRoles
     await db.update(userHospitalRoles)
       .set({ isBookable })
       .where(eq(userHospitalRoles.id, roleId));
 
-    // Also sync the clinicProviders table so the Appointments page reflects this change
-    // This uses the storage method which handles default availability creation for new bookable providers
-    await storage.setClinicProviderBookableByUnit(roleRecord.unitId, roleRecord.userId, isBookable);
+    // If making bookable, create default availability (Mon-Fri 8:00-18:00) if none exists
+    if (isBookable) {
+      const existingAvail = await storage.getProviderAvailability(roleRecord.userId, roleRecord.unitId);
+      if (existingAvail.length === 0) {
+        const defaultAvailability = [1, 2, 3, 4, 5].map(dayOfWeek => ({
+          providerId: roleRecord.userId,
+          unitId: roleRecord.unitId,
+          dayOfWeek,
+          startTime: "08:00",
+          endTime: "18:00",
+          slotDurationMinutes: 30,
+          isActive: true
+        }));
+        await storage.setProviderAvailability(roleRecord.userId, roleRecord.unitId, defaultAvailability);
+      }
+    }
 
     res.json({ success: true, isBookable });
   } catch (error) {

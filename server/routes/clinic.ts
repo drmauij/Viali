@@ -1609,6 +1609,7 @@ router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthent
 });
 
 // Toggle provider bookable status (hospital level)
+// Updates userHospitalRoles.isBookable for all roles of this user in this hospital
 router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId, userId } = req.params;
@@ -1618,9 +1619,56 @@ router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, 
       return res.status(400).json({ message: "isBookable must be a boolean" });
     }
     
-    const provider = await storage.setClinicProviderBookableByHospital(hospitalId, userId, isBookable);
+    // Import userHospitalRoles to update directly
+    const { userHospitalRoles } = await import("@shared/schema");
     
-    res.json(provider);
+    // Update all roles for this user in this hospital
+    await db
+      .update(userHospitalRoles)
+      .set({ isBookable })
+      .where(
+        and(
+          eq(userHospitalRoles.hospitalId, hospitalId),
+          eq(userHospitalRoles.userId, userId)
+        )
+      );
+    
+    // If making bookable, create default availability if none exists
+    if (isBookable) {
+      // Get one of the user's roles to find a unit
+      const [role] = await db
+        .select()
+        .from(userHospitalRoles)
+        .where(
+          and(
+            eq(userHospitalRoles.hospitalId, hospitalId),
+            eq(userHospitalRoles.userId, userId)
+          )
+        )
+        .limit(1);
+      
+      if (role) {
+        const existingAvail = await storage.getProviderAvailability(userId, role.unitId);
+        if (existingAvail.length === 0) {
+          const defaultAvailability = [1, 2, 3, 4, 5].map(dayOfWeek => ({
+            providerId: userId,
+            unitId: role.unitId,
+            dayOfWeek,
+            startTime: "08:00",
+            endTime: "18:00",
+            slotDurationMinutes: 30,
+            isActive: true
+          }));
+          await storage.setProviderAvailability(userId, role.unitId, defaultAvailability);
+        }
+      }
+    }
+    
+    // Return updated providers list (ClinicProvider format from userHospitalRoles)
+    const providers = await storage.getClinicProvidersByHospital(hospitalId);
+    const updatedProvider = providers.find(p => p.userId === userId);
+    
+    res.json(updatedProvider || { userId, isBookable });
   } catch (error) {
     console.error("Error setting clinic provider bookable status:", error);
     res.status(500).json({ message: "Failed to update provider status" });
