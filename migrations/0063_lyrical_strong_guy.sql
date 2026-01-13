@@ -1,0 +1,1 @@
+ALTER TABLE "user_hospital_roles" ADD COLUMN "availability_mode" varchar DEFAULT 'always_available';

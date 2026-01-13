@@ -442,6 +442,13 @@
       "when": 1768217801787,
       "tag": "0062_gorgeous_centennial",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1768278475913,
+      "tag": "0063_lyrical_strong_guy",
+      "breakpoints": true
     }
   ]
 }

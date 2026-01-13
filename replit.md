@@ -43,7 +43,16 @@ Key protected routes include:
 - Anesthesia configuration: Surgery rooms, medication groups, administration groups all use requireResourceAccess
 
 ### Database Schema
-The database schema includes entities for Users, Hospitals, Items, StockLevels, Lots, Orders, Activities, and Alerts, using UUID primary keys, timestamp tracking, and JSONB fields with Zod validation. Schema changes are managed via Drizzle ORM, with an automated, idempotent migration workflow. A significant design choice for the Anesthesia module is the redesign of vitals storage to a single row per record with arrays of points for improved performance and granular CRUD.
+The database schema includes entities for Users, Hospitals, Items, StockLevels, Lots, Orders, Activities, and Alerts, using UUID primary keys, timestamp tracking, and JSONB fields with Zod validation. A significant design choice for the Anesthesia module is the redesign of vitals storage to a single row per record with arrays of points for improved performance and granular CRUD.
+
+### Database Migration Workflow (CRITICAL)
+Schema changes require a 3-step process - the startup auto-migration is only a bootstrap helper:
+
+1. **Update schema**: Modify `shared/schema.ts` with your changes
+2. **Generate migration**: Run `npm run db:generate` to create SQL migration file
+3. **Apply migration**: Run `npm run db:migrate` to execute the SQL against the database
+
+**Important**: The auto-migration at server startup does NOT apply new migrations. It only marks them as applied if the schema already exists. Always run `npm run db:migrate` after generating a new migration.
 
 ### System Design Choices
 Core design decisions include:
