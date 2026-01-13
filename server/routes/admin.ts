@@ -883,10 +883,14 @@ router.patch('/api/admin/user-roles/:roleId/bookable', isAuthenticated, requireW
       return res.status(403).json({ message: "Role does not belong to this hospital" });
     }
 
-    // Update the isBookable field
+    // Update the isBookable field in userHospitalRoles
     await db.update(userHospitalRoles)
       .set({ isBookable })
       .where(eq(userHospitalRoles.id, roleId));
+
+    // Also sync the clinicProviders table so the Appointments page reflects this change
+    // This uses the storage method which handles default availability creation for new bookable providers
+    await storage.setClinicProviderBookableByUnit(roleRecord.unitId, roleRecord.userId, isBookable);
 
     res.json({ success: true, isBookable });
   } catch (error) {

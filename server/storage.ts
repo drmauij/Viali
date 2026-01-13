@@ -786,6 +786,7 @@ export interface IStorage {
   getClinicProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]>;
   getBookableProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]>;
   setClinicProviderBookableByHospital(hospitalId: string, userId: string, isBookable: boolean): Promise<ClinicProvider>;
+  setClinicProviderBookableByUnit(unitId: string, userId: string, isBookable: boolean): Promise<ClinicProvider>;
   
   // Provider Availability
   getProviderAvailability(providerId: string, unitId: string): Promise<ProviderAvailability[]>;
@@ -7368,6 +7369,78 @@ export class DatabaseStorage implements IStorage {
           await db.insert(providerAvailability).values(defaultAvailability);
         }
       }
+    }
+    
+    return providerRecord;
+  }
+
+  async setClinicProviderBookableByUnit(unitId: string, userId: string, isBookable: boolean): Promise<ClinicProvider> {
+    // Find existing clinic_provider record for this user in this specific unit
+    const [existing] = await db
+      .select()
+      .from(clinicProviders)
+      .where(and(
+        eq(clinicProviders.unitId, unitId),
+        eq(clinicProviders.userId, userId)
+      ))
+      .limit(1);
+    
+    let providerRecord: ClinicProvider;
+    
+    if (existing) {
+      // Update existing record
+      const [updated] = await db
+        .update(clinicProviders)
+        .set({ isBookable, updatedAt: new Date() })
+        .where(eq(clinicProviders.id, existing.id))
+        .returning();
+      providerRecord = updated;
+    } else if (isBookable) {
+      // Create new record only if making bookable
+      const [created] = await db
+        .insert(clinicProviders)
+        .values({
+          unitId,
+          userId,
+          isBookable: true
+        })
+        .returning();
+      providerRecord = created;
+      
+      // Create default availability (Mon-Fri 8:00-18:00) if none exists
+      const existingAvail = await db
+        .select()
+        .from(providerAvailability)
+        .where(and(
+          eq(providerAvailability.providerId, userId),
+          eq(providerAvailability.unitId, unitId)
+        ))
+        .limit(1);
+      
+      if (existingAvail.length === 0) {
+        const defaultAvailability: InsertProviderAvailability[] = [1, 2, 3, 4, 5].map(dayOfWeek => ({
+          providerId: userId,
+          unitId,
+          dayOfWeek,
+          startTime: "08:00",
+          endTime: "18:00",
+          slotDurationMinutes: 30,
+          isActive: true
+        }));
+        
+        await db.insert(providerAvailability).values(defaultAvailability);
+      }
+    } else {
+      // Not bookable and no existing record - create a non-bookable record for tracking
+      const [created] = await db
+        .insert(clinicProviders)
+        .values({
+          unitId,
+          userId,
+          isBookable: false
+        })
+        .returning();
+      providerRecord = created;
     }
     
     return providerRecord;
