@@ -97,7 +97,9 @@ export default function Hospital() {
     showInventory: true,
     showAppointments: true,
     questionnairePhone: "",
+    infoFlyerUrl: "",
   });
+  const [infoFlyerUploading, setInfoFlyerUploading] = useState(false);
 
   // Checklist template states
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
@@ -540,7 +542,8 @@ export default function Hospital() {
       isClinicModule: false,
       showInventory: true,
       showAppointments: true,
-      questionnairePhone: "" 
+      questionnairePhone: "",
+      infoFlyerUrl: "",
     });
     setEditingUnit(null);
   };
@@ -575,6 +578,7 @@ export default function Hospital() {
       showInventory: (unit as any).showInventory !== false,
       showAppointments: (unit as any).showAppointments !== false,
       questionnairePhone: unit.questionnairePhone || "",
+      infoFlyerUrl: (unit as any).infoFlyerUrl || "",
     });
     setUnitDialogOpen(true);
   };
@@ -597,6 +601,7 @@ export default function Hospital() {
       showInventory: unitForm.showInventory,
       showAppointments: unitForm.showAppointments,
       questionnairePhone: unitForm.questionnairePhone || null,
+      infoFlyerUrl: unitForm.infoFlyerUrl || null,
     };
 
     if (editingUnit) {
@@ -2040,6 +2045,76 @@ export default function Hospital() {
               />
               <p className="text-xs text-muted-foreground mt-1">
                 {t("admin.questionnairePhoneHint")}
+              </p>
+            </div>
+            <div>
+              <Label>{t("admin.infoFlyer", "Info Flyer (PDF)")}</Label>
+              <div className="mt-2 space-y-2">
+                {unitForm.infoFlyerUrl ? (
+                  <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
+                    <FileText className="h-4 w-4 text-primary" />
+                    <span className="text-sm flex-1 truncate">{t("admin.infoFlyerUploaded", "Info flyer uploaded")}</span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => window.open(unitForm.infoFlyerUrl, '_blank')}
+                    >
+                      {t("common.view", "View")}
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => setUnitForm({ ...unitForm, infoFlyerUrl: "" })}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="file"
+                      accept="application/pdf"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        
+                        if (file.type !== 'application/pdf') {
+                          toast({ title: t("common.error"), description: t("admin.onlyPdfAllowed", "Only PDF files are allowed"), variant: "destructive" });
+                          return;
+                        }
+                        
+                        setInfoFlyerUploading(true);
+                        try {
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          formData.append('folder', 'unit-info-flyers');
+                          
+                          const response = await fetch('/api/upload', {
+                            method: 'POST',
+                            body: formData,
+                            credentials: 'include',
+                          });
+                          
+                          if (!response.ok) throw new Error('Upload failed');
+                          
+                          const data = await response.json();
+                          setUnitForm({ ...unitForm, infoFlyerUrl: data.url });
+                          toast({ title: t("common.success"), description: t("admin.infoFlyerUploadSuccess", "Info flyer uploaded successfully") });
+                        } catch (error) {
+                          toast({ title: t("common.error"), description: t("admin.infoFlyerUploadFailed", "Failed to upload info flyer"), variant: "destructive" });
+                        } finally {
+                          setInfoFlyerUploading(false);
+                        }
+                      }}
+                      disabled={infoFlyerUploading}
+                      data-testid="input-info-flyer"
+                    />
+                    {infoFlyerUploading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  </div>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {t("admin.infoFlyerHint", "PDF document with info about this unit for patients")}
               </p>
             </div>
             <div className="flex gap-2 justify-end">

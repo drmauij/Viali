@@ -91,6 +91,7 @@ export const units = pgTable("units", {
   showInventory: boolean("show_inventory").default(true), // UI control: show Inventory module for this unit
   showAppointments: boolean("show_appointments").default(true), // UI control: show Appointments tab for this unit
   questionnairePhone: varchar("questionnaire_phone"), // Help line phone for patient questionnaire emails
+  infoFlyerUrl: varchar("info_flyer_url"), // URL to unit info flyer PDF
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_units_hospital").on(table.hospitalId),
