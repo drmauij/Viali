@@ -256,17 +256,64 @@ export default function WorkerContractForm() {
                 <p className="mb-4"><strong>Geb.:</strong> {formValues.dateOfBirth}</p>
 
                 <Separator className="my-4" />
+
+                <h4 className="font-bold">Präambel</h4>
+                <p className="mb-4">
+                  Die {hospital?.companyName} bietet die Möglichkeit für einzelne Tage stundenweise Tätigkeiten im Bereich der IMC-Pflege, Anästhesiepflege und ärztlichen Anästhesie anzubieten. Der Auftragnehmer ist bereit, künftig nach Absprache für die Leistungserbringung in seinem Fachbereich auf Abruf stundenweise zur Verfügung zu stehen.
+                </p>
                 
                 <h4 className="font-bold">1. Vertragsgegenstand</h4>
                 <p className="mb-4">
-                  Der Auftragnehmer ist {selectedRole?.description}. 
-                  Er verpflichtet sich, Leistungen als {selectedRole?.roleTitle} für den Auftraggeber zu erbringen.
+                  Der Auftragnehmer ist {selectedRole?.description}, in der Schweiz anerkannt. Er verpflichtet sich, Leistungen als {selectedRole?.roleTitle} für den Auftraggeber zu erbringen. Der Auftragnehmer erbringt seine Leistungen in eigener fachlicher Verantwortung. Der Auftragnehmer beachtet die Weisungen der Geschäftsleitung und der Leitenden Chirurgin (Dr. med. Lena Schumann). Er hat Pausen (ohne Vergütung) auf Anweisung wahrzunehmen.
+                </p>
+
+                <h4 className="font-bold">2. Arbeitsort</h4>
+                <p className="mb-4">
+                  Der Arbeitsort befindet sich an der {hospital?.companyName}, {hospital?.companyStreet}, {hospital?.companyPostalCode} {hospital?.companyCity}.
+                </p>
+
+                <h4 className="font-bold">3. Arbeitszeit und Abruf</h4>
+                <p className="mb-4">
+                  Der Einsatz erfolgt nach Bedarf der Auftraggeberin. Termine, die der Auftragnehmer schriftlich oder per E-Mail bestätigt, sind verbindlich. Die Termine dürfen nur im Krankheitsfall abgesagt werden, wobei der Auftragnehmer möglichst frühzeitig (48h vorher) einen voraussichtlichen Ausfall mitzuteilen hat. Er hat die Auftraggeberin auch über die voraussichtliche Eventualität eines krankheitsbedingten Ausfalls frühzeitig zu informieren, damit rechtzeitig Ersatzpersonal geplant werden kann.
                 </p>
                 
                 <h4 className="font-bold">4. Vergütung</h4>
                 <p className="mb-4">
                   Der Auftragnehmer erhält für die erbrachte Arbeitsleistung einen Bruttolohn pro Stunde in Höhe von{" "}
-                  <strong>{selectedRole?.rate}</strong> ({selectedRole?.title})
+                  <strong>{selectedRole?.rate}</strong> ({selectedRole?.title}).
+                </p>
+                <p className="mb-4">
+                  Die Auszahlung erfolgt im Folgemonat des Einsatzes auf das von dem Auftragnehmer angegebene Bankkonto. Der Auftragnehmer hat den Stundeneinsatz pro Tag von der ärztlichen Leitung (Dr. med. Lena Schumann) bestätigen zu lassen. Am Ende des Monats reicht der Auftragnehmer seine bestätigte Stundenaufstellung zur Abrechnung bei der Auftraggeberin ein.
+                </p>
+
+                <h4 className="font-bold">5. Sozialversicherungen</h4>
+                <p className="mb-4">
+                  Dieser Vertrag unterliegt den gesetzlichen Vorschriften der Sozialversicherungen in der Schweiz. Der Auftraggeber verpflichtet sich, alle erforderlichen Abgaben für AHV, ALV abzuführen. Vom Bruttolohn werden die Auftragnehmerbeiträge in Abzug gebracht.
+                </p>
+
+                <h4 className="font-bold">6. Einschluss und Abgeltung von Ferienansprüchen und Lohnfortzahlung</h4>
+                <p className="mb-4">
+                  Angesichts der kurzen Dauer der Arbeitseinsätze werden der Ferienanspruch sowie der Anspruch auf Lohnfortzahlung bei unverschuldeter Verhinderung an der Arbeitsleistung (Krankheit, Unfall, usw.) durch den vereinbarten Bruttolohn abgegolten. Für Feiertage und bezahlte Absenzen besteht kein besonderer Lohnanspruch, da die entsprechende Entschädigung mit Rücksicht auf die kurze Dauer der Arbeitseinsätze im Lohn eingeschlossen ist.
+                </p>
+
+                <h4 className="font-bold">7. Vertraulichkeit</h4>
+                <p className="mb-4">
+                  Der Auftragnehmer verpflichtet sich, alle im Zusammenhang mit seiner Tätigkeit bekannt gewordenen Informationen über den Auftraggeber und dessen Geschäftsabläufe vertraulich zu behandeln und nicht an Dritte weiterzugeben.
+                </p>
+
+                <h4 className="font-bold">8. Beendigung des Arbeitsverhältnisses</h4>
+                <p className="mb-4">
+                  Die Vereinbarung kann mit einer Frist von einem Monat gekündigt werden.
+                </p>
+
+                <h4 className="font-bold">9. Weitere Bestimmungen</h4>
+                <p className="mb-4">
+                  Änderungen oder Ergänzungen dieses Vertrags bedürfen der Schriftform. Mündliche Abreden sind ungültig.
+                </p>
+
+                <h4 className="font-bold">10. Recht und Gerichtsstand</h4>
+                <p className="mb-4">
+                  Soweit nicht die Bestimmungen dieses Vertrags vorgehen, gelten die allgemeinen Bestimmungen des Obligationenrechts. Abänderungen, Ergänzungen oder die Aufhebung des vorliegenden Vertrages sind nur in Schriftform und von beiden Vertragsparteien unterzeichnet rechtsgültig. Sollten Teile dieses Vertrages unwirksam sein, so wird hierdurch die Gültigkeit der übrigen Bestimmungen nicht berührt. An die Stelle unwirksamer Bestimmungen treten sinngemäss die einschlägigen gesetzlichen Bestimmungen. Auf diesen Arbeitsvertrag ist schweizerisches Recht anwendbar. Der Gerichtsstand ist Kreuzlingen. Jede Vertragspartei erhält ein Exemplar dieses Vertrages.
                 </p>
 
                 <Separator className="my-4" />

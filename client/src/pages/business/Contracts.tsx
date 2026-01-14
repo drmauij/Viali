@@ -293,22 +293,69 @@ export default function Contracts() {
     doc.text(`Geb.: ${contract.dateOfBirth}`, 20, yPos);
     yPos += 15;
 
-    doc.setFont(undefined as any, 'bold');
-    doc.text("1. Vertragsgegenstand", 20, yPos);
-    yPos += 6;
-    doc.setFont(undefined as any, 'normal');
-    const vertragsText = `Der Auftragnehmer ist ${role.description}. Er verpflichtet sich, Leistungen als ${role.roleTitle} für den Auftraggeber zu erbringen.`;
-    const splitText = doc.splitTextToSize(vertragsText, 170);
-    doc.text(splitText, 20, yPos);
-    yPos += splitText.length * 5 + 10;
+    const addSection = (title: string, content: string) => {
+      if (yPos > 260) {
+        doc.addPage();
+        yPos = 20;
+      }
+      doc.setFont(undefined as any, 'bold');
+      doc.text(title, 20, yPos);
+      yPos += 6;
+      doc.setFont(undefined as any, 'normal');
+      const lines = doc.splitTextToSize(content, 170);
+      doc.text(lines, 20, yPos);
+      yPos += lines.length * 5 + 8;
+    };
 
-    doc.setFont(undefined as any, 'bold');
-    doc.text("4. Vergütung", 20, yPos);
-    yPos += 6;
-    doc.setFont(undefined as any, 'normal');
-    doc.text(`Bruttostundenlohn: ${role.rate}/Std. (${role.title})`, 20, yPos);
-    yPos += 20;
+    addSection("Präambel", 
+      `Die ${companyData.companyName} bietet die Möglichkeit für einzelne Tage stundenweise Tätigkeiten im Bereich der IMC-Pflege, Anästhesiepflege und ärztlichen Anästhesie anzubieten. Der Auftragnehmer ist bereit, künftig nach Absprache für die Leistungserbringung in seinem Fachbereich auf Abruf stundenweise zur Verfügung zu stehen.`
+    );
 
+    addSection("1. Vertragsgegenstand", 
+      `Der Auftragnehmer ist ${role.description}, in der Schweiz anerkannt. Er verpflichtet sich, Leistungen als ${role.roleTitle} für den Auftraggeber zu erbringen. Der Auftragnehmer erbringt seine Leistungen in eigener fachlicher Verantwortung. Der Auftragnehmer beachtet die Weisungen der Geschäftsleitung und der Leitenden Chirurgin (Dr. med. Lena Schumann). Er hat Pausen (ohne Vergütung) auf Anweisung wahrzunehmen.`
+    );
+
+    addSection("2. Arbeitsort", 
+      `Der Arbeitsort befindet sich an der ${companyData.companyName}, ${companyData.companyStreet}, ${companyData.companyPostalCode} ${companyData.companyCity}.`
+    );
+
+    addSection("3. Arbeitszeit und Abruf", 
+      `Der Einsatz erfolgt nach Bedarf der Auftraggeberin. Termine, die der Auftragnehmer schriftlich oder per E-Mail bestätigt, sind verbindlich. Die Termine dürfen nur im Krankheitsfall abgesagt werden, wobei der Auftragnehmer möglichst frühzeitig (48h vorher) einen voraussichtlichen Ausfall mitzuteilen hat. Er hat die Auftraggeberin auch über die voraussichtliche Eventualität eines krankheitsbedingten Ausfalls frühzeitig zu informieren, damit rechtzeitig Ersatzpersonal geplant werden kann.`
+    );
+
+    addSection("4. Vergütung", 
+      `Der Auftragnehmer erhält für die erbrachte Arbeitsleistung einen Bruttolohn pro Stunde in Höhe von ${role.rate} (${role.title}). Die Auszahlung erfolgt im Folgemonat des Einsatzes auf das von dem Auftragnehmer angegebene Bankkonto. Der Auftragnehmer hat den Stundeneinsatz pro Tag von der ärztlichen Leitung (Dr. med. Lena Schumann) bestätigen zu lassen. Am Ende des Monats reicht der Auftragnehmer seine bestätigte Stundenaufstellung zur Abrechnung bei der Auftraggeberin ein.`
+    );
+
+    addSection("5. Sozialversicherungen", 
+      `Dieser Vertrag unterliegt den gesetzlichen Vorschriften der Sozialversicherungen in der Schweiz. Der Auftraggeber verpflichtet sich, alle erforderlichen Abgaben für AHV, ALV abzuführen. Vom Bruttolohn werden die Auftragnehmerbeiträge in Abzug gebracht.`
+    );
+
+    addSection("6. Einschluss und Abgeltung von Ferienansprüchen und Lohnfortzahlung", 
+      `Angesichts der kurzen Dauer der Arbeitseinsätze werden der Ferienanspruch sowie der Anspruch auf Lohnfortzahlung bei unverschuldeter Verhinderung an der Arbeitsleistung (Krankheit, Unfall, usw.) durch den vereinbarten Bruttolohn abgegolten. Für Feiertage und bezahlte Absenzen besteht kein besonderer Lohnanspruch, da die entsprechende Entschädigung mit Rücksicht auf die kurze Dauer der Arbeitseinsätze im Lohn eingeschlossen ist.`
+    );
+
+    addSection("7. Vertraulichkeit", 
+      `Der Auftragnehmer verpflichtet sich, alle im Zusammenhang mit seiner Tätigkeit bekannt gewordenen Informationen über den Auftraggeber und dessen Geschäftsabläufe vertraulich zu behandeln und nicht an Dritte weiterzugeben.`
+    );
+
+    addSection("8. Beendigung des Arbeitsverhältnisses", 
+      `Die Vereinbarung kann mit einer Frist von einem Monat gekündigt werden.`
+    );
+
+    addSection("9. Weitere Bestimmungen", 
+      `Änderungen oder Ergänzungen dieses Vertrags bedürfen der Schriftform. Mündliche Abreden sind ungültig.`
+    );
+
+    addSection("10. Recht und Gerichtsstand", 
+      `Soweit nicht die Bestimmungen dieses Vertrags vorgehen, gelten die allgemeinen Bestimmungen des Obligationenrechts. Abänderungen, Ergänzungen oder die Aufhebung des vorliegenden Vertrages sind nur in Schriftform und von beiden Vertragsparteien unterzeichnet rechtsgültig. Sollten Teile dieses Vertrages unwirksam sein, so wird hierdurch die Gültigkeit der übrigen Bestimmungen nicht berührt. An die Stelle unwirksamer Bestimmungen treten sinngemäss die einschlägigen gesetzlichen Bestimmungen. Auf diesen Arbeitsvertrag ist schweizerisches Recht anwendbar. Der Gerichtsstand ist Kreuzlingen. Jede Vertragspartei erhält ein Exemplar dieses Vertrages.`
+    );
+
+    if (yPos > 220) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
     doc.line(20, yPos, 190, yPos);
     yPos += 10;
 
