@@ -67,6 +67,7 @@ export const hospitals = pgTable("hospitals", {
   companyEmail: varchar("company_email"),
   companyLogoUrl: varchar("company_logo_url"),
   questionnaireToken: varchar("questionnaire_token").unique(),
+  contractToken: varchar("contract_token").unique(), // Token for public contract form links
   // Stock runway alert configuration
   runwayTargetDays: integer("runway_target_days").default(14), // Target stock runway in days
   runwayWarningDays: integer("runway_warning_days").default(7), // Warning threshold (critical below this)
@@ -4025,3 +4026,63 @@ export const insertHospitalVonageConfigSchema = createInsertSchema(hospitalVonag
 
 export type HospitalVonageConfig = typeof hospitalVonageConfigs.$inferSelect;
 export type InsertHospitalVonageConfig = z.infer<typeof insertHospitalVonageConfigSchema>;
+
+// Temporary Worker Contracts - For external staff signing employment contracts
+export const workerContracts = pgTable("worker_contracts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  
+  // Worker personal information
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name").notNull(),
+  street: varchar("street").notNull(),
+  postalCode: varchar("postal_code").notNull(),
+  city: varchar("city").notNull(),
+  phone: varchar("phone"),
+  email: varchar("email").notNull(),
+  dateOfBirth: date("date_of_birth").notNull(),
+  
+  // Bank information
+  iban: varchar("iban").notNull(),
+  
+  // Role/Tariff selection
+  role: varchar("role", { 
+    enum: ["awr_nurse", "anesthesia_nurse", "anesthesia_doctor"] 
+  }).notNull(),
+  
+  // Status tracking
+  status: varchar("status", { 
+    enum: ["pending_manager_signature", "signed", "rejected"] 
+  }).default("pending_manager_signature").notNull(),
+  
+  // Worker signature
+  workerSignature: text("worker_signature"), // Base64 signature image
+  workerSignedAt: timestamp("worker_signed_at"),
+  workerSignatureLocation: varchar("worker_signature_location"), // City where worker signed
+  
+  // Manager signature
+  managerSignature: text("manager_signature"), // Base64 signature image
+  managerSignedAt: timestamp("manager_signed_at"),
+  managerId: varchar("manager_id").references(() => users.id),
+  managerName: varchar("manager_name"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_worker_contracts_hospital").on(table.hospitalId),
+  index("idx_worker_contracts_status").on(table.status),
+]);
+
+export const insertWorkerContractSchema = createInsertSchema(workerContracts).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  status: true,
+  managerSignature: true,
+  managerSignedAt: true,
+  managerId: true,
+  managerName: true,
+});
+
+export type WorkerContract = typeof workerContracts.$inferSelect;
+export type InsertWorkerContract = z.infer<typeof insertWorkerContractSchema>;
