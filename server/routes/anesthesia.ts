@@ -4782,6 +4782,9 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
     const patient = await storage.getPatient(surgery.patientId);
     const hospital = await storage.getHospital(surgery.hospitalId);
     
+    // Import jsPDF for PDF generation
+    const { jsPDF } = await import('jspdf');
+    
     const translations: Record<string, Record<string, string>> = {
       en: {
         title: 'Pre-Operative Assessment',
