@@ -5092,9 +5092,28 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
       sentTo: recipientEmail
     });
   } catch (error: any) {
-    console.error("Error sending pre-op email:", error);
+    console.error("Error sending pre-op email:", {
+      message: error.message,
+      name: error.name,
+      statusCode: error.statusCode,
+      response: error.response,
+      stack: error.stack
+    });
+    
+    // Provide more helpful error messages
+    let userMessage = "Failed to send email";
+    if (error.message?.includes("API key")) {
+      userMessage = "Email service not configured correctly";
+    } else if (error.message?.includes("domain")) {
+      userMessage = "Email domain not verified";
+    } else if (error.message?.includes("rate limit")) {
+      userMessage = "Too many emails sent, please try again later";
+    } else if (error.statusCode === 422) {
+      userMessage = "Invalid email address or attachment";
+    }
+    
     res.status(500).json({ 
-      message: "Failed to send email", 
+      message: userMessage, 
       error: error.message 
     });
   }

@@ -838,6 +838,7 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
   const hasGiKidneyData = () => Object.values(assessmentData.giIllnesses).some(v => v) || Object.values(assessmentData.kidneyIllnesses).some(v => v) || Object.values(assessmentData.metabolicIllnesses).some(v => v) || assessmentData.giKidneyMetabolicNotes;
   const hasNeuroPsychData = () => Object.values(assessmentData.neuroIllnesses).some(v => v) || Object.values(assessmentData.psychIllnesses).some(v => v) || Object.values(assessmentData.skeletalIllnesses).some(v => v) || assessmentData.neuroPsychSkeletalNotes;
   const hasAnesthesiaHistoryData = () => Object.values(assessmentData.anesthesiaHistoryIssues).some(v => v) || Object.values(assessmentData.dentalIssues).some(v => v) || Object.values(assessmentData.ponvTransfusionIssues).some(v => v) || assessmentData.previousSurgeries;
+  const hasOutpatientData = () => assessmentData.outpatientCaregiverFirstName || assessmentData.outpatientCaregiverLastName || assessmentData.outpatientCaregiverPhone;
 
   if (isLoading) {
     return (
@@ -1701,9 +1702,9 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
 
         {/* Outpatient Care Section */}
         <AccordionItem value="outpatient">
-          <Card>
+          <Card className={hasOutpatientData() ? "border-cyan-500 dark:border-cyan-700" : ""}>
             <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-outpatient">
-              <CardTitle className="text-lg">{t('anesthesia.patientDetail.outpatientCare', 'Outpatient Care')}</CardTitle>
+              <CardTitle className={`text-lg ${hasOutpatientData() ? "text-cyan-600 dark:text-cyan-400" : ""}`}>{t('anesthesia.patientDetail.outpatientCare', 'Outpatient Care')}</CardTitle>
             </AccordionTrigger>
             <AccordionContent>
               <CardContent className="pt-0">

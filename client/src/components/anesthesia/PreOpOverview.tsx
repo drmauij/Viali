@@ -313,7 +313,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName }:
       orange: { border: "border-orange-500 dark:border-orange-700", text: "text-orange-600 dark:text-orange-400" },
       pink: { border: "border-pink-500 dark:border-pink-700", text: "text-pink-600 dark:text-pink-400" },
       green: { border: "border-green-500 dark:border-green-700", text: "text-green-600 dark:text-green-400" },
-      gray: { border: "border-black dark:border-gray-700", text: "text-black dark:text-gray-300" },
+      gray: { border: "border-gray-500 dark:border-gray-400", text: "text-gray-700 dark:text-gray-300" },
       purple: { border: "border-purple-500 dark:border-purple-700", text: "text-purple-600 dark:text-purple-400" },
     };
     return colorMap[color] || { border: "", text: "" };
