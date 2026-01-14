@@ -844,6 +844,10 @@ export const surgeries = pgTable("surgeries", {
   calcomBusyBlockUid: varchar("calcom_busy_block_uid"), // Cal.com busy block UID for sync
   calcomSyncedAt: timestamp("calcom_synced_at"), // When last synced to Cal.com
   
+  // Pre-surgery reminder tracking
+  reminderSent: boolean("reminder_sent").default(false),
+  reminderSentAt: timestamp("reminder_sent_at"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
