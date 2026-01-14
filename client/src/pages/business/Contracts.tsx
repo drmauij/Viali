@@ -94,6 +94,165 @@ const roleInfo = {
   },
 };
 
+function ContractPreview({ 
+  contract, 
+  companyData,
+  showSignatures = false 
+}: { 
+  contract: WorkerContract; 
+  companyData: CompanyData;
+  showSignatures?: boolean;
+}) {
+  const role = roleInfo[contract.role];
+  
+  return (
+    <div className="bg-white border rounded-lg p-6 text-sm space-y-4">
+      <h3 className="text-center font-bold text-lg">Vertrag für Kurzzeiteinsätze auf Abruf</h3>
+      
+      <div>
+        <p className="mb-2">zwischen</p>
+        <p className="font-semibold">{companyData.companyName}</p>
+        <p>{companyData.companyStreet}, {companyData.companyPostalCode} {companyData.companyCity}</p>
+        <p className="italic text-gray-600">- Auftraggeber -</p>
+      </div>
+      
+      <div>
+        <p className="mb-2">und</p>
+        <p className="font-semibold">{contract.lastName}, {contract.firstName}</p>
+        <p>{contract.street}, {contract.postalCode} {contract.city}</p>
+        <p>Tel: {contract.phone || "-"}, E-Mail: {contract.email}</p>
+        <p className="italic text-gray-600">- Auftragnehmer -</p>
+      </div>
+      
+      <div>
+        <p><strong>IBAN:</strong> {contract.iban}</p>
+        <p><strong>Geb.:</strong> {contract.dateOfBirth}</p>
+      </div>
+
+      <Separator />
+
+      <div>
+        <h4 className="font-bold mb-1">Präambel</h4>
+        <p className="text-gray-700">
+          Die {companyData.companyName} bietet die Möglichkeit für einzelne Tage stundenweise Tätigkeiten im Bereich der IMC-Pflege, Anästhesiepflege und ärztlichen Anästhesie anzubieten. Der Auftragnehmer ist bereit, künftig nach Absprache für die Leistungserbringung in seinem Fachbereich auf Abruf stundenweise zur Verfügung zu stehen.
+        </p>
+      </div>
+      
+      <div>
+        <h4 className="font-bold mb-1">1. Vertragsgegenstand</h4>
+        <p className="text-gray-700">
+          Der Auftragnehmer ist {role.description}, in der Schweiz anerkannt. Er verpflichtet sich, Leistungen als {role.roleTitle} für den Auftraggeber zu erbringen. Der Auftragnehmer erbringt seine Leistungen in eigener fachlicher Verantwortung. Der Auftragnehmer beachtet die Weisungen der Geschäftsleitung und der Leitenden Chirurgin (Dr. med. Lena Schumann). Er hat Pausen (ohne Vergütung) auf Anweisung wahrzunehmen.
+        </p>
+      </div>
+
+      <div>
+        <h4 className="font-bold mb-1">2. Arbeitsort</h4>
+        <p className="text-gray-700">
+          Der Arbeitsort befindet sich an der {companyData.companyName}, {companyData.companyStreet}, {companyData.companyPostalCode} {companyData.companyCity}.
+        </p>
+      </div>
+
+      <div>
+        <h4 className="font-bold mb-1">3. Arbeitszeit und Abruf</h4>
+        <p className="text-gray-700">
+          Der Einsatz erfolgt nach Bedarf der Auftraggeberin. Termine, die der Auftragnehmer schriftlich oder per E-Mail bestätigt, sind verbindlich. Die Termine dürfen nur im Krankheitsfall abgesagt werden, wobei der Auftragnehmer möglichst frühzeitig (48h vorher) einen voraussichtlichen Ausfall mitzuteilen hat. Er hat die Auftraggeberin auch über die voraussichtliche Eventualität eines krankheitsbedingten Ausfalls frühzeitig zu informieren, damit rechtzeitig Ersatzpersonal geplant werden kann.
+        </p>
+      </div>
+      
+      <div>
+        <h4 className="font-bold mb-1">4. Vergütung</h4>
+        <p className="text-gray-700">
+          Der Auftragnehmer erhält für die erbrachte Arbeitsleistung einen Bruttolohn pro Stunde in Höhe von <strong>{role.rate}</strong> ({role.title}). Die Auszahlung erfolgt im Folgemonat des Einsatzes auf das von dem Auftragnehmer angegebene Bankkonto. Der Auftragnehmer hat den Stundeneinsatz pro Tag von der ärztlichen Leitung (Dr. med. Lena Schumann) bestätigen zu lassen. Am Ende des Monats reicht der Auftragnehmer seine bestätigte Stundenaufstellung zur Abrechnung bei der Auftraggeberin ein.
+        </p>
+      </div>
+
+      <div>
+        <h4 className="font-bold mb-1">5. Sozialversicherungen</h4>
+        <p className="text-gray-700">
+          Dieser Vertrag unterliegt den gesetzlichen Vorschriften der Sozialversicherungen in der Schweiz. Der Auftraggeber verpflichtet sich, alle erforderlichen Abgaben für AHV, ALV abzuführen. Vom Bruttolohn werden die Auftragnehmerbeiträge in Abzug gebracht.
+        </p>
+      </div>
+
+      <div>
+        <h4 className="font-bold mb-1">6. Einschluss und Abgeltung von Ferienansprüchen und Lohnfortzahlung</h4>
+        <p className="text-gray-700">
+          Angesichts der kurzen Dauer der Arbeitseinsätze werden der Ferienanspruch sowie der Anspruch auf Lohnfortzahlung bei unverschuldeter Verhinderung an der Arbeitsleistung (Krankheit, Unfall, usw.) durch den vereinbarten Bruttolohn abgegolten. Für Feiertage und bezahlte Absenzen besteht kein besonderer Lohnanspruch, da die entsprechende Entschädigung mit Rücksicht auf die kurze Dauer der Arbeitseinsätze im Lohn eingeschlossen ist.
+        </p>
+      </div>
+
+      <div>
+        <h4 className="font-bold mb-1">7. Vertraulichkeit</h4>
+        <p className="text-gray-700">
+          Der Auftragnehmer verpflichtet sich, alle im Zusammenhang mit seiner Tätigkeit bekannt gewordenen Informationen über den Auftraggeber und dessen Geschäftsabläufe vertraulich zu behandeln und nicht an Dritte weiterzugeben.
+        </p>
+      </div>
+
+      <div>
+        <h4 className="font-bold mb-1">8. Beendigung des Arbeitsverhältnisses</h4>
+        <p className="text-gray-700">
+          Die Vereinbarung kann mit einer Frist von einem Monat gekündigt werden.
+        </p>
+      </div>
+
+      <div>
+        <h4 className="font-bold mb-1">9. Weitere Bestimmungen</h4>
+        <p className="text-gray-700">
+          Änderungen oder Ergänzungen dieses Vertrags bedürfen der Schriftform. Mündliche Abreden sind ungültig.
+        </p>
+      </div>
+
+      <div>
+        <h4 className="font-bold mb-1">10. Recht und Gerichtsstand</h4>
+        <p className="text-gray-700">
+          Soweit nicht die Bestimmungen dieses Vertrags vorgehen, gelten die allgemeinen Bestimmungen des Obligationenrechts. Abänderungen, Ergänzungen oder die Aufhebung des vorliegenden Vertrages sind nur in Schriftform und von beiden Vertragsparteien unterzeichnet rechtsgültig. Sollten Teile dieses Vertrages unwirksam sein, so wird hierdurch die Gültigkeit der übrigen Bestimmungen nicht berührt. An die Stelle unwirksamer Bestimmungen treten sinngemäss die einschlägigen gesetzlichen Bestimmungen. Auf diesen Arbeitsvertrag ist schweizerisches Recht anwendbar. Der Gerichtsstand ist Kreuzlingen. Jede Vertragspartei erhält ein Exemplar dieses Vertrages.
+        </p>
+      </div>
+
+      {showSignatures && (
+        <>
+          <Separator />
+          <div className="grid grid-cols-2 gap-8 pt-4">
+            <div>
+              <p className="text-sm text-gray-500 mb-2">Auftragnehmer/in</p>
+              {contract.workerSignature ? (
+                <>
+                  <img 
+                    src={contract.workerSignature} 
+                    alt="Unterschrift Mitarbeiter" 
+                    className="h-16 border rounded bg-white"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {contract.workerSignatureLocation}, {format(new Date(contract.workerSignedAt || contract.createdAt), 'dd.MM.yyyy', { locale: de })}
+                  </p>
+                </>
+              ) : (
+                <p className="text-gray-400 italic">Keine Unterschrift</p>
+              )}
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-2">Auftraggeber ({companyData.companyName})</p>
+              {contract.managerSignature ? (
+                <>
+                  <img 
+                    src={contract.managerSignature} 
+                    alt="Unterschrift Manager" 
+                    className="h-16 border rounded bg-white"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {contract.managerName}, {format(new Date(contract.managerSignedAt!), 'dd.MM.yyyy', { locale: de })}
+                  </p>
+                </>
+              ) : (
+                <p className="text-gray-400 italic">Warte auf Gegenzeichnung</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Contracts() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
@@ -676,84 +835,19 @@ export default function Contracts() {
       </Tabs>
 
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Vertragsdetails</DialogTitle>
           </DialogHeader>
-          {selectedContract && (
+          {selectedContract && companyData && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-sm text-gray-500">Name</Label>
-                  <p className="font-medium">{selectedContract.firstName} {selectedContract.lastName}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-gray-500">Rolle</Label>
-                  <p className="font-medium">{roleInfo[selectedContract.role].title}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-gray-500">E-Mail</Label>
-                  <p className="font-medium">{selectedContract.email}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-gray-500">Telefon</Label>
-                  <p className="font-medium">{selectedContract.phone || '-'}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-gray-500">Adresse</Label>
-                  <p className="font-medium">{selectedContract.street}, {selectedContract.postalCode} {selectedContract.city}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-gray-500">Geburtsdatum</Label>
-                  <p className="font-medium">{selectedContract.dateOfBirth}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-gray-500">IBAN</Label>
-                  <p className="font-medium font-mono">{selectedContract.iban}</p>
-                </div>
-                <div>
-                  <Label className="text-sm text-gray-500">Stundensatz</Label>
-                  <p className="font-medium">{roleInfo[selectedContract.role].rate}/Std.</p>
-                </div>
-              </div>
+              <ContractPreview 
+                contract={selectedContract} 
+                companyData={companyData}
+                showSignatures={true}
+              />
               
-              <Separator />
-              
-              <div>
-                <Label className="text-sm text-gray-500">Unterschrift Mitarbeiter</Label>
-                {selectedContract.workerSignature ? (
-                  <div className="mt-2">
-                    <img 
-                      src={selectedContract.workerSignature} 
-                      alt="Unterschrift Mitarbeiter" 
-                      className="h-16 border rounded bg-white"
-                    />
-                    <p className="text-sm text-gray-500 mt-1">
-                      {selectedContract.workerSignatureLocation}, {format(new Date(selectedContract.workerSignedAt || selectedContract.createdAt), 'dd.MM.yyyy', { locale: de })}
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-gray-400 mt-2">Keine Unterschrift</p>
-                )}
-              </div>
-              
-              {selectedContract.managerSignature && (
-                <div>
-                  <Label className="text-sm text-gray-500">Unterschrift Manager</Label>
-                  <div className="mt-2">
-                    <img 
-                      src={selectedContract.managerSignature} 
-                      alt="Unterschrift Manager" 
-                      className="h-16 border rounded bg-white"
-                    />
-                    <p className="text-sm text-gray-500 mt-1">
-                      {selectedContract.managerName}, {format(new Date(selectedContract.managerSignedAt!), 'dd.MM.yyyy', { locale: de })}
-                    </p>
-                  </div>
-                </div>
-              )}
-              
-              <div className="flex gap-2 pt-4">
+              <div className="flex gap-2 pt-4 border-t">
                 {selectedContract.status === 'pending_manager_signature' && (
                   <Button
                     onClick={() => {
@@ -783,27 +877,33 @@ export default function Contracts() {
       </Dialog>
 
       <Dialog open={showSignDialog} onOpenChange={setShowSignDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Vertrag unterschreiben</DialogTitle>
             <DialogDescription>
-              Unterschreiben Sie den Vertrag für {selectedContract?.firstName} {selectedContract?.lastName}
+              Bitte lesen Sie den Vertrag sorgfältig durch und unterschreiben Sie unten.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="text-sm text-gray-600">
-              <p><strong>Rolle:</strong> {selectedContract && roleInfo[selectedContract.role].title}</p>
-              <p><strong>Stundensatz:</strong> {selectedContract && roleInfo[selectedContract.role].rate}/Std.</p>
+          {selectedContract && companyData && (
+            <div className="space-y-4">
+              <ContractPreview 
+                contract={selectedContract} 
+                companyData={companyData}
+                showSignatures={true}
+              />
+              
+              <div className="border-t pt-4">
+                <Button 
+                  className="w-full"
+                  onClick={() => setShowSignaturePad(true)}
+                  data-testid="button-open-signature-pad"
+                >
+                  <Pen className="w-4 h-4 mr-2" />
+                  Gegenzeichnung hinzufügen
+                </Button>
+              </div>
             </div>
-            <Button 
-              className="w-full"
-              onClick={() => setShowSignaturePad(true)}
-              data-testid="button-open-signature-pad"
-            >
-              <Pen className="w-4 h-4 mr-2" />
-              Unterschrift zeichnen
-            </Button>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
 
