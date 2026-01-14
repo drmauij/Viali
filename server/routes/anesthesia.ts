@@ -4752,10 +4752,15 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
     const { assessmentId } = req.params;
     const userId = req.user.id;
     
+    console.log("[Email] Starting email send for assessment:", assessmentId);
+    
     const assessment = await storage.getPreOpAssessmentById(assessmentId);
     if (!assessment) {
+      console.log("[Email] Assessment not found:", assessmentId);
       return res.status(404).json({ message: "Assessment not found" });
     }
+    
+    console.log("[Email] Assessment found, emailForCopy:", assessment.emailForCopy, "emailLanguage:", assessment.emailLanguage);
     
     const surgery = await storage.getSurgery(assessment.surgeryId);
     if (!surgery) {
@@ -5054,9 +5059,15 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
     const filename = `preop-${dateStr}-${safeFullName}.pdf`;
     
     const { Resend } = await import('resend');
+    
+    console.log("[Email] Resend API key present:", !!process.env.RESEND_API_KEY);
+    console.log("[Email] From email:", process.env.RESEND_FROM_EMAIL || 'noreply@viali.app');
+    console.log("[Email] To email:", recipientEmail);
+    console.log("[Email] PDF size:", pdfBuffer.length, "bytes");
+    
     const resend = new Resend(process.env.RESEND_API_KEY);
     
-    await resend.emails.send({
+    const emailResult = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
       to: recipientEmail,
       subject: `${t.emailSubject} - ${hospital?.name || 'Hospital'}`,
@@ -5077,10 +5088,12 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
       attachments: [
         {
           filename: filename,
-          content: pdfBuffer.toString('base64'),
+          content: pdfBuffer,
         }
       ]
     });
+    
+    console.log("[Email] Email sent successfully:", emailResult);
     
     await storage.updatePreOpAssessment(assessmentId, {
       emailSentAt: new Date()
