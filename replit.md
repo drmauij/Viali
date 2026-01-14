@@ -46,13 +46,42 @@ Key protected routes include:
 The database schema includes entities for Users, Hospitals, Items, StockLevels, Lots, Orders, Activities, and Alerts, using UUID primary keys, timestamp tracking, and JSONB fields with Zod validation. A significant design choice for the Anesthesia module is the redesign of vitals storage to a single row per record with arrays of points for improved performance and granular CRUD.
 
 ### Database Migration Workflow (CRITICAL)
-Schema changes require a 3-step process - the startup auto-migration is only a bootstrap helper:
+
+**IMPORTANT: There are TWO ways to create migrations. Choose ONE, not both!**
+
+#### Option A: Manual Idempotent Migrations (PREFERRED for production safety)
+When creating migrations manually (recommended for production deployments):
+
+1. **Update schema**: Modify `shared/schema.ts` with your changes
+2. **Create manual migration file**: Create `migrations/XXXX_descriptive_name.sql` with idempotent SQL:
+   ```sql
+   DO $$
+   BEGIN
+     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'your_table' AND column_name = 'your_column') THEN
+       ALTER TABLE your_table ADD COLUMN your_column varchar;
+     END IF;
+   END $$;
+   ```
+3. **Update journal**: Add entry to `migrations/meta/_journal.json` with next idx number
+4. **Apply migration**: Run SQL directly or restart server (auto-applies on startup)
+
+**DO NOT run `npm run db:generate` after creating manual migrations!** Drizzle will create a duplicate migration file.
+
+#### Option B: Drizzle Auto-Generated Migrations
+For quick development iterations only:
 
 1. **Update schema**: Modify `shared/schema.ts` with your changes
 2. **Generate migration**: Run `npm run db:generate` to create SQL migration file
-3. **Apply migration**: Run `npm run db:migrate` to execute the SQL against the database
+3. **Apply migration**: Run `npm run db:migrate` or restart server
 
-**Important**: The auto-migration at server startup does NOT apply new migrations. It only marks them as applied if the schema already exists. Always run `npm run db:migrate` after generating a new migration.
+**WARNING**: Auto-generated migrations are NOT idempotent and may fail on re-run.
+
+#### Avoiding Duplicate Migrations
+- If you created a manual migration, NEVER run `npm run db:generate` - it will create duplicates
+- If Drizzle creates a duplicate, delete both the `.sql` file and its entry in `_journal.json`
+- Always check `migrations/` folder after running `db:generate` for unexpected files
+
+**Important**: The auto-migration at server startup does NOT apply new migrations. It only marks them as applied if the schema already exists.
 
 ### System Design Choices
 Core design decisions include:
