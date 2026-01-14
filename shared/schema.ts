@@ -4067,6 +4067,9 @@ export const workerContracts = pgTable("worker_contracts", {
   managerId: varchar("manager_id").references(() => users.id),
   managerName: varchar("manager_name"),
   
+  // Archive support
+  archivedAt: timestamp("archived_at"),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

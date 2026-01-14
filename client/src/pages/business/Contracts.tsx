@@ -31,7 +31,9 @@ import {
   Building2,
   CreditCard,
   Briefcase,
-  Eye
+  Eye,
+  Archive,
+  ArchiveRestore
 } from "lucide-react";
 
 interface WorkerContract {
@@ -55,6 +57,7 @@ interface WorkerContract {
   managerSignedAt: string | null;
   managerId: string | null;
   managerName: string | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -175,8 +178,38 @@ export default function Contracts() {
     },
   });
 
-  const pendingContracts = contracts.filter(c => c.status === 'pending_manager_signature');
-  const signedContracts = contracts.filter(c => c.status === 'signed');
+  const archiveContractMutation = useMutation({
+    mutationFn: async (contractId: string) => {
+      const res = await apiRequest('POST', `/api/business/${hospitalId}/contracts/${contractId}/archive`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Vertrag archiviert", description: "Der Vertrag wurde erfolgreich archiviert." });
+      queryClient.invalidateQueries({ queryKey: ['/api/business', hospitalId, 'contracts'] });
+    },
+    onError: () => {
+      toast({ title: "Fehler", description: "Der Vertrag konnte nicht archiviert werden.", variant: "destructive" });
+    },
+  });
+
+  const unarchiveContractMutation = useMutation({
+    mutationFn: async (contractId: string) => {
+      const res = await apiRequest('POST', `/api/business/${hospitalId}/contracts/${contractId}/unarchive`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Vertrag wiederhergestellt", description: "Der Vertrag wurde erfolgreich wiederhergestellt." });
+      queryClient.invalidateQueries({ queryKey: ['/api/business', hospitalId, 'contracts'] });
+    },
+    onError: () => {
+      toast({ title: "Fehler", description: "Der Vertrag konnte nicht wiederhergestellt werden.", variant: "destructive" });
+    },
+  });
+
+  const activeContracts = contracts.filter(c => !c.archivedAt);
+  const archivedContracts = contracts.filter(c => !!c.archivedAt);
+  const pendingContracts = activeContracts.filter(c => c.status === 'pending_manager_signature');
+  const signedContracts = activeContracts.filter(c => c.status === 'signed');
 
   const contractLink = contractToken?.contractToken 
     ? `${window.location.origin}/contract/${contractToken.contractToken}`
@@ -466,6 +499,30 @@ export default function Contracts() {
                     PDF
                   </Button>
                 )}
+                
+                {contract.archivedAt ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => unarchiveContractMutation.mutate(contract.id)}
+                    disabled={unarchiveContractMutation.isPending}
+                    data-testid={`button-unarchive-contract-${contract.id}`}
+                    title="Wiederherstellen"
+                  >
+                    <ArchiveRestore className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => archiveContractMutation.mutate(contract.id)}
+                    disabled={archiveContractMutation.isPending}
+                    data-testid={`button-archive-contract-${contract.id}`}
+                    title="Archivieren"
+                  >
+                    <Archive className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -545,6 +602,13 @@ export default function Contracts() {
               <Badge variant="secondary" className="ml-1">{signedContracts.length}</Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="archived" className="gap-2" data-testid="tab-archived-contracts">
+            <Archive className="w-4 h-4" />
+            Archiviert
+            {archivedContracts.length > 0 && (
+              <Badge variant="secondary" className="ml-1">{archivedContracts.length}</Badge>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="pending" className="space-y-4">
@@ -583,6 +647,27 @@ export default function Contracts() {
           ) : (
             <div className="space-y-4">
               {signedContracts.map(contract => (
+                <ContractCard key={contract.id} contract={contract} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="archived" className="space-y-4">
+          {isLoadingContracts ? (
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400" />
+            </div>
+          ) : archivedContracts.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-gray-500">
+                <Archive className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>Keine archivierten Verträge</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {archivedContracts.map(contract => (
                 <ContractCard key={contract.id} contract={contract} />
               ))}
             </div>

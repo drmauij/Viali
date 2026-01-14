@@ -898,4 +898,60 @@ router.delete('/api/business/:hospitalId/contracts/:contractId', isAuthenticated
   }
 });
 
+// Archive a contract
+router.post('/api/business/:hospitalId/contracts/:contractId/archive', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId, contractId } = req.params;
+    
+    const [updated] = await db
+      .update(workerContracts)
+      .set({
+        archivedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(workerContracts.id, contractId),
+        eq(workerContracts.hospitalId, hospitalId)
+      ))
+      .returning();
+    
+    if (!updated) {
+      return res.status(404).json({ message: "Contract not found" });
+    }
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("Error archiving contract:", error);
+    res.status(500).json({ message: "Failed to archive contract" });
+  }
+});
+
+// Unarchive a contract
+router.post('/api/business/:hospitalId/contracts/:contractId/unarchive', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId, contractId } = req.params;
+    
+    const [updated] = await db
+      .update(workerContracts)
+      .set({
+        archivedAt: null,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(workerContracts.id, contractId),
+        eq(workerContracts.hospitalId, hospitalId)
+      ))
+      .returning();
+    
+    if (!updated) {
+      return res.status(404).json({ message: "Contract not found" });
+    }
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("Error unarchiving contract:", error);
+    res.status(500).json({ message: "Failed to unarchive contract" });
+  }
+});
+
 export default router;
