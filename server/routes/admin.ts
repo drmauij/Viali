@@ -201,7 +201,7 @@ router.get('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req,
 router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { name, type, parentId, showInventory, showAppointments, questionnairePhone } = req.body;
+    const { name, type, parentId, showInventory, showAppointments, questionnairePhone, infoFlyerUrl } = req.body;
     
     if (!name) {
       return res.status(400).json({ message: "Unit name is required" });
@@ -227,6 +227,7 @@ router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req
       showInventory: showInventory !== false, // default true
       showAppointments: showAppointments !== false, // default true
       questionnairePhone: questionnairePhone || null,
+      infoFlyerUrl: infoFlyerUrl || null,
     });
     res.status(201).json(unit);
   } catch (error) {
@@ -238,7 +239,7 @@ router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req
 router.patch('/api/admin/units/:unitId', isAuthenticated, requireResourceAdmin('unitId'), async (req: any, res) => {
   try {
     const { unitId } = req.params;
-    const { name, type, parentId, showInventory, showAppointments, questionnairePhone } = req.body;
+    const { name, type, parentId, showInventory, showAppointments, questionnairePhone, infoFlyerUrl } = req.body;
     
     const updates: any = {};
     if (name !== undefined) updates.name = name;
@@ -260,6 +261,9 @@ router.patch('/api/admin/units/:unitId', isAuthenticated, requireResourceAdmin('
     
     // Accept questionnaire help phone
     if (questionnairePhone !== undefined) updates.questionnairePhone = questionnairePhone;
+    
+    // Accept info flyer URL
+    if (infoFlyerUrl !== undefined) updates.infoFlyerUrl = infoFlyerUrl;
     
     const updated = await storage.updateUnit(unitId, updates);
     res.json(updated);
@@ -1130,6 +1134,33 @@ router.delete('/api/admin/:hospitalId/questionnaire-token', isAuthenticated, isA
   } catch (error) {
     console.error("Error deleting questionnaire token:", error);
     res.status(500).json({ message: "Failed to delete questionnaire token" });
+  }
+});
+
+// Admin file upload endpoint (for unit info flyers, etc.)
+router.post('/api/admin/:hospitalId/upload', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { filename, folder } = req.body;
+    
+    if (!filename) {
+      return res.status(400).json({ message: "Filename is required" });
+    }
+    
+    // Default to admin-uploads folder if not specified
+    const uploadFolder = folder || 'admin-uploads';
+    
+    const { ObjectStorageService } = await import('../objectStorage');
+    const objectStorageService = new ObjectStorageService();
+    
+    if (!objectStorageService.isConfigured()) {
+      return res.status(500).json({ message: "Object storage not configured" });
+    }
+    
+    const result = await objectStorageService.getUploadURLForFolder(uploadFolder, filename);
+    res.json(result);
+  } catch (error) {
+    console.error("Error getting upload URL:", error);
+    res.status(500).json({ message: "Failed to get upload URL" });
   }
 });
 

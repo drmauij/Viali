@@ -16,6 +16,7 @@ const STUCK_JOB_CHECK_INTERVAL_MS = 60000; // Check for stuck jobs every minute
 const STUCK_JOB_THRESHOLD_MINUTES = 30; // Jobs stuck for >30 minutes
 const SCHEDULED_JOB_CHECK_INTERVAL_MS = 60000; // Check for scheduled jobs every minute
 const AUTO_QUESTIONNAIRE_DAYS_AHEAD = 14; // Send questionnaires 2 weeks before surgery
+const PRE_SURGERY_REMINDER_HOURS_AHEAD = 24; // Send fasting reminders 24 hours before surgery
 
 async function processNextImportJob() {
   try {
@@ -930,6 +931,8 @@ async function processNextScheduledJob(): Promise<boolean> {
         await processAutoQuestionnaireDispatch(job);
       } else if (job.jobType === 'sync_timebutler_ics') {
         await processTimebutlerIcsSync(job);
+      } else if (job.jobType === 'pre_surgery_reminder') {
+        await processPreSurgeryReminder(job);
       }
 
       return true;
@@ -1467,6 +1470,268 @@ async function scheduleAutoQuestionnaireJobs(): Promise<void> {
   }
 }
 
+/**
+ * Schedule pre-surgery reminder jobs for all hospitals
+ * Runs every hour to check for surgeries happening in 24 hours
+ */
+async function schedulePreSurgeryReminderJobs() {
+  try {
+    const allHospitals = await db.select().from(hospitals);
+    
+    const now = new Date();
+    
+    for (const hospital of allHospitals) {
+      // Check if there's already a pending job for this check period
+      const lastJob = await storage.getLastScheduledJobForHospital(hospital.id, 'pre_surgery_reminder');
+      
+      if (lastJob) {
+        const lastJobDate = new Date(lastJob.scheduledFor);
+        const hoursSinceLastJob = (now.getTime() - lastJobDate.getTime()) / (1000 * 60 * 60);
+        
+        // Only schedule a new job if at least 6 hours have passed
+        if (hoursSinceLastJob < 6 && (lastJob.status === 'completed' || lastJob.status === 'pending' || lastJob.status === 'processing')) {
+          continue;
+        }
+      }
+      
+      await storage.createScheduledJob({
+        jobType: 'pre_surgery_reminder',
+        hospitalId: hospital.id,
+        scheduledFor: now,
+        status: 'pending',
+      });
+      
+      console.log(`[Worker] Scheduled pre-surgery reminder job for hospital ${hospital.id}`);
+    }
+  } catch (error: any) {
+    console.error('[Worker] Error scheduling pre-surgery reminder jobs:', error);
+  }
+}
+
+/**
+ * Process pre-surgery reminder job
+ * Sends SMS/email reminders to patients with surgery in ~24 hours
+ * Includes fasting instructions and info flyer links
+ */
+async function processPreSurgeryReminder(job: any): Promise<void> {
+  const hospitalId = job.hospitalId;
+  
+  console.log(`[Worker] Pre-surgery reminder for hospital ${hospitalId}`);
+  
+  // Get surgeries scheduled for approximately 24 hours from now (22-26 hours window)
+  const eligibleSurgeries = await storage.getSurgeriesForPreSurgeryReminder(
+    hospitalId, 
+    PRE_SURGERY_REMINDER_HOURS_AHEAD
+  );
+  
+  console.log(`[Worker] Found ${eligibleSurgeries.length} surgeries scheduled for ~24 hours from now`);
+  
+  let processedCount = 0;
+  let successCount = 0;
+  let failedCount = 0;
+  const results: Array<{
+    surgeryId: string;
+    patientName: string;
+    status: 'sent_sms' | 'sent_email' | 'skipped_no_contact' | 'skipped_already_reminded' | 'failed';
+    error?: string;
+  }> = [];
+
+  const hospital = await storage.getHospital(hospitalId);
+  const hospitalName = hospital?.name || 'Hospital';
+
+  for (const surgery of eligibleSurgeries) {
+    processedCount++;
+    const patientName = `${surgery.patientFirstName} ${surgery.patientLastName}`;
+    
+    // Skip if already reminded
+    if (surgery.reminderSent) {
+      console.log(`[Worker] Skipping ${patientName} - reminder already sent`);
+      results.push({
+        surgeryId: surgery.surgeryId,
+        patientName,
+        status: 'skipped_already_reminded',
+      });
+      continue;
+    }
+    
+    const hasEmail = !!surgery.patientEmail;
+    const hasPhone = !!surgery.patientPhone;
+    
+    if (!hasEmail && !hasPhone) {
+      console.log(`[Worker] Skipping ${patientName} - no contact info`);
+      results.push({
+        surgeryId: surgery.surgeryId,
+        patientName,
+        status: 'skipped_no_contact',
+      });
+      continue;
+    }
+    
+    try {
+      // Format surgery time for display
+      const surgeryDate = new Date(surgery.scheduledStartTime);
+      const surgeryTimeStr = surgeryDate.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+      
+      // Fasting instructions in German/English bilingual format
+      const fastingInstructionsDe = 'Nüchternheitsregeln: Keine feste Nahrung ab 6 Stunden vor der OP. Klare Flüssigkeiten (Wasser, Tee ohne Milch) bis 2 Stunden vorher erlaubt.';
+      const fastingInstructionsEn = 'Fasting rules: No solid food 6 hours before surgery. Clear liquids (water, tea without milk) allowed until 2 hours before.';
+      
+      let sendSuccess = false;
+      let usedMethod: 'sms' | 'email' = 'sms';
+      
+      // Try SMS first (preferred for urgent reminders)
+      if (hasPhone && isSmsConfigured()) {
+        const smsMessage = `${hospitalName}: Erinnerung an Ihre OP morgen um ${surgeryTimeStr}.\n\n${fastingInstructionsDe}\n\n---\n\nReminder: Your surgery tomorrow at ${surgeryTimeStr}.\n\n${fastingInstructionsEn}`;
+        
+        const smsResult = await sendSms(surgery.patientPhone!, smsMessage, hospitalId);
+        
+        if (smsResult.success) {
+          sendSuccess = true;
+          usedMethod = 'sms';
+          console.log(`[Worker] Pre-surgery reminder SMS sent to ${patientName}`);
+        }
+      }
+      
+      // Fallback to email if SMS failed or not available
+      if (!sendSuccess && hasEmail) {
+        const emailResult = await sendPreSurgeryReminderEmail(
+          surgery.patientEmail!,
+          patientName,
+          hospitalName,
+          surgeryTimeStr,
+          surgeryDate
+        );
+        
+        if (emailResult.success) {
+          sendSuccess = true;
+          usedMethod = 'email';
+          console.log(`[Worker] Pre-surgery reminder email sent to ${patientName}`);
+        }
+      }
+      
+      if (sendSuccess) {
+        // Mark as reminded
+        await storage.markSurgeryReminderSent(surgery.surgeryId);
+        successCount++;
+        results.push({
+          surgeryId: surgery.surgeryId,
+          patientName,
+          status: usedMethod === 'sms' ? 'sent_sms' : 'sent_email',
+        });
+      } else {
+        failedCount++;
+        results.push({
+          surgeryId: surgery.surgeryId,
+          patientName,
+          status: 'failed',
+          error: 'Failed to send via SMS or email',
+        });
+      }
+    } catch (error: any) {
+      console.error(`[Worker] Error sending reminder for surgery ${surgery.surgeryId}:`, error);
+      failedCount++;
+      results.push({
+        surgeryId: surgery.surgeryId,
+        patientName,
+        status: 'failed',
+        error: error.message,
+      });
+    }
+  }
+
+  // Update job as completed
+  await storage.updateScheduledJob(job.id, {
+    status: 'completed',
+    completedAt: new Date(),
+    processedCount,
+    successCount,
+    failedCount,
+    results: results as any,
+  });
+
+  console.log(`[Worker] Completed pre-surgery reminders: ${successCount} sent, ${failedCount} failed, ${processedCount - successCount - failedCount} skipped`);
+}
+
+/**
+ * Send pre-surgery reminder email with fasting instructions
+ */
+async function sendPreSurgeryReminderEmail(
+  patientEmail: string,
+  patientName: string,
+  hospitalName: string,
+  surgeryTimeStr: string,
+  surgeryDate: Date
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { Resend } = await import('resend');
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@viali.ch';
+    const dateStrDe = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const dateStrEn = surgeryDate.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #2563eb;">Erinnerung an Ihre OP / Surgery Reminder</h2>
+        
+        <div style="margin-bottom: 20px;">
+          <p>Liebe(r) ${patientName},</p>
+          <p>Dies ist eine Erinnerung an Ihre geplante Operation:</p>
+          <p style="font-size: 18px; font-weight: bold; color: #1e40af;">
+            ${dateStrDe} um ${surgeryTimeStr}<br/>
+            ${hospitalName}
+          </p>
+        </div>
+        
+        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #92400e;">Wichtige Nüchternheitsregeln / Fasting Rules</h3>
+          <ul style="margin-bottom: 0;">
+            <li><strong>6 Stunden vor der OP:</strong> Keine feste Nahrung</li>
+            <li><strong>2 Stunden vor der OP:</strong> Keine Flüssigkeiten (auch kein Wasser)</li>
+            <li>Klare Flüssigkeiten (Wasser, Tee ohne Milch) sind bis 2 Stunden vorher erlaubt</li>
+          </ul>
+        </div>
+        
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;" />
+        
+        <div style="margin-bottom: 20px;">
+          <p>Dear ${patientName},</p>
+          <p>This is a reminder of your scheduled surgery:</p>
+          <p style="font-size: 18px; font-weight: bold; color: #1e40af;">
+            ${dateStrEn} at ${surgeryTimeStr}<br/>
+            ${hospitalName}
+          </p>
+        </div>
+        
+        <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #92400e;">Important Fasting Rules</h3>
+          <ul style="margin-bottom: 0;">
+            <li><strong>6 hours before surgery:</strong> No solid food</li>
+            <li><strong>2 hours before surgery:</strong> No liquids (including water)</li>
+            <li>Clear liquids (water, tea without milk) are allowed until 2 hours before</li>
+          </ul>
+        </div>
+        
+        <p style="color: #6b7280; font-size: 14px;">
+          Bei Fragen kontaktieren Sie uns bitte. / Please contact us if you have questions.
+        </p>
+      </div>
+    `;
+    
+    await resend.emails.send({
+      from: fromEmail,
+      to: patientEmail,
+      subject: `${hospitalName} - Erinnerung an Ihre OP morgen / Surgery Reminder`,
+      html: htmlContent,
+    });
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('[Worker] Failed to send pre-surgery reminder email:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 async function checkStuckJobs() {
   try {
     const stuckJobs = await storage.getStuckJobs(STUCK_JOB_THRESHOLD_MINUTES);
@@ -1508,10 +1773,11 @@ async function workerLoop() {
         lastStuckJobCheck = Date.now();
       }
       
-      // Schedule new auto-questionnaire jobs periodically (every minute)
+      // Schedule new jobs periodically (every minute)
       if (Date.now() - lastScheduledJobCheck >= SCHEDULED_JOB_CHECK_INTERVAL_MS) {
         await scheduleAutoQuestionnaireJobs();
         await scheduleTimebutlerIcsSyncJobs();
+        await schedulePreSurgeryReminderJobs();
         lastScheduledJobCheck = Date.now();
       }
       

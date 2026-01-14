@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus, MessageSquare } from "lucide-react";
+import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus, MessageSquare, FileText, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
@@ -2083,24 +2083,43 @@ export default function Hospital() {
                           return;
                         }
                         
+                        if (!activeHospital?.id) {
+                          toast({ title: t("common.error"), description: "No hospital selected", variant: "destructive" });
+                          return;
+                        }
+                        
                         setInfoFlyerUploading(true);
                         try {
-                          const formData = new FormData();
-                          formData.append('file', file);
-                          formData.append('folder', 'unit-info-flyers');
-                          
-                          const response = await fetch('/api/upload', {
+                          // Get presigned upload URL
+                          const urlResponse = await fetch(`/api/admin/${activeHospital.id}/upload`, {
                             method: 'POST',
-                            body: formData,
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                              filename: file.name,
+                              folder: 'unit-info-flyers'
+                            }),
                             credentials: 'include',
                           });
                           
-                          if (!response.ok) throw new Error('Upload failed');
+                          if (!urlResponse.ok) throw new Error('Failed to get upload URL');
                           
-                          const data = await response.json();
-                          setUnitForm({ ...unitForm, infoFlyerUrl: data.url });
+                          const { uploadURL, storageKey } = await urlResponse.json();
+                          
+                          // Upload directly to S3
+                          const uploadResponse = await fetch(uploadURL, {
+                            method: 'PUT',
+                            body: file,
+                            headers: {
+                              'Content-Type': file.type,
+                            },
+                          });
+                          
+                          if (!uploadResponse.ok) throw new Error('Upload failed');
+                          
+                          setUnitForm({ ...unitForm, infoFlyerUrl: storageKey });
                           toast({ title: t("common.success"), description: t("admin.infoFlyerUploadSuccess", "Info flyer uploaded successfully") });
                         } catch (error) {
+                          console.error("Upload error:", error);
                           toast({ title: t("common.error"), description: t("admin.infoFlyerUploadFailed", "Failed to upload info flyer"), variant: "destructive" });
                         } finally {
                           setInfoFlyerUploading(false);

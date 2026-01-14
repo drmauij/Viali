@@ -820,7 +820,20 @@ export default function PatientQuestionnaire() {
     );
   }
 
+  // Fetch info flyers after submission
+  const { data: infoFlyersData } = useQuery({
+    queryKey: ['/api/public/questionnaire', activeToken, 'info-flyers'],
+    queryFn: async () => {
+      if (!activeToken) return { flyers: [] };
+      const res = await fetch(`/api/public/questionnaire/${activeToken}/info-flyers`);
+      if (!res.ok) return { flyers: [] };
+      return res.json();
+    },
+    enabled: isSubmitted && !!activeToken,
+  });
+
   if (isSubmitted) {
+    const flyers = infoFlyersData?.flyers || [];
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
         <Card className="max-w-md w-full">
@@ -830,7 +843,34 @@ export default function PatientQuestionnaire() {
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               {t("questionnaire.success.message")}
             </p>
-            <p className="text-sm text-gray-500">
+            
+            {flyers.length > 0 && (
+              <div className="mt-6 pt-4 border-t">
+                <h3 className="text-lg font-semibold mb-3 flex items-center justify-center gap-2">
+                  <FileText className="h-5 w-5 text-primary" />
+                  {t("questionnaire.infoFlyers.title") || "Important Information"}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  {t("questionnaire.infoFlyers.description") || "Please review the following documents before your procedure:"}
+                </p>
+                <div className="space-y-2">
+                  {flyers.map((flyer: { unitName: string; unitType: string | null; downloadUrl: string }, index: number) => (
+                    <Button
+                      key={index}
+                      variant="outline"
+                      className="w-full justify-start"
+                      onClick={() => window.open(flyer.downloadUrl, '_blank')}
+                      data-testid={`button-download-flyer-${index}`}
+                    >
+                      <FileText className="h-4 w-4 mr-2 text-primary" />
+                      {flyer.unitName}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            <p className="text-sm text-gray-500 mt-4">
               {t("questionnaire.success.close")}
             </p>
           </CardContent>

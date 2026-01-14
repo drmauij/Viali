@@ -880,6 +880,19 @@ export interface IStorage {
     hasQuestionnaireSent: boolean;
     hasExistingQuestionnaire: boolean;
   }>>;
+  
+  // Pre-surgery reminder specific
+  getSurgeriesForPreSurgeryReminder(hospitalId: string, hoursAhead: number): Promise<Array<{
+    surgeryId: string;
+    patientId: string;
+    patientFirstName: string;
+    patientLastName: string;
+    patientEmail: string | null;
+    patientPhone: string | null;
+    scheduledStartTime: Date;
+    reminderSent: boolean;
+  }>>;
+  markSurgeryReminderSent(surgeryId: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8180,6 +8193,62 @@ export class DatabaseStorage implements IStorage {
       ));
 
     return results;
+  }
+
+  async getSurgeriesForPreSurgeryReminder(hospitalId: string, hoursAhead: number): Promise<Array<{
+    surgeryId: string;
+    patientId: string;
+    patientFirstName: string;
+    patientLastName: string;
+    patientEmail: string | null;
+    patientPhone: string | null;
+    scheduledStartTime: Date;
+    reminderSent: boolean;
+  }>> {
+    // Calculate the time window: surgeries starting in approximately hoursAhead hours
+    // We use a 1-hour window around the target time
+    const now = new Date();
+    const targetTime = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
+    const windowStart = new Date(targetTime.getTime() - 30 * 60 * 1000); // 30 min before
+    const windowEnd = new Date(targetTime.getTime() + 30 * 60 * 1000); // 30 min after
+
+    const results = await db
+      .select({
+        surgeryId: surgeries.id,
+        patientId: surgeries.patientId,
+        patientFirstName: patients.firstName,
+        patientLastName: patients.surname,
+        patientEmail: patients.email,
+        patientPhone: patients.phone,
+        scheduledStartTime: surgeries.scheduledStartTime,
+        reminderSent: surgeries.reminderSent,
+      })
+      .from(surgeries)
+      .innerJoin(patients, eq(patients.id, surgeries.patientId))
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        sql`${surgeries.scheduledStartTime} >= ${windowStart}`,
+        sql`${surgeries.scheduledStartTime} <= ${windowEnd}`,
+        eq(surgeries.reminderSent, false),
+        sql`${surgeries.status} IN ('scheduled', 'confirmed')`,
+        isNull(surgeries.archivedAt)
+      ));
+
+    return results.map(r => ({
+      ...r,
+      scheduledStartTime: r.scheduledStartTime!,
+      reminderSent: r.reminderSent ?? false,
+    }));
+  }
+
+  async markSurgeryReminderSent(surgeryId: string): Promise<void> {
+    await db
+      .update(surgeries)
+      .set({
+        reminderSent: true,
+        reminderSentAt: new Date(),
+      })
+      .where(eq(surgeries.id, surgeryId));
   }
 }
 

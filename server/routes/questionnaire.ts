@@ -1673,4 +1673,76 @@ router.delete('/api/questionnaire/uploads/:uploadId', isAuthenticated, requireWr
   }
 });
 
+// Get info flyers for the surgery's units (public endpoint for post-submission)
+router.get('/api/public/questionnaire/:token/info-flyers', async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    
+    // Get the link to find the associated surgery
+    const link = await storage.getQuestionnaireLink(token);
+    if (!link) {
+      return res.status(404).json({ message: "Questionnaire not found" });
+    }
+    
+    const flyers: Array<{ unitName: string; unitType: string | null; flyerUrl: string }> = [];
+    
+    // If linked to a surgery, get the surgery's room and unit
+    if (link.surgeryId) {
+      const surgery = await storage.getSurgery(link.surgeryId);
+      if (surgery && surgery.surgeryRoomId) {
+        const room = await storage.getSurgeryRoomById(surgery.surgeryRoomId);
+        if (room && room.unitId) {
+          const unit = await storage.getUnit(room.unitId);
+          if (unit && unit.infoFlyerUrl) {
+            flyers.push({
+              unitName: unit.name,
+              unitType: unit.type,
+              flyerUrl: unit.infoFlyerUrl,
+            });
+          }
+        }
+      }
+    }
+    
+    // Also get units for the hospital with info flyers (OR and Anesthesia modules)
+    const hospitalUnits = await storage.getUnits(link.hospitalId);
+    for (const unit of hospitalUnits) {
+      if (unit.infoFlyerUrl && (unit.isAnesthesiaModule || unit.isSurgeryModule)) {
+        // Avoid duplicates
+        if (!flyers.some(f => f.flyerUrl === unit.infoFlyerUrl)) {
+          flyers.push({
+            unitName: unit.name,
+            unitType: unit.type,
+            flyerUrl: unit.infoFlyerUrl,
+          });
+        }
+      }
+    }
+    
+    // Generate download URLs for each flyer
+    const { ObjectStorageService } = await import('../objectStorage');
+    const objectStorageService = new ObjectStorageService();
+    
+    const flyersWithUrls = await Promise.all(
+      flyers.map(async (flyer) => {
+        try {
+          if (objectStorageService.isConfigured() && flyer.flyerUrl.startsWith('/objects/')) {
+            const downloadUrl = await objectStorageService.getObjectDownloadURL(flyer.flyerUrl, 3600);
+            return { ...flyer, downloadUrl };
+          }
+          return { ...flyer, downloadUrl: flyer.flyerUrl };
+        } catch (error) {
+          console.error(`Error getting download URL for ${flyer.flyerUrl}:`, error);
+          return { ...flyer, downloadUrl: flyer.flyerUrl };
+        }
+      })
+    );
+    
+    res.json({ flyers: flyersWithUrls });
+  } catch (error) {
+    console.error("Error fetching info flyers:", error);
+    res.status(500).json({ message: "Failed to fetch info flyers" });
+  }
+});
+
 export default router;

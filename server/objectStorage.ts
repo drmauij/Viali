@@ -104,6 +104,29 @@ export class ObjectStorageService {
     };
   }
 
+  async getUploadURLForFolder(folder: string, filename?: string): Promise<{ uploadURL: string; storageKey: string }> {
+    if (!this.s3Client) {
+      throw new Error("S3 storage not configured. Please set S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY, and S3_BUCKET environment variables.");
+    }
+
+    const objectId = randomUUID();
+    const extension = filename ? filename.split('.').pop() : '';
+    const objectName = extension ? `${objectId}.${extension}` : objectId;
+    const key = `${folder}/${objectName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+    });
+
+    const uploadURL = await getSignedUrl(this.s3Client, command, { expiresIn: 900 });
+
+    return {
+      uploadURL,
+      storageKey: `/objects/${key}`
+    };
+  }
+
   async getObjectDownloadURL(storageKey: string, expiresIn: number = 3600): Promise<string> {
     if (!this.s3Client) {
       throw new Error("S3 storage not configured");
