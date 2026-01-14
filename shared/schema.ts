@@ -4082,6 +4082,10 @@ export const insertWorkerContractSchema = createInsertSchema(workerContracts).om
   managerSignedAt: true,
   managerId: true,
   managerName: true,
+  workerSignedAt: true,
+}).extend({
+  workerSignature: z.string().min(1, "Worker signature is required"),
+  workerSignatureLocation: z.string().min(1, "Signature location is required"),
 });
 
 export type WorkerContract = typeof workerContracts.$inferSelect;

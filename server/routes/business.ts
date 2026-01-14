@@ -2,10 +2,11 @@ import { Router } from "express";
 import type { Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { users, userHospitalRoles, units } from "@shared/schema";
-import { eq, and, inArray, ne } from "drizzle-orm";
+import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema } from "@shared/schema";
+import { eq, and, inArray, ne, desc } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { nanoid } from "nanoid";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -603,6 +604,297 @@ router.delete('/api/business/:hospitalId/staff/:userId/roles/:roleId', isAuthent
   } catch (error) {
     console.error("Error deleting user role:", error);
     res.status(500).json({ message: "Failed to delete role" });
+  }
+});
+
+// ==================== WORKER CONTRACTS ====================
+
+// Get contract token for a hospital (creates one if doesn't exist)
+router.get('/api/business/:hospitalId/contract-token', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    const hospital = await storage.getHospital(hospitalId);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    
+    let contractToken = (hospital as any).contractToken;
+    
+    // Generate token if doesn't exist
+    if (!contractToken) {
+      contractToken = crypto.randomBytes(16).toString('hex');
+      await db
+        .update(hospitals)
+        .set({ contractToken })
+        .where(eq(hospitals.id, hospitalId));
+    }
+    
+    res.json({ contractToken });
+  } catch (error) {
+    console.error("Error getting contract token:", error);
+    res.status(500).json({ message: "Failed to get contract token" });
+  }
+});
+
+// Regenerate contract token
+router.post('/api/business/:hospitalId/contract-token/regenerate', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    const newToken = crypto.randomBytes(16).toString('hex');
+    
+    await db
+      .update(hospitals)
+      .set({ contractToken: newToken })
+      .where(eq(hospitals.id, hospitalId));
+    
+    res.json({ contractToken: newToken });
+  } catch (error) {
+    console.error("Error regenerating contract token:", error);
+    res.status(500).json({ message: "Failed to regenerate token" });
+  }
+});
+
+// PUBLIC: Get hospital info for contract form (no auth required)
+router.get('/api/public/contracts/:token/hospital', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    const [hospital] = await db
+      .select()
+      .from(hospitals)
+      .where(eq(hospitals.contractToken, token));
+    
+    if (!hospital) {
+      return res.status(404).json({ message: "Invalid contract link" });
+    }
+    
+    res.json({
+      id: hospital.id,
+      name: hospital.name,
+      companyName: hospital.companyName || hospital.name,
+      companyStreet: hospital.companyStreet || '',
+      companyPostalCode: hospital.companyPostalCode || '',
+      companyCity: hospital.companyCity || '',
+      companyPhone: hospital.companyPhone || '',
+      companyEmail: hospital.companyEmail || '',
+      companyLogoUrl: hospital.companyLogoUrl || '',
+    });
+  } catch (error) {
+    console.error("Error fetching hospital for contract:", error);
+    res.status(500).json({ message: "Failed to fetch hospital info" });
+  }
+});
+
+// Simple in-memory rate limiting for public endpoints (per token)
+const contractSubmitRateLimits = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const MAX_SUBMITS_PER_WINDOW = 5;
+
+// PUBLIC: Submit a new contract (no auth required - worker submits)
+router.post('/api/public/contracts/:token/submit', async (req, res) => {
+  try {
+    const { token } = req.params;
+    
+    // Rate limiting check
+    const now = Date.now();
+    let rateLimit = contractSubmitRateLimits.get(token);
+    if (rateLimit && now < rateLimit.resetAt) {
+      if (rateLimit.count >= MAX_SUBMITS_PER_WINDOW) {
+        return res.status(429).json({ message: "Too many requests. Please try again later." });
+      }
+      rateLimit.count++;
+    } else {
+      contractSubmitRateLimits.set(token, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    }
+    
+    // Payload size validation (max 2MB for signature data)
+    const payloadSize = JSON.stringify(req.body).length;
+    if (payloadSize > 2 * 1024 * 1024) {
+      return res.status(413).json({ message: "Payload too large" });
+    }
+    
+    // Validate signature size (max 500KB base64 string)
+    if (req.body.workerSignature && req.body.workerSignature.length > 500 * 1024) {
+      return res.status(413).json({ message: "Signature image too large" });
+    }
+    
+    // Verify token
+    const [hospital] = await db
+      .select()
+      .from(hospitals)
+      .where(eq(hospitals.contractToken, token));
+    
+    if (!hospital) {
+      return res.status(404).json({ message: "Invalid contract link" });
+    }
+    
+    // Validate request body with schema (this ensures required fields are present)
+    const contractData = insertWorkerContractSchema.parse({
+      ...req.body,
+      hospitalId: hospital.id,
+    });
+    
+    // Create the contract
+    const [newContract] = await db
+      .insert(workerContracts)
+      .values({
+        ...contractData,
+        status: 'pending_manager_signature',
+        workerSignedAt: new Date(),
+      })
+      .returning();
+    
+    res.status(201).json(newContract);
+  } catch (error) {
+    console.error("Error submitting contract:", error);
+    if ((error as any).name === 'ZodError') {
+      return res.status(400).json({ message: "Invalid contract data", errors: (error as any).errors });
+    }
+    res.status(500).json({ message: "Failed to submit contract" });
+  }
+});
+
+// Get all contracts for a hospital (authenticated)
+router.get('/api/business/:hospitalId/contracts', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    const contracts = await db
+      .select()
+      .from(workerContracts)
+      .where(eq(workerContracts.hospitalId, hospitalId))
+      .orderBy(desc(workerContracts.createdAt));
+    
+    res.json(contracts);
+  } catch (error) {
+    console.error("Error fetching contracts:", error);
+    res.status(500).json({ message: "Failed to fetch contracts" });
+  }
+});
+
+// Get a single contract
+router.get('/api/business/:hospitalId/contracts/:contractId', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId, contractId } = req.params;
+    
+    const [contract] = await db
+      .select()
+      .from(workerContracts)
+      .where(and(
+        eq(workerContracts.id, contractId),
+        eq(workerContracts.hospitalId, hospitalId)
+      ));
+    
+    if (!contract) {
+      return res.status(404).json({ message: "Contract not found" });
+    }
+    
+    res.json(contract);
+  } catch (error) {
+    console.error("Error fetching contract:", error);
+    res.status(500).json({ message: "Failed to fetch contract" });
+  }
+});
+
+// Sign a contract (manager)
+router.post('/api/business/:hospitalId/contracts/:contractId/sign', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId, contractId } = req.params;
+    const { signature } = req.body;
+    const userId = req.user.id;
+    
+    if (!signature) {
+      return res.status(400).json({ message: "Signature is required" });
+    }
+    
+    // Get the contract
+    const [contract] = await db
+      .select()
+      .from(workerContracts)
+      .where(and(
+        eq(workerContracts.id, contractId),
+        eq(workerContracts.hospitalId, hospitalId)
+      ));
+    
+    if (!contract) {
+      return res.status(404).json({ message: "Contract not found" });
+    }
+    
+    if (contract.status !== 'pending_manager_signature') {
+      return res.status(400).json({ message: "Contract is not pending manager signature" });
+    }
+    
+    // Get manager name
+    const user = await storage.getUser(userId);
+    const managerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Manager';
+    
+    // Update contract with manager signature
+    const [updated] = await db
+      .update(workerContracts)
+      .set({
+        managerSignature: signature,
+        managerSignedAt: new Date(),
+        managerId: userId,
+        managerName: managerName,
+        status: 'signed',
+        updatedAt: new Date(),
+      })
+      .where(eq(workerContracts.id, contractId))
+      .returning();
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("Error signing contract:", error);
+    res.status(500).json({ message: "Failed to sign contract" });
+  }
+});
+
+// Reject a contract
+router.post('/api/business/:hospitalId/contracts/:contractId/reject', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId, contractId } = req.params;
+    
+    const [updated] = await db
+      .update(workerContracts)
+      .set({
+        status: 'rejected',
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(workerContracts.id, contractId),
+        eq(workerContracts.hospitalId, hospitalId)
+      ))
+      .returning();
+    
+    if (!updated) {
+      return res.status(404).json({ message: "Contract not found" });
+    }
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("Error rejecting contract:", error);
+    res.status(500).json({ message: "Failed to reject contract" });
+  }
+});
+
+// Delete a contract
+router.delete('/api/business/:hospitalId/contracts/:contractId', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId, contractId } = req.params;
+    
+    await db
+      .delete(workerContracts)
+      .where(and(
+        eq(workerContracts.id, contractId),
+        eq(workerContracts.hospitalId, hospitalId)
+      ));
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting contract:", error);
+    res.status(500).json({ message: "Failed to delete contract" });
   }
 });
 

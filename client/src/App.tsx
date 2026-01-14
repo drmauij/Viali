@@ -50,6 +50,8 @@ import TimeAnalytics from "@/pages/business/TimeAnalytics";
 import StaffCosts from "@/pages/business/StaffCosts";
 import SimplifiedDashboard from "@/pages/business/SimplifiedDashboard";
 import SimplifiedStaff from "@/pages/business/SimplifiedStaff";
+import BusinessContracts from "@/pages/business/Contracts";
+import WorkerContractForm from "@/pages/WorkerContractForm";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
 import ClinicInvoices from "@/pages/clinic/Invoices";
 import ClinicServices from "@/pages/clinic/Services";
@@ -156,6 +158,7 @@ function Router() {
         {/* Public routes accessible regardless of auth */}
         <Route path="/questionnaire/:token" component={PatientQuestionnaire} />
         <Route path="/questionnaire/hospital/:token" component={PatientQuestionnaire} />
+        <Route path="/contract/:token" component={WorkerContractForm} />
         
         {!isAuthenticated ? (
           <>
@@ -211,6 +214,7 @@ function Router() {
             {/* Business Module - requires business unit access */}
             <Route path="/business">{() => <ProtectedRoute requireBusiness><SimplifiedDashboard /></ProtectedRoute>}</Route>
             <Route path="/business/staff">{() => <ProtectedRoute requireBusiness><SimplifiedStaff /></ProtectedRoute>}</Route>
+            <Route path="/business/contracts">{() => <ProtectedRoute requireBusiness><BusinessContracts /></ProtectedRoute>}</Route>
             <Route path="/business/costs">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
             <Route path="/business/time">{() => <ProtectedRoute requireBusiness><TimeAnalytics /></ProtectedRoute>}</Route>
             <Route path="/business/staff-full">{() => <ProtectedRoute requireBusiness><StaffCosts /></ProtectedRoute>}</Route>

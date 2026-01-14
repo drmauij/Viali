@@ -1,0 +1,690 @@
+import { useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/hooks/use-toast";
+import SignaturePad from "@/components/SignaturePad";
+import jsPDF from "jspdf";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
+import { 
+  FileText, 
+  Download, 
+  Pen, 
+  Link2, 
+  Copy, 
+  Check, 
+  Loader2, 
+  RefreshCw,
+  Clock,
+  CheckCircle,
+  XCircle,
+  User,
+  Building2,
+  CreditCard,
+  Briefcase,
+  Eye
+} from "lucide-react";
+
+interface WorkerContract {
+  id: string;
+  hospitalId: string;
+  firstName: string;
+  lastName: string;
+  street: string;
+  postalCode: string;
+  city: string;
+  phone: string | null;
+  email: string;
+  dateOfBirth: string;
+  iban: string;
+  role: "awr_nurse" | "anesthesia_nurse" | "anesthesia_doctor";
+  status: "pending_manager_signature" | "signed" | "rejected";
+  workerSignature: string | null;
+  workerSignedAt: string | null;
+  workerSignatureLocation: string | null;
+  managerSignature: string | null;
+  managerSignedAt: string | null;
+  managerId: string | null;
+  managerName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface CompanyData {
+  companyName: string;
+  companyStreet: string;
+  companyPostalCode: string;
+  companyCity: string;
+  companyPhone: string;
+  companyFax: string;
+  companyEmail: string;
+  companyLogoUrl: string;
+}
+
+const roleInfo = {
+  awr_nurse: {
+    title: "Tagesklinik Pflege (AWR-Nurse)",
+    rate: "CHF 75.00",
+    description: "diplomierter Pflegefachmann mit Zusatzausbildung Experte Intensivpflege",
+    roleTitle: "IMC-Pfleger im Aufwachraum",
+  },
+  anesthesia_nurse: {
+    title: "Pflege-Anästhesist",
+    rate: "CHF 80.00",
+    description: "diplomierter Pflegefachmann mit Zusatzausbildung Experte Anästhesiepflege",
+    roleTitle: "Anästhesiepfleger",
+  },
+  anesthesia_doctor: {
+    title: "Arzt Anästhesie",
+    rate: "CHF 150.00",
+    description: "Facharzt Anästhesiologie, in der Schweiz anerkannt",
+    roleTitle: "Anästhesiearzt",
+  },
+};
+
+export default function Contracts() {
+  const { t, i18n } = useTranslation();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [selectedContract, setSelectedContract] = useState<WorkerContract | null>(null);
+  const [showSignDialog, setShowSignDialog] = useState(false);
+  const [showViewDialog, setShowViewDialog] = useState(false);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [copied, setCopied] = useState(false);
+  
+  const activeHospital = useMemo(() => {
+    const userHospitals = (user as any)?.hospitals;
+    if (!userHospitals || userHospitals.length === 0) return null;
+    
+    const savedHospitalKey = localStorage.getItem('activeHospital');
+    if (savedHospitalKey) {
+      const saved = userHospitals.find((h: any) => 
+        `${h.id}-${h.unitId}-${h.role}` === savedHospitalKey
+      );
+      if (saved) return saved;
+    }
+    
+    return userHospitals[0];
+  }, [user]);
+
+  const hospitalId = activeHospital?.id;
+
+  const { data: contracts = [], isLoading: isLoadingContracts } = useQuery<WorkerContract[]>({
+    queryKey: ['/api/business', hospitalId, 'contracts'],
+    queryFn: async () => {
+      const res = await fetch(`/api/business/${hospitalId}/contracts`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch contracts');
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
+  const { data: contractToken, refetch: refetchToken } = useQuery({
+    queryKey: ['/api/business', hospitalId, 'contract-token'],
+    queryFn: async () => {
+      const res = await fetch(`/api/business/${hospitalId}/contract-token`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch token');
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
+  const { data: companyData } = useQuery<CompanyData>({
+    queryKey: ['/api/clinic', hospitalId, 'company-data'],
+    queryFn: async () => {
+      const res = await fetch(`/api/clinic/${hospitalId}/company-data`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch company data');
+      return res.json();
+    },
+    enabled: !!hospitalId,
+  });
+
+  const signContractMutation = useMutation({
+    mutationFn: async ({ contractId, signature }: { contractId: string; signature: string }) => {
+      const res = await apiRequest('POST', `/api/business/${hospitalId}/contracts/${contractId}/sign`, { signature });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Vertrag unterzeichnet", description: "Der Vertrag wurde erfolgreich unterzeichnet." });
+      queryClient.invalidateQueries({ queryKey: ['/api/business', hospitalId, 'contracts'] });
+      setShowSignDialog(false);
+      setSelectedContract(null);
+    },
+    onError: () => {
+      toast({ title: "Fehler", description: "Der Vertrag konnte nicht unterzeichnet werden.", variant: "destructive" });
+    },
+  });
+
+  const regenerateTokenMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', `/api/business/${hospitalId}/contract-token/regenerate`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Link erneuert", description: "Der Vertragslink wurde erneuert." });
+      refetchToken();
+    },
+  });
+
+  const pendingContracts = contracts.filter(c => c.status === 'pending_manager_signature');
+  const signedContracts = contracts.filter(c => c.status === 'signed');
+
+  const contractLink = contractToken?.contractToken 
+    ? `${window.location.origin}/contract/${contractToken.contractToken}`
+    : null;
+
+  const handleCopyLink = () => {
+    if (contractLink) {
+      navigator.clipboard.writeText(contractLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({ title: "Link kopiert", description: "Der Vertragslink wurde in die Zwischenablage kopiert." });
+    }
+  };
+
+  const handleSignContract = (signature: string) => {
+    if (selectedContract) {
+      signContractMutation.mutate({ contractId: selectedContract.id, signature });
+    }
+    setShowSignaturePad(false);
+  };
+
+  const generateContractPDF = async (contract: WorkerContract) => {
+    if (!companyData) return;
+
+    const doc = new jsPDF();
+    const role = roleInfo[contract.role];
+
+    let yPos = 20;
+    
+    if (companyData.companyLogoUrl) {
+      try {
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'Anonymous';
+        await new Promise<void>((resolve, reject) => {
+          logoImg.onload = () => resolve();
+          logoImg.onerror = () => reject();
+          logoImg.src = companyData.companyLogoUrl;
+        });
+        
+        const scaleFactor = 4;
+        const canvas = document.createElement('canvas');
+        const origWidth = logoImg.naturalWidth || logoImg.width;
+        const origHeight = logoImg.naturalHeight || logoImg.height;
+        canvas.width = origWidth * scaleFactor;
+        canvas.height = origHeight * scaleFactor;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(logoImg, 0, 0, canvas.width, canvas.height);
+        }
+        
+        const maxLogoWidth = 60;
+        const maxLogoHeight = 30;
+        const aspectRatio = origWidth / origHeight;
+        let logoWidth = maxLogoWidth;
+        let logoHeight = logoWidth / aspectRatio;
+        if (logoHeight > maxLogoHeight) {
+          logoHeight = maxLogoHeight;
+          logoWidth = logoHeight * aspectRatio;
+        }
+        
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const logoX = (pageWidth - logoWidth) / 2;
+        const flattenedLogoUrl = canvas.toDataURL('image/png');
+        doc.addImage(flattenedLogoUrl, 'PNG', logoX, yPos, logoWidth, logoHeight);
+        yPos += logoHeight + 10;
+      } catch (e) {
+        console.warn('Failed to load logo:', e);
+      }
+    }
+
+    doc.setFontSize(16);
+    doc.setFont(undefined as any, 'bold');
+    doc.text("Vertrag für Kurzzeiteinsätze auf Abruf", 105, yPos, { align: 'center' });
+    yPos += 15;
+
+    doc.setFontSize(10);
+    doc.setFont(undefined as any, 'normal');
+    doc.text("zwischen", 20, yPos);
+    yPos += 8;
+
+    doc.setFont(undefined as any, 'bold');
+    doc.text(companyData.companyName || "Klinik", 20, yPos);
+    yPos += 5;
+    doc.setFont(undefined as any, 'normal');
+    doc.text(`${companyData.companyStreet}, ${companyData.companyPostalCode} ${companyData.companyCity}`, 20, yPos);
+    yPos += 5;
+    doc.setFont(undefined as any, 'italic');
+    doc.text("- Auftraggeber -", 20, yPos);
+    yPos += 10;
+
+    doc.setFont(undefined as any, 'normal');
+    doc.text("und", 20, yPos);
+    yPos += 8;
+
+    doc.setFont(undefined as any, 'bold');
+    doc.text(`${contract.lastName}, ${contract.firstName}`, 20, yPos);
+    yPos += 5;
+    doc.setFont(undefined as any, 'normal');
+    doc.text(`${contract.street}, ${contract.postalCode} ${contract.city}`, 20, yPos);
+    yPos += 5;
+    doc.text(`Tel: ${contract.phone || '-'}, E-Mail: ${contract.email}`, 20, yPos);
+    yPos += 5;
+    doc.setFont(undefined as any, 'italic');
+    doc.text("- Auftragnehmer -", 20, yPos);
+    yPos += 10;
+
+    doc.setFont(undefined as any, 'normal');
+    doc.text(`IBAN: ${contract.iban}`, 20, yPos);
+    yPos += 5;
+    doc.text(`Geb.: ${contract.dateOfBirth}`, 20, yPos);
+    yPos += 15;
+
+    doc.setFont(undefined as any, 'bold');
+    doc.text("1. Vertragsgegenstand", 20, yPos);
+    yPos += 6;
+    doc.setFont(undefined as any, 'normal');
+    const vertragsText = `Der Auftragnehmer ist ${role.description}. Er verpflichtet sich, Leistungen als ${role.roleTitle} für den Auftraggeber zu erbringen.`;
+    const splitText = doc.splitTextToSize(vertragsText, 170);
+    doc.text(splitText, 20, yPos);
+    yPos += splitText.length * 5 + 10;
+
+    doc.setFont(undefined as any, 'bold');
+    doc.text("4. Vergütung", 20, yPos);
+    yPos += 6;
+    doc.setFont(undefined as any, 'normal');
+    doc.text(`Bruttostundenlohn: ${role.rate}/Std. (${role.title})`, 20, yPos);
+    yPos += 20;
+
+    doc.line(20, yPos, 190, yPos);
+    yPos += 10;
+
+    if (contract.workerSignature) {
+      doc.text(`${contract.workerSignatureLocation || 'Ort'}, ${format(new Date(contract.workerSignedAt || contract.createdAt), 'dd.MM.yyyy', { locale: de })}`, 20, yPos);
+      yPos += 5;
+      doc.text("Auftragnehmer/in", 20, yPos);
+      yPos += 3;
+      try {
+        doc.addImage(contract.workerSignature, 'PNG', 20, yPos, 50, 20);
+      } catch (e) {
+        console.warn('Failed to add worker signature:', e);
+      }
+    }
+
+    if (contract.managerSignature && contract.managerSignedAt) {
+      doc.text(`Kreuzlingen, ${format(new Date(contract.managerSignedAt), 'dd.MM.yyyy', { locale: de })}`, 120, yPos - 8);
+      doc.text(companyData.companyName || "Klinik", 120, yPos - 3);
+      doc.text(contract.managerName || "Manager", 120, yPos + 2);
+      try {
+        doc.addImage(contract.managerSignature, 'PNG', 120, yPos + 5, 50, 20);
+      } catch (e) {
+        console.warn('Failed to add manager signature:', e);
+      }
+    }
+
+    doc.save(`Vertrag_${contract.lastName}_${contract.firstName}_${format(new Date(contract.createdAt), 'yyyy-MM-dd')}.pdf`);
+  };
+
+  const ContractCard = ({ contract, showActions = true }: { contract: WorkerContract; showActions?: boolean }) => {
+    const role = roleInfo[contract.role];
+    
+    return (
+      <Card className="hover:shadow-md transition-shadow" data-testid={`card-contract-${contract.id}`}>
+        <CardContent className="p-4">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <User className="w-4 h-4 text-gray-400" />
+                <span className="font-semibold">{contract.firstName} {contract.lastName}</span>
+                <Badge variant={contract.status === 'signed' ? 'default' : 'secondary'}>
+                  {contract.status === 'signed' ? (
+                    <><CheckCircle className="w-3 h-3 mr-1" /> Unterschrieben</>
+                  ) : contract.status === 'pending_manager_signature' ? (
+                    <><Clock className="w-3 h-3 mr-1" /> Warte auf Unterschrift</>
+                  ) : (
+                    <><XCircle className="w-3 h-3 mr-1" /> Abgelehnt</>
+                  )}
+                </Badge>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2">
+                  <Briefcase className="w-4 h-4" />
+                  <span>{role.title}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4" />
+                  <span>{role.rate}/Std.</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Building2 className="w-4 h-4" />
+                  <span>{contract.city}</span>
+                </div>
+                <div className="text-gray-400">
+                  Eingereicht: {format(new Date(contract.createdAt), 'dd.MM.yyyy', { locale: de })}
+                </div>
+              </div>
+            </div>
+            
+            {showActions && (
+              <div className="flex gap-2 ml-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedContract(contract);
+                    setShowViewDialog(true);
+                  }}
+                  data-testid={`button-view-contract-${contract.id}`}
+                >
+                  <Eye className="w-4 h-4" />
+                </Button>
+                
+                {contract.status === 'pending_manager_signature' && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedContract(contract);
+                      setShowSignDialog(true);
+                    }}
+                    data-testid={`button-sign-contract-${contract.id}`}
+                  >
+                    <Pen className="w-4 h-4 mr-1" />
+                    Unterschreiben
+                  </Button>
+                )}
+                
+                {contract.status === 'signed' && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => generateContractPDF(contract)}
+                    data-testid={`button-download-contract-${contract.id}`}
+                  >
+                    <Download className="w-4 h-4 mr-1" />
+                    PDF
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  if (!hospitalId) {
+    return (
+      <div className="p-6 text-center text-gray-500">
+        Kein Krankenhaus ausgewählt
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Mitarbeiterverträge</h1>
+          <p className="text-gray-500">Verwalten Sie temporäre Arbeitsverträge</p>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Link2 className="w-5 h-5" />
+            Vertragslink für Mitarbeiter
+          </CardTitle>
+          <CardDescription>
+            Teilen Sie diesen Link mit temporären Mitarbeitern, um ihnen das Ausfüllen und Unterschreiben des Vertrags zu ermöglichen.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-2">
+            <Input 
+              value={contractLink || "Wird geladen..."} 
+              readOnly 
+              className="font-mono text-sm"
+              data-testid="input-contract-link"
+            />
+            <Button
+              variant="outline"
+              onClick={handleCopyLink}
+              disabled={!contractLink}
+              data-testid="button-copy-link"
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => regenerateTokenMutation.mutate()}
+              disabled={regenerateTokenMutation.isPending}
+              data-testid="button-regenerate-link"
+            >
+              <RefreshCw className={`w-4 h-4 ${regenerateTokenMutation.isPending ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Tabs defaultValue="pending" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="pending" className="gap-2" data-testid="tab-pending-contracts">
+            <Clock className="w-4 h-4" />
+            Zu unterschreiben
+            {pendingContracts.length > 0 && (
+              <Badge variant="secondary" className="ml-1">{pendingContracts.length}</Badge>
+            )}
+          </TabsTrigger>
+          <TabsTrigger value="signed" className="gap-2" data-testid="tab-signed-contracts">
+            <CheckCircle className="w-4 h-4" />
+            Unterschrieben
+            {signedContracts.length > 0 && (
+              <Badge variant="secondary" className="ml-1">{signedContracts.length}</Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pending" className="space-y-4">
+          {isLoadingContracts ? (
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400" />
+            </div>
+          ) : pendingContracts.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-gray-500">
+                <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>Keine Verträge zur Unterschrift vorhanden</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {pendingContracts.map(contract => (
+                <ContractCard key={contract.id} contract={contract} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="signed" className="space-y-4">
+          {isLoadingContracts ? (
+            <div className="text-center py-8">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400" />
+            </div>
+          ) : signedContracts.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-gray-500">
+                <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <p>Noch keine unterschriebenen Verträge</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {signedContracts.map(contract => (
+                <ContractCard key={contract.id} contract={contract} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Vertragsdetails</DialogTitle>
+          </DialogHeader>
+          {selectedContract && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm text-gray-500">Name</Label>
+                  <p className="font-medium">{selectedContract.firstName} {selectedContract.lastName}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-500">Rolle</Label>
+                  <p className="font-medium">{roleInfo[selectedContract.role].title}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-500">E-Mail</Label>
+                  <p className="font-medium">{selectedContract.email}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-500">Telefon</Label>
+                  <p className="font-medium">{selectedContract.phone || '-'}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-500">Adresse</Label>
+                  <p className="font-medium">{selectedContract.street}, {selectedContract.postalCode} {selectedContract.city}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-500">Geburtsdatum</Label>
+                  <p className="font-medium">{selectedContract.dateOfBirth}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-500">IBAN</Label>
+                  <p className="font-medium font-mono">{selectedContract.iban}</p>
+                </div>
+                <div>
+                  <Label className="text-sm text-gray-500">Stundensatz</Label>
+                  <p className="font-medium">{roleInfo[selectedContract.role].rate}/Std.</p>
+                </div>
+              </div>
+              
+              <Separator />
+              
+              <div>
+                <Label className="text-sm text-gray-500">Unterschrift Mitarbeiter</Label>
+                {selectedContract.workerSignature ? (
+                  <div className="mt-2">
+                    <img 
+                      src={selectedContract.workerSignature} 
+                      alt="Unterschrift Mitarbeiter" 
+                      className="h-16 border rounded bg-white"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      {selectedContract.workerSignatureLocation}, {format(new Date(selectedContract.workerSignedAt || selectedContract.createdAt), 'dd.MM.yyyy', { locale: de })}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-gray-400 mt-2">Keine Unterschrift</p>
+                )}
+              </div>
+              
+              {selectedContract.managerSignature && (
+                <div>
+                  <Label className="text-sm text-gray-500">Unterschrift Manager</Label>
+                  <div className="mt-2">
+                    <img 
+                      src={selectedContract.managerSignature} 
+                      alt="Unterschrift Manager" 
+                      className="h-16 border rounded bg-white"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      {selectedContract.managerName}, {format(new Date(selectedContract.managerSignedAt!), 'dd.MM.yyyy', { locale: de })}
+                    </p>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex gap-2 pt-4">
+                {selectedContract.status === 'pending_manager_signature' && (
+                  <Button
+                    onClick={() => {
+                      setShowViewDialog(false);
+                      setShowSignDialog(true);
+                    }}
+                    data-testid="button-sign-from-view"
+                  >
+                    <Pen className="w-4 h-4 mr-2" />
+                    Unterschreiben
+                  </Button>
+                )}
+                {selectedContract.status === 'signed' && (
+                  <Button
+                    variant="outline"
+                    onClick={() => generateContractPDF(selectedContract)}
+                    data-testid="button-download-from-view"
+                  >
+                    <Download className="w-4 h-4 mr-2" />
+                    PDF herunterladen
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSignDialog} onOpenChange={setShowSignDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Vertrag unterschreiben</DialogTitle>
+            <DialogDescription>
+              Unterschreiben Sie den Vertrag für {selectedContract?.firstName} {selectedContract?.lastName}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="text-sm text-gray-600">
+              <p><strong>Rolle:</strong> {selectedContract && roleInfo[selectedContract.role].title}</p>
+              <p><strong>Stundensatz:</strong> {selectedContract && roleInfo[selectedContract.role].rate}/Std.</p>
+            </div>
+            <Button 
+              className="w-full"
+              onClick={() => setShowSignaturePad(true)}
+              data-testid="button-open-signature-pad"
+            >
+              <Pen className="w-4 h-4 mr-2" />
+              Unterschrift zeichnen
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <SignaturePad
+        isOpen={showSignaturePad}
+        onClose={() => setShowSignaturePad(false)}
+        onSave={handleSignContract}
+        title="Ihre Unterschrift"
+      />
+    </div>
+  );
+}
+
+function Label({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <p className={`text-xs font-medium ${className}`}>{children}</p>;
+}
