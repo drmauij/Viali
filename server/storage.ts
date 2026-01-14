@@ -889,7 +889,8 @@ export interface IStorage {
     patientLastName: string;
     patientEmail: string | null;
     patientPhone: string | null;
-    admissionTime: Date;
+    plannedDate: Date;
+    admissionTime: Date | null;
     reminderSent: boolean;
   }>>;
   markSurgeryReminderSent(surgeryId: string): Promise<void>;
@@ -8202,10 +8203,11 @@ export class DatabaseStorage implements IStorage {
     patientLastName: string;
     patientEmail: string | null;
     patientPhone: string | null;
-    admissionTime: Date;
+    plannedDate: Date;
+    admissionTime: Date | null;
     reminderSent: boolean;
   }>> {
-    // Calculate the time window: surgeries starting in approximately hoursAhead hours
+    // Calculate the time window: surgeries planned in approximately hoursAhead hours
     // We use a 1-hour window around the target time
     const now = new Date();
     const targetTime = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
@@ -8220,6 +8222,7 @@ export class DatabaseStorage implements IStorage {
         patientLastName: patients.surname,
         patientEmail: patients.email,
         patientPhone: patients.phone,
+        plannedDate: surgeries.plannedDate,
         admissionTime: surgeries.admissionTime,
         reminderSent: surgeries.reminderSent,
       })
@@ -8227,16 +8230,15 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(patients, eq(patients.id, surgeries.patientId))
       .where(and(
         eq(surgeries.hospitalId, hospitalId),
-        sql`${surgeries.admissionTime} >= ${windowStart}`,
-        sql`${surgeries.admissionTime} <= ${windowEnd}`,
+        sql`${surgeries.plannedDate} >= ${windowStart}`,
+        sql`${surgeries.plannedDate} <= ${windowEnd}`,
         eq(surgeries.reminderSent, false),
         sql`${surgeries.status} IN ('scheduled', 'confirmed')`,
         isNull(surgeries.archivedAt)
       ));
 
-    return results.filter(r => r.admissionTime !== null).map(r => ({
+    return results.map(r => ({
       ...r,
-      admissionTime: r.admissionTime!,
       reminderSent: r.reminderSent ?? false,
     }));
   }

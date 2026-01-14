@@ -1568,9 +1568,19 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
     }
     
     try {
-      // Format surgery time for display
-      const surgeryDate = new Date(surgery.admissionTime);
+      // Format surgery time for display (use plannedDate as primary reference)
+      const surgeryDate = new Date(surgery.plannedDate);
       const surgeryTimeStr = surgeryDate.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+      
+      // Format admission time if available
+      let admissionInfoDe = '';
+      let admissionInfoEn = '';
+      if (surgery.admissionTime) {
+        const admissionDate = new Date(surgery.admissionTime);
+        const admissionTimeStr = admissionDate.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+        admissionInfoDe = `\nBitte kommen Sie um ${admissionTimeStr} in die Klinik.`;
+        admissionInfoEn = `\nPlease arrive at the clinic by ${admissionTimeStr}.`;
+      }
       
       // Fasting instructions in German/English bilingual format
       const fastingInstructionsDe = 'Nüchternheitsregeln: Keine feste Nahrung ab 6 Stunden vor der OP. Klare Flüssigkeiten (Wasser, Tee ohne Milch) bis 2 Stunden vorher erlaubt.';
@@ -1581,7 +1591,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       
       // Try SMS first (preferred for urgent reminders)
       if (hasPhone && isSmsConfigured()) {
-        const smsMessage = `${hospitalName}: Erinnerung an Ihre OP morgen um ${surgeryTimeStr}.\n\n${fastingInstructionsDe}\n\n---\n\nReminder: Your surgery tomorrow at ${surgeryTimeStr}.\n\n${fastingInstructionsEn}`;
+        const smsMessage = `${hospitalName}: Erinnerung an Ihre OP morgen um ${surgeryTimeStr}.${admissionInfoDe}\n\n${fastingInstructionsDe}\n\n---\n\nReminder: Your surgery tomorrow at ${surgeryTimeStr}.${admissionInfoEn}\n\n${fastingInstructionsEn}`;
         
         const smsResult = await sendSms(surgery.patientPhone!, smsMessage, hospitalId);
         
@@ -1599,7 +1609,8 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
           patientName,
           hospitalName,
           surgeryTimeStr,
-          surgeryDate
+          surgeryDate,
+          surgery.admissionTime ? new Date(surgery.admissionTime) : null
         );
         
         if (emailResult.success) {
@@ -1660,7 +1671,8 @@ async function sendPreSurgeryReminderEmail(
   patientName: string,
   hospitalName: string,
   surgeryTimeStr: string,
-  surgeryDate: Date
+  surgeryDate: Date,
+  admissionTime: Date | null
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { Resend } = await import('resend');
@@ -1669,6 +1681,15 @@ async function sendPreSurgeryReminderEmail(
     const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@viali.ch';
     const dateStrDe = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     const dateStrEn = surgeryDate.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    
+    // Format admission time if available
+    let admissionInfoDe = '';
+    let admissionInfoEn = '';
+    if (admissionTime) {
+      const admissionTimeStr = admissionTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+      admissionInfoDe = `<p style="color: #059669; font-weight: bold;">Bitte kommen Sie um ${admissionTimeStr} in die Klinik.</p>`;
+      admissionInfoEn = `<p style="color: #059669; font-weight: bold;">Please arrive at the clinic by ${admissionTimeStr}.</p>`;
+    }
     
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1681,6 +1702,7 @@ async function sendPreSurgeryReminderEmail(
             ${dateStrDe} um ${surgeryTimeStr}<br/>
             ${hospitalName}
           </p>
+          ${admissionInfoDe}
         </div>
         
         <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
@@ -1701,6 +1723,7 @@ async function sendPreSurgeryReminderEmail(
             ${dateStrEn} at ${surgeryTimeStr}<br/>
             ${hospitalName}
           </p>
+          ${admissionInfoEn}
         </div>
         
         <div style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
