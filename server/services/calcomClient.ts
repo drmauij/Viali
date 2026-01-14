@@ -202,10 +202,11 @@ export class CalcomClient {
       body: JSON.stringify({
         eventTypeId,
         start,
+        title,
         attendee: {
           name: 'System Block',
           email: 'system@clinic.local',
-          timeZone: 'UTC',
+          timeZone: 'Europe/Zurich',
         },
         metadata: {
           isBusyBlock: true,
@@ -224,6 +225,7 @@ export class CalcomClient {
       body: JSON.stringify({
         eventTypeId: request.eventTypeId,
         start: request.start,
+        title: request.title,
         attendee: {
           name: request.title,
           email: 'system-block@clinic.local',
