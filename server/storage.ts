@@ -889,7 +889,7 @@ export interface IStorage {
     patientLastName: string;
     patientEmail: string | null;
     patientPhone: string | null;
-    scheduledStartTime: Date;
+    admissionTime: Date;
     reminderSent: boolean;
   }>>;
   markSurgeryReminderSent(surgeryId: string): Promise<void>;
@@ -8202,7 +8202,7 @@ export class DatabaseStorage implements IStorage {
     patientLastName: string;
     patientEmail: string | null;
     patientPhone: string | null;
-    scheduledStartTime: Date;
+    admissionTime: Date;
     reminderSent: boolean;
   }>> {
     // Calculate the time window: surgeries starting in approximately hoursAhead hours
@@ -8220,23 +8220,23 @@ export class DatabaseStorage implements IStorage {
         patientLastName: patients.surname,
         patientEmail: patients.email,
         patientPhone: patients.phone,
-        scheduledStartTime: surgeries.scheduledStartTime,
+        admissionTime: surgeries.admissionTime,
         reminderSent: surgeries.reminderSent,
       })
       .from(surgeries)
       .innerJoin(patients, eq(patients.id, surgeries.patientId))
       .where(and(
         eq(surgeries.hospitalId, hospitalId),
-        sql`${surgeries.scheduledStartTime} >= ${windowStart}`,
-        sql`${surgeries.scheduledStartTime} <= ${windowEnd}`,
+        sql`${surgeries.admissionTime} >= ${windowStart}`,
+        sql`${surgeries.admissionTime} <= ${windowEnd}`,
         eq(surgeries.reminderSent, false),
         sql`${surgeries.status} IN ('scheduled', 'confirmed')`,
         isNull(surgeries.archivedAt)
       ));
 
-    return results.map(r => ({
+    return results.filter(r => r.admissionTime !== null).map(r => ({
       ...r,
-      scheduledStartTime: r.scheduledStartTime!,
+      admissionTime: r.admissionTime!,
       reminderSent: r.reminderSent ?? false,
     }));
   }

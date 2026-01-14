@@ -1569,7 +1569,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
     
     try {
       // Format surgery time for display
-      const surgeryDate = new Date(surgery.scheduledStartTime);
+      const surgeryDate = new Date(surgery.admissionTime);
       const surgeryTimeStr = surgeryDate.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
       
       // Fasting instructions in German/English bilingual format
