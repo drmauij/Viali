@@ -33,7 +33,8 @@ import {
   Briefcase,
   Eye,
   Archive,
-  ArchiveRestore
+  ArchiveRestore,
+  Mail
 } from "lucide-react";
 
 interface WorkerContract {
@@ -365,6 +366,19 @@ export default function Contracts() {
     },
   });
 
+  const sendContractEmailMutation = useMutation({
+    mutationFn: async ({ contractId, pdfBase64 }: { contractId: string; pdfBase64: string }) => {
+      const res = await apiRequest('POST', `/api/business/${hospitalId}/contracts/${contractId}/send-email`, { pdfBase64 });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "E-Mail gesendet", description: "Der Vertrag wurde erfolgreich per E-Mail gesendet." });
+    },
+    onError: () => {
+      toast({ title: "Fehler", description: "Die E-Mail konnte nicht gesendet werden.", variant: "destructive" });
+    },
+  });
+
   const activeContracts = contracts.filter(c => !c.archivedAt);
   const archivedContracts = contracts.filter(c => !!c.archivedAt);
   const pendingContracts = activeContracts.filter(c => c.status === 'pending_manager_signature');
@@ -577,6 +591,210 @@ export default function Contracts() {
     doc.save(`Vertrag_${contract.lastName}_${contract.firstName}_${format(new Date(contract.createdAt), 'yyyy-MM-dd')}.pdf`);
   };
 
+  const generateContractPDFBase64 = async (contract: WorkerContract): Promise<string | null> => {
+    if (!companyData) return null;
+
+    const doc = new jsPDF();
+    const role = roleInfo[contract.role];
+
+    let yPos = 20;
+    
+    if (companyData.companyLogoUrl) {
+      try {
+        const logoImg = new Image();
+        logoImg.crossOrigin = 'Anonymous';
+        await new Promise<void>((resolve, reject) => {
+          logoImg.onload = () => resolve();
+          logoImg.onerror = () => reject();
+          logoImg.src = companyData.companyLogoUrl;
+        });
+        
+        const scaleFactor = 4;
+        const canvas = document.createElement('canvas');
+        const origWidth = logoImg.naturalWidth || logoImg.width;
+        const origHeight = logoImg.naturalHeight || logoImg.height;
+        canvas.width = origWidth * scaleFactor;
+        canvas.height = origHeight * scaleFactor;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(logoImg, 0, 0, canvas.width, canvas.height);
+        }
+        
+        const maxLogoWidth = 60;
+        const maxLogoHeight = 30;
+        const aspectRatio = origWidth / origHeight;
+        let logoWidth = maxLogoWidth;
+        let logoHeight = logoWidth / aspectRatio;
+        if (logoHeight > maxLogoHeight) {
+          logoHeight = maxLogoHeight;
+          logoWidth = logoHeight * aspectRatio;
+        }
+        
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const logoX = (pageWidth - logoWidth) / 2;
+        const flattenedLogoUrl = canvas.toDataURL('image/png');
+        doc.addImage(flattenedLogoUrl, 'PNG', logoX, yPos, logoWidth, logoHeight);
+        yPos += logoHeight + 10;
+      } catch (e) {
+        console.warn('Failed to load logo:', e);
+      }
+    }
+
+    doc.setFontSize(16);
+    doc.setFont(undefined as any, 'bold');
+    doc.text("Vertrag für Kurzzeiteinsätze auf Abruf", 105, yPos, { align: 'center' });
+    yPos += 15;
+
+    doc.setFontSize(10);
+    doc.setFont(undefined as any, 'normal');
+    doc.text("zwischen", 20, yPos);
+    yPos += 8;
+
+    doc.setFont(undefined as any, 'bold');
+    doc.text(companyData.companyName || "Klinik", 20, yPos);
+    yPos += 5;
+    doc.setFont(undefined as any, 'normal');
+    doc.text(`${companyData.companyStreet}, ${companyData.companyPostalCode} ${companyData.companyCity}`, 20, yPos);
+    yPos += 5;
+    doc.setFont(undefined as any, 'italic');
+    doc.text("- Auftraggeber -", 20, yPos);
+    yPos += 10;
+
+    doc.setFont(undefined as any, 'normal');
+    doc.text("und", 20, yPos);
+    yPos += 8;
+
+    doc.setFont(undefined as any, 'bold');
+    doc.text(`${contract.lastName}, ${contract.firstName}`, 20, yPos);
+    yPos += 5;
+    doc.setFont(undefined as any, 'normal');
+    doc.text(`${contract.street}, ${contract.postalCode} ${contract.city}`, 20, yPos);
+    yPos += 5;
+    doc.text(`Tel: ${contract.phone || '-'}, E-Mail: ${contract.email}`, 20, yPos);
+    yPos += 5;
+    doc.setFont(undefined as any, 'italic');
+    doc.text("- Auftragnehmer -", 20, yPos);
+    yPos += 10;
+
+    doc.setFont(undefined as any, 'normal');
+    doc.text(`IBAN: ${contract.iban}`, 20, yPos);
+    yPos += 5;
+    doc.text(`Geb.: ${contract.dateOfBirth}`, 20, yPos);
+    yPos += 15;
+
+    const addSection = (title: string, content: string) => {
+      if (yPos > 260) {
+        doc.addPage();
+        yPos = 20;
+      }
+      doc.setFont(undefined as any, 'bold');
+      doc.text(title, 20, yPos);
+      yPos += 6;
+      doc.setFont(undefined as any, 'normal');
+      const lines = doc.splitTextToSize(content, 170);
+      doc.text(lines, 20, yPos);
+      yPos += lines.length * 5 + 8;
+    };
+
+    addSection("Präambel", 
+      `Die ${companyData.companyName} bietet die Möglichkeit für einzelne Tage stundenweise Tätigkeiten im Bereich der IMC-Pflege, Anästhesiepflege und ärztlichen Anästhesie anzubieten. Der Auftragnehmer ist bereit, künftig nach Absprache für die Leistungserbringung in seinem Fachbereich auf Abruf stundenweise zur Verfügung zu stehen.`
+    );
+
+    addSection("1. Vertragsgegenstand", 
+      `Der Auftragnehmer ist ${role.description}, in der Schweiz anerkannt. Er verpflichtet sich, Leistungen als ${role.roleTitle} für den Auftraggeber zu erbringen. Der Auftragnehmer erbringt seine Leistungen in eigener fachlicher Verantwortung. Der Auftragnehmer beachtet die Weisungen der Geschäftsleitung und der Leitenden Chirurgin (Dr. med. Lena Schumann). Er hat Pausen (ohne Vergütung) auf Anweisung wahrzunehmen.`
+    );
+
+    addSection("2. Arbeitsort", 
+      `Der Arbeitsort befindet sich an der ${companyData.companyName}, ${companyData.companyStreet}, ${companyData.companyPostalCode} ${companyData.companyCity}.`
+    );
+
+    addSection("3. Arbeitszeit und Abruf", 
+      `Der Einsatz erfolgt nach Bedarf der Auftraggeberin. Termine, die der Auftragnehmer schriftlich oder per E-Mail bestätigt, sind verbindlich. Die Termine dürfen nur im Krankheitsfall abgesagt werden, wobei der Auftragnehmer möglichst frühzeitig (48h vorher) einen voraussichtlichen Ausfall mitzuteilen hat. Er hat die Auftraggeberin auch über die voraussichtliche Eventualität eines krankheitsbedingten Ausfalls frühzeitig zu informieren, damit rechtzeitig Ersatzpersonal geplant werden kann.`
+    );
+
+    addSection("4. Vergütung", 
+      `Der Auftragnehmer erhält für die erbrachte Arbeitsleistung einen Bruttolohn pro Stunde in Höhe von ${role.rate} (${role.title}). Die Auszahlung erfolgt im Folgemonat des Einsatzes auf das von dem Auftragnehmer angegebene Bankkonto. Der Auftragnehmer hat den Stundeneinsatz pro Tag von der ärztlichen Leitung (Dr. med. Lena Schumann) bestätigen zu lassen. Am Ende des Monats reicht der Auftragnehmer seine bestätigte Stundenaufstellung zur Abrechnung bei der Auftraggeberin ein.`
+    );
+
+    addSection("5. Sozialversicherungen", 
+      `Dieser Vertrag unterliegt den gesetzlichen Vorschriften der Sozialversicherungen in der Schweiz. Der Auftraggeber verpflichtet sich, alle erforderlichen Abgaben für AHV, ALV abzuführen. Vom Bruttolohn werden die Auftragnehmerbeiträge in Abzug gebracht.`
+    );
+
+    addSection("6. Einschluss und Abgeltung von Ferienansprüchen und Lohnfortzahlung", 
+      `Angesichts der kurzen Dauer der Arbeitseinsätze werden der Ferienanspruch sowie der Anspruch auf Lohnfortzahlung bei unverschuldeter Verhinderung an der Arbeitsleistung (Krankheit, Unfall, usw.) durch den vereinbarten Bruttolohn abgegolten. Für Feiertage und bezahlte Absenzen besteht kein besonderer Lohnanspruch, da die entsprechende Entschädigung mit Rücksicht auf die kurze Dauer der Arbeitseinsätze im Lohn eingeschlossen ist.`
+    );
+
+    addSection("7. Vertraulichkeit", 
+      `Der Auftragnehmer verpflichtet sich, alle im Zusammenhang mit seiner Tätigkeit bekannt gewordenen Informationen über den Auftraggeber und dessen Geschäftsabläufe vertraulich zu behandeln und nicht an Dritte weiterzugeben.`
+    );
+
+    addSection("8. Beendigung des Arbeitsverhältnisses", 
+      `Die Vereinbarung kann mit einer Frist von einem Monat gekündigt werden.`
+    );
+
+    addSection("9. Weitere Bestimmungen", 
+      `Änderungen oder Ergänzungen dieses Vertrags bedürfen der Schriftform. Mündliche Abreden sind ungültig.`
+    );
+
+    addSection("10. Recht und Gerichtsstand", 
+      `Soweit nicht die Bestimmungen dieses Vertrags vorgehen, gelten die allgemeinen Bestimmungen des Obligationenrechts. Abänderungen, Ergänzungen oder die Aufhebung des vorliegenden Vertrages sind nur in Schriftform und von beiden Vertragsparteien unterzeichnet rechtsgültig. Sollten Teile dieses Vertrages unwirksam sein, so wird hierdurch die Gültigkeit der übrigen Bestimmungen nicht berührt. An die Stelle unwirksamer Bestimmungen treten sinngemäss die einschlägigen gesetzlichen Bestimmungen. Auf diesen Arbeitsvertrag ist schweizerisches Recht anwendbar. Der Gerichtsstand ist Kreuzlingen. Jede Vertragspartei erhält ein Exemplar dieses Vertrages.`
+    );
+
+    if (yPos > 220) {
+      doc.addPage();
+      yPos = 20;
+    }
+    
+    doc.line(20, yPos, 190, yPos);
+    yPos += 10;
+
+    if (contract.workerSignature) {
+      doc.text(`${contract.workerSignatureLocation || 'Ort'}, ${format(new Date(contract.workerSignedAt || contract.createdAt), 'dd.MM.yyyy', { locale: de })}`, 20, yPos);
+      yPos += 5;
+      doc.text("Auftragnehmer/in", 20, yPos);
+      yPos += 3;
+      try {
+        doc.addImage(contract.workerSignature, 'PNG', 20, yPos, 50, 20);
+      } catch (e) {
+        console.warn('Failed to add worker signature:', e);
+      }
+    }
+
+    if (contract.managerSignature && contract.managerSignedAt) {
+      doc.text(`Kreuzlingen, ${format(new Date(contract.managerSignedAt), 'dd.MM.yyyy', { locale: de })}`, 120, yPos - 8);
+      doc.text(companyData.companyName || "Klinik", 120, yPos - 3);
+      doc.text(contract.managerName || "Manager", 120, yPos + 2);
+      try {
+        doc.addImage(contract.managerSignature, 'PNG', 120, yPos + 5, 50, 20);
+      } catch (e) {
+        console.warn('Failed to add manager signature:', e);
+      }
+    }
+
+    // Return base64 without the data:application/pdf;base64, prefix
+    const pdfData = doc.output('datauristring');
+    return pdfData.split(',')[1];
+  };
+
+  const handleSendContractEmail = async (contract: WorkerContract) => {
+    if (!contract.email) {
+      toast({ title: "Fehler", description: "Keine E-Mail-Adresse vorhanden", variant: "destructive" });
+      return;
+    }
+    
+    const pdfBase64 = await generateContractPDFBase64(contract);
+    if (!pdfBase64) {
+      toast({ title: "Fehler", description: "PDF konnte nicht generiert werden", variant: "destructive" });
+      return;
+    }
+    
+    sendContractEmailMutation.mutate({ contractId: contract.id, pdfBase64 });
+  };
+
   const ContractCard = ({ contract, showActions = true }: { contract: WorkerContract; showActions?: boolean }) => {
     const role = roleInfo[contract.role];
     
@@ -648,15 +866,33 @@ export default function Contracts() {
                 )}
                 
                 {contract.status === 'signed' && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => generateContractPDF(contract)}
-                    data-testid={`button-download-contract-${contract.id}`}
-                  >
-                    <Download className="w-4 h-4 mr-1" />
-                    PDF
-                  </Button>
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateContractPDF(contract)}
+                      data-testid={`button-download-contract-${contract.id}`}
+                    >
+                      <Download className="w-4 h-4 mr-1" />
+                      PDF
+                    </Button>
+                    {contract.email && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSendContractEmail(contract)}
+                        disabled={sendContractEmailMutation.isPending}
+                        data-testid={`button-email-contract-${contract.id}`}
+                        title="Vertrag per E-Mail senden"
+                      >
+                        {sendContractEmailMutation.isPending ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Mail className="w-4 h-4" />
+                        )}
+                      </Button>
+                    )}
+                  </>
                 )}
                 
                 {contract.archivedAt ? (

@@ -7,6 +7,7 @@ import { eq, and, inArray, ne, desc } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
+import { sendSignedContractEmail } from "../resend";
 
 const router = Router();
 
@@ -951,6 +952,66 @@ router.post('/api/business/:hospitalId/contracts/:contractId/unarchive', isAuthe
   } catch (error) {
     console.error("Error unarchiving contract:", error);
     res.status(500).json({ message: "Failed to unarchive contract" });
+  }
+});
+
+// Send signed contract to worker via email
+router.post('/api/business/:hospitalId/contracts/:contractId/send-email', isAuthenticated, isBusinessManager, async (req, res) => {
+  try {
+    const { hospitalId, contractId } = req.params;
+    const { pdfBase64 } = req.body;
+    
+    if (!pdfBase64) {
+      return res.status(400).json({ message: "PDF data is required" });
+    }
+    
+    // Get the contract
+    const [contract] = await db
+      .select()
+      .from(workerContracts)
+      .where(and(
+        eq(workerContracts.id, contractId),
+        eq(workerContracts.hospitalId, hospitalId)
+      ));
+    
+    if (!contract) {
+      return res.status(404).json({ message: "Contract not found" });
+    }
+    
+    if (contract.status !== 'signed') {
+      return res.status(400).json({ message: "Contract must be fully signed before sending" });
+    }
+    
+    if (!contract.email) {
+      return res.status(400).json({ message: "Worker email is not available" });
+    }
+    
+    // Get hospital/clinic name
+    const [hospital] = await db
+      .select()
+      .from(hospitals)
+      .where(eq(hospitals.id, hospitalId));
+    
+    const clinicName = hospital?.name || 'Klinik';
+    const workerName = `${contract.firstName} ${contract.lastName}`;
+    
+    // Send the email
+    const result = await sendSignedContractEmail(
+      contract.email,
+      workerName,
+      clinicName,
+      pdfBase64
+    );
+    
+    if (!result.success) {
+      console.error('Failed to send signed contract email:', result.error);
+      return res.status(500).json({ message: "Failed to send email" });
+    }
+    
+    res.json({ success: true, message: "Email sent successfully" });
+  } catch (error) {
+    console.error("Error sending signed contract email:", error);
+    res.status(500).json({ message: "Failed to send email" });
   }
 });
 

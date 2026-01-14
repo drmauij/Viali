@@ -449,6 +449,85 @@ export async function sendStockAlertEmail(
   }
 }
 
+export async function sendSignedContractEmail(
+  toEmail: string,
+  workerName: string,
+  clinicName: string,
+  pdfBase64: string
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    console.log('[Email] Sending signed contract from:', fromEmail, 'to:', toEmail);
+
+    const subject = `Ihr unterschriebener Vertrag - ${clinicName}`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #10b981; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .highlight { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #10b981; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Vertrag vollständig unterzeichnet</h1>
+            </div>
+            <div class="content">
+              <p>Guten Tag ${workerName},</p>
+              <p>Ihr Vertrag für Kurzzeiteinsätze auf Abruf wurde von beiden Parteien unterzeichnet.</p>
+              
+              <div class="highlight">
+                <p><strong>Auftraggeber:</strong> ${clinicName}</p>
+                <p>Im Anhang finden Sie Ihr Exemplar des vollständig unterzeichneten Vertrags als PDF.</p>
+              </div>
+              
+              <p>Bitte bewahren Sie dieses Dokument für Ihre Unterlagen auf.</p>
+              
+              <p>Bei Fragen stehen wir Ihnen gerne zur Verfügung.</p>
+              
+              <p>Freundliche Grüsse,<br/>${clinicName}</p>
+            </div>
+            <div class="footer">
+              <p>Diese E-Mail wurde automatisch generiert.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+      attachments: [
+        {
+          filename: `Vertrag_${workerName.replace(/\s+/g, '_')}.pdf`,
+          content: pdfBase64,
+        }
+      ]
+    });
+
+    if (error) {
+      console.error('Failed to send signed contract email:', error);
+      return { success: false, error };
+    }
+
+    console.log(`[Email] Successfully sent signed contract to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error sending signed contract email:', error);
+    return { success: false, error };
+  }
+}
+
 export async function sendInvoiceEmail(
   toEmail: string,
   invoiceNumber: number,
