@@ -793,6 +793,18 @@ export default function PatientQuestionnaire() {
     setFormData(prev => ({ ...prev, [field]: value }));
   }, []);
 
+  // Fetch info flyers after submission (must be before any early returns to follow hooks rules)
+  const { data: infoFlyersData } = useQuery({
+    queryKey: ['/api/public/questionnaire', activeToken, 'info-flyers'],
+    queryFn: async () => {
+      if (!activeToken) return { flyers: [] };
+      const res = await fetch(`/api/public/questionnaire/${activeToken}/info-flyers`);
+      if (!res.ok) return { flyers: [] };
+      return res.json();
+    },
+    enabled: isSubmitted && !!activeToken,
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
@@ -819,18 +831,6 @@ export default function PatientQuestionnaire() {
       </div>
     );
   }
-
-  // Fetch info flyers after submission
-  const { data: infoFlyersData } = useQuery({
-    queryKey: ['/api/public/questionnaire', activeToken, 'info-flyers'],
-    queryFn: async () => {
-      if (!activeToken) return { flyers: [] };
-      const res = await fetch(`/api/public/questionnaire/${activeToken}/info-flyers`);
-      if (!res.ok) return { flyers: [] };
-      return res.json();
-    },
-    enabled: isSubmitted && !!activeToken,
-  });
 
   if (isSubmitted) {
     const flyers = infoFlyersData?.flyers || [];
