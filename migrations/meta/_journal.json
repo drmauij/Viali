@@ -477,13 +477,6 @@
       "when": 1768392000000,
       "tag": "0067_add_archived_at_to_worker_contracts",
       "breakpoints": true
-    },
-    {
-      "idx": 68,
-      "version": "7",
-      "when": 1768405593832,
-      "tag": "0068_tidy_juggernaut",
-      "breakpoints": true
     }
   ]
 }
