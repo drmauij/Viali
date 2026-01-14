@@ -2071,6 +2071,20 @@ export default function PatientDetail() {
            assessmentData.medicationsNotes.trim() !== "";
   };
 
+  const hasAnesthesiaSurgicalHistoryData = () => {
+    return Object.values(assessmentData.anesthesiaHistoryIssues).some(v => v) ||
+           Object.values(assessmentData.dentalIssues).some(v => v) ||
+           Object.values(assessmentData.ponvTransfusionIssues).some(v => v) ||
+           assessmentData.previousSurgeries.trim() !== "" ||
+           assessmentData.anesthesiaSurgicalHistoryNotes.trim() !== "";
+  };
+
+  const hasOutpatientCareData = () => {
+    return assessmentData.outpatientCaregiverFirstName.trim() !== "" ||
+           assessmentData.outpatientCaregiverLastName.trim() !== "" ||
+           assessmentData.outpatientCaregiverPhone.trim() !== "";
+  };
+
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
@@ -4509,9 +4523,9 @@ export default function PatientDetail() {
 
                 {/* Dependencies (Substances) Section */}
                 <AccordionItem value="noxen">
-                  <Card className={hasNoxenData() ? "border-black dark:border-gray-700" : ""}>
+                  <Card className={hasNoxenData() ? "border-2 border-gray-500 dark:border-gray-400" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-noxen">
-                      <CardTitle className={`text-lg ${hasNoxenData() ? "text-black dark:text-gray-300" : ""}`}>
+                      <CardTitle className={`text-lg ${hasNoxenData() ? "text-gray-700 dark:text-gray-300" : ""}`}>
                         Dependencies (Substances)
                       </CardTitle>
                     </AccordionTrigger>
@@ -4557,9 +4571,9 @@ export default function PatientDetail() {
 
                 {/* Anesthesia & Surgical History Section */}
                 <AccordionItem value="anesthesiaHistory">
-                  <Card>
+                  <Card className={hasAnesthesiaSurgicalHistoryData() ? "border-2 border-orange-500 dark:border-orange-400" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-anesthesia-history">
-                      <CardTitle className="text-lg">Anesthesia & Surgical History</CardTitle>
+                      <CardTitle className={`text-lg ${hasAnesthesiaSurgicalHistoryData() ? "text-orange-600 dark:text-orange-400" : ""}`}>Anesthesia & Surgical History</CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
                       <CardContent className="pt-0 space-y-6">
@@ -4665,9 +4679,9 @@ export default function PatientDetail() {
 
                 {/* Outpatient Care Section */}
                 <AccordionItem value="outpatient">
-                  <Card>
+                  <Card className={hasOutpatientCareData() ? "border-2 border-cyan-500 dark:border-cyan-400" : ""}>
                     <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-outpatient">
-                      <CardTitle className="text-lg">Outpatient Care</CardTitle>
+                      <CardTitle className={`text-lg ${hasOutpatientCareData() ? "text-cyan-600 dark:text-cyan-400" : ""}`}>Outpatient Care</CardTitle>
                     </AccordionTrigger>
                     <AccordionContent>
                       <CardContent className="pt-0 space-y-4">
