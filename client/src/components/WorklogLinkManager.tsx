@@ -37,7 +37,8 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
   const dateLocale = i18n.language === 'de' ? de : enUS;
 
   const { data: worklogLinks = [], isLoading } = useQuery<WorklogLink[]>({
-    queryKey: ['/api/hospitals', hospitalId, 'units', unitId, 'worklog', 'links'],
+    queryKey: [`/api/hospitals/${hospitalId}/units/${unitId}/worklog/links`],
+    enabled: !!hospitalId && !!unitId,
   });
 
   const createLinkMutation = useMutation({
@@ -45,7 +46,7 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
       return apiRequest('POST', `/api/hospitals/${hospitalId}/units/${unitId}/worklog/links`, { email, sendEmail: true });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId, 'units', unitId, 'worklog', 'links'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/units/${unitId}/worklog/links`] });
       toast({
         title: t('worklogs.linkCreated'),
         description: t('worklogs.linkCreatedAndSent'),
@@ -86,7 +87,7 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
       return apiRequest('DELETE', `/api/hospitals/${hospitalId}/worklog/links/${linkId}`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId, 'units', unitId, 'worklog', 'links'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/units/${unitId}/worklog/links`] });
       toast({
         title: t('worklogs.linkDeleted'),
         description: t('worklogs.linkDeletedDesc'),

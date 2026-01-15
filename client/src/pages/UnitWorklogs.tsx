@@ -172,7 +172,7 @@ export default function UnitWorklogs() {
   const [rejectionReason, setRejectionReason] = useState("");
 
   const { data: pendingEntries = [], isLoading: isPendingLoading } = useQuery<WorklogEntry[]>({
-    queryKey: ['/api/hospitals', hospitalId, 'worklog', 'pending', unitId],
+    queryKey: [`/api/hospitals/${hospitalId}/worklog/pending?unitId=${unitId}`],
     enabled: !!hospitalId && !!unitId,
   });
 
@@ -181,7 +181,7 @@ export default function UnitWorklogs() {
       return apiRequest('POST', `/api/hospitals/${hospitalId}/worklog/entries/${entryId}/countersign`, { signature });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId, 'worklog'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/pending`] });
       toast({
         title: t('worklogs.countersignSuccess'),
         description: t('worklogs.countersignSuccessDesc'),
@@ -203,7 +203,7 @@ export default function UnitWorklogs() {
       return apiRequest('POST', `/api/hospitals/${hospitalId}/worklog/entries/${entryId}/reject`, { reason });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId, 'worklog'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/pending`] });
       toast({
         title: t('worklogs.rejectSuccess'),
         description: t('worklogs.rejectSuccessDesc'),
