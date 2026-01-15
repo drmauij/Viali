@@ -104,7 +104,7 @@ export class CalcomClient {
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'cal-api-version': '2024-06-14',
+      'cal-api-version': '2024-08-13',
       ...(options.headers as Record<string, string> || {}),
     };
 
@@ -202,11 +202,13 @@ export class CalcomClient {
       body: JSON.stringify({
         eventTypeId,
         start,
-        title,
         attendee: {
           name: 'System Block',
           email: 'system@clinic.local',
           timeZone: 'Europe/Zurich',
+        },
+        bookingFieldsResponses: {
+          title: title,
         },
         metadata: {
           isBusyBlock: true,
@@ -225,11 +227,13 @@ export class CalcomClient {
       body: JSON.stringify({
         eventTypeId: request.eventTypeId,
         start: request.start,
-        title: request.title,
         attendee: {
           name: request.title,
           email: 'system-block@clinic.local',
           timeZone: 'Europe/Zurich',
+        },
+        bookingFieldsResponses: {
+          title: request.title,
         },
         metadata: {
           isBusyBlock: true,
