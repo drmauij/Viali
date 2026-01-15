@@ -477,6 +477,13 @@
       "when": 1768392000000,
       "tag": "0067_add_archived_at_to_worker_contracts",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1768448800000,
+      "tag": "0068_add_internal_appointment_fields",
+      "breakpoints": true
     }
   ]
 }

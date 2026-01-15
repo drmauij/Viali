@@ -3762,9 +3762,18 @@ export const clinicAppointments = pgTable("clinic_appointments", {
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   unitId: varchar("unit_id").notNull().references(() => units.id),
   
-  // Who
-  patientId: varchar("patient_id").notNull().references(() => patients.id),
+  // Appointment type
+  appointmentType: varchar("appointment_type", { 
+    enum: ["external", "internal"] 
+  }).default("external").notNull(),
+  
+  // Who - for external appointments
+  patientId: varchar("patient_id").references(() => patients.id), // Optional for internal appointments
   providerId: varchar("provider_id").notNull().references(() => users.id),
+  
+  // Who - for internal appointments (colleague meetings)
+  internalColleagueId: varchar("internal_colleague_id").references(() => users.id),
+  internalSubject: varchar("internal_subject"),
   
   // What
   serviceId: varchar("service_id").references(() => clinicServices.id), // Optional - can be general appointment

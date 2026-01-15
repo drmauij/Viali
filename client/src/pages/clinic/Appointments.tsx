@@ -43,6 +43,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
 import { ManageAvailabilityDialog } from "@/components/clinic/ManageAvailabilityDialog";
+import { BookingTypeSelector, type BookingType } from "@/components/clinic/BookingTypeSelector";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 type AppointmentWithDetails = ClinicAppointment & {
@@ -66,7 +67,9 @@ export default function ClinicAppointments() {
   const { toast } = useToast();
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [bookingTypeSelectorOpen, setBookingTypeSelectorOpen] = useState(false);
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
+  const [internalBookingDialogOpen, setInternalBookingDialogOpen] = useState(false);
   const [bookingDefaults, setBookingDefaults] = useState<{ providerId?: string; date?: Date; endDate?: Date }>({});
   const [availabilityDialogOpen, setAvailabilityDialogOpen] = useState(false);
   const [selectedProviderForAvailability, setSelectedProviderForAvailability] = useState<string | undefined>();
@@ -94,6 +97,7 @@ export default function ClinicAppointments() {
   const hospitalId = activeHospital?.id;
   const unitId = activeHospital?.unitId;
   const dateLocale = i18n.language === 'de' ? de : enUS;
+  const canAccessSurgery = activeHospital?.role === 'admin' || activeHospital?.role === 'doctor';
 
   const { data: providers = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null }[]>({
     queryKey: ['bookable-providers', hospitalId],
@@ -149,6 +153,31 @@ export default function ClinicAppointments() {
     },
     onError: () => {
       toast({ title: t('appointments.deleteError', 'Failed to delete appointment'), variant: "destructive" });
+    },
+  });
+
+  const createOffTimeMutation = useMutation({
+    mutationFn: async (data: { providerId: string; date: string; startTime: string; endTime: string }) => {
+      return apiRequest("POST", `/api/clinic/${hospitalId}/units/${unitId}/providers/${data.providerId}/time-off`, {
+        startDate: data.date,
+        endDate: data.date,
+        startTime: data.startTime,
+        endTime: data.endTime,
+        reason: 'blocked',
+        isRecurring: false,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}`);
+        }
+      });
+      toast({ title: t('appointments.offTimeCreated', 'Time blocked successfully') });
+    },
+    onError: () => {
+      toast({ title: t('appointments.offTimeError', 'Failed to block time'), variant: "destructive" });
     },
   });
 
@@ -219,7 +248,36 @@ export default function ClinicAppointments() {
 
   const handleBookAppointment = (data: { providerId: string; date: Date; endDate?: Date }) => {
     setBookingDefaults(data);
-    setBookingDialogOpen(true);
+    setBookingTypeSelectorOpen(true);
+  };
+
+  const handleBookingTypeSelect = (type: BookingType) => {
+    switch (type) {
+      case 'external':
+        setBookingDialogOpen(true);
+        break;
+      case 'internal':
+        setInternalBookingDialogOpen(true);
+        break;
+      case 'off_time':
+        if (bookingDefaults.providerId && bookingDefaults.date) {
+          createOffTimeMutation.mutate({
+            providerId: bookingDefaults.providerId,
+            date: format(bookingDefaults.date, 'yyyy-MM-dd'),
+            startTime: format(bookingDefaults.date, 'HH:mm'),
+            endTime: bookingDefaults.endDate ? format(bookingDefaults.endDate, 'HH:mm') : format(new Date(bookingDefaults.date.getTime() + 30 * 60000), 'HH:mm'),
+          });
+        }
+        break;
+      case 'surgery':
+        if (canAccessSurgery && bookingDefaults.date) {
+          const dateStr = format(bookingDefaults.date, 'yyyy-MM-dd');
+          const startTimeStr = format(bookingDefaults.date, 'HH:mm');
+          const endTimeStr = bookingDefaults.endDate ? format(bookingDefaults.endDate, 'HH:mm') : format(new Date(bookingDefaults.date.getTime() + 60 * 60000), 'HH:mm');
+          window.location.href = `/anesthesia/op/new?date=${dateStr}&startTime=${startTimeStr}&endTime=${endTimeStr}${bookingDefaults.providerId ? `&providerId=${bookingDefaults.providerId}` : ''}`;
+        }
+        break;
+    }
   };
 
   const handleEventClick = (appointment: AppointmentWithDetails) => {
@@ -277,7 +335,7 @@ export default function ClinicAppointments() {
             size="sm"
             onClick={() => {
               setBookingDefaults({});
-              setBookingDialogOpen(true);
+              setBookingTypeSelectorOpen(true);
             }}
             data-testid="button-new-appointment"
           >
@@ -450,9 +508,26 @@ export default function ClinicAppointments() {
         </DialogContent>
       </Dialog>
 
+      <BookingTypeSelector
+        open={bookingTypeSelectorOpen}
+        onOpenChange={setBookingTypeSelectorOpen}
+        onSelect={handleBookingTypeSelect}
+        canAccessSurgery={canAccessSurgery}
+        slotInfo={bookingDefaults}
+      />
+
       <BookingDialog 
         open={bookingDialogOpen} 
         onOpenChange={setBookingDialogOpen}
+        hospitalId={hospitalId}
+        unitId={unitId}
+        providers={providers}
+        defaults={bookingDefaults}
+      />
+
+      <InternalBookingDialog
+        open={internalBookingDialogOpen}
+        onOpenChange={setInternalBookingDialogOpen}
         hospitalId={hospitalId}
         unitId={unitId}
         providers={providers}
@@ -723,6 +798,254 @@ function BookingDialog({
               <>{t('common.saving', 'Saving...')}</>
             ) : (
               <>{t('appointments.book', 'Book Appointment')}</>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function InternalBookingDialog({
+  open,
+  onOpenChange,
+  hospitalId,
+  unitId,
+  providers,
+  defaults,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  hospitalId: string;
+  unitId: string;
+  providers: { id: string; firstName: string | null; lastName: string | null }[];
+  defaults?: { providerId?: string; date?: Date; endDate?: Date };
+}) {
+  const { t, i18n } = useTranslation();
+  const { toast } = useToast();
+  const dateLocale = i18n.language === 'de' ? de : enUS;
+
+  const [selectedColleagueId, setSelectedColleagueId] = useState<string>("");
+  const [selectedProviderId, setSelectedProviderId] = useState<string>(defaults?.providerId || "");
+  const [selectedDate, setSelectedDate] = useState<string>(
+    defaults?.date ? format(defaults.date, 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd')
+  );
+  const [selectedSlot, setSelectedSlot] = useState<string>(
+    defaults?.date && defaults?.endDate 
+      ? `${format(defaults.date, 'HH:mm')}-${format(defaults.endDate, 'HH:mm')}`
+      : ""
+  );
+  const [colleagueSearch, setColleagueSearch] = useState("");
+  const [notes, setNotes] = useState("");
+  const [subject, setSubject] = useState("");
+
+  useMemo(() => {
+    if (defaults?.providerId) setSelectedProviderId(defaults.providerId);
+    if (defaults?.date) {
+      setSelectedDate(format(defaults.date, 'yyyy-MM-dd'));
+      if (defaults.endDate) {
+        setSelectedSlot(`${format(defaults.date, 'HH:mm')}-${format(defaults.endDate, 'HH:mm')}`);
+      }
+    }
+  }, [defaults]);
+
+  const { data: colleagues = [] } = useQuery<{ id: string; firstName: string | null; lastName: string | null; email: string | null }[]>({
+    queryKey: [`/api/hospitals/${hospitalId}/users`, colleagueSearch],
+    queryFn: async () => {
+      const response = await fetch(`/api/hospitals/${hospitalId}/users?search=${encodeURIComponent(colleagueSearch)}`);
+      if (!response.ok) throw new Error('Failed to fetch colleagues');
+      return response.json();
+    },
+    enabled: !!hospitalId && colleagueSearch.length >= 2,
+  });
+
+  const createInternalAppointmentMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", `/api/clinic/${hospitalId}/units/${unitId}/appointments`, {
+        ...data,
+        appointmentType: 'internal',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
+        }
+      });
+      toast({ title: t('appointments.internalCreated', 'Internal appointment created successfully') });
+      onOpenChange(false);
+      resetForm();
+    },
+    onError: () => {
+      toast({ title: t('appointments.createError', 'Failed to create appointment'), variant: "destructive" });
+    },
+  });
+
+  const resetForm = () => {
+    setSelectedColleagueId("");
+    setSelectedProviderId("");
+    setSelectedDate(format(new Date(), 'yyyy-MM-dd'));
+    setSelectedSlot("");
+    setColleagueSearch("");
+    setNotes("");
+    setSubject("");
+  };
+
+  const handleSubmit = () => {
+    const [startTime, endTime] = selectedSlot.split('-');
+    if (!selectedColleagueId || !selectedProviderId || !selectedDate || !startTime || !endTime) {
+      toast({ title: t('appointments.fillRequired', 'Please fill all required fields'), variant: "destructive" });
+      return;
+    }
+    
+    createInternalAppointmentMutation.mutate({
+      internalColleagueId: selectedColleagueId,
+      providerId: selectedProviderId,
+      appointmentDate: selectedDate,
+      startTime,
+      endTime,
+      notes: notes || null,
+      internalSubject: subject || null,
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>{t('appointments.bookInternal', 'Book Internal Meeting')}</DialogTitle>
+          <DialogDescription>
+            {t('appointments.bookInternalDescription', 'Schedule time with a colleague')}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div>
+            <Label>{t('appointments.subject', 'Subject')} *</Label>
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder={t('appointments.subjectPlaceholder', 'Meeting topic...')}
+              data-testid="input-internal-subject"
+            />
+          </div>
+
+          <div>
+            <Label>{t('appointments.searchColleague', 'Search Colleague')} *</Label>
+            <Input
+              value={colleagueSearch}
+              onChange={(e) => setColleagueSearch(e.target.value)}
+              placeholder={t('appointments.searchColleaguePlaceholder', 'Type at least 2 characters...')}
+              data-testid="input-colleague-search"
+            />
+            {colleagues.length > 0 && (
+              <div className="mt-1 border rounded-md max-h-32 overflow-y-auto">
+                {colleagues.map((colleague) => (
+                  <button
+                    key={colleague.id}
+                    onClick={() => {
+                      setSelectedColleagueId(colleague.id);
+                      setColleagueSearch(`${colleague.firstName || ''} ${colleague.lastName || ''}`);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-muted/50 ${
+                      selectedColleagueId === colleague.id ? 'bg-primary/10' : ''
+                    }`}
+                    data-testid={`colleague-option-${colleague.id}`}
+                  >
+                    {colleague.firstName || ''} {colleague.lastName || ''}
+                    {colleague.email && (
+                      <span className="text-muted-foreground ml-2 text-xs">
+                        ({colleague.email})
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>{t('appointments.provider', 'Provider')} *</Label>
+              <Select value={selectedProviderId} onValueChange={setSelectedProviderId}>
+                <SelectTrigger data-testid="select-internal-provider">
+                  <SelectValue placeholder={t('appointments.selectProvider', 'Select provider')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {providers.map((provider) => (
+                    <SelectItem key={provider.id} value={provider.id}>
+                      {provider.firstName || ''} {provider.lastName || ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label>{t('appointments.date', 'Date')} *</Label>
+              <Input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                min={format(new Date(), 'yyyy-MM-dd')}
+                data-testid="input-internal-date"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label>{t('appointments.startTime', 'Start Time')} *</Label>
+              <Input
+                type="time"
+                value={selectedSlot.split('-')[0] || ''}
+                onChange={(e) => {
+                  const endTime = selectedSlot.split('-')[1] || '';
+                  setSelectedSlot(`${e.target.value}-${endTime}`);
+                }}
+                data-testid="input-internal-start-time"
+              />
+            </div>
+            <div>
+              <Label>{t('appointments.endTime', 'End Time')} *</Label>
+              <Input
+                type="time"
+                value={selectedSlot.split('-')[1] || ''}
+                onChange={(e) => {
+                  const startTime = selectedSlot.split('-')[0] || '';
+                  setSelectedSlot(`${startTime}-${e.target.value}`);
+                }}
+                data-testid="input-internal-end-time"
+              />
+            </div>
+          </div>
+
+          <div>
+            <Label>{t('appointments.notes', 'Notes')}</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder={t('appointments.notesPlaceholder', 'Optional notes...')}
+              rows={2}
+              data-testid="input-internal-notes"
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t('common.cancel', 'Cancel')}
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={createInternalAppointmentMutation.isPending || !selectedColleagueId || !selectedProviderId || !selectedDate || !selectedSlot.split('-')[0] || !selectedSlot.split('-')[1]}
+            data-testid="button-book-internal"
+          >
+            {createInternalAppointmentMutation.isPending ? (
+              <>{t('common.saving', 'Saving...')}</>
+            ) : (
+              <>{t('appointments.bookMeeting', 'Book Meeting')}</>
             )}
           </Button>
         </DialogFooter>

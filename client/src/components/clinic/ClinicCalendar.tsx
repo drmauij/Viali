@@ -37,7 +37,7 @@ interface CalendarEvent {
   end: Date;
   resource?: string;
   appointmentId: string;
-  patientId: string;
+  patientId: string | null;
   patientName: string;
   serviceName: string;
   status: string;
