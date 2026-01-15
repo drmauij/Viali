@@ -197,6 +197,7 @@ export default function Hospital() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/units`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       setUnitDialogOpen(false);
       resetUnitForm();
       toast({ title: t("common.success"), description: t("admin.unitUpdatedSuccess") });
