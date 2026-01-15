@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,8 +15,9 @@ import type { Hospital } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Clock, CheckCircle, XCircle, PenLine, Download, User, Building2 } from "lucide-react";
 import { format } from "date-fns";
-import { de } from "date-fns/locale";
+import { de, enUS, type Locale } from "date-fns/locale";
 import jsPDF from "jspdf";
+import type { TFunction } from "i18next";
 
 interface WorklogEntry {
   id: string;
@@ -56,25 +58,25 @@ function calculateWorkHours(timeStart: string, timeEnd: string, pauseMinutes: nu
   return `${hours}:${minutes.toString().padStart(2, "0")}`;
 }
 
-function getStatusBadge(status: string) {
+function getStatusBadge(status: string, t: TFunction) {
   switch (status) {
     case "pending":
-      return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">Ausstehend</Badge>;
+      return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">{t('worklogs.statusPending')}</Badge>;
     case "countersigned":
-      return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">Gegengezeichnet</Badge>;
+      return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">{t('worklogs.statusCountersigned')}</Badge>;
     case "rejected":
-      return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">Abgelehnt</Badge>;
+      return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">{t('worklogs.statusRejected')}</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
 }
 
-function generateWorklogPDF(entry: WorklogEntry, hospitalName: string) {
+function generateWorklogPDF(entry: WorklogEntry, hospitalName: string, t: TFunction, locale: Locale) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   
   doc.setFontSize(18);
-  doc.text("Arbeitszeitnachweis", pageWidth / 2, 25, { align: "center" });
+  doc.text(t('worklogs.pdf.title'), pageWidth / 2, 25, { align: "center" });
   
   doc.setFontSize(12);
   doc.text(hospitalName, pageWidth / 2, 35, { align: "center" });
@@ -85,32 +87,32 @@ function generateWorklogPDF(entry: WorklogEntry, hospitalName: string) {
   const leftCol = 20;
   const rightCol = 80;
   
-  doc.text("Mitarbeiter:", leftCol, y);
+  doc.text(`${t('worklogs.pdf.worker')}:`, leftCol, y);
   doc.text(`${entry.firstName} ${entry.lastName}`, rightCol, y);
   
   y += 10;
-  doc.text("Email:", leftCol, y);
+  doc.text(`${t('worklogs.pdf.email')}:`, leftCol, y);
   doc.text(entry.email, rightCol, y);
   
   y += 10;
-  doc.text("Arbeitsdatum:", leftCol, y);
-  doc.text(format(new Date(entry.workDate), "dd.MM.yyyy", { locale: de }), rightCol, y);
+  doc.text(`${t('worklogs.pdf.workDate')}:`, leftCol, y);
+  doc.text(format(new Date(entry.workDate), "dd.MM.yyyy", { locale }), rightCol, y);
   
   y += 10;
-  doc.text("Arbeitszeit:", leftCol, y);
+  doc.text(`${t('worklogs.pdf.workTime')}:`, leftCol, y);
   doc.text(`${entry.timeStart} - ${entry.timeEnd}`, rightCol, y);
   
   y += 10;
-  doc.text("Pause:", leftCol, y);
-  doc.text(`${entry.pauseMinutes} Minuten`, rightCol, y);
+  doc.text(`${t('worklogs.pdf.break')}:`, leftCol, y);
+  doc.text(`${entry.pauseMinutes} ${t('worklogs.minutes')}`, rightCol, y);
   
   y += 10;
-  doc.text("Arbeitszeit netto:", leftCol, y);
+  doc.text(`${t('worklogs.pdf.netWorkTime')}:`, leftCol, y);
   doc.text(calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes), rightCol, y);
   
   if (entry.notes) {
     y += 15;
-    doc.text("Bemerkungen:", leftCol, y);
+    doc.text(`${t('worklogs.pdf.notes')}:`, leftCol, y);
     y += 7;
     const splitNotes = doc.splitTextToSize(entry.notes, pageWidth - 40);
     doc.text(splitNotes, leftCol, y);
@@ -122,44 +124,46 @@ function generateWorklogPDF(entry: WorklogEntry, hospitalName: string) {
   doc.line(leftCol, y, pageWidth - 20, y);
   
   y += 15;
-  doc.text("Unterschrift Mitarbeiter:", leftCol, y);
+  doc.text(`${t('worklogs.pdf.workerSignature')}:`, leftCol, y);
   
   if (entry.workerSignature) {
     try {
       doc.addImage(entry.workerSignature, "PNG", leftCol, y + 5, 60, 25);
     } catch (e) {
-      doc.text("[Unterschrift]", leftCol, y + 15);
+      doc.text(`[${t('worklogs.signature')}]`, leftCol, y + 15);
     }
   }
   
   y += 40;
-  doc.text("Gegenzeichnung:", leftCol, y);
+  doc.text(`${t('worklogs.pdf.countersignature')}:`, leftCol, y);
   
   if (entry.status === "countersigned" && entry.countersignature) {
     try {
       doc.addImage(entry.countersignature, "PNG", leftCol, y + 5, 60, 25);
     } catch (e) {
-      doc.text("[Gegenzeichnung]", leftCol, y + 15);
+      doc.text(`[${t('worklogs.countersignature')}]`, leftCol, y + 15);
     }
     y += 35;
     doc.setFontSize(9);
-    doc.text(`Gegengezeichnet von: ${entry.countersignerName || "Unbekannt"}`, leftCol, y);
+    doc.text(`${t('worklogs.pdf.countersignedBy')}: ${entry.countersignerName || "Unknown"}`, leftCol, y);
     if (entry.countersignedAt) {
-      doc.text(`am ${format(new Date(entry.countersignedAt), "dd.MM.yyyy HH:mm", { locale: de })}`, leftCol, y + 5);
+      doc.text(`${t('worklogs.pdf.on')} ${format(new Date(entry.countersignedAt), "dd.MM.yyyy HH:mm", { locale })}`, leftCol, y + 5);
     }
   }
   
-  const fileName = `Arbeitszeitnachweis_${entry.lastName}_${format(new Date(entry.workDate), "yyyy-MM-dd")}.pdf`;
+  const fileName = `Worklog_${entry.lastName}_${format(new Date(entry.workDate), "yyyy-MM-dd")}.pdf`;
   doc.save(fileName);
 }
 
 export default function UnitWorklogs() {
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital() as (Hospital & { id: string; name: string; unitId: string; unitName?: string }) | null;
   const hospitalId = activeHospital?.id;
   const hospitalName = activeHospital?.name;
   const unitId = activeHospital?.unitId;
-  const unitName = activeHospital?.unitName || "Abteilung";
+  const unitName = activeHospital?.unitName || t('worklogs.department');
+  const dateLocale = i18n.language === 'de' ? de : enUS;
   
   const [activeTab, setActiveTab] = useState("pending");
   const [showSignaturePad, setShowSignaturePad] = useState(false);
@@ -179,16 +183,16 @@ export default function UnitWorklogs() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId, 'worklog'] });
       toast({
-        title: "Erfolgreich gegengezeichnet",
-        description: "Der Arbeitszeitnachweis wurde bestätigt.",
+        title: t('worklogs.countersignSuccess'),
+        description: t('worklogs.countersignSuccessDesc'),
       });
       setSelectedEntry(null);
       setShowSignaturePad(false);
     },
     onError: (error: any) => {
       toast({
-        title: "Fehler",
-        description: error.message || "Gegenzeichnung fehlgeschlagen.",
+        title: t('common.error'),
+        description: error.message || t('worklogs.countersignError'),
         variant: "destructive",
       });
     },
@@ -201,8 +205,8 @@ export default function UnitWorklogs() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId, 'worklog'] });
       toast({
-        title: "Eintrag abgelehnt",
-        description: "Der Arbeitszeitnachweis wurde abgelehnt.",
+        title: t('worklogs.rejectSuccess'),
+        description: t('worklogs.rejectSuccessDesc'),
       });
       setSelectedEntry(null);
       setShowRejectDialog(false);
@@ -210,8 +214,8 @@ export default function UnitWorklogs() {
     },
     onError: (error: any) => {
       toast({
-        title: "Fehler",
-        description: error.message || "Ablehnung fehlgeschlagen.",
+        title: t('common.error'),
+        description: error.message || t('worklogs.rejectError'),
         variant: "destructive",
       });
     },
@@ -250,47 +254,47 @@ export default function UnitWorklogs() {
             </div>
             <div className="text-sm text-gray-500">{entry.email}</div>
           </div>
-          {getStatusBadge(entry.status)}
+          {getStatusBadge(entry.status, t)}
         </div>
         
         <div className="grid grid-cols-2 gap-4 text-sm mt-4">
           <div>
-            <span className="text-gray-500">Datum:</span>
-            <div className="font-medium">{format(new Date(entry.workDate), "EEEE, dd.MM.yyyy", { locale: de })}</div>
+            <span className="text-gray-500">{t('worklogs.date')}:</span>
+            <div className="font-medium">{format(new Date(entry.workDate), "EEEE, dd.MM.yyyy", { locale: dateLocale })}</div>
           </div>
           <div>
-            <span className="text-gray-500">Abteilung:</span>
+            <span className="text-gray-500">{t('worklogs.department')}:</span>
             <div className="font-medium flex items-center gap-1">
               <Building2 className="w-3 h-3" />
-              {entry.unit?.name || 'Unbekannt'}
+              {entry.unit?.name || t('common.noData')}
             </div>
           </div>
           <div>
-            <span className="text-gray-500">Arbeitszeit:</span>
+            <span className="text-gray-500">{t('worklogs.workTime')}:</span>
             <div className="font-medium">{entry.timeStart} - {entry.timeEnd}</div>
           </div>
           <div>
-            <span className="text-gray-500">Netto:</span>
+            <span className="text-gray-500">{t('worklogs.netTime')}:</span>
             <div className="font-medium">{calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes)}</div>
           </div>
         </div>
         
         {entry.notes && (
           <div className="mt-3 text-sm">
-            <span className="text-gray-500">Bemerkungen:</span>
+            <span className="text-gray-500">{t('worklogs.notes')}:</span>
             <p className="mt-1">{entry.notes}</p>
           </div>
         )}
         
         {entry.status === "rejected" && entry.rejectionReason && (
           <div className="mt-3 p-2 bg-red-50 rounded text-sm text-red-700">
-            <strong>Ablehnungsgrund:</strong> {entry.rejectionReason}
+            <strong>{t('worklogs.rejectionReason')}:</strong> {entry.rejectionReason}
           </div>
         )}
         
         {entry.status === "countersigned" && (
           <div className="mt-3 text-sm text-gray-500">
-            Gegengezeichnet von {entry.countersignerName} am {entry.countersignedAt ? format(new Date(entry.countersignedAt), "dd.MM.yyyy HH:mm", { locale: de }) : ""}
+            {t('worklogs.countersignedBy', { name: entry.countersignerName, date: entry.countersignedAt ? format(new Date(entry.countersignedAt), "dd.MM.yyyy HH:mm", { locale: dateLocale }) : "" })}
           </div>
         )}
         
@@ -303,7 +307,7 @@ export default function UnitWorklogs() {
                 data-testid={`button-countersign-${entry.id}`}
               >
                 <PenLine className="w-4 h-4 mr-1" />
-                Gegenzeichnen
+                {t('worklogs.countersign')}
               </Button>
               <Button 
                 size="sm" 
@@ -312,7 +316,7 @@ export default function UnitWorklogs() {
                 data-testid={`button-reject-${entry.id}`}
               >
                 <XCircle className="w-4 h-4 mr-1" />
-                Ablehnen
+                {t('worklogs.reject')}
               </Button>
             </>
           )}
@@ -321,7 +325,7 @@ export default function UnitWorklogs() {
             <Button 
               size="sm" 
               variant="outline"
-              onClick={() => generateWorklogPDF(entry, hospitalName || '')}
+              onClick={() => generateWorklogPDF(entry, hospitalName || '', t, dateLocale)}
               data-testid={`button-pdf-${entry.id}`}
             >
               <Download className="w-4 h-4 mr-1" />
@@ -338,7 +342,7 @@ export default function UnitWorklogs() {
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="py-12 text-center text-gray-500">
-            <p>Bitte wählen Sie eine Abteilung aus.</p>
+            <p>{t('worklogs.noLinks')}</p>
           </CardContent>
         </Card>
       </div>
@@ -350,22 +354,22 @@ export default function UnitWorklogs() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Clock className="w-6 h-6" />
-          Arbeitszeitnachweise
+          {t('worklogs.title')}
         </h1>
-        <p className="text-gray-500 mt-1">Externe Arbeitszeitnachweise für {unitName}</p>
+        <p className="text-gray-500 mt-1">{t('worklogs.description')}</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="pending" className="flex items-center gap-2" data-testid="tab-pending">
             <Clock className="w-4 h-4" />
-            Ausstehend
+            {t('worklogs.pending')}
             {pendingEntries.length > 0 && (
               <Badge variant="secondary" className="ml-1">{pendingEntries.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="links" className="flex items-center gap-2" data-testid="tab-links">
-            Links verwalten
+            {t('worklogs.manageLinks')}
           </TabsTrigger>
         </TabsList>
 
@@ -378,7 +382,7 @@ export default function UnitWorklogs() {
             <Card>
               <CardContent className="py-12 text-center text-gray-500">
                 <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-300" />
-                <p>Keine ausstehenden Arbeitszeitnachweise.</p>
+                <p>{t('worklogs.noPending')}</p>
               </CardContent>
             </Card>
           ) : (
@@ -403,27 +407,27 @@ export default function UnitWorklogs() {
           setSelectedEntry(null);
         }}
         onSave={handleSignature}
-        title="Gegenzeichnung"
+        title={t('worklogs.countersignature')}
       />
 
       {/* Reject Dialog */}
       <Dialog open={showRejectDialog} onOpenChange={setShowRejectDialog}>
         <DialogContent data-testid="dialog-reject">
           <DialogHeader>
-            <DialogTitle>Arbeitszeitnachweis ablehnen</DialogTitle>
+            <DialogTitle>{t('worklogs.reject')} - {t('worklogs.title')}</DialogTitle>
             <DialogDescription>
-              Bitte geben Sie einen Grund für die Ablehnung an.
+              {t('worklogs.enterRejectionReason')}
             </DialogDescription>
           </DialogHeader>
           <Textarea
-            placeholder="Ablehnungsgrund..."
+            placeholder={t('worklogs.rejectionReason')}
             value={rejectionReason}
             onChange={(e) => setRejectionReason(e.target.value)}
             data-testid="input-rejection-reason"
           />
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRejectDialog(false)}>
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button 
               variant="destructive" 
@@ -436,7 +440,7 @@ export default function UnitWorklogs() {
               ) : (
                 <XCircle className="w-4 h-4 mr-2" />
               )}
-              Ablehnen
+              {t('worklogs.reject')}
             </Button>
           </DialogFooter>
         </DialogContent>

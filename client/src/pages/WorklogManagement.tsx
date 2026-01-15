@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,8 +11,9 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import type { Hospital } from "@shared/schema";
 import { Loader2, Clock, Download, User, Building2, Filter, FileText } from "lucide-react";
 import { format } from "date-fns";
-import { de } from "date-fns/locale";
+import { de, enUS, type Locale } from "date-fns/locale";
 import jsPDF from "jspdf";
+import type { TFunction } from "i18next";
 
 interface WorklogEntry {
   id: string;
@@ -51,25 +53,25 @@ function calculateWorkHours(timeStart: string, timeEnd: string, pauseMinutes: nu
   return `${hours}:${minutes.toString().padStart(2, "0")}`;
 }
 
-function getStatusBadge(status: string) {
+function getStatusBadge(status: string, t: TFunction) {
   switch (status) {
     case "pending":
-      return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">Ausstehend</Badge>;
+      return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-300">{t('worklogs.statusPending')}</Badge>;
     case "countersigned":
-      return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">Gegengezeichnet</Badge>;
+      return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">{t('worklogs.statusCountersigned')}</Badge>;
     case "rejected":
-      return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">Abgelehnt</Badge>;
+      return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">{t('worklogs.statusRejected')}</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
 }
 
-function generateWorklogPDF(entry: WorklogEntry, hospitalName: string) {
+function generateWorklogPDF(entry: WorklogEntry, hospitalName: string, t: TFunction, locale: Locale) {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   
   doc.setFontSize(18);
-  doc.text("Arbeitszeitnachweis", pageWidth / 2, 25, { align: "center" });
+  doc.text(t('worklogs.pdf.title'), pageWidth / 2, 25, { align: "center" });
   
   doc.setFontSize(12);
   doc.text(hospitalName, pageWidth / 2, 35, { align: "center" });
@@ -80,32 +82,32 @@ function generateWorklogPDF(entry: WorklogEntry, hospitalName: string) {
   const leftCol = 20;
   const rightCol = 80;
   
-  doc.text("Mitarbeiter:", leftCol, y);
+  doc.text(t('worklogs.pdf.worker') + ":", leftCol, y);
   doc.text(`${entry.firstName} ${entry.lastName}`, rightCol, y);
   
   y += 10;
-  doc.text("Email:", leftCol, y);
+  doc.text(t('worklogs.pdf.email') + ":", leftCol, y);
   doc.text(entry.email, rightCol, y);
   
   y += 10;
-  doc.text("Arbeitsdatum:", leftCol, y);
-  doc.text(format(new Date(entry.workDate), "dd.MM.yyyy", { locale: de }), rightCol, y);
+  doc.text(t('worklogs.pdf.workDate') + ":", leftCol, y);
+  doc.text(format(new Date(entry.workDate), "dd.MM.yyyy", { locale }), rightCol, y);
   
   y += 10;
-  doc.text("Arbeitszeit:", leftCol, y);
+  doc.text(t('worklogs.pdf.workTime') + ":", leftCol, y);
   doc.text(`${entry.timeStart} - ${entry.timeEnd}`, rightCol, y);
   
   y += 10;
-  doc.text("Pause:", leftCol, y);
-  doc.text(`${entry.pauseMinutes} Minuten`, rightCol, y);
+  doc.text(t('worklogs.pdf.break') + ":", leftCol, y);
+  doc.text(`${entry.pauseMinutes} ${t('worklogs.minutes')}`, rightCol, y);
   
   y += 10;
-  doc.text("Arbeitszeit netto:", leftCol, y);
+  doc.text(t('worklogs.pdf.netWorkTime') + ":", leftCol, y);
   doc.text(calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes), rightCol, y);
   
   if (entry.notes) {
     y += 15;
-    doc.text("Bemerkungen:", leftCol, y);
+    doc.text(t('worklogs.pdf.notes') + ":", leftCol, y);
     y += 7;
     const splitNotes = doc.splitTextToSize(entry.notes, pageWidth - 40);
     doc.text(splitNotes, leftCol, y);
@@ -117,38 +119,40 @@ function generateWorklogPDF(entry: WorklogEntry, hospitalName: string) {
   doc.line(leftCol, y, pageWidth - 20, y);
   
   y += 15;
-  doc.text("Unterschrift Mitarbeiter:", leftCol, y);
+  doc.text(t('worklogs.pdf.workerSignature') + ":", leftCol, y);
   
   if (entry.workerSignature) {
     try {
       doc.addImage(entry.workerSignature, "PNG", leftCol, y + 5, 60, 25);
     } catch (e) {
-      doc.text("[Unterschrift]", leftCol, y + 15);
+      doc.text("[" + t('worklogs.signature') + "]", leftCol, y + 15);
     }
   }
   
   y += 40;
-  doc.text("Gegenzeichnung:", leftCol, y);
+  doc.text(t('worklogs.pdf.countersignature') + ":", leftCol, y);
   
   if (entry.status === "countersigned" && entry.countersignature) {
     try {
       doc.addImage(entry.countersignature, "PNG", leftCol, y + 5, 60, 25);
     } catch (e) {
-      doc.text("[Gegenzeichnung]", leftCol, y + 15);
+      doc.text("[" + t('worklogs.countersignature') + "]", leftCol, y + 15);
     }
     y += 35;
     doc.setFontSize(9);
-    doc.text(`Gegengezeichnet von: ${entry.countersignerName || "Unbekannt"}`, leftCol, y);
+    doc.text(`${t('worklogs.pdf.countersignedBy')}: ${entry.countersignerName || t('common.noData')}`, leftCol, y);
     if (entry.countersignedAt) {
-      doc.text(`am ${format(new Date(entry.countersignedAt), "dd.MM.yyyy HH:mm", { locale: de })}`, leftCol, y + 5);
+      doc.text(`${t('worklogs.pdf.on')} ${format(new Date(entry.countersignedAt), "dd.MM.yyyy HH:mm", { locale })}`, leftCol, y + 5);
     }
   }
   
-  const fileName = `Arbeitszeitnachweis_${entry.lastName}_${format(new Date(entry.workDate), "yyyy-MM-dd")}.pdf`;
+  const fileName = `${t('worklogs.pdf.title')}_${entry.lastName}_${format(new Date(entry.workDate), "yyyy-MM-dd")}.pdf`;
   doc.save(fileName);
 }
 
 export default function WorklogManagement() {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language === 'de' ? de : enUS;
   const activeHospital = useActiveHospital() as Hospital & { id: string; name: string } | null;
   const hospitalId = activeHospital?.id;
   const hospitalName = activeHospital?.name;
@@ -178,54 +182,57 @@ export default function WorklogManagement() {
             </div>
             <div className="text-sm text-gray-500">{entry.email}</div>
           </div>
-          {getStatusBadge(entry.status)}
+          {getStatusBadge(entry.status, t)}
         </div>
         
         <div className="grid grid-cols-2 gap-4 text-sm mt-4">
           <div>
-            <span className="text-gray-500">Datum:</span>
-            <div className="font-medium">{format(new Date(entry.workDate), "EEEE, dd.MM.yyyy", { locale: de })}</div>
+            <span className="text-gray-500">{t('worklogs.date')}:</span>
+            <div className="font-medium">{format(new Date(entry.workDate), "EEEE, dd.MM.yyyy", { locale: dateLocale })}</div>
           </div>
           <div>
-            <span className="text-gray-500">Abteilung:</span>
+            <span className="text-gray-500">{t('worklogs.department')}:</span>
             <div className="font-medium flex items-center gap-1">
               <Building2 className="w-3 h-3" />
-              {entry.unit?.name || 'Unbekannt'}
+              {entry.unit?.name || t('common.noData')}
             </div>
           </div>
           <div>
-            <span className="text-gray-500">Arbeitszeit:</span>
+            <span className="text-gray-500">{t('worklogs.workTime')}:</span>
             <div className="font-medium">{entry.timeStart} - {entry.timeEnd}</div>
           </div>
           <div>
-            <span className="text-gray-500">Netto:</span>
+            <span className="text-gray-500">{t('worklogs.netTime')}:</span>
             <div className="font-medium">{calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes)}</div>
           </div>
         </div>
         
         {entry.notes && (
           <div className="mt-3 text-sm">
-            <span className="text-gray-500">Bemerkungen:</span>
+            <span className="text-gray-500">{t('worklogs.notes')}:</span>
             <p className="mt-1">{entry.notes}</p>
           </div>
         )}
         
         {entry.status === "rejected" && entry.rejectionReason && (
           <div className="mt-3 p-2 bg-red-50 rounded text-sm text-red-700">
-            <strong>Ablehnungsgrund:</strong> {entry.rejectionReason}
+            <strong>{t('worklogs.rejectionReason')}:</strong> {entry.rejectionReason}
           </div>
         )}
         
         {entry.status === "countersigned" && (
           <>
             <div className="mt-3 text-sm text-gray-500">
-              Gegengezeichnet von {entry.countersignerName} am {entry.countersignedAt ? format(new Date(entry.countersignedAt), "dd.MM.yyyy HH:mm", { locale: de }) : ""}
+              {t('worklogs.countersignedBy', { 
+                name: entry.countersignerName, 
+                date: entry.countersignedAt ? format(new Date(entry.countersignedAt), "dd.MM.yyyy HH:mm", { locale: dateLocale }) : "" 
+              })}
             </div>
             <div className="mt-3 pt-3 border-t">
               <Button 
                 size="sm" 
                 variant="outline"
-                onClick={() => generateWorklogPDF(entry, hospitalName || '')}
+                onClick={() => generateWorklogPDF(entry, hospitalName || '', t, dateLocale)}
                 data-testid={`button-pdf-${entry.id}`}
               >
                 <Download className="w-4 h-4 mr-1" />
@@ -243,10 +250,10 @@ export default function WorklogManagement() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
           <Clock className="w-6 h-6" />
-          Arbeitszeitnachweise (Übersicht)
+          {t('worklogs.title')} ({t('worklogs.allEntries')})
         </h1>
         <p className="text-gray-500 mt-1">
-          Übersicht aller externen Arbeitszeitnachweise. Gegenzeichnung erfolgt in der jeweiligen Abteilung.
+          {t('worklogs.descriptionReadOnly')}
         </p>
       </div>
 
@@ -254,34 +261,34 @@ export default function WorklogManagement() {
         <CardContent className="pt-4">
           <div className="flex items-center gap-2 mb-4 text-sm text-muted-foreground">
             <Filter className="w-4 h-4" />
-            <span>Filter</span>
+            <span>{t('common.search')}</span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label>Status</Label>
+              <Label>{t('worklogs.filterStatus')}</Label>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
                 <SelectTrigger data-testid="select-filter-status">
-                  <SelectValue placeholder="Alle" />
+                  <SelectValue placeholder={t('worklogs.filterAll')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Alle</SelectItem>
-                  <SelectItem value="pending">Ausstehend</SelectItem>
-                  <SelectItem value="countersigned">Gegengezeichnet</SelectItem>
-                  <SelectItem value="rejected">Abgelehnt</SelectItem>
+                  <SelectItem value="all">{t('worklogs.filterAll')}</SelectItem>
+                  <SelectItem value="pending">{t('worklogs.statusPending')}</SelectItem>
+                  <SelectItem value="countersigned">{t('worklogs.statusCountersigned')}</SelectItem>
+                  <SelectItem value="rejected">{t('worklogs.statusRejected')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Email</Label>
+              <Label>{t('worklogs.filterEmail')}</Label>
               <Input 
-                placeholder="Email suchen..."
+                placeholder={t('common.search') + "..."}
                 value={filterEmail}
                 onChange={(e) => setFilterEmail(e.target.value)}
                 data-testid="input-filter-email"
               />
             </div>
             <div>
-              <Label>Von</Label>
+              <Label>{t('worklogs.filterFrom')}</Label>
               <Input 
                 type="date"
                 value={filterDateFrom}
@@ -290,7 +297,7 @@ export default function WorklogManagement() {
               />
             </div>
             <div>
-              <Label>Bis</Label>
+              <Label>{t('worklogs.filterTo')}</Label>
               <Input 
                 type="date"
                 value={filterDateTo}
@@ -310,14 +317,14 @@ export default function WorklogManagement() {
         <Card>
           <CardContent className="py-12 text-center text-gray-500">
             <FileText className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p>Keine Einträge gefunden.</p>
-            <p className="text-sm mt-1">Passen Sie die Filter an oder erstellen Sie Links in den Abteilungseinstellungen.</p>
+            <p>{t('worklogs.noEntries')}</p>
+            <p className="text-sm mt-1">{t('worklogs.noEntriesHint')}</p>
           </CardContent>
         </Card>
       ) : (
         <div>
           <div className="text-sm text-muted-foreground mb-4">
-            {allEntries.length} Einträge gefunden
+            {t('worklogs.entriesFound', { count: allEntries.length })}
           </div>
           {allEntries.map(entry => renderEntryCard(entry))}
         </div>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Loader2, Plus, Copy, Check, Send, Trash2, Link as LinkIcon, Mail } from "lucide-react";
 import { format } from "date-fns";
-import { de } from "date-fns/locale";
+import { de, enUS } from "date-fns/locale";
 
 interface WorklogLink {
   id: string;
@@ -28,10 +29,12 @@ interface WorklogLinkManagerProps {
 }
 
 export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLinkManagerProps) {
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [showNewLinkDialog, setShowNewLinkDialog] = useState(false);
   const [newLinkEmail, setNewLinkEmail] = useState("");
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
+  const dateLocale = i18n.language === 'de' ? de : enUS;
 
   const { data: worklogLinks = [], isLoading } = useQuery<WorklogLink[]>({
     queryKey: ['/api/hospitals', hospitalId, 'units', unitId, 'worklog', 'links'],
@@ -44,16 +47,16 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId, 'units', unitId, 'worklog', 'links'] });
       toast({
-        title: "Link erstellt",
-        description: "Der Arbeitszeiterfassungs-Link wurde erstellt und per Email versendet.",
+        title: t('worklogs.linkCreated'),
+        description: t('worklogs.linkCreatedAndSent'),
       });
       setShowNewLinkDialog(false);
       setNewLinkEmail("");
     },
     onError: (error: any) => {
       toast({
-        title: "Fehler",
-        description: error.message || "Link konnte nicht erstellt werden.",
+        title: t('common.error'),
+        description: error.message || t('worklogs.linkCreateFailed'),
         variant: "destructive",
       });
     },
@@ -65,14 +68,14 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
     },
     onSuccess: () => {
       toast({
-        title: "Email gesendet",
-        description: "Der Link wurde erneut per Email versendet.",
+        title: t('worklogs.linkSent'),
+        description: t('worklogs.linkResent'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Fehler",
-        description: error.message || "Email konnte nicht gesendet werden.",
+        title: t('common.error'),
+        description: error.message || t('worklogs.emailSendFailed'),
         variant: "destructive",
       });
     },
@@ -85,14 +88,14 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId, 'units', unitId, 'worklog', 'links'] });
       toast({
-        title: "Link gelöscht",
-        description: "Der Link wurde gelöscht.",
+        title: t('worklogs.linkDeleted'),
+        description: t('worklogs.linkDeletedDesc'),
       });
     },
     onError: (error: any) => {
       toast({
-        title: "Fehler",
-        description: error.message || "Link konnte nicht gelöscht werden.",
+        title: t('common.error'),
+        description: error.message || t('worklogs.linkDeleteFailed'),
         variant: "destructive",
       });
     },
@@ -105,14 +108,14 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
       await navigator.clipboard.writeText(url);
       setCopiedLink(link.id);
       toast({
-        title: "Link kopiert",
-        description: "Der Link wurde in die Zwischenablage kopiert.",
+        title: t('worklogs.linkCopied'),
+        description: t('worklogs.linkCopiedDesc'),
       });
       setTimeout(() => setCopiedLink(null), 2000);
     } catch (err) {
       toast({
-        title: "Fehler",
-        description: "Link konnte nicht kopiert werden.",
+        title: t('common.error'),
+        description: t('worklogs.linkCopyFailed'),
         variant: "destructive",
       });
     }
@@ -121,8 +124,8 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
   const handleCreateLink = () => {
     if (!newLinkEmail) {
       toast({
-        title: "Fehler",
-        description: "Bitte geben Sie eine Email-Adresse ein.",
+        title: t('common.error'),
+        description: t('worklogs.emailRequired'),
         variant: "destructive",
       });
       return;
@@ -137,15 +140,15 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
           <div>
             <CardTitle className="text-lg flex items-center gap-2">
               <LinkIcon className="w-5 h-5" />
-              Externe Arbeitszeiterfassung
+              {t('worklogs.externalTimeTracking')}
             </CardTitle>
             <CardDescription>
-              Links für externe Mitarbeiter zur Zeiterfassung ({unitName})
+              {t('worklogs.linksForExternalWorkers', { unitName })}
             </CardDescription>
           </div>
           <Button size="sm" onClick={() => setShowNewLinkDialog(true)} data-testid="button-new-worklog-link">
             <Plus className="w-4 h-4 mr-1" />
-            Neuer Link
+            {t('worklogs.newLink')}
           </Button>
         </div>
       </CardHeader>
@@ -157,8 +160,8 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
         ) : worklogLinks.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Mail className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>Noch keine Links erstellt.</p>
-            <p className="text-sm">Erstellen Sie Links für externe Mitarbeiter.</p>
+            <p>{t('worklogs.noLinks')}</p>
+            <p className="text-sm">{t('worklogs.noLinksHint')}</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -171,7 +174,7 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
                 <div className="flex-1 min-w-0">
                   <div className="font-medium truncate">{link.email}</div>
                   <div className="text-xs text-muted-foreground">
-                    Erstellt: {format(new Date(link.createdAt), "dd.MM.yyyy", { locale: de })}
+                    {t('worklogs.createdOn')}: {format(new Date(link.createdAt), "dd.MM.yyyy", { locale: dateLocale })}
                   </div>
                 </div>
                 <div className="flex items-center gap-1 ml-3">
@@ -179,7 +182,7 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
                     size="icon"
                     variant="ghost"
                     onClick={() => handleCopyLink(link)}
-                    title="Link kopieren"
+                    title={t('worklogs.copyLink')}
                     data-testid={`button-copy-link-${link.id}`}
                   >
                     {copiedLink === link.id ? (
@@ -193,7 +196,7 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
                     variant="ghost"
                     onClick={() => sendLinkMutation.mutate({ linkId: link.id })}
                     disabled={sendLinkMutation.isPending}
-                    title="Link erneut senden"
+                    title={t('worklogs.resendLink')}
                     data-testid={`button-send-link-${link.id}`}
                   >
                     <Send className="w-4 h-4" />
@@ -203,7 +206,7 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
                     variant="ghost"
                     onClick={() => deleteLinkMutation.mutate({ linkId: link.id })}
                     disabled={deleteLinkMutation.isPending}
-                    title="Link löschen"
+                    title={t('worklogs.deleteLink')}
                     className="text-destructive hover:text-destructive"
                     data-testid={`button-delete-link-${link.id}`}
                   >
@@ -219,19 +222,18 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
       <Dialog open={showNewLinkDialog} onOpenChange={setShowNewLinkDialog}>
         <DialogContent data-testid="dialog-new-worklog-link">
           <DialogHeader>
-            <DialogTitle>Neuen Zeiterfassungs-Link erstellen</DialogTitle>
+            <DialogTitle>{t('worklogs.createNewLink')}</DialogTitle>
             <DialogDescription>
-              Geben Sie die Email-Adresse des externen Mitarbeiters ein. 
-              Ein personalisierter Link wird per Email gesendet.
+              {t('worklogs.createLinkDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="new-link-email">Email-Adresse</Label>
+              <Label htmlFor="new-link-email">{t('worklogs.emailAddress')}</Label>
               <Input
                 id="new-link-email"
                 type="email"
-                placeholder="mitarbeiter@example.com"
+                placeholder="worker@example.com"
                 value={newLinkEmail}
                 onChange={(e) => setNewLinkEmail(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreateLink()}
@@ -241,7 +243,7 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowNewLinkDialog(false)}>
-              Abbrechen
+              {t('common.cancel')}
             </Button>
             <Button 
               onClick={handleCreateLink} 
@@ -251,12 +253,12 @@ export function WorklogLinkManager({ hospitalId, unitId, unitName }: WorklogLink
               {createLinkMutation.isPending ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Wird erstellt...
+                  {t('worklogs.creating')}
                 </>
               ) : (
                 <>
                   <Mail className="w-4 h-4 mr-2" />
-                  Link erstellen & senden
+                  {t('worklogs.createAndSendLink')}
                 </>
               )}
             </Button>
