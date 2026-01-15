@@ -3342,8 +3342,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if user is assigned to the entry's unit
-      const userRoles = await storage.getUserHospitalRoles(userId);
-      const hasUnitAccess = userRoles.some(role => role.unitId === entry.unitId);
+      const userHospitals = await storage.getUserHospitals(userId);
+      const hasUnitAccess = userHospitals.some(h => h.unitId === entry.unitId);
       
       if (!hasUnitAccess) {
         return res.status(403).json({ message: "You do not have permission to countersign entries for this unit" });
@@ -3374,8 +3374,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check if user is assigned to the entry's unit
-      const userRoles = await storage.getUserHospitalRoles(userId);
-      const hasUnitAccess = userRoles.some(role => role.unitId === entry.unitId);
+      const userHospitals = await storage.getUserHospitals(userId);
+      const hasUnitAccess = userHospitals.some(h => h.unitId === entry.unitId);
       
       if (!hasUnitAccess) {
         return res.status(403).json({ message: "You do not have permission to reject entries for this unit" });
