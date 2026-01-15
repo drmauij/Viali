@@ -52,6 +52,7 @@ import SimplifiedDashboard from "@/pages/business/SimplifiedDashboard";
 import SimplifiedStaff from "@/pages/business/SimplifiedStaff";
 import BusinessContracts from "@/pages/business/Contracts";
 import WorkerContractForm from "@/pages/WorkerContractForm";
+import ExternalWorklog from "@/pages/ExternalWorklog";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
 import ClinicInvoices from "@/pages/clinic/Invoices";
 import ClinicServices from "@/pages/clinic/Services";
@@ -159,6 +160,7 @@ function Router() {
         <Route path="/questionnaire/:token" component={PatientQuestionnaire} />
         <Route path="/questionnaire/hospital/:token" component={PatientQuestionnaire} />
         <Route path="/contract/:token" component={WorkerContractForm} />
+        <Route path="/worklog/:token" component={ExternalWorklog} />
         
         {!isAuthenticated ? (
           <>
