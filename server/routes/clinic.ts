@@ -1650,6 +1650,56 @@ router.get('/api/clinic/:hospitalId/bookable-providers', isAuthenticated, isClin
   }
 });
 
+// Search hospital users for internal booking (colleague search)
+router.get('/api/hospitals/:hospitalId/users', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { search } = req.query;
+    
+    // Verify user has access to this hospital
+    const userHospitals = req.user.hospitals || [];
+    const hasAccess = userHospitals.some((h: any) => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    
+    const hospitalUsers = await storage.getHospitalUsers(hospitalId);
+    
+    // Filter by search term if provided
+    let filteredUsers = hospitalUsers;
+    if (search && typeof search === 'string' && search.length >= 2) {
+      const searchLower = search.toLowerCase();
+      filteredUsers = hospitalUsers.filter(hu => {
+        const firstName = hu.user?.firstName?.toLowerCase() || '';
+        const lastName = hu.user?.lastName?.toLowerCase() || '';
+        const email = hu.user?.email?.toLowerCase() || '';
+        return firstName.includes(searchLower) || 
+               lastName.includes(searchLower) || 
+               email.includes(searchLower) ||
+               `${firstName} ${lastName}`.includes(searchLower);
+      });
+    }
+    
+    // Deduplicate by user ID and return user info
+    const userMap = new Map<string, any>();
+    for (const hu of filteredUsers) {
+      if (hu.user && !userMap.has(hu.user.id)) {
+        userMap.set(hu.user.id, {
+          id: hu.user.id,
+          firstName: hu.user.firstName,
+          lastName: hu.user.lastName,
+          email: hu.user.email,
+        });
+      }
+    }
+    
+    res.json(Array.from(userMap.values()));
+  } catch (error) {
+    console.error("Error fetching hospital users:", error);
+    res.status(500).json({ message: "Failed to fetch users" });
+  }
+});
+
 // Legacy: Get bookable providers for a unit (redirects to hospital-level)
 router.get('/api/clinic/:hospitalId/units/:unitId/bookable-providers', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
