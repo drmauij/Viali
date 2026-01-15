@@ -132,16 +132,65 @@ export default function ClinicAppointments() {
     },
   });
 
-  const syncTimebutlerMutation = useMutation({
+  // Check Cal.com configuration
+  const { data: calcomConfig, isLoading: calcomConfigLoading } = useQuery<{
+    isEnabled: boolean;
+    apiKey?: string;
+  }>({
+    queryKey: [`/api/clinic/${hospitalId}/calcom-config`],
+    enabled: !!hospitalId,
+  });
+  const calcomEnabled = calcomConfig?.isEnabled && calcomConfig?.apiKey === '***configured***';
+
+  // Unified sync mutation - syncs both Timebutler and Cal.com in parallel
+  const syncCalendarsMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", `/api/clinic/${hospitalId}/queue-ics-sync`);
-      return response.json();
+      const results: { timebutler?: any; calcom?: any; calcomError?: string } = {};
+      
+      // Run both syncs in parallel for better performance
+      const syncPromises: Promise<void>[] = [];
+      
+      // Timebutler/ICS sync
+      syncPromises.push(
+        apiRequest("POST", `/api/clinic/${hospitalId}/queue-ics-sync`)
+          .then(res => res.json())
+          .then(data => { results.timebutler = data; })
+      );
+      
+      // Cal.com sync if enabled (check fresh config)
+      if (calcomEnabled) {
+        syncPromises.push(
+          apiRequest("POST", `/api/clinic/${hospitalId}/calcom-sync`)
+            .then(res => res.json())
+            .then(data => { results.calcom = data; })
+            .catch(err => { 
+              results.calcomError = err.message || 'Cal.com sync failed';
+            })
+        );
+      }
+      
+      await Promise.all(syncPromises);
+      return results;
     },
-    onSuccess: () => {
-      toast({ 
-        title: t('appointments.syncQueued', 'Calendar sync started'),
-        description: t('appointments.syncQueuedDesc', 'Absences will be synced in the background')
-      });
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/clinic/${hospitalId}/calcom-config`] });
+      
+      if (data.calcomError) {
+        // Partial failure - Timebutler succeeded but Cal.com failed
+        toast({ 
+          title: t('appointments.syncPartial', 'Calendar sync partially complete'),
+          description: `${t('appointments.syncQueuedDesc', 'Absences will be synced in the background')}. Cal.com: ${data.calcomError}`,
+          variant: "destructive"
+        });
+      } else {
+        const calcomBlocks = data.calcom?.syncedBlocks || 0;
+        toast({ 
+          title: t('appointments.syncQueued', 'Calendar sync started'),
+          description: calcomEnabled 
+            ? t('appointments.syncQueuedDescBoth', `Absences syncing. ${calcomBlocks} blocks synced to Cal.com.`)
+            : t('appointments.syncQueuedDesc', 'Absences will be synced in the background')
+        });
+      }
     },
     onError: () => {
       toast({ title: t('appointments.syncError', 'Failed to start calendar sync'), variant: "destructive" });
@@ -197,11 +246,11 @@ export default function ClinicAppointments() {
           <Button 
             variant="outline"
             size="sm"
-            onClick={() => syncTimebutlerMutation.mutate()}
-            disabled={syncTimebutlerMutation.isPending}
-            data-testid="button-sync-timebutler"
+            onClick={() => syncCalendarsMutation.mutate()}
+            disabled={syncCalendarsMutation.isPending || calcomConfigLoading}
+            data-testid="button-sync-calendars"
           >
-            <RefreshCw className={`h-4 w-4 mr-1 ${syncTimebutlerMutation.isPending ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 mr-1 ${syncCalendarsMutation.isPending || calcomConfigLoading ? 'animate-spin' : ''}`} />
             {t('appointments.syncCalendars', 'Sync Calendars')}
           </Button>
           <Button 
