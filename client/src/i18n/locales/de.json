@@ -192,6 +192,16 @@
       "description": "Standortübergreifende Inventar- und Bestellverwaltung für spitalweite Übersicht"
     }
   },
+  "quickLinks": {
+    "title": "Schnelllinks",
+    "description": "Teilen Sie diese Links extern mit Patienten oder Mitarbeitern",
+    "clinicQuestionnaire": "Patienten-Fragebogen",
+    "contractForm": "Mitarbeiter-Vertragsformular",
+    "copyLink": "Link kopieren",
+    "copied": "Link kopiert",
+    "copiedDesc": "Der Link wurde in die Zwischenablage kopiert",
+    "copyFailed": "Link konnte nicht kopiert werden"
+  },
   "home": {
     "title": "Dashboard",
     "welcome": "Willkommen",

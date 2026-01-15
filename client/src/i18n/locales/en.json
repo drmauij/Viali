@@ -193,6 +193,16 @@
       "description": "Cross-unit inventory and order management for hospital-wide visibility"
     }
   },
+  "quickLinks": {
+    "title": "Quick Links",
+    "description": "Share these links externally with patients or workers",
+    "clinicQuestionnaire": "Patient Questionnaire",
+    "contractForm": "Worker Contract Form",
+    "copyLink": "Copy link",
+    "copied": "Link Copied",
+    "copiedDesc": "The link has been copied to your clipboard",
+    "copyFailed": "Failed to copy link"
+  },
   "home": {
     "title": "Dashboard",
     "welcome": "Welcome",

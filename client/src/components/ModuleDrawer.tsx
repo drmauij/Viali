@@ -2,7 +2,9 @@ import { useModule } from "@/contexts/ModuleContext";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { Copy, Check, Link as LinkIcon, FileText, FileSignature } from "lucide-react";
 
 interface ModuleCard {
   id: string;
@@ -22,6 +24,8 @@ export default function ModuleDrawer() {
   const [, navigate] = useLocation();
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   // Get the active hospital for module access checks
   const activeHospital = useMemo(() => {
@@ -142,6 +146,52 @@ export default function ModuleDrawer() {
     setIsDrawerOpen(false);
   };
 
+  const copyToClipboard = async (url: string, linkId: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(linkId);
+      toast({
+        title: t('quickLinks.copied'),
+        description: t('quickLinks.copiedDesc'),
+      });
+      setTimeout(() => setCopiedLink(null), 2000);
+    } catch (err) {
+      toast({
+        title: t('common.error'),
+        description: t('quickLinks.copyFailed'),
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Generate quick links based on hospital configuration
+  const quickLinks = useMemo(() => {
+    const links: { id: string; icon: JSX.Element; label: string; url: string }[] = [];
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    
+    // Clinic questionnaire link (if hospital has a questionnaire token)
+    if (activeHospital?.questionnaireToken) {
+      links.push({
+        id: 'questionnaire',
+        icon: <FileText className="w-4 h-4" />,
+        label: t('quickLinks.clinicQuestionnaire'),
+        url: `${baseUrl}/questionnaire/hospital/${activeHospital.questionnaireToken}`,
+      });
+    }
+    
+    // Contract form link is available for business module users
+    if (hasBusinessAccess && activeHospital?.id) {
+      links.push({
+        id: 'contract',
+        icon: <FileSignature className="w-4 h-4" />,
+        label: t('quickLinks.contractForm'),
+        url: `${baseUrl}/contract/${activeHospital.id}`,
+      });
+    }
+    
+    return links;
+  }, [activeHospital, hasBusinessAccess, t]);
+
   if (!isDrawerOpen) return null;
 
   return (
@@ -207,6 +257,47 @@ export default function ModuleDrawer() {
               </button>
             ))}
           </div>
+
+          {/* Quick Links Section */}
+          {quickLinks.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <div className="flex items-center gap-2 mb-4">
+                <LinkIcon className="w-5 h-5 text-muted-foreground" />
+                <h3 className="font-semibold text-foreground">{t('quickLinks.title')}</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {quickLinks.map((link) => (
+                  <div
+                    key={link.id}
+                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors"
+                    data-testid={`quick-link-${link.id}`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                        {link.icon}
+                      </div>
+                      <span className="text-sm font-medium text-foreground">{link.label}</span>
+                    </div>
+                    <button
+                      onClick={() => copyToClipboard(link.url, link.id)}
+                      className="p-2 rounded-lg hover:bg-background transition-colors"
+                      title={t('quickLinks.copyLink')}
+                      data-testid={`copy-link-${link.id}`}
+                    >
+                      {copiedLink === link.id ? (
+                        <Check className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {t('quickLinks.description')}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </>
