@@ -53,6 +53,7 @@ import SimplifiedStaff from "@/pages/business/SimplifiedStaff";
 import BusinessContracts from "@/pages/business/Contracts";
 import WorkerContractForm from "@/pages/WorkerContractForm";
 import ExternalWorklog from "@/pages/ExternalWorklog";
+import WorklogManagement from "@/pages/WorklogManagement";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
 import ClinicInvoices from "@/pages/clinic/Invoices";
 import ClinicServices from "@/pages/clinic/Services";
@@ -221,6 +222,7 @@ function Router() {
             <Route path="/business/time">{() => <ProtectedRoute requireBusiness><TimeAnalytics /></ProtectedRoute>}</Route>
             <Route path="/business/staff-full">{() => <ProtectedRoute requireBusiness><StaffCosts /></ProtectedRoute>}</Route>
             <Route path="/business/dashboard-full">{() => <ProtectedRoute requireBusiness><BusinessDashboard /></ProtectedRoute>}</Route>
+            <Route path="/business/worklogs">{() => <ProtectedRoute requireBusiness><WorklogManagement /></ProtectedRoute>}</Route>
             {/* Clinic Module - ambulatory invoicing */}
             <Route path="/clinic">{() => <ProtectedRoute requireClinic><ClinicInvoices /></ProtectedRoute>}</Route>
             <Route path="/clinic/appointments">{() => <ProtectedRoute requireClinic><ClinicAppointments /></ProtectedRoute>}</Route>
