@@ -1921,6 +1921,28 @@ router.get('/api/clinic/:hospitalId/units/:unitId/time-off', isAuthenticated, is
   }
 });
 
+// Update time off
+router.put('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
+  try {
+    const { timeOffId } = req.params;
+    const { date, startTime, endTime, reason, notes } = req.body;
+    
+    const updates: any = {};
+    if (date !== undefined) updates.date = date;
+    if (startTime !== undefined) updates.startTime = startTime;
+    if (endTime !== undefined) updates.endTime = endTime;
+    if (reason !== undefined) updates.reason = reason;
+    if (notes !== undefined) updates.notes = notes;
+    
+    const updated = await storage.updateProviderTimeOff(timeOffId, updates);
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating time off:", error);
+    res.status(500).json({ message: "Failed to update time off" });
+  }
+});
+
 // Delete time off
 router.delete('/api/clinic/:hospitalId/time-off/:timeOffId', isAuthenticated, isClinicAccess, requireWriteAccess, async (req, res) => {
   try {
