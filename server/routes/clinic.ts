@@ -1390,13 +1390,70 @@ router.post('/api/clinic/:hospitalId/units/:unitId/appointments', isAuthenticate
     const userId = req.user.id;
     
     // Calculate duration from start and end time
-    const { startTime, endTime } = req.body;
+    const { startTime, endTime, providerId, appointmentDate } = req.body;
     let durationMinutes = 30; // default
     if (startTime && endTime) {
       const [startHours, startMins] = startTime.split(':').map(Number);
       const [endHours, endMins] = endTime.split(':').map(Number);
       durationMinutes = (endHours * 60 + endMins) - (startHours * 60 + startMins);
-      if (durationMinutes <= 0) durationMinutes = 30;
+      if (durationMinutes <= 0) {
+        return res.status(400).json({ 
+          message: 'End time must be after start time',
+          code: 'INVALID_TIME_RANGE'
+        });
+      }
+    }
+    
+    // Validate provider availability before creating appointment
+    if (providerId && appointmentDate && startTime) {
+      // Use getAvailableSlots which handles all edge cases:
+      // - Weekly availability schedule
+      // - Time off / absences (Timebutler)
+      // - Existing surgeries and appointments
+      // - Availability windows for windows_required mode
+      const availableSlots = await storage.getAvailableSlots(providerId, unitId, appointmentDate, durationMinutes);
+      
+      // Check if the requested time slot is available
+      const requestedStartTime = startTime;
+      const requestedEndTime = endTime || (() => {
+        const [h, m] = startTime.split(':').map(Number);
+        const endMins = h * 60 + m + durationMinutes;
+        return `${String(Math.floor(endMins / 60)).padStart(2, '0')}:${String(endMins % 60).padStart(2, '0')}`;
+      })();
+      
+      // If no slots available at all on this day, provider is not available
+      if (availableSlots.length === 0) {
+        return res.status(400).json({ 
+          message: `Provider is not available on this date. They may be off, have other commitments, or the schedule doesn't allow bookings.`,
+          code: 'PROVIDER_NOT_AVAILABLE'
+        });
+      }
+      
+      // Check if requested time falls within any available slot
+      const [reqStartH, reqStartM] = requestedStartTime.split(':').map(Number);
+      const [reqEndH, reqEndM] = requestedEndTime.split(':').map(Number);
+      const reqStartMins = reqStartH * 60 + reqStartM;
+      const reqEndMins = reqEndH * 60 + reqEndM;
+      
+      const isSlotAvailable = availableSlots.some(slot => {
+        const [slotStartH, slotStartM] = slot.startTime.split(':').map(Number);
+        const [slotEndH, slotEndM] = slot.endTime.split(':').map(Number);
+        const slotStartMins = slotStartH * 60 + slotStartM;
+        const slotEndMins = slotEndH * 60 + slotEndM;
+        
+        // Check if requested time fits within this available slot
+        return reqStartMins >= slotStartMins && reqEndMins <= slotEndMins;
+      });
+      
+      if (!isSlotAvailable) {
+        // Get the available hours for a helpful error message
+        const firstSlot = availableSlots[0];
+        const lastSlot = availableSlots[availableSlots.length - 1];
+        return res.status(400).json({ 
+          message: `The requested time slot is not available. Provider is available from ${firstSlot.startTime} to ${lastSlot.endTime} on this date.`,
+          code: 'SLOT_NOT_AVAILABLE'
+        });
+      }
     }
     
     const validatedData = insertClinicAppointmentSchema.parse({
