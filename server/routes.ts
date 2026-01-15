@@ -77,7 +77,8 @@ import {
   surgeryStaffEntries,
   preOpAssessments,
   anesthesiaAirwayManagement,
-  insertPersonalTodoSchema
+  insertPersonalTodoSchema,
+  externalWorklogLinks
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql, asc, desc } from "drizzle-orm";
@@ -3162,6 +3163,288 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error reordering todos:", error);
       res.status(500).json({ message: "Failed to reorder todos" });
+    }
+  });
+
+  // ==================== EXTERNAL WORKLOG ROUTES ====================
+
+  // Public route: Get worklog link info by token (no auth required)
+  app.get('/api/worklog/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+      const link = await storage.getExternalWorklogLinkByToken(token);
+      
+      if (!link) {
+        return res.status(404).json({ message: "Invalid or expired link" });
+      }
+      
+      if (!link.isActive) {
+        return res.status(410).json({ message: "This link has been deactivated" });
+      }
+      
+      // Update last accessed timestamp
+      await storage.updateExternalWorklogLinkLastAccess(link.id);
+      
+      // Get existing entries for this link
+      const entries = await storage.getExternalWorklogEntriesByLink(link.id);
+      
+      res.json({
+        email: link.email,
+        unitName: link.unit.name,
+        hospitalName: link.hospital.name,
+        linkId: link.id,
+        unitId: link.unitId,
+        hospitalId: link.hospitalId,
+        entries,
+      });
+    } catch (error) {
+      console.error("Error fetching worklog link:", error);
+      res.status(500).json({ message: "Failed to fetch worklog data" });
+    }
+  });
+
+  // Public route: Submit a time entry (no auth required)
+  app.post('/api/worklog/:token/entries', async (req, res) => {
+    try {
+      const { token } = req.params;
+      const link = await storage.getExternalWorklogLinkByToken(token);
+      
+      if (!link || !link.isActive) {
+        return res.status(404).json({ message: "Invalid or expired link" });
+      }
+      
+      const { firstName, lastName, workDate, timeStart, timeEnd, pauseMinutes, workerSignature, notes } = req.body;
+      
+      if (!firstName || !lastName || !workDate || !timeStart || !timeEnd || !workerSignature) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const entry = await storage.createExternalWorklogEntry({
+        linkId: link.id,
+        unitId: link.unitId,
+        hospitalId: link.hospitalId,
+        email: link.email,
+        firstName,
+        lastName,
+        workDate,
+        timeStart,
+        timeEnd,
+        pauseMinutes: pauseMinutes || 0,
+        workerSignature,
+        notes: notes || null,
+      });
+      
+      res.status(201).json(entry);
+    } catch (error) {
+      console.error("Error creating worklog entry:", error);
+      res.status(500).json({ message: "Failed to create entry" });
+    }
+  });
+
+  // Public route: Resend worklog link to email
+  app.post('/api/worklog/resend', async (req, res) => {
+    try {
+      const { email, hospitalId } = req.body;
+      
+      if (!email || !hospitalId) {
+        return res.status(400).json({ message: "Email and hospital ID are required" });
+      }
+      
+      // Find any active links for this email across all units in the hospital
+      const { sendWorklogLinkEmail } = await import('./email');
+      const allLinks = await db.select()
+        .from(externalWorklogLinks)
+        .innerJoin(units, eq(units.id, externalWorklogLinks.unitId))
+        .where(and(
+          eq(externalWorklogLinks.hospitalId, hospitalId),
+          eq(externalWorklogLinks.email, email.toLowerCase()),
+          eq(externalWorklogLinks.isActive, true)
+        ));
+      
+      if (allLinks.length === 0) {
+        // Don't reveal if the email doesn't exist
+        return res.json({ message: "If your email is registered, you will receive the link shortly." });
+      }
+      
+      // Send email for each link
+      for (const linkData of allLinks) {
+        const link = linkData.external_worklog_links;
+        const unit = linkData.units;
+        const hospital = await storage.getHospital(link.hospitalId);
+        
+        if (hospital) {
+          await sendWorklogLinkEmail(
+            email,
+            link.token,
+            unit.name,
+            hospital.name
+          );
+        }
+      }
+      
+      res.json({ message: "If your email is registered, you will receive the link shortly." });
+    } catch (error) {
+      console.error("Error resending worklog link:", error);
+      res.status(500).json({ message: "Failed to process request" });
+    }
+  });
+
+  // Get pending worklog entries for countersigning (authenticated)
+  app.get('/api/hospitals/:hospitalId/worklog/pending', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const unitId = getActiveUnitIdFromRequest(req);
+      
+      const entries = await storage.getPendingWorklogEntries(hospitalId, unitId);
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching pending worklogs:", error);
+      res.status(500).json({ message: "Failed to fetch pending entries" });
+    }
+  });
+
+  // Get all worklog entries with filters (authenticated, manager/business view)
+  app.get('/api/hospitals/:hospitalId/worklog/entries', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const { unitId, status, email, dateFrom, dateTo } = req.query;
+      
+      const entries = await storage.getAllWorklogEntries(hospitalId, {
+        unitId: unitId as string,
+        status: status as string,
+        email: email as string,
+        dateFrom: dateFrom as string,
+        dateTo: dateTo as string,
+      });
+      
+      res.json(entries);
+    } catch (error) {
+      console.error("Error fetching worklog entries:", error);
+      res.status(500).json({ message: "Failed to fetch entries" });
+    }
+  });
+
+  // Countersign a worklog entry (authenticated)
+  app.post('/api/hospitals/:hospitalId/worklog/entries/:entryId/countersign', isAuthenticated, async (req: any, res) => {
+    try {
+      const { entryId } = req.params;
+      const userId = req.user.id;
+      const { signature } = req.body;
+      
+      if (!signature) {
+        return res.status(400).json({ message: "Signature is required" });
+      }
+      
+      const user = await storage.getUser(userId);
+      const signerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Unknown';
+      
+      const updated = await storage.countersignWorklogEntry(entryId, userId, signature, signerName);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error countersigning entry:", error);
+      res.status(500).json({ message: "Failed to countersign entry" });
+    }
+  });
+
+  // Reject a worklog entry (authenticated)
+  app.post('/api/hospitals/:hospitalId/worklog/entries/:entryId/reject', isAuthenticated, async (req: any, res) => {
+    try {
+      const { entryId } = req.params;
+      const userId = req.user.id;
+      const { reason } = req.body;
+      
+      const user = await storage.getUser(userId);
+      const signerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Unknown';
+      
+      const updated = await storage.rejectWorklogEntry(entryId, userId, reason || '', signerName);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error rejecting entry:", error);
+      res.status(500).json({ message: "Failed to reject entry" });
+    }
+  });
+
+  // Generate a new worklog link for a unit+email (authenticated, admin/manager)
+  app.post('/api/hospitals/:hospitalId/units/:unitId/worklog/links', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId, unitId } = req.params;
+      const { email, sendEmail = true } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      // Check if link already exists for this unit+email
+      const existing = await storage.getExternalWorklogLinkByEmail(unitId, email);
+      if (existing) {
+        return res.status(409).json({ 
+          message: "A link already exists for this email", 
+          link: existing 
+        });
+      }
+      
+      const token = crypto.randomUUID();
+      const link = await storage.createExternalWorklogLink({
+        unitId,
+        hospitalId,
+        email,
+        token,
+        isActive: true,
+      });
+      
+      if (sendEmail) {
+        const { sendWorklogLinkEmail } = await import('./email');
+        const unit = await storage.getUnit(unitId);
+        const hospital = await storage.getHospital(hospitalId);
+        
+        if (unit && hospital) {
+          await sendWorklogLinkEmail(email, token, unit.name, hospital.name);
+        }
+      }
+      
+      res.status(201).json(link);
+    } catch (error) {
+      console.error("Error creating worklog link:", error);
+      res.status(500).json({ message: "Failed to create link" });
+    }
+  });
+
+  // Get all worklog links for a unit (authenticated)
+  app.get('/api/hospitals/:hospitalId/units/:unitId/worklog/links', isAuthenticated, async (req: any, res) => {
+    try {
+      const { unitId } = req.params;
+      const links = await storage.getWorklogLinksByUnit(unitId);
+      res.json(links);
+    } catch (error) {
+      console.error("Error fetching worklog links:", error);
+      res.status(500).json({ message: "Failed to fetch links" });
+    }
+  });
+
+  // Get worklog entry for PDF generation (public with token validation)
+  app.get('/api/worklog/:token/entries/:entryId', async (req, res) => {
+    try {
+      const { token, entryId } = req.params;
+      const link = await storage.getExternalWorklogLinkByToken(token);
+      
+      if (!link || !link.isActive) {
+        return res.status(404).json({ message: "Invalid or expired link" });
+      }
+      
+      const entry = await storage.getExternalWorklogEntry(entryId);
+      
+      if (!entry || entry.linkId !== link.id) {
+        return res.status(404).json({ message: "Entry not found" });
+      }
+      
+      res.json({
+        ...entry,
+        hospitalName: link.hospital.name,
+        unitName: link.unit.name,
+      });
+    } catch (error) {
+      console.error("Error fetching entry:", error);
+      res.status(500).json({ message: "Failed to fetch entry" });
     }
   });
 

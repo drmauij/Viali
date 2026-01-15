@@ -236,3 +236,47 @@ export async function sendSurgeryNoteMentionEmail(
     return false;
   }
 }
+
+export async function sendWorklogLinkEmail(
+  toEmail: string,
+  token: string,
+  unitName: string,
+  hospitalName: string
+): Promise<boolean> {
+  try {
+    const { client, fromEmail } = await getUncachableResendClient();
+    
+    const baseUrl = getAppBaseUrl();
+    const worklogLink = `${baseUrl}/worklog/${token}`;
+    
+    await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject: `Your personal time tracking link for ${unitName}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2 style="color: #333;">Time Tracking Portal</h2>
+          <p style="color: #666;">
+            You have been set up with a personal time tracking link for <strong>${unitName}</strong> at <strong>${hospitalName}</strong>.
+          </p>
+          <p style="color: #666;">
+            Use this link to submit your work hours. Each entry will need to be signed by you and countersigned by a manager.
+          </p>
+          ${getEmailButton(worklogLink, 'Open Time Tracking')}
+          <p style="color: #999; font-size: 12px;">
+            Or copy this link: <a href="${worklogLink}" style="color: #2563eb;">${worklogLink}</a>
+          </p>
+          <p style="color: #999; font-size: 12px; margin-top: 24px;">
+            This is your personal link - please do not share it with others.
+          </p>
+        </div>
+      `
+    });
+    
+    console.log(`[Email] Successfully sent worklog link email to ${toEmail}`);
+    return true;
+  } catch (error) {
+    console.error('[Email] Failed to send worklog link email:', error);
+    return false;
+  }
+}
