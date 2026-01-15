@@ -1750,6 +1750,29 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabi
   }
 });
 
+// Get all weekly schedules for a unit (for calendar availability display)
+router.get('/api/clinic/:hospitalId/units/:unitId/weekly-schedules', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId, unitId } = req.params;
+    
+    // Get all bookable providers for this hospital
+    const providers = await storage.getBookableProvidersByHospital(hospitalId);
+    
+    // Get weekly schedules for all providers
+    const schedules: Record<string, any[]> = {};
+    
+    await Promise.all(providers.map(async (provider) => {
+      const availability = await storage.getProviderAvailability(provider.userId, unitId);
+      schedules[provider.userId] = availability;
+    }));
+    
+    res.json(schedules);
+  } catch (error) {
+    console.error("Error fetching weekly schedules:", error);
+    res.status(500).json({ message: "Failed to fetch weekly schedules" });
+  }
+});
+
 // Set provider availability (replaces all for this provider/unit)
 router.put('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
   try {

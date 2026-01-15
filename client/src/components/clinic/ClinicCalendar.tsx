@@ -413,16 +413,40 @@ export default function ClinicCalendar({
     return modes;
   }, [bookableProviders]);
 
-  // Get provider weekly schedules for availability checking
+  // Fetch provider weekly schedules from the API
+  interface ProviderScheduleEntry {
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    isActive?: boolean;
+  }
+  
+  const { data: weeklySchedulesData = {} } = useQuery<Record<string, ProviderScheduleEntry[]>>({
+    queryKey: [`/api/clinic/${hospitalId}/units/${unitId}/weekly-schedules`],
+    enabled: !!hospitalId && !!unitId,
+    staleTime: 60000,
+  });
+
+  // Convert weekly schedules to lookup format: providerId -> dayOfWeek -> { start, end }
   const providerSchedules = useMemo(() => {
     const schedules: Record<string, Record<number, { start: string; end: string }>> = {};
-    bookableProviders.forEach((bp: any) => {
-      if (bp.weeklySchedule && typeof bp.weeklySchedule === 'object') {
-        schedules[bp.userId] = bp.weeklySchedule as Record<number, { start: string; end: string }>;
+    
+    Object.entries(weeklySchedulesData).forEach(([providerId, availability]) => {
+      if (Array.isArray(availability)) {
+        schedules[providerId] = {};
+        availability.forEach((entry) => {
+          if (entry.isActive !== false) {
+            schedules[providerId][entry.dayOfWeek] = {
+              start: entry.startTime,
+              end: entry.endTime,
+            };
+          }
+        });
       }
     });
+    
     return schedules;
-  }, [bookableProviders]);
+  }, [weeklySchedulesData]);
 
   // Helper: Check if a time slot is blocked for a specific provider
   // Optional excludeAppointmentId allows excluding a specific appointment (for drag/drop)
