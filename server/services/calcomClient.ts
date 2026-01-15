@@ -211,7 +211,7 @@ export class CalcomClient {
           title: title,
         },
         metadata: {
-          isBusyBlock: true,
+          isBusyBlock: "true",
           blockTitle: title,
         },
       }),
@@ -236,7 +236,7 @@ export class CalcomClient {
           title: request.title,
         },
         metadata: {
-          isBusyBlock: true,
+          isBusyBlock: "true",
           blockTitle: request.title,
           ...request.metadata,
         },
