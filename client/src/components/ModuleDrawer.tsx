@@ -287,31 +287,6 @@ export default function ModuleDrawer() {
             ))}
           </div>
 
-          {/* Menu Items Section (navigation links) */}
-          {menuItems.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-border">
-              <div className="flex items-center gap-2 mb-4">
-                <LinkIcon className="w-5 h-5 text-muted-foreground" />
-                <h3 className="font-semibold text-foreground">{t('quickLinks.moreOptions', 'Weitere Optionen')}</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {menuItems.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => handleModuleClick(item.route)}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors text-left"
-                    data-testid={`menu-item-${item.id}`}
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                      {item.icon}
-                    </div>
-                    <span className="text-sm font-medium text-foreground">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Quick Links Section */}
           {quickLinks.length > 0 && (
             <div className="mt-6 pt-6 border-t border-border">
@@ -350,6 +325,33 @@ export default function ModuleDrawer() {
               <p className="mt-3 text-xs text-muted-foreground">
                 {t('quickLinks.description')}
               </p>
+            </div>
+          )}
+
+          {/* Menu Items Section (navigation links) */}
+          {menuItems.length > 0 && (
+            <div className={quickLinks.length > 0 ? "mt-4" : "mt-6 pt-6 border-t border-border"}>
+              {quickLinks.length === 0 && (
+                <div className="flex items-center gap-2 mb-4">
+                  <LinkIcon className="w-5 h-5 text-muted-foreground" />
+                  <h3 className="font-semibold text-foreground">{t('quickLinks.moreOptions', 'More Options')}</h3>
+                </div>
+              )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {menuItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleModuleClick(item.route)}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                    data-testid={`menu-item-${item.id}`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                      {item.icon}
+                    </div>
+                    <span className="text-sm font-medium text-foreground">{item.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
