@@ -54,6 +54,7 @@ import BusinessContracts from "@/pages/business/Contracts";
 import WorkerContractForm from "@/pages/WorkerContractForm";
 import ExternalWorklog from "@/pages/ExternalWorklog";
 import WorklogManagement from "@/pages/WorklogManagement";
+import UnitWorklogs from "@/pages/UnitWorklogs";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
 import ClinicInvoices from "@/pages/clinic/Invoices";
 import ClinicServices from "@/pages/clinic/Services";
@@ -196,6 +197,7 @@ function Router() {
             <Route path="/anesthesia/cases/:id/pacu">{() => <ProtectedRoute requireAnesthesia><Op /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/reports">{() => <ProtectedRoute requireAnesthesia><AnesthesiaReports /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/settings">{() => <ProtectedRoute requireAnesthesia><AnesthesiaSettings /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/worklogs">{() => <ProtectedRoute requireAnesthesia><UnitWorklogs /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/schedule">{() => <ProtectedRoute requireAnesthesia><OpList /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/clinical">{() => <ProtectedRoute requireAnesthesia><ClinicalDashboard /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/questionnaires">{() => <ProtectedRoute requireAnesthesia><QuestionnaireReviews /></ProtectedRoute>}</Route>
@@ -207,6 +209,7 @@ function Router() {
             <Route path="/surgery/op">{() => <ProtectedRoute requireSurgery><OpList /></ProtectedRoute>}</Route>
             <Route path="/surgery/op/:id">{() => <ProtectedRoute requireSurgery><Op /></ProtectedRoute>}</Route>
             <Route path="/surgery/settings">{() => <ProtectedRoute requireSurgery><SurgerySettings /></ProtectedRoute>}</Route>
+            <Route path="/surgery/worklogs">{() => <ProtectedRoute requireSurgery><UnitWorklogs /></ProtectedRoute>}</Route>
             <Route path="/surgery/checklists">{() => <ProtectedRoute requireSurgery requireDoctorOrAdmin><SurgeryChecklistMatrix /></ProtectedRoute>}</Route>
             <Route path="/surgery/preop">{() => <ProtectedRoute requireSurgery><SurgeryPreOpList /></ProtectedRoute>}</Route>
             <Route path="/surgery/preop/:surgeryId">{() => <ProtectedRoute requireSurgery><SurgeryPreOpDetail /></ProtectedRoute>}</Route>

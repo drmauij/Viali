@@ -3324,7 +3324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Countersign a worklog entry (authenticated)
+  // Countersign a worklog entry (authenticated, requires user to be assigned to entry's unit)
   app.post('/api/hospitals/:hospitalId/worklog/entries/:entryId/countersign', isAuthenticated, async (req: any, res) => {
     try {
       const { entryId } = req.params;
@@ -3333,6 +3333,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       if (!signature) {
         return res.status(400).json({ message: "Signature is required" });
+      }
+      
+      // Fetch the entry to check unit assignment
+      const entry = await storage.getExternalWorklogEntry(entryId);
+      if (!entry) {
+        return res.status(404).json({ message: "Entry not found" });
+      }
+      
+      // Check if user is assigned to the entry's unit
+      const userRoles = await storage.getUserHospitalRoles(userId);
+      const hasUnitAccess = userRoles.some(role => role.unitId === entry.unitId);
+      
+      if (!hasUnitAccess) {
+        return res.status(403).json({ message: "You do not have permission to countersign entries for this unit" });
       }
       
       const user = await storage.getUser(userId);
@@ -3346,12 +3360,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Reject a worklog entry (authenticated)
+  // Reject a worklog entry (authenticated, requires user to be assigned to entry's unit)
   app.post('/api/hospitals/:hospitalId/worklog/entries/:entryId/reject', isAuthenticated, async (req: any, res) => {
     try {
       const { entryId } = req.params;
       const userId = req.user.id;
       const { reason } = req.body;
+      
+      // Fetch the entry to check unit assignment
+      const entry = await storage.getExternalWorklogEntry(entryId);
+      if (!entry) {
+        return res.status(404).json({ message: "Entry not found" });
+      }
+      
+      // Check if user is assigned to the entry's unit
+      const userRoles = await storage.getUserHospitalRoles(userId);
+      const hasUnitAccess = userRoles.some(role => role.unitId === entry.unitId);
+      
+      if (!hasUnitAccess) {
+        return res.status(403).json({ message: "You do not have permission to reject entries for this unit" });
+      }
       
       const user = await storage.getUser(userId);
       const signerName = user ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Unknown';
@@ -3406,8 +3434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const link = await storage.createExternalWorklogLink({
         unitId,
         hospitalId,
-        workerEmail: email,
-        workerName: name || null,
+        email,
         token,
         isActive: true,
       });
@@ -3444,7 +3471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const hospital = await storage.getHospital(hospitalId);
       
       if (unit && hospital) {
-        await sendWorklogLinkEmail(link.workerEmail, link.token, unit.name, hospital.name);
+        await sendWorklogLinkEmail(link.email, link.token, unit.name, hospital.name);
         res.json({ success: true, message: "Email sent" });
       } else {
         res.status(400).json({ message: "Unit or hospital not found" });
