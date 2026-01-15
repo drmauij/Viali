@@ -801,33 +801,33 @@ export default function Contracts() {
     return (
       <Card className="hover:shadow-md transition-shadow" data-testid={`card-contract-${contract.id}`}>
         <CardContent className="p-4">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <User className="w-4 h-4 text-gray-400" />
-                <span className="font-semibold">{contract.firstName} {contract.lastName}</span>
-                <Badge variant={contract.status === 'signed' ? 'default' : 'secondary'}>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <User className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <span className="font-semibold truncate">{contract.firstName} {contract.lastName}</span>
+                <Badge variant={contract.status === 'signed' ? 'default' : 'secondary'} className="flex-shrink-0">
                   {contract.status === 'signed' ? (
                     <><CheckCircle className="w-3 h-3 mr-1" /> Unterschrieben</>
                   ) : contract.status === 'pending_manager_signature' ? (
-                    <><Clock className="w-3 h-3 mr-1" /> Warte auf Unterschrift</>
+                    <><Clock className="w-3 h-3 mr-1" /> <span className="hidden sm:inline">Warte auf Unterschrift</span><span className="sm:hidden">Offen</span></>
                   ) : (
                     <><XCircle className="w-3 h-3 mr-1" /> Abgelehnt</>
                   )}
                 </Badge>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-gray-600">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
                 <div className="flex items-center gap-2">
-                  <Briefcase className="w-4 h-4" />
-                  <span>{role.title}</span>
+                  <Briefcase className="w-4 h-4 flex-shrink-0" />
+                  <span className="truncate">{role.title}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <CreditCard className="w-4 h-4" />
+                  <CreditCard className="w-4 h-4 flex-shrink-0" />
                   <span>{role.rate}/Std.</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Building2 className="w-4 h-4" />
+                  <Building2 className="w-4 h-4 flex-shrink-0" />
                   <span>{contract.city}</span>
                 </div>
                 <div className="text-gray-400">
@@ -837,7 +837,7 @@ export default function Contracts() {
             </div>
             
             {showActions && (
-              <div className="flex gap-2 ml-4">
+              <div className="flex flex-wrap gap-2 sm:flex-nowrap sm:ml-4">
                 <Button
                   variant="outline"
                   size="sm"
@@ -860,8 +860,8 @@ export default function Contracts() {
                     }}
                     data-testid={`button-sign-contract-${contract.id}`}
                   >
-                    <Pen className="w-4 h-4 mr-1" />
-                    Unterschreiben
+                    <Pen className="w-4 h-4 sm:mr-1" />
+                    <span className="hidden sm:inline">Unterschreiben</span>
                   </Button>
                 )}
                 
@@ -873,8 +873,8 @@ export default function Contracts() {
                       onClick={() => generateContractPDF(contract)}
                       data-testid={`button-download-contract-${contract.id}`}
                     >
-                      <Download className="w-4 h-4 mr-1" />
-                      PDF
+                      <Download className="w-4 h-4 sm:mr-1" />
+                      <span className="hidden sm:inline">PDF</span>
                     </Button>
                     {contract.email && (
                       <Button
@@ -982,26 +982,29 @@ export default function Contracts() {
       </Card>
 
       <Tabs defaultValue="pending" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="pending" className="gap-2" data-testid="tab-pending-contracts">
-            <Clock className="w-4 h-4" />
-            Zu unterschreiben
+        <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
+          <TabsTrigger value="pending" className="flex-1 min-w-0 gap-1 sm:gap-2 px-2 sm:px-4 py-2" data-testid="tab-pending-contracts">
+            <Clock className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline truncate">Zu unterschreiben</span>
+            <span className="sm:hidden truncate">Offen</span>
             {pendingContracts.length > 0 && (
-              <Badge variant="secondary" className="ml-1">{pendingContracts.length}</Badge>
+              <Badge variant="secondary" className="ml-1 flex-shrink-0">{pendingContracts.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="signed" className="gap-2" data-testid="tab-signed-contracts">
-            <CheckCircle className="w-4 h-4" />
-            Unterschrieben
+          <TabsTrigger value="signed" className="flex-1 min-w-0 gap-1 sm:gap-2 px-2 sm:px-4 py-2" data-testid="tab-signed-contracts">
+            <CheckCircle className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline truncate">Unterschrieben</span>
+            <span className="sm:hidden truncate">Signiert</span>
             {signedContracts.length > 0 && (
-              <Badge variant="secondary" className="ml-1">{signedContracts.length}</Badge>
+              <Badge variant="secondary" className="ml-1 flex-shrink-0">{signedContracts.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="archived" className="gap-2" data-testid="tab-archived-contracts">
-            <Archive className="w-4 h-4" />
-            Archiviert
+          <TabsTrigger value="archived" className="flex-1 min-w-0 gap-1 sm:gap-2 px-2 sm:px-4 py-2" data-testid="tab-archived-contracts">
+            <Archive className="w-4 h-4 flex-shrink-0" />
+            <span className="hidden sm:inline truncate">Archiviert</span>
+            <span className="sm:hidden truncate">Archiv</span>
             {archivedContracts.length > 0 && (
-              <Badge variant="secondary" className="ml-1">{archivedContracts.length}</Badge>
+              <Badge variant="secondary" className="ml-1 flex-shrink-0">{archivedContracts.length}</Badge>
             )}
           </TabsTrigger>
         </TabsList>
