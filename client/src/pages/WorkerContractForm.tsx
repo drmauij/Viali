@@ -39,7 +39,7 @@ const contractFormSchema = z.object({
   email: z.string().email("Gültige E-Mail Adresse erforderlich"),
   dateOfBirth: z.string().min(1, "Geburtsdatum ist erforderlich"),
   iban: z.string().min(15, "IBAN ist erforderlich").max(34),
-  role: z.enum(["awr_nurse", "anesthesia_nurse", "anesthesia_doctor"], {
+  role: z.enum(["awr_nurse", "anesthesia_nurse", "op_nurse", "anesthesia_doctor"], {
     required_error: "Bitte wählen Sie eine Rolle",
   }),
   workerSignatureLocation: z.string().min(1, "Unterschriftsort ist erforderlich"),
@@ -60,6 +60,12 @@ const roleInfo = {
     rate: "CHF 80.00/Std.",
     description: "diplomierter Pflegefachmann mit Zusatzausbildung Experte Anästhesiepflege",
     roleTitle: "Anästhesiepfleger",
+  },
+  op_nurse: {
+    title: "OP Pflege/OTA",
+    rate: "CHF 80.00/Std.",
+    description: "diplomierter Pflegefachmann mit Zusatzausbildung OP-Pflege oder Operationstechnischer Assistent (OTA)",
+    roleTitle: "OP-Pfleger/OTA",
   },
   anesthesia_doctor: {
     title: "Arzt Anästhesie",
