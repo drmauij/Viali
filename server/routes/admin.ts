@@ -239,7 +239,7 @@ router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req
 router.patch('/api/admin/units/:unitId', isAuthenticated, requireResourceAdmin('unitId'), async (req: any, res) => {
   try {
     const { unitId } = req.params;
-    const { name, type, parentId, showInventory, showAppointments, questionnairePhone, infoFlyerUrl } = req.body;
+    const { name, type, parentId, showInventory, showAppointments, showControlledMedications, questionnairePhone, infoFlyerUrl } = req.body;
     
     const updates: any = {};
     if (name !== undefined) updates.name = name;
@@ -258,6 +258,7 @@ router.patch('/api/admin/units/:unitId', isAuthenticated, requireResourceAdmin('
     // Accept UI visibility flags
     if (showInventory !== undefined) updates.showInventory = showInventory;
     if (showAppointments !== undefined) updates.showAppointments = showAppointments;
+    if (showControlledMedications !== undefined) updates.showControlledMedications = showControlledMedications;
     
     // Accept questionnaire help phone
     if (questionnairePhone !== undefined) updates.questionnairePhone = questionnairePhone;
