@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 
@@ -112,8 +113,13 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-[9999] bg-black">
+  // Use portal to render outside the Dialog DOM tree to prevent event interference
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999] bg-black"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
       <div className="relative w-full h-full">
         {error ? (
           <div className="flex items-center justify-center h-full">
@@ -214,6 +220,7 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
