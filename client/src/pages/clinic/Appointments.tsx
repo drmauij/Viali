@@ -35,6 +35,7 @@ import {
   Check,
   AlertCircle,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
@@ -129,6 +130,25 @@ export default function ClinicAppointments() {
     },
     onError: () => {
       toast({ title: t('appointments.updateError', 'Failed to update appointment'), variant: "destructive" });
+    },
+  });
+
+  const deleteAppointmentMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/clinic/${hospitalId}/appointments/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/clinic/${hospitalId}/appointments`);
+        }
+      });
+      toast({ title: t('appointments.deleted', 'Appointment deleted') });
+      setDetailDialogOpen(false);
+    },
+    onError: () => {
+      toast({ title: t('appointments.deleteError', 'Failed to delete appointment'), variant: "destructive" });
     },
   });
 
@@ -371,7 +391,7 @@ export default function ClinicAppointments() {
                   <Button
                     variant="outline"
                     onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'confirmed' })}
-                    disabled={updateAppointmentMutation.isPending}
+                    disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
                     data-testid="button-confirm-appointment"
                   >
                     <Check className="h-4 w-4 mr-1" />
@@ -383,7 +403,7 @@ export default function ClinicAppointments() {
                     <Button
                       variant="default"
                       onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'in_progress' })}
-                      disabled={updateAppointmentMutation.isPending}
+                      disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
                       data-testid="button-start-appointment"
                     >
                       {t('appointments.start', 'Start')}
@@ -391,7 +411,7 @@ export default function ClinicAppointments() {
                     <Button
                       variant="destructive"
                       onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'cancelled' })}
-                      disabled={updateAppointmentMutation.isPending}
+                      disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
                       data-testid="button-cancel-appointment"
                     >
                       <X className="h-4 w-4 mr-1" />
@@ -402,13 +422,28 @@ export default function ClinicAppointments() {
                 {selectedAppointment.status === 'in_progress' && (
                   <Button
                     onClick={() => updateAppointmentMutation.mutate({ id: selectedAppointment.id, status: 'completed' })}
-                    disabled={updateAppointmentMutation.isPending}
+                    disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
                     data-testid="button-complete-appointment"
                   >
                     <Check className="h-4 w-4 mr-1" />
                     {t('appointments.complete', 'Complete')}
                   </Button>
                 )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => {
+                    if (window.confirm(t('appointments.deleteConfirm', 'Are you sure you want to permanently delete this appointment? This action cannot be undone.'))) {
+                      deleteAppointmentMutation.mutate(selectedAppointment.id);
+                    }
+                  }}
+                  disabled={updateAppointmentMutation.isPending || deleteAppointmentMutation.isPending}
+                  data-testid="button-delete-appointment"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  {t('appointments.delete', 'Delete')}
+                </Button>
               </DialogFooter>
             </div>
           )}
