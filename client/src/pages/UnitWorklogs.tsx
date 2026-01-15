@@ -168,12 +168,9 @@ export default function UnitWorklogs() {
   const [rejectionReason, setRejectionReason] = useState("");
 
   const { data: pendingEntries = [], isLoading: isPendingLoading } = useQuery<WorklogEntry[]>({
-    queryKey: ['/api/hospitals', hospitalId, 'worklog', 'pending'],
-    enabled: !!hospitalId,
+    queryKey: ['/api/hospitals', hospitalId, 'worklog', 'pending', unitId],
+    enabled: !!hospitalId && !!unitId,
   });
-
-  // Filter entries to show only current unit's entries
-  const unitPendingEntries = pendingEntries.filter(entry => entry.unitId === unitId);
 
   const countersignMutation = useMutation({
     mutationFn: async ({ entryId, signature }: { entryId: string; signature: string }) => {
@@ -363,8 +360,8 @@ export default function UnitWorklogs() {
           <TabsTrigger value="pending" className="flex items-center gap-2" data-testid="tab-pending">
             <Clock className="w-4 h-4" />
             Ausstehend
-            {unitPendingEntries.length > 0 && (
-              <Badge variant="secondary" className="ml-1">{unitPendingEntries.length}</Badge>
+            {pendingEntries.length > 0 && (
+              <Badge variant="secondary" className="ml-1">{pendingEntries.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="links" className="flex items-center gap-2" data-testid="tab-links">
@@ -377,7 +374,7 @@ export default function UnitWorklogs() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin" />
             </div>
-          ) : unitPendingEntries.length === 0 ? (
+          ) : pendingEntries.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-gray-500">
                 <CheckCircle className="w-12 h-12 mx-auto mb-3 text-green-300" />
@@ -385,7 +382,7 @@ export default function UnitWorklogs() {
               </CardContent>
             </Card>
           ) : (
-            unitPendingEntries.map(entry => renderEntryCard(entry))
+            pendingEntries.map(entry => renderEntryCard(entry))
           )}
         </TabsContent>
 
