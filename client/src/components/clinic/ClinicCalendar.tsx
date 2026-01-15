@@ -413,6 +413,158 @@ export default function ClinicCalendar({
     return modes;
   }, [bookableProviders]);
 
+  // Get provider weekly schedules for availability checking
+  const providerSchedules = useMemo(() => {
+    const schedules: Record<string, Record<number, { start: string; end: string }>> = {};
+    bookableProviders.forEach((bp: any) => {
+      if (bp.weeklySchedule && typeof bp.weeklySchedule === 'object') {
+        schedules[bp.userId] = bp.weeklySchedule as Record<number, { start: string; end: string }>;
+      }
+    });
+    return schedules;
+  }, [bookableProviders]);
+
+  // Helper: Check if a time slot is blocked for a specific provider
+  // Optional excludeAppointmentId allows excluding a specific appointment (for drag/drop)
+  const isSlotBlocked = useCallback((date: Date, providerId: string, excludeAppointmentId?: string): boolean => {
+    const slotStart = date.getTime();
+    const slotEnd = slotStart + 15 * 60 * 1000; // 15-minute slots
+
+    // Check surgeries
+    const hasSurgery = providerSurgeries.some(surgery => {
+      const resourceId = getSurgeonResourceId(surgery);
+      if (resourceId !== providerId) return false;
+      const surgeryStart = new Date(surgery.plannedDate).getTime();
+      const surgeryEnd = surgery.actualEndTime 
+        ? new Date(surgery.actualEndTime).getTime()
+        : surgeryStart + 2 * 60 * 60 * 1000;
+      return slotStart < surgeryEnd && slotEnd > surgeryStart;
+    });
+    if (hasSurgery) return true;
+
+    // Check absences (use proper day boundaries)
+    const hasAbsence = providerAbsences.some(absence => {
+      if (absence.providerId !== providerId) return false;
+      
+      // Normalize to day boundaries
+      const absenceStart = new Date(absence.startDate);
+      absenceStart.setHours(0, 0, 0, 0);
+      const absenceEnd = new Date(absence.endDate);
+      absenceEnd.setHours(23, 59, 59, 999);
+      
+      const slotDateOnly = new Date(date);
+      slotDateOnly.setHours(0, 0, 0, 0);
+      
+      // Check if slot date falls within the absence range
+      return slotDateOnly >= absenceStart && slotDateOnly <= absenceEnd;
+    });
+    if (hasAbsence) return true;
+
+    // Check time offs (handle multi-day ranges)
+    const hasTimeOff = providerTimeOffs.some(timeOff => {
+      if (timeOff.providerId !== providerId) return false;
+      
+      // Parse start and end dates of the time off range
+      const timeOffStart = new Date(timeOff.startDate);
+      timeOffStart.setHours(0, 0, 0, 0);
+      const timeOffEnd = new Date(timeOff.endDate);
+      timeOffEnd.setHours(23, 59, 59, 999);
+      
+      const slotDate = new Date(date);
+      slotDate.setHours(0, 0, 0, 0);
+      
+      // Check if slot date falls within time off range
+      if (slotDate < timeOffStart || slotDate > timeOffEnd) return false;
+      
+      // Check time range if specified
+      if (timeOff.startTime && timeOff.endTime) {
+        const [toStartH, toStartM] = timeOff.startTime.split(':').map(Number);
+        const [toEndH, toEndM] = timeOff.endTime.split(':').map(Number);
+        const toStart = new Date(date);
+        toStart.setHours(toStartH, toStartM, 0, 0);
+        const toEnd = new Date(date);
+        toEnd.setHours(toEndH, toEndM, 0, 0);
+        return slotStart < toEnd.getTime() && slotEnd > toStart.getTime();
+      }
+      return true; // Full day time off
+    });
+    if (hasTimeOff) return true;
+
+    // Check existing appointments (except cancelled/no_show and optionally excluded one)
+    const hasAppointment = appointments.some(appt => {
+      if (appt.providerId !== providerId) return false;
+      if (appt.status === 'cancelled' || appt.status === 'no_show') return false;
+      if (excludeAppointmentId && appt.id === excludeAppointmentId) return false;
+      const apptDate = new Date(appt.appointmentDate);
+      const [startH, startM] = (appt.startTime || '09:00').split(':').map(Number);
+      const [endH, endM] = (appt.endTime || '09:30').split(':').map(Number);
+      const apptStart = new Date(apptDate);
+      apptStart.setHours(startH, startM, 0, 0);
+      const apptEnd = new Date(apptDate);
+      apptEnd.setHours(endH, endM, 0, 0);
+      return slotStart < apptEnd.getTime() && slotEnd > apptStart.getTime();
+    });
+    if (hasAppointment) return true;
+
+    // Check provider availability based on mode
+    const mode = providerModes[providerId] || 'always_available';
+    
+    if (mode === 'windows_required') {
+      // Must be within an availability window
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const inWindow = availabilityWindows.some(window => {
+        if (window.providerId !== providerId) return false;
+        if (window.date !== dateStr) return false;
+        const [winStartH, winStartM] = window.startTime.split(':').map(Number);
+        const [winEndH, winEndM] = window.endTime.split(':').map(Number);
+        const winStart = new Date(date);
+        winStart.setHours(winStartH, winStartM, 0, 0);
+        const winEnd = new Date(date);
+        winEnd.setHours(winEndH, winEndM, 0, 0);
+        return slotStart >= winStart.getTime() && slotEnd <= winEnd.getTime();
+      });
+      if (!inWindow) return true;
+    } else {
+      // Check weekly schedule for always_available providers
+      const schedule = providerSchedules[providerId];
+      if (schedule) {
+        const dayOfWeek = date.getDay();
+        const daySchedule = schedule[dayOfWeek];
+        if (!daySchedule) return true; // Day not in schedule = unavailable
+        
+        const [schedStartH, schedStartM] = daySchedule.start.split(':').map(Number);
+        const [schedEndH, schedEndM] = daySchedule.end.split(':').map(Number);
+        const schedStart = new Date(date);
+        schedStart.setHours(schedStartH, schedStartM, 0, 0);
+        const schedEnd = new Date(date);
+        schedEnd.setHours(schedEndH, schedEndM, 0, 0);
+        
+        if (slotStart < schedStart.getTime() || slotEnd > schedEnd.getTime()) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }, [providerSurgeries, providerAbsences, providerTimeOffs, appointments, availabilityWindows, providerModes, providerSchedules]);
+
+  // Slot prop getter for visual unavailability
+  const slotPropGetter = useCallback((date: Date, resourceId?: string | number) => {
+    if (!resourceId || typeof resourceId !== 'string') return {};
+    
+    const blocked = isSlotBlocked(date, resourceId);
+    if (blocked) {
+      return {
+        className: 'rbc-slot-unavailable',
+        style: {
+          backgroundColor: '#f1f5f9',
+          cursor: 'not-allowed',
+        },
+      };
+    }
+    return {};
+  }, [isSlotBlocked]);
+
   const calendarEvents: CalendarEvent[] = useMemo(() => {
     // Appointment events
     const appointmentEvents = appointments.map((appt) => {
@@ -701,6 +853,25 @@ export default function ClinicCalendar({
     const appointmentId = event.appointmentId;
     const newProviderId = resourceId || event.resource;
     
+    // Check if the target slot is blocked (excluding the current appointment from overlap check)
+    const startTime = start.getTime();
+    const endTime = end.getTime();
+    const slotDuration = 15 * 60 * 1000;
+    
+    for (let time = startTime; time < endTime; time += slotDuration) {
+      const slotDate = new Date(time);
+      // Pass appointmentId to exclude it from the overlap check
+      const blocked = isSlotBlocked(slotDate, newProviderId, appointmentId);
+      if (blocked) {
+        toast({
+          title: t('appointments.slotUnavailable', 'Time slot unavailable'),
+          description: t('appointments.slotUnavailableDesc', 'This time slot is not available. Please select a different time.'),
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+    
     rescheduleAppointmentMutation.mutate({
       appointmentId,
       appointmentDate: format(start, 'yyyy-MM-dd'),
@@ -708,31 +879,72 @@ export default function ClinicCalendar({
       endTime: format(end, 'HH:mm'),
       providerId: newProviderId !== event.resource ? newProviderId : undefined,
     });
-  }, [rescheduleAppointmentMutation]);
+  }, [rescheduleAppointmentMutation, isSlotBlocked, toast, t]);
 
   const handleEventResize = useCallback(async ({ event, start, end }: any) => {
     // Don't allow resizing surgery, absence, time off, or availability window blocks
     if (event.isSurgeryBlock || event.isAbsenceBlock || event.isTimeOffBlock || event.isAvailabilityWindow) return;
     
+    const appointmentId = event.appointmentId;
+    const providerId = event.resource;
+    
+    // Validate the new time range doesn't overlap with blocked slots
+    const startTime = start.getTime();
+    const endTime = end.getTime();
+    const slotDuration = 15 * 60 * 1000;
+    
+    for (let time = startTime; time < endTime; time += slotDuration) {
+      const slotDate = new Date(time);
+      const blocked = isSlotBlocked(slotDate, providerId, appointmentId);
+      if (blocked) {
+        toast({
+          title: t('appointments.slotUnavailable', 'Time slot unavailable'),
+          description: t('appointments.slotUnavailableDesc', 'This time slot is not available. Please select a different time.'),
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+    
     rescheduleAppointmentMutation.mutate({
-      appointmentId: event.appointmentId,
+      appointmentId,
       appointmentDate: format(start, 'yyyy-MM-dd'),
       startTime: format(start, 'HH:mm'),
       endTime: format(end, 'HH:mm'),
     });
-  }, [rescheduleAppointmentMutation]);
+  }, [rescheduleAppointmentMutation, isSlotBlocked, toast, t]);
 
   const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
     if ((currentView === "day" || currentView === "week") && slotInfo.action === 'select') {
+      const providerId = slotInfo.resourceId as string;
+      
+      // Check if any slot in the selection range is blocked
+      if (providerId) {
+        const startTime = slotInfo.start.getTime();
+        const endTime = slotInfo.end.getTime();
+        const slotDuration = 15 * 60 * 1000; // 15 minutes
+        
+        for (let time = startTime; time < endTime; time += slotDuration) {
+          if (isSlotBlocked(new Date(time), providerId)) {
+            toast({
+              title: t('appointments.slotUnavailable', 'Time slot unavailable'),
+              description: t('appointments.slotUnavailableDesc', 'This time slot is not available for booking. Please select a different time.'),
+              variant: 'destructive',
+            });
+            return;
+          }
+        }
+      }
+      
       if (onBookAppointment) {
         onBookAppointment({
-          providerId: slotInfo.resourceId as string,
+          providerId,
           date: slotInfo.start,
           endDate: slotInfo.end,
         });
       }
     }
-  }, [currentView, onBookAppointment]);
+  }, [currentView, onBookAppointment, isSlotBlocked, toast, t]);
 
   const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
     // Don't allow clicking on non-appointment blocks
@@ -1129,6 +1341,7 @@ export default function ClinicCalendar({
             max={new Date(2024, 0, 1, 22, 0, 0)}
             formats={formats}
             eventPropGetter={eventStyleGetter}
+            slotPropGetter={slotPropGetter}
             components={{
               event: EventComponent,
               month: {

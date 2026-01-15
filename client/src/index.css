@@ -602,6 +602,38 @@
   min-height: 16px;
 }
 
+/* Unavailable time slots - greyed out with diagonal stripes */
+.rbc-slot-unavailable {
+  background: repeating-linear-gradient(
+    45deg,
+    #f1f5f9,
+    #f1f5f9 4px,
+    #e2e8f0 4px,
+    #e2e8f0 8px
+  ) !important;
+  cursor: not-allowed !important;
+}
+
+.rbc-slot-unavailable:hover {
+  background: repeating-linear-gradient(
+    45deg,
+    #e2e8f0,
+    #e2e8f0 4px,
+    #cbd5e1 4px,
+    #cbd5e1 8px
+  ) !important;
+}
+
+[data-theme="dark"] .rbc-slot-unavailable {
+  background: repeating-linear-gradient(
+    45deg,
+    hsl(215, 25%, 18%),
+    hsl(215, 25%, 18%) 4px,
+    hsl(215, 25%, 22%) 4px,
+    hsl(215, 25%, 22%) 8px
+  ) !important;
+}
+
 /* React Calendar Timeline Styling */
 .react-calendar-timeline {
   border: none !important;
