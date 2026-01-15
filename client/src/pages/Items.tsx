@@ -1119,16 +1119,16 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   });
 
   const createFolderMutation = useMutation({
-    mutationFn: async (name: string) => {
+    mutationFn: async ({ name, hospitalId, unitId }: { name: string; hospitalId: string; unitId: string }) => {
       const response = await apiRequest("POST", "/api/folders", {
         name,
-        hospitalId: activeHospital?.id,
-        unitId: activeHospital?.unitId,
+        hospitalId,
+        unitId,
       });
       return await response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/folders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/folders/${variables.hospitalId}?unitId=${variables.unitId}`, variables.unitId] });
       setFolderDialogOpen(false);
       setFolderName("");
       toast({
@@ -1356,7 +1356,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     if (editingFolder) {
       updateFolderMutation.mutate({ id: editingFolder.id, name: folderName });
     } else {
-      createFolderMutation.mutate(folderName);
+      if (!activeHospital?.id || !effectiveUnitId) return;
+      createFolderMutation.mutate({ name: folderName, hospitalId: activeHospital.id, unitId: effectiveUnitId });
     }
   };
 
