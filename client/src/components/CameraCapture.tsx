@@ -60,7 +60,10 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
   }, [isOpen]);
 
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current || !isVideoReady) return;
+    if (!videoRef.current || !canvasRef.current || !isVideoReady) {
+      console.log("Camera not ready:", { video: !!videoRef.current, canvas: !!canvasRef.current, ready: isVideoReady });
+      return;
+    }
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -70,6 +73,12 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
 
     const videoWidth = video.videoWidth;
     const videoHeight = video.videoHeight;
+
+    // Ensure video has valid dimensions
+    if (videoWidth === 0 || videoHeight === 0) {
+      console.log("Video dimensions not ready:", videoWidth, videoHeight);
+      return;
+    }
 
     if (fullFrame) {
       // Full frame capture for documents
@@ -98,8 +107,19 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
     // Convert to base64
     const photo = canvas.toDataURL("image/jpeg", 0.9);
     
-    onCapture(photo);
-    handleClose();
+    // Stop the stream and close immediately, then call onCapture
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsVideoReady(false);
+    setError(null);
+    onClose();
+    
+    // Call onCapture after closing to prevent re-render issues
+    setTimeout(() => {
+      onCapture(photo);
+    }, 0);
   };
 
   const handleClose = () => {
