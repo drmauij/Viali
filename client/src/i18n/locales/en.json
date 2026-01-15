@@ -246,6 +246,7 @@
     "stockoutItems": "Stockout ({{count}})",
     "runningLowItems": "Running low ({{count}})",
     "controlledItems": "Controlled ({{count}})",
+    "archivedItems": "Archived ({{count}})",
     "archivedBadge": "Archived",
     "archiveItem": "Archive item (hide from lists)",
     "loadingItems": "Loading items...",

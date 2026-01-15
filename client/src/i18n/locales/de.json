@@ -245,6 +245,7 @@
     "stockoutItems": "Nicht vorrätig ({{count}})",
     "runningLowItems": "Zur Neige gehend ({{count}})",
     "controlledItems": "Kontrolliert ({{count}})",
+    "archivedItems": "Archiviert ({{count}})",
     "archivedBadge": "Archiviert",
     "archiveItem": "Artikel archivieren (aus Listen ausblenden)",
     "loadingItems": "Artikel werden geladen...",
