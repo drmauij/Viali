@@ -186,19 +186,40 @@ export default function ModuleDrawer() {
   const menuItems = useMemo(() => {
     const items: { id: string; icon: JSX.Element; label: string; route: string }[] = [];
     
-    // Worklogs link - available for anesthesia and surgery module users
-    if (hasAnesthesiaAccess || hasSurgeryAccess) {
-      const worklogRoute = activeModule === 'surgery' ? '/surgery/worklogs' : '/anesthesia/worklogs';
+    // Worklogs links - show separate links if user has access to both modules
+    // Otherwise show single link for the module they have access to
+    if (hasAnesthesiaAccess && hasSurgeryAccess) {
+      // User has both - show separate options
+      items.push({
+        id: 'worklogs-anesthesia',
+        icon: <Clock className="w-4 h-4" />,
+        label: t('quickLinks.worklogsAnesthesia', 'Arbeitszeitnachweise (Anästhesie)'),
+        route: '/anesthesia/worklogs',
+      });
+      items.push({
+        id: 'worklogs-surgery',
+        icon: <Clock className="w-4 h-4" />,
+        label: t('quickLinks.worklogsSurgery', 'Arbeitszeitnachweise (Chirurgie)'),
+        route: '/surgery/worklogs',
+      });
+    } else if (hasAnesthesiaAccess) {
       items.push({
         id: 'worklogs',
         icon: <Clock className="w-4 h-4" />,
         label: t('quickLinks.worklogs', 'Arbeitszeitnachweise'),
-        route: worklogRoute,
+        route: '/anesthesia/worklogs',
+      });
+    } else if (hasSurgeryAccess) {
+      items.push({
+        id: 'worklogs',
+        icon: <Clock className="w-4 h-4" />,
+        label: t('quickLinks.worklogs', 'Arbeitszeitnachweise'),
+        route: '/surgery/worklogs',
       });
     }
     
     return items;
-  }, [hasAnesthesiaAccess, hasSurgeryAccess, activeModule, t]);
+  }, [hasAnesthesiaAccess, hasSurgeryAccess, t]);
 
   if (!isDrawerOpen) return null;
 
