@@ -24,7 +24,13 @@ import ExcelJS from "exceljs";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import { CameraCapture } from "@/components/CameraCapture";
 import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
+
+// Check if device has touch capability (mobile/tablet)
+function isTouchDevice(): boolean {
+  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+}
 
 type FilterType = "all" | "runningLow" | "stockout" | "archived";
 
@@ -336,6 +342,10 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [codesImage, setCodesImage] = useState<string | null>(null);
   const codesFileInputRef = useRef<HTMLInputElement>(null);
   const codesGalleryInputRef = useRef<HTMLInputElement>(null);
+  
+  // Desktop webcam capture state
+  const [webcamCaptureOpen, setWebcamCaptureOpen] = useState(false);
+  const [webcamCaptureTarget, setWebcamCaptureTarget] = useState<'product' | 'codes' | 'editCodes' | null>(null);
   
   // Individual barcode scan state for Add Item codes
   const [scanningCodeField, setScanningCodeField] = useState<'gtin' | 'pharmacode' | 'supplierCode' | null>(null);
@@ -1624,6 +1634,144 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       setIsAnalyzing(false);
       // Reset input
       e.target.value = '';
+    }
+  };
+
+  // Handler for webcam capture on desktop devices
+  const handleWebcamCapture = async (photo: string) => {
+    setWebcamCaptureOpen(false);
+    
+    if (webcamCaptureTarget === 'product') {
+      // Handle product photo capture (same as handleImageUpload)
+      setIsAnalyzing(true);
+      try {
+        setUploadedImages(prev => [...prev, photo]);
+        
+        const response = await apiRequest('POST', '/api/items/analyze-image', {
+          image: photo
+        });
+        const result: any = await response.json();
+        
+        let itemName = result.name || '';
+        if (result.concentration) {
+          itemName += ` ${result.concentration}`;
+        }
+        if (result.size) {
+          itemName += ` ${result.size}`;
+        }
+        
+        setFormData(prev => ({
+          ...prev,
+          name: itemName.trim() || prev.name,
+          description: result.description || prev.description,
+          barcode: result.barcode || result.gtin || prev.barcode,
+          imageUrl: photo,
+          gtin: result.gtin || prev.gtin,
+          pharmacode: result.pharmacode || prev.pharmacode,
+          manufacturer: result.manufacturer || prev.manufacturer,
+          lotNumber: result.lotNumber || prev.lotNumber,
+          expiryDate: result.expiryDate || prev.expiryDate,
+        }));
+        
+        if (result.unit) {
+          setSelectedUnit(result.unit as UnitType);
+        }
+        
+        toast({
+          title: t('common.success'),
+          description: `${t('items.imageAnalyzed')} ${Math.round((result.confidence || 0) * 100)}% ${t('common.confidence').toLowerCase()}`,
+        });
+      } catch (error: any) {
+        toast({
+          title: t('common.error'),
+          description: error.message || t('items.failedToAnalyzeImage'),
+          variant: "destructive",
+        });
+      } finally {
+        setIsAnalyzing(false);
+      }
+    } else if (webcamCaptureTarget === 'codes') {
+      // Handle codes photo capture (same as handleCodesImageUpload)
+      setIsAnalyzingCodes(true);
+      setCodesImage(photo);
+      
+      try {
+        const response = await apiRequest('POST', '/api/items/analyze-codes', {
+          image: photo
+        });
+        const result: any = await response.json();
+        
+        if (result.gtin) setFormData(prev => ({ ...prev, gtin: result.gtin }));
+        if (result.pharmacode) setFormData(prev => ({ ...prev, pharmacode: result.pharmacode }));
+        if (result.lotNumber) setFormData(prev => ({ ...prev, lotNumber: result.lotNumber }));
+        if (result.expiryDate) setFormData(prev => ({ ...prev, expiryDate: result.expiryDate }));
+        if (result.migel) setFormData(prev => ({ ...prev, migel: result.migel }));
+        if (result.atc) setFormData(prev => ({ ...prev, atc: result.atc }));
+        
+        toast({
+          title: t('common.success'),
+          description: t('items.codesExtracted'),
+        });
+      } catch (error: any) {
+        toast({
+          title: t('common.error'),
+          description: error.message || t('items.failedToExtractCodes'),
+          variant: "destructive",
+        });
+      } finally {
+        setIsAnalyzingCodes(false);
+      }
+    } else if (webcamCaptureTarget === 'editCodes') {
+      // Handle edit codes photo capture
+      setIsAnalyzingEditCodes(true);
+      setEditCodesImage(photo);
+      
+      try {
+        const response = await apiRequest('POST', '/api/items/analyze-codes', {
+          image: photo
+        });
+        const result: any = await response.json();
+        
+        if (result.gtin) setFormData(prev => ({ ...prev, gtin: result.gtin }));
+        if (result.pharmacode) setFormData(prev => ({ ...prev, pharmacode: result.pharmacode }));
+        if (result.lotNumber) setFormData(prev => ({ ...prev, lotNumber: result.lotNumber }));
+        if (result.expiryDate) setFormData(prev => ({ ...prev, expiryDate: result.expiryDate }));
+        if (result.migel) setFormData(prev => ({ ...prev, migel: result.migel }));
+        if (result.atc) setFormData(prev => ({ ...prev, atc: result.atc }));
+        
+        toast({
+          title: t('common.success'),
+          description: t('items.codesExtracted'),
+        });
+      } catch (error: any) {
+        toast({
+          title: t('common.error'),
+          description: error.message || t('items.failedToExtractCodes'),
+          variant: "destructive",
+        });
+      } finally {
+        setIsAnalyzingEditCodes(false);
+      }
+    }
+    
+    setWebcamCaptureTarget(null);
+  };
+
+  // Open webcam or file input based on device type
+  const handleTakePhoto = (target: 'product' | 'codes' | 'editCodes') => {
+    if (isTouchDevice()) {
+      // Mobile/tablet: use native file input with camera capture
+      if (target === 'product') {
+        fileInputRef.current?.click();
+      } else if (target === 'codes') {
+        codesFileInputRef.current?.click();
+      } else if (target === 'editCodes') {
+        editCodesFileInputRef.current?.click();
+      }
+    } else {
+      // Desktop: use webcam capture component
+      setWebcamCaptureTarget(target);
+      setWebcamCaptureOpen(true);
     }
   };
 
@@ -3790,7 +3938,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => handleTakePhoto('product')}
                   disabled={isAnalyzing}
                   data-testid="button-camera-image"
                 >
@@ -3854,7 +4002,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => codesFileInputRef.current?.click()}
+                    onClick={() => handleTakePhoto('codes')}
                     disabled={isAnalyzingCodes}
                     data-testid="button-camera-codes"
                   >
@@ -4620,7 +4768,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                             type="button"
                             variant="outline"
                             size="sm"
-                            onClick={() => editCodesFileInputRef.current?.click()}
+                            onClick={() => handleTakePhoto('editCodes')}
                             disabled={isAnalyzingEditCodes}
                             data-testid="button-edit-camera-codes"
                           >
@@ -6511,6 +6659,17 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         }}
       />
       </div>
+      
+      {/* Desktop Webcam Capture */}
+      <CameraCapture
+        isOpen={webcamCaptureOpen}
+        onClose={() => {
+          setWebcamCaptureOpen(false);
+          setWebcamCaptureTarget(null);
+        }}
+        onCapture={handleWebcamCapture}
+        fullFrame={true}
+      />
     </div>
   );
 }
