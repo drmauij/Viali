@@ -1925,19 +1925,25 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         ]);
       }
       
-      // Build row data
+      // Build row data based on item type and trackExactQuantity setting
+      const isPack = item.unit === "Pack";
+      const tracksExact = item.trackExactQuantity && isPack;
+      
+      // Current Stock: qtyOnHand represents packs for Pack items, units for Single unit items
+      const stockLabel = isPack ? `${stockQty} packs` : `${stockQty} units`;
+      
+      // Pack Size: only show if Pack AND trackExactQuantity is enabled
+      const packSizeValue = tracksExact ? String(item.packSize || 1) : "-";
+      
+      // Current Items: only show currentUnits if Pack AND trackExactQuantity is enabled
+      const currentItemsValue = tracksExact ? String(item.currentUnits || 0) : "-";
+      
       const row = [
         item.name,
-        item.unit === "Pack" ? `${stockQty} packs` : `${stockQty} units`,
+        stockLabel,
+        packSizeValue,
+        currentItemsValue,
       ];
-
-      // Add Pack Size before Current Items if trackExactQuantity is enabled
-      if (item.trackExactQuantity) {
-        row.push(item.unit === "Pack" ? String(item.packSize || 1) : "-");
-        row.push(String(item.currentUnits || 0));
-      } else {
-        row.push("-", "-");
-      }
 
       row.push(
         String(item.minThreshold || 0),
