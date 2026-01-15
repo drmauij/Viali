@@ -8448,6 +8448,18 @@ export class DatabaseStorage implements IStorage {
       .where(eq(externalWorklogLinks.unitId, unitId))
       .orderBy(desc(externalWorklogLinks.createdAt));
   }
+
+  async getExternalWorklogLink(id: string): Promise<ExternalWorklogLink | undefined> {
+    const [link] = await db
+      .select()
+      .from(externalWorklogLinks)
+      .where(eq(externalWorklogLinks.id, id));
+    return link;
+  }
+
+  async deleteExternalWorklogLink(id: string): Promise<void> {
+    await db.delete(externalWorklogLinks).where(eq(externalWorklogLinks.id, id));
+  }
 }
 
 export const storage = new DatabaseStorage();

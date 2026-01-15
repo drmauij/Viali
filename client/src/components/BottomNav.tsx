@@ -161,12 +161,13 @@ export default function BottomNav() {
       const businessItems: NavItem[] = [
         { id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" },
       ];
-      // Only show Costs, Staff and Contracts tabs for admin and manager roles (not for staff role)
+      // Only show Costs, Staff, Contracts, and Worklogs tabs for admin and manager roles (not for staff role)
       // Staff role users can only access Dashboard tab
       if (activeHospital?.role === 'admin' || activeHospital?.role === 'manager') {
         businessItems.push({ id: "business-costs", icon: "fas fa-dollar-sign", label: t('bottomNav.business.costs', 'Costs'), path: "/business/costs" });
         businessItems.push({ id: "business-staff", icon: "fas fa-users", label: t('bottomNav.business.staff'), path: "/business/staff" });
         businessItems.push({ id: "business-contracts", icon: "fas fa-file-signature", label: t('bottomNav.business.contracts', 'Contracts'), path: "/business/contracts" });
+        businessItems.push({ id: "business-worklogs", icon: "fas fa-clock", label: t('bottomNav.business.worklogs', 'Worklogs'), path: "/business/worklogs" });
       }
       return businessItems;
     }

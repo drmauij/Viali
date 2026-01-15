@@ -14,7 +14,7 @@ import SignaturePad from "@/components/SignaturePad";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import type { Hospital } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Clock, CheckCircle, XCircle, PenLine, Filter, Building2, Download, User } from "lucide-react";
+import { Loader2, Clock, CheckCircle, XCircle, PenLine, Filter, Building2, Download, User, Link as LinkIcon, Send, Copy, Check, Mail, Plus, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import jsPDF from "jspdf";
@@ -38,6 +38,20 @@ interface WorklogEntry {
   notes?: string;
   createdAt: string;
   unit: {
+    id: string;
+    name: string;
+  };
+}
+
+interface WorklogLink {
+  id: string;
+  hospitalId: string;
+  unitId: string;
+  workerEmail: string;
+  workerName?: string;
+  token: string;
+  createdAt: string;
+  unit?: {
     id: string;
     name: string;
   };
@@ -168,6 +182,10 @@ export default function WorklogManagement() {
   const [filterEmail, setFilterEmail] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
+  const [showNewLinkDialog, setShowNewLinkDialog] = useState(false);
+  const [newLinkEmail, setNewLinkEmail] = useState("");
+  const [newLinkName, setNewLinkName] = useState("");
+  const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   const { data: pendingEntries = [], isLoading: isPendingLoading } = useQuery<WorklogEntry[]>({
     queryKey: ['/api/hospitals', hospitalId, 'worklog', 'pending'],
@@ -177,6 +195,73 @@ export default function WorklogManagement() {
   const { data: allEntries = [], isLoading: isAllLoading } = useQuery<WorklogEntry[]>({
     queryKey: ['/api/hospitals', hospitalId, 'worklog', 'entries', { status: filterStatus !== 'all' ? filterStatus : undefined, email: filterEmail || undefined, dateFrom: filterDateFrom || undefined, dateTo: filterDateTo || undefined }],
     enabled: !!hospitalId && activeTab === 'all',
+  });
+
+  const { data: worklogLinks = [], isLoading: isLinksLoading } = useQuery<WorklogLink[]>({
+    queryKey: ['/api/hospitals', hospitalId, 'worklog', 'links'],
+    enabled: !!hospitalId && activeTab === 'links',
+  });
+
+  const createLinkMutation = useMutation({
+    mutationFn: async ({ email, name }: { email: string; name?: string }) => {
+      return apiRequest('POST', `/api/hospitals/${hospitalId}/worklog/links`, { email, name });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId, 'worklog', 'links'] });
+      toast({
+        title: "Link erstellt",
+        description: "Der Arbeitszeiterfassungs-Link wurde erstellt.",
+      });
+      setShowNewLinkDialog(false);
+      setNewLinkEmail("");
+      setNewLinkName("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Fehler",
+        description: error.message || "Link konnte nicht erstellt werden.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const sendLinkMutation = useMutation({
+    mutationFn: async ({ linkId }: { linkId: string }) => {
+      return apiRequest('POST', `/api/hospitals/${hospitalId}/worklog/links/${linkId}/send`, {});
+    },
+    onSuccess: () => {
+      toast({
+        title: "Link gesendet",
+        description: "Die Email mit dem Link wurde gesendet.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Fehler",
+        description: error.message || "Email konnte nicht gesendet werden.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteLinkMutation = useMutation({
+    mutationFn: async ({ linkId }: { linkId: string }) => {
+      return apiRequest('DELETE', `/api/hospitals/${hospitalId}/worklog/links/${linkId}`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId, 'worklog', 'links'] });
+      toast({
+        title: "Link gelöscht",
+        description: "Der Link wurde gelöscht.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Fehler",
+        description: error.message || "Link konnte nicht gelöscht werden.",
+        variant: "destructive",
+      });
+    },
   });
 
   const countersignMutation = useMutation({
@@ -244,6 +329,38 @@ export default function WorklogManagement() {
     if (selectedEntry) {
       rejectMutation.mutate({ entryId: selectedEntry.id, reason: rejectionReason });
     }
+  };
+
+  const handleCopyLink = async (link: WorklogLink) => {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const url = `${baseUrl}/worklog/${link.token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedLink(link.id);
+      toast({
+        title: "Link kopiert",
+        description: "Der Link wurde in die Zwischenablage kopiert.",
+      });
+      setTimeout(() => setCopiedLink(null), 2000);
+    } catch (err) {
+      toast({
+        title: "Fehler",
+        description: "Link konnte nicht kopiert werden.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCreateLink = () => {
+    if (!newLinkEmail) {
+      toast({
+        title: "Fehler",
+        description: "Bitte geben Sie eine Email-Adresse ein.",
+        variant: "destructive",
+      });
+      return;
+    }
+    createLinkMutation.mutate({ email: newLinkEmail, name: newLinkName || undefined });
   };
 
   const renderEntryCard = (entry: WorklogEntry, showActions: boolean = false) => (
@@ -352,16 +469,20 @@ export default function WorklogManagement() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
-          <TabsTrigger value="pending" className="flex items-center gap-2">
+          <TabsTrigger value="pending" className="flex items-center gap-2" data-testid="tab-pending">
             <Clock className="w-4 h-4" />
             Ausstehend
             {pendingEntries.length > 0 && (
               <Badge variant="secondary" className="ml-1">{pendingEntries.length}</Badge>
             )}
           </TabsTrigger>
-          <TabsTrigger value="all" className="flex items-center gap-2">
+          <TabsTrigger value="all" className="flex items-center gap-2" data-testid="tab-all">
             <Filter className="w-4 h-4" />
             Alle Einträge
+          </TabsTrigger>
+          <TabsTrigger value="links" className="flex items-center gap-2" data-testid="tab-links">
+            <LinkIcon className="w-4 h-4" />
+            Links
           </TabsTrigger>
         </TabsList>
 
@@ -449,7 +570,134 @@ export default function WorklogManagement() {
             </div>
           )}
         </TabsContent>
+
+        <TabsContent value="links">
+          <div className="flex justify-between items-center mb-4">
+            <p className="text-gray-500">Persönliche Links für externe Mitarbeiter erstellen und verwalten</p>
+            <Button onClick={() => setShowNewLinkDialog(true)} data-testid="button-new-link">
+              <Plus className="w-4 h-4 mr-2" />
+              Neuer Link
+            </Button>
+          </div>
+
+          {isLinksLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin" />
+            </div>
+          ) : worklogLinks.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-gray-500">
+                <LinkIcon className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>Keine Links vorhanden.</p>
+                <p className="text-sm mt-1">Erstellen Sie personalisierte Links für externe Mitarbeiter.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {worklogLinks.map(link => (
+                <Card key={link.id} data-testid={`worklog-link-${link.id}`}>
+                  <CardContent className="pt-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Mail className="w-4 h-4 text-gray-500" />
+                          <span className="font-medium">{link.workerEmail}</span>
+                        </div>
+                        {link.workerName && (
+                          <div className="text-sm text-gray-500 mt-1">{link.workerName}</div>
+                        )}
+                        <div className="text-sm text-gray-400 mt-1">
+                          Erstellt am {format(new Date(link.createdAt), "dd.MM.yyyy", { locale: de })}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleCopyLink(link)}
+                          data-testid={`button-copy-link-${link.id}`}
+                        >
+                          {copiedLink === link.id ? (
+                            <Check className="w-4 h-4" />
+                          ) : (
+                            <Copy className="w-4 h-4" />
+                          )}
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => sendLinkMutation.mutate({ linkId: link.id })}
+                          disabled={sendLinkMutation.isPending}
+                          data-testid={`button-send-link-${link.id}`}
+                        >
+                          <Send className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => deleteLinkMutation.mutate({ linkId: link.id })}
+                          disabled={deleteLinkMutation.isPending}
+                          className="text-red-500 hover:text-red-700"
+                          data-testid={`button-delete-link-${link.id}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
       </Tabs>
+
+      <Dialog open={showNewLinkDialog} onOpenChange={setShowNewLinkDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Neuen Arbeitszeiterfassungs-Link erstellen</DialogTitle>
+            <DialogDescription>
+              Erstellen Sie einen personalisierten Link für einen externen Mitarbeiter.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="link-email">Email-Adresse *</Label>
+              <Input
+                id="link-email"
+                type="email"
+                placeholder="mitarbeiter@example.com"
+                value={newLinkEmail}
+                onChange={(e) => setNewLinkEmail(e.target.value)}
+                data-testid="input-link-email"
+              />
+            </div>
+            <div>
+              <Label htmlFor="link-name">Name (optional)</Label>
+              <Input
+                id="link-name"
+                placeholder="Max Mustermann"
+                value={newLinkName}
+                onChange={(e) => setNewLinkName(e.target.value)}
+                data-testid="input-link-name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowNewLinkDialog(false)}>
+              Abbrechen
+            </Button>
+            <Button 
+              onClick={handleCreateLink}
+              disabled={createLinkMutation.isPending || !newLinkEmail}
+              data-testid="button-create-link"
+            >
+              {createLinkMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Link erstellen
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <SignaturePad
         isOpen={showSignaturePad}

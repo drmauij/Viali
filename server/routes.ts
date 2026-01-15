@@ -3364,6 +3364,109 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get all worklog links for the current unit (gets unitId from header)
+  app.get('/api/hospitals/:hospitalId/worklog/links', isAuthenticated, async (req: any, res) => {
+    try {
+      const unitId = getActiveUnitIdFromRequest(req);
+      if (!unitId) {
+        return res.status(400).json({ message: "Unit ID required" });
+      }
+      const links = await storage.getWorklogLinksByUnit(unitId);
+      res.json(links);
+    } catch (error) {
+      console.error("Error fetching worklog links:", error);
+      res.status(500).json({ message: "Failed to fetch links" });
+    }
+  });
+
+  // Create a new worklog link (gets unitId from header)
+  app.post('/api/hospitals/:hospitalId/worklog/links', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const unitId = getActiveUnitIdFromRequest(req);
+      if (!unitId) {
+        return res.status(400).json({ message: "Unit ID required" });
+      }
+      const { email, name, sendEmail = false } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      
+      // Check if link already exists for this unit+email
+      const existing = await storage.getExternalWorklogLinkByEmail(unitId, email);
+      if (existing) {
+        return res.status(409).json({ 
+          message: "A link already exists for this email", 
+          link: existing 
+        });
+      }
+      
+      const token = crypto.randomUUID();
+      const link = await storage.createExternalWorklogLink({
+        unitId,
+        hospitalId,
+        workerEmail: email,
+        workerName: name || null,
+        token,
+        isActive: true,
+      });
+      
+      if (sendEmail) {
+        const { sendWorklogLinkEmail } = await import('./email');
+        const unit = await storage.getUnit(unitId);
+        const hospital = await storage.getHospital(hospitalId);
+        
+        if (unit && hospital) {
+          await sendWorklogLinkEmail(email, token, unit.name, hospital.name);
+        }
+      }
+      
+      res.status(201).json(link);
+    } catch (error) {
+      console.error("Error creating worklog link:", error);
+      res.status(500).json({ message: "Failed to create link" });
+    }
+  });
+
+  // Send worklog link email (authenticated)
+  app.post('/api/hospitals/:hospitalId/worklog/links/:linkId/send', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hospitalId, linkId } = req.params;
+      const link = await storage.getExternalWorklogLink(linkId);
+      
+      if (!link) {
+        return res.status(404).json({ message: "Link not found" });
+      }
+      
+      const { sendWorklogLinkEmail } = await import('./email');
+      const unit = await storage.getUnit(link.unitId);
+      const hospital = await storage.getHospital(hospitalId);
+      
+      if (unit && hospital) {
+        await sendWorklogLinkEmail(link.workerEmail, link.token, unit.name, hospital.name);
+        res.json({ success: true, message: "Email sent" });
+      } else {
+        res.status(400).json({ message: "Unit or hospital not found" });
+      }
+    } catch (error) {
+      console.error("Error sending worklog link:", error);
+      res.status(500).json({ message: "Failed to send email" });
+    }
+  });
+
+  // Delete worklog link (authenticated)
+  app.delete('/api/hospitals/:hospitalId/worklog/links/:linkId', isAuthenticated, async (req: any, res) => {
+    try {
+      const { linkId } = req.params;
+      await storage.deleteExternalWorklogLink(linkId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting worklog link:", error);
+      res.status(500).json({ message: "Failed to delete link" });
+    }
+  });
+
   // Generate a new worklog link for a unit+email (authenticated, admin/manager)
   app.post('/api/hospitals/:hospitalId/units/:unitId/worklog/links', isAuthenticated, async (req: any, res) => {
     try {
