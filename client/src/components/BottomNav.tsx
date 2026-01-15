@@ -191,13 +191,18 @@ export default function BottomNav() {
     }
     
     // Inventory module nav items
-    return [
+    const inventoryItems: NavItem[] = [
       { id: "items", icon: "fas fa-boxes", label: t('bottomNav.items'), path: "/inventory/items" },
       { id: "services", icon: "fas fa-briefcase-medical", label: t('bottomNav.services', 'Services'), path: "/inventory/services" },
       { id: "orders", icon: "fas fa-file-invoice", label: t('bottomNav.orders'), path: "/inventory/orders" },
       { id: "matches", icon: "fas fa-link", label: t('bottomNav.matches'), path: "/inventory/matches" },
     ];
-  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments]);
+    // Show checklists tab if there are pending checklists for this unit/role
+    if (hasPendingChecklists) {
+      inventoryItems.push({ id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists', 'Checklists'), path: "/inventory/checklists" });
+    }
+    return inventoryItems;
+  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments, hasPendingChecklists]);
 
   const isActive = (path: string) => {
     if (path === "/inventory/items") {
