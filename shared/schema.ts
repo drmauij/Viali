@@ -4108,3 +4108,93 @@ export const insertWorkerContractSchema = createInsertSchema(workerContracts).om
 
 export type WorkerContract = typeof workerContracts.$inferSelect;
 export type InsertWorkerContract = z.infer<typeof insertWorkerContractSchema>;
+
+// External Worklog Links - Personalized links for external workers to submit time entries
+export const externalWorklogLinks = pgTable("external_worklog_links", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  
+  email: varchar("email").notNull(),
+  token: varchar("token").notNull().unique(),
+  
+  isActive: boolean("is_active").default(true).notNull(),
+  lastAccessedAt: timestamp("last_accessed_at"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_external_worklog_links_unit").on(table.unitId),
+  index("idx_external_worklog_links_hospital").on(table.hospitalId),
+  index("idx_external_worklog_links_email").on(table.email),
+  index("idx_external_worklog_links_token").on(table.token),
+  unique("idx_external_worklog_links_unit_email").on(table.unitId, table.email),
+]);
+
+export const insertExternalWorklogLinkSchema = createInsertSchema(externalWorklogLinks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastAccessedAt: true,
+});
+
+export type ExternalWorklogLink = typeof externalWorklogLinks.$inferSelect;
+export type InsertExternalWorklogLink = z.infer<typeof insertExternalWorklogLinkSchema>;
+
+// External Worklog Entries - Time entries submitted by external workers
+export const externalWorklogEntries = pgTable("external_worklog_entries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  linkId: varchar("link_id").notNull().references(() => externalWorklogLinks.id, { onDelete: 'cascade' }),
+  unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  
+  email: varchar("email").notNull(),
+  firstName: varchar("first_name").notNull(),
+  lastName: varchar("last_name").notNull(),
+  
+  workDate: date("work_date").notNull(),
+  timeStart: varchar("time_start").notNull(),
+  timeEnd: varchar("time_end").notNull(),
+  pauseMinutes: integer("pause_minutes").default(0).notNull(),
+  
+  workerSignature: text("worker_signature").notNull(),
+  workerSignedAt: timestamp("worker_signed_at").defaultNow(),
+  
+  status: varchar("status", { 
+    enum: ["pending", "countersigned", "rejected"] 
+  }).default("pending").notNull(),
+  
+  countersignature: text("countersignature"),
+  countersignedAt: timestamp("countersigned_at"),
+  countersignedBy: varchar("countersigned_by").references(() => users.id),
+  countersignerName: varchar("countersigner_name"),
+  rejectionReason: text("rejection_reason"),
+  
+  notes: text("notes"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_external_worklog_entries_link").on(table.linkId),
+  index("idx_external_worklog_entries_unit").on(table.unitId),
+  index("idx_external_worklog_entries_hospital").on(table.hospitalId),
+  index("idx_external_worklog_entries_email").on(table.email),
+  index("idx_external_worklog_entries_status").on(table.status),
+  index("idx_external_worklog_entries_work_date").on(table.workDate),
+]);
+
+export const insertExternalWorklogEntrySchema = createInsertSchema(externalWorklogEntries).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  workerSignedAt: true,
+  status: true,
+  countersignature: true,
+  countersignedAt: true,
+  countersignedBy: true,
+  countersignerName: true,
+  rejectionReason: true,
+});
+
+export type ExternalWorklogEntry = typeof externalWorklogEntries.$inferSelect;
+export type InsertExternalWorklogEntry = z.infer<typeof insertExternalWorklogEntrySchema>;

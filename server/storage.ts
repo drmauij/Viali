@@ -230,6 +230,12 @@ import {
   hospitalVonageConfigs,
   type HospitalVonageConfig,
   type InsertHospitalVonageConfig,
+  externalWorklogLinks,
+  externalWorklogEntries,
+  type ExternalWorklogLink,
+  type InsertExternalWorklogLink,
+  type ExternalWorklogEntry,
+  type InsertExternalWorklogEntry,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -8257,6 +8263,190 @@ export class DatabaseStorage implements IStorage {
         reminderSentAt: new Date(),
       })
       .where(eq(surgeries.id, surgeryId));
+  }
+
+  // ========== EXTERNAL WORKLOG OPERATIONS ==========
+
+  async getExternalWorklogLinkByToken(token: string): Promise<(ExternalWorklogLink & { unit: Unit; hospital: Hospital }) | undefined> {
+    const [result] = await db
+      .select()
+      .from(externalWorklogLinks)
+      .innerJoin(units, eq(units.id, externalWorklogLinks.unitId))
+      .innerJoin(hospitals, eq(hospitals.id, externalWorklogLinks.hospitalId))
+      .where(eq(externalWorklogLinks.token, token));
+    
+    if (!result) return undefined;
+    
+    return {
+      ...result.external_worklog_links,
+      unit: result.units,
+      hospital: result.hospitals,
+    };
+  }
+
+  async getExternalWorklogLinkByEmail(unitId: string, email: string): Promise<ExternalWorklogLink | undefined> {
+    const [link] = await db
+      .select()
+      .from(externalWorklogLinks)
+      .where(and(
+        eq(externalWorklogLinks.unitId, unitId),
+        eq(externalWorklogLinks.email, email.toLowerCase())
+      ));
+    return link;
+  }
+
+  async createExternalWorklogLink(data: InsertExternalWorklogLink): Promise<ExternalWorklogLink> {
+    const [link] = await db
+      .insert(externalWorklogLinks)
+      .values({
+        ...data,
+        email: data.email.toLowerCase(),
+      })
+      .returning();
+    return link;
+  }
+
+  async updateExternalWorklogLinkLastAccess(id: string): Promise<void> {
+    await db
+      .update(externalWorklogLinks)
+      .set({ lastAccessedAt: new Date(), updatedAt: new Date() })
+      .where(eq(externalWorklogLinks.id, id));
+  }
+
+  async getExternalWorklogEntriesByLink(linkId: string): Promise<ExternalWorklogEntry[]> {
+    return await db
+      .select()
+      .from(externalWorklogEntries)
+      .where(eq(externalWorklogEntries.linkId, linkId))
+      .orderBy(desc(externalWorklogEntries.workDate));
+  }
+
+  async getExternalWorklogEntry(id: string): Promise<(ExternalWorklogEntry & { unit: Unit }) | undefined> {
+    const [result] = await db
+      .select()
+      .from(externalWorklogEntries)
+      .innerJoin(units, eq(units.id, externalWorklogEntries.unitId))
+      .where(eq(externalWorklogEntries.id, id));
+    
+    if (!result) return undefined;
+    
+    return {
+      ...result.external_worklog_entries,
+      unit: result.units,
+    };
+  }
+
+  async createExternalWorklogEntry(data: InsertExternalWorklogEntry): Promise<ExternalWorklogEntry> {
+    const [entry] = await db
+      .insert(externalWorklogEntries)
+      .values({
+        ...data,
+        email: data.email.toLowerCase(),
+      })
+      .returning();
+    return entry;
+  }
+
+  async getPendingWorklogEntries(hospitalId: string, unitId?: string): Promise<(ExternalWorklogEntry & { unit: Unit })[]> {
+    const conditions = [
+      eq(externalWorklogEntries.hospitalId, hospitalId),
+      eq(externalWorklogEntries.status, 'pending')
+    ];
+    
+    if (unitId) {
+      conditions.push(eq(externalWorklogEntries.unitId, unitId));
+    }
+    
+    const results = await db
+      .select()
+      .from(externalWorklogEntries)
+      .innerJoin(units, eq(units.id, externalWorklogEntries.unitId))
+      .where(and(...conditions))
+      .orderBy(desc(externalWorklogEntries.workDate));
+    
+    return results.map(r => ({
+      ...r.external_worklog_entries,
+      unit: r.units,
+    }));
+  }
+
+  async getAllWorklogEntries(hospitalId: string, filters?: {
+    unitId?: string;
+    status?: string;
+    email?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<(ExternalWorklogEntry & { unit: Unit; countersigner?: User })[]> {
+    const conditions = [eq(externalWorklogEntries.hospitalId, hospitalId)];
+    
+    if (filters?.unitId) {
+      conditions.push(eq(externalWorklogEntries.unitId, filters.unitId));
+    }
+    if (filters?.status) {
+      conditions.push(eq(externalWorklogEntries.status, filters.status as any));
+    }
+    if (filters?.email) {
+      conditions.push(eq(externalWorklogEntries.email, filters.email.toLowerCase()));
+    }
+    if (filters?.dateFrom) {
+      conditions.push(gte(externalWorklogEntries.workDate, filters.dateFrom));
+    }
+    if (filters?.dateTo) {
+      conditions.push(lte(externalWorklogEntries.workDate, filters.dateTo));
+    }
+    
+    const results = await db
+      .select()
+      .from(externalWorklogEntries)
+      .innerJoin(units, eq(units.id, externalWorklogEntries.unitId))
+      .leftJoin(users, eq(users.id, externalWorklogEntries.countersignedBy))
+      .where(and(...conditions))
+      .orderBy(desc(externalWorklogEntries.workDate));
+    
+    return results.map(r => ({
+      ...r.external_worklog_entries,
+      unit: r.units,
+      countersigner: r.users || undefined,
+    }));
+  }
+
+  async countersignWorklogEntry(id: string, userId: string, signature: string, signerName: string): Promise<ExternalWorklogEntry> {
+    const [updated] = await db
+      .update(externalWorklogEntries)
+      .set({
+        status: 'countersigned',
+        countersignature: signature,
+        countersignedAt: new Date(),
+        countersignedBy: userId,
+        countersignerName: signerName,
+        updatedAt: new Date(),
+      })
+      .where(eq(externalWorklogEntries.id, id))
+      .returning();
+    return updated;
+  }
+
+  async rejectWorklogEntry(id: string, userId: string, reason: string, signerName: string): Promise<ExternalWorklogEntry> {
+    const [updated] = await db
+      .update(externalWorklogEntries)
+      .set({
+        status: 'rejected',
+        countersignedBy: userId,
+        countersignerName: signerName,
+        rejectionReason: reason,
+        updatedAt: new Date(),
+      })
+      .where(eq(externalWorklogEntries.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getWorklogLinksByUnit(unitId: string): Promise<ExternalWorklogLink[]> {
+    return await db
+      .select()
+      .from(externalWorklogLinks)
+      .where(eq(externalWorklogLinks.unitId, unitId))
+      .orderBy(desc(externalWorklogLinks.createdAt));
   }
 }
 
