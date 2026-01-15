@@ -90,6 +90,7 @@ export const units = pgTable("units", {
   isLogisticModule: boolean("is_logistic_module").default(false), // Logistic module: cross-unit inventory & orders view
   showInventory: boolean("show_inventory").default(true), // UI control: show Inventory module for this unit
   showAppointments: boolean("show_appointments").default(true), // UI control: show Appointments tab for this unit
+  showControlledMedications: boolean("show_controlled_medications").default(false), // UI control: show Controlled (BTM) tab for this unit
   questionnairePhone: varchar("questionnaire_phone"), // Help line phone for patient questionnaire emails
   infoFlyerUrl: varchar("info_flyer_url"), // URL to unit info flyer PDF
   createdAt: timestamp("created_at").defaultNow(),

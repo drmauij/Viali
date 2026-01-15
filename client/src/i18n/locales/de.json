@@ -782,6 +782,7 @@
     "uiVisibility": "UI-Sichtbarkeit",
     "showInventory": "Inventar-Modul anzeigen",
     "showAppointments": "Termine-Tab anzeigen",
+    "showControlledMedications": "BTM-Verwaltung anzeigen",
     "questionnairePhone": "Fragebogen Hilfe-Telefon",
     "questionnairePhonePlaceholder": "+41 XX XXX XX XX",
     "questionnairePhoneHint": "Diese Telefonnummer wird in Patienten-Fragebogen-E-Mails als Kontakt für Hilfe angezeigt.",

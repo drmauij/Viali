@@ -484,6 +484,13 @@
       "when": 1768448800000,
       "tag": "0068_add_internal_appointment_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1768459053839,
+      "tag": "0069_add_show_controlled_medications",
+      "breakpoints": true
     }
   ]
 }

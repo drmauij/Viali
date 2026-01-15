@@ -12,6 +12,7 @@ interface Hospital {
   isBusinessModule?: boolean;
   isClinicModule?: boolean;
   isLogisticModule?: boolean;
+  showControlledMedications?: boolean;
 }
 
 function subscribe(callback: () => void) {

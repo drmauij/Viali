@@ -96,6 +96,7 @@ export default function Hospital() {
     isClinicModule: false,
     showInventory: true,
     showAppointments: true,
+    showControlledMedications: false,
     questionnairePhone: "",
     infoFlyerUrl: "",
   });
@@ -542,6 +543,7 @@ export default function Hospital() {
       isClinicModule: false,
       showInventory: true,
       showAppointments: true,
+      showControlledMedications: false,
       questionnairePhone: "",
       infoFlyerUrl: "",
     });
@@ -577,6 +579,7 @@ export default function Hospital() {
       isClinicModule: (unit as any).isClinicModule || false,
       showInventory: (unit as any).showInventory !== false,
       showAppointments: (unit as any).showAppointments !== false,
+      showControlledMedications: (unit as any).showControlledMedications || false,
       questionnairePhone: unit.questionnairePhone || "",
       infoFlyerUrl: (unit as any).infoFlyerUrl || "",
     });
@@ -600,6 +603,7 @@ export default function Hospital() {
       isClinicModule: type === "clinic",
       showInventory: unitForm.showInventory,
       showAppointments: unitForm.showAppointments,
+      showControlledMedications: unitForm.showControlledMedications,
       questionnairePhone: unitForm.questionnairePhone || null,
       infoFlyerUrl: unitForm.infoFlyerUrl || null,
     };
@@ -2000,6 +2004,17 @@ export default function Hospital() {
                   />
                   <Label htmlFor="show-appointments" className="text-sm font-normal cursor-pointer">
                     {t("admin.showAppointments")}
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="show-controlled-medications"
+                    checked={unitForm.showControlledMedications}
+                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, showControlledMedications: !!checked })}
+                    data-testid="checkbox-show-controlled-medications"
+                  />
+                  <Label htmlFor="show-controlled-medications" className="text-sm font-normal cursor-pointer">
+                    {t("admin.showControlledMedications")}
                   </Label>
                 </div>
               </div>

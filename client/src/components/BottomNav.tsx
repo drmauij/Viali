@@ -197,12 +197,16 @@ export default function BottomNav() {
       { id: "orders", icon: "fas fa-file-invoice", label: t('bottomNav.orders'), path: "/inventory/orders" },
       { id: "matches", icon: "fas fa-link", label: t('bottomNav.matches'), path: "/inventory/matches" },
     ];
+    // Show controlled medications tab if enabled for this unit
+    if (activeHospital?.showControlledMedications) {
+      inventoryItems.push({ id: "controlled", icon: "fas fa-pills", label: t('bottomNav.controlled', 'BTM'), path: "/inventory/controlled" });
+    }
     // Show checklists tab if there are pending checklists for this unit/role
     if (hasPendingChecklists) {
       inventoryItems.push({ id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists', 'Checklists'), path: "/inventory/checklists" });
     }
     return inventoryItems;
-  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments, hasPendingChecklists]);
+  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments, activeHospital?.showControlledMedications, hasPendingChecklists]);
 
   const isActive = (path: string) => {
     if (path === "/inventory/items") {

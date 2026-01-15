@@ -244,7 +244,7 @@ export interface IStorage {
   
   // Hospital operations
   getHospital(id: string): Promise<Hospital | undefined>;
-  getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean })[]>;
+  getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean })[]>;
   createHospital(name: string): Promise<Hospital>;
   updateHospital(id: string, updates: Partial<Hospital>): Promise<Hospital>;
   getHospitalByQuestionnaireToken(token: string): Promise<Hospital | undefined>;
@@ -925,7 +925,7 @@ export class DatabaseStorage implements IStorage {
     return hospital;
   }
 
-  async getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean })[]> {
+  async getUserHospitals(userId: string): Promise<(Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean })[]> {
     const result = await db
       .select()
       .from(hospitals)
@@ -943,7 +943,8 @@ export class DatabaseStorage implements IStorage {
       isBusinessModule: row.units.isBusinessModule ?? false,
       isClinicModule: row.units.isClinicModule ?? false,
       isLogisticModule: row.units.isLogisticModule ?? false,
-    })) as (Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean })[];
+      showControlledMedications: row.units.showControlledMedications ?? false,
+    })) as (Hospital & { role: string; unitId: string; unitName: string; isAnesthesiaModule: boolean; isSurgeryModule: boolean; isBusinessModule: boolean; isClinicModule: boolean; isLogisticModule: boolean; showControlledMedications: boolean })[];
   }
 
   async createHospital(name: string): Promise<Hospital> {

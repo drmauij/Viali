@@ -1,6 +1,6 @@
 {
-  "id": "d420d8a2-bbd4-4ede-98b0-4eda775979a6",
-  "prevId": "c623e6ee-4bd0-407e-b8a9-3b806d8ca5c0",
+  "id": "cde1753a-688c-45e4-be4e-06528f4d28ca",
+  "prevId": "d420d8a2-bbd4-4ede-98b0-4eda775979a6",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -14381,6 +14381,13 @@
           "primaryKey": false,
           "notNull": false,
           "default": true
+        },
+        "show_controlled_medications": {
+          "name": "show_controlled_medications",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
         },
         "questionnaire_phone": {
           "name": "questionnaire_phone",
