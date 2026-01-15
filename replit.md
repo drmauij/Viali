@@ -47,13 +47,14 @@ The database schema includes entities for Users, Hospitals, Items, StockLevels, 
 
 ### Database Migration Workflow (CRITICAL)
 
-**IMPORTANT: There are TWO ways to create migrations. Choose ONE, not both!**
+**Standard Workflow: Generate + Convert to Idempotent**
 
-#### Option A: Manual Idempotent Migrations (PREFERRED for production safety)
-When creating migrations manually (recommended for production deployments):
+For every database schema change, follow these steps:
 
 1. **Update schema**: Modify `shared/schema.ts` with your changes
-2. **Create manual migration file**: Create `migrations/XXXX_descriptive_name.sql` with idempotent SQL:
+2. **Generate migration**: Run `npm run db:generate` to create SQL migration file
+   - This keeps Drizzle's internal snapshot synchronized with the schema
+3. **Convert to idempotent**: Edit the generated `.sql` file to wrap statements in idempotent blocks:
    ```sql
    DO $$
    BEGIN
@@ -62,24 +63,15 @@ When creating migrations manually (recommended for production deployments):
      END IF;
    END $$;
    ```
-3. **Update journal**: Add entry to `migrations/meta/_journal.json` with next idx number
-4. **Apply migration**: Run SQL directly or restart server (auto-applies on startup)
+4. **Rename file** (optional): Rename to be descriptive, e.g., `0069_add_xyz.sql`
+   - Update the `tag` in `migrations/meta/_journal.json` to match the new filename (without `.sql`)
+5. **Apply migration**: Run `npm run db:migrate` or restart server (auto-applies on startup)
 
-**DO NOT run `npm run db:generate` after creating manual migrations!** Drizzle will create a duplicate migration file.
-
-#### Option B: Drizzle Auto-Generated Migrations
-For quick development iterations only:
-
-1. **Update schema**: Modify `shared/schema.ts` with your changes
-2. **Generate migration**: Run `npm run db:generate` to create SQL migration file
-3. **Apply migration**: Run `npm run db:migrate` or restart server
-
-**WARNING**: Auto-generated migrations are NOT idempotent and may fail on re-run.
-
-#### Avoiding Duplicate Migrations
-- If you created a manual migration, NEVER run `npm run db:generate` - it will create duplicates
-- If Drizzle creates a duplicate, delete both the `.sql` file and its entry in `_journal.json`
-- Always check `migrations/` folder after running `db:generate` for unexpected files
+**Idempotent Pattern Examples:**
+- Add column: `IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'x' AND column_name = 'y')`
+- Add table: `IF NOT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'x')`
+- Add constraint: `IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'x')`
+- Drop NOT NULL: `IF EXISTS (SELECT 1 FROM information_schema.columns WHERE ... AND is_nullable = 'NO')`
 
 **Important**: The auto-migration at server startup does NOT apply new migrations. It only marks them as applied if the schema already exists.
 
