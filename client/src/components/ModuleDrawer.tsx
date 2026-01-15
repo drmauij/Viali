@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Check, Link as LinkIcon, FileText, FileSignature } from "lucide-react";
+import { Copy, Check, Link as LinkIcon, FileText } from "lucide-react";
 
 interface ModuleCard {
   id: string;
@@ -179,18 +179,8 @@ export default function ModuleDrawer() {
       });
     }
     
-    // Contract form link is available for business module users
-    if (hasBusinessAccess && activeHospital?.id) {
-      links.push({
-        id: 'contract',
-        icon: <FileSignature className="w-4 h-4" />,
-        label: t('quickLinks.contractForm'),
-        url: `${baseUrl}/contract/${activeHospital.id}`,
-      });
-    }
-    
     return links;
-  }, [activeHospital, hasBusinessAccess, t]);
+  }, [activeHospital, t]);
 
   if (!isDrawerOpen) return null;
 
