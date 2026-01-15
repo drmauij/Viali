@@ -26,7 +26,7 @@ import autoTable from "jspdf-autotable";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
 
-type FilterType = "all" | "runningLow" | "stockout";
+type FilterType = "all" | "runningLow" | "stockout" | "archived";
 
 interface ItemWithStock extends Item {
   stockLevel?: StockLevel;
@@ -160,7 +160,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const hasLogisticsAccess = activeHospital?.isLogisticModule === true;
   const canWrite = canWriteHook && !readOnly && (!overrideUnitId || hasLogisticsAccess);
   const [searchTerm, setSearchTerm] = useState("");
-  const [includeArchived, setIncludeArchived] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState("name");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -416,7 +415,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   };
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}${includeArchived ? '&includeArchived=true' : ''}`, effectiveUnitId, includeArchived],
+    queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}${activeFilter === 'archived' ? '&includeArchived=true' : ''}`, effectiveUnitId, activeFilter],
     enabled: !!activeHospital?.id && !!effectiveUnitId,
   });
 
@@ -2645,9 +2644,12 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const filterAndSortItems = (itemsToFilter: ItemWithStock[]) => {
     let filtered = itemsToFilter;
 
-    // Hide archived items from normal browsing, but show them in search results
-    const isSearching = searchTerm && searchTerm.length > 0;
-    if (!isSearching) {
+    // Filter by archived status based on active filter
+    if (activeFilter === "archived") {
+      // Show only archived items
+      filtered = filtered.filter(item => item.status === 'archived');
+    } else {
+      // Hide archived items for all other filters
       filtered = filtered.filter(item => item.status !== 'archived');
     }
 
@@ -2672,8 +2674,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       });
     }
 
-    // Apply category filter (threshold-based)
-    if (activeFilter !== "all") {
+    // Apply category filter (threshold-based) - skip for archived filter
+    if (activeFilter !== "all" && activeFilter !== "archived") {
       filtered = filtered.filter(item => {
         const currentQty = item.stockLevel?.qtyOnHand || 0;
         const minThreshold = item.minThreshold || 0;
@@ -2744,8 +2746,9 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   }, [searchTerm, activeFilter, organizedItems.folderGroups]);
 
   const getFilterCounts = () => {
-    // Only count active items (not archived)
+    // Only count active items (not archived) for normal filters
     const activeItems = items.filter(item => item.status !== 'archived');
+    const archivedItems = items.filter(item => item.status === 'archived');
     return {
       all: activeItems.length,
       // Running low: stock > 0 but at or below min threshold
@@ -2759,6 +2762,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         const currentQty = item.stockLevel?.qtyOnHand || 0;
         return currentQty === 0;
       }).length,
+      // Archived items count
+      archived: archivedItems.length,
     };
   };
 
@@ -3000,37 +3005,25 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         </div>
 
       {/* Search */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"></i>
-          <Input
-            placeholder={t('items.search')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-8"
-            data-testid="items-search"
-          />
-          {searchTerm && (
-            <button
-              type="button"
-              onClick={() => setSearchTerm('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted"
-              data-testid="items-search-clear"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer whitespace-nowrap">
-          <input
-            type="checkbox"
-            checked={includeArchived}
-            onChange={(e) => setIncludeArchived(e.target.checked)}
-            className="rounded border-input"
-            data-testid="include-archived-checkbox"
-          />
-          {t('items.includeArchived', 'Include archived')}
-        </label>
+      <div className="relative">
+        <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"></i>
+        <Input
+          placeholder={t('items.search')}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 pr-8"
+          data-testid="items-search"
+        />
+        {searchTerm && (
+          <button
+            type="button"
+            onClick={() => setSearchTerm('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted"
+            data-testid="items-search-clear"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       {/* Filter Chips */}
@@ -3057,6 +3050,14 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         >
           <i className="fas fa-ban text-xs mr-1"></i>
           {t('items.stockoutItems', { count: filterCounts.stockout })}
+        </button>
+        <button
+          className={`status-chip whitespace-nowrap ${activeFilter === "archived" ? "bg-gray-500 text-white" : "chip-muted"}`}
+          onClick={() => setActiveFilter("archived")}
+          data-testid="filter-archived"
+        >
+          <i className="fas fa-archive text-xs mr-1"></i>
+          {t('items.archivedItems', { count: filterCounts.archived })}
         </button>
       </div>
 
