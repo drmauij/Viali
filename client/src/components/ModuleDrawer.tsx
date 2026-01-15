@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Copy, Check, Link as LinkIcon, FileText } from "lucide-react";
+import { Copy, Check, Link as LinkIcon, FileText, Clock } from "lucide-react";
 
 interface ModuleCard {
   id: string;
@@ -166,7 +166,7 @@ export default function ModuleDrawer() {
 
   // Generate quick links based on hospital configuration
   const quickLinks = useMemo(() => {
-    const links: { id: string; icon: JSX.Element; label: string; url: string }[] = [];
+    const links: { id: string; icon: JSX.Element; label: string; url: string; isRoute?: boolean }[] = [];
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
     
     // Clinic questionnaire link (if hospital has a questionnaire token)
@@ -181,6 +181,24 @@ export default function ModuleDrawer() {
     
     return links;
   }, [activeHospital, t]);
+
+  // Menu items for navigation (shown in drawer, not as copy links)
+  const menuItems = useMemo(() => {
+    const items: { id: string; icon: JSX.Element; label: string; route: string }[] = [];
+    
+    // Worklogs link - available for anesthesia and surgery module users
+    if (hasAnesthesiaAccess || hasSurgeryAccess) {
+      const worklogRoute = activeModule === 'surgery' ? '/surgery/worklogs' : '/anesthesia/worklogs';
+      items.push({
+        id: 'worklogs',
+        icon: <Clock className="w-4 h-4" />,
+        label: t('quickLinks.worklogs', 'Arbeitszeitnachweise'),
+        route: worklogRoute,
+      });
+    }
+    
+    return items;
+  }, [hasAnesthesiaAccess, hasSurgeryAccess, activeModule, t]);
 
   if (!isDrawerOpen) return null;
 
@@ -247,6 +265,31 @@ export default function ModuleDrawer() {
               </button>
             ))}
           </div>
+
+          {/* Menu Items Section (navigation links) */}
+          {menuItems.length > 0 && (
+            <div className="mt-6 pt-6 border-t border-border">
+              <div className="flex items-center gap-2 mb-4">
+                <LinkIcon className="w-5 h-5 text-muted-foreground" />
+                <h3 className="font-semibold text-foreground">{t('quickLinks.moreOptions', 'Weitere Optionen')}</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {menuItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => handleModuleClick(item.route)}
+                    className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+                    data-testid={`menu-item-${item.id}`}
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                      {item.icon}
+                    </div>
+                    <span className="text-sm font-medium text-foreground">{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Quick Links Section */}
           {quickLinks.length > 0 && (

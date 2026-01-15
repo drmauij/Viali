@@ -128,7 +128,6 @@ export default function BottomNav() {
       }
       items.push({ id: "op", icon: "fas fa-heartbeat", label: t('bottomNav.anesthesia.op'), path: "/anesthesia/op" });
       items.push({ id: "pacu", icon: "fas fa-bed-pulse", label: t('bottomNav.anesthesia.pacu'), path: "/anesthesia/pacu" });
-      items.push({ id: "worklogs", icon: "fas fa-clock", label: t('bottomNav.anesthesia.worklogs', 'Worklogs'), path: "/anesthesia/worklogs" });
       items.push({ id: "settings", icon: "fas fa-cog", label: t('bottomNav.anesthesia.settings'), path: "/anesthesia/settings" });
       return items;
     }
@@ -147,7 +146,6 @@ export default function BottomNav() {
       if (canAccessPreOp) {
         surgeryItems.push({ id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.surgery.checklists'), path: "/surgery/checklists" });
       }
-      surgeryItems.push({ id: "worklogs", icon: "fas fa-clock", label: t('bottomNav.surgery.worklogs', 'Worklogs'), path: "/surgery/worklogs" });
       return surgeryItems;
     }
     
