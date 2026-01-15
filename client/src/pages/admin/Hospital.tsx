@@ -1796,36 +1796,7 @@ export default function Hospital() {
           <h2 className="text-lg font-semibold text-foreground">{t("admin.integrations", "Integrations")}</h2>
           
           {/* Calendar Sync Integration Card (Timebutler/ICS) */}
-          <div className="bg-card border border-border rounded-lg p-6">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
-                <RefreshCw className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-foreground">{t("admin.calendarSync", "Calendar Sync")}</h3>
-                <p className="text-sm text-muted-foreground">{t("admin.calendarSyncDesc", "Sync staff absences from personal calendar URLs (e.g., Timebutler)")}</p>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-3">
-                <p>{t("admin.calendarSyncInfo", "Each staff member can configure their own calendar sync URL in the user menu (top right corner). This approach is simpler and more secure than centralized API access.")}</p>
-                
-                <h4 className="font-medium">{t("admin.howToSetup", "How staff members set up their sync:")}</h4>
-                <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
-                  <li>{t("admin.calendarStep1", "Click on their name in the top right corner")}</li>
-                  <li>{t("admin.calendarStep2", "Select 'Timebutler Sync'")}</li>
-                  <li>{t("admin.calendarStep3", "Paste their personal calendar URL from Timebutler")}</li>
-                  <li>{t("admin.calendarStep4", "Save")}</li>
-                </ol>
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                <i className="fas fa-info-circle mr-1"></i>
-                {t("admin.calendarSyncNote", "Synced absences appear in the clinic calendar. Manual syncs can be triggered from Clinic → Availability.")}
-              </p>
-            </div>
-          </div>
+          <TimebutlerSyncCard hospitalId={activeHospital?.id} />
 
           {/* Cal.com Integration Card (for RetellAI booking) */}
           <CalcomIntegrationCard hospitalId={activeHospital?.id} />
@@ -2651,6 +2622,105 @@ export default function Hospital() {
   );
 }
 
+// Timebutler Sync Card Component
+function TimebutlerSyncCard({ hospitalId }: { hospitalId?: string }) {
+  const { t } = useTranslation();
+  
+  // Sync status query
+  const { data: syncStatus } = useQuery<{
+    timebutler: {
+      lastSyncAt: string;
+      status: string;
+      error?: string | null;
+      successCount?: number;
+      failedCount?: number;
+    } | null;
+    calcom: {
+      lastSyncAt: string;
+      status: string;
+      error?: string | null;
+      successCount?: number;
+      failedCount?: number;
+    } | null;
+  }>({
+    queryKey: [`/api/clinic/${hospitalId}/sync-status`],
+    enabled: !!hospitalId,
+    refetchInterval: 60000, // Refresh every minute
+  });
+
+  const formatLastSync = (lastSyncAt?: string | null) => {
+    if (!lastSyncAt) return null;
+    const date = new Date(lastSyncAt);
+    return date.toLocaleString();
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-6">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+          <RefreshCw className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+        </div>
+        <div className="flex-1">
+          <h3 className="font-semibold text-foreground">{t("admin.calendarSync", "Calendar Sync")}</h3>
+          <p className="text-sm text-muted-foreground">{t("admin.calendarSyncDesc", "Sync staff absences from personal calendar URLs (e.g., Timebutler)")}</p>
+        </div>
+        {/* Sync Status Badge */}
+        {syncStatus?.timebutler && (
+          <div className="text-right text-xs">
+            <div className="flex items-center gap-1 justify-end">
+              {syncStatus.timebutler.status === 'completed' ? (
+                <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                  <Check className="h-3 w-3" />
+                  {t("admin.lastSync", "Last sync")}: {formatLastSync(syncStatus.timebutler.lastSyncAt)}
+                </span>
+              ) : syncStatus.timebutler.status === 'processing' ? (
+                <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {t("admin.syncing", "Syncing...")}
+                </span>
+              ) : syncStatus.timebutler.status === 'failed' ? (
+                <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <i className="fas fa-times-circle text-xs"></i>
+                  {t("admin.syncFailed", "Sync failed")}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">
+                  {t("admin.pending", "Pending")}
+                </span>
+              )}
+            </div>
+            {syncStatus.timebutler.error && (
+              <p className="text-red-500 text-xs mt-1">{syncStatus.timebutler.error}</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-4">
+        <div className="bg-muted/50 rounded-lg p-4 text-sm space-y-3">
+          <p>{t("admin.calendarSyncInfo", "Each staff member can configure their own calendar sync URL in the user menu (top right corner). This approach is simpler and more secure than centralized API access.")}</p>
+          
+          <h4 className="font-medium">{t("admin.howToSetup", "How staff members set up their sync:")}</h4>
+          <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+            <li>{t("admin.calendarStep1", "Click on their name in the top right corner")}</li>
+            <li>{t("admin.calendarStep2", "Select 'Timebutler Sync'")}</li>
+            <li>{t("admin.calendarStep3", "Paste their personal calendar URL from Timebutler")}</li>
+            <li>{t("admin.calendarStep4", "Save")}</li>
+          </ol>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-muted-foreground border-t border-border pt-3">
+          <div className="flex items-center gap-1">
+            <i className="fas fa-info-circle"></i>
+            <span>{t("admin.calendarSyncNote", "Synced absences appear in the clinic calendar. Manual syncs can be triggered from Clinic → Availability.")}</span>
+          </div>
+          <span className="text-xs text-muted-foreground">{t("admin.autoSyncInterval", "Auto-sync: every hour")}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Cal.com Integration Card Component
 function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   const { t } = useTranslation();
@@ -2678,6 +2748,28 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   }>({
     queryKey: [`/api/clinic/${hospitalId}/calcom-config`],
     enabled: !!hospitalId,
+  });
+
+  // Sync status query (for scheduled job status)
+  const { data: syncStatus } = useQuery<{
+    timebutler: {
+      lastSyncAt: string;
+      status: string;
+      error?: string | null;
+      successCount?: number;
+      failedCount?: number;
+    } | null;
+    calcom: {
+      lastSyncAt: string;
+      status: string;
+      error?: string | null;
+      successCount?: number;
+      failedCount?: number;
+    } | null;
+  }>({
+    queryKey: [`/api/clinic/${hospitalId}/sync-status`],
+    enabled: !!hospitalId,
+    refetchInterval: 60000, // Refresh every minute
   });
 
   // Cal.com provider mappings query
@@ -2858,13 +2950,43 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
               )}
             </div>
 
-            {calcomConfigData?.lastSyncAt && (
+            {/* Scheduled Job Sync Status */}
+            {syncStatus?.calcom && (
+              <div className="flex items-center gap-2 text-sm">
+                {syncStatus.calcom.status === 'completed' ? (
+                  <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <Check className="h-3 w-3" />
+                    {t("admin.lastSync", "Last sync")}: {new Date(syncStatus.calcom.lastSyncAt).toLocaleString()}
+                  </span>
+                ) : syncStatus.calcom.status === 'processing' ? (
+                  <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    {t("admin.syncing", "Syncing...")}
+                  </span>
+                ) : syncStatus.calcom.status === 'failed' ? (
+                  <span className="text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <i className="fas fa-times-circle text-xs"></i>
+                    {t("admin.syncFailed", "Sync failed")}
+                    {syncStatus.calcom.error && <span className="text-xs">- {syncStatus.calcom.error}</span>}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">
+                    {t("admin.pending", "Pending")}
+                  </span>
+                )}
+                <span className="text-xs text-muted-foreground ml-2">({t("admin.autoSyncInterval", "Auto-sync: every hour")})</span>
+              </div>
+            )}
+            
+            {/* Fallback to config lastSyncAt if no scheduled job status */}
+            {!syncStatus?.calcom && calcomConfigData?.lastSyncAt && (
               <div className="text-sm text-muted-foreground">
                 <span>{t("admin.lastSync", "Last sync")}:</span>{" "}
                 <span>{new Date(calcomConfigData.lastSyncAt).toLocaleString()}</span>
                 {calcomConfigData.lastSyncError && (
                   <span className="ml-2 text-xs text-red-500">- {calcomConfigData.lastSyncError}</span>
                 )}
+                <span className="ml-2 text-xs text-muted-foreground">({t("admin.autoSyncInterval", "Auto-sync: every hour")})</span>
               </div>
             )}
 

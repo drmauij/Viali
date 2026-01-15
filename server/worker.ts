@@ -931,6 +931,8 @@ async function processNextScheduledJob(): Promise<boolean> {
         await processAutoQuestionnaireDispatch(job);
       } else if (job.jobType === 'sync_timebutler_ics') {
         await processTimebutlerIcsSync(job);
+      } else if (job.jobType === 'sync_calcom') {
+        await processCalcomSync(job);
       } else if (job.jobType === 'pre_surgery_reminder') {
         await processPreSurgeryReminder(job);
       }
@@ -1384,7 +1386,7 @@ async function processTimebutlerIcsSync(job: any): Promise<void> {
 
 /**
  * Schedule Timebutler ICS sync jobs for all hospitals
- * This runs periodically (every 6 hours) to keep absences in sync
+ * This runs periodically (every 1 hour) to keep absences in sync
  */
 async function scheduleTimebutlerIcsSyncJobs(): Promise<void> {
   try {
@@ -1398,8 +1400,8 @@ async function scheduleTimebutlerIcsSyncJobs(): Promise<void> {
       if (lastJob) {
         const hoursSinceLastJob = (now.getTime() - new Date(lastJob.scheduledFor).getTime()) / (1000 * 60 * 60);
         
-        // Skip if we have a pending/processing job or if last job was less than 6 hours ago
-        if (lastJob.status === 'pending' || lastJob.status === 'processing' || hoursSinceLastJob < 6) {
+        // Skip if we have a pending/processing job or if last job was less than 1 hour ago
+        if (lastJob.status === 'pending' || lastJob.status === 'processing' || hoursSinceLastJob < 1) {
           continue;
         }
       }
@@ -1471,6 +1473,93 @@ async function scheduleAutoQuestionnaireJobs(): Promise<void> {
 }
 
 /**
+ * Schedule Cal.com sync jobs for hospitals with Cal.com enabled and configured
+ * This runs periodically (every 1 hour) to keep Cal.com in sync
+ */
+async function scheduleCalcomSyncJobs(): Promise<void> {
+  try {
+    // Only get hospitals that have Cal.com enabled and configured
+    const { calcomConfig } = await import("@shared/schema");
+    const enabledConfigs = await db
+      .select({ hospitalId: calcomConfig.hospitalId })
+      .from(calcomConfig)
+      .where(eq(calcomConfig.isEnabled, true));
+    
+    if (enabledConfigs.length === 0) {
+      return; // No hospitals have Cal.com enabled
+    }
+    
+    const now = new Date();
+    
+    for (const config of enabledConfigs) {
+      // Check if there's already a pending or recent job
+      const lastJob = await storage.getLastScheduledJobForHospital(config.hospitalId, 'sync_calcom');
+      
+      if (lastJob) {
+        const hoursSinceLastJob = (now.getTime() - new Date(lastJob.scheduledFor).getTime()) / (1000 * 60 * 60);
+        
+        // Skip if we have a pending/processing job or if last job was less than 1 hour ago
+        if (lastJob.status === 'pending' || lastJob.status === 'processing' || hoursSinceLastJob < 1) {
+          continue;
+        }
+      }
+      
+      // Schedule a new job for now
+      await storage.createScheduledJob({
+        jobType: 'sync_calcom',
+        hospitalId: config.hospitalId,
+        scheduledFor: now,
+        status: 'pending',
+      });
+      
+      console.log(`[Worker] Scheduled Cal.com sync job for hospital ${config.hospitalId}`);
+    }
+  } catch (error: any) {
+    console.error('[Worker] Error scheduling Cal.com sync jobs:', error);
+  }
+}
+
+/**
+ * Process Cal.com sync job for a hospital
+ * Syncs all appointments and surgeries to Cal.com for mapped providers
+ */
+async function processCalcomSync(job: any): Promise<void> {
+  console.log(`[Worker] Starting Cal.com sync for hospital ${job.hospitalId}`);
+  
+  try {
+    const { syncAppointmentsToCalcom, syncSurgeriesToCalcom } = await import("./services/calcomSync");
+    
+    const appointmentsResult = await syncAppointmentsToCalcom(job.hospitalId);
+    const surgeriesResult = await syncSurgeriesToCalcom(job.hospitalId);
+    
+    const totalSynced = appointmentsResult.synced + surgeriesResult.synced;
+    const totalErrors = appointmentsResult.errors.length + surgeriesResult.errors.length;
+    
+    await storage.updateScheduledJob(job.id, {
+      status: 'completed',
+      completedAt: new Date(),
+      processedCount: totalSynced,
+      successCount: totalSynced,
+      failedCount: totalErrors,
+      results: {
+        appointments: appointmentsResult,
+        surgeries: surgeriesResult,
+      },
+    });
+    
+    console.log(`[Worker] Completed Cal.com sync: ${appointmentsResult.synced} appointments, ${surgeriesResult.synced} surgeries synced`);
+  } catch (error: any) {
+    console.error(`[Worker] Cal.com sync error:`, error);
+    
+    await storage.updateScheduledJob(job.id, {
+      status: 'failed',
+      completedAt: new Date(),
+      error: error.message || 'Cal.com sync failed',
+    });
+  }
+}
+
+/**
  * Schedule pre-surgery reminder jobs for all hospitals
  * Runs every hour to check for surgeries happening in 24 hours
  */
@@ -1488,8 +1577,8 @@ async function schedulePreSurgeryReminderJobs() {
         const lastJobDate = new Date(lastJob.scheduledFor);
         const hoursSinceLastJob = (now.getTime() - lastJobDate.getTime()) / (1000 * 60 * 60);
         
-        // Only schedule a new job if at least 6 hours have passed
-        if (hoursSinceLastJob < 6 && (lastJob.status === 'completed' || lastJob.status === 'pending' || lastJob.status === 'processing')) {
+        // Only schedule a new job if at least 1 hour has passed
+        if (hoursSinceLastJob < 1 && (lastJob.status === 'completed' || lastJob.status === 'pending' || lastJob.status === 'processing')) {
           continue;
         }
       }
@@ -1800,6 +1889,7 @@ async function workerLoop() {
       if (Date.now() - lastScheduledJobCheck >= SCHEDULED_JOB_CHECK_INTERVAL_MS) {
         await scheduleAutoQuestionnaireJobs();
         await scheduleTimebutlerIcsSyncJobs();
+        await scheduleCalcomSyncJobs();
         await schedulePreSurgeryReminderJobs();
         lastScheduledJobCheck = Date.now();
       }

@@ -2732,6 +2732,43 @@ router.get('/api/clinic/:hospitalId/provider-surgeries', isAuthenticated, isClin
 });
 
 // ========================================
+// Sync Status Endpoint
+// ========================================
+
+// Get sync status for Timebutler ICS and Cal.com
+router.get('/api/clinic/:hospitalId/sync-status', isAuthenticated, isClinicAccess, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    
+    // Get last completed/pending jobs for each sync type
+    const [timebutlerJob, calcomJob] = await Promise.all([
+      storage.getLastScheduledJobForHospital(hospitalId, 'sync_timebutler_ics'),
+      storage.getLastScheduledJobForHospital(hospitalId, 'sync_calcom'),
+    ]);
+    
+    res.json({
+      timebutler: timebutlerJob ? {
+        lastSyncAt: timebutlerJob.completedAt || timebutlerJob.scheduledFor,
+        status: timebutlerJob.status,
+        error: timebutlerJob.status === 'failed' ? timebutlerJob.error : null,
+        successCount: timebutlerJob.successCount,
+        failedCount: timebutlerJob.failedCount,
+      } : null,
+      calcom: calcomJob ? {
+        lastSyncAt: calcomJob.completedAt || calcomJob.scheduledFor,
+        status: calcomJob.status,
+        error: calcomJob.status === 'failed' ? calcomJob.error : null,
+        successCount: calcomJob.successCount,
+        failedCount: calcomJob.failedCount,
+      } : null,
+    });
+  } catch (error) {
+    console.error("Error fetching sync status:", error);
+    res.status(500).json({ message: "Failed to fetch sync status" });
+  }
+});
+
+// ========================================
 // Cal.com Integration
 // ========================================
 
