@@ -160,6 +160,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const hasLogisticsAccess = activeHospital?.isLogisticModule === true;
   const canWrite = canWriteHook && !readOnly && (!overrideUnitId || hasLogisticsAccess);
   const [searchTerm, setSearchTerm] = useState("");
+  const [includeArchived, setIncludeArchived] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState("name");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -415,7 +416,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   };
 
   const { data: items = [], isLoading } = useQuery<ItemWithStock[]>({
-    queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId],
+    queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}${includeArchived ? '&includeArchived=true' : ''}`, effectiveUnitId, includeArchived],
     enabled: !!activeHospital?.id && !!effectiveUnitId,
   });
 
@@ -1929,8 +1930,13 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       const isPack = item.unit === "Pack";
       const tracksExact = item.trackExactQuantity && isPack;
       
-      // Current Stock: qtyOnHand represents packs for Pack items, units for Single unit items
-      const stockLabel = isPack ? `${stockQty} packs` : `${stockQty} units`;
+      // Current Stock: when trackExactQuantity is enabled, calculate from currentUnits
+      // Otherwise, use qtyOnHand directly
+      let displayStock = stockQty;
+      if (tracksExact && item.packSize && item.packSize > 0) {
+        displayStock = Math.ceil((item.currentUnits || 0) / item.packSize);
+      }
+      const stockLabel = isPack ? `${displayStock} packs` : `${displayStock} units`;
       
       // Pack Size: only show if Pack AND trackExactQuantity is enabled
       const packSizeValue = tracksExact ? String(item.packSize || 1) : "-";
@@ -2994,25 +3000,37 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         </div>
 
       {/* Search */}
-      <div className="relative">
-        <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"></i>
-        <Input
-          placeholder={t('items.search')}
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 pr-8"
-          data-testid="items-search"
-        />
-        {searchTerm && (
-          <button
-            type="button"
-            onClick={() => setSearchTerm('')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted"
-            data-testid="items-search-clear"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        )}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <div className="relative flex-1">
+          <i className="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"></i>
+          <Input
+            placeholder={t('items.search')}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-8"
+            data-testid="items-search"
+          />
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => setSearchTerm('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full hover:bg-muted"
+              data-testid="items-search-clear"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer whitespace-nowrap">
+          <input
+            type="checkbox"
+            checked={includeArchived}
+            onChange={(e) => setIncludeArchived(e.target.checked)}
+            className="rounded border-input"
+            data-testid="include-archived-checkbox"
+          />
+          {t('items.includeArchived', 'Include archived')}
+        </label>
       </div>
 
       {/* Filter Chips */}

@@ -213,7 +213,7 @@ router.delete('/api/folders/:folderId', isAuthenticated, requireWriteAccess, asy
 router.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const { critical, controlled, belowMin, expiring, unitId, module: moduleType } = req.query;
+    const { critical, controlled, belowMin, expiring, unitId, module: moduleType, includeArchived } = req.query;
     const userId = req.user.id;
     
     const userHospitals = await storage.getUserHospitals(userId);
@@ -251,13 +251,15 @@ router.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
       controlled: controlled === 'true',
       belowMin: belowMin === 'true',
       expiring: expiring === 'true',
+      includeArchived: includeArchived === 'true',
     };
     
     const activeFilters = Object.fromEntries(
       Object.entries(filters).filter(([_, value]) => value)
     );
     
-    const itemsList = await storage.getItems(hospitalId, effectiveUnitId, Object.keys(activeFilters).length > 0 ? activeFilters : undefined);
+    // Always pass filters if includeArchived is requested
+    const itemsList = await storage.getItems(hospitalId, effectiveUnitId, includeArchived === 'true' ? { ...activeFilters, includeArchived: true } : (Object.keys(activeFilters).length > 0 ? activeFilters : undefined));
     res.json(itemsList);
   } catch (error) {
     console.error("Error fetching items:", error);

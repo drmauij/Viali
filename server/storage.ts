@@ -1023,13 +1023,18 @@ export class DatabaseStorage implements IStorage {
     controlled?: boolean;
     belowMin?: boolean;
     expiring?: boolean;
+    includeArchived?: boolean;
   }): Promise<(Item & { stockLevel?: StockLevel; soonestExpiry?: Date })[]> {
-    // Build conditions: hospitalId, unitId, exclude archived items, and optional filters
+    // Build conditions: hospitalId, unitId, optionally exclude archived items, and optional filters
     const conditions = [
       eq(items.hospitalId, hospitalId), 
       eq(items.unitId, unitId),
-      eq(items.status, 'active')
     ];
+    
+    // Only filter to active items if not explicitly including archived
+    if (!filters?.includeArchived) {
+      conditions.push(eq(items.status, 'active'));
+    }
     
     // Apply filters
     if (filters?.critical) {
