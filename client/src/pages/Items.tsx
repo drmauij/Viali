@@ -1882,7 +1882,10 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     const folderMap = new Map<string, Folder>();
     folders.forEach(folder => folderMap.set(folder.id, folder));
 
-    const sortedItems = [...items].sort((a, b) => {
+    // Filter out archived items
+    const activeItems = items.filter(item => item.status !== 'archived');
+
+    const sortedItems = [...activeItems].sort((a, b) => {
       const aFolder = a.folderId ? folderMap.get(a.folderId) : null;
       const bFolder = b.folderId ? folderMap.get(b.folderId) : null;
       const aFolderName = aFolder?.name || "Uncategorized";
@@ -1991,7 +1994,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
 
     toast({
       title: "Inventory Exported",
-      description: `Downloaded ${items.length} items organized by folder as PDF.`,
+      description: `Downloaded ${activeItems.length} items organized by folder as PDF.`,
     });
   };
 
