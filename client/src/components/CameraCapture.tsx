@@ -15,6 +15,7 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -22,6 +23,7 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
         stream.getTracks().forEach(track => track.stop());
         setStream(null);
       }
+      setIsVideoReady(false);
       return;
     }
 
@@ -39,6 +41,13 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
         
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
+          // Wait for video to be ready before enabling capture
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play();
+          };
+          videoRef.current.onplaying = () => {
+            setIsVideoReady(true);
+          };
         }
       } catch (err) {
         console.error("Error accessing camera:", err);
@@ -50,7 +59,7 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
   }, [isOpen]);
 
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current || !canvasRef.current || !isVideoReady) return;
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -191,11 +200,12 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
               </Button>
               <Button
                 onClick={capturePhoto}
-                className="bg-accent hover:bg-accent/90 px-6"
+                disabled={!isVideoReady}
+                className="bg-accent hover:bg-accent/90 px-6 disabled:opacity-50"
                 data-testid="capture-photo"
               >
-                <i className="fas fa-camera mr-2"></i>
-                {t('controlled.capture')}
+                <i className={`fas ${isVideoReady ? 'fa-camera' : 'fa-spinner fa-spin'} mr-2`}></i>
+                {isVideoReady ? t('controlled.capture') : t('common.loading')}
               </Button>
             </div>
 
