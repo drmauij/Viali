@@ -20,6 +20,7 @@ import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService, ClinicProvider } from "@shared/schema";
 import AppointmentsTimelineWeekView from "./AppointmentsTimelineWeekView";
 import ProviderFilterDialog from "./ProviderFilterDialog";
+import EditTimeOffDialog from "./EditTimeOffDialog";
 
 const CALENDAR_VIEW_KEY = "clinic_calendar_view";
 const CALENDAR_DATE_KEY = "clinic_calendar_date";
@@ -208,6 +209,9 @@ export default function ClinicCalendar({
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
   const [selectedProviderIds, setSelectedProviderIds] = useState<Set<string>>(new Set());
   const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
+  const [editTimeOffOpen, setEditTimeOffOpen] = useState(false);
+  const [selectedTimeOff, setSelectedTimeOff] = useState<ProviderTimeOff | null>(null);
+  const [selectedTimeOffProviderName, setSelectedTimeOffProviderName] = useState<string>("");
 
   useEffect(() => {
     sessionStorage.setItem(CALENDAR_VIEW_KEY, currentView);
@@ -971,8 +975,21 @@ export default function ClinicCalendar({
   }, [currentView, onBookAppointment, isSlotBlocked, toast, t]);
 
   const handleSelectEvent = useCallback((event: CalendarEvent, _e: React.SyntheticEvent) => {
-    // Don't allow clicking on non-appointment blocks
-    if (event.isSurgeryBlock || event.isAbsenceBlock || event.isTimeOffBlock || event.isAvailabilityWindow) return;
+    // Don't allow clicking on surgery, absence, or availability window blocks
+    if (event.isSurgeryBlock || event.isAbsenceBlock || event.isAvailabilityWindow) return;
+    
+    // Handle time-off block clicks - open edit dialog
+    if (event.isTimeOffBlock && event.appointmentId) {
+      const timeOff = providerTimeOffs.find((to: ProviderTimeOff) => to.id === event.appointmentId);
+      if (timeOff) {
+        const provider = providers.find(p => p.id === timeOff.providerId);
+        const providerName = provider ? `${provider.firstName} ${provider.lastName}`.trim() : '';
+        setSelectedTimeOff(timeOff);
+        setSelectedTimeOffProviderName(providerName);
+        setEditTimeOffOpen(true);
+      }
+      return;
+    }
     
     // Skip if no valid appointmentId
     if (!event.appointmentId) return;
@@ -983,7 +1000,7 @@ export default function ClinicCalendar({
         onEventClick(appointment);
       }
     }
-  }, [onEventClick, appointments]);
+  }, [onEventClick, appointments, providerTimeOffs, providers]);
 
   const eventStyleGetter: EventPropGetter<CalendarEvent> = useCallback((event: CalendarEvent) => {
     // Surgery blocks: dark slate, non-interactive with better contrast
@@ -1018,7 +1035,7 @@ export default function ClinicCalendar({
       };
     }
     
-    // Time off blocks: orange, non-interactive
+    // Time off blocks: orange, clickable for editing
     if (event.isTimeOffBlock) {
       return {
         style: {
@@ -1029,7 +1046,7 @@ export default function ClinicCalendar({
           opacity: 0.9,
           border: '1px solid',
           display: 'block',
-          cursor: 'not-allowed',
+          cursor: 'pointer',
         },
       };
     }
@@ -1415,6 +1432,15 @@ export default function ClinicCalendar({
         onApplyFilter={(newSelectedIds) => {
           setSelectedProviderIds(newSelectedIds);
         }}
+      />
+
+      <EditTimeOffDialog
+        open={editTimeOffOpen}
+        onOpenChange={setEditTimeOffOpen}
+        timeOff={selectedTimeOff}
+        hospitalId={hospitalId}
+        unitId={unitId}
+        providerName={selectedTimeOffProviderName}
       />
 
     </div>
