@@ -114,8 +114,9 @@ router.post('/api/folders', isAuthenticated, requireWriteAccess, async (req: any
     const folderData = insertFolderSchema.parse(req.body);
     const userId = req.user.id;
     
-    const unitId = await getUserUnitForHospital(userId, folderData.hospitalId);
-    if (!unitId || unitId !== folderData.unitId) {
+    // Pass the requested unitId to verify the user has access to this specific unit
+    const unitId = await getUserUnitForHospital(userId, folderData.hospitalId, folderData.unitId);
+    if (!unitId) {
       return res.status(403).json({ message: "Access denied to this hospital/unit" });
     }
     
