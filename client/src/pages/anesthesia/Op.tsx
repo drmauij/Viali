@@ -1377,7 +1377,6 @@ export default function Op() {
           cameraDeviceName={connectedCameraDevice?.name}
           isCameraConnected={!!anesthesiaRecord?.cameraDeviceId}
           onOpenCameraDialog={!isSurgeryMode ? () => setShowCameraDialog(true) : undefined}
-          pacuBedName={pacuBedName}
         />
 
         {/* Tabbed Content */}
@@ -1474,7 +1473,7 @@ export default function Op() {
                   {isPacuMode ? (
                     <>
                       <ToggleRight className="h-4 w-4" />
-                      <span className="hidden sm:inline">PACU</span>
+                      <span className="hidden sm:inline">{pacuBedName || 'PACU'}</span>
                     </>
                   ) : (
                     <>

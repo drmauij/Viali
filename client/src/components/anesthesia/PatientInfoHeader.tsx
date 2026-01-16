@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { UserCircle, AlertCircle, Download, X, Wifi, WifiOff, RefreshCw, Users, Camera, CameraOff, Bed } from "lucide-react";
+import { UserCircle, AlertCircle, Download, X, Wifi, WifiOff, RefreshCw, Users, Camera, CameraOff } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
 
@@ -27,7 +27,6 @@ interface PatientInfoHeaderProps {
   cameraDeviceName?: string | null;
   isCameraConnected?: boolean;
   onOpenCameraDialog?: () => void;
-  pacuBedName?: string | null;
 }
 
 export function PatientInfoHeader({
@@ -49,7 +48,6 @@ export function PatientInfoHeader({
   cameraDeviceName,
   isCameraConnected = false,
   onOpenCameraDialog,
-  pacuBedName,
 }: PatientInfoHeaderProps) {
   const { t } = useTranslation();
 
@@ -260,19 +258,6 @@ export function PatientInfoHeader({
             </div>
           )}
 
-          {/* PACU Bed Badge */}
-          {pacuBedName && (
-            <div 
-              className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-blue-50 dark:bg-blue-950 border border-blue-300 dark:border-blue-700 rounded-lg"
-              data-testid="pacu-bed-badge"
-            >
-              <Bed className="h-4 w-4 md:h-5 md:w-5 text-blue-600 dark:text-blue-400" />
-              <div>
-                <p className="text-xs font-medium text-blue-700 dark:text-blue-300">{t('pacu.pacuBed', 'PACU BED').toUpperCase()}</p>
-                <p className="text-sm font-semibold text-blue-900 dark:text-blue-100">{pacuBedName}</p>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>
