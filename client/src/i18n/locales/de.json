@@ -541,7 +541,21 @@
     "universalCodes": "Universelle Codes",
     "packInformation": "Packungsinformation",
     "saveCodes": "Codes speichern",
-    "supplierPricing": "Lieferantenpreise"
+    "supplierPricing": "Lieferantenpreise",
+    "scanBarcodes": "Barcodes scannen",
+    "scanBarcodesDesc": "GTIN/EAN Suche via Galexis",
+    "uploadPhotos": "Fotos hochladen",
+    "uploadPhotosDesc": "KI extrahiert Artikeldetails",
+    "uploadCsvExcel": "CSV/Excel hochladen",
+    "uploadCsvExcelDesc": "Aus Tabelle importieren",
+    "bulkCodesAnalyzed": "{{total}} Bilder analysiert, {{found}} in Galexis gefunden",
+    "failedToAnalyzeBarcodes": "Barcode-Bilder konnten nicht analysiert werden",
+    "sourceGalexis": "Galexis",
+    "sourceOcr": "OCR",
+    "sourceError": "Fehler",
+    "priceInfo": "Preisinformationen",
+    "yourPrice": "Ihr Preis",
+    "listPrice": "Listenpreis"
   },
   "orders": {
     "title": "Bestellungen",

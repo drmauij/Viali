@@ -542,7 +542,21 @@
     "universalCodes": "Universal Codes",
     "packInformation": "Pack Information",
     "saveCodes": "Save Codes",
-    "supplierPricing": "Supplier Pricing"
+    "supplierPricing": "Supplier Pricing",
+    "scanBarcodes": "Scan Barcodes",
+    "scanBarcodesDesc": "GTIN/EAN lookup via Galexis",
+    "uploadPhotos": "Upload Photos",
+    "uploadPhotosDesc": "AI extracts item details",
+    "uploadCsvExcel": "Upload CSV/Excel",
+    "uploadCsvExcelDesc": "Import from spreadsheet",
+    "bulkCodesAnalyzed": "Analyzed {{total}} images, {{found}} found in Galexis",
+    "failedToAnalyzeBarcodes": "Failed to analyze barcode images",
+    "sourceGalexis": "Galexis",
+    "sourceOcr": "OCR",
+    "sourceError": "Error",
+    "priceInfo": "Price Info",
+    "yourPrice": "Your Price",
+    "listPrice": "List Price"
   },
   "orders": {
     "title": "Purchase Orders",

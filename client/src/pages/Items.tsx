@@ -228,6 +228,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const editCurrentUnitsInputRef = useRef<HTMLInputElement>(null);
   const editActualStockInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
+  const barcodeFileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   
   // Auto-select handler for number inputs (with workaround for browser compatibility)
@@ -247,7 +248,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [bulkImportLimit, setBulkImportLimit] = useState(10); // Default to free tier limit
   
   // CSV import state
-  const [importMode, setImportMode] = useState<'select' | 'image' | 'csv'>('select');
+  const [importMode, setImportMode] = useState<'select' | 'image' | 'csv' | 'barcodes'>('select');
   const [csvData, setCsvData] = useState<any[]>([]);
   const [csvHeaders, setCsvHeaders] = useState<string[]>([]);
   const [csvMapping, setCsvMapping] = useState<Record<string, string>>({});
@@ -2271,6 +2272,87 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       });
       setIsBulkAnalyzing(false);
     } finally {
+      e.target.value = '';
+    }
+  };
+
+  const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    if (files.length > bulkImportLimit) {
+      toast({
+        title: t('items.tooManyImages'),
+        description: t('items.maxImagesAllowed', { count: bulkImportLimit }),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsBulkAnalyzing(true);
+    const images: string[] = [];
+    
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const compressedImage = await compressImage(files[i]);
+        images.push(compressedImage);
+      }
+      setBulkImages(images);
+      setImportMode('barcodes');
+      
+      // Call the bulk codes analysis endpoint
+      const response = await apiRequest('POST', '/api/items/analyze-bulk-codes', {
+        images,
+        hospitalId: activeHospital?.id,
+      });
+      const result = await response.json();
+      
+      if (result.items && Array.isArray(result.items)) {
+        // Map to bulkItems format
+        const items = result.items.map((item: any, idx: number) => {
+          // Build barcodes array from GTIN and pharmacode
+          const barcodes: string[] = [];
+          if (item.gtin) barcodes.push(item.gtin);
+          if (item.pharmacode) barcodes.push(item.pharmacode);
+          
+          return {
+            name: item.name || '',
+            description: item.description || '',
+            gtin: item.gtin || '',
+            pharmacode: item.pharmacode || '',
+            barcodes,
+            basispreis: item.basispreis,
+            publikumspreis: item.publikumspreis,
+            yourPrice: item.yourPrice,
+            available: item.available,
+            source: item.source || 'ocr',
+            galexisFound: item.galexisFound || false,
+            error: item.error,
+            unit: 'Pack',
+            initialStock: 0,
+            minThreshold: 1,
+            maxThreshold: 10,
+            critical: false,
+            controlled: false,
+            selected: !item.error && item.name,
+          };
+        });
+        setBulkItems(items);
+        
+        const foundCount = items.filter((i: any) => i.galexisFound).length;
+        toast({
+          title: t('common.success'),
+          description: t('items.bulkCodesAnalyzed', { total: items.length, found: foundCount }),
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: t('common.error'),
+        description: error.message || t('items.failedToAnalyzeBarcodes'),
+        variant: "destructive",
+      });
+    } finally {
+      setIsBulkAnalyzing(false);
       e.target.value = '';
     }
   };
@@ -5556,7 +5638,27 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 onChange={handleBulkImageUpload}
                 className="hidden"
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <input
+                type="file"
+                ref={barcodeFileInputRef}
+                accept="image/*"
+                multiple
+                onChange={handleBarcodeImageUpload}
+                className="hidden"
+              />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-32 flex flex-col border-2 border-primary bg-primary/5"
+                  onClick={() => barcodeFileInputRef.current?.click()}
+                  disabled={isBulkAnalyzing}
+                  data-testid="button-bulk-barcodes"
+                >
+                  <i className={`fas ${isBulkAnalyzing ? 'fa-spinner fa-spin' : 'fa-barcode'} text-4xl mb-2 text-primary`}></i>
+                  <div className="font-semibold">{isBulkAnalyzing ? t('items.analyzing') : t('items.scanBarcodes')}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{t('items.scanBarcodesDesc')}</div>
+                </Button>
                 <Button
                   type="button"
                   variant="outline"
@@ -5566,8 +5668,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   data-testid="button-bulk-upload"
                 >
                   <i className={`fas ${isBulkAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} text-4xl mb-2`}></i>
-                  <div className="font-semibold">{isBulkAnalyzing ? t('items.analyzing') : 'Upload Photos'}</div>
-                  <div className="text-xs text-muted-foreground mt-1">AI will extract item details</div>
+                  <div className="font-semibold">{isBulkAnalyzing ? t('items.analyzing') : t('items.uploadPhotos')}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{t('items.uploadPhotosDesc')}</div>
                 </Button>
                 <Button
                   type="button"
@@ -5577,8 +5679,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   data-testid="button-csv-upload"
                 >
                   <i className="fas fa-file-excel text-4xl mb-2"></i>
-                  <div className="font-semibold">Upload CSV/Excel</div>
-                  <div className="text-xs text-muted-foreground mt-1">Import from spreadsheet (.csv, .xlsx)</div>
+                  <div className="font-semibold">{t('items.uploadCsvExcel')}</div>
+                  <div className="text-xs text-muted-foreground mt-1">{t('items.uploadCsvExcelDesc')}</div>
                 </Button>
               </div>
               <div className="flex justify-center">
@@ -5858,7 +5960,45 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               </div>
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {bulkItems.map((item, idx) => (
-                  <div key={idx} className="p-3 border rounded-lg space-y-2" data-testid={`bulk-item-${idx}`}>
+                  <div key={idx} className={`p-3 border rounded-lg space-y-2 ${item.error ? 'border-red-300 bg-red-50/50 dark:bg-red-900/10' : item.galexisFound ? 'border-green-300 bg-green-50/50 dark:bg-green-900/10' : ''}`} data-testid={`bulk-item-${idx}`}>
+                    {/* Source badge and GTIN for barcode imports */}
+                    {importMode === 'barcodes' && (
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          {item.source === 'galexis' && (
+                            <span className="px-2 py-0.5 rounded bg-green-500/20 text-green-700 dark:text-green-400 text-xs font-medium">
+                              <i className="fas fa-check-circle mr-1"></i>{t('items.sourceGalexis')}
+                            </span>
+                          )}
+                          {item.source === 'ocr' && !item.galexisFound && (
+                            <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-medium">
+                              <i className="fas fa-eye mr-1"></i>{t('items.sourceOcr')}
+                            </span>
+                          )}
+                          {item.error && (
+                            <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-700 dark:text-red-400 text-xs font-medium">
+                              <i className="fas fa-exclamation-triangle mr-1"></i>{t('items.sourceError')}
+                            </span>
+                          )}
+                          {item.gtin && (
+                            <span className="text-xs text-muted-foreground font-mono">GTIN: {item.gtin}</span>
+                          )}
+                          {item.pharmacode && (
+                            <span className="text-xs text-muted-foreground font-mono">Pharmacode: {item.pharmacode}</span>
+                          )}
+                        </div>
+                        {item.yourPrice && (
+                          <div className="text-right">
+                            <span className="text-xs text-muted-foreground">{t('items.yourPrice')}: </span>
+                            <span className="text-sm font-semibold text-green-600">CHF {item.yourPrice.toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {item.error ? (
+                      <div className="text-sm text-red-600">{item.error}</div>
+                    ) : (
+                      <>
                     <div>
                       <Label className="text-xs">{t('items.name')}</Label>
                       <Input
@@ -5928,6 +6068,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                         {item.controlled && <span className="px-2 py-1 rounded bg-orange-500/20 text-orange-500 text-xs">{t('items.controlled')}</span>}
                       </div>
                     </div>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
