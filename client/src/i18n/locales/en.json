@@ -3457,6 +3457,134 @@
       "weeklyPattern": "Weekly Surgery Pattern",
       "weeklyPatternDesc": "Surgery volume and duration by day of week",
       "surgeryCount": "Surgery Count"
+    },
+    "contracts": {
+      "title": "Employee Contracts",
+      "subtitle": "Manage temporary employment contracts",
+      "contractLinkTitle": "Contract Link for Employees",
+      "contractLinkDescription": "Share this link with temporary employees to allow them to fill out and sign the contract.",
+      "loading": "Loading...",
+      "noHospitalSelected": "No hospital selected",
+      "tabs": {
+        "pending": "Pending Signature",
+        "pendingShort": "Pending",
+        "signed": "Signed",
+        "signedShort": "Signed",
+        "archived": "Archived",
+        "archivedShort": "Archive"
+      },
+      "status": {
+        "signed": "Signed",
+        "pendingSignature": "Awaiting Signature",
+        "pendingShort": "Pending",
+        "rejected": "Rejected"
+      },
+      "empty": {
+        "pending": "No contracts pending signature",
+        "signed": "No signed contracts yet",
+        "archived": "No archived contracts"
+      },
+      "actions": {
+        "sign": "Sign",
+        "download": "PDF",
+        "downloadPdf": "Download PDF",
+        "archive": "Archive",
+        "restore": "Restore",
+        "sendEmail": "Send contract via email"
+      },
+      "card": {
+        "submitted": "Submitted",
+        "perHour": "/hr"
+      },
+      "dialog": {
+        "viewTitle": "Contract Details",
+        "signTitle": "Sign Contract",
+        "signDescription": "Please read the contract carefully and sign below.",
+        "addCountersignature": "Add Countersignature",
+        "yourSignature": "Your Signature"
+      },
+      "toast": {
+        "signed": "Contract signed",
+        "signedDesc": "The contract has been successfully signed.",
+        "signError": "Error",
+        "signErrorDesc": "The contract could not be signed.",
+        "linkCopied": "Link copied",
+        "linkCopiedDesc": "The contract link has been copied to clipboard.",
+        "linkRegenerated": "Link regenerated",
+        "linkRegeneratedDesc": "The contract link has been renewed.",
+        "archived": "Contract archived",
+        "archivedDesc": "The contract has been successfully archived.",
+        "archiveError": "Error",
+        "archiveErrorDesc": "The contract could not be archived.",
+        "restored": "Contract restored",
+        "restoredDesc": "The contract has been successfully restored.",
+        "restoreError": "Error",
+        "restoreErrorDesc": "The contract could not be restored.",
+        "emailSent": "Email sent",
+        "emailSentDesc": "The contract has been successfully sent via email.",
+        "emailError": "Error",
+        "emailErrorDesc": "The email could not be sent.",
+        "noEmail": "No email address available",
+        "pdfError": "PDF could not be generated"
+      },
+      "roles": {
+        "awr_nurse": {
+          "title": "Day Clinic Nurse (AWR-Nurse)",
+          "rate": "CHF 75.00",
+          "description": "registered nurse with additional training as intensive care expert",
+          "roleTitle": "IMC nurse in recovery room"
+        },
+        "anesthesia_nurse": {
+          "title": "Nurse Anesthetist",
+          "rate": "CHF 80.00",
+          "description": "registered nurse with additional training as anesthesia care expert",
+          "roleTitle": "Anesthesia nurse"
+        },
+        "anesthesia_doctor": {
+          "title": "Anesthesiologist",
+          "rate": "CHF 150.00",
+          "description": "specialist in anesthesiology, recognized in Switzerland",
+          "roleTitle": "Anesthesiologist"
+        }
+      },
+      "preview": {
+        "title": "Contract for Short-Term On-Call Assignments",
+        "between": "between",
+        "and": "and",
+        "client": "- Client -",
+        "contractor": "- Contractor -",
+        "phone": "Phone",
+        "email": "Email",
+        "iban": "IBAN",
+        "dob": "DOB",
+        "noSignature": "No signature",
+        "awaitingCountersignature": "Awaiting countersignature",
+        "location": "Location"
+      },
+      "sections": {
+        "preamble": "Preamble",
+        "preambleText": "{{companyName}} offers the opportunity for hourly work on individual days in the areas of IMC care, anesthesia care, and medical anesthesia. The contractor is willing to be available on call for hourly service provision in their specialty area by arrangement in the future.",
+        "subject": "1. Subject of Contract",
+        "subjectText": "The contractor is {{description}}, recognized in Switzerland. They commit to providing services as {{roleTitle}} for the client. The contractor provides their services under their own professional responsibility. The contractor follows the instructions of the management and the leading surgeon (Dr. med. Lena Schumann). They must take breaks (without compensation) as directed.",
+        "workplace": "2. Workplace",
+        "workplaceText": "The workplace is located at {{companyName}}, {{companyStreet}}, {{companyPostalCode}} {{companyCity}}.",
+        "workingHours": "3. Working Hours and Call",
+        "workingHoursText": "Deployment occurs as needed by the client. Appointments confirmed by the contractor in writing or by email are binding. Appointments may only be cancelled in case of illness, whereby the contractor must notify of an expected absence as early as possible (48 hours in advance). They must also inform the client early about the potential eventuality of an illness-related absence so that replacement staff can be planned in time.",
+        "compensation": "4. Compensation",
+        "compensationText": "The contractor receives a gross hourly wage of {{rate}} ({{title}}) for the work performed. Payment is made in the month following the assignment to the bank account specified by the contractor. The contractor must have the daily hourly deployment confirmed by the medical management (Dr. med. Lena Schumann). At the end of the month, the contractor submits their confirmed hour statement to the client for billing.",
+        "socialInsurance": "5. Social Insurance",
+        "socialInsuranceText": "This contract is subject to the legal provisions of social insurance in Switzerland. The client commits to paying all required contributions for AHV and ALV. The contractor's contributions are deducted from the gross wage.",
+        "vacation": "6. Inclusion and Settlement of Vacation Entitlements and Continued Payment",
+        "vacationText": "Given the short duration of work assignments, vacation entitlement and entitlement to continued payment in case of unintentional inability to work (illness, accident, etc.) are covered by the agreed gross wage. There is no special wage entitlement for holidays and paid absences, as the corresponding compensation is included in the wage in consideration of the short duration of work assignments.",
+        "confidentiality": "7. Confidentiality",
+        "confidentialityText": "The contractor commits to treating all information about the client and their business operations that becomes known in connection with their work confidentially and not disclosing it to third parties.",
+        "termination": "8. Termination of Employment",
+        "terminationText": "The agreement can be terminated with one month's notice.",
+        "otherProvisions": "9. Other Provisions",
+        "otherProvisionsText": "Amendments or additions to this contract require written form. Oral agreements are invalid.",
+        "jurisdiction": "10. Applicable Law and Jurisdiction",
+        "jurisdictionText": "Unless the provisions of this contract take precedence, the general provisions of the Code of Obligations apply. Amendments, additions, or termination of this contract are only legally valid in written form and signed by both parties. Should parts of this contract be invalid, the validity of the remaining provisions is not affected. Invalid provisions are replaced by the relevant legal provisions. Swiss law applies to this employment contract. The place of jurisdiction is Kreuzlingen. Each party receives a copy of this contract."
+      }
     }
   },
   "clinical": {
