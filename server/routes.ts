@@ -390,6 +390,117 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Bulk AI analysis for barcode/GTIN images with Galexis lookup
+  app.post('/api/items/analyze-bulk-codes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      req.setTimeout(300000);
+      res.setTimeout(300000);
+
+      const { images, hospitalId } = req.body;
+      if (!images || !Array.isArray(images) || images.length === 0) {
+        return res.status(400).json({ message: "Images array is required" });
+      }
+      if (!hospitalId) {
+        return res.status(400).json({ message: "Hospital ID is required" });
+      }
+
+      const hospital = await storage.getHospital(hospitalId);
+      if (!hospital) {
+        return res.status(404).json({ message: "Hospital not found" });
+      }
+
+      const licenseType = hospital.licenseType || "free";
+      const imageLimit = getBulkImportImageLimit(licenseType);
+
+      if (images.length > imageLimit) {
+        return res.status(400).json({ 
+          message: `Maximum ${imageLimit} images allowed for ${licenseType} plan`,
+          limit: imageLimit,
+          licenseType 
+        });
+      }
+
+      // Get Galexis credentials
+      const catalog = await storage.getGalexisCatalogWithCredentials(hospitalId);
+      let galexisClient: any = null;
+      
+      if (catalog?.customerNumber && catalog?.apiPassword) {
+        const { createGalexisClient } = await import('./services/galexisClient');
+        galexisClient = createGalexisClient(catalog.customerNumber, catalog.apiPassword);
+      }
+
+      const { analyzeCodesImage } = await import('./openai');
+      const results: any[] = [];
+
+      console.log(`[Bulk Codes Import] Starting analysis of ${images.length} barcode images for hospital ${hospitalId}`);
+
+      for (let i = 0; i < images.length; i++) {
+        const image = images[i];
+        const base64Image = image.replace(/^data:image\/\w+;base64,/, '');
+        
+        try {
+          // Extract codes from image
+          const extractedCodes = await analyzeCodesImage(base64Image);
+          const gtin = extractedCodes.gtin || '';
+          
+          let item: any = {
+            imageIndex: i,
+            gtin: gtin,
+            pharmacode: extractedCodes.pharmacode || '',
+            lotNumber: extractedCodes.lotNumber || '',
+            expiryDate: extractedCodes.expiryDate || '',
+            name: '',
+            description: '',
+            source: 'ocr',
+            galexisFound: false,
+            error: null,
+          };
+
+          // If GTIN found and Galexis is configured, do lookup
+          if (gtin && galexisClient) {
+            try {
+              const { results: lookupResults } = await galexisClient.lookupProducts([{ gtin }]);
+              
+              if (lookupResults.length > 0 && lookupResults[0].found && lookupResults[0].price) {
+                const product = lookupResults[0];
+                item.name = product.price?.description || '';
+                item.pharmacode = product.pharmacode || item.pharmacode;
+                item.basispreis = product.price?.basispreis;
+                item.publikumspreis = product.price?.publikumspreis;
+                item.yourPrice = product.price?.yourPrice;
+                item.available = product.price?.available;
+                item.source = 'galexis';
+                item.galexisFound = true;
+              }
+            } catch (lookupError: any) {
+              console.error(`[Bulk Codes Import] Galexis lookup failed for GTIN ${gtin}:`, lookupError.message);
+            }
+          }
+
+          results.push(item);
+        } catch (imageError: any) {
+          console.error(`[Bulk Codes Import] Failed to analyze image ${i}:`, imageError.message);
+          results.push({
+            imageIndex: i,
+            gtin: '',
+            pharmacode: '',
+            name: '',
+            source: 'error',
+            galexisFound: false,
+            error: imageError.message || 'Failed to analyze image',
+          });
+        }
+      }
+
+      console.log(`[Bulk Codes Import] Completed analysis, processed ${results.length} images, ${results.filter(r => r.galexisFound).length} found in Galexis`);
+      
+      res.json({ items: results });
+    } catch (error: any) {
+      console.error("Error analyzing bulk codes:", error);
+      res.status(500).json({ message: error.message || "Failed to analyze barcode images" });
+    }
+  });
+
   // AI medical monitor analysis for anesthesia vitals and ventilation
   app.post('/api/analyze-monitor', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
