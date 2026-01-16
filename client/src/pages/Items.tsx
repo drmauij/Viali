@@ -859,31 +859,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     return "Single unit";
   };
 
-  // Auto-focus appropriate field in Add Item dialog for quick editing
-  useEffect(() => {
-    if (addDialogOpen) {
-      setTimeout(() => {
-        if (selectedUnit === "Pack" && formData.trackExactQuantity) {
-          currentUnitsInputRef.current?.focus();
-        } else if (!formData.trackExactQuantity) {
-          initialStockInputRef.current?.focus();
-        }
-      }, 100);
-    }
-  }, [selectedUnit, formData.trackExactQuantity, addDialogOpen]);
-
-  // Auto-focus appropriate field in Edit Item dialog for quick editing
-  useEffect(() => {
-    if (editDialogOpen) {
-      setTimeout(() => {
-        if (selectedUnit === "Pack" && editFormData.trackExactQuantity && !editFormData.controlled) {
-          editCurrentUnitsInputRef.current?.focus();
-        } else if (!editFormData.trackExactQuantity) {
-          editActualStockInputRef.current?.focus();
-        }
-      }, 100);
-    }
-  }, [selectedUnit, editFormData.trackExactQuantity, editFormData.controlled, editDialogOpen]);
 
   // Auto-calculate initial stock for Add Item when trackExactQuantity is enabled
   useEffect(() => {
