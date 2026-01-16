@@ -42,9 +42,8 @@ export function PostOpInfoCard({ postOpData, pacuBedName }: PostOpInfoCardProps)
       <CardContent className="space-y-4">
         {/* PACU Bed - Compact square display on left */}
         {pacuBedName && (
-          <div className="w-fit p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg text-center min-w-[120px]">
+          <div className="w-fit p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg text-center min-w-[100px]">
             <Bed className="h-10 w-10 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
-            <p className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase">{t('pacu.pacuBed', 'PACU Bed')}</p>
             <p className="text-2xl font-bold text-blue-700 dark:text-blue-300" data-testid="text-pacu-bed-name">{pacuBedName}</p>
           </div>
         )}
