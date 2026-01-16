@@ -966,6 +966,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { itemId } = req.params;
       const code = await storage.getItemCode(itemId);
+      console.log(`[ItemCodes] Fetched codes for item ${itemId}:`, code ? 'found' : 'not found');
       res.json(code || null);
     } catch (error: any) {
       console.error("Error fetching item codes:", error);
@@ -977,11 +978,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put('/api/items/:itemId/codes', isAuthenticated, requireResourceAccess('itemId', true), async (req: any, res) => {
     try {
       const { itemId } = req.params;
-      const validatedData = insertItemCodeSchema.omit({ itemId: true }).parse(req.body);
+      // Strip out any extra fields (id, itemId, createdAt, updatedAt) that may come from client
+      const { id, itemId: bodyItemId, createdAt, updatedAt, ...codeFields } = req.body;
+      console.log(`[ItemCodes] Updating codes for item ${itemId}:`, JSON.stringify(codeFields));
+      const validatedData = insertItemCodeSchema.omit({ itemId: true }).parse(codeFields);
       const code = await storage.updateItemCode(itemId, validatedData);
+      console.log(`[ItemCodes] Successfully updated codes for item ${itemId}`);
       res.json(code);
     } catch (error: any) {
       console.error("Error updating item codes:", error);
+      console.error("Request body was:", JSON.stringify(req.body));
       res.status(500).json({ message: error.message || "Failed to update item codes" });
     }
   });

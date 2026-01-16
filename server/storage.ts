@@ -1198,17 +1198,27 @@ export class DatabaseStorage implements IStorage {
       .from(itemCodes)
       .where(eq(itemCodes.itemId, itemId));
     
+    // Clean the updates object to remove undefined values which can cause issues
+    const cleanedUpdates: Record<string, any> = {};
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) {
+        cleanedUpdates[key] = value;
+      }
+    }
+    
     if (existing) {
+      console.log(`[Storage] Updating existing item codes for ${itemId}`);
       const [updated] = await db
         .update(itemCodes)
-        .set({ ...updates, updatedAt: new Date() })
+        .set({ ...cleanedUpdates, updatedAt: new Date() })
         .where(eq(itemCodes.itemId, itemId))
         .returning();
       return updated;
     } else {
+      console.log(`[Storage] Creating new item codes for ${itemId}`);
       const [created] = await db
         .insert(itemCodes)
-        .values({ itemId, ...updates } as InsertItemCode)
+        .values({ itemId, ...cleanedUpdates } as InsertItemCode)
         .returning();
       return created;
     }

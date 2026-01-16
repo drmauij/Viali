@@ -943,20 +943,27 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       
       if (codesRes.ok) {
         const codes = await codesRes.json();
+        console.log('[Items] Fetched item codes:', codes);
         setItemCodes(codes);
+      } else {
+        console.error('[Items] Failed to fetch codes:', codesRes.status, await codesRes.text());
       }
       
       if (suppliersRes.ok) {
         const suppliers = await suppliersRes.json();
         setSupplierCodes(suppliers);
+      } else {
+        console.error('[Items] Failed to fetch suppliers:', suppliersRes.status);
       }
       
       if (lotsRes.ok) {
         const lots = await lotsRes.json();
         setItemLots(lots);
+      } else {
+        console.error('[Items] Failed to fetch lots:', lotsRes.status);
       }
     } catch (error) {
-      console.error('Failed to load item codes:', error);
+      console.error('[Items] Failed to load item codes:', error);
     } finally {
       setIsLoadingCodes(false);
       setIsLoadingLots(false);
@@ -1480,9 +1487,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     // Also save codes if they exist
     if (selectedItem && itemCodes) {
       try {
-        await apiRequest("PUT", `/api/items/${selectedItem.id}/codes`, itemCodes);
+        console.log('[Items] Saving item codes:', JSON.stringify(itemCodes));
+        const savedCodes = await apiRequest("PUT", `/api/items/${selectedItem.id}/codes`, itemCodes);
+        console.log('[Items] Saved item codes successfully:', savedCodes);
       } catch (error: any) {
-        console.error("Failed to save codes:", error);
+        console.error("[Items] Failed to save codes:", error);
         toast({
           title: t('common.error'),
           description: "Failed to save product codes",
