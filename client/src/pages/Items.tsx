@@ -1592,6 +1592,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           title: "Images analyzed",
           description: `Processed ${allResults.length} image(s) with ${Math.round(avgConfidence * 100)}% avg confidence`,
         });
+        // Auto-advance to step 2 after successful analysis
+        setAddItemStep(2);
       } else {
         toast({
           title: "Analysis failed",
@@ -1656,6 +1658,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           title: t('common.success'),
           description: `${t('items.imageAnalyzed')} ${Math.round((result.confidence || 0) * 100)}% ${t('common.confidence').toLowerCase()}`,
         });
+        // Auto-advance to step 2 after successful analysis
+        setAddItemStep(2);
       } catch (error: any) {
         toast({
           title: t('common.error'),
