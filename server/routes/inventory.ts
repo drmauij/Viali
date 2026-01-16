@@ -1505,10 +1505,18 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
         // No supplier matches at all
         unmatched.push(itemWithCodes);
       } else if (confirmedCodes.length > 0) {
-        // Has confirmed match - prioritize this over pending matches
-        // Use the first confirmed code (could be enhanced to pick preferred)
-        const confirmedCode = confirmedCodes[0];
-        const hasPrice = confirmedCode.basispreis && parseFloat(String(confirmedCode.basispreis)) > 0;
+        // Has confirmed match - prioritize preferred supplier for price check
+        // First, try to find a preferred confirmed code
+        const preferredCode = confirmedCodes.find(c => c.isPreferred);
+        // Also check if ANY confirmed code has a valid price (for display purposes)
+        const confirmedWithValidPrice = confirmedCodes.find(c => 
+          c.basispreis && parseFloat(String(c.basispreis)) > 0
+        );
+        // Use preferred code if available, otherwise fall back to one with valid price, or first
+        const confirmedCode = preferredCode || confirmedWithValidPrice || confirmedCodes[0];
+        // Determine price status: if preferred has price OR any confirmed has price, consider it priced
+        const hasPrice = (preferredCode?.basispreis && parseFloat(String(preferredCode.basispreis)) > 0) ||
+                        (confirmedWithValidPrice?.basispreis && parseFloat(String(confirmedWithValidPrice.basispreis)) > 0);
         const itemData = {
           ...itemWithCodes,
           confirmedMatch: {
