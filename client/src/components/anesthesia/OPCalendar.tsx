@@ -239,11 +239,16 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   }, [selectedDate]);
 
-  // Fetch surgery rooms for the active hospital
-  const { data: surgeryRooms = [], isLoading } = useQuery<any[]>({
+  // Fetch surgery rooms for the active hospital (only OP type rooms for calendar)
+  const { data: allSurgeryRooms = [], isLoading } = useQuery<any[]>({
     queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
     enabled: !!activeHospital?.id,
   });
+  
+  // Filter to only show OP rooms in the calendar (PACU rooms are for post-op tracking)
+  const surgeryRooms = useMemo(() => {
+    return allSurgeryRooms.filter((room: any) => !room.type || room.type === 'OP');
+  }, [allSurgeryRooms]);
 
   // Calculate date range based on current view
   const dateRange = useMemo(() => {

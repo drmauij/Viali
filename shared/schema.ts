@@ -3,6 +3,7 @@ import {
   index,
   jsonb,
   pgTable,
+  pgEnum,
   timestamp,
   varchar,
   text,
@@ -156,15 +157,20 @@ export const administrationGroups = pgTable("administration_groups", {
   index("idx_administration_groups_hospital").on(table.hospitalId),
 ]);
 
+// Room types: OP = Operating Room (default), PACU = Post-Anesthesia Care Unit
+export const roomTypeEnum = pgEnum("room_type", ["OP", "PACU"]);
+
 // Surgery Rooms (for managing operating rooms in anesthesia module)
 export const surgeryRooms = pgTable("surgery_rooms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   name: varchar("name").notNull(),
+  type: roomTypeEnum("type").default("OP").notNull(), // OP = Operating Room, PACU = Post-Anesthesia Care Unit
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_surgery_rooms_hospital").on(table.hospitalId),
+  index("idx_surgery_rooms_type").on(table.type),
 ]);
 
 // Camera Devices (Raspberry Pi cameras for automated vital signs capture)
@@ -790,6 +796,7 @@ export const surgeries = pgTable("surgeries", {
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   patientId: varchar("patient_id").notNull(), // External reference
   surgeryRoomId: varchar("surgery_room_id").references(() => surgeryRooms.id),
+  pacuBedId: varchar("pacu_bed_id").references(() => surgeryRooms.id), // PACU bed/room assignment for post-op
   
   // Planning
   plannedDate: timestamp("planned_date").notNull(),
@@ -856,6 +863,7 @@ export const surgeries = pgTable("surgeries", {
   index("idx_surgeries_hospital").on(table.hospitalId),
   index("idx_surgeries_patient").on(table.patientId),
   index("idx_surgeries_room").on(table.surgeryRoomId),
+  index("idx_surgeries_pacu_bed").on(table.pacuBedId),
   index("idx_surgeries_surgeon").on(table.surgeonId),
   index("idx_surgeries_status").on(table.status),
   index("idx_surgeries_planned_date").on(table.plannedDate),

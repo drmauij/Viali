@@ -498,6 +498,8 @@ export interface IStorage {
     postOpDestination: string | null;
     status: 'transferring' | 'in_recovery' | 'discharged';
     statusTimestamp: number;
+    pacuBedId: string | null;
+    pacuBedName: string | null;
   }>>;
   
   // Pre-Op Assessment operations (Anesthesia module)
@@ -3163,16 +3165,20 @@ export class DatabaseStorage implements IStorage {
     postOpDestination: string | null;
     status: 'transferring' | 'in_recovery' | 'discharged';
     statusTimestamp: number;
+    pacuBedId: string | null;
+    pacuBedName: string | null;
   }>> {
     const results = await db
       .select({
         anesthesiaRecord: anesthesiaRecords,
         surgery: surgeries,
         patient: patients,
+        pacuBed: surgeryRooms,
       })
       .from(anesthesiaRecords)
       .innerJoin(surgeries, eq(anesthesiaRecords.surgeryId, surgeries.id))
       .innerJoin(patients, eq(surgeries.patientId, patients.id))
+      .leftJoin(surgeryRooms, eq(surgeries.pacuBedId, surgeryRooms.id))
       .where(and(
         eq(surgeries.hospitalId, hospitalId),
         sql`(${anesthesiaRecords.timeMarkers} @> '[{"code": "X2"}]'::jsonb 
@@ -3249,6 +3255,8 @@ export class DatabaseStorage implements IStorage {
           postOpDestination: postOpData?.postOpDestination || null,
           status,
           statusTimestamp,
+          pacuBedId: row.surgery.pacuBedId || null,
+          pacuBedName: row.pacuBed?.name || null,
         };
       })
       .filter((item): item is NonNullable<typeof item> => item !== null);

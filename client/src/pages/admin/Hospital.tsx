@@ -48,6 +48,7 @@ export default function Hospital() {
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<any | null>(null);
   const [roomFormName, setRoomFormName] = useState('');
+  const [roomFormType, setRoomFormType] = useState<'OP' | 'PACU'>('OP');
   
 
   // Supplier catalog states
@@ -131,7 +132,7 @@ export default function Hospital() {
   });
 
   // Fetch surgery rooms
-  type SurgeryRoom = { id: string; name: string; hospitalId: string; sortOrder: number; createdAt: string };
+  type SurgeryRoom = { id: string; name: string; type: 'OP' | 'PACU'; hospitalId: string; sortOrder: number; createdAt: string };
   const { data: surgeryRooms = [], isLoading: roomsLoading } = useQuery<SurgeryRoom[]>({
     queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
     enabled: !!activeHospital?.id && isAdmin,
@@ -228,14 +229,15 @@ export default function Hospital() {
 
   // Surgery Room mutations
   const createRoomMutation = useMutation({
-    mutationFn: async (name: string) => {
-      return apiRequest('POST', `/api/surgery-rooms`, { hospitalId: activeHospital?.id, name });
+    mutationFn: async ({ name, type }: { name: string; type: 'OP' | 'PACU' }) => {
+      return apiRequest('POST', `/api/surgery-rooms`, { hospitalId: activeHospital?.id, name, type });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
       toast({ title: t('common.success'), description: t('admin.roomCreated', 'Room created successfully') });
       setRoomDialogOpen(false);
       setRoomFormName('');
+      setRoomFormType('OP');
     },
     onError: (error: any) => {
       toast({ title: t('common.error'), description: error.message || t('admin.failedToCreateRoom', 'Failed to create room'), variant: "destructive" });
@@ -243,8 +245,8 @@ export default function Hospital() {
   });
 
   const updateRoomMutation = useMutation({
-    mutationFn: async ({ roomId, name }: { roomId: string; name: string }) => {
-      return apiRequest('PUT', `/api/surgery-rooms/${roomId}`, { name });
+    mutationFn: async ({ roomId, name, type }: { roomId: string; name: string; type: 'OP' | 'PACU' }) => {
+      return apiRequest('PUT', `/api/surgery-rooms/${roomId}`, { name, type });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/surgery-rooms/${activeHospital?.id}`] });
@@ -252,6 +254,7 @@ export default function Hospital() {
       setRoomDialogOpen(false);
       setEditingRoom(null);
       setRoomFormName('');
+      setRoomFormType('OP');
     },
     onError: (error: any) => {
       toast({ title: t('common.error'), description: error.message || t('admin.failedToUpdateRoom', 'Failed to update room'), variant: "destructive" });
@@ -1384,6 +1387,7 @@ export default function Hospital() {
               onClick={() => {
                 setEditingRoom(null);
                 setRoomFormName('');
+                setRoomFormType('OP');
                 setRoomDialogOpen(true);
               }}
               size="sm"
@@ -1407,6 +1411,7 @@ export default function Hospital() {
                 onClick={() => {
                   setEditingRoom(null);
                   setRoomFormName('');
+                  setRoomFormType('OP');
                   setRoomDialogOpen(true);
                 }}
                 size="sm"
@@ -1440,6 +1445,9 @@ export default function Hospital() {
                         </button>
                       </div>
                       <h3 className="font-semibold text-foreground">{room.name}</h3>
+                      <span className={`px-2 py-0.5 text-xs rounded-full ${room.type === 'PACU' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'}`}>
+                        {room.type || 'OP'}
+                      </span>
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -1448,6 +1456,7 @@ export default function Hospital() {
                         onClick={() => {
                           setEditingRoom(room);
                           setRoomFormName(room.name);
+                          setRoomFormType(room.type || 'OP');
                           setRoomDialogOpen(true);
                         }}
                         data-testid={`button-edit-room-${room.id}`}
@@ -2254,6 +2263,18 @@ export default function Hospital() {
                 data-testid="input-room-name"
               />
             </div>
+            <div>
+              <Label htmlFor="room-type">{t("admin.roomType", "Room Type")} *</Label>
+              <Select value={roomFormType} onValueChange={(value: 'OP' | 'PACU') => setRoomFormType(value)}>
+                <SelectTrigger data-testid="select-room-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OP">{t("admin.roomTypeOP", "OP (Operating Room)")}</SelectItem>
+                  <SelectItem value="PACU">{t("admin.roomTypePACU", "PACU (Recovery)")}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setRoomDialogOpen(false)}>
                 {t("common.cancel")}
@@ -2265,9 +2286,9 @@ export default function Hospital() {
                     return;
                   }
                   if (editingRoom) {
-                    updateRoomMutation.mutate({ roomId: editingRoom.id, name: roomFormName.trim() });
+                    updateRoomMutation.mutate({ roomId: editingRoom.id, name: roomFormName.trim(), type: roomFormType });
                   } else {
-                    createRoomMutation.mutate(roomFormName.trim());
+                    createRoomMutation.mutate({ name: roomFormName.trim(), type: roomFormType });
                   }
                 }}
                 disabled={createRoomMutation.isPending || updateRoomMutation.isPending}

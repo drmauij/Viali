@@ -425,13 +425,13 @@ router.get('/api/surgery-rooms/:hospitalId', isAuthenticated, async (req: any, r
 
 router.post('/api/surgery-rooms', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
-    const { hospitalId, name } = req.body;
+    const { hospitalId, name, type } = req.body;
     
     if (!hospitalId || !name) {
       return res.status(400).json({ message: "Hospital ID and name are required" });
     }
 
-    const newRoom = await storage.createSurgeryRoom({ hospitalId, name, sortOrder: 0 });
+    const newRoom = await storage.createSurgeryRoom({ hospitalId, name, type: type || 'OP', sortOrder: 0 });
     res.status(201).json(newRoom);
   } catch (error: any) {
     console.error("Error creating surgery room:", error);
@@ -442,13 +442,17 @@ router.post('/api/surgery-rooms', isAuthenticated, requireWriteAccess, async (re
 router.put('/api/surgery-rooms/:roomId', isAuthenticated, requireResourceAccess('roomId', true), async (req: any, res) => {
   try {
     const { roomId } = req.params;
-    const { name } = req.body;
+    const { name, type } = req.body;
     
     if (!name) {
       return res.status(400).json({ message: "Name is required" });
     }
 
-    const updatedRoom = await storage.updateSurgeryRoom(roomId, { name });
+    const updateData: { name: string; type?: 'OP' | 'PACU' } = { name };
+    if (type) {
+      updateData.type = type;
+    }
+    const updatedRoom = await storage.updateSurgeryRoom(roomId, updateData);
     res.json(updatedRoom);
   } catch (error: any) {
     console.error("Error updating surgery room:", error);
@@ -1131,6 +1135,44 @@ router.get('/api/anesthesia/surgeries', isAuthenticated, async (req: any, res) =
   } catch (error) {
     console.error("Error fetching surgeries:", error);
     res.status(500).json({ message: "Failed to fetch surgeries" });
+  }
+});
+
+// Get today's surgeries for PACU bed occupancy tracking (must be before :id route)
+router.get('/api/anesthesia/surgeries/today/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const today = new Date();
+    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
+    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+
+    const surgeries = await storage.getSurgeries({
+      hospitalId,
+      dateFrom: startOfDay,
+      dateTo: endOfDay,
+    });
+
+    // Return only essential fields for PACU bed tracking
+    const simpleSurgeries = surgeries.map(s => ({
+      id: s.id,
+      pacuBedId: s.pacuBedId,
+      patientId: s.patientId,
+      status: s.status,
+    }));
+
+    res.json(simpleSurgeries);
+  } catch (error) {
+    console.error("Error fetching today's surgeries:", error);
+    res.status(500).json({ message: "Failed to fetch today's surgeries" });
   }
 });
 

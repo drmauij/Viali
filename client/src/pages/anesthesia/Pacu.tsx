@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut } from "lucide-react";
+import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut, Bed } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
+import { PacuBedSelector } from "@/components/anesthesia/PacuBedSelector";
 
 type PacuPatient = {
   anesthesiaRecordId: string;
@@ -21,6 +22,8 @@ type PacuPatient = {
   postOpDestination: string | null;
   status: 'transferring' | 'in_recovery' | 'discharged';
   statusTimestamp: number;
+  pacuBedId?: string | null;
+  pacuBedName?: string | null;
 };
 
 export default function Pacu() {
@@ -135,23 +138,56 @@ export default function Pacu() {
           filteredPatients.map((patient) => (
             <Card
               key={patient.surgeryId}
-              className="p-4 cursor-pointer hover:bg-accent/50 transition-colors"
-              onClick={() => setLocation(`/anesthesia/cases/${patient.surgeryId}/pacu`)}
+              className="p-4 hover:bg-accent/50 transition-colors"
               data-testid={`card-pacu-${patient.surgeryId}`}
             >
               <div className="flex items-start justify-between mb-3">
-                <div>
+                <div 
+                  className="cursor-pointer flex-1"
+                  onClick={() => setLocation(`/anesthesia/cases/${patient.surgeryId}/pacu`)}
+                >
+                  {/* Bed Badge - Prominent display at top */}
+                  {patient.pacuBedId && patient.pacuBedName && (
+                    <Badge 
+                      className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 mb-2"
+                      data-testid={`badge-bed-${patient.surgeryId}`}
+                    >
+                      <Bed className="h-3 w-3 mr-1" />
+                      {patient.pacuBedName}
+                    </Badge>
+                  )}
                   <h3 className="font-semibold text-lg" data-testid={`text-patient-name-${patient.surgeryId}`}>
-                    {patient.patientName}
+                    {patient.pacuBedId && patient.pacuBedName 
+                      ? `${patient.pacuBedName} – ${patient.patientName}`
+                      : patient.patientName
+                    }
                   </h3>
                   <p className="text-sm text-muted-foreground" data-testid={`text-mrn-${patient.surgeryId}`}>
                     {patient.patientNumber} • {t('anesthesia.pacu.age')} {patient.age}
                   </p>
                 </div>
-                {getDestinationBadge(patient.postOpDestination)}
+                <div className="flex flex-col items-end gap-2">
+                  {getDestinationBadge(patient.postOpDestination)}
+                  {/* Quick PACU Bed Assignment */}
+                  {activeHospital?.id && (
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <PacuBedSelector
+                        surgeryId={patient.surgeryId}
+                        hospitalId={activeHospital.id}
+                        currentBedId={patient.pacuBedId}
+                        currentBedName={patient.pacuBedName}
+                        variant="inline"
+                        size="sm"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div className="space-y-2">
+              <div 
+                className="space-y-2 cursor-pointer"
+                onClick={() => setLocation(`/anesthesia/cases/${patient.surgeryId}/pacu`)}
+              >
                 <div className="flex items-center text-sm">
                   <BedDouble className="h-4 w-4 mr-2 text-muted-foreground" />
                   <span data-testid={`text-procedure-${patient.surgeryId}`}>{patient.procedure}</span>

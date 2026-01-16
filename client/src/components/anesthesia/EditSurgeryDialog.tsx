@@ -11,13 +11,14 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo } from "lucide-react";
 import { useCreateTodo } from "@/hooks/useCreateTodo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { SurgeonChecklistTab } from "./SurgeonChecklistTab";
+import { PacuBedSelector } from "./PacuBedSelector";
 import type { SurgeryContext } from "@shared/checklistPlaceholders";
 import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
 
@@ -55,11 +56,27 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     enabled: !!surgeryId,
   });
 
-  // Fetch surgery rooms
-  const { data: surgeryRooms = [] } = useQuery<any[]>({
+  // Fetch surgery rooms (only OP type for surgery room assignment)
+  const { data: allSurgeryRooms = [] } = useQuery<any[]>({
     queryKey: [`/api/surgery-rooms/${surgery?.hospitalId}`],
     enabled: !!surgery?.hospitalId,
   });
+  
+  // Filter to only show OP rooms for surgery assignment (PACU rooms are for post-op tracking)
+  const surgeryRooms = useMemo(() => {
+    return allSurgeryRooms.filter((room: any) => !room.type || room.type === 'OP');
+  }, [allSurgeryRooms]);
+  
+  // Get PACU beds for the bed selector
+  const pacuBeds = useMemo(() => {
+    return allSurgeryRooms.filter((room: any) => room.type === 'PACU');
+  }, [allSurgeryRooms]);
+  
+  // Get current PACU bed name
+  const currentPacuBed = useMemo(() => {
+    if (!surgery?.pacuBedId) return null;
+    return allSurgeryRooms.find((room: any) => room.id === surgery.pacuBedId);
+  }, [surgery?.pacuBedId, allSurgeryRooms]);
 
   // Fetch patient details
   const { data: patient } = useQuery<any>({
@@ -406,6 +423,22 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* PACU Bed Assignment - show when PACU beds are configured */}
+              {pacuBeds.length > 0 && surgery?.hospitalId && (
+                <div className="space-y-2">
+                  <Label>{t('pacu.pacuBed', 'PACU Bed')}</Label>
+                  <PacuBedSelector
+                    surgeryId={surgeryId}
+                    hospitalId={surgery.hospitalId}
+                    currentBedId={surgery?.pacuBedId}
+                    currentBedName={currentPacuBed?.name}
+                    variant="button"
+                    size="default"
+                    disabled={!canWrite}
+                  />
+                </div>
+              )}
 
               {/* Surgery Date */}
               <div className="space-y-2">

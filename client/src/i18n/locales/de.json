@@ -1369,7 +1369,17 @@
       "timeInPacu": "Zeit im Aufwachraum:",
       "tabTransferring": "Übernahme",
       "tabInRecovery": "In Behandlung",
-      "tabDischarged": "Entlassen"
+      "tabDischarged": "Entlassen",
+      "pacuBed": "AWR-Bett",
+      "assignBed": "Bett zuweisen",
+      "selectBed": "AWR-Bett auswählen",
+      "noBedAssigned": "Kein Bett zugewiesen",
+      "bedAvailable": "Verfügbar",
+      "bedOccupied": "Belegt",
+      "noPacuBedsConfigured": "Keine AWR-Betten für dieses Krankenhaus konfiguriert",
+      "bedAssigned": "AWR-Bett erfolgreich zugewiesen",
+      "bedUnassigned": "AWR-Bett-Zuweisung aufgehoben",
+      "failedToAssignBed": "AWR-Bett-Zuweisung fehlgeschlagen"
     },
     "op": {
       "title": "OP-Überwachung",
