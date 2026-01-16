@@ -3189,7 +3189,12 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                       <i className="fas fa-upload mr-2"></i>
                       {t('items.bulkImport')}
                     </Button>
-                    <Button size="sm" onClick={() => setAddDialogOpen(true)} data-testid="add-item-button" className="flex-1 sm:flex-initial">
+                    <Button size="sm" onClick={() => {
+                        setAddDialogOpen(true);
+                        // Auto-open camera for barcode scanning
+                        setWebcamCaptureTarget('codes');
+                        setWebcamCaptureOpen(true);
+                      }} data-testid="add-item-button" className="flex-1 sm:flex-initial">
                       <i className="fas fa-plus mr-2"></i>
                       {t('items.addItem')}
                     </Button>
@@ -5978,7 +5983,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   <p className="text-sm text-muted-foreground mb-3">
                     {t('items.addItemsManuallyDesc')}
                   </p>
-                  <Button variant="outline" onClick={() => { handleDismissOnboarding(); setAddDialogOpen(true); }} className="w-full" data-testid="onboarding-add-item">
+                  <Button variant="outline" onClick={() => { handleDismissOnboarding(); setAddDialogOpen(true); setWebcamCaptureTarget('codes'); setWebcamCaptureOpen(true); }} className="w-full" data-testid="onboarding-add-item">
                     <i className="fas fa-plus mr-2"></i>
                     {t('items.addFirstItem')}
                   </Button>
@@ -6739,6 +6744,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         }}
         onCapture={handleWebcamCapture}
         fullFrame={true}
+        hint={webcamCaptureTarget === 'codes' ? t('items.cameraHintGtin') : undefined}
       />
     </div>
   );

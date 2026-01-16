@@ -8,9 +8,10 @@ interface CameraCaptureProps {
   onClose: () => void;
   onCapture: (photo: string) => void;
   fullFrame?: boolean; // If true, captures the full video frame instead of cropping
+  hint?: string; // Optional hint text to display at the top of the camera view
 }
 
-export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }: CameraCaptureProps) {
+export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false, hint }: CameraCaptureProps) {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -204,11 +205,11 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
               </div>
             )}
             
-            {/* Full frame instruction */}
+            {/* Full frame instruction or custom hint */}
             {fullFrame && (
               <div className="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none">
                 <p className="text-white text-lg font-medium bg-black/50 px-4 py-2 rounded">
-                  {t('anesthesia.patientDetail.pointAtDocument', 'Point camera at document')}
+                  {hint || t('anesthesia.patientDetail.pointAtDocument', 'Point camera at document')}
                 </p>
               </div>
             )}
