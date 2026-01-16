@@ -5,7 +5,7 @@ import { createGalexisClient, type PriceData, type ProductLookupRequest, type Pr
 import { createPolymedClient, type PolymedPriceData } from './services/polymedClient';
 import { batchMatchItems, type ItemToMatch } from './services/polymedMatching';
 import { supplierCodes, itemCodes, items, supplierCatalogs, hospitals, patientQuestionnaireLinks, units, users } from '@shared/schema';
-import { eq, and, isNull, isNotNull, sql } from 'drizzle-orm';
+import { eq, and, isNull, isNotNull, sql, or } from 'drizzle-orm';
 import { db } from './storage';
 import { decryptCredential } from './utils/encryption';
 import { randomUUID } from 'crypto';
@@ -179,6 +179,29 @@ async function processNextPriceSyncJob() {
 
       // Get set of item IDs that already have Galexis codes
       const itemsWithGalexisCode = new Set(existingSupplierCodes.map(c => c.itemId));
+
+      // Get items that have ANY supplier with zero/null price - these need price resolution
+      const zeroPriceSuppliers = await db
+        .select({
+          itemId: supplierCodes.itemId,
+          supplierName: supplierCodes.supplierName,
+          basispreis: supplierCodes.basispreis,
+          isPreferred: supplierCodes.isPreferred,
+        })
+        .from(supplierCodes)
+        .innerJoin(items, eq(items.id, supplierCodes.itemId))
+        .where(and(
+          eq(items.hospitalId, catalog.hospitalId),
+          eq(supplierCodes.isPreferred, true),
+          or(
+            isNull(supplierCodes.basispreis),
+            eq(supplierCodes.basispreis, '0'),
+            eq(supplierCodes.basispreis, '0.00')
+          )
+        ));
+      
+      const itemsWithZeroPriceSupplier = new Set(zeroPriceSuppliers.map(s => s.itemId));
+      console.log(`[Worker] Found ${zeroPriceSuppliers.length} items with preferred suppliers that have zero/null price - will try to resolve from Galexis`);
 
       // Build a map of itemId -> item info for all hospital items
       const hospitalItemMap = new Map<string, { itemId: string; itemName: string; pharmacode?: string; gtin?: string }>();
@@ -484,8 +507,9 @@ async function processNextPriceSyncJob() {
           }
           
           if (priceData && matchedCode) {
-            // First, demote any other preferred suppliers for this item
-            await db
+            // First, demote any other preferred suppliers for this item (especially zero-price ones)
+            // This ensures Galexis with valid price becomes preferred
+            const demotedCount = await db
               .update(supplierCodes)
               .set({
                 isPreferred: false,
@@ -495,6 +519,10 @@ async function processNextPriceSyncJob() {
                 eq(supplierCodes.itemId, item.itemId),
                 eq(supplierCodes.isPreferred, true)
               ));
+            
+            if (demotedCount.rowCount && demotedCount.rowCount > 0) {
+              console.log(`[Worker] Demoted ${demotedCount.rowCount} existing preferred suppliers for item ${item.itemId} (Galexis price found: ${priceData.basispreis})`);
+            }
             
             // Create new Galexis supplier code
             try {
@@ -536,16 +564,33 @@ async function processNextPriceSyncJob() {
               console.error(`[Worker] Failed to create supplier code for item ${item.itemId}:`, err.message);
             }
           } else {
-            // Has codes but no match found
+            // Has codes but no match found in Galexis
             unmatchedWithCodes.push({
               itemId: item.itemId,
               itemName: item.itemName,
               gtin: gtin || undefined,
               pharmacode: pharmacode || undefined,
             });
+            
+            // Log diagnostic info for items that have valid codes but no Galexis match
+            // This helps identify items that might need manual price entry
+            const hasZeroPriceSupplier = itemsWithZeroPriceSupplier.has(item.itemId);
+            if (hasZeroPriceSupplier) {
+              console.log(`[Worker] ATTENTION: Item "${item.itemName}" has zero-price supplier but NOT found in Galexis (pharmacode: ${pharmacode || 'none'}, GTIN: ${gtin || 'none'}) - needs manual price entry`);
+            } else {
+              console.log(`[Worker] No Galexis match for item "${item.itemName}" (pharmacode: ${pharmacode || 'none'}, GTIN: ${gtin || 'none'})`);
+            }
           }
         }
       }
+
+      // Count how many zero-price items got resolved vs still unmatched
+      const zeroPriceItemsResolved = zeroPriceSuppliers.filter(s => itemsWithGalexisCode.has(s.itemId)).length;
+      const zeroPriceItemsStillUnmatched = zeroPriceSuppliers.filter(s => 
+        !itemsWithGalexisCode.has(s.itemId) && unmatchedWithCodes.some(u => u.itemId === s.itemId)
+      ).length;
+      
+      console.log(`[Worker] Zero-price suppliers: ${zeroPriceSuppliers.length} total, ${zeroPriceItemsResolved} resolved with Galexis, ${zeroPriceItemsStillUnmatched} still need manual pricing`);
 
       const summary = {
         syncMethod: 'productAvailability',
@@ -560,6 +605,9 @@ async function processNextPriceSyncJob() {
         unmatchedSupplierCodes: existingSupplierCodes.length - matchedCount,
         itemsWithoutSupplierCode: allHospitalItems.length - existingSupplierCodes.length - autoCreatedCount,
         itemsWithGtinNoSupplierCode: unmatchedWithCodes.length,
+        zeroPriceSuppliersTotal: zeroPriceSuppliers.length,
+        zeroPriceSuppliersResolved: zeroPriceItemsResolved,
+        zeroPriceSuppliersStillUnmatched: zeroPriceItemsStillUnmatched,
         unmatchedItems: unmatchedWithCodes.slice(0, 50),
         galexisApiDebug: galexisDebugInfo || null,
       };
