@@ -411,7 +411,7 @@ ${productLines}
       
       console.log(`[Galexis] ProductAvailability Got ${linesArray.length} response lines`);
 
-      const results: ProductLookupResult[] = linesArray.map((line: any) => {
+      const results: ProductLookupResult[] = linesArray.map((line: any, index: number) => {
         const requestLine = line.productAvailabilityLine;
         const productResponse = line.productResponse;
         const availability = line.availability;
@@ -420,8 +420,15 @@ ${productLines}
         const requestedPharmacode = requestLine?.product?.pharmaCode?.id?.toString() || '';
         const requestedGtin = requestLine?.product?.EAN?.id?.toString() || '';
         
+        // Debug logging for all response lines - see what Galexis actually returns
+        console.log(`[Galexis] Response line ${index}: pharmacode=${requestedPharmacode}, gtin=${requestedGtin}`);
+        console.log(`[Galexis]   - productResponse keys: ${productResponse ? Object.keys(productResponse).join(', ') : 'NULL'}`);
+        console.log(`[Galexis]   - availability: ${JSON.stringify(availability)}`);
+        console.log(`[Galexis]   - line keys: ${Object.keys(line).join(', ')}`);
+        
         if (!productResponse) {
           console.log(`[Galexis] No productResponse for pharmacode=${requestedPharmacode}, gtin=${requestedGtin}`);
+          console.log(`[Galexis]   Full line object: ${JSON.stringify(line, null, 2).substring(0, 500)}`);
           return {
             pharmacode: requestedPharmacode,
             gtin: requestedGtin,

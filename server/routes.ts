@@ -273,9 +273,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Galexis product lookup by GTIN - fetches full product info including name, price, pharmacode
   app.post('/api/items/galexis-lookup', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
-      const { gtin, hospitalId } = req.body;
-      if (!gtin) {
-        return res.status(400).json({ message: "GTIN is required" });
+      const { gtin, pharmacode, hospitalId, debug } = req.body;
+      if (!gtin && !pharmacode) {
+        return res.status(400).json({ message: "GTIN or Pharmacode is required" });
       }
       if (!hospitalId) {
         return res.status(400).json({ message: "Hospital ID is required" });
@@ -303,14 +303,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { createGalexisClient } = await import('./services/galexisClient');
       const client = createGalexisClient(catalog.customerNumber, catalog.apiPassword);
       
-      const { results, debugInfo } = await client.lookupProducts([{ gtin }]);
+      // Build lookup request - prefer pharmacode if provided
+      const lookupRequest = pharmacode ? { pharmacode } : { gtin };
+      console.log(`[Galexis Lookup] Testing lookup for:`, lookupRequest);
+      
+      const { results, debugInfo } = await client.lookupProducts([lookupRequest]);
       
       if (results.length > 0 && results[0].found && results[0].price) {
         const product = results[0];
-        res.json({
+        const response: any = {
           found: true,
           gtin: product.gtin || gtin,
-          pharmacode: product.pharmacode,
+          pharmacode: product.pharmacode || pharmacode,
           name: product.price?.description || '',
           basispreis: product.price?.basispreis,
           publikumspreis: product.price?.publikumspreis,
@@ -318,13 +322,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
           discountPercent: product.price?.discountPercent,
           available: product.price?.available,
           availabilityMessage: product.price?.availabilityMessage,
-        });
+        };
+        
+        // Include debug info if requested
+        if (debug) {
+          response.debugInfo = debugInfo;
+        }
+        
+        res.json(response);
       } else {
-        res.json({
+        const response: any = {
           found: false,
           message: results[0]?.error || "Product not found in Galexis catalog",
           gtin,
-        });
+          pharmacode,
+        };
+        
+        // Include debug info if requested (important for troubleshooting)
+        if (debug) {
+          response.debugInfo = debugInfo;
+          response.rawResult = results[0];
+        }
+        
+        res.json(response);
       }
     } catch (error: any) {
       console.error("Error looking up product in Galexis:", error);
