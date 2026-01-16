@@ -1098,6 +1098,9 @@ export default function AnesthesiaSettings() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
+              { key: 'anesthesiaHistory', label: t('anesthesia.settings.anesthesiaHistory') },
+              { key: 'dental', label: t('anesthesia.settings.dentalStatus') },
+              { key: 'ponvTransfusion', label: t('anesthesia.settings.ponvTransfusion') },
               { key: 'cardiovascular', label: t('anesthesia.settings.cardiovascular') },
               { key: 'pulmonary', label: t('anesthesia.settings.pulmonary') },
               { key: 'gastrointestinal', label: t('anesthesia.settings.gastrointestinal') },

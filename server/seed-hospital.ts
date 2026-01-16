@@ -273,26 +273,6 @@ export async function seedHospitalData(
         { id: "eggs", label: "Eggs" },
         { id: "soy", label: "Soy" },
       ],
-      medicationLists: {
-        anticoagulation: [
-          { id: "aspirin", label: "Aspirin" },
-          { id: "warfarin", label: "Warfarin" },
-          { id: "clopidogrel", label: "Clopidogrel" },
-          { id: "rivaroxaban", label: "Rivaroxaban" },
-          { id: "apixaban", label: "Apixaban" },
-          { id: "heparin", label: "Heparin" },
-        ],
-        general: [
-          { id: "metformin", label: "Metformin" },
-          { id: "insulin", label: "Insulin" },
-          { id: "levothyroxine", label: "Levothyroxine" },
-          { id: "metoprolol", label: "Metoprolol" },
-          { id: "lisinopril", label: "Lisinopril" },
-          { id: "amlodipine", label: "Amlodipine" },
-          { id: "atorvastatin", label: "Atorvastatin" },
-          { id: "omeprazole", label: "Omeprazole" },
-        ],
-      },
       illnessLists: {
         cardiovascular: [
           { id: "htn", label: "Hypertension (HTN)" },
