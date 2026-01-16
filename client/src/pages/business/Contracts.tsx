@@ -104,108 +104,119 @@ function ContractPreview({
   companyData: CompanyData;
   showSignatures?: boolean;
 }) {
-  const role = roleInfo[contract.role];
+  const { t } = useTranslation();
+  const role = {
+    title: t(`business.contracts.roles.${contract.role}.title`),
+    rate: t(`business.contracts.roles.${contract.role}.rate`),
+    description: t(`business.contracts.roles.${contract.role}.description`),
+    roleTitle: t(`business.contracts.roles.${contract.role}.roleTitle`),
+  };
   
   return (
     <div className="bg-white border rounded-lg p-6 text-sm space-y-4">
-      <h3 className="text-center font-bold text-lg">Vertrag für Kurzzeiteinsätze auf Abruf</h3>
+      <h3 className="text-center font-bold text-lg">{t('business.contracts.preview.title')}</h3>
       
       <div>
-        <p className="mb-2">zwischen</p>
+        <p className="mb-2">{t('business.contracts.preview.between')}</p>
         <p className="font-semibold">{companyData.companyName}</p>
         <p>{companyData.companyStreet}, {companyData.companyPostalCode} {companyData.companyCity}</p>
-        <p className="italic text-gray-600">- Auftraggeber -</p>
+        <p className="italic text-gray-600">{t('business.contracts.preview.client')}</p>
       </div>
       
       <div>
-        <p className="mb-2">und</p>
+        <p className="mb-2">{t('business.contracts.preview.and')}</p>
         <p className="font-semibold">{contract.lastName}, {contract.firstName}</p>
         <p>{contract.street}, {contract.postalCode} {contract.city}</p>
-        <p>Tel: {contract.phone || "-"}, E-Mail: {contract.email}</p>
-        <p className="italic text-gray-600">- Auftragnehmer -</p>
+        <p>{t('business.contracts.preview.phone')}: {contract.phone || "-"}, {t('business.contracts.preview.email')}: {contract.email}</p>
+        <p className="italic text-gray-600">{t('business.contracts.preview.contractor')}</p>
       </div>
       
       <div>
-        <p><strong>IBAN:</strong> {contract.iban}</p>
-        <p><strong>Geb.:</strong> {contract.dateOfBirth}</p>
+        <p><strong>{t('business.contracts.preview.iban')}:</strong> {contract.iban}</p>
+        <p><strong>{t('business.contracts.preview.dob')}:</strong> {contract.dateOfBirth}</p>
       </div>
 
       <Separator />
 
       <div>
-        <h4 className="font-bold mb-1">Präambel</h4>
+        <h4 className="font-bold mb-1">{t('business.contracts.sections.preamble')}</h4>
         <p className="text-gray-700">
-          Die {companyData.companyName} bietet die Möglichkeit für einzelne Tage stundenweise Tätigkeiten im Bereich der IMC-Pflege, Anästhesiepflege und ärztlichen Anästhesie anzubieten. Der Auftragnehmer ist bereit, künftig nach Absprache für die Leistungserbringung in seinem Fachbereich auf Abruf stundenweise zur Verfügung zu stehen.
+          {t('business.contracts.sections.preambleText', { companyName: companyData.companyName })}
         </p>
       </div>
       
       <div>
-        <h4 className="font-bold mb-1">1. Vertragsgegenstand</h4>
+        <h4 className="font-bold mb-1">{t('business.contracts.sections.subject')}</h4>
         <p className="text-gray-700">
-          Der Auftragnehmer ist {role.description}, in der Schweiz anerkannt. Er verpflichtet sich, Leistungen als {role.roleTitle} für den Auftraggeber zu erbringen. Der Auftragnehmer erbringt seine Leistungen in eigener fachlicher Verantwortung. Der Auftragnehmer beachtet die Weisungen der Geschäftsleitung und der Leitenden Chirurgin (Dr. med. Lena Schumann). Er hat Pausen (ohne Vergütung) auf Anweisung wahrzunehmen.
+          {t('business.contracts.sections.subjectText', { description: role.description, roleTitle: role.roleTitle })}
         </p>
       </div>
 
       <div>
-        <h4 className="font-bold mb-1">2. Arbeitsort</h4>
+        <h4 className="font-bold mb-1">{t('business.contracts.sections.workplace')}</h4>
         <p className="text-gray-700">
-          Der Arbeitsort befindet sich an der {companyData.companyName}, {companyData.companyStreet}, {companyData.companyPostalCode} {companyData.companyCity}.
+          {t('business.contracts.sections.workplaceText', { 
+            companyName: companyData.companyName, 
+            companyStreet: companyData.companyStreet, 
+            companyPostalCode: companyData.companyPostalCode, 
+            companyCity: companyData.companyCity 
+          })}
         </p>
       </div>
 
       <div>
-        <h4 className="font-bold mb-1">3. Arbeitszeit und Abruf</h4>
+        <h4 className="font-bold mb-1">{t('business.contracts.sections.workingHours')}</h4>
         <p className="text-gray-700">
-          Der Einsatz erfolgt nach Bedarf der Auftraggeberin. Termine, die der Auftragnehmer schriftlich oder per E-Mail bestätigt, sind verbindlich. Die Termine dürfen nur im Krankheitsfall abgesagt werden, wobei der Auftragnehmer möglichst frühzeitig (48h vorher) einen voraussichtlichen Ausfall mitzuteilen hat. Er hat die Auftraggeberin auch über die voraussichtliche Eventualität eines krankheitsbedingten Ausfalls frühzeitig zu informieren, damit rechtzeitig Ersatzpersonal geplant werden kann.
+          {t('business.contracts.sections.workingHoursText')}
         </p>
       </div>
       
       <div>
-        <h4 className="font-bold mb-1">4. Vergütung</h4>
+        <h4 className="font-bold mb-1">{t('business.contracts.sections.compensation')}</h4>
         <p className="text-gray-700">
-          Der Auftragnehmer erhält für die erbrachte Arbeitsleistung einen Bruttolohn pro Stunde in Höhe von <strong>{role.rate}</strong> ({role.title}). Die Auszahlung erfolgt im Folgemonat des Einsatzes auf das von dem Auftragnehmer angegebene Bankkonto. Der Auftragnehmer hat den Stundeneinsatz pro Tag von der ärztlichen Leitung (Dr. med. Lena Schumann) bestätigen zu lassen. Am Ende des Monats reicht der Auftragnehmer seine bestätigte Stundenaufstellung zur Abrechnung bei der Auftraggeberin ein.
+          {t('business.contracts.sections.compensationText', { rate: role.rate, title: role.title })}
         </p>
       </div>
 
       <div>
-        <h4 className="font-bold mb-1">5. Sozialversicherungen</h4>
+        <h4 className="font-bold mb-1">{t('business.contracts.sections.socialInsurance')}</h4>
         <p className="text-gray-700">
-          Dieser Vertrag unterliegt den gesetzlichen Vorschriften der Sozialversicherungen in der Schweiz. Der Auftraggeber verpflichtet sich, alle erforderlichen Abgaben für AHV, ALV abzuführen. Vom Bruttolohn werden die Auftragnehmerbeiträge in Abzug gebracht.
+          {t('business.contracts.sections.socialInsuranceText')}
         </p>
       </div>
 
       <div>
-        <h4 className="font-bold mb-1">6. Einschluss und Abgeltung von Ferienansprüchen und Lohnfortzahlung</h4>
+        <h4 className="font-bold mb-1">{t('business.contracts.sections.vacation')}</h4>
         <p className="text-gray-700">
-          Angesichts der kurzen Dauer der Arbeitseinsätze werden der Ferienanspruch sowie der Anspruch auf Lohnfortzahlung bei unverschuldeter Verhinderung an der Arbeitsleistung (Krankheit, Unfall, usw.) durch den vereinbarten Bruttolohn abgegolten. Für Feiertage und bezahlte Absenzen besteht kein besonderer Lohnanspruch, da die entsprechende Entschädigung mit Rücksicht auf die kurze Dauer der Arbeitseinsätze im Lohn eingeschlossen ist.
+          {t('business.contracts.sections.vacationText')}
         </p>
       </div>
 
       <div>
-        <h4 className="font-bold mb-1">7. Vertraulichkeit</h4>
+        <h4 className="font-bold mb-1">{t('business.contracts.sections.confidentiality')}</h4>
         <p className="text-gray-700">
-          Der Auftragnehmer verpflichtet sich, alle im Zusammenhang mit seiner Tätigkeit bekannt gewordenen Informationen über den Auftraggeber und dessen Geschäftsabläufe vertraulich zu behandeln und nicht an Dritte weiterzugeben.
+          {t('business.contracts.sections.confidentialityText')}
         </p>
       </div>
 
       <div>
-        <h4 className="font-bold mb-1">8. Beendigung des Arbeitsverhältnisses</h4>
+        <h4 className="font-bold mb-1">{t('business.contracts.sections.termination')}</h4>
         <p className="text-gray-700">
-          Die Vereinbarung kann mit einer Frist von einem Monat gekündigt werden.
+          {t('business.contracts.sections.terminationText')}
         </p>
       </div>
 
       <div>
-        <h4 className="font-bold mb-1">9. Weitere Bestimmungen</h4>
+        <h4 className="font-bold mb-1">{t('business.contracts.sections.otherProvisions')}</h4>
         <p className="text-gray-700">
-          Änderungen oder Ergänzungen dieses Vertrags bedürfen der Schriftform. Mündliche Abreden sind ungültig.
+          {t('business.contracts.sections.otherProvisionsText')}
         </p>
       </div>
 
       <div>
-        <h4 className="font-bold mb-1">10. Recht und Gerichtsstand</h4>
+        <h4 className="font-bold mb-1">{t('business.contracts.sections.jurisdiction')}</h4>
         <p className="text-gray-700">
-          Soweit nicht die Bestimmungen dieses Vertrags vorgehen, gelten die allgemeinen Bestimmungen des Obligationenrechts. Abänderungen, Ergänzungen oder die Aufhebung des vorliegenden Vertrages sind nur in Schriftform und von beiden Vertragsparteien unterzeichnet rechtsgültig. Sollten Teile dieses Vertrages unwirksam sein, so wird hierdurch die Gültigkeit der übrigen Bestimmungen nicht berührt. An die Stelle unwirksamer Bestimmungen treten sinngemäss die einschlägigen gesetzlichen Bestimmungen. Auf diesen Arbeitsvertrag ist schweizerisches Recht anwendbar. Der Gerichtsstand ist Kreuzlingen. Jede Vertragspartei erhält ein Exemplar dieses Vertrages.
+          {t('business.contracts.sections.jurisdictionText')}
         </p>
       </div>
 
@@ -214,12 +225,12 @@ function ContractPreview({
           <Separator />
           <div className="grid grid-cols-2 gap-8 pt-4">
             <div>
-              <p className="text-sm text-gray-500 mb-2">Auftragnehmer/in</p>
+              <p className="text-sm text-gray-500 mb-2">{t('business.contracts.preview.contractor')}</p>
               {contract.workerSignature ? (
                 <>
                   <img 
                     src={contract.workerSignature} 
-                    alt="Unterschrift Mitarbeiter" 
+                    alt="Signature" 
                     className="h-16 border rounded bg-white"
                   />
                   <p className="text-xs text-gray-500 mt-1">
@@ -227,16 +238,16 @@ function ContractPreview({
                   </p>
                 </>
               ) : (
-                <p className="text-gray-400 italic">Keine Unterschrift</p>
+                <p className="text-gray-400 italic">{t('business.contracts.preview.noSignature')}</p>
               )}
             </div>
             <div>
-              <p className="text-sm text-gray-500 mb-2">Auftraggeber ({companyData.companyName})</p>
+              <p className="text-sm text-gray-500 mb-2">{t('business.contracts.preview.client')} ({companyData.companyName})</p>
               {contract.managerSignature ? (
                 <>
                   <img 
                     src={contract.managerSignature} 
-                    alt="Unterschrift Manager" 
+                    alt="Signature" 
                     className="h-16 border rounded bg-white"
                   />
                   <p className="text-xs text-gray-500 mt-1">
@@ -244,7 +255,7 @@ function ContractPreview({
                   </p>
                 </>
               ) : (
-                <p className="text-gray-400 italic">Warte auf Gegenzeichnung</p>
+                <p className="text-gray-400 italic">{t('business.contracts.preview.awaitingCountersignature')}</p>
               )}
             </div>
           </div>
@@ -317,13 +328,13 @@ export default function Contracts() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Vertrag unterzeichnet", description: "Der Vertrag wurde erfolgreich unterzeichnet." });
+      toast({ title: t('business.contracts.toast.signed'), description: t('business.contracts.toast.signedDesc') });
       queryClient.invalidateQueries({ queryKey: ['/api/business', hospitalId, 'contracts'] });
       setShowSignDialog(false);
       setSelectedContract(null);
     },
     onError: () => {
-      toast({ title: "Fehler", description: "Der Vertrag konnte nicht unterzeichnet werden.", variant: "destructive" });
+      toast({ title: t('business.contracts.toast.signError'), description: t('business.contracts.toast.signErrorDesc'), variant: "destructive" });
     },
   });
 
@@ -333,7 +344,7 @@ export default function Contracts() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Link erneuert", description: "Der Vertragslink wurde erneuert." });
+      toast({ title: t('business.contracts.toast.linkRegenerated'), description: t('business.contracts.toast.linkRegeneratedDesc') });
       refetchToken();
     },
   });
@@ -344,11 +355,11 @@ export default function Contracts() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Vertrag archiviert", description: "Der Vertrag wurde erfolgreich archiviert." });
+      toast({ title: t('business.contracts.toast.archived'), description: t('business.contracts.toast.archivedDesc') });
       queryClient.invalidateQueries({ queryKey: ['/api/business', hospitalId, 'contracts'] });
     },
     onError: () => {
-      toast({ title: "Fehler", description: "Der Vertrag konnte nicht archiviert werden.", variant: "destructive" });
+      toast({ title: t('business.contracts.toast.archiveError'), description: t('business.contracts.toast.archiveErrorDesc'), variant: "destructive" });
     },
   });
 
@@ -358,11 +369,11 @@ export default function Contracts() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "Vertrag wiederhergestellt", description: "Der Vertrag wurde erfolgreich wiederhergestellt." });
+      toast({ title: t('business.contracts.toast.restored'), description: t('business.contracts.toast.restoredDesc') });
       queryClient.invalidateQueries({ queryKey: ['/api/business', hospitalId, 'contracts'] });
     },
     onError: () => {
-      toast({ title: "Fehler", description: "Der Vertrag konnte nicht wiederhergestellt werden.", variant: "destructive" });
+      toast({ title: t('business.contracts.toast.restoreError'), description: t('business.contracts.toast.restoreErrorDesc'), variant: "destructive" });
     },
   });
 
@@ -372,10 +383,10 @@ export default function Contracts() {
       return res.json();
     },
     onSuccess: () => {
-      toast({ title: "E-Mail gesendet", description: "Der Vertrag wurde erfolgreich per E-Mail gesendet." });
+      toast({ title: t('business.contracts.toast.emailSent'), description: t('business.contracts.toast.emailSentDesc') });
     },
     onError: () => {
-      toast({ title: "Fehler", description: "Die E-Mail konnte nicht gesendet werden.", variant: "destructive" });
+      toast({ title: t('business.contracts.toast.emailError'), description: t('business.contracts.toast.emailErrorDesc'), variant: "destructive" });
     },
   });
 
@@ -393,7 +404,7 @@ export default function Contracts() {
       navigator.clipboard.writeText(contractLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-      toast({ title: "Link kopiert", description: "Der Vertragslink wurde in die Zwischenablage kopiert." });
+      toast({ title: t('business.contracts.toast.linkCopied'), description: t('business.contracts.toast.linkCopiedDesc') });
     }
   };
 
@@ -782,13 +793,13 @@ export default function Contracts() {
 
   const handleSendContractEmail = async (contract: WorkerContract) => {
     if (!contract.email) {
-      toast({ title: "Fehler", description: "Keine E-Mail-Adresse vorhanden", variant: "destructive" });
+      toast({ title: t('business.contracts.toast.emailError'), description: t('business.contracts.toast.noEmail'), variant: "destructive" });
       return;
     }
     
     const pdfBase64 = await generateContractPDFBase64(contract);
     if (!pdfBase64) {
-      toast({ title: "Fehler", description: "PDF konnte nicht generiert werden", variant: "destructive" });
+      toast({ title: t('business.contracts.toast.emailError'), description: t('business.contracts.toast.pdfError'), variant: "destructive" });
       return;
     }
     
@@ -796,7 +807,8 @@ export default function Contracts() {
   };
 
   const ContractCard = ({ contract, showActions = true }: { contract: WorkerContract; showActions?: boolean }) => {
-    const role = roleInfo[contract.role];
+    const roleTitle = t(`business.contracts.roles.${contract.role}.title`);
+    const roleRate = t(`business.contracts.roles.${contract.role}.rate`);
     
     return (
       <Card className="hover:shadow-md transition-shadow" data-testid={`card-contract-${contract.id}`}>
@@ -808,11 +820,11 @@ export default function Contracts() {
                 <span className="font-semibold truncate">{contract.firstName} {contract.lastName}</span>
                 <Badge variant={contract.status === 'signed' ? 'default' : 'secondary'} className="flex-shrink-0">
                   {contract.status === 'signed' ? (
-                    <><CheckCircle className="w-3 h-3 mr-1" /> Unterschrieben</>
+                    <><CheckCircle className="w-3 h-3 mr-1" /> {t('business.contracts.status.signed')}</>
                   ) : contract.status === 'pending_manager_signature' ? (
-                    <><Clock className="w-3 h-3 mr-1" /> <span className="hidden sm:inline">Warte auf Unterschrift</span><span className="sm:hidden">Offen</span></>
+                    <><Clock className="w-3 h-3 mr-1" /> <span className="hidden sm:inline">{t('business.contracts.status.pendingSignature')}</span><span className="sm:hidden">{t('business.contracts.status.pendingShort')}</span></>
                   ) : (
-                    <><XCircle className="w-3 h-3 mr-1" /> Abgelehnt</>
+                    <><XCircle className="w-3 h-3 mr-1" /> {t('business.contracts.status.rejected')}</>
                   )}
                 </Badge>
               </div>
@@ -820,18 +832,18 @@ export default function Contracts() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-gray-600">
                 <div className="flex items-center gap-2">
                   <Briefcase className="w-4 h-4 flex-shrink-0" />
-                  <span className="truncate">{role.title}</span>
+                  <span className="truncate">{roleTitle}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <CreditCard className="w-4 h-4 flex-shrink-0" />
-                  <span>{role.rate}/Std.</span>
+                  <span>{roleRate}{t('business.contracts.card.perHour')}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Building2 className="w-4 h-4 flex-shrink-0" />
                   <span>{contract.city}</span>
                 </div>
                 <div className="text-gray-400">
-                  Eingereicht: {format(new Date(contract.createdAt), 'dd.MM.yyyy', { locale: de })}
+                  {t('business.contracts.card.submitted')}: {format(new Date(contract.createdAt), 'dd.MM.yyyy', { locale: de })}
                 </div>
               </div>
             </div>
@@ -861,7 +873,7 @@ export default function Contracts() {
                     data-testid={`button-sign-contract-${contract.id}`}
                   >
                     <Pen className="w-4 h-4 sm:mr-1" />
-                    <span className="hidden sm:inline">Unterschreiben</span>
+                    <span className="hidden sm:inline">{t('business.contracts.actions.sign')}</span>
                   </Button>
                 )}
                 
@@ -874,7 +886,7 @@ export default function Contracts() {
                       data-testid={`button-download-contract-${contract.id}`}
                     >
                       <Download className="w-4 h-4 sm:mr-1" />
-                      <span className="hidden sm:inline">PDF</span>
+                      <span className="hidden sm:inline">{t('business.contracts.actions.download')}</span>
                     </Button>
                     {contract.email && (
                       <Button
@@ -883,7 +895,7 @@ export default function Contracts() {
                         onClick={() => handleSendContractEmail(contract)}
                         disabled={sendContractEmailMutation.isPending}
                         data-testid={`button-email-contract-${contract.id}`}
-                        title="Vertrag per E-Mail senden"
+                        title={t('business.contracts.actions.sendEmail')}
                       >
                         {sendContractEmailMutation.isPending ? (
                           <Loader2 className="w-4 h-4 animate-spin" />
@@ -902,7 +914,7 @@ export default function Contracts() {
                     onClick={() => unarchiveContractMutation.mutate(contract.id)}
                     disabled={unarchiveContractMutation.isPending}
                     data-testid={`button-unarchive-contract-${contract.id}`}
-                    title="Wiederherstellen"
+                    title={t('business.contracts.actions.restore')}
                   >
                     <ArchiveRestore className="w-4 h-4" />
                   </Button>
@@ -913,7 +925,7 @@ export default function Contracts() {
                     onClick={() => archiveContractMutation.mutate(contract.id)}
                     disabled={archiveContractMutation.isPending}
                     data-testid={`button-archive-contract-${contract.id}`}
-                    title="Archivieren"
+                    title={t('business.contracts.actions.archive')}
                   >
                     <Archive className="w-4 h-4" />
                   </Button>
@@ -929,7 +941,7 @@ export default function Contracts() {
   if (!hospitalId) {
     return (
       <div className="p-6 text-center text-gray-500">
-        Kein Krankenhaus ausgewählt
+        {t('business.contracts.noHospitalSelected')}
       </div>
     );
   }
@@ -938,8 +950,8 @@ export default function Contracts() {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Mitarbeiterverträge</h1>
-          <p className="text-gray-500">Verwalten Sie temporäre Arbeitsverträge</p>
+          <h1 className="text-2xl font-bold">{t('business.contracts.title')}</h1>
+          <p className="text-gray-500">{t('business.contracts.subtitle')}</p>
         </div>
       </div>
 
@@ -947,16 +959,16 @@ export default function Contracts() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Link2 className="w-5 h-5" />
-            Vertragslink für Mitarbeiter
+            {t('business.contracts.contractLinkTitle')}
           </CardTitle>
           <CardDescription>
-            Teilen Sie diesen Link mit temporären Mitarbeitern, um ihnen das Ausfüllen und Unterschreiben des Vertrags zu ermöglichen.
+            {t('business.contracts.contractLinkDescription')}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-2">
             <Input 
-              value={contractLink || "Wird geladen..."} 
+              value={contractLink || t('business.contracts.loading')} 
               readOnly 
               className="font-mono text-sm"
               data-testid="input-contract-link"
@@ -985,24 +997,24 @@ export default function Contracts() {
         <TabsList className="w-full flex flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="pending" className="flex-1 min-w-0 gap-1 sm:gap-2 px-2 sm:px-4 py-2" data-testid="tab-pending-contracts">
             <Clock className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline truncate">Zu unterschreiben</span>
-            <span className="sm:hidden truncate">Offen</span>
+            <span className="hidden sm:inline truncate">{t('business.contracts.tabs.pending')}</span>
+            <span className="sm:hidden truncate">{t('business.contracts.tabs.pendingShort')}</span>
             {pendingContracts.length > 0 && (
               <Badge variant="secondary" className="ml-1 flex-shrink-0">{pendingContracts.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="signed" className="flex-1 min-w-0 gap-1 sm:gap-2 px-2 sm:px-4 py-2" data-testid="tab-signed-contracts">
             <CheckCircle className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline truncate">Unterschrieben</span>
-            <span className="sm:hidden truncate">Signiert</span>
+            <span className="hidden sm:inline truncate">{t('business.contracts.tabs.signed')}</span>
+            <span className="sm:hidden truncate">{t('business.contracts.tabs.signedShort')}</span>
             {signedContracts.length > 0 && (
               <Badge variant="secondary" className="ml-1 flex-shrink-0">{signedContracts.length}</Badge>
             )}
           </TabsTrigger>
           <TabsTrigger value="archived" className="flex-1 min-w-0 gap-1 sm:gap-2 px-2 sm:px-4 py-2" data-testid="tab-archived-contracts">
             <Archive className="w-4 h-4 flex-shrink-0" />
-            <span className="hidden sm:inline truncate">Archiviert</span>
-            <span className="sm:hidden truncate">Archiv</span>
+            <span className="hidden sm:inline truncate">{t('business.contracts.tabs.archived')}</span>
+            <span className="sm:hidden truncate">{t('business.contracts.tabs.archivedShort')}</span>
             {archivedContracts.length > 0 && (
               <Badge variant="secondary" className="ml-1 flex-shrink-0">{archivedContracts.length}</Badge>
             )}
@@ -1018,7 +1030,7 @@ export default function Contracts() {
             <Card>
               <CardContent className="py-8 text-center text-gray-500">
                 <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>Keine Verträge zur Unterschrift vorhanden</p>
+                <p>{t('business.contracts.empty.pending')}</p>
               </CardContent>
             </Card>
           ) : (
@@ -1039,7 +1051,7 @@ export default function Contracts() {
             <Card>
               <CardContent className="py-8 text-center text-gray-500">
                 <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>Noch keine unterschriebenen Verträge</p>
+                <p>{t('business.contracts.empty.signed')}</p>
               </CardContent>
             </Card>
           ) : (
@@ -1060,7 +1072,7 @@ export default function Contracts() {
             <Card>
               <CardContent className="py-8 text-center text-gray-500">
                 <Archive className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                <p>Keine archivierten Verträge</p>
+                <p>{t('business.contracts.empty.archived')}</p>
               </CardContent>
             </Card>
           ) : (
@@ -1076,7 +1088,7 @@ export default function Contracts() {
       <Dialog open={showViewDialog} onOpenChange={setShowViewDialog}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Vertragsdetails</DialogTitle>
+            <DialogTitle>{t('business.contracts.dialog.viewTitle')}</DialogTitle>
           </DialogHeader>
           {selectedContract && companyData && (
             <div className="space-y-4">
@@ -1096,7 +1108,7 @@ export default function Contracts() {
                     data-testid="button-sign-from-view"
                   >
                     <Pen className="w-4 h-4 mr-2" />
-                    Unterschreiben
+                    {t('business.contracts.actions.sign')}
                   </Button>
                 )}
                 {selectedContract.status === 'signed' && (
@@ -1106,7 +1118,7 @@ export default function Contracts() {
                     data-testid="button-download-from-view"
                   >
                     <Download className="w-4 h-4 mr-2" />
-                    PDF herunterladen
+                    {t('business.contracts.actions.downloadPdf')}
                   </Button>
                 )}
               </div>
@@ -1118,9 +1130,9 @@ export default function Contracts() {
       <Dialog open={showSignDialog} onOpenChange={setShowSignDialog}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Vertrag unterschreiben</DialogTitle>
+            <DialogTitle>{t('business.contracts.dialog.signTitle')}</DialogTitle>
             <DialogDescription>
-              Bitte lesen Sie den Vertrag sorgfältig durch und unterschreiben Sie unten.
+              {t('business.contracts.dialog.signDescription')}
             </DialogDescription>
           </DialogHeader>
           {selectedContract && companyData && (
@@ -1138,7 +1150,7 @@ export default function Contracts() {
                   data-testid="button-open-signature-pad"
                 >
                   <Pen className="w-4 h-4 mr-2" />
-                  Gegenzeichnung hinzufügen
+                  {t('business.contracts.dialog.addCountersignature')}
                 </Button>
               </div>
             </div>
@@ -1150,7 +1162,7 @@ export default function Contracts() {
         isOpen={showSignaturePad}
         onClose={() => setShowSignaturePad(false)}
         onSave={handleSignContract}
-        title="Ihre Unterschrift"
+        title={t('business.contracts.dialog.yourSignature')}
       />
     </div>
   );
