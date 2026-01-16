@@ -11,9 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { UnifiedBarcodeScanner } from "@/components/UnifiedBarcodeScanner";
+import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
 import { 
   Check, X, ExternalLink, Package, AlertCircle, Loader2, 
-  Edit2, Save, XCircle, DollarSign, AlertTriangle, CheckCircle2, Search 
+  Edit2, Save, XCircle, DollarSign, AlertTriangle, CheckCircle2, Search, ScanBarcode
 } from "lucide-react";
 
 interface ItemCode {
@@ -178,6 +180,10 @@ export default function SupplierMatches() {
   const [searchWithPrice, setSearchWithPrice] = useState("");
   const [searchNoPrice, setSearchNoPrice] = useState("");
   
+  // Quick scan state - tracks which item is being scanned
+  const [scanningItemId, setScanningItemId] = useState<string | null>(null);
+  const [isAnalyzingOCR, setIsAnalyzingOCR] = useState(false);
+  
   // Filter function for items
   const filterItems = (items: CategorizedItem[], searchQuery: string) => {
     if (!searchQuery.trim()) return items;
@@ -222,6 +228,112 @@ export default function SupplierMatches() {
       toast({ title: t("common.error"), description: error.message, variant: "destructive" });
     },
   });
+
+  // Mutation to save scanned codes for an item
+  const saveScannedCodesMutation = useMutation({
+    mutationFn: async ({ itemId, pharmacode, gtin }: { itemId: string; pharmacode?: string; gtin?: string }) => {
+      const response = await apiRequest("PUT", `/api/item-codes/${itemId}`, {
+        pharmacode: pharmacode || null,
+        gtin: gtin || null,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      refetch();
+      toast({ 
+        title: t("common.success"), 
+        description: t("supplierMatches.codesScanned", "Codes saved from scan") 
+      });
+      setScanningItemId(null);
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Handler for barcode detection from scanner
+  const handleQuickScanBarcode = async (barcode: string, format: string) => {
+    if (!scanningItemId) return;
+    
+    console.log('[SupplierMatches] Barcode detected for item:', scanningItemId, barcode, format);
+    
+    // Check if it's a GS1 code (contains embedded GTIN, lot, expiry)
+    if (isGS1Code(barcode)) {
+      const parsed = parseGS1Code(barcode);
+      if (parsed.gtin) {
+        saveScannedCodesMutation.mutate({ 
+          itemId: scanningItemId, 
+          gtin: parsed.gtin 
+        });
+        return;
+      }
+    }
+    
+    // Remove any leading zeros for cleaner code
+    const cleanBarcode = barcode.replace(/^0+/, '');
+    
+    // Determine if it's a GTIN (13+ digits) or pharmacode (shorter)
+    if (cleanBarcode.length >= 13) {
+      saveScannedCodesMutation.mutate({ 
+        itemId: scanningItemId, 
+        gtin: cleanBarcode 
+      });
+    } else if (cleanBarcode.length >= 5 && cleanBarcode.length <= 8) {
+      // Likely a Swiss pharmacode
+      saveScannedCodesMutation.mutate({ 
+        itemId: scanningItemId, 
+        pharmacode: cleanBarcode 
+      });
+    } else {
+      // Unknown format - try as GTIN
+      saveScannedCodesMutation.mutate({ 
+        itemId: scanningItemId, 
+        gtin: barcode 
+      });
+    }
+  };
+
+  // Handler for OCR fallback from scanner
+  const handleQuickScanImage = async (photo: string) => {
+    if (!scanningItemId) return;
+    
+    console.log('[SupplierMatches] OCR fallback for item:', scanningItemId);
+    setIsAnalyzingOCR(true);
+    
+    try {
+      const response = await apiRequest('POST', '/api/items/analyze-codes', {
+        image: photo
+      });
+      const result: any = await response.json();
+      
+      const extractedGtin = result.gtin || '';
+      const extractedPharmacode = result.pharmacode || '';
+      
+      if (extractedGtin || extractedPharmacode) {
+        saveScannedCodesMutation.mutate({ 
+          itemId: scanningItemId, 
+          gtin: extractedGtin || undefined,
+          pharmacode: extractedPharmacode || undefined
+        });
+      } else {
+        toast({
+          title: t("common.error"),
+          description: t("supplierMatches.noCodesFound", "No codes detected in image"),
+          variant: "destructive"
+        });
+        setScanningItemId(null);
+      }
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("supplierMatches.ocrFailed", "Failed to analyze image"),
+        variant: "destructive"
+      });
+      setScanningItemId(null);
+    } finally {
+      setIsAnalyzingOCR(false);
+    }
+  };
 
   const formatPrice = (price: string | null) => {
     if (!price) return "-";
@@ -342,9 +454,22 @@ export default function SupplierMatches() {
                           <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
                         )}
                       </div>
-                      <Badge variant="outline" className="text-red-600 border-red-300">
-                        {t("supplierMatches.noMatch", "No Match")}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setScanningItemId(item.id)}
+                          disabled={saveScannedCodesMutation.isPending || isAnalyzingOCR}
+                          className="h-8"
+                          data-testid={`button-quick-scan-${item.id}`}
+                        >
+                          <ScanBarcode className="w-4 h-4 mr-1" />
+                          {t("supplierMatches.quickScan", "Scan")}
+                        </Button>
+                        <Badge variant="outline" className="text-red-600 border-red-300">
+                          {t("supplierMatches.noMatch", "No Match")}
+                        </Badge>
+                      </div>
                     </div>
                     <ItemCodesEditor item={item} itemCode={item.itemCode} onSave={() => refetch()} />
                   </div>
@@ -396,6 +521,17 @@ export default function SupplierMatches() {
                           <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
                         )}
                       </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setScanningItemId(item.id)}
+                        disabled={saveScannedCodesMutation.isPending || isAnalyzingOCR}
+                        className="h-8"
+                        data-testid={`button-quick-scan-verify-${item.id}`}
+                      >
+                        <ScanBarcode className="w-4 h-4 mr-1" />
+                        {t("supplierMatches.quickScan", "Scan")}
+                      </Button>
                     </div>
                     
                     <ItemCodesEditor item={item} itemCode={item.itemCode} onSave={() => refetch()} />
@@ -607,9 +743,22 @@ export default function SupplierMatches() {
                           <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
                         )}
                       </div>
-                      <Badge variant="outline" className="text-orange-600 border-orange-300">
-                        {t("supplierMatches.needsPrice", "Needs Price")}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setScanningItemId(item.id)}
+                          disabled={saveScannedCodesMutation.isPending || isAnalyzingOCR}
+                          className="h-8"
+                          data-testid={`button-quick-scan-no-price-${item.id}`}
+                        >
+                          <ScanBarcode className="w-4 h-4 mr-1" />
+                          {t("supplierMatches.quickScan", "Scan")}
+                        </Button>
+                        <Badge variant="outline" className="text-orange-600 border-orange-300">
+                          {t("supplierMatches.needsPrice", "Needs Price")}
+                        </Badge>
+                      </div>
                     </div>
                     
                     <ItemCodesEditor item={item} itemCode={item.itemCode} onSave={() => refetch()} />
@@ -645,6 +794,15 @@ export default function SupplierMatches() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Quick Scan Modal */}
+      <UnifiedBarcodeScanner
+        isOpen={scanningItemId !== null}
+        onClose={() => setScanningItemId(null)}
+        onBarcodeDetected={handleQuickScanBarcode}
+        onImageCapture={handleQuickScanImage}
+        hint={t("supplierMatches.scanHint", "Point at barcode or take photo for OCR")}
+      />
     </div>
   );
 }
