@@ -157,10 +157,7 @@ export default function Pacu() {
                     </Badge>
                   )}
                   <h3 className="font-semibold text-lg" data-testid={`text-patient-name-${patient.surgeryId}`}>
-                    {patient.pacuBedId && patient.pacuBedName 
-                      ? `${patient.pacuBedName} – ${patient.patientName}`
-                      : patient.patientName
-                    }
+                    {patient.patientName}
                   </h3>
                   <p className="text-sm text-muted-foreground" data-testid={`text-mrn-${patient.surgeryId}`}>
                     {patient.patientNumber} • {t('anesthesia.pacu.age')} {patient.age}
