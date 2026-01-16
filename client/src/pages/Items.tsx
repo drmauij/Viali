@@ -1783,7 +1783,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           ...prev,
           gtin: parsed.gtin || '',
           lotNumber: parsed.lotNumber || prev.lotNumber,
-          expiryDate: parsed.expirationDate || prev.expiryDate,
+          expiryDate: parsed.expiryDate || prev.expiryDate,
         }));
         toast({
           title: t('items.barcodeDetected'),
