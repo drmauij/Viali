@@ -6,18 +6,22 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { Bed, X, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PacuBedSelectorProps {
   surgeryId: string;
-  hospitalId: string;
+  hospitalId?: string;
   currentBedId?: string | null;
   currentBedName?: string | null;
   onAssign?: (bedId: string | null) => void;
   variant?: "button" | "badge" | "inline";
   size?: "sm" | "default";
   disabled?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
 interface SurgeryRoom {
@@ -37,17 +41,32 @@ interface Surgery {
 
 export function PacuBedSelector({
   surgeryId,
-  hospitalId,
+  hospitalId: hospitalIdProp,
   currentBedId,
   currentBedName,
   onAssign,
   variant = "button",
   size = "default",
   disabled = false,
+  open: controlledOpen,
+  onOpenChange,
+  hideTrigger = false,
 }: PacuBedSelectorProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
-  const [open, setOpen] = useState(false);
+  const activeHospital = useActiveHospital();
+  const hospitalId = hospitalIdProp || activeHospital?.id;
+  
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (value: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(value);
+    } else {
+      setInternalOpen(value);
+    }
+  };
 
   const { data: allRooms = [] } = useQuery<SurgeryRoom[]>({
     queryKey: [`/api/surgery-rooms/${hospitalId}`],
@@ -110,6 +129,26 @@ export function PacuBedSelector({
 
   const currentBed = pacuBeds.find((bed) => bed.id === currentBedId);
   const displayBedName = currentBedName || currentBed?.name;
+
+  // Hidden trigger mode - renders just the popover content, controlled externally
+  if (hideTrigger) {
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <span className="hidden" />
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-2" align="start">
+          <BedList
+            beds={pacuBeds}
+            currentBedId={currentBedId}
+            occupiedBeds={occupiedBeds}
+            onSelect={handleSelectBed}
+            isPending={assignBedMutation.isPending}
+          />
+        </PopoverContent>
+      </Popover>
+    );
+  }
 
   if (variant === "badge" && currentBedId) {
     return (
