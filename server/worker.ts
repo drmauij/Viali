@@ -362,9 +362,30 @@ async function processNextPriceSyncJob() {
 
       // Update prices for items with existing supplier codes
       for (const code of existingSupplierCodes) {
+        // First try to find price by articleCode, then fallback to item's pharmacode/GTIN
+        let priceData: PriceData | undefined;
+        let matchedByCode: string | undefined;
+        
         if (code.articleCode && priceMap.has(code.articleCode)) {
+          priceData = priceMap.get(code.articleCode);
+          matchedByCode = code.articleCode;
+        } else {
+          // Fallback: try item's pharmacode or GTIN from itemCodes
+          const itemInfo = hospitalItemMap.get(code.itemId);
+          if (itemInfo?.pharmacode && priceMap.has(itemInfo.pharmacode)) {
+            priceData = priceMap.get(itemInfo.pharmacode);
+            matchedByCode = itemInfo.pharmacode;
+            console.log(`[Worker] Matched supplier code for item ${code.itemId} via pharmacode ${itemInfo.pharmacode} (articleCode was ${code.articleCode})`);
+          } else if (itemInfo?.gtin && priceMap.has(itemInfo.gtin)) {
+            priceData = priceMap.get(itemInfo.gtin);
+            matchedByCode = itemInfo.gtin;
+            console.log(`[Worker] Matched supplier code for item ${code.itemId} via GTIN ${itemInfo.gtin} (articleCode was ${code.articleCode})`);
+          }
+        }
+        
+        if (priceData) {
           matchedCount++;
-          const priceData = priceMap.get(code.articleCode)!;
+          const priceDataNonNull = priceData!;
           
           const hasChanges = 
             code.basispreis !== String(priceData.basispreis) ||
@@ -384,8 +405,9 @@ async function processNextPriceSyncJob() {
             ));
 
           if (hasChanges) {
-            // Construct catalog URL using pharmacode (dispocura.galexis.com)
-            const catalogUrl = code.articleCode ? `https://dispocura.galexis.com/app#/articles/${code.articleCode}` : undefined;
+            // Construct catalog URL using pharmacode (prefer matchedByCode which is the pharmacode/GTIN we found the price with)
+            const pharmacodeForUrl = matchedByCode || code.articleCode;
+            const catalogUrl = pharmacodeForUrl ? `https://dispocura.galexis.com/app#/articles/${pharmacodeForUrl}` : undefined;
             
             await db
               .update(supplierCodes)
@@ -414,8 +436,9 @@ async function processNextPriceSyncJob() {
             updatedCount++;
             console.log(`[Worker] Updated price for item ${code.itemId}: ${code.basispreis} -> ${priceData.basispreis}`);
           } else {
-            // Construct catalog URL using pharmacode (dispocura.galexis.com)
-            const catalogUrl = code.articleCode ? `https://dispocura.galexis.com/app#/articles/${code.articleCode}` : undefined;
+            // Construct catalog URL using pharmacode (prefer matchedByCode which is the pharmacode/GTIN we found the price with)
+            const pharmacodeForUrl = matchedByCode || code.articleCode;
+            const catalogUrl = pharmacodeForUrl ? `https://dispocura.galexis.com/app#/articles/${pharmacodeForUrl}` : undefined;
             
             await db
               .update(supplierCodes)
