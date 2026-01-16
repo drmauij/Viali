@@ -4175,7 +4175,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 className="w-full text-muted-foreground"
                 onClick={() => setGalexisLookupResult({ found: false, message: t('items.manualEntry') })}
               >
-                <i className="fas fa-keyboard mr-2"></i>
+                <i className="fas fa-forward mr-2"></i>
                 {t('items.skipPhotoEntry')}
               </Button>
             )}

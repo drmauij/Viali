@@ -525,7 +525,7 @@
     "noGtinExtracted": "Keine GTIN im Bild gefunden. Manuell eingeben oder Produktfoto machen.",
     "manualEntry": "Manuelle Eingabe",
     "nextStepCodes": "Weiter: Codes erfassen",
-    "skipPhotoEntry": "Foto überspringen, manuell eingeben",
+    "skipPhotoEntry": "Ohne Barcode hinzufügen",
     "captureCodesPhoto": "Codes erfassen",
     "extractedCodes": "Extrahierte Codes",
     "supplierCode": "Lieferantencode",
