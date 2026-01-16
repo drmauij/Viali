@@ -214,6 +214,19 @@ export default function Op() {
     waitForRecordId: needsDuplicateCheck,
   });
 
+  // Fetch surgery rooms to look up PACU bed name
+  const { data: surgeryRooms = [] } = useQuery<any[]>({
+    queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+
+  // Look up PACU bed name from surgery.pacuBedId
+  const pacuBedName = useMemo(() => {
+    if (!surgery?.pacuBedId || surgeryRooms.length === 0) return null;
+    const pacuBed = surgeryRooms.find((room: any) => room.id === surgery.pacuBedId);
+    return pacuBed?.name || null;
+  }, [surgery?.pacuBedId, surgeryRooms]);
+
   // Check if X2 marker is set (enables mode toggle)
   const hasX2Marker = useMemo(() => {
     if (!anesthesiaRecord?.timeMarkers) return false;
@@ -1364,6 +1377,7 @@ export default function Op() {
           cameraDeviceName={connectedCameraDevice?.name}
           isCameraConnected={!!anesthesiaRecord?.cameraDeviceId}
           onOpenCameraDialog={!isSurgeryMode ? () => setShowCameraDialog(true) : undefined}
+          pacuBedName={pacuBedName}
         />
 
         {/* Tabbed Content */}
