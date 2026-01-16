@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut, Bed } from "lucide-react";
+import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut, Bed, HeartPulse } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -186,7 +186,7 @@ export default function Pacu() {
                 onClick={() => setLocation(`/anesthesia/cases/${patient.surgeryId}/pacu`)}
               >
                 <div className="flex items-center text-sm">
-                  <BedDouble className="h-4 w-4 mr-2 text-muted-foreground" />
+                  <HeartPulse className="h-4 w-4 mr-2 text-muted-foreground" />
                   <span data-testid={`text-procedure-${patient.surgeryId}`}>{patient.procedure}</span>
                 </div>
                 
