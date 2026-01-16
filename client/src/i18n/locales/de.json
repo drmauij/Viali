@@ -555,7 +555,12 @@
     "sourceError": "Fehler",
     "priceInfo": "Preisinformationen",
     "yourPrice": "Ihr Preis",
-    "listPrice": "Listenpreis"
+    "listPrice": "Listenpreis",
+    "pointAtGtinBarcode": "Auf GTIN/EAN-Barcode zeigen",
+    "autoDetectOrCapture": "Erkennt Barcodes automatisch • Tippen für OCR",
+    "captureForOcr": "Foto für OCR",
+    "barcodeDetected": "Barcode erkannt",
+    "usingOcrFallback": "Lese Codes mit KI..."
   },
   "orders": {
     "title": "Bestellungen",

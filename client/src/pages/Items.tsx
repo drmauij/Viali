@@ -25,6 +25,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { CameraCapture } from "@/components/CameraCapture";
+import { UnifiedBarcodeScanner } from "@/components/UnifiedBarcodeScanner";
 import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
 
 // Check if device has touch capability (mobile/tablet)
@@ -352,6 +353,9 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   
   // Individual barcode scan state for Add Item codes
   const [scanningCodeField, setScanningCodeField] = useState<'gtin' | 'pharmacode' | 'supplierCode' | null>(null);
+  
+  // Unified barcode scanner state for Add Item step 1
+  const [unifiedScannerOpen, setUnifiedScannerOpen] = useState(false);
   
   // Edit Item codes capture state
   const [isAnalyzingEditCodes, setIsAnalyzingEditCodes] = useState(false);
@@ -1764,6 +1768,109 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       // Desktop: use webcam capture component
       setWebcamCaptureTarget(target);
       setWebcamCaptureOpen(true);
+    }
+  };
+  
+  // Handler for direct barcode detection from unified scanner
+  const handleUnifiedBarcodeDetected = async (barcode: string, format: string) => {
+    console.log('[Items] Barcode detected:', barcode, 'format:', format);
+    
+    // Check if it's a GS1 code (contains embedded GTIN, lot, expiry)
+    if (isGS1Code(barcode)) {
+      const parsed = parseGS1Code(barcode);
+      if (parsed.gtin) {
+        setFormData(prev => ({
+          ...prev,
+          gtin: parsed.gtin || '',
+          lotNumber: parsed.lotNumber || prev.lotNumber,
+          expiryDate: parsed.expirationDate || prev.expiryDate,
+        }));
+        toast({
+          title: t('items.barcodeDetected'),
+          description: `GTIN: ${parsed.gtin}`,
+        });
+        // Trigger Galexis lookup with extracted GTIN
+        await lookupGalexisProduct(parsed.gtin);
+        return;
+      }
+    }
+    
+    // Check if the barcode looks like a GTIN (13-14 digits) or pharmacode (7 digits)
+    const cleanBarcode = barcode.replace(/\D/g, '');
+    
+    if (cleanBarcode.length >= 13 && cleanBarcode.length <= 14) {
+      // Likely a GTIN/EAN-13
+      setFormData(prev => ({ ...prev, gtin: cleanBarcode }));
+      toast({
+        title: t('items.barcodeDetected'),
+        description: `GTIN: ${cleanBarcode}`,
+      });
+      await lookupGalexisProduct(cleanBarcode);
+    } else if (cleanBarcode.length === 7) {
+      // Likely a Swiss pharmacode
+      setFormData(prev => ({ ...prev, pharmacode: cleanBarcode }));
+      toast({
+        title: t('items.barcodeDetected'),
+        description: `Pharmacode: ${cleanBarcode}`,
+      });
+      // Could also lookup by pharmacode if Galexis supports it
+      setAddItemStage('step2');
+    } else {
+      // Unknown format, store as barcode and advance
+      setFormData(prev => ({ ...prev, barcode: cleanBarcode || barcode }));
+      toast({
+        title: t('items.barcodeDetected'),
+        description: barcode,
+      });
+      setAddItemStage('step2');
+    }
+  };
+  
+  // Handler for OCR fallback from unified scanner
+  const handleUnifiedImageCapture = async (photo: string) => {
+    console.log('[Items] OCR fallback triggered');
+    setIsAnalyzingCodes(true);
+    setCodesImage(photo);
+    
+    try {
+      const response = await apiRequest('POST', '/api/items/analyze-codes', {
+        image: photo
+      });
+      const result: any = await response.json();
+      
+      const extractedGtin = result.gtin || '';
+      if (extractedGtin) setFormData(prev => ({ ...prev, gtin: extractedGtin }));
+      if (result.pharmacode) setFormData(prev => ({ ...prev, pharmacode: result.pharmacode }));
+      if (result.lotNumber) setFormData(prev => ({ ...prev, lotNumber: result.lotNumber }));
+      if (result.expiryDate) setFormData(prev => ({ ...prev, expiryDate: result.expiryDate }));
+      
+      // If GTIN found, try Galexis lookup
+      if (extractedGtin) {
+        await lookupGalexisProduct(extractedGtin);
+      } else if (result.pharmacode) {
+        toast({
+          title: t('items.codesExtracted'),
+          description: `Pharmacode: ${result.pharmacode}`,
+        });
+        setAddItemStage('step2');
+      } else {
+        toast({
+          title: t('items.noCodesFound'),
+          description: t('items.tryManualEntry'),
+          variant: "destructive",
+        });
+        setAddItemStage('step2');
+      }
+    } catch (error: any) {
+      console.error('OCR analysis failed:', error);
+      toast({
+        title: t('items.failedToExtractCodes'),
+        description: error.message,
+        variant: "destructive",
+      });
+      setAddItemStage('step2');
+    } finally {
+      setIsAnalyzingCodes(false);
     }
   };
 
@@ -4072,22 +4179,29 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 onChange={handleCodesImageUpload}
                 className="hidden"
               />
-              <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
                 <Button
                   type="button"
-                  variant="outline"
-                  onClick={() => handleTakePhoto('codes')}
+                  className="w-full h-14"
+                  onClick={() => setUnifiedScannerOpen(true)}
                   disabled={isAnalyzingCodes || isLookingUpGalexis}
-                  data-testid="button-camera-codes"
+                  data-testid="button-scan-barcode"
                 >
-                  <i className={`fas ${isAnalyzingCodes || isLookingUpGalexis ? 'fa-spinner fa-spin' : 'fa-barcode'} mr-2`}></i>
-                  {isAnalyzingCodes ? t('items.analyzing') : isLookingUpGalexis ? t('items.lookingUp') : t('items.scanBarcode')}
+                  <i className={`fas ${isAnalyzingCodes || isLookingUpGalexis ? 'fa-spinner fa-spin' : 'fa-qrcode'} mr-2 text-lg`}></i>
+                  <div className="text-left">
+                    <div className="font-semibold">
+                      {isAnalyzingCodes ? t('items.analyzing') : isLookingUpGalexis ? t('items.lookingUp') : t('items.scanBarcode')}
+                    </div>
+                    <div className="text-xs opacity-80">{t('items.autoDetectOrCapture')}</div>
+                  </div>
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
+                  size="sm"
                   onClick={() => codesGalleryInputRef.current?.click()}
                   disabled={isAnalyzingCodes || isLookingUpGalexis}
+                  className="w-full"
                   data-testid="button-gallery-codes"
                 >
                   <i className="fas fa-images mr-2"></i>
@@ -6443,6 +6557,15 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         onManualEntry={() => {
           setScanningEditCodeField(null);
         }}
+      />
+      
+      {/* Unified Barcode Scanner for Add Item Step 1 */}
+      <UnifiedBarcodeScanner
+        isOpen={unifiedScannerOpen}
+        onClose={() => setUnifiedScannerOpen(false)}
+        onBarcodeDetected={handleUnifiedBarcodeDetected}
+        onImageCapture={handleUnifiedImageCapture}
+        hint={t('items.pointAtGtinBarcode')}
       />
 
       {/* Transfer Items Dialog */}

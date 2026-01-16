@@ -556,7 +556,12 @@
     "sourceError": "Error",
     "priceInfo": "Price Info",
     "yourPrice": "Your Price",
-    "listPrice": "List Price"
+    "listPrice": "List Price",
+    "pointAtGtinBarcode": "Point at GTIN/EAN barcode",
+    "autoDetectOrCapture": "Auto-detects barcodes • Tap capture for OCR",
+    "captureForOcr": "Capture for OCR",
+    "barcodeDetected": "Barcode detected",
+    "usingOcrFallback": "Using AI to read codes..."
   },
   "orders": {
     "title": "Purchase Orders",
