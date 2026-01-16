@@ -270,6 +270,68 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Galexis product lookup by GTIN - fetches full product info including name, price, pharmacode
+  app.post('/api/items/galexis-lookup', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { gtin, hospitalId } = req.body;
+      if (!gtin) {
+        return res.status(400).json({ message: "GTIN is required" });
+      }
+      if (!hospitalId) {
+        return res.status(400).json({ message: "Hospital ID is required" });
+      }
+
+      // Get Galexis catalog credentials for this hospital
+      const catalog = await storage.getGalexisCatalogWithCredentials(hospitalId);
+      if (!catalog) {
+        return res.json({ 
+          found: false, 
+          message: "Galexis integration not configured. Please set up Galexis in Supplier Settings.",
+          noIntegration: true 
+        });
+      }
+
+      if (!catalog.customerNumber || !catalog.apiPassword) {
+        return res.json({ 
+          found: false, 
+          message: "Galexis credentials incomplete. Please check API password and customer number in Supplier Settings.",
+          noIntegration: true 
+        });
+      }
+
+      // Create Galexis client and lookup product
+      const { createGalexisClient } = await import('./services/galexisClient');
+      const client = createGalexisClient(catalog.customerNumber, catalog.apiPassword);
+      
+      const { results, debugInfo } = await client.lookupProducts([{ gtin }]);
+      
+      if (results.length > 0 && results[0].found && results[0].price) {
+        const product = results[0];
+        res.json({
+          found: true,
+          gtin: product.gtin || gtin,
+          pharmacode: product.pharmacode,
+          name: product.price?.description || '',
+          basispreis: product.price?.basispreis,
+          publikumspreis: product.price?.publikumspreis,
+          yourPrice: product.price?.yourPrice,
+          discountPercent: product.price?.discountPercent,
+          available: product.price?.available,
+          availabilityMessage: product.price?.availabilityMessage,
+        });
+      } else {
+        res.json({
+          found: false,
+          message: results[0]?.error || "Product not found in Galexis catalog",
+          gtin,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error looking up product in Galexis:", error);
+      res.status(500).json({ message: error.message || "Failed to lookup product in Galexis" });
+    }
+  });
+
   // Bulk AI image analysis for multiple items
   app.post('/api/items/analyze-images', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {

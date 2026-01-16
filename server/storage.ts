@@ -2068,6 +2068,19 @@ export class DatabaseStorage implements IStorage {
     return { ...catalog, apiPasswordEncrypted: catalog.apiPasswordEncrypted ? '***' : null };
   }
 
+  async getGalexisCatalogWithCredentials(hospitalId: string): Promise<(SupplierCatalog & { apiPassword: string | null }) | undefined> {
+    const [catalog] = await db
+      .select()
+      .from(supplierCatalogs)
+      .where(and(
+        eq(supplierCatalogs.hospitalId, hospitalId),
+        eq(supplierCatalogs.supplierName, 'Galexis')
+      ));
+    if (!catalog) return undefined;
+    const apiPassword = catalog.apiPasswordEncrypted ? decryptCredential(catalog.apiPasswordEncrypted) : null;
+    return { ...catalog, apiPassword };
+  }
+
   async updateSupplierCatalog(id: string, updates: Partial<SupplierCatalog> & { apiPassword?: string }): Promise<SupplierCatalog> {
     // Encrypt password if provided
     const { apiPassword, ...rest } = updates as any;

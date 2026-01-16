@@ -336,9 +336,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [newLot, setNewLot] = useState({ lotNumber: "", expiryDate: "" });
   const [addItemScanner, setAddItemScanner] = useState(false);
   
-  // 2-step photo capture state for Add Item
+  // 2-step photo capture state for Add Item (Step 1: Codes, Step 2: Product Photo fallback)
   const [addItemStep, setAddItemStep] = useState<1 | 2>(1);
   const [isAnalyzingCodes, setIsAnalyzingCodes] = useState(false);
+  const [isLookingUpGalexis, setIsLookingUpGalexis] = useState(false);
+  const [galexisLookupResult, setGalexisLookupResult] = useState<{found: boolean; message?: string; noIntegration?: boolean} | null>(null);
   const [codesImage, setCodesImage] = useState<string | null>(null);
   const codesFileInputRef = useRef<HTMLInputElement>(null);
   const codesGalleryInputRef = useRef<HTMLInputElement>(null);
@@ -1679,7 +1681,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         setIsAnalyzing(false);
       }
     } else if (webcamCaptureTarget === 'codes') {
-      // Handle codes photo capture (same as handleCodesImageUpload)
+      // Handle codes photo capture - extract codes and trigger Galexis lookup
       setIsAnalyzingCodes(true);
       setCodesImage(photo);
       
@@ -1689,7 +1691,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         });
         const result: any = await response.json();
         
-        if (result.gtin) setFormData(prev => ({ ...prev, gtin: result.gtin }));
+        const extractedGtin = result.gtin || '';
+        if (extractedGtin) setFormData(prev => ({ ...prev, gtin: extractedGtin }));
         if (result.pharmacode) setFormData(prev => ({ ...prev, pharmacode: result.pharmacode }));
         if (result.lotNumber) setFormData(prev => ({ ...prev, lotNumber: result.lotNumber }));
         if (result.expiryDate) setFormData(prev => ({ ...prev, expiryDate: result.expiryDate }));
@@ -1700,6 +1703,13 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           title: t('common.success'),
           description: t('items.codesExtracted'),
         });
+        
+        // If GTIN was extracted, automatically lookup in Galexis
+        if (extractedGtin) {
+          await lookupGalexisProduct(extractedGtin);
+        } else {
+          setGalexisLookupResult({ found: false, message: t('items.noGtinExtracted') });
+        }
       } catch (error: any) {
         toast({
           title: t('common.error'),
@@ -1875,9 +1885,68 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     setAddItemStep(1);
     setCodesImage(null);
     setScanningCodeField(null);
+    setGalexisLookupResult(null);
+    setIsLookingUpGalexis(false);
   };
   
-  // Handler for Step 2: Codes image extraction
+  // Galexis product lookup by GTIN
+  const lookupGalexisProduct = async (gtin: string) => {
+    if (!gtin || !activeHospital?.id) return;
+    
+    setIsLookingUpGalexis(true);
+    setGalexisLookupResult(null);
+    
+    try {
+      const response = await apiRequest('POST', '/api/items/galexis-lookup', {
+        gtin,
+        hospitalId: activeHospital.id,
+      });
+      const result: any = await response.json();
+      
+      if (result.found) {
+        // Auto-populate form with Galexis data
+        setFormData(prev => ({
+          ...prev,
+          name: result.name || prev.name,
+          pharmacode: result.pharmacode || prev.pharmacode,
+          gtin: result.gtin || prev.gtin,
+        }));
+        
+        setGalexisLookupResult({ found: true });
+        
+        toast({
+          title: t('items.galexisProductFound'),
+          description: result.name,
+        });
+      } else {
+        setGalexisLookupResult({ 
+          found: false, 
+          message: result.message,
+          noIntegration: result.noIntegration 
+        });
+        
+        // Show step 2 option for manual name entry
+        if (!result.noIntegration) {
+          toast({
+            title: t('items.galexisProductNotFound'),
+            description: t('items.useStep2ForName'),
+            variant: "destructive",
+          });
+        }
+      }
+    } catch (error: any) {
+      setGalexisLookupResult({ found: false, message: error.message });
+      toast({
+        title: t('items.galexisLookupFailed'),
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLookingUpGalexis(false);
+    }
+  };
+  
+  // Handler for Step 1: Codes image extraction (primary step)
   const handleCodesImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1895,9 +1964,10 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       const result: any = await response.json();
       
       // Update form with extracted codes
+      const extractedGtin = result.gtin || '';
       setFormData(prev => ({
         ...prev,
-        gtin: result.gtin || prev.gtin,
+        gtin: extractedGtin || prev.gtin,
         pharmacode: result.pharmacode || prev.pharmacode,
         ean: result.ean || prev.ean,
         supplierCode: result.supplierCode || prev.supplierCode,
@@ -1909,6 +1979,14 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         title: t('items.codesExtracted'),
         description: `${t('common.confidence')}: ${Math.round((result.confidence || 0) * 100)}%`,
       });
+      
+      // If GTIN was extracted, automatically lookup in Galexis
+      if (extractedGtin) {
+        await lookupGalexisProduct(extractedGtin);
+      } else {
+        // No GTIN found, show fallback option
+        setGalexisLookupResult({ found: false, message: t('items.noGtinExtracted') });
+      }
     } catch (error: any) {
       toast({
         title: t('items.codesExtractionFailed'),
@@ -3882,14 +3960,17 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
             <DialogDescription>{t('items.createNewInventoryItem')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddItem} className="space-y-4">
-            {/* Step 1: Product Info Photo */}
+            {/* Step 1: Barcode/Codes Photo (Primary) */}
             <div className={`p-4 rounded-lg border-2 ${addItemStep === 1 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${addItemStep === 1 ? 'bg-primary text-primary-foreground' : 'bg-green-500 text-white'}`}>
-                    {uploadedImages.length > 0 ? <i className="fas fa-check text-xs"></i> : '1'}
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${
+                    galexisLookupResult?.found ? 'bg-green-500 text-white' : 
+                    addItemStep === 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                  }`}>
+                    {galexisLookupResult?.found ? <i className="fas fa-check text-xs"></i> : '1'}
                   </div>
-                  <Label className="font-semibold">{t('items.step1ProductPhoto')}</Label>
+                  <Label className="font-semibold">{t('items.step1ScanBarcode')}</Label>
                 </div>
                 {addItemStep > 1 && (
                   <Button type="button" variant="ghost" size="sm" onClick={() => setAddItemStep(1)}>
@@ -3897,115 +3978,72 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   </Button>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mb-3">{t('items.step1Description')}</p>
+              <p className="text-xs text-muted-foreground mb-3">{t('items.step1BarcodeDescription')}</p>
               <input
                 type="file"
-                ref={fileInputRef}
+                ref={codesFileInputRef}
                 accept="image/*"
                 capture="environment"
-                onChange={handleImageUpload}
+                onChange={handleCodesImageUpload}
                 className="hidden"
               />
               <input
                 type="file"
-                ref={galleryInputRef}
+                ref={codesGalleryInputRef}
                 accept="image/*"
-                onChange={handleImageUpload}
+                onChange={handleCodesImageUpload}
                 className="hidden"
               />
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => handleTakePhoto('product')}
-                  disabled={isAnalyzing}
-                  data-testid="button-camera-image"
+                  onClick={() => handleTakePhoto('codes')}
+                  disabled={isAnalyzingCodes || isLookingUpGalexis}
+                  data-testid="button-camera-codes"
                 >
-                  <i className={`fas ${isAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
-                  {isAnalyzing ? t('items.analyzing') : t('controlled.takePhoto')}
+                  <i className={`fas ${isAnalyzingCodes || isLookingUpGalexis ? 'fa-spinner fa-spin' : 'fa-barcode'} mr-2`}></i>
+                  {isAnalyzingCodes ? t('items.analyzing') : isLookingUpGalexis ? t('items.lookingUp') : t('items.scanBarcode')}
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => galleryInputRef.current?.click()}
-                  disabled={isAnalyzing}
-                  data-testid="button-gallery-image"
+                  onClick={() => codesGalleryInputRef.current?.click()}
+                  disabled={isAnalyzingCodes || isLookingUpGalexis}
+                  data-testid="button-gallery-codes"
                 >
                   <i className="fas fa-images mr-2"></i>
                   {t('items.uploadFromGallery')}
                 </Button>
               </div>
-              {uploadedImages.length > 0 && (
-                <div className="mt-2 flex gap-2 overflow-x-auto">
-                  {uploadedImages.map((img, idx) => (
-                    <img key={idx} src={img} alt={`Upload ${idx + 1}`} className="h-16 w-16 object-cover rounded border" />
-                  ))}
+              {codesImage && (
+                <div className="mt-2">
+                  <img src={codesImage} alt="Barcode" className="h-16 w-16 object-cover rounded border" />
                 </div>
               )}
-              {uploadedImages.length > 0 && addItemStep === 1 && (
-                <Button 
-                  type="button" 
-                  className="w-full mt-3" 
-                  onClick={() => setAddItemStep(2)}
-                  data-testid="button-next-to-codes"
-                >
-                  {t('items.nextStepCodes')} <i className="fas fa-arrow-right ml-2"></i>
-                </Button>
+              
+              {/* Galexis Lookup Result */}
+              {galexisLookupResult && (
+                <div className={`mt-3 p-3 rounded-lg ${galexisLookupResult.found ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'}`}>
+                  {galexisLookupResult.found ? (
+                    <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                      <i className="fas fa-check-circle"></i>
+                      <span className="text-sm font-medium">{t('items.productFoundViaGalexis')}</span>
+                    </div>
+                  ) : (
+                    <div className="text-amber-700 dark:text-amber-300">
+                      <div className="flex items-center gap-2">
+                        <i className="fas fa-exclamation-triangle"></i>
+                        <span className="text-sm font-medium">{t('items.productNotFound')}</span>
+                      </div>
+                      <p className="text-xs mt-1">{galexisLookupResult.message}</p>
+                    </div>
+                  )}
+                </div>
               )}
-            </div>
-            
-            {/* Step 2: Product Codes Photo */}
-            {addItemStep === 2 && (
-              <div ref={step2BoxRef} className="p-4 rounded-lg border-2 border-primary bg-primary/5">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">2</div>
-                  <Label className="font-semibold">{t('items.step2CodesPhoto')}</Label>
-                </div>
-                <p className="text-xs text-muted-foreground mb-3">{t('items.step2Description')}</p>
-                <input
-                  type="file"
-                  ref={codesFileInputRef}
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleCodesImageUpload}
-                  className="hidden"
-                />
-                <input
-                  type="file"
-                  ref={codesGalleryInputRef}
-                  accept="image/*"
-                  onChange={handleCodesImageUpload}
-                  className="hidden"
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => handleTakePhoto('codes')}
-                    disabled={isAnalyzingCodes}
-                    data-testid="button-camera-codes"
-                  >
-                    <i className={`fas ${isAnalyzingCodes ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
-                    {isAnalyzingCodes ? t('items.analyzing') : t('items.captureCodesPhoto')}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => codesGalleryInputRef.current?.click()}
-                    disabled={isAnalyzingCodes}
-                    data-testid="button-gallery-codes"
-                  >
-                    <i className="fas fa-images mr-2"></i>
-                    {t('items.uploadFromGallery')}
-                  </Button>
-                </div>
-                {codesImage && (
-                  <div className="mt-2">
-                    <img src={codesImage} alt="Codes" className="h-16 w-16 object-cover rounded border" />
-                  </div>
-                )}
-                
-                {/* Extracted Codes Display with Individual Scan Fallback */}
+              
+              {/* Extracted Codes Display */}
+              {(codesImage || formData.gtin || formData.pharmacode) && (
                 <div className="mt-4 space-y-2">
                   <div className="flex items-center gap-2">
                     <i className="fas fa-barcode text-primary"></i>
@@ -4020,7 +4058,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                       onChange={(e) => setFormData(prev => ({ ...prev, gtin: e.target.value }))}
                       placeholder="GTIN..."
                       className="h-8 flex-1"
-                      data-testid="input-add-gtin-step2"
+                      data-testid="input-add-gtin"
                     />
                     <Button
                       type="button"
@@ -4032,6 +4070,20 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                     >
                       <i className="fas fa-barcode"></i>
                     </Button>
+                    {formData.gtin && !galexisLookupResult?.found && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => lookupGalexisProduct(formData.gtin)}
+                        disabled={isLookingUpGalexis}
+                        data-testid="button-lookup-galexis"
+                      >
+                        <i className={`fas ${isLookingUpGalexis ? 'fa-spinner fa-spin' : 'fa-search'} mr-1`}></i>
+                        {t('items.lookup')}
+                      </Button>
+                    )}
                   </div>
                   
                   {/* Pharmacode */}
@@ -4042,7 +4094,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                       onChange={(e) => setFormData(prev => ({ ...prev, pharmacode: e.target.value }))}
                       placeholder="Pharmacode..."
                       className="h-8 flex-1"
-                      data-testid="input-add-pharmacode-step2"
+                      data-testid="input-add-pharmacode"
                     />
                     <Button
                       type="button"
@@ -4055,44 +4107,73 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                       <i className="fas fa-barcode"></i>
                     </Button>
                   </div>
-                  
-                  {/* Supplier Code */}
-                  <div className="flex items-center gap-2">
-                    <Label className="w-24 text-xs text-muted-foreground">{t('items.supplierCode')}</Label>
-                    <Input 
-                      value={formData.supplierCode}
-                      onChange={(e) => setFormData(prev => ({ ...prev, supplierCode: e.target.value }))}
-                      placeholder={t('items.supplierCode') + "..."}
-                      className="h-8 flex-1"
-                      data-testid="input-add-supplier-code-step2"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="h-8 w-8 p-0"
-                      onClick={() => setScanningCodeField('supplierCode')}
-                      data-testid="button-scan-supplier-code"
-                    >
-                      <i className="fas fa-barcode"></i>
-                    </Button>
-                  </div>
-                  
-                  <p className="text-xs text-muted-foreground mt-2">
-                    <i className="fas fa-info-circle mr-1"></i>
-                    {t('items.scanFallbackHint')}
-                  </p>
                 </div>
+              )}
+            </div>
+            
+            {/* Step 2: Product Photo (Fallback - shown when Galexis lookup fails, no GTIN, or no integration) */}
+            {galexisLookupResult && !galexisLookupResult.found && (
+              <div ref={step2BoxRef} className="p-4 rounded-lg border-2 border-amber-400 bg-amber-50/50 dark:bg-amber-900/10">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold">2</div>
+                  <Label className="font-semibold">{t('items.step2ProductPhoto')}</Label>
+                  <span className="text-xs text-muted-foreground">({t('common.optional')})</span>
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">{t('items.step2FallbackDescription')}</p>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <input
+                  type="file"
+                  ref={galleryInputRef}
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleTakePhoto('product')}
+                    disabled={isAnalyzing}
+                    data-testid="button-camera-image"
+                  >
+                    <i className={`fas ${isAnalyzing ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
+                    {isAnalyzing ? t('items.analyzing') : t('controlled.takePhoto')}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => galleryInputRef.current?.click()}
+                    disabled={isAnalyzing}
+                    data-testid="button-gallery-image"
+                  >
+                    <i className="fas fa-images mr-2"></i>
+                    {t('items.uploadFromGallery')}
+                  </Button>
+                </div>
+                {uploadedImages.length > 0 && (
+                  <div className="mt-2 flex gap-2 overflow-x-auto">
+                    {uploadedImages.map((img, idx) => (
+                      <img key={idx} src={img} alt={`Upload ${idx + 1}`} className="h-16 w-16 object-cover rounded border" />
+                    ))}
+                  </div>
+                )}
               </div>
             )}
             
             {/* Skip to manual entry option */}
-            {addItemStep === 1 && uploadedImages.length === 0 && (
+            {!codesImage && !galexisLookupResult && (
               <Button 
                 type="button" 
                 variant="ghost" 
                 className="w-full text-muted-foreground"
-                onClick={() => setAddItemStep(2)}
+                onClick={() => setGalexisLookupResult({ found: false, message: t('items.manualEntry') })}
               >
                 <i className="fas fa-keyboard mr-2"></i>
                 {t('items.skipPhotoEntry')}
