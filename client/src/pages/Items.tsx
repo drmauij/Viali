@@ -331,6 +331,13 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     catalogUrl: "",
     basispreis: "",
   });
+  const [editingSupplier, setEditingSupplier] = useState<{
+    id: string;
+    supplierName: string;
+    articleCode: string;
+    catalogUrl: string;
+    basispreis: string;
+  } | null>(null);
   const [codesScanner, setCodesScanner] = useState(false);
   const [itemLots, setItemLots] = useState<Lot[]>([]);
   const [isLoadingLots, setIsLoadingLots] = useState(false);
@@ -5250,75 +5257,161 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                               className={`p-3 rounded-lg border ${supplier.isPreferred ? 'border-primary bg-primary/5' : 'border-border'}`}
                               data-testid={`supplier-${supplier.id}`}
                             >
-                              <div className="flex items-center justify-between">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-medium">{supplier.supplierName}</span>
-                                    {supplier.isPreferred && (
-                                      <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">Preferred</span>
-                                    )}
+                              {editingSupplier?.id === supplier.id ? (
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <Input
+                                      placeholder="Supplier name *"
+                                      value={editingSupplier.supplierName}
+                                      onChange={(e) => setEditingSupplier(prev => prev ? { ...prev, supplierName: e.target.value } : null)}
+                                      data-testid="input-edit-supplier-name"
+                                    />
+                                    <Input
+                                      placeholder="Article code"
+                                      value={editingSupplier.articleCode}
+                                      onChange={(e) => setEditingSupplier(prev => prev ? { ...prev, articleCode: e.target.value } : null)}
+                                      data-testid="input-edit-supplier-article"
+                                    />
+                                    <Input
+                                      placeholder="Catalog URL"
+                                      value={editingSupplier.catalogUrl}
+                                      onChange={(e) => setEditingSupplier(prev => prev ? { ...prev, catalogUrl: e.target.value } : null)}
+                                      data-testid="input-edit-supplier-url"
+                                    />
+                                    <Input
+                                      placeholder="Price (CHF)"
+                                      type="number"
+                                      step="0.01"
+                                      value={editingSupplier.basispreis}
+                                      onChange={(e) => setEditingSupplier(prev => prev ? { ...prev, basispreis: e.target.value } : null)}
+                                      data-testid="input-edit-supplier-price"
+                                    />
                                   </div>
-                                  <div className="text-sm text-muted-foreground space-x-3">
-                                    {supplier.articleCode && <span>Art: {supplier.articleCode}</span>}
-                                    {supplier.basispreis && <span>CHF {supplier.basispreis}</span>}
-                                    {supplier.catalogUrl && <span className="text-xs truncate max-w-[150px] inline-block align-bottom">{supplier.catalogUrl}</span>}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  {supplier.catalogUrl && (
+                                  <div className="flex gap-2">
                                     <Button
                                       type="button"
-                                      variant="ghost"
+                                      variant="outline"
                                       size="sm"
-                                      onClick={() => window.open(supplier.catalogUrl, '_blank')}
-                                      data-testid={`link-catalog-${supplier.id}`}
+                                      onClick={() => setEditingSupplier(null)}
+                                      data-testid="button-cancel-edit-supplier"
                                     >
-                                      <i className="fas fa-external-link-alt"></i>
+                                      {t('common.cancel')}
                                     </Button>
-                                  )}
-                                  {canWrite && !supplier.isPreferred && (
                                     <Button
                                       type="button"
-                                      variant="ghost"
                                       size="sm"
+                                      disabled={!editingSupplier.supplierName}
                                       onClick={async () => {
-                                        if (!selectedItem) return;
+                                        if (!selectedItem || !editingSupplier.supplierName) return;
                                         try {
-                                          await apiRequest("POST", `/api/items/${selectedItem.id}/suppliers/${supplier.id}/set-preferred`, {});
+                                          await apiRequest("PUT", `/api/items/${selectedItem.id}/suppliers/${editingSupplier.id}`, {
+                                            supplierName: editingSupplier.supplierName,
+                                            articleCode: editingSupplier.articleCode || null,
+                                            catalogUrl: editingSupplier.catalogUrl || null,
+                                            basispreis: editingSupplier.basispreis || null,
+                                          });
                                           const res = await fetch(`/api/items/${selectedItem.id}/suppliers`);
                                           if (res.ok) setSupplierCodes(await res.json());
-                                          toast({ title: t('common.success'), description: "Set as preferred supplier" });
+                                          setEditingSupplier(null);
+                                          toast({ title: t('common.success'), description: "Supplier updated" });
                                         } catch (error: any) {
                                           toast({ title: t('common.error'), description: error.message, variant: "destructive" });
                                         }
                                       }}
-                                      data-testid={`button-set-preferred-${supplier.id}`}
+                                      data-testid="button-save-edit-supplier"
                                     >
-                                      <i className="fas fa-star"></i>
+                                      {t('common.save')}
                                     </Button>
-                                  )}
-                                  {canWrite && (
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={async () => {
-                                        if (!selectedItem || !window.confirm('Delete this supplier?')) return;
-                                        try {
-                                          await apiRequest("DELETE", `/api/items/${selectedItem.id}/suppliers/${supplier.id}`, {});
-                                          setSupplierCodes(prev => prev.filter(s => s.id !== supplier.id));
-                                          toast({ title: t('common.success'), description: "Supplier removed" });
-                                        } catch (error: any) {
-                                          toast({ title: t('common.error'), description: error.message, variant: "destructive" });
-                                        }
-                                      }}
-                                      data-testid={`button-delete-supplier-${supplier.id}`}
-                                    >
-                                      <Trash2 className="w-4 h-4 text-destructive" />
-                                    </Button>
-                                  )}
+                                  </div>
                                 </div>
-                              </div>
+                              ) : (
+                                <div className="flex items-center justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-medium">{supplier.supplierName}</span>
+                                      {supplier.isPreferred && (
+                                        <span className="text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded">Preferred</span>
+                                      )}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground space-x-3">
+                                      {supplier.articleCode && <span>Art: {supplier.articleCode}</span>}
+                                      {supplier.basispreis && <span>CHF {supplier.basispreis}</span>}
+                                      {supplier.catalogUrl && <span className="text-xs truncate max-w-[150px] inline-block align-bottom">{supplier.catalogUrl}</span>}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    {supplier.catalogUrl && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => window.open(supplier.catalogUrl, '_blank')}
+                                        data-testid={`link-catalog-${supplier.id}`}
+                                      >
+                                        <i className="fas fa-external-link-alt"></i>
+                                      </Button>
+                                    )}
+                                    {canWrite && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setEditingSupplier({
+                                          id: supplier.id,
+                                          supplierName: supplier.supplierName,
+                                          articleCode: supplier.articleCode || '',
+                                          catalogUrl: supplier.catalogUrl || '',
+                                          basispreis: supplier.basispreis || '',
+                                        })}
+                                        data-testid={`button-edit-supplier-${supplier.id}`}
+                                      >
+                                        <i className="fas fa-edit"></i>
+                                      </Button>
+                                    )}
+                                    {canWrite && !supplier.isPreferred && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={async () => {
+                                          if (!selectedItem) return;
+                                          try {
+                                            await apiRequest("POST", `/api/items/${selectedItem.id}/suppliers/${supplier.id}/set-preferred`, {});
+                                            const res = await fetch(`/api/items/${selectedItem.id}/suppliers`);
+                                            if (res.ok) setSupplierCodes(await res.json());
+                                            toast({ title: t('common.success'), description: "Set as preferred supplier" });
+                                          } catch (error: any) {
+                                            toast({ title: t('common.error'), description: error.message, variant: "destructive" });
+                                          }
+                                        }}
+                                        data-testid={`button-set-preferred-${supplier.id}`}
+                                      >
+                                        <i className="fas fa-star"></i>
+                                      </Button>
+                                    )}
+                                    {canWrite && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={async () => {
+                                          if (!selectedItem || !window.confirm('Delete this supplier?')) return;
+                                          try {
+                                            await apiRequest("DELETE", `/api/items/${selectedItem.id}/suppliers/${supplier.id}`, {});
+                                            setSupplierCodes(prev => prev.filter(s => s.id !== supplier.id));
+                                            toast({ title: t('common.success'), description: "Supplier removed" });
+                                          } catch (error: any) {
+                                            toast({ title: t('common.error'), description: error.message, variant: "destructive" });
+                                          }
+                                        }}
+                                        data-testid={`button-delete-supplier-${supplier.id}`}
+                                      >
+                                        <Trash2 className="w-4 h-4 text-destructive" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
