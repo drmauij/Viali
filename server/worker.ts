@@ -1795,19 +1795,8 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
     }
     
     try {
-      // Format surgery time for display (use plannedDate as primary reference)
+      // Format surgery date for display
       const surgeryDate = new Date(surgery.plannedDate);
-      const surgeryTimeStr = surgeryDate.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
-      
-      // Format admission time if available
-      let admissionInfoDe = '';
-      let admissionInfoEn = '';
-      if (surgery.admissionTime) {
-        const admissionDate = new Date(surgery.admissionTime);
-        const admissionTimeStr = admissionDate.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
-        admissionInfoDe = `\nBitte kommen Sie um ${admissionTimeStr} in die Klinik.`;
-        admissionInfoEn = `\nPlease arrive at the clinic by ${admissionTimeStr}.`;
-      }
       
       // Fasting instructions in German/English bilingual format
       const fastingInstructionsDe = 'Nüchternheitsregeln: Keine feste Nahrung ab 6 Stunden vor der OP. Klare Flüssigkeiten (Wasser, Tee ohne Milch) bis 2 Stunden vorher erlaubt.';
@@ -1818,7 +1807,15 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       
       // Try SMS first (preferred for urgent reminders)
       if (hasPhone && isSmsConfigured()) {
-        const smsMessage = `${hospitalName}: Erinnerung an Ihre OP morgen um ${surgeryTimeStr}.${admissionInfoDe}\n\n${fastingInstructionsDe}\n\n---\n\nReminder: Your surgery tomorrow at ${surgeryTimeStr}.${admissionInfoEn}\n\n${fastingInstructionsEn}`;
+        // Build SMS message - only include time if admissionTime is provided
+        const surgeryInfoDe = surgery.admissionTime 
+          ? `Erinnerung an Ihre OP morgen. Bitte kommen Sie um ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })} in die Klinik.`
+          : `Erinnerung an Ihre OP morgen.`;
+        const surgeryInfoEn = surgery.admissionTime
+          ? `Reminder: Your surgery tomorrow. Please arrive at the clinic by ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}.`
+          : `Reminder: Your surgery tomorrow.`;
+        
+        const smsMessage = `${hospitalName}: ${surgeryInfoDe}\n\n${fastingInstructionsDe}\n\n---\n\n${surgeryInfoEn}\n\n${fastingInstructionsEn}`;
         
         const smsResult = await sendSms(surgery.patientPhone!, smsMessage, hospitalId);
         
@@ -1835,7 +1832,6 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
           surgery.patientEmail!,
           patientName,
           hospitalName,
-          surgeryTimeStr,
           surgeryDate,
           surgery.admissionTime ? new Date(surgery.admissionTime) : null
         );
@@ -1892,12 +1888,12 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
 
 /**
  * Send pre-surgery reminder email with fasting instructions
+ * ONLY includes time if admissionTime is specifically provided - no fallback to planned surgery time
  */
 async function sendPreSurgeryReminderEmail(
   patientEmail: string,
   patientName: string,
   hospitalName: string,
-  surgeryTimeStr: string,
   surgeryDate: Date,
   admissionTime: Date | null
 ): Promise<{ success: boolean; error?: string }> {
@@ -1909,11 +1905,16 @@ async function sendPreSurgeryReminderEmail(
     const dateStrDe = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     const dateStrEn = surgeryDate.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
     
-    // Format admission time if available
+    // ONLY show time/admission info if admissionTime is specifically provided
+    // Do NOT use planned surgery time as fallback - it may be incorrect
+    let timeInfoDe = '';
+    let timeInfoEn = '';
     let admissionInfoDe = '';
     let admissionInfoEn = '';
     if (admissionTime) {
       const admissionTimeStr = admissionTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+      timeInfoDe = ` um ${admissionTimeStr}`;
+      timeInfoEn = ` at ${admissionTimeStr}`;
       admissionInfoDe = `<p style="color: #059669; font-weight: bold;">Bitte kommen Sie um ${admissionTimeStr} in die Klinik.</p>`;
       admissionInfoEn = `<p style="color: #059669; font-weight: bold;">Please arrive at the clinic by ${admissionTimeStr}.</p>`;
     }
@@ -1926,7 +1927,7 @@ async function sendPreSurgeryReminderEmail(
           <p>Liebe(r) ${patientName},</p>
           <p>Dies ist eine Erinnerung an Ihre geplante Operation:</p>
           <p style="font-size: 18px; font-weight: bold; color: #1e40af;">
-            ${dateStrDe} um ${surgeryTimeStr}<br/>
+            ${dateStrDe}${timeInfoDe}<br/>
             ${hospitalName}
           </p>
           ${admissionInfoDe}
@@ -1947,7 +1948,7 @@ async function sendPreSurgeryReminderEmail(
           <p>Dear ${patientName},</p>
           <p>This is a reminder of your scheduled surgery:</p>
           <p style="font-size: 18px; font-weight: bold; color: #1e40af;">
-            ${dateStrEn} at ${surgeryTimeStr}<br/>
+            ${dateStrEn}${timeInfoEn}<br/>
             ${hospitalName}
           </p>
           ${admissionInfoEn}
