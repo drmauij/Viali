@@ -181,7 +181,7 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
             {/* Preview mode - show captured photo */}
             {previewPhoto && (
               <>
-                <div className="w-full h-full flex items-center justify-center bg-black">
+                <div className="absolute inset-0 bottom-20 flex items-center justify-center bg-black">
                   <img 
                     src={previewPhoto} 
                     alt="Captured preview" 
@@ -190,14 +190,14 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
                 </div>
                 
                 {/* Preview instruction */}
-                <div className="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none">
+                <div className="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none z-10">
                   <p className="text-white text-lg font-medium bg-black/50 px-4 py-2 rounded">
                     {t('camera.previewConfirm', 'Review your photo')}
                   </p>
                 </div>
 
                 {/* Preview controls - Retake left, Confirm right */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between">
+                <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between z-10">
                   <Button
                     variant="outline"
                     onClick={retakePhoto}
@@ -278,7 +278,7 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
                 )}
 
                 {/* Controls - Cancel left, Capture right for easy thumb access */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between">
+                <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between z-10">
                   <Button
                     variant="outline"
                     onClick={handleClose}
