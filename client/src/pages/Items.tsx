@@ -3859,7 +3859,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
 
       {/* Add Item Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) resetForm(); }}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent 
+          className="max-w-md max-h-[90vh] overflow-y-auto"
+          onInteractOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
+          onPointerDownOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
+        >
           <DialogHeader>
             <DialogTitle>{t('items.addNewItem')}</DialogTitle>
             <DialogDescription>{t('items.createNewInventoryItem')}</DialogDescription>
@@ -4387,7 +4391,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
 
       {/* Edit Item Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent 
+          className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden"
+          onInteractOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
+          onPointerDownOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
+        >
           {/* Fixed Header */}
           <div className="flex-shrink-0 bg-background z-10 px-6 pt-6 pb-4 border-b">
             <DialogHeader>
