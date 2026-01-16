@@ -4173,7 +4173,12 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 type="button" 
                 variant="ghost" 
                 className="w-full text-muted-foreground"
-                onClick={() => setGalexisLookupResult({ found: false, message: t('items.manualEntry') })}
+                onClick={() => {
+                  setGalexisLookupResult({ found: false, message: t('items.manualEntry') });
+                  setTimeout(() => {
+                    step2BoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }, 100);
+                }}
               >
                 <i className="fas fa-forward mr-2"></i>
                 {t('items.skipPhotoEntry')}
