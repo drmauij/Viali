@@ -336,15 +336,14 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [newLot, setNewLot] = useState({ lotNumber: "", expiryDate: "" });
   const [addItemScanner, setAddItemScanner] = useState(false);
   
-  // 2-step photo capture state for Add Item (Step 1: Codes, Step 2: Product Photo fallback)
-  const [addItemStep, setAddItemStep] = useState<1 | 2>(1);
+  // Wizard-style Add Item stages: step1 (barcode), step2 (product photo), manual (form fields)
+  const [addItemStage, setAddItemStage] = useState<'step1' | 'step2' | 'manual'>('step1');
   const [isAnalyzingCodes, setIsAnalyzingCodes] = useState(false);
   const [isLookingUpGalexis, setIsLookingUpGalexis] = useState(false);
   const [galexisLookupResult, setGalexisLookupResult] = useState<{found: boolean; message?: string; noIntegration?: boolean} | null>(null);
   const [codesImage, setCodesImage] = useState<string | null>(null);
   const codesFileInputRef = useRef<HTMLInputElement>(null);
   const codesGalleryInputRef = useRef<HTMLInputElement>(null);
-  const step2BoxRef = useRef<HTMLDivElement>(null);
   
   // Desktop webcam capture state
   const [webcamCaptureOpen, setWebcamCaptureOpen] = useState(false);
@@ -1595,12 +1594,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           title: "Images analyzed",
           description: `Processed ${allResults.length} image(s) with ${Math.round(avgConfidence * 100)}% avg confidence`,
         });
-        // Auto-advance to step 2 after successful analysis
-        setAddItemStep(2);
-        // Scroll to step 2 box after a short delay to ensure it's rendered
-        setTimeout(() => {
-          step2BoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
+        // Auto-advance to manual form after successful product photo OCR
+        setAddItemStage('manual');
       } else {
         toast({
           title: "Analysis failed",
@@ -1665,12 +1660,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           title: t('common.success'),
           description: `${t('items.imageAnalyzed')} ${Math.round((result.confidence || 0) * 100)}% ${t('common.confidence').toLowerCase()}`,
         });
-        // Auto-advance to step 2 after successful analysis
-        setAddItemStep(2);
-        // Scroll to step 2 box after a short delay to ensure it's rendered
-        setTimeout(() => {
-          step2BoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }, 100);
+        // Auto-advance to manual form after successful product photo OCR
+        setAddItemStage('manual');
       } catch (error: any) {
         toast({
           title: t('common.error'),
@@ -1708,7 +1699,9 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         if (extractedGtin) {
           await lookupGalexisProduct(extractedGtin);
         } else {
+          // No GTIN found, advance to step 2 for product photo fallback
           setGalexisLookupResult({ found: false, message: t('items.noGtinExtracted') });
+          setAddItemStage('step2');
         }
       } catch (error: any) {
         toast({
@@ -1882,7 +1875,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     });
     setSelectedUnit("Pack");
     setUploadedImages([]);
-    setAddItemStep(1);
+    setAddItemStage('step1');
     setCodesImage(null);
     setScanningCodeField(null);
     setGalexisLookupResult(null);
@@ -1913,6 +1906,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         }));
         
         setGalexisLookupResult({ found: true });
+        // Auto-advance to manual form with populated fields
+        setAddItemStage('manual');
         
         toast({
           title: t('items.galexisProductFound'),
@@ -1924,6 +1919,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           message: result.message,
           noIntegration: result.noIntegration 
         });
+        // Advance to step 2 for product photo OCR
+        setAddItemStage('step2');
         
         // Show step 2 option for manual name entry
         if (!result.noIntegration) {
@@ -1984,8 +1981,9 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       if (extractedGtin) {
         await lookupGalexisProduct(extractedGtin);
       } else {
-        // No GTIN found, show fallback option
+        // No GTIN found, advance to step 2 for product photo fallback
         setGalexisLookupResult({ found: false, message: t('items.noGtinExtracted') });
+        setAddItemStage('step2');
       }
     } catch (error: any) {
       toast({
@@ -3960,23 +3958,16 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
             <DialogDescription>{t('items.createNewInventoryItem')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddItem} className="space-y-4">
-            {/* Step 1: Barcode/Codes Photo (Primary) */}
-            <div className={`p-4 rounded-lg border-2 ${addItemStep === 1 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}>
+            {/* Step 1: Barcode/Codes Photo (Primary) - Only show in step1 stage */}
+            {addItemStage === 'step1' && (
+            <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${
-                    galexisLookupResult?.found ? 'bg-green-500 text-white' : 
-                    addItemStep === 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                  }`}>
-                    {galexisLookupResult?.found ? <i className="fas fa-check text-xs"></i> : '1'}
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold bg-primary text-primary-foreground">
+                    1
                   </div>
                   <Label className="font-semibold">{t('items.step1ScanBarcode')}</Label>
                 </div>
-                {addItemStep > 1 && (
-                  <Button type="button" variant="ghost" size="sm" onClick={() => setAddItemStep(1)}>
-                    <i className="fas fa-edit mr-1"></i>{t('common.edit')}
-                  </Button>
-                )}
               </div>
               <p className="text-xs text-muted-foreground mb-3">{t('items.step1BarcodeDescription')}</p>
               <input
@@ -4109,11 +4100,23 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   </div>
                 </div>
               )}
+              
+              {/* Skip to Step 2 button */}
+              <Button 
+                type="button" 
+                variant="ghost" 
+                className="w-full mt-4 text-muted-foreground"
+                onClick={() => setAddItemStage('step2')}
+              >
+                <i className="fas fa-forward mr-2"></i>
+                {t('items.skipPhotoEntry')}
+              </Button>
             </div>
+            )}
             
-            {/* Step 2: Product Photo (Fallback - shown when Galexis lookup fails, no GTIN, or no integration) */}
-            {galexisLookupResult && !galexisLookupResult.found && (
-              <div ref={step2BoxRef} className="p-4 rounded-lg border-2 border-amber-400 bg-amber-50/50 dark:bg-amber-900/10">
+            {/* Step 2: Product Photo (Fallback) - Only show in step2 stage */}
+            {addItemStage === 'step2' && (
+              <div className="p-4 rounded-lg border-2 border-amber-400 bg-amber-50/50 dark:bg-amber-900/10">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center text-sm font-bold">2</div>
                   <Label className="font-semibold">{t('items.step2ProductPhoto')}</Label>
@@ -4164,27 +4167,23 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                     ))}
                   </div>
                 )}
+                
+                {/* Skip to manual entry button */}
+                <Button 
+                  type="button" 
+                  variant="ghost" 
+                  className="w-full mt-4 text-muted-foreground"
+                  onClick={() => setAddItemStage('manual')}
+                >
+                  <i className="fas fa-forward mr-2"></i>
+                  {t('items.skipToManualEntry')}
+                </Button>
               </div>
             )}
-            
-            {/* Skip to manual entry option */}
-            {!codesImage && !galexisLookupResult && (
-              <Button 
-                type="button" 
-                variant="ghost" 
-                className="w-full text-muted-foreground"
-                onClick={() => {
-                  setGalexisLookupResult({ found: false, message: t('items.manualEntry') });
-                  setTimeout(() => {
-                    step2BoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  }, 100);
-                }}
-              >
-                <i className="fas fa-forward mr-2"></i>
-                {t('items.skipPhotoEntry')}
-              </Button>
-            )}
 
+            {/* Manual Form Fields - Only show in manual stage */}
+            {addItemStage === 'manual' && (
+            <>
             <div>
               <Label htmlFor="name">{t('items.itemName')} *</Label>
               <Input 
@@ -4471,6 +4470,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 {createItemMutation.isPending ? t('common.loading') : t('items.addItem')}
               </Button>
             </div>
+            </>
+            )}
           </form>
         </DialogContent>
       </Dialog>

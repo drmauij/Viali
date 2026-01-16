@@ -527,6 +527,7 @@
     "manualEntry": "Manual entry mode",
     "nextStepCodes": "Next: Capture Codes",
     "skipPhotoEntry": "Add without barcode",
+    "skipToManualEntry": "Skip, enter manually",
     "captureCodesPhoto": "Capture Codes",
     "extractedCodes": "Extracted Codes",
     "supplierCode": "Supplier Code",

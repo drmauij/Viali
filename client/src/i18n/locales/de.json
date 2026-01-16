@@ -526,6 +526,7 @@
     "manualEntry": "Manuelle Eingabe",
     "nextStepCodes": "Weiter: Codes erfassen",
     "skipPhotoEntry": "Ohne Barcode hinzufügen",
+    "skipToManualEntry": "Überspringen, manuell eingeben",
     "captureCodesPhoto": "Codes erfassen",
     "extractedCodes": "Extrahierte Codes",
     "supplierCode": "Lieferantencode",
