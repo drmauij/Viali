@@ -240,11 +240,16 @@ async function processNextPriceSyncJob() {
         
         // Build lookup requests - prefer pharmacode over GTIN
         const lookupRequests: ProductLookupRequest[] = [];
-        for (const item of itemsToLookup) {
+        const itemIndexMap = new Map<number, typeof itemsToLookup[0]>(); // Track which item each request corresponds to
+        
+        for (let i = 0; i < itemsToLookup.length; i++) {
+          const item = itemsToLookup[i];
           if (item.pharmacode) {
             lookupRequests.push({ pharmacode: item.pharmacode });
+            itemIndexMap.set(lookupRequests.length - 1, item);
           } else if (item.gtin) {
             lookupRequests.push({ gtin: item.gtin });
+            itemIndexMap.set(lookupRequests.length - 1, item);
           }
         }
 
@@ -271,6 +276,52 @@ async function processNextPriceSyncJob() {
               if (result.gtin) {
                 priceMap.set(result.gtin, result.price);
               }
+            }
+          }
+          
+          // Retry failed pharmacode lookups with GTIN as fallback
+          const failedWithGtinFallback: ProductLookupRequest[] = [];
+          const gtinToPharmacodeMap = new Map<string, string>(); // Track original pharmacode for each GTIN retry
+          
+          for (let i = 0; i < lookupResults.length; i++) {
+            const result = lookupResults[i];
+            const originalItem = itemIndexMap.get(i);
+            
+            // If lookup by pharmacode failed but item has GTIN, retry with GTIN
+            if (!result.found && originalItem?.pharmacode && originalItem?.gtin && !priceMap.has(originalItem.gtin)) {
+              failedWithGtinFallback.push({ gtin: originalItem.gtin });
+              gtinToPharmacodeMap.set(originalItem.gtin, originalItem.pharmacode);
+            }
+          }
+          
+          if (failedWithGtinFallback.length > 0) {
+            console.log(`[Worker] Retrying ${failedWithGtinFallback.length} failed pharmacode lookups with GTIN...`);
+            
+            try {
+              const { results: retryResults } = await client.lookupProductsBatch(
+                failedWithGtinFallback,
+                50
+              );
+              
+              let retryFoundCount = 0;
+              for (const result of retryResults) {
+                if (result.found && result.price) {
+                  retryFoundCount++;
+                  // Map both the GTIN and original pharmacode to this price
+                  priceMap.set(result.gtin || '', result.price);
+                  const originalPharmacode = gtinToPharmacodeMap.get(result.gtin || '');
+                  if (originalPharmacode) {
+                    priceMap.set(originalPharmacode, result.price);
+                  }
+                  if (result.pharmacode) {
+                    priceMap.set(result.pharmacode, result.price);
+                  }
+                }
+              }
+              
+              console.log(`[Worker] GTIN fallback found ${retryFoundCount}/${failedWithGtinFallback.length} additional products`);
+            } catch (retryError: any) {
+              console.error(`[Worker] GTIN fallback lookup failed:`, retryError.message);
             }
           }
         } catch (lookupError: any) {
