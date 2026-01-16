@@ -7,4 +7,7 @@ BEGIN
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'supplier_codes' AND column_name = 'searched_name') THEN
     ALTER TABLE supplier_codes ADD COLUMN searched_name text;
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'supplier_codes' AND column_name = 'matched_product_name') THEN
+    ALTER TABLE supplier_codes ADD COLUMN matched_product_name text;
+  END IF;
 END $$;
