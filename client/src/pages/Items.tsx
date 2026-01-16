@@ -3858,7 +3858,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       </Dialog>
 
       {/* Add Item Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) resetForm(); }}>
+      <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) resetForm(); }} modal={!webcamCaptureOpen}>
         <DialogContent 
           className="max-w-md max-h-[90vh] overflow-y-auto"
           onInteractOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
@@ -4390,7 +4390,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       </Dialog>
 
       {/* Edit Item Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen} modal={!webcamCaptureOpen}>
         <DialogContent 
           className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden"
           onInteractOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
