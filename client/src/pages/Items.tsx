@@ -342,6 +342,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [codesImage, setCodesImage] = useState<string | null>(null);
   const codesFileInputRef = useRef<HTMLInputElement>(null);
   const codesGalleryInputRef = useRef<HTMLInputElement>(null);
+  const step2BoxRef = useRef<HTMLDivElement>(null);
   
   // Desktop webcam capture state
   const [webcamCaptureOpen, setWebcamCaptureOpen] = useState(false);
@@ -1594,6 +1595,10 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         });
         // Auto-advance to step 2 after successful analysis
         setAddItemStep(2);
+        // Scroll to step 2 box after a short delay to ensure it's rendered
+        setTimeout(() => {
+          step2BoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
       } else {
         toast({
           title: "Analysis failed",
@@ -1660,6 +1665,10 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         });
         // Auto-advance to step 2 after successful analysis
         setAddItemStep(2);
+        // Scroll to step 2 box after a short delay to ensure it's rendered
+        setTimeout(() => {
+          step2BoxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
       } catch (error: any) {
         toast({
           title: t('common.error'),
@@ -3873,19 +3882,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
             <DialogDescription>{t('items.createNewInventoryItem')}</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleAddItem} className="space-y-4">
-            {/* Step Indicator */}
-            <div className="flex items-center gap-2 mb-4">
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${addItemStep === 1 ? 'bg-primary text-primary-foreground' : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'}`}>
-                {addItemStep > 1 ? <i className="fas fa-check"></i> : <span>1</span>}
-                <span>{t('items.productInfo')}</span>
-              </div>
-              <div className="flex-1 h-0.5 bg-border"></div>
-              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium ${addItemStep === 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                <span>2</span>
-                <span>{t('items.productCodes')}</span>
-              </div>
-            </div>
-            
             {/* Step 1: Product Info Photo */}
             <div className={`p-4 rounded-lg border-2 ${addItemStep === 1 ? 'border-primary bg-primary/5' : 'border-border bg-muted/30'}`}>
               <div className="flex items-center justify-between mb-3">
@@ -3960,7 +3956,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
             
             {/* Step 2: Product Codes Photo */}
             {addItemStep === 2 && (
-              <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
+              <div ref={step2BoxRef} className="p-4 rounded-lg border-2 border-primary bg-primary/5">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-bold">2</div>
                   <Label className="font-semibold">{t('items.step2CodesPhoto')}</Label>
