@@ -2660,7 +2660,6 @@ export default function Hospital() {
                 <li><strong>{t("admin.seedUnits", "4 Units:")}</strong> {t("admin.seedUnitsDetail", "Anesthesia, OR, ER, ICU")}</li>
                 <li><strong>{t("admin.seedRooms", "3 Surgery Rooms:")}</strong> OP1, OP2, OP3</li>
                 <li><strong>{t("admin.seedGroups", "5 Administration Groups:")}</strong> {t("admin.seedGroupsDetail", "Infusions, Pumps, Bolus, Short IVs, Antibiotics")}</li>
-                <li><strong>{t("admin.seedMeds", "13 Medications:")}</strong> {t("admin.seedMedsDetail", "Common anesthesia medications with complete configuration")}</li>
               </ul>
               <p className="text-xs mt-2 text-muted-foreground">
                 <i className="fas fa-shield-check mr-1"></i>

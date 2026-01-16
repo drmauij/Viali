@@ -1091,8 +1091,6 @@
     "seedRooms": "3 OP-Räume:",
     "seedGroups": "5 Verabreichungsgruppen:",
     "seedGroupsDetail": "Infusionen, Pumpen, Bolus, Kurzinfusionen, Antibiotika",
-    "seedMeds": "13 Medikamente:",
-    "seedMedsDetail": "Häufige Anästhesie-Medikamente mit vollständiger Konfiguration",
     "safeOperation": "Sicherer Vorgang:",
     "safeOperationDetail": "Fügt nur Elemente hinzu, die noch nicht existieren. Ihre vorhandenen Daten werden nicht geändert oder gelöscht.",
     "resetDialogTitle": "Listen auf Standardwerte zurücksetzen?",

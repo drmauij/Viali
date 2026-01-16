@@ -1093,8 +1093,6 @@
     "seedRooms": "3 Surgery Rooms:",
     "seedGroups": "5 Administration Groups:",
     "seedGroupsDetail": "Infusions, Pumps, Bolus, Short IVs, Antibiotics",
-    "seedMeds": "13 Medications:",
-    "seedMedsDetail": "Common anesthesia medications with complete configuration",
     "safeOperation": "Safe operation:",
     "safeOperationDetail": "Only adds items that don't already exist. Your existing data will not be modified or deleted.",
     "resetDialogTitle": "Reset Lists to Defaults?",
