@@ -1527,7 +1527,7 @@ export default function Op() {
           {/* PACU Documentation Tab - Only visible in PACU mode */}
           {isPacuMode && (
             <TabsContent value="pacu" className="flex-1 overflow-y-auto px-6 pb-6 mt-0 space-y-4" data-testid="tab-content-pacu">
-              <PostOpInfoCard postOpData={postOpData} />
+              <PostOpInfoCard postOpData={postOpData} pacuBedName={pacuBedName} />
               <MedicationScheduleCard postOpData={postOpData} />
               <IntraoperativeMedicationsCard 
                 medications={medicationsData || []} 

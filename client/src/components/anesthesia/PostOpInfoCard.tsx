@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { MapPin, FileText, AlertTriangle, Pill, Stethoscope, Check } from "lucide-react";
+import { MapPin, FileText, AlertTriangle, Pill, Stethoscope, Check, Bed } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 interface PostOpInfoCardProps {
@@ -25,9 +25,10 @@ interface PostOpInfoCardProps {
       notes?: string;
     };
   };
+  pacuBedName?: string | null;
 }
 
-export function PostOpInfoCard({ postOpData }: PostOpInfoCardProps) {
+export function PostOpInfoCard({ postOpData, pacuBedName }: PostOpInfoCardProps) {
   const { t } = useTranslation();
 
   return (
@@ -39,6 +40,17 @@ export function PostOpInfoCard({ postOpData }: PostOpInfoCardProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* PACU Bed - Prominent display */}
+        {pacuBedName && (
+          <div className="flex items-center gap-3 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <Bed className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+            <div>
+              <p className="text-xs font-medium text-blue-600 dark:text-blue-400 uppercase">{t('pacu.pacuBed', 'PACU Bed')}</p>
+              <p className="text-2xl font-bold text-blue-700 dark:text-blue-300" data-testid="text-pacu-bed-name">{pacuBedName}</p>
+            </div>
+          </div>
+        )}
+
         {/* Destination */}
         {postOpData?.postOpDestination && (
           <div>
