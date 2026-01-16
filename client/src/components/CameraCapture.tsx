@@ -17,7 +17,6 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
-  const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
@@ -26,7 +25,6 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
         setStream(null);
       }
       setIsVideoReady(false);
-      setPreviewPhoto(null);
       return;
     }
 
@@ -109,35 +107,19 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
     // Convert to base64
     const photo = canvas.toDataURL("image/jpeg", 0.9);
     
-    // Show preview instead of immediately closing
-    setPreviewPhoto(photo);
-  };
-
-  const confirmPhoto = () => {
-    if (!previewPhoto) return;
-    
-    // Store photo in local variable before clearing state to avoid race conditions
-    const photoToSend = previewPhoto;
-    
-    // Stop the stream and close
+    // Stop the stream and close immediately
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
     setIsVideoReady(false);
     setError(null);
-    setPreviewPhoto(null);
     onClose();
     
     // Call onCapture after closing to prevent re-render issues
     setTimeout(() => {
-      onCapture(photoToSend);
+      onCapture(photo);
     }, 0);
-  };
-
-  const retakePhoto = () => {
-    setPreviewPhoto(null);
-    // Video element stays mounted so stream remains connected
   };
 
   const handleClose = () => {
@@ -146,7 +128,6 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
       setStream(null);
     }
     setError(null);
-    setPreviewPhoto(null);
     onClose();
   };
 
@@ -170,136 +151,89 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false }:
           </div>
         ) : (
           <>
-            {/* Video element - always mounted but hidden during preview */}
             <video
               ref={videoRef}
               autoPlay
               playsInline
-              className={`w-full h-full object-cover ${previewPhoto ? 'hidden' : ''}`}
+              className="w-full h-full object-cover"
             />
             
-            {/* Preview mode - show captured photo */}
-            {previewPhoto && (
-              <>
-                <div className="absolute inset-0 bottom-20 flex items-center justify-center bg-black">
-                  <img 
-                    src={previewPhoto} 
-                    alt="Captured preview" 
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </div>
-                
-                {/* Preview instruction */}
-                <div className="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none z-10">
-                  <p className="text-white text-lg font-medium bg-black/50 px-4 py-2 rounded">
-                    {t('camera.previewConfirm', 'Review your photo')}
-                  </p>
-                </div>
-
-                {/* Preview controls - Retake left, Confirm right */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between z-10">
-                  <Button
-                    variant="outline"
-                    onClick={retakePhoto}
-                    className="bg-white/10 text-white border-white hover:bg-white/20 px-6"
-                    data-testid="retake-photo"
-                  >
-                    <i className="fas fa-redo mr-2"></i>
-                    {t('camera.retake', 'Retake')}
-                  </Button>
-                  <Button
-                    onClick={confirmPhoto}
-                    className="bg-accent hover:bg-accent/90 px-6"
-                    data-testid="confirm-photo"
-                  >
-                    <i className="fas fa-check mr-2"></i>
-                    {t('camera.confirm', 'Use Photo')}
-                  </Button>
-                </div>
-              </>
-            )}
-            
-            {/* Camera mode controls - only shown when not in preview mode */}
-            {!previewPhoto && (
-              <>
-                {/* Rectangle guide overlay - only shown when not in fullFrame mode */}
-                {!fullFrame && (
-                  <div className="absolute inset-0 pointer-events-none">
-                    <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                      {/* Dark overlay with cutout */}
-                      <defs>
-                        <mask id="guideMask">
-                          <rect width="100" height="100" fill="white" />
-                          <rect 
-                            x="5" 
-                            y="40" 
-                            width="90" 
-                            height="20" 
-                            fill="black"
-                          />
-                        </mask>
-                      </defs>
-                      <rect 
-                        width="100" 
-                        height="100" 
-                        fill="rgba(0,0,0,0.5)" 
-                        mask="url(#guideMask)"
-                      />
-                      {/* Guide rectangle border */}
+            {/* Rectangle guide overlay - only shown when not in fullFrame mode */}
+            {!fullFrame && (
+              <div className="absolute inset-0 pointer-events-none">
+                <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  {/* Dark overlay with cutout */}
+                  <defs>
+                    <mask id="guideMask">
+                      <rect width="100" height="100" fill="white" />
                       <rect 
                         x="5" 
                         y="40" 
                         width="90" 
                         height="20" 
-                        fill="none" 
-                        stroke="white" 
-                        strokeWidth="0.3"
-                        strokeDasharray="2,1"
-                        vectorEffect="non-scaling-stroke"
+                        fill="black"
                       />
-                    </svg>
-                    
-                    {/* Instruction text */}
-                    <div className="absolute top-1/4 left-1/2 -translate-x-1/2 text-center">
-                      <p className="text-white text-lg font-medium bg-black/50 px-4 py-2 rounded">
-                        {t('controlled.positionLabel')}
-                      </p>
-                    </div>
-                  </div>
-                )}
+                    </mask>
+                  </defs>
+                  <rect 
+                    width="100" 
+                    height="100" 
+                    fill="rgba(0,0,0,0.5)" 
+                    mask="url(#guideMask)"
+                  />
+                  {/* Guide rectangle border */}
+                  <rect 
+                    x="5" 
+                    y="40" 
+                    width="90" 
+                    height="20" 
+                    fill="none" 
+                    stroke="white" 
+                    strokeWidth="0.3"
+                    strokeDasharray="2,1"
+                    vectorEffect="non-scaling-stroke"
+                  />
+                </svg>
                 
-                {/* Full frame instruction */}
-                {fullFrame && (
-                  <div className="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none">
-                    <p className="text-white text-lg font-medium bg-black/50 px-4 py-2 rounded">
-                      {t('anesthesia.patientDetail.pointAtDocument', 'Point camera at document')}
-                    </p>
-                  </div>
-                )}
-
-                {/* Controls - Cancel left, Capture right for easy thumb access */}
-                <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between z-10">
-                  <Button
-                    variant="outline"
-                    onClick={handleClose}
-                    className="bg-white/10 text-white border-white hover:bg-white/20 px-6"
-                    data-testid="close-camera"
-                  >
-                    <i className="fas fa-times mr-2"></i>
-                    {t('common.cancel')}
-                  </Button>
-                  <Button
-                    onClick={capturePhoto}
-                    disabled={!isVideoReady}
-                    className="bg-accent hover:bg-accent/90 px-6 disabled:opacity-50"
-                    data-testid="capture-photo"
-                  >
-                    <i className={`fas ${isVideoReady ? 'fa-camera' : 'fa-spinner fa-spin'} mr-2`}></i>
-                    {isVideoReady ? t('controlled.capture') : t('common.loading')}
-                  </Button>
+                {/* Instruction text */}
+                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 text-center">
+                  <p className="text-white text-lg font-medium bg-black/50 px-4 py-2 rounded">
+                    {t('controlled.positionLabel')}
+                  </p>
                 </div>
-              </>
+              </div>
             )}
+            
+            {/* Full frame instruction */}
+            {fullFrame && (
+              <div className="absolute top-8 left-1/2 -translate-x-1/2 text-center pointer-events-none">
+                <p className="text-white text-lg font-medium bg-black/50 px-4 py-2 rounded">
+                  {t('anesthesia.patientDetail.pointAtDocument', 'Point camera at document')}
+                </p>
+              </div>
+            )}
+
+            {/* Controls - Cancel left, Capture right for easy thumb access */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between z-10">
+              <Button
+                variant="outline"
+                onClick={handleClose}
+                className="bg-white/10 text-white border-white hover:bg-white/20 px-6"
+                data-testid="close-camera"
+              >
+                <i className="fas fa-times mr-2"></i>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                onClick={capturePhoto}
+                disabled={!isVideoReady}
+                className="bg-accent hover:bg-accent/90 px-6 disabled:opacity-50"
+                data-testid="capture-photo"
+              >
+                <i className={`fas ${isVideoReady ? 'fa-camera' : 'fa-spinner fa-spin'} mr-2`}></i>
+                {isVideoReady ? t('controlled.capture') : t('common.loading')}
+              </Button>
+            </div>
 
             {/* Hidden canvas for image processing */}
             <canvas ref={canvasRef} className="hidden" />
