@@ -269,7 +269,7 @@ router.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
 });
 
 // Get all item codes for a hospital (for search functionality)
-router.get('/api/items/:hospitalId/codes', isAuthenticated, async (req: any, res) => {
+router.get('/api/item-codes/:hospitalId', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { unitId } = req.query;

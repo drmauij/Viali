@@ -153,12 +153,15 @@ export function requireResourceAccess(paramName: string, requireWrite: boolean =
       params[paramName] = resourceId;
 
       const hospitalId = await getHospitalIdFromResource(params);
+      console.log(`[AccessControl] Resource ${paramName}=${resourceId} -> hospitalId=${hospitalId}`);
       if (!hospitalId) {
+        console.log(`[AccessControl] Resource not found for ${paramName}=${resourceId}`);
         return res.status(404).json({ message: "Resource not found" });
       }
 
       // Verify user has access to this hospital
       const hasAccess = await userHasHospitalAccess(userId, hospitalId);
+      console.log(`[AccessControl] User ${userId} access to hospital ${hospitalId}: ${hasAccess}`);
       if (!hasAccess) {
         return res.status(403).json({ 
           message: "Access denied. You do not have access to this resource.",

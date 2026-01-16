@@ -471,7 +471,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
 
   // Fetch item codes for search by pharmacode/GTIN
   const { data: itemCodesData = [] } = useQuery<{ itemId: string; gtin: string | null; pharmacode: string | null }[]>({
-    queryKey: [`/api/items/${activeHospital?.id}/codes?unitId=${effectiveUnitId}`, effectiveUnitId],
+    queryKey: [`/api/item-codes/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId],
     enabled: !!activeHospital?.id && !!effectiveUnitId,
   });
 
@@ -499,7 +499,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
 
   // Fetch item codes for source unit when transferring FROM
   const { data: sourceUnitCodesData = [] } = useQuery<{ itemId: string; gtin: string | null; pharmacode: string | null }[]>({
-    queryKey: [`/api/items/${activeHospital?.id}/codes?unitId=${transferTargetUnitId}`, transferTargetUnitId],
+    queryKey: [`/api/item-codes/${activeHospital?.id}?unitId=${transferTargetUnitId}`, transferTargetUnitId],
     enabled: !!activeHospital?.id && !!transferTargetUnitId && transferDirection === 'from',
   });
 
