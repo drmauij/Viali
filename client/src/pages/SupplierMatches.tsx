@@ -1,21 +1,19 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { UnifiedBarcodeScanner } from "@/components/UnifiedBarcodeScanner";
-import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
 import { 
-  Check, X, ExternalLink, Package, AlertCircle, Loader2, 
-  Edit2, Save, XCircle, DollarSign, AlertTriangle, CheckCircle2, Search, ScanBarcode
+  Check, X, ExternalLink, Package, Loader2, 
+  XCircle, DollarSign, AlertTriangle, CheckCircle2, Search, ChevronRight, AlertCircle
 } from "lucide-react";
 
 interface ItemCode {
@@ -63,114 +61,26 @@ interface CategorizedData {
   };
 }
 
-function ItemCodesEditor({ 
-  item, 
-  itemCode, 
-  onSave 
-}: { 
-  item: CategorizedItem; 
-  itemCode: ItemCode | null;
-  onSave: () => void;
-}) {
-  const { t } = useTranslation();
-  const { toast } = useToast();
-  const [isEditing, setIsEditing] = useState(false);
-  const [pharmacode, setPharmacode] = useState(itemCode?.pharmacode || "");
-  const [gtin, setGtin] = useState(itemCode?.gtin || "");
-
-  const saveMutation = useMutation({
-    mutationFn: async (data: { pharmacode: string; gtin: string }) => {
-      const response = await apiRequest("PUT", `/api/item-codes/${item.id}`, {
-        pharmacode: data.pharmacode || null,
-        gtin: data.gtin || null,
-      });
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({ title: t("common.success"), description: t("supplierMatches.itemCodesSaved", "Item codes saved") });
-      setIsEditing(false);
-      onSave();
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
-    },
-  });
-
-  if (!isEditing) {
-    return (
-      <div className="flex items-center gap-2 text-xs text-muted-foreground" data-testid={`item-codes-display-${item.id}`}>
-        {itemCode?.pharmacode && (
-          <span data-testid={`text-pharmacode-${item.id}`}>Pharmacode: {itemCode.pharmacode}</span>
-        )}
-        {itemCode?.gtin && (
-          <span data-testid={`text-gtin-${item.id}`}>GTIN: {itemCode.gtin}</span>
-        )}
-        {!itemCode?.pharmacode && !itemCode?.gtin && (
-          <span className="italic" data-testid={`text-no-codes-${item.id}`}>{t("supplierMatches.noItemCodes", "No codes")}</span>
-        )}
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          className="h-6 px-2"
-          onClick={() => setIsEditing(true)}
-          data-testid={`button-edit-codes-${item.id}`}
-        >
-          <Edit2 className="w-3 h-3" />
-        </Button>
-      </div>
-    );
-  }
-
+// Helper to display item codes inline
+function ItemCodesDisplay({ itemCode }: { itemCode: ItemCode | null }) {
   return (
-    <div className="flex items-end gap-2 mt-2">
-      <div className="flex-1">
-        <Label className="text-xs">Pharmacode</Label>
-        <Input 
-          value={pharmacode}
-          onChange={(e) => setPharmacode(e.target.value)}
-          placeholder="7654321"
-          className="h-8 text-sm"
-          data-testid={`input-pharmacode-${item.id}`}
-        />
-      </div>
-      <div className="flex-1">
-        <Label className="text-xs">GTIN/EAN</Label>
-        <Input 
-          value={gtin}
-          onChange={(e) => setGtin(e.target.value)}
-          placeholder="7680123456789"
-          className="h-8 text-sm"
-          data-testid={`input-gtin-${item.id}`}
-        />
-      </div>
-      <Button 
-        size="sm" 
-        className="h-8"
-        onClick={() => saveMutation.mutate({ pharmacode, gtin })}
-        disabled={saveMutation.isPending}
-        data-testid={`button-save-codes-${item.id}`}
-      >
-        {saveMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-      </Button>
-      <Button 
-        variant="ghost" 
-        size="sm" 
-        className="h-8"
-        onClick={() => {
-          setIsEditing(false);
-          setPharmacode(itemCode?.pharmacode || "");
-          setGtin(itemCode?.gtin || "");
-        }}
-        data-testid={`button-cancel-codes-${item.id}`}
-      >
-        <XCircle className="w-3 h-3" />
-      </Button>
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      {itemCode?.pharmacode && (
+        <span>Pharmacode: {itemCode.pharmacode}</span>
+      )}
+      {itemCode?.gtin && (
+        <span>GTIN: {itemCode.gtin}</span>
+      )}
+      {!itemCode?.pharmacode && !itemCode?.gtin && (
+        <span className="italic">No codes</span>
+      )}
     </div>
   );
 }
 
 export default function SupplierMatches() {
   const { t } = useTranslation();
+  const [, navigate] = useLocation();
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
   
@@ -180,9 +90,10 @@ export default function SupplierMatches() {
   const [searchWithPrice, setSearchWithPrice] = useState("");
   const [searchNoPrice, setSearchNoPrice] = useState("");
   
-  // Quick scan state - tracks which item is being scanned
-  const [scanningItemId, setScanningItemId] = useState<string | null>(null);
-  const [isAnalyzingOCR, setIsAnalyzingOCR] = useState(false);
+  // Navigate to Items page with item edit dialog opened to codes tab
+  const openItemCodesEditor = (itemId: string) => {
+    navigate(`/inventory?editItem=${itemId}&tab=codes`);
+  };
   
   // Filter function for items
   const filterItems = (items: CategorizedItem[], searchQuery: string) => {
@@ -228,112 +139,6 @@ export default function SupplierMatches() {
       toast({ title: t("common.error"), description: error.message, variant: "destructive" });
     },
   });
-
-  // Mutation to save scanned codes for an item
-  const saveScannedCodesMutation = useMutation({
-    mutationFn: async ({ itemId, pharmacode, gtin }: { itemId: string; pharmacode?: string; gtin?: string }) => {
-      const response = await apiRequest("PUT", `/api/item-codes/${itemId}`, {
-        pharmacode: pharmacode || null,
-        gtin: gtin || null,
-      });
-      return response.json();
-    },
-    onSuccess: () => {
-      refetch();
-      toast({ 
-        title: t("common.success"), 
-        description: t("supplierMatches.codesScanned", "Codes saved from scan") 
-      });
-      setScanningItemId(null);
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
-    },
-  });
-
-  // Handler for barcode detection from scanner
-  const handleQuickScanBarcode = async (barcode: string, format: string) => {
-    if (!scanningItemId) return;
-    
-    console.log('[SupplierMatches] Barcode detected for item:', scanningItemId, barcode, format);
-    
-    // Check if it's a GS1 code (contains embedded GTIN, lot, expiry)
-    if (isGS1Code(barcode)) {
-      const parsed = parseGS1Code(barcode);
-      if (parsed.gtin) {
-        saveScannedCodesMutation.mutate({ 
-          itemId: scanningItemId, 
-          gtin: parsed.gtin 
-        });
-        return;
-      }
-    }
-    
-    // Remove any leading zeros for cleaner code
-    const cleanBarcode = barcode.replace(/^0+/, '');
-    
-    // Determine if it's a GTIN (13+ digits) or pharmacode (shorter)
-    if (cleanBarcode.length >= 13) {
-      saveScannedCodesMutation.mutate({ 
-        itemId: scanningItemId, 
-        gtin: cleanBarcode 
-      });
-    } else if (cleanBarcode.length >= 5 && cleanBarcode.length <= 8) {
-      // Likely a Swiss pharmacode
-      saveScannedCodesMutation.mutate({ 
-        itemId: scanningItemId, 
-        pharmacode: cleanBarcode 
-      });
-    } else {
-      // Unknown format - try as GTIN
-      saveScannedCodesMutation.mutate({ 
-        itemId: scanningItemId, 
-        gtin: barcode 
-      });
-    }
-  };
-
-  // Handler for OCR fallback from scanner
-  const handleQuickScanImage = async (photo: string) => {
-    if (!scanningItemId) return;
-    
-    console.log('[SupplierMatches] OCR fallback for item:', scanningItemId);
-    setIsAnalyzingOCR(true);
-    
-    try {
-      const response = await apiRequest('POST', '/api/items/analyze-codes', {
-        image: photo
-      });
-      const result: any = await response.json();
-      
-      const extractedGtin = result.gtin || '';
-      const extractedPharmacode = result.pharmacode || '';
-      
-      if (extractedGtin || extractedPharmacode) {
-        saveScannedCodesMutation.mutate({ 
-          itemId: scanningItemId, 
-          gtin: extractedGtin || undefined,
-          pharmacode: extractedPharmacode || undefined
-        });
-      } else {
-        toast({
-          title: t("common.error"),
-          description: t("supplierMatches.noCodesFound", "No codes detected in image"),
-          variant: "destructive"
-        });
-        setScanningItemId(null);
-      }
-    } catch (error: any) {
-      toast({
-        title: t("common.error"),
-        description: error.message || t("supplierMatches.ocrFailed", "Failed to analyze image"),
-        variant: "destructive"
-      });
-      setScanningItemId(null);
-    } finally {
-      setIsAnalyzingOCR(false);
-    }
-  };
 
   const formatPrice = (price: string | null) => {
     if (!price) return "-";
@@ -444,34 +249,25 @@ export default function SupplierMatches() {
             </div>
           ) : (
             filterItems(categorizedData?.unmatched || [], searchUnmatched).map((item) => (
-              <Card key={item.id} data-testid={`card-unmatched-${item.id}`}>
+              <Card 
+                key={item.id} 
+                data-testid={`card-unmatched-${item.id}`}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => openItemCodesEditor(item.id)}
+              >
                 <CardContent className="p-4">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-foreground">{item.name}</h3>
-                        {item.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setScanningItemId(item.id)}
-                          disabled={saveScannedCodesMutation.isPending || isAnalyzingOCR}
-                          className="h-8"
-                          data-testid={`button-quick-scan-${item.id}`}
-                        >
-                          <ScanBarcode className="w-4 h-4 mr-1" />
-                          {t("supplierMatches.quickScan", "Scan")}
-                        </Button>
-                        <Badge variant="outline" className="text-red-600 border-red-300">
-                          {t("supplierMatches.noMatch", "No Match")}
-                        </Badge>
-                      </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-foreground">{item.name}</h3>
+                      {item.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
+                      )}
+                      <ItemCodesDisplay itemCode={item.itemCode} />
                     </div>
-                    <ItemCodesEditor item={item} itemCode={item.itemCode} onSave={() => refetch()} />
+                    <Badge variant="outline" className="text-red-600 border-red-300 shrink-0">
+                      {t("supplierMatches.noMatch", "No Match")}
+                    </Badge>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                   </div>
                 </CardContent>
               </Card>
@@ -511,30 +307,24 @@ export default function SupplierMatches() {
             </div>
           ) : (
             filterItems(categorizedData?.toVerify || [], searchToVerify).map((item) => (
-              <Card key={item.id} data-testid={`card-to-verify-${item.id}`}>
+              <Card 
+                key={item.id} 
+                data-testid={`card-to-verify-${item.id}`}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => openItemCodesEditor(item.id)}
+              >
                 <CardContent className="p-4">
                   <div className="flex flex-col gap-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-foreground">{item.name}</h3>
                         {item.description && (
                           <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
                         )}
+                        <ItemCodesDisplay itemCode={item.itemCode} />
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setScanningItemId(item.id)}
-                        disabled={saveScannedCodesMutation.isPending || isAnalyzingOCR}
-                        className="h-8"
-                        data-testid={`button-quick-scan-verify-${item.id}`}
-                      >
-                        <ScanBarcode className="w-4 h-4 mr-1" />
-                        {t("supplierMatches.quickScan", "Scan")}
-                      </Button>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                     </div>
-                    
-                    <ItemCodesEditor item={item} itemCode={item.itemCode} onSave={() => refetch()} />
 
                     {(item.pendingMatches || []).map((match) => (
                       <div key={match.id} className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
@@ -580,11 +370,11 @@ export default function SupplierMatches() {
                             )}
                           </div>
                           
-                          <div className="flex gap-2">
+                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => rejectMatchMutation.mutate(match.id)}
+                              onClick={(e) => { e.stopPropagation(); rejectMatchMutation.mutate(match.id); }}
                               disabled={rejectMatchMutation.isPending}
                               data-testid={`button-reject-${match.id}`}
                             >
@@ -597,7 +387,7 @@ export default function SupplierMatches() {
                             </Button>
                             <Button
                               size="sm"
-                              onClick={() => confirmMatchMutation.mutate(match.id)}
+                              onClick={(e) => { e.stopPropagation(); confirmMatchMutation.mutate(match.id); }}
                               disabled={confirmMatchMutation.isPending}
                               data-testid={`button-confirm-${match.id}`}
                             >
@@ -651,49 +441,33 @@ export default function SupplierMatches() {
             </div>
           ) : (
             filterItems(categorizedData?.confirmedWithPrice || [], searchWithPrice).map((item) => (
-              <Card key={item.id} data-testid={`card-confirmed-price-${item.id}`}>
+              <Card 
+                key={item.id} 
+                data-testid={`card-confirmed-price-${item.id}`}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => openItemCodesEditor(item.id)}
+              >
                 <CardContent className="p-4">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-foreground">{item.name}</h3>
-                        {item.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-green-600">
-                          {formatPrice(item.confirmedMatch?.basispreis || null)}
-                        </span>
-                        <Badge className="bg-green-600">{t("common.confirmed", "Confirmed")}</Badge>
-                      </div>
-                    </div>
-                    
-                    <ItemCodesEditor item={item} itemCode={item.itemCode} onSave={() => refetch()} />
-                    
-                    {item.confirmedMatch && (
-                      <div className="bg-muted/50 rounded-lg p-2 text-sm">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{item.confirmedMatch.supplierName}</Badge>
-                            {item.confirmedMatch.articleCode && (
-                              <span className="text-xs text-muted-foreground">Art. {item.confirmedMatch.articleCode}</span>
-                            )}
-                          </div>
-                          {item.confirmedMatch.catalogUrl && (
-                            <a
-                              href={item.confirmedMatch.catalogUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline text-xs flex items-center gap-1"
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              {t("supplierMatches.viewCatalog", "View")}
-                            </a>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-foreground">{item.name}</h3>
+                      {item.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
+                      )}
+                      <ItemCodesDisplay itemCode={item.itemCode} />
+                      {item.confirmedMatch && (
+                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                          <Badge variant="secondary" className="text-xs">{item.confirmedMatch.supplierName}</Badge>
+                          {item.confirmedMatch.articleCode && (
+                            <span>Art. {item.confirmedMatch.articleCode}</span>
                           )}
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                    <span className="text-lg font-bold text-green-600 shrink-0">
+                      {formatPrice(item.confirmedMatch?.basispreis || null)}
+                    </span>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                   </div>
                 </CardContent>
               </Card>
@@ -733,60 +507,34 @@ export default function SupplierMatches() {
             </div>
           ) : (
             filterItems(categorizedData?.confirmedNoPrice || [], searchNoPrice).map((item) => (
-              <Card key={item.id} data-testid={`card-confirmed-no-price-${item.id}`}>
+              <Card 
+                key={item.id} 
+                data-testid={`card-confirmed-no-price-${item.id}`}
+                className="cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => openItemCodesEditor(item.id)}
+              >
                 <CardContent className="p-4">
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-foreground">{item.name}</h3>
-                        {item.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setScanningItemId(item.id)}
-                          disabled={saveScannedCodesMutation.isPending || isAnalyzingOCR}
-                          className="h-8"
-                          data-testid={`button-quick-scan-no-price-${item.id}`}
-                        >
-                          <ScanBarcode className="w-4 h-4 mr-1" />
-                          {t("supplierMatches.quickScan", "Scan")}
-                        </Button>
-                        <Badge variant="outline" className="text-orange-600 border-orange-300">
-                          {t("supplierMatches.needsPrice", "Needs Price")}
-                        </Badge>
-                      </div>
-                    </div>
-                    
-                    <ItemCodesEditor item={item} itemCode={item.itemCode} onSave={() => refetch()} />
-                    
-                    {item.confirmedMatch && (
-                      <div className="bg-muted/50 rounded-lg p-2 text-sm">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{item.confirmedMatch.supplierName}</Badge>
-                            {item.confirmedMatch.articleCode && (
-                              <span className="text-xs text-muted-foreground">Art. {item.confirmedMatch.articleCode}</span>
-                            )}
-                            <span className="text-xs text-orange-600">{t("supplierMatches.priceNotInGalexis", "Not in Galexis")}</span>
-                          </div>
-                          {item.confirmedMatch.catalogUrl && (
-                            <a
-                              href={item.confirmedMatch.catalogUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline text-xs flex items-center gap-1"
-                            >
-                              <ExternalLink className="w-3 h-3" />
-                              {t("supplierMatches.viewCatalog", "View")}
-                            </a>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-semibold text-foreground">{item.name}</h3>
+                      {item.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
+                      )}
+                      <ItemCodesDisplay itemCode={item.itemCode} />
+                      {item.confirmedMatch && (
+                        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                          <Badge variant="secondary" className="text-xs">{item.confirmedMatch.supplierName}</Badge>
+                          {item.confirmedMatch.articleCode && (
+                            <span>Art. {item.confirmedMatch.articleCode}</span>
                           )}
+                          <span className="text-orange-600">{t("supplierMatches.priceNotInGalexis", "Not in Galexis")}</span>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
+                    <Badge variant="outline" className="text-orange-600 border-orange-300 shrink-0">
+                      {t("supplierMatches.needsPrice", "Needs Price")}
+                    </Badge>
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                   </div>
                 </CardContent>
               </Card>
@@ -795,14 +543,6 @@ export default function SupplierMatches() {
         </TabsContent>
       </Tabs>
 
-      {/* Quick Scan Modal */}
-      <UnifiedBarcodeScanner
-        isOpen={scanningItemId !== null}
-        onClose={() => setScanningItemId(null)}
-        onBarcodeDetected={handleQuickScanBarcode}
-        onImageCapture={handleQuickScanImage}
-        hint={t("supplierMatches.scanHint", "Point at barcode or take photo for OCR")}
-      />
     </div>
   );
 }

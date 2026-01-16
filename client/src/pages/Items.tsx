@@ -908,6 +908,72 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     }
   }, [editFormData.controlled, selectedUnit]);
 
+  // Handle URL parameters for opening edit dialog from /inventory/matches
+  useEffect(() => {
+    if (!items.length || isLoading) return;
+    
+    const params = new URLSearchParams(window.location.search);
+    const editItemId = params.get('editItem');
+    const tab = params.get('tab');
+    
+    if (editItemId) {
+      // Find the item
+      const item = items.find(i => i.id === editItemId);
+      if (item) {
+        // Open edit dialog with the specified tab
+        setSelectedItem(item);
+        setEditFormData({
+          name: item.name,
+          description: item.description || "",
+          barcode: item.barcodes?.[0] || "",
+          minThreshold: String(item.minThreshold || 0),
+          maxThreshold: String(item.maxThreshold || 0),
+          defaultOrderQty: String(item.defaultOrderQty || 0),
+          packSize: String(item.packSize || 1),
+          currentUnits: String(item.currentUnits || 0),
+          actualStock: String(item.stockLevel?.qtyOnHand || 0),
+          critical: item.critical || false,
+          controlled: item.controlled || false,
+          trackExactQuantity: item.trackExactQuantity || false,
+          imageUrl: item.imageUrl || "",
+          patientPrice: item.patientPrice || "",
+          dailyUsageEstimate: item.dailyUsageEstimate || "",
+          status: (item.status as "active" | "archived") || "active",
+          isInvoiceable: item.isInvoiceable || false,
+        });
+        setSelectedUnit(normalizeUnit(item.unit));
+        setEditDialogTab(tab === 'codes' ? 'codes' : 'details');
+        setItemCodes(null);
+        setSupplierCodes([]);
+        setItemLots([]);
+        setNewSupplier({ supplierName: "", articleCode: "", catalogUrl: "", basispreis: "" });
+        setNewLot({ lotNumber: "", expiryDate: "" });
+        setEditDialogOpen(true);
+        
+        // Load item codes, supplier codes, and lots in background
+        setIsLoadingCodes(true);
+        setIsLoadingLots(true);
+        Promise.all([
+          fetch(`/api/items/${item.id}/codes`, { credentials: "include" }).then(res => res.json()),
+          fetch(`/api/items/${item.id}/suppliers`, { credentials: "include" }).then(res => res.json()),
+          fetch(`/api/items/${item.id}/lots`, { credentials: "include" }).then(res => res.json())
+        ]).then(([codes, suppliers, lots]) => {
+          setItemCodes(codes || null);
+          setSupplierCodes(suppliers || []);
+          setItemLots(lots || []);
+        }).catch(err => {
+          console.error('Failed to load item data:', err);
+        }).finally(() => {
+          setIsLoadingCodes(false);
+          setIsLoadingLots(false);
+        });
+        
+        // Clear URL params without reload
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, [items, isLoading]);
+
   const handleEditItem = async (item: ItemWithStock) => {
     setSelectedItem(item);
     setEditFormData({
