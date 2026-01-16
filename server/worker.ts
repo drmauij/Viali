@@ -270,11 +270,27 @@ async function processNextPriceSyncJob() {
           console.log(`[Worker] ProductAvailability completed: ${lookupResults.filter(r => r.found).length}/${lookupResults.length} found`);
 
           // Build price map from lookup results
-          for (const result of lookupResults) {
+          // Key by BOTH the returned pharmacode/gtin AND the original requested codes
+          for (let i = 0; i < lookupResults.length; i++) {
+            const result = lookupResults[i];
+            const originalItem = itemIndexMap.get(i);
+            
             if (result.found && result.price) {
-              priceMap.set(result.pharmacode, result.price);
+              // Key by returned pharmacode
+              if (result.pharmacode) {
+                priceMap.set(result.pharmacode, result.price);
+              }
+              // Key by returned gtin
               if (result.gtin) {
                 priceMap.set(result.gtin, result.price);
+              }
+              // ALSO key by original requested pharmacode (in case Galexis returns different format)
+              if (originalItem?.pharmacode && !priceMap.has(originalItem.pharmacode)) {
+                priceMap.set(originalItem.pharmacode, result.price);
+              }
+              // ALSO key by original requested gtin
+              if (originalItem?.gtin && !priceMap.has(originalItem.gtin)) {
+                priceMap.set(originalItem.gtin, result.price);
               }
             }
           }
