@@ -358,7 +358,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Automatische Kostenberechnung" : "Automatic cost calculation"}
+                      {isGerman ? "Automatische OP-Kostenberechnung und Statistiken" : "Automatic surgery cost calculation and statistics"}
                     </p>
                   </div>
                 </div>
