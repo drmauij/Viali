@@ -1541,12 +1541,15 @@ export default function Op() {
                   <PostOpInfoCard postOpData={postOpData} pacuBedName={pacuBedName} pacuBedId={surgery?.pacuBedId} surgeryId={surgeryId} hideBedSquare />
                 </div>
               </div>
-              <MedicationScheduleCard postOpData={postOpData} />
-              <IntraoperativeMedicationsCard 
-                medications={medicationsData || []} 
-                items={inventoryItems || []}
-                patientWeight={patientWeight}
-              />
+              {/* Two-column responsive layout for medication cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <MedicationScheduleCard postOpData={postOpData} />
+                <IntraoperativeMedicationsCard 
+                  medications={medicationsData || []} 
+                  items={inventoryItems || []}
+                  patientWeight={patientWeight}
+                />
+              </div>
             </TabsContent>
           )}
 
