@@ -575,6 +575,13 @@
       "when": 1768679412948,
       "tag": "0081_strong_wilson_fisk",
       "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1768684982129,
+      "tag": "0082_faulty_winter_soldier",
+      "breakpoints": true
     }
   ]
 }

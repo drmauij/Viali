@@ -35,6 +35,7 @@ export const users = pgTable("users", {
   email: varchar("email").unique(),
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
+  phone: varchar("phone"), // Optional phone number for app users
   profileImageUrl: varchar("profile_image_url"),
   passwordHash: varchar("password_hash"), // For local auth users
   mustChangePassword: boolean("must_change_password").default(false), // Force password change on first login
