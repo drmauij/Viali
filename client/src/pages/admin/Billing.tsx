@@ -477,6 +477,33 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 </div>
               </div>
 
+              {/* Work Time Logs */}
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Timer className="h-5 w-5 text-indigo-600" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{isGerman ? "Arbeitszeitnachweise" : "Work Time Logs"}</p>
+                      <Badge variant="outline" className="text-xs">
+                        {isGerman ? "Monatlich" : "Monthly"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isGerman ? "Externe Arbeitszeiterfassung & Dokumentation" : "External work time tracking & documentation"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">+5.00 CHF/Mt.</span>
+                  <Switch 
+                    checked={billingStatus.addons.worktime}
+                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "worktime", enabled: checked })}
+                    disabled={toggleAddon.isPending}
+                    data-testid="switch-addon-worktime"
+                  />
+                </div>
+              </div>
+
               {/* Dispocura Integration */}
               <div className="flex items-center justify-between p-3 border rounded-lg">
                 <div className="flex items-center gap-3">
@@ -531,33 +558,6 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                     onCheckedChange={(checked) => toggleAddon.mutate({ addon: "monitor", enabled: checked })}
                     disabled={true}
                     data-testid="switch-addon-monitor"
-                  />
-                </div>
-              </div>
-
-              {/* Work Time Logs */}
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Timer className="h-5 w-5 text-indigo-600" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{isGerman ? "Arbeitszeitnachweise" : "Work Time Logs"}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Monatlich" : "Monthly"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Externe Arbeitszeiterfassung & Dokumentation" : "External work time tracking & documentation"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">+5.00 CHF/Mt.</span>
-                  <Switch 
-                    checked={billingStatus.addons.worktime}
-                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "worktime", enabled: checked })}
-                    disabled={toggleAddon.isPending}
-                    data-testid="switch-addon-worktime"
                   />
                 </div>
               </div>
