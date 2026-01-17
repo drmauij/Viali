@@ -64,15 +64,13 @@ router.patch('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res
       companyPhone,
       companyFax,
       companyEmail,
-      companyLogoUrl
+      companyLogoUrl,
+      questionnaireDisabled
     } = req.body;
 
-    if (!name) {
-      return res.status(400).json({ message: "Hospital name is required" });
-    }
-
-    const updates: Record<string, any> = { name };
+    const updates: Record<string, any> = {};
     
+    if (name !== undefined) updates.name = name;
     if (companyName !== undefined) updates.companyName = companyName;
     if (companyStreet !== undefined) updates.companyStreet = companyStreet;
     if (companyPostalCode !== undefined) updates.companyPostalCode = companyPostalCode;
@@ -81,6 +79,11 @@ router.patch('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res
     if (companyFax !== undefined) updates.companyFax = companyFax;
     if (companyEmail !== undefined) updates.companyEmail = companyEmail;
     if (companyLogoUrl !== undefined) updates.companyLogoUrl = companyLogoUrl;
+    if (questionnaireDisabled !== undefined) updates.questionnaireDisabled = questionnaireDisabled;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: "No updates provided" });
+    }
 
     const updated = await storage.updateHospital(hospitalId, updates);
     res.json(updated);

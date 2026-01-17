@@ -82,6 +82,7 @@ export default function Hospital() {
     runwayTargetDays: 14,
     runwayWarningDays: 7,
     runwayLookbackDays: 30,
+    questionnaireDisabled: false,
   });
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
@@ -453,12 +454,12 @@ export default function Hospital() {
   // Fetch full hospital data (for settings tab or dialog)
   const { data: fullHospitalData } = useQuery<any>({
     queryKey: [`/api/admin/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id && isAdmin && (hospitalDialogOpen || activeTab === "settings"),
+    enabled: !!activeHospital?.id && isAdmin && (hospitalDialogOpen || activeTab === "settings" || activeTab === "data"),
   });
 
   // Initialize form when hospital data is loaded
   useEffect(() => {
-    if (fullHospitalData && (hospitalDialogOpen || activeTab === "settings")) {
+    if (fullHospitalData && (hospitalDialogOpen || activeTab === "settings" || activeTab === "data")) {
       setHospitalForm({
         name: fullHospitalData.name || "",
         companyName: fullHospitalData.companyName || "",
@@ -472,6 +473,7 @@ export default function Hospital() {
         runwayTargetDays: fullHospitalData.runwayTargetDays ?? 14,
         runwayWarningDays: fullHospitalData.runwayWarningDays ?? 7,
         runwayLookbackDays: fullHospitalData.runwayLookbackDays ?? 30,
+        questionnaireDisabled: fullHospitalData.questionnaireDisabled ?? false,
       });
     }
   }, [fullHospitalData, hospitalDialogOpen, activeTab]);
@@ -489,6 +491,29 @@ export default function Hospital() {
       toast({ title: t("common.success"), description: t("admin.hospitalDataUpdatedSuccess") });
     },
     onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospital"), variant: "destructive" });
+    },
+  });
+
+  // Update questionnaire disabled mutation (for quick toggle)
+  const updateQuestionnaireDisabledMutation = useMutation({
+    mutationFn: async (disabled: boolean) => {
+      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}`, { questionnaireDisabled: disabled });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ 
+        title: t("common.success"), 
+        description: hospitalForm.questionnaireDisabled 
+          ? t("admin.questionnaireDisabled", "Questionnaire function disabled")
+          : t("admin.questionnaireEnabledSuccess", "Questionnaire function enabled")
+      });
+    },
+    onError: (error: any) => {
+      // Revert local state on error
+      setHospitalForm(prev => ({ ...prev, questionnaireDisabled: !prev.questionnaireDisabled }));
       toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospital"), variant: "destructive" });
     },
   });
@@ -853,7 +878,7 @@ export default function Hospital() {
             data-testid="tab-data"
           >
             <i className="fas fa-database mr-2"></i>
-            {t("admin.dataAndLists", "Data & Lists")}
+            {t("admin.dataAndLinks", "Data & Links")}
           </button>
           <button
             className={`px-4 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
@@ -1132,105 +1157,10 @@ export default function Hospital() {
             </div>
           </div>
 
-          {/* Open Questionnaire Link Section */}
-          <div className="bg-card border border-border rounded-lg p-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-semibold text-foreground text-lg flex items-center gap-2">
-                    <LinkIcon className="h-5 w-5 text-primary" />
-                    {t("admin.openQuestionnaireLink", "Open Questionnaire Link")}
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    {t("admin.openQuestionnaireLinkDescription", "Public link for patients to fill out pre-operative questionnaires without being pre-registered")}
-                  </p>
-                </div>
-              </div>
-              
-              {questionnaireTokenData?.questionnaireToken ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                    <Input
-                      value={getQuestionnaireUrl() || ""}
-                      readOnly
-                      className="flex-1 bg-background text-sm font-mono"
-                      data-testid="input-questionnaire-url-inline"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopyLink}
-                      data-testid="button-copy-questionnaire-link-inline"
-                    >
-                      {linkCopied ? (
-                        <Check className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <Copy className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => generateQuestionnaireTokenMutation.mutate()}
-                      disabled={generateQuestionnaireTokenMutation.isPending}
-                      data-testid="button-regenerate-questionnaire-link-inline"
-                    >
-                      {generateQuestionnaireTokenMutation.isPending ? (
-                        <i className="fas fa-spinner fa-spin mr-2"></i>
-                      ) : (
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                      )}
-                      {t("admin.regenerateLink", "Regenerate Link")}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-destructive border-destructive/50 hover:bg-destructive/10"
-                      onClick={() => {
-                        if (confirm(t("admin.disableLinkConfirm", "Are you sure you want to disable this link? Patients won't be able to access the form."))) {
-                          deleteQuestionnaireTokenMutation.mutate();
-                        }
-                      }}
-                      disabled={deleteQuestionnaireTokenMutation.isPending}
-                      data-testid="button-disable-questionnaire-link-inline"
-                    >
-                      {deleteQuestionnaireTokenMutation.isPending ? (
-                        <i className="fas fa-spinner fa-spin mr-2"></i>
-                      ) : (
-                        <Trash2 className="h-4 w-4 mr-2" />
-                      )}
-                      {t("admin.disableLink", "Disable Link")}
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <p className="text-sm text-muted-foreground">
-                    {t("admin.noQuestionnaireLinkGenerated", "No questionnaire link has been generated yet.")}
-                  </p>
-                  <Button
-                    size="sm"
-                    onClick={() => generateQuestionnaireTokenMutation.mutate()}
-                    disabled={generateQuestionnaireTokenMutation.isPending}
-                    data-testid="button-generate-questionnaire-link-inline"
-                  >
-                    {generateQuestionnaireTokenMutation.isPending ? (
-                      <i className="fas fa-spinner fa-spin mr-2"></i>
-                    ) : (
-                      <LinkIcon className="h-4 w-4 mr-2" />
-                    )}
-                    {t("admin.generateLink", "Generate Link")}
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       )}
 
-      {/* Data & Lists Tab Content */}
+      {/* Data & Links Tab Content */}
       {activeTab === "data" && (
         <div className="space-y-4">
           {/* Seed Default Data Card */}
@@ -1268,6 +1198,127 @@ export default function Hospital() {
                   </>
                 )}
               </Button>
+            </div>
+          </div>
+
+          {/* Open Questionnaire Link Section */}
+          <div className="bg-card border border-border rounded-lg p-6">
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-foreground text-lg flex items-center gap-2">
+                    <LinkIcon className="h-5 w-5 text-primary" />
+                    {t("admin.openQuestionnaireLink", "Open Questionnaire Link")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.openQuestionnaireLinkDescription", "Public link for patients to fill out pre-operative questionnaires without being pre-registered")}
+                  </p>
+                </div>
+              </div>
+              
+              {/* Questionnaire Enable/Disable Toggle */}
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+                <div className="flex-1">
+                  <Label className="text-sm font-medium">
+                    {t("admin.questionnaireEnabled", "Questionnaire Function Enabled")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("admin.questionnaireEnabledDescription", "When disabled, questionnaire links will not be shown and automatic messages will not be sent")}
+                  </p>
+                </div>
+                <Switch
+                  checked={!hospitalForm.questionnaireDisabled}
+                  onCheckedChange={(checked) => {
+                    setHospitalForm(prev => ({ ...prev, questionnaireDisabled: !checked }));
+                    updateQuestionnaireDisabledMutation.mutate(!checked);
+                  }}
+                  disabled={updateQuestionnaireDisabledMutation.isPending}
+                  data-testid="switch-questionnaire-enabled"
+                />
+              </div>
+              
+              {!hospitalForm.questionnaireDisabled && (
+                <>
+                  {questionnaireTokenData?.questionnaireToken ? (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                        <Input
+                          value={getQuestionnaireUrl() || ""}
+                          readOnly
+                          className="flex-1 bg-background text-sm font-mono"
+                          data-testid="input-questionnaire-url-inline"
+                        />
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCopyLink}
+                          data-testid="button-copy-questionnaire-link-inline"
+                        >
+                          {linkCopied ? (
+                            <Check className="h-4 w-4 text-green-500" />
+                          ) : (
+                            <Copy className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => generateQuestionnaireTokenMutation.mutate()}
+                          disabled={generateQuestionnaireTokenMutation.isPending}
+                          data-testid="button-regenerate-questionnaire-link-inline"
+                        >
+                          {generateQuestionnaireTokenMutation.isPending ? (
+                            <i className="fas fa-spinner fa-spin mr-2"></i>
+                          ) : (
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                          )}
+                          {t("admin.regenerateLink", "Regenerate Link")}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                          onClick={() => {
+                            if (confirm(t("admin.disableLinkConfirm", "Are you sure you want to disable this link? Patients won't be able to access the form."))) {
+                              deleteQuestionnaireTokenMutation.mutate();
+                            }
+                          }}
+                          disabled={deleteQuestionnaireTokenMutation.isPending}
+                          data-testid="button-disable-questionnaire-link-inline"
+                        >
+                          {deleteQuestionnaireTokenMutation.isPending ? (
+                            <i className="fas fa-spinner fa-spin mr-2"></i>
+                          ) : (
+                            <Trash2 className="h-4 w-4 mr-2" />
+                          )}
+                          {t("admin.disableLink", "Disable Link")}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <p className="text-sm text-muted-foreground">
+                        {t("admin.noQuestionnaireLinkGenerated", "No questionnaire link has been generated yet.")}
+                      </p>
+                      <Button
+                        size="sm"
+                        onClick={() => generateQuestionnaireTokenMutation.mutate()}
+                        disabled={generateQuestionnaireTokenMutation.isPending}
+                        data-testid="button-generate-questionnaire-link-inline"
+                      >
+                        {generateQuestionnaireTokenMutation.isPending ? (
+                          <i className="fas fa-spinner fa-spin mr-2"></i>
+                        ) : (
+                          <LinkIcon className="h-4 w-4 mr-2" />
+                        )}
+                        {t("admin.generateLink", "Generate Link")}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </div>
 
