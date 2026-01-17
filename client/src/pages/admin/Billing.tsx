@@ -431,7 +431,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                     <div className="flex items-center gap-2">
                       <p className="font-medium">{isGerman ? "Patientenfragebögen" : "Patient Questionnaires"}</p>
                       <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Verfügbar" : "Available"}
+                        {isGerman ? "Pro Protokoll" : "Per record"}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
