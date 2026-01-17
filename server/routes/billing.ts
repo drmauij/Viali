@@ -114,6 +114,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
       estimatedCost,
       billingRequired: hospital.licenseType !== "free" && !hospital.stripePaymentMethodId,
       addons: {
+        questionnaire: hospital.addonQuestionnaire ?? false,
         dispocura: hospital.addonDispocura ?? false,
         retell: hospital.addonRetell ?? false,
         monitor: hospital.addonMonitor ?? false,
@@ -130,12 +131,13 @@ router.patch("/api/billing/:hospitalId/addons", isAuthenticated, requireAdminRol
     const { hospitalId } = req.params;
     const { addon, enabled } = req.body;
 
-    const validAddons = ["dispocura", "retell", "monitor"];
+    const validAddons = ["questionnaire", "dispocura", "retell", "monitor"];
     if (!validAddons.includes(addon)) {
       return res.status(400).json({ message: "Invalid addon type" });
     }
 
     const columnMap: Record<string, any> = {
+      questionnaire: { addonQuestionnaire: enabled },
       dispocura: { addonDispocura: enabled },
       retell: { addonRetell: enabled },
       monitor: { addonMonitor: enabled },

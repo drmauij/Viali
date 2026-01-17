@@ -33,7 +33,8 @@ import {
   Calculator,
   Phone,
   Camera,
-  Clock
+  Clock,
+  ClipboardList
 } from "lucide-react";
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
@@ -55,6 +56,7 @@ interface BillingStatus {
   estimatedCost: number;
   billingRequired: boolean;
   addons: {
+    questionnaire: boolean;
     dispocura: boolean;
     retell: boolean;
     monitor: boolean;
@@ -346,6 +348,33 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 {isGerman ? "Optionale Zusatzmodule" : "Optional Add-ons"}
               </p>
 
+              {/* Patient Questionnaires */}
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <ClipboardList className="h-5 w-5 text-purple-600" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{isGerman ? "Patientenfragebögen" : "Patient Questionnaires"}</p>
+                      <Badge variant="outline" className="text-xs">
+                        {isGerman ? "Verfügbar" : "Available"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isGerman ? "Vor-OP Fragebögen für Patienten" : "Pre-operative questionnaires for patients"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">+0.50 CHF</span>
+                  <Switch 
+                    checked={billingStatus.addons.questionnaire}
+                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "questionnaire", enabled: checked })}
+                    disabled={toggleAddon.isPending}
+                    data-testid="switch-addon-questionnaire"
+                  />
+                </div>
+              </div>
+
               {/* Dispocura Integration */}
               <div className="flex items-center justify-between p-3 border rounded-lg">
                 <div className="flex items-center gap-3">
@@ -438,6 +467,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               </p>
               <p className="text-xl font-bold text-primary">
                 {(3 + 
+                  (billingStatus.addons.questionnaire ? 0.5 : 0) +
                   (billingStatus.addons.dispocura ? 1 : 0) + 
                   (billingStatus.addons.retell ? 1 : 0) + 
                   (billingStatus.addons.monitor ? 1 : 0)

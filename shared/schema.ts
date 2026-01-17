@@ -78,6 +78,7 @@ export const hospitals = pgTable("hospitals", {
   runwayWarningDays: integer("runway_warning_days").default(7), // Warning threshold (critical below this)
   runwayLookbackDays: integer("runway_lookback_days").default(30), // Days to look back for usage calculation
   // Billing add-on services
+  addonQuestionnaire: boolean("addon_questionnaire").default(true), // Patient questionnaires (+0.5 CHF)
   addonDispocura: boolean("addon_dispocura").default(false), // Dispocura integration for cost calculation (+1 CHF)
   addonRetell: boolean("addon_retell").default(false), // Retell.ai phone booking system (+1 CHF)
   addonMonitor: boolean("addon_monitor").default(false), // Camera monitor connection (+1 CHF)
