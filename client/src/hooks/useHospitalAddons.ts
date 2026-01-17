@@ -14,6 +14,7 @@ export interface HospitalAddons {
 
 interface AddonsResponse {
   addons: HospitalAddons;
+  questionnaireDisabled?: boolean;
 }
 
 export function useHospitalAddons() {
@@ -38,6 +39,7 @@ export function useHospitalAddons() {
       logistics: false,
       clinic: false,
     },
+    questionnaireDisabled: data?.questionnaireDisabled ?? false,
     isLoading,
     error,
     hospitalId,

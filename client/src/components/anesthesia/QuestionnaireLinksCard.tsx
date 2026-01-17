@@ -52,7 +52,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
   const { t } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
-  const { addons } = useHospitalAddons();
+  const { addons, questionnaireDisabled } = useHospitalAddons();
   const canWrite = useCanWrite();
   
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
@@ -228,8 +228,8 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
 
   const visibleLinks = showExpired ? links : links.filter(l => l.status !== 'expired');
 
-  // Don't render if questionnaire addon is disabled
-  if (!addons.questionnaire) {
+  // Don't render if questionnaire addon is disabled or manually disabled
+  if (!addons.questionnaire || questionnaireDisabled) {
     return null;
   }
 

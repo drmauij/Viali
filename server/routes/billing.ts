@@ -188,6 +188,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
             logistics: hospital.addonLogistics ?? false,
             clinic: hospital.addonClinic ?? false,
           },
+          questionnaireDisabled: hospital.questionnaireDisabled ?? false,
         });
         return;
       }
@@ -249,6 +250,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
             logistics: hospital.addonLogistics ?? false,
             clinic: hospital.addonClinic ?? false,
           },
+      questionnaireDisabled: hospital.questionnaireDisabled ?? false,
     });
   } catch (error) {
     console.error("Error fetching billing status:", error);
