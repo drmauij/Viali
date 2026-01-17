@@ -1,7 +1,7 @@
-import { Router } from "express";
+import { Router, raw } from "express";
 import Stripe from "stripe";
 import { storage, db } from "../storage";
-import { hospitals, anesthesiaRecords, surgeries, termsAcceptances, users } from "@shared/schema";
+import { hospitals, anesthesiaRecords, surgeries, termsAcceptances, users, billingInvoices, scheduledJobs } from "@shared/schema";
 import { eq, and, gte, lt, sql, desc } from "drizzle-orm";
 import { Resend } from "resend";
 import { jsPDF } from "jspdf";
@@ -868,6 +868,298 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
   } catch (error) {
     console.error("Error accepting terms:", error);
     res.status(500).json({ message: "Failed to accept terms" });
+  }
+});
+
+// Get invoice history for a hospital
+router.get("/:hospitalId/invoices", isAuthenticated, async (req, res) => {
+  try {
+    const hospitalId = req.params.hospitalId;
+    
+    const invoices = await db
+      .select()
+      .from(billingInvoices)
+      .where(eq(billingInvoices.hospitalId, hospitalId))
+      .orderBy(desc(billingInvoices.periodStart));
+    
+    res.json({ invoices });
+  } catch (error) {
+    console.error("Error fetching invoices:", error);
+    res.status(500).json({ message: "Failed to fetch invoices" });
+  }
+});
+
+// Manual trigger for generating a test invoice (admin only)
+router.post("/:hospitalId/generate-invoice", isAuthenticated, requireAdminRoleCheck, async (req, res) => {
+  try {
+    const hospitalId = req.params.hospitalId;
+    const stripe = getStripe();
+    
+    if (!stripe) {
+      return res.status(500).json({ message: "Stripe is not configured" });
+    }
+    
+    const hospital = await storage.getHospital(hospitalId);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    
+    if (!hospital.stripeCustomerId || !hospital.stripePaymentMethodId) {
+      return res.status(400).json({ message: "No payment method configured" });
+    }
+    
+    // Get billing period from request or use current month
+    const { periodStart: startStr, periodEnd: endStr } = req.body;
+    
+    let periodStart: Date;
+    let periodEnd: Date;
+    
+    if (startStr && endStr) {
+      periodStart = new Date(startStr);
+      periodEnd = new Date(endStr);
+    } else {
+      // Default to current month
+      const now = new Date();
+      periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    }
+    
+    // Check if invoice already exists for this period
+    const existingInvoice = await db
+      .select()
+      .from(billingInvoices)
+      .where(
+        and(
+          eq(billingInvoices.hospitalId, hospitalId),
+          eq(billingInvoices.periodStart, periodStart),
+          eq(billingInvoices.periodEnd, periodEnd)
+        )
+      )
+      .limit(1);
+    
+    if (existingInvoice.length > 0) {
+      return res.status(400).json({ 
+        message: "Invoice already exists for this period",
+        invoice: existingInvoice[0]
+      });
+    }
+    
+    // Count records for the period
+    const recordCount = await countAnesthesiaRecordsForHospital(hospitalId, periodStart, periodEnd);
+    
+    if (recordCount === 0) {
+      return res.status(400).json({ message: "No records found for this billing period" });
+    }
+    
+    // Calculate pricing
+    const basePrice = parseFloat(hospital.pricePerRecord || '3.00');
+    const questionnaireAddOn = hospital.addonQuestionnaire ? 0.50 : 0;
+    const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
+    const retellAddOn = hospital.addonRetell ? 1.00 : 0;
+    const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
+    
+    const pricePerRecord = basePrice + questionnaireAddOn + dispocuraAddOn + retellAddOn + monitorAddOn;
+    const totalAmount = recordCount * pricePerRecord;
+    
+    // Create Stripe invoice
+    const invoice = await stripe.invoices.create({
+      customer: hospital.stripeCustomerId,
+      collection_method: 'charge_automatically',
+      auto_advance: true,
+      currency: 'chf',
+      description: `Viali Usage - ${periodStart.toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}`,
+      metadata: {
+        hospitalId,
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString(),
+        recordCount: recordCount.toString(),
+      },
+    });
+    
+    // Add line items
+    await stripe.invoiceItems.create({
+      customer: hospital.stripeCustomerId,
+      invoice: invoice.id,
+      quantity: recordCount,
+      unit_amount: Math.round(basePrice * 100),
+      currency: 'chf',
+      description: 'Anesthesia Records (Base)',
+    });
+    
+    if (hospital.addonQuestionnaire) {
+      await stripe.invoiceItems.create({
+        customer: hospital.stripeCustomerId,
+        invoice: invoice.id,
+        quantity: recordCount,
+        unit_amount: Math.round(questionnaireAddOn * 100),
+        currency: 'chf',
+        description: 'Online Questionnaires Add-on',
+      });
+    }
+    
+    if (hospital.addonDispocura) {
+      await stripe.invoiceItems.create({
+        customer: hospital.stripeCustomerId,
+        invoice: invoice.id,
+        quantity: recordCount,
+        unit_amount: Math.round(dispocuraAddOn * 100),
+        currency: 'chf',
+        description: 'Dispocura Integration Add-on',
+      });
+    }
+    
+    if (hospital.addonRetell) {
+      await stripe.invoiceItems.create({
+        customer: hospital.stripeCustomerId,
+        invoice: invoice.id,
+        quantity: recordCount,
+        unit_amount: Math.round(retellAddOn * 100),
+        currency: 'chf',
+        description: 'Retell.ai Phone Booking Add-on',
+      });
+    }
+    
+    if (hospital.addonMonitor) {
+      await stripe.invoiceItems.create({
+        customer: hospital.stripeCustomerId,
+        invoice: invoice.id,
+        quantity: recordCount,
+        unit_amount: Math.round(monitorAddOn * 100),
+        currency: 'chf',
+        description: 'Monitor Camera Connection Add-on',
+      });
+    }
+    
+    // Finalize and pay invoice
+    const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
+    
+    // Store invoice record
+    const [billingInvoice] = await db.insert(billingInvoices).values({
+      hospitalId,
+      periodStart,
+      periodEnd,
+      recordCount,
+      basePrice: (recordCount * basePrice).toFixed(2),
+      questionnairePrice: (recordCount * questionnaireAddOn).toFixed(2),
+      dispocuraPrice: (recordCount * dispocuraAddOn).toFixed(2),
+      retellPrice: (recordCount * retellAddOn).toFixed(2),
+      monitorPrice: (recordCount * monitorAddOn).toFixed(2),
+      totalAmount: totalAmount.toFixed(2),
+      currency: 'chf',
+      stripeInvoiceId: finalizedInvoice.id,
+      stripeInvoiceUrl: finalizedInvoice.hosted_invoice_url || undefined,
+      status: finalizedInvoice.status === 'paid' ? 'paid' : 'pending',
+      paidAt: finalizedInvoice.status === 'paid' ? new Date() : undefined,
+    }).returning();
+    
+    res.json({
+      success: true,
+      invoice: billingInvoice,
+      stripeInvoice: {
+        id: finalizedInvoice.id,
+        status: finalizedInvoice.status,
+        hostedInvoiceUrl: finalizedInvoice.hosted_invoice_url,
+      },
+    });
+  } catch (error: any) {
+    console.error("Error generating invoice:", error);
+    res.status(500).json({ message: error.message || "Failed to generate invoice" });
+  }
+});
+
+// Stripe webhook endpoint for invoice events
+router.post("/webhook", raw({ type: 'application/json' }), async (req, res) => {
+  const stripe = getStripe();
+  
+  if (!stripe) {
+    return res.status(500).json({ message: "Stripe is not configured" });
+  }
+  
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  
+  if (!webhookSecret) {
+    console.log("Stripe webhook secret not configured, accepting all events");
+  }
+  
+  let event: Stripe.Event;
+  
+  try {
+    if (webhookSecret && sig) {
+      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+    } else {
+      event = req.body as Stripe.Event;
+    }
+  } catch (err: any) {
+    console.error("Webhook signature verification failed:", err.message);
+    return res.status(400).json({ message: `Webhook Error: ${err.message}` });
+  }
+  
+  try {
+    switch (event.type) {
+      case 'invoice.paid': {
+        const invoice = event.data.object as Stripe.Invoice;
+        console.log(`[Webhook] Invoice paid: ${invoice.id}`);
+        
+        // Update our billing invoice record
+        if (invoice.id) {
+          await db
+            .update(billingInvoices)
+            .set({
+              status: 'paid',
+              paidAt: new Date(),
+              stripePaymentIntentId: typeof invoice.payment_intent === 'string' 
+                ? invoice.payment_intent 
+                : invoice.payment_intent?.id,
+            })
+            .where(eq(billingInvoices.stripeInvoiceId, invoice.id));
+        }
+        break;
+      }
+      
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        console.log(`[Webhook] Invoice payment failed: ${invoice.id}`);
+        
+        // Update our billing invoice record
+        if (invoice.id) {
+          await db
+            .update(billingInvoices)
+            .set({
+              status: 'failed',
+              failedAt: new Date(),
+              failureReason: invoice.last_finalization_error?.message || 'Payment failed',
+            })
+            .where(eq(billingInvoices.stripeInvoiceId, invoice.id));
+        }
+        break;
+      }
+      
+      case 'invoice.finalized': {
+        const invoice = event.data.object as Stripe.Invoice;
+        console.log(`[Webhook] Invoice finalized: ${invoice.id}`);
+        
+        // Update hosted invoice URL if available
+        if (invoice.id && invoice.hosted_invoice_url) {
+          await db
+            .update(billingInvoices)
+            .set({
+              stripeInvoiceUrl: invoice.hosted_invoice_url,
+              status: 'pending',
+            })
+            .where(eq(billingInvoices.stripeInvoiceId, invoice.id));
+        }
+        break;
+      }
+      
+      default:
+        console.log(`[Webhook] Unhandled event type: ${event.type}`);
+    }
+    
+    res.json({ received: true });
+  } catch (error: any) {
+    console.error("Error processing webhook:", error);
+    res.status(500).json({ message: "Webhook processing failed" });
   }
 });
 
