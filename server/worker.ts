@@ -1272,6 +1272,12 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
     return;
   }
   
+  // Check if questionnaire is manually disabled (override)
+  if (hospitalData.questionnaireDisabled) {
+    console.log(`[Worker] Skipping auto-questionnaire dispatch - questionnaire manually disabled for hospital ${hospitalId}`);
+    return;
+  }
+  
   // Get surgeries scheduled for daysAhead days from now
   const eligibleSurgeries = await storage.getSurgeriesForAutoQuestionnaire(
     hospitalId, 
