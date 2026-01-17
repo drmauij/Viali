@@ -1073,6 +1073,8 @@ async function processNextScheduledJob(): Promise<boolean> {
         await processCalcomSync(job);
       } else if (job.jobType === 'pre_surgery_reminder') {
         await processPreSurgeryReminder(job);
+      } else if (job.jobType === 'monthly_billing') {
+        await processMonthlyBilling(job);
       }
 
       return true;
@@ -2010,6 +2012,281 @@ async function sendPreSurgeryReminderEmail(
   }
 }
 
+/**
+ * Schedule monthly billing jobs for hospitals
+ * Runs on the 1st of each month to bill for previous month's usage
+ */
+async function scheduleMonthlyBillingJobs(): Promise<void> {
+  try {
+    const now = new Date();
+    const dayOfMonth = now.getDate();
+    
+    // Only run on the 1st through 5th of the month (grace period for billing)
+    if (dayOfMonth > 5) {
+      return;
+    }
+    
+    // Get start/end of previous month for billing period
+    const periodEnd = new Date(now.getFullYear(), now.getMonth(), 1); // 1st of current month
+    const periodStart = new Date(periodEnd);
+    periodStart.setMonth(periodStart.getMonth() - 1); // 1st of previous month
+    
+    // Get all hospitals that need billing (basic license with payment method)
+    const allHospitals = await db.select().from(hospitals);
+    
+    for (const hospital of allHospitals) {
+      // Skip free accounts
+      if (hospital.licenseType === 'free') {
+        continue;
+      }
+      
+      // Skip test accounts (still in trial, no billing yet)
+      if (hospital.licenseType === 'test') {
+        continue;
+      }
+      
+      // Skip hospitals without payment method
+      if (!hospital.stripePaymentMethodId || !hospital.stripeCustomerId) {
+        continue;
+      }
+      
+      // Check if we already have a billing job for this period
+      const { billingInvoices } = await import("@shared/schema");
+      const existingInvoice = await db
+        .select()
+        .from(billingInvoices)
+        .where(
+          and(
+            eq(billingInvoices.hospitalId, hospital.id),
+            gte(billingInvoices.periodStart, periodStart),
+            lt(billingInvoices.periodEnd, periodEnd)
+          )
+        )
+        .limit(1);
+      
+      if (existingInvoice.length > 0) {
+        continue; // Already billed for this period
+      }
+      
+      // Check if there's already a pending billing job
+      const lastJob = await storage.getLastScheduledJobForHospital(hospital.id, 'monthly_billing');
+      
+      if (lastJob) {
+        const lastJobDate = new Date(lastJob.scheduledFor);
+        // Check if the job is for this billing period (same month)
+        if (lastJobDate.getMonth() === now.getMonth() && 
+            lastJobDate.getFullYear() === now.getFullYear() &&
+            (lastJob.status === 'completed' || lastJob.status === 'pending' || lastJob.status === 'processing')) {
+          continue;
+        }
+      }
+      
+      // Schedule billing job
+      await storage.createScheduledJob({
+        jobType: 'monthly_billing',
+        hospitalId: hospital.id,
+        scheduledFor: now,
+        status: 'pending',
+      });
+      
+      console.log(`[Worker] Scheduled monthly billing job for hospital ${hospital.id} (period: ${periodStart.toISOString()} - ${periodEnd.toISOString()})`);
+    }
+  } catch (error: any) {
+    console.error('[Worker] Error scheduling monthly billing jobs:', error);
+  }
+}
+
+/**
+ * Process monthly billing job for a hospital
+ * Calculates usage, creates Stripe invoice, and charges the card
+ */
+async function processMonthlyBilling(job: any): Promise<void> {
+  const hospitalId = job.hospitalId;
+  console.log(`[Worker] Processing monthly billing for hospital ${hospitalId}`);
+  
+  try {
+    const Stripe = (await import('stripe')).default;
+    const { billingInvoices, anesthesiaRecords, surgeries } = await import("@shared/schema");
+    
+    const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
+    
+    if (!stripe) {
+      throw new Error('Stripe is not configured');
+    }
+    
+    const hospital = await storage.getHospital(hospitalId);
+    if (!hospital) {
+      throw new Error('Hospital not found');
+    }
+    
+    if (!hospital.stripeCustomerId || !hospital.stripePaymentMethodId) {
+      throw new Error('Hospital has no payment method configured');
+    }
+    
+    // Calculate billing period (previous month)
+    const now = new Date();
+    const periodEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+    const periodStart = new Date(periodEnd);
+    periodStart.setMonth(periodStart.getMonth() - 1);
+    
+    // Count anesthesia records for the billing period
+    const recordCountResult = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(anesthesiaRecords)
+      .innerJoin(surgeries, eq(anesthesiaRecords.surgeryId, surgeries.id))
+      .where(
+        and(
+          eq(surgeries.hospitalId, hospitalId),
+          gte(anesthesiaRecords.createdAt, periodStart),
+          lt(anesthesiaRecords.createdAt, periodEnd)
+        )
+      );
+    
+    const recordCount = Number(recordCountResult[0]?.count || 0);
+    
+    if (recordCount === 0) {
+      // No records, no billing needed
+      await storage.updateScheduledJob(job.id, {
+        status: 'completed',
+        completedAt: new Date(),
+        processedCount: 0,
+        successCount: 0,
+        failedCount: 0,
+        results: { message: 'No records for billing period' } as any,
+      });
+      console.log(`[Worker] No billing needed for hospital ${hospitalId} (0 records)`);
+      return;
+    }
+    
+    // Calculate pricing
+    const basePrice = parseFloat(hospital.pricePerRecord || '3.00');
+    const questionnaireAddOn = hospital.addonQuestionnaire ? 0.50 : 0;
+    const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
+    const retellAddOn = hospital.addonRetell ? 1.00 : 0;
+    const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
+    
+    const pricePerRecord = basePrice + questionnaireAddOn + dispocuraAddOn + retellAddOn + monitorAddOn;
+    const totalAmount = recordCount * pricePerRecord;
+    
+    // Create Stripe invoice
+    const invoice = await stripe.invoices.create({
+      customer: hospital.stripeCustomerId,
+      collection_method: 'charge_automatically',
+      auto_advance: true,
+      currency: 'chf',
+      description: `Viali Usage - ${periodStart.toLocaleDateString('de-CH', { month: 'long', year: 'numeric' })}`,
+      metadata: {
+        hospitalId,
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString(),
+        recordCount: recordCount.toString(),
+      },
+    });
+    
+    // Add line items
+    await stripe.invoiceItems.create({
+      customer: hospital.stripeCustomerId,
+      invoice: invoice.id,
+      quantity: recordCount,
+      unit_amount: Math.round(basePrice * 100), // Stripe uses cents
+      currency: 'chf',
+      description: 'Anesthesia Records (Base)',
+    });
+    
+    if (hospital.addonQuestionnaire) {
+      await stripe.invoiceItems.create({
+        customer: hospital.stripeCustomerId,
+        invoice: invoice.id,
+        quantity: recordCount,
+        unit_amount: Math.round(questionnaireAddOn * 100),
+        currency: 'chf',
+        description: 'Online Questionnaires Add-on',
+      });
+    }
+    
+    if (hospital.addonDispocura) {
+      await stripe.invoiceItems.create({
+        customer: hospital.stripeCustomerId,
+        invoice: invoice.id,
+        quantity: recordCount,
+        unit_amount: Math.round(dispocuraAddOn * 100),
+        currency: 'chf',
+        description: 'Dispocura Integration Add-on',
+      });
+    }
+    
+    if (hospital.addonRetell) {
+      await stripe.invoiceItems.create({
+        customer: hospital.stripeCustomerId,
+        invoice: invoice.id,
+        quantity: recordCount,
+        unit_amount: Math.round(retellAddOn * 100),
+        currency: 'chf',
+        description: 'Retell.ai Phone Booking Add-on',
+      });
+    }
+    
+    if (hospital.addonMonitor) {
+      await stripe.invoiceItems.create({
+        customer: hospital.stripeCustomerId,
+        invoice: invoice.id,
+        quantity: recordCount,
+        unit_amount: Math.round(monitorAddOn * 100),
+        currency: 'chf',
+        description: 'Monitor Camera Connection Add-on',
+      });
+    }
+    
+    // Finalize and pay invoice
+    const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
+    
+    // Store invoice record
+    await db.insert(billingInvoices).values({
+      hospitalId,
+      periodStart,
+      periodEnd,
+      recordCount,
+      basePrice: (recordCount * basePrice).toFixed(2),
+      questionnairePrice: (recordCount * questionnaireAddOn).toFixed(2),
+      dispocuraPrice: (recordCount * dispocuraAddOn).toFixed(2),
+      retellPrice: (recordCount * retellAddOn).toFixed(2),
+      monitorPrice: (recordCount * monitorAddOn).toFixed(2),
+      totalAmount: totalAmount.toFixed(2),
+      currency: 'chf',
+      stripeInvoiceId: finalizedInvoice.id,
+      stripeInvoiceUrl: finalizedInvoice.hosted_invoice_url || undefined,
+      status: finalizedInvoice.status === 'paid' ? 'paid' : 'pending',
+      paidAt: finalizedInvoice.status === 'paid' ? new Date() : undefined,
+    });
+    
+    // Update job as completed
+    await storage.updateScheduledJob(job.id, {
+      status: 'completed',
+      completedAt: new Date(),
+      processedCount: 1,
+      successCount: 1,
+      failedCount: 0,
+      results: {
+        invoiceId: finalizedInvoice.id,
+        recordCount,
+        totalAmount: totalAmount.toFixed(2),
+        status: finalizedInvoice.status,
+      } as any,
+    });
+    
+    console.log(`[Worker] Completed billing for hospital ${hospitalId}: ${recordCount} records, ${totalAmount.toFixed(2)} CHF, invoice ${finalizedInvoice.id}`);
+    
+  } catch (error: any) {
+    console.error(`[Worker] Error processing billing for hospital ${hospitalId}:`, error);
+    
+    await storage.updateScheduledJob(job.id, {
+      status: 'failed',
+      completedAt: new Date(),
+      error: error.message || 'Billing failed',
+    });
+  }
+}
+
 async function checkStuckJobs() {
   try {
     const stuckJobs = await storage.getStuckJobs(STUCK_JOB_THRESHOLD_MINUTES);
@@ -2057,6 +2334,7 @@ async function workerLoop() {
         await scheduleTimebutlerIcsSyncJobs();
         await scheduleCalcomSyncJobs();
         await schedulePreSurgeryReminderJobs();
+        await scheduleMonthlyBillingJobs();
         lastScheduledJobCheck = Date.now();
       }
       
