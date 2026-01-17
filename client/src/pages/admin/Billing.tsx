@@ -509,7 +509,12 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 <div className="flex items-center gap-3">
                   <Calculator className="h-5 w-5 text-green-600" />
                   <div>
-                    <p className="font-medium">Dispocura</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">Dispocura</p>
+                      <Badge variant="outline" className="text-xs">
+                        {isGerman ? "Pro Protokoll" : "Per record"}
+                      </Badge>
+                    </div>
                     <p className="text-sm font-bold">
                       {isGerman 
                         ? <>Erfordert <a href="https://www.galexis.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Galexis</a> Kundenkonto</>
