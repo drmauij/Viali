@@ -237,6 +237,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
             retell: true,
             monitor: true,
             surgery: true,
+            worktime: true,
             logistics: true,
             clinic: true,
           }
