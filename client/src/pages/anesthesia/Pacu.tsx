@@ -1,13 +1,16 @@
 import { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut, Bed, HeartPulse, Plus } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut, Bed, HeartPulse, Plus, Check, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
-import { PacuBedSelector } from "@/components/anesthesia/PacuBedSelector";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 type PacuPatient = {
   anesthesiaRecordId: string;
@@ -25,6 +28,18 @@ type PacuPatient = {
   pacuBedName?: string | null;
 };
 
+interface SurgeryRoom {
+  id: string;
+  name: string;
+  type: "OP" | "PACU";
+  hospitalId: string;
+}
+
+interface Surgery {
+  id: string;
+  pacuBedId?: string | null;
+}
+
 function PacuPatientCard({ 
   patient, 
   onNavigate,
@@ -37,7 +52,57 @@ function PacuPatientCard({
   getTimeInPacu: (timestamp: number) => string;
 }) {
   const { t } = useTranslation();
-  const [bedSelectorOpen, setBedSelectorOpen] = useState(false);
+  const { toast } = useToast();
+  const activeHospital = useActiveHospital();
+  const [open, setOpen] = useState(false);
+
+  const { data: allRooms = [] } = useQuery<SurgeryRoom[]>({
+    queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+
+  const pacuBeds = useMemo(() => 
+    allRooms.filter((room) => room.type === "PACU").sort((a, b) => a.name.localeCompare(b.name)),
+    [allRooms]
+  );
+
+  const { data: allSurgeries = [] } = useQuery<Surgery[]>({
+    queryKey: [`/api/surgeries/hospital/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+
+  const occupiedBeds = useMemo(() => {
+    return allSurgeries
+      .filter((s) => s.pacuBedId && s.id !== patient.surgeryId)
+      .map((s) => s.pacuBedId as string);
+  }, [allSurgeries, patient.surgeryId]);
+
+  const assignBedMutation = useMutation({
+    mutationFn: async (bedId: string | null) => {
+      await apiRequest("PATCH", `/api/surgeries/${patient.surgeryId}`, { pacuBedId: bedId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/surgeries/${patient.surgeryId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/surgeries/hospital/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/pacu/${activeHospital?.id}`] });
+      setOpen(false);
+      toast({
+        title: t("common.success"),
+        description: t("pacu.bedAssigned", "PACU bed assigned successfully"),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("pacu.failedToAssignBed", "Failed to assign PACU bed"),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSelectBed = (bedId: string | null) => {
+    assignBedMutation.mutate(bedId);
+  };
 
   return (
     <Card
@@ -72,45 +137,87 @@ function PacuPatientCard({
           </div>
         </div>
 
-        {/* Bed square - right side */}
-        <div 
-          className="flex-shrink-0"
-          onClick={(e) => {
-            e.stopPropagation();
-            setBedSelectorOpen(true);
-          }}
-        >
-          {patient.pacuBedId && patient.pacuBedName ? (
+        {/* Bed square with integrated popover - right side */}
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
             <div 
-              className="p-2 sm:p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg text-center cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors min-w-[60px] sm:min-w-[80px]"
-              data-testid={`button-bed-${patient.surgeryId}`}
+              className="flex-shrink-0 cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
             >
-              <Bed className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 dark:text-blue-400 mx-auto mb-1" />
-              <p className="text-sm sm:text-lg font-bold text-blue-700 dark:text-blue-300 truncate" data-testid={`text-bed-name-${patient.surgeryId}`}>
-                {patient.pacuBedName}
-              </p>
+              {patient.pacuBedId && patient.pacuBedName ? (
+                <div 
+                  className="p-2 sm:p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg text-center hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors min-w-[60px] sm:min-w-[80px]"
+                  data-testid={`button-bed-${patient.surgeryId}`}
+                >
+                  <Bed className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 dark:text-blue-400 mx-auto mb-1" />
+                  <p className="text-sm sm:text-lg font-bold text-blue-700 dark:text-blue-300 truncate" data-testid={`text-bed-name-${patient.surgeryId}`}>
+                    {patient.pacuBedName}
+                  </p>
+                </div>
+              ) : (
+                <div 
+                  className="p-2 sm:p-3 bg-gray-50 dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors min-w-[60px] sm:min-w-[80px]"
+                  data-testid={`button-assign-bed-${patient.surgeryId}`}
+                >
+                  <Plus className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400 dark:text-gray-500 mx-auto mb-1" />
+                  <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{t('pacu.bed', 'Bed')}</p>
+                </div>
+              )}
             </div>
-          ) : (
-            <div 
-              className="p-2 sm:p-3 bg-gray-50 dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors min-w-[60px] sm:min-w-[80px]"
-              data-testid={`button-assign-bed-${patient.surgeryId}`}
-            >
-              <Plus className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400 dark:text-gray-500 mx-auto mb-1" />
-              <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{t('pacu.bed', 'Bed')}</p>
+          </PopoverTrigger>
+          <PopoverContent className="w-64 p-2" align="end">
+            <div className="space-y-1">
+              <p className="text-sm font-medium px-2 py-1">{t("pacu.selectBed", "Select PACU Bed")}</p>
+              {pacuBeds.map((bed) => {
+                const isOccupied = occupiedBeds.includes(bed.id);
+                const isCurrentBed = bed.id === patient.pacuBedId;
+                return (
+                  <button
+                    key={bed.id}
+                    onClick={() => handleSelectBed(bed.id)}
+                    disabled={isOccupied || assignBedMutation.isPending}
+                    className={cn(
+                      "w-full flex items-center justify-between px-2 py-1.5 rounded text-sm transition-colors",
+                      isCurrentBed && "bg-blue-100 dark:bg-blue-900/30",
+                      isOccupied && "opacity-50 cursor-not-allowed",
+                      !isOccupied && !isCurrentBed && "hover:bg-accent"
+                    )}
+                    data-testid={`bed-option-${bed.id}`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Bed className="h-4 w-4" />
+                      {bed.name}
+                    </span>
+                    {isCurrentBed && <Check className="h-4 w-4 text-blue-600" />}
+                    {isOccupied && !isCurrentBed && (
+                      <span className="text-xs text-muted-foreground">{t("pacu.occupied", "Occupied")}</span>
+                    )}
+                  </button>
+                );
+              })}
+              {patient.pacuBedId && (
+                <>
+                  <div className="border-t my-1" />
+                  <button
+                    onClick={() => handleSelectBed(null)}
+                    disabled={assignBedMutation.isPending}
+                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                    data-testid="button-remove-bed"
+                  >
+                    <X className="h-4 w-4" />
+                    {t("pacu.removeBed", "Remove bed assignment")}
+                  </button>
+                </>
+              )}
+              {assignBedMutation.isPending && (
+                <div className="flex items-center justify-center py-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          </PopoverContent>
+        </Popover>
       </div>
-
-      {/* PACU Bed Selector - Hidden trigger mode */}
-      <PacuBedSelector
-        surgeryId={patient.surgeryId}
-        currentBedId={patient.pacuBedId}
-        currentBedName={patient.pacuBedName}
-        open={bedSelectorOpen}
-        onOpenChange={setBedSelectorOpen}
-        hideTrigger
-      />
     </Card>
   );
 }
