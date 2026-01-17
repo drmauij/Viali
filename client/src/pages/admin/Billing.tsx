@@ -450,6 +450,33 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 </div>
               </div>
 
+              {/* Surgery Module */}
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Scissors className="h-5 w-5 text-teal-600" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{isGerman ? "Chirurgie-Modul" : "Surgery Module"}</p>
+                      <Badge variant="outline" className="text-xs">
+                        {isGerman ? "Pro Protokoll" : "Per record"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isGerman ? "OP-Dokumentation für Chirurgie" : "OR documentation for surgery"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">+1.00 CHF</span>
+                  <Switch 
+                    checked={billingStatus.addons.surgery}
+                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "surgery", enabled: checked })}
+                    disabled={toggleAddon.isPending}
+                    data-testid="switch-addon-surgery"
+                  />
+                </div>
+              </div>
+
               {/* Dispocura Integration */}
               <div className="flex items-center justify-between p-3 border rounded-lg">
                 <div className="flex items-center gap-3">
@@ -501,33 +528,6 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                     onCheckedChange={(checked) => toggleAddon.mutate({ addon: "monitor", enabled: checked })}
                     disabled={true}
                     data-testid="switch-addon-monitor"
-                  />
-                </div>
-              </div>
-
-              {/* Surgery Module */}
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Scissors className="h-5 w-5 text-teal-600" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{isGerman ? "Chirurgie-Modul" : "Surgery Module"}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Pro Protokoll" : "Per record"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {isGerman ? "OP-Dokumentation für Chirurgie" : "OR documentation for surgery"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">+1.00 CHF</span>
-                  <Switch 
-                    checked={billingStatus.addons.surgery}
-                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "surgery", enabled: checked })}
-                    disabled={toggleAddon.isPending}
-                    data-testid="switch-addon-surgery"
                   />
                 </div>
               </div>
