@@ -1243,10 +1243,28 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
   
   console.log(`[Worker] Auto-questionnaire dispatch for hospital ${hospitalId}`);
   
-  // Check if questionnaire addon is enabled for this hospital (free accounts have all addons enabled)
+  // Check if questionnaire addon is enabled for this hospital
+  // Free accounts and test accounts (within 15-day trial) have all addons enabled
   const hospital = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
-  const isFreeAccount = hospital[0]?.licenseType === "free";
-  if (!isFreeAccount && !hospital[0]?.addonQuestionnaire) {
+  const hospitalData = hospital[0];
+  if (!hospitalData) {
+    console.log(`[Worker] Hospital ${hospitalId} not found, skipping`);
+    return;
+  }
+  
+  const isFreeAccount = hospitalData.licenseType === "free";
+  const isTestAccount = hospitalData.licenseType === "test";
+  const TRIAL_DAYS = 15;
+  let isWithinTrial = false;
+  if (isTestAccount) {
+    const trialStartDate = hospitalData.trialStartDate ? new Date(hospitalData.trialStartDate) : new Date();
+    const trialEndsAt = new Date(trialStartDate);
+    trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
+    isWithinTrial = new Date() < trialEndsAt;
+  }
+  
+  const hasFullAccess = isFreeAccount || (isTestAccount && isWithinTrial);
+  if (!hasFullAccess && !hospitalData.addonQuestionnaire) {
     console.log(`[Worker] Skipping auto-questionnaire dispatch - addon not enabled for hospital ${hospitalId}`);
     return;
   }

@@ -318,12 +318,18 @@ router.post("/api/billing/:hospitalId/confirm-setup", isAuthenticated, requireAd
       },
     });
 
+    // Auto-upgrade from "test" to "basic" when payment method is saved (free accounts stay free)
+    const updateData: Record<string, any> = { stripePaymentMethodId: paymentMethodId };
+    if (hospital.licenseType === "test") {
+      updateData.licenseType = "basic";
+    }
+
     await db
       .update(hospitals)
-      .set({ stripePaymentMethodId: paymentMethodId })
+      .set(updateData)
       .where(eq(hospitals.id, hospitalId));
 
-    res.json({ success: true });
+    res.json({ success: true, upgraded: hospital.licenseType === "test" });
   } catch (error) {
     console.error("Error confirming setup:", error);
     res.status(500).json({ message: "Failed to confirm payment setup" });
