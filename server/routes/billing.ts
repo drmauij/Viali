@@ -1,4 +1,4 @@
-import { Router, raw } from "express";
+import { Router } from "express";
 import Stripe from "stripe";
 import { storage, db } from "../storage";
 import { hospitals, anesthesiaRecords, surgeries, termsAcceptances, users, billingInvoices, scheduledJobs } from "@shared/schema";
@@ -1227,7 +1227,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
 });
 
 // Stripe webhook endpoint for invoice events
-router.post("/api/billing/webhook", raw({ type: 'application/json' }), async (req, res) => {
+router.post("/api/billing/webhook", async (req, res) => {
   const stripe = getStripe();
   
   if (!stripe) {
@@ -1245,7 +1245,12 @@ router.post("/api/billing/webhook", raw({ type: 'application/json' }), async (re
   
   try {
     if (webhookSecret && sig) {
-      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      // Use rawBody saved by express.json verify function
+      const rawBody = (req as any).rawBody;
+      if (!rawBody) {
+        throw new Error("Raw body not available for signature verification");
+      }
+      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
     } else {
       event = req.body as Stripe.Event;
     }
