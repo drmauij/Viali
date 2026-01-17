@@ -113,12 +113,20 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
       currentMonthRecords,
       estimatedCost,
       billingRequired: hospital.licenseType !== "free" && !hospital.stripePaymentMethodId,
-      addons: {
-        questionnaire: hospital.addonQuestionnaire ?? false,
-        dispocura: hospital.addonDispocura ?? false,
-        retell: hospital.addonRetell ?? false,
-        monitor: hospital.addonMonitor ?? false,
-      },
+      // Free accounts get full access to all addons, otherwise use database values
+      addons: hospital.licenseType === "free" 
+        ? {
+            questionnaire: true,
+            dispocura: true,
+            retell: true,
+            monitor: true,
+          }
+        : {
+            questionnaire: hospital.addonQuestionnaire ?? false,
+            dispocura: hospital.addonDispocura ?? false,
+            retell: hospital.addonRetell ?? false,
+            monitor: hospital.addonMonitor ?? false,
+          },
     });
   } catch (error) {
     console.error("Error fetching billing status:", error);

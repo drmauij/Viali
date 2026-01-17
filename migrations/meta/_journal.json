@@ -526,6 +526,13 @@
       "when": 1768700000000,
       "tag": "0074_addon_services",
       "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1768645378626,
+      "tag": "0075_add_test_license_type",
+      "breakpoints": true
     }
   ]
 }

@@ -57,7 +57,8 @@ export const hospitals = pgTable("hospitals", {
   timezone: varchar("timezone").default("UTC"),
   googleAuthEnabled: boolean("google_auth_enabled").default(true),
   localAuthEnabled: boolean("local_auth_enabled").default(true),
-  licenseType: varchar("license_type", { enum: ["free", "basic"] }).default("basic").notNull(),
+  licenseType: varchar("license_type", { enum: ["free", "basic", "test"] }).default("test").notNull(),
+  trialStartDate: timestamp("trial_start_date"), // When trial started (for "test" license type)
   // Stripe billing fields
   stripeCustomerId: varchar("stripe_customer_id"),
   stripePaymentMethodId: varchar("stripe_payment_method_id"),
