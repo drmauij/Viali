@@ -1,9 +1,8 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut, Bed, HeartPulse } from "lucide-react";
+import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut, Bed, HeartPulse, Plus } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useLocation } from "wouter";
@@ -25,6 +24,96 @@ type PacuPatient = {
   pacuBedId?: string | null;
   pacuBedName?: string | null;
 };
+
+function PacuPatientCard({ 
+  patient, 
+  onNavigate,
+  formatTime,
+  getTimeInPacu
+}: { 
+  patient: PacuPatient; 
+  onNavigate: () => void;
+  formatTime: (timestamp: number) => string;
+  getTimeInPacu: (timestamp: number) => string;
+}) {
+  const { t } = useTranslation();
+  const [bedSelectorOpen, setBedSelectorOpen] = useState(false);
+
+  return (
+    <Card
+      className="p-4 hover:bg-accent/50 transition-colors"
+      data-testid={`card-pacu-${patient.surgeryId}`}
+    >
+      <div className="flex gap-3">
+        {/* Main content - clickable to navigate */}
+        <div 
+          className="flex-1 cursor-pointer min-w-0"
+          onClick={onNavigate}
+        >
+          <h3 className="font-semibold text-lg truncate" data-testid={`text-patient-name-${patient.surgeryId}`}>
+            {patient.patientName}
+          </h3>
+          <p className="text-sm text-muted-foreground" data-testid={`text-mrn-${patient.surgeryId}`}>
+            {patient.patientNumber} • {t('anesthesia.pacu.age')} {patient.age}
+          </p>
+          
+          <div className="mt-2 space-y-1">
+            <div className="flex items-center text-sm">
+              <HeartPulse className="h-4 w-4 mr-2 text-muted-foreground flex-shrink-0" />
+              <span className="truncate" data-testid={`text-procedure-${patient.surgeryId}`}>{patient.procedure}</span>
+            </div>
+            
+            <div className="flex items-center text-sm text-muted-foreground">
+              <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
+              <span className="truncate">
+                {formatTime(patient.anesthesiaPresenceEndTime)} • {getTimeInPacu(patient.anesthesiaPresenceEndTime)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bed square - right side */}
+        <div 
+          className="flex-shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            setBedSelectorOpen(true);
+          }}
+        >
+          {patient.pacuBedId && patient.pacuBedName ? (
+            <div 
+              className="p-2 sm:p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg text-center cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors min-w-[60px] sm:min-w-[80px]"
+              data-testid={`button-bed-${patient.surgeryId}`}
+            >
+              <Bed className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 dark:text-blue-400 mx-auto mb-1" />
+              <p className="text-sm sm:text-lg font-bold text-blue-700 dark:text-blue-300 truncate" data-testid={`text-bed-name-${patient.surgeryId}`}>
+                {patient.pacuBedName}
+              </p>
+            </div>
+          ) : (
+            <div 
+              className="p-2 sm:p-3 bg-gray-50 dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-center cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors min-w-[60px] sm:min-w-[80px]"
+              data-testid={`button-assign-bed-${patient.surgeryId}`}
+            >
+              <Plus className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400 dark:text-gray-500 mx-auto mb-1" />
+              <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{t('pacu.bed', 'Bed')}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* PACU Bed Selector - Hidden trigger mode */}
+      <PacuBedSelector
+        surgeryId={patient.surgeryId}
+        currentBedId={patient.pacuBedId}
+        currentBedName={patient.pacuBedName}
+        open={bedSelectorOpen}
+        onOpenChange={setBedSelectorOpen}
+        hideTrigger
+      />
+    </Card>
+  );
+}
 
 export default function Pacu() {
   const { t } = useTranslation();
@@ -67,22 +156,6 @@ export default function Pacu() {
     const hours = Math.floor(diffMinutes / 60);
     const minutes = diffMinutes % 60;
     return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
-  };
-
-  const getDestinationBadge = (destination: string | null) => {
-    if (!destination) return null;
-    const label = destination.toUpperCase();
-    const colors: Record<string, string> = {
-      pacu: "bg-blue-500",
-      icu: "bg-red-500",
-      ward: "bg-green-500",
-      home: "bg-gray-500",
-    };
-    return (
-      <Badge className={colors[destination] || "bg-gray-500"}>
-        {label}
-      </Badge>
-    );
   };
 
   return (
@@ -136,68 +209,13 @@ export default function Pacu() {
           </div>
         ) : (
           filteredPatients.map((patient) => (
-            <Card
-              key={patient.surgeryId}
-              className="p-4 hover:bg-accent/50 transition-colors"
-              data-testid={`card-pacu-${patient.surgeryId}`}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div 
-                  className="cursor-pointer flex-1"
-                  onClick={() => setLocation(`/anesthesia/cases/${patient.surgeryId}/pacu`)}
-                >
-                  {/* Bed Badge - Prominent display at top */}
-                  {patient.pacuBedId && patient.pacuBedName && (
-                    <Badge 
-                      className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 mb-2"
-                      data-testid={`badge-bed-${patient.surgeryId}`}
-                    >
-                      <Bed className="h-3 w-3 mr-1" />
-                      {patient.pacuBedName}
-                    </Badge>
-                  )}
-                  <h3 className="font-semibold text-lg" data-testid={`text-patient-name-${patient.surgeryId}`}>
-                    {patient.patientName}
-                  </h3>
-                  <p className="text-sm text-muted-foreground" data-testid={`text-mrn-${patient.surgeryId}`}>
-                    {patient.patientNumber} • {t('anesthesia.pacu.age')} {patient.age}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  {getDestinationBadge(patient.postOpDestination)}
-                  {/* Quick PACU Bed Assignment */}
-                  {activeHospital?.id && (
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <PacuBedSelector
-                        surgeryId={patient.surgeryId}
-                        hospitalId={activeHospital.id}
-                        currentBedId={patient.pacuBedId}
-                        currentBedName={patient.pacuBedName}
-                        variant="inline"
-                        size="sm"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div 
-                className="space-y-2 cursor-pointer"
-                onClick={() => setLocation(`/anesthesia/cases/${patient.surgeryId}/pacu`)}
-              >
-                <div className="flex items-center text-sm">
-                  <HeartPulse className="h-4 w-4 mr-2 text-muted-foreground" />
-                  <span data-testid={`text-procedure-${patient.surgeryId}`}>{patient.procedure}</span>
-                </div>
-                
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <Clock className="h-4 w-4 mr-2" />
-                  <span>
-                    {t('anesthesia.pacu.anesthesiaEnd')} {formatTime(patient.anesthesiaPresenceEndTime)} • {t('anesthesia.pacu.timeInPacu')} {getTimeInPacu(patient.anesthesiaPresenceEndTime)}
-                  </span>
-                </div>
-              </div>
-            </Card>
+            <PacuPatientCard 
+              key={patient.surgeryId} 
+              patient={patient} 
+              onNavigate={() => setLocation(`/anesthesia/cases/${patient.surgeryId}/pacu`)}
+              formatTime={formatTime}
+              getTimeInPacu={getTimeInPacu}
+            />
           ))
         )}
       </div>
