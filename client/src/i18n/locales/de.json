@@ -1,4 +1,11 @@
 {
+  "billing": {
+    "title": "Abrechnung",
+    "description": "Verwalten Sie Ihr Abonnement und Ihre Zahlungsmethoden",
+    "selectHospital": "Bitte wählen Sie ein Krankenhaus, um die Abrechnung anzuzeigen",
+    "invoices": "Rechnungen",
+    "invoicesDescription": "Rechnungen anzeigen und herunterladen"
+  },
   "common": {
     "name": "Name",
     "cancel": "Abbrechen",

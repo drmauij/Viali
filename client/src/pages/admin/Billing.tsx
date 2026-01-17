@@ -1037,9 +1037,9 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5" />
-                Invoices
+                {t("billing.invoices", "Invoices")}
               </CardTitle>
-              <CardDescription>View and download your invoices</CardDescription>
+              <CardDescription>{t("billing.invoicesDescription", "View and download your invoices")}</CardDescription>
             </div>
             <div className="flex gap-2">
               {billingStatus.stripeCustomerId && billingStatus.hasPaymentMethod && (
@@ -1151,6 +1151,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
 }
 
 export default function Billing() {
+  const { t } = useTranslation();
   const activeHospital = useActiveHospital();
 
   if (!activeHospital?.id) {
@@ -1158,7 +1159,7 @@ export default function Billing() {
       <div className="p-6">
         <Alert>
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>Please select a hospital to view billing</AlertDescription>
+          <AlertDescription>{t("billing.selectHospital", "Please select a hospital to view billing")}</AlertDescription>
         </Alert>
       </div>
     );
@@ -1167,8 +1168,8 @@ export default function Billing() {
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Billing</h1>
-        <p className="text-muted-foreground">Manage your subscription and payment methods</p>
+        <h1 className="text-2xl font-bold">{t("billing.title", "Billing")}</h1>
+        <p className="text-muted-foreground">{t("billing.description", "Manage your subscription and payment methods")}</p>
       </div>
       <BillingContent hospitalId={activeHospital.id} />
     </div>
