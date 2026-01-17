@@ -3916,7 +3916,7 @@ export type InsertTimebutlerConfig = z.infer<typeof insertTimebutlerConfigSchema
 export const scheduledJobs = pgTable("scheduled_jobs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   jobType: varchar("job_type", { 
-    enum: ["auto_questionnaire_dispatch", "sync_timebutler_ics"] 
+    enum: ["auto_questionnaire_dispatch", "sync_timebutler_ics", "monthly_billing"] 
   }).notNull(),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
   
@@ -4256,3 +4256,56 @@ export const insertTermsAcceptanceSchema = createInsertSchema(termsAcceptances).
 
 export type TermsAcceptance = typeof termsAcceptances.$inferSelect;
 export type InsertTermsAcceptance = z.infer<typeof insertTermsAcceptanceSchema>;
+
+// Billing Invoices - Track monthly billing invoices per hospital
+export const billingInvoices = pgTable("billing_invoices", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  
+  // Billing period
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  // Usage counts
+  recordCount: integer("record_count").notNull().default(0),
+  
+  // Pricing breakdown (stored for historical accuracy)
+  basePrice: decimal("base_price", { precision: 10, scale: 2 }).notNull(),
+  questionnairePrice: decimal("questionnaire_price", { precision: 10, scale: 2 }).default("0"),
+  dispocuraPrice: decimal("dispocura_price", { precision: 10, scale: 2 }).default("0"),
+  retellPrice: decimal("retell_price", { precision: 10, scale: 2 }).default("0"),
+  monitorPrice: decimal("monitor_price", { precision: 10, scale: 2 }).default("0"),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  currency: varchar("currency").notNull().default("chf"),
+  
+  // Stripe invoice details
+  stripeInvoiceId: varchar("stripe_invoice_id"),
+  stripeInvoiceUrl: varchar("stripe_invoice_url"),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"),
+  
+  // Status
+  status: varchar("status", {
+    enum: ["draft", "pending", "paid", "failed", "void"]
+  }).notNull().default("draft"),
+  
+  paidAt: timestamp("paid_at"),
+  failedAt: timestamp("failed_at"),
+  failureReason: text("failure_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_billing_invoices_hospital").on(table.hospitalId),
+  index("idx_billing_invoices_period").on(table.periodStart, table.periodEnd),
+  index("idx_billing_invoices_status").on(table.status),
+  index("idx_billing_invoices_stripe").on(table.stripeInvoiceId),
+]);
+
+export const insertBillingInvoiceSchema = createInsertSchema(billingInvoices).omit({
+  id: true,
+  createdAt: true,
+  paidAt: true,
+  failedAt: true,
+});
+
+export type BillingInvoice = typeof billingInvoices.$inferSelect;
+export type InsertBillingInvoice = z.infer<typeof insertBillingInvoiceSchema>;
