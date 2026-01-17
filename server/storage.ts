@@ -958,7 +958,10 @@ export class DatabaseStorage implements IStorage {
   async createHospital(name: string): Promise<Hospital> {
     const [hospital] = await db
       .insert(hospitals)
-      .values({ name })
+      .values({ 
+        name,
+        trialStartDate: new Date(), // Set trial start date for new hospitals (15-day trial)
+      })
       .returning();
     return hospital;
   }

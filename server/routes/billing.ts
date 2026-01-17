@@ -126,11 +126,13 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
 
     // Determine if billing (payment method) is required
     // - free: never required
-    // - test: required only after trial expires
-    // - basic: always required
+    // - test (within trial): not required yet
+    // - test (expired without payment): required
+    // - basic: required if no payment method
+    // Note: if test account has payment method but trial expired, they should have been auto-upgraded to basic
     const billingRequired = 
       hospital.licenseType === "free" ? false :
-      hospital.licenseType === "test" ? (trialInfo.trialExpired && !hospital.stripePaymentMethodId) :
+      hospital.licenseType === "test" ? trialInfo.trialExpired && !hospital.stripePaymentMethodId :
       !hospital.stripePaymentMethodId;
 
     // Determine addon access:

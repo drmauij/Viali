@@ -55,6 +55,9 @@ interface BillingStatus {
   currentMonthRecords: number;
   estimatedCost: number;
   billingRequired: boolean;
+  trialEndsAt: string | null;
+  trialDaysRemaining: number | null;
+  trialExpired: boolean;
   addons: {
     questionnaire: boolean;
     dispocura: boolean;
@@ -301,13 +304,26 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               : <>Your clinic is on the <strong>Free Plan</strong>. No payment required.</>}
           </AlertDescription>
         </Alert>
+      ) : billingStatus.licenseType === "test" && !billingStatus.trialExpired ? (
+        <Alert>
+          <Clock className="h-4 w-4" />
+          <AlertDescription>
+            {isGerman 
+              ? <>Sie haben noch <strong>{billingStatus.trialDaysRemaining} Tag(e)</strong> in Ihrer Testphase. Alle Funktionen sind während der Testphase verfügbar.</>
+              : <>You have <strong>{billingStatus.trialDaysRemaining} day(s)</strong> remaining in your trial. All features are available during your trial period.</>}
+          </AlertDescription>
+        </Alert>
       ) : billingStatus.billingRequired ? (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            {isGerman 
-              ? "Bitte fügen Sie eine Zahlungsmethode hinzu, um die App weiter nutzen zu können."
-              : "Please add a payment method to continue using the app."}
+            {billingStatus.licenseType === "test" && billingStatus.trialExpired 
+              ? (isGerman 
+                  ? "Ihre Testphase ist abgelaufen. Bitte fügen Sie eine Zahlungsmethode hinzu, um die App weiter nutzen zu können."
+                  : "Your trial has expired. Please add a payment method to continue using the app.")
+              : (isGerman 
+                  ? "Bitte fügen Sie eine Zahlungsmethode hinzu, um die App weiter nutzen zu können."
+                  : "Please add a payment method to continue using the app.")}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -763,8 +779,10 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Plan</span>
-                <Badge variant={billingStatus.licenseType === "free" ? "secondary" : "default"}>
-                  {billingStatus.licenseType === "free" ? "Free" : "Basic"}
+                <Badge variant={billingStatus.licenseType === "free" ? "secondary" : billingStatus.licenseType === "test" ? "outline" : "default"}>
+                  {billingStatus.licenseType === "free" ? "Free" : 
+                   billingStatus.licenseType === "test" ? (billingStatus.trialExpired ? "Trial Expired" : `Trial (${billingStatus.trialDaysRemaining}d)`) : 
+                   "Basic"}
                 </Badge>
               </div>
               <Separator />
