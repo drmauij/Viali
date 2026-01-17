@@ -65,7 +65,8 @@ router.patch('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res
       companyFax,
       companyEmail,
       companyLogoUrl,
-      questionnaireDisabled
+      questionnaireDisabled,
+      preSurgeryReminderDisabled
     } = req.body;
 
     const updates: Record<string, any> = {};
@@ -80,6 +81,7 @@ router.patch('/api/admin/:hospitalId', isAuthenticated, isAdmin, async (req, res
     if (companyEmail !== undefined) updates.companyEmail = companyEmail;
     if (companyLogoUrl !== undefined) updates.companyLogoUrl = companyLogoUrl;
     if (questionnaireDisabled !== undefined) updates.questionnaireDisabled = questionnaireDisabled;
+    if (preSurgeryReminderDisabled !== undefined) updates.preSurgeryReminderDisabled = preSurgeryReminderDisabled;
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ message: "No updates provided" });
