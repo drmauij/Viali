@@ -68,13 +68,25 @@ interface BillingStatus {
 
 interface Invoice {
   id: string;
-  number: string;
-  status: string;
-  amount: number;
+  hospitalId: string;
+  periodStart: string;
+  periodEnd: string;
+  recordCount: number;
+  basePrice: string;
+  questionnairePrice: string;
+  dispocuraPrice: string;
+  retellPrice: string;
+  monitorPrice: string;
+  totalAmount: string;
   currency: string;
-  created: string;
-  pdfUrl: string | null;
-  hostedUrl: string | null;
+  stripeInvoiceId: string | null;
+  stripeInvoiceUrl: string | null;
+  stripePaymentIntentId: string | null;
+  status: string;
+  paidAt: string | null;
+  failedAt: string | null;
+  failureReason: string | null;
+  createdAt: string;
 }
 
 interface TermsStatus {
@@ -855,44 +867,59 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
           ) : invoicesData?.invoices && invoicesData.invoices.length > 0 ? (
             <ScrollArea className="h-[300px]">
               <div className="space-y-2">
-                {invoicesData.invoices.map((invoice) => (
-                  <div
-                    key={invoice.id}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium">{invoice.number || invoice.id}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {new Date(invoice.created).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge
-                        variant={
-                          invoice.status === "paid"
-                            ? "default"
-                            : invoice.status === "open"
-                            ? "secondary"
-                            : "outline"
-                        }
-                      >
-                        {invoice.status}
-                      </Badge>
-                      <span className="font-medium">
-                        {invoice.currency.toUpperCase()} {invoice.amount.toFixed(2)}
-                      </span>
-                      {invoice.pdfUrl && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => window.open(invoice.pdfUrl!, "_blank")}
+                {invoicesData.invoices.map((invoice) => {
+                  const periodStart = new Date(invoice.periodStart);
+                  const periodLabel = periodStart.toLocaleDateString(isGerman ? 'de-CH' : 'en-US', { 
+                    month: 'long', 
+                    year: 'numeric' 
+                  });
+                  
+                  return (
+                    <div
+                      key={invoice.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                      data-testid={`invoice-row-${invoice.id}`}
+                    >
+                      <div>
+                        <p className="font-medium">{periodLabel}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {invoice.recordCount} {isGerman ? 'Datensätze' : 'records'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge
+                          variant={
+                            invoice.status === "paid"
+                              ? "default"
+                              : invoice.status === "pending"
+                              ? "secondary"
+                              : invoice.status === "failed"
+                              ? "destructive"
+                              : "outline"
+                          }
                         >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      )}
+                          {invoice.status === "paid" ? (isGerman ? "Bezahlt" : "Paid") :
+                           invoice.status === "pending" ? (isGerman ? "Ausstehend" : "Pending") :
+                           invoice.status === "failed" ? (isGerman ? "Fehlgeschlagen" : "Failed") :
+                           invoice.status}
+                        </Badge>
+                        <span className="font-medium">
+                          {invoice.currency.toUpperCase()} {parseFloat(invoice.totalAmount).toFixed(2)}
+                        </span>
+                        {invoice.stripeInvoiceUrl && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => window.open(invoice.stripeInvoiceUrl!, "_blank")}
+                            data-testid={`button-view-invoice-${invoice.id}`}
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </ScrollArea>
           ) : (
