@@ -25,6 +25,7 @@ import {
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { formatDate } from "@/lib/dateUtils";
 
@@ -51,6 +52,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
   const { t } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
+  const { addons } = useHospitalAddons();
   const canWrite = useCanWrite();
   
   const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
@@ -225,6 +227,11 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
   const [showExpired, setShowExpired] = useState(false);
 
   const visibleLinks = showExpired ? links : links.filter(l => l.status !== 'expired');
+
+  // Don't render if questionnaire addon is disabled
+  if (!addons.questionnaire) {
+    return null;
+  }
 
   return (
     <>

@@ -1243,6 +1243,13 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
   
   console.log(`[Worker] Auto-questionnaire dispatch for hospital ${hospitalId}`);
   
+  // Check if questionnaire addon is enabled for this hospital
+  const hospital = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+  if (!hospital[0]?.addonQuestionnaire) {
+    console.log(`[Worker] Skipping auto-questionnaire dispatch - addon not enabled for hospital ${hospitalId}`);
+    return;
+  }
+  
   // Get surgeries scheduled for daysAhead days from now
   const eligibleSurgeries = await storage.getSurgeriesForAutoQuestionnaire(
     hospitalId, 

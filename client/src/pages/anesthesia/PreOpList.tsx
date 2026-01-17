@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2, Stethoscope, EyeOff, Mail, Send, Download, CheckSquare, Square } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
@@ -147,6 +148,7 @@ export default function PreOpList() {
 
   // Get active hospital
   const activeHospital = useActiveHospital();
+  const { addons } = useHospitalAddons();
 
   // Fetch all pre-op assessments
   const { data: assessments, isLoading } = useQuery<any[]>({
@@ -606,8 +608,8 @@ export default function PreOpList() {
                           : getStandByReasonLabel(item.assessment?.standByReason)}
                       </span>
                     )}
-                    {/* Button to send pre-op form to patient (only for planned items) */}
-                    {item.status === 'planned' && (
+                    {/* Button to send pre-op form to patient (only for planned items and if questionnaire addon is enabled) */}
+                    {item.status === 'planned' && addons.questionnaire && (
                       item.questionnaireEmailSent ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">

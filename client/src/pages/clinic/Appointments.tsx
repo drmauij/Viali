@@ -41,6 +41,7 @@ import { format, parseISO } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
 import { ManageAvailabilityDialog } from "@/components/clinic/ManageAvailabilityDialog";
 import { BookingTypeSelector, type BookingType } from "@/components/clinic/BookingTypeSelector";
@@ -65,6 +66,7 @@ export default function ClinicAppointments() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { addons } = useHospitalAddons();
   const [selectedAppointment, setSelectedAppointment] = useState<AppointmentWithDetails | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [bookingTypeSelectorOpen, setBookingTypeSelectorOpen] = useState(false);
@@ -189,7 +191,8 @@ export default function ClinicAppointments() {
     queryKey: [`/api/clinic/${hospitalId}/calcom-config`],
     enabled: !!hospitalId,
   });
-  const calcomEnabled = calcomConfig?.isEnabled && calcomConfig?.apiKey === '***configured***';
+  // Cal.com is only enabled if both the config is set AND the retell addon is active
+  const calcomEnabled = addons.retell && calcomConfig?.isEnabled && calcomConfig?.apiKey === '***configured***';
 
   // Unified sync mutation - syncs both Timebutler and Cal.com in parallel
   const syncCalendarsMutation = useMutation({

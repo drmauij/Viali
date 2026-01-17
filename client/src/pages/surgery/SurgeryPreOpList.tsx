@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Mail, Send, Loader2 } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { useToast } from "@/hooks/use-toast";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 
@@ -62,6 +63,7 @@ export default function SurgeryPreOpList() {
   const [standByFilter, setStandByFilter] = useState<"all" | "consent_required" | "signature_missing">("all");
 
   const activeHospital = useActiveHospital();
+  const { addons } = useHospitalAddons();
 
   // Send questionnaire dialog state
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
@@ -336,8 +338,8 @@ export default function SurgeryPreOpList() {
                         {t('surgery.preop.consentUploaded')}
                       </Badge>
                     )}
-                    {/* Button to send pre-op form to patient (only for planned items) */}
-                    {item.status === 'planned' && (
+                    {/* Button to send pre-op form to patient (only for planned items and if questionnaire addon is enabled) */}
+                    {item.status === 'planned' && addons.questionnaire && (
                       item.questionnaireEmailSent ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">

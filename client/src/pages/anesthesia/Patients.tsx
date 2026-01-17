@@ -14,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, UserPlus, ScanBarcode, UserCircle, UserRound, Loader2, Send } from "lucide-react";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useCanWrite } from "@/hooks/useCanWrite";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Patient } from "@shared/schema";
@@ -27,6 +28,7 @@ export default function Patients() {
   const [, setLocation] = useLocation();
   const activeHospital = useActiveHospital();
   const canWrite = useCanWrite();
+  const { addons } = useHospitalAddons();
   const { toast } = useToast();
   const { activeModule } = useModule();
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
@@ -531,7 +533,7 @@ export default function Patients() {
                       {patient.surname}, {patient.firstName}
                     </div>
                   </div>
-                  {canWrite && (
+                  {canWrite && addons.questionnaire && (
                     <Button
                       variant="ghost"
                       size="sm"

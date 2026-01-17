@@ -9,6 +9,7 @@ import { Copy, Mail, Loader2, CheckCircle, Link as LinkIcon, MessageSquare, Cloc
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 
@@ -32,6 +33,7 @@ export function SendQuestionnaireDialog({
   const { t } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
+  const { addons } = useHospitalAddons();
   
   const [generatedLink, setGeneratedLink] = useState<{ token: string; linkId: string } | null>(null);
   const [emailAddress, setEmailAddress] = useState(patientEmail || "");
@@ -226,6 +228,11 @@ export function SendQuestionnaireDialog({
   const isGenerating = generateLinkMutation.isPending;
   const isSending = sendEmailMutation.isPending;
   const isSendingSms = sendSmsMutation.isPending;
+
+  // Don't render if questionnaire addon is disabled
+  if (!addons.questionnaire) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
