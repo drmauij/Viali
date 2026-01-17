@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { loadStripe } from "@stripe/stripe-js";
@@ -34,7 +35,8 @@ import {
   Phone,
   Camera,
   Clock,
-  ClipboardList
+  ClipboardList,
+  ChevronDown
 } from "lucide-react";
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
@@ -93,11 +95,13 @@ interface TermsStatus {
   hasAccepted: boolean;
   currentVersion: string;
   acceptance: {
+    id: string;
     signedAt: string;
     signedByName: string;
     signedByEmail: string;
     countersignedAt: string | null;
     countersignedByName: string | null;
+    hasPdf: boolean;
   } | null;
 }
 
@@ -192,6 +196,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [signerName, setSignerName] = useState("");
+  const [termsExpanded, setTermsExpanded] = useState(false);
   const [signatureImage, setSignatureImage] = useState<string | null>(null);
   const isGerman = i18n.language === "de";
 
@@ -557,19 +562,48 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
           </CardHeader>
           <CardContent>
             {hasAcceptedTerms ? (
-              <div className="flex items-center gap-3 p-4 border rounded-lg bg-green-50 dark:bg-green-900/20">
-                <CheckCircle2 className="h-6 w-6 text-green-600" />
-                <div>
-                  <p className="font-medium text-green-800 dark:text-green-200">
-                    {isGerman ? "Nutzungsbedingungen akzeptiert" : "Terms of Use Accepted"}
-                  </p>
-                  {termsStatus?.acceptance && (
-                    <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Unterzeichnet von" : "Signed by"} {termsStatus.acceptance.signedByName}{" "}
-                      {isGerman ? "am" : "on"} {new Date(termsStatus.acceptance.signedAt).toLocaleDateString(isGerman ? "de-DE" : "en-US")}
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 p-4 border rounded-lg bg-green-50 dark:bg-green-900/20">
+                  <CheckCircle2 className="h-6 w-6 text-green-600" />
+                  <div className="flex-1">
+                    <p className="font-medium text-green-800 dark:text-green-200">
+                      {isGerman ? "Nutzungsbedingungen akzeptiert" : "Terms of Use Accepted"}
                     </p>
+                    {termsStatus?.acceptance && (
+                      <p className="text-sm text-muted-foreground">
+                        {isGerman ? "Unterzeichnet von" : "Signed by"} {termsStatus.acceptance.signedByName}{" "}
+                        {isGerman ? "am" : "on"} {new Date(termsStatus.acceptance.signedAt).toLocaleDateString(isGerman ? "de-DE" : "en-US")}
+                      </p>
+                    )}
+                  </div>
+                  {termsStatus?.acceptance?.hasPdf && termsStatus.acceptance?.id && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        window.open(`/api/billing/${hospitalId}/terms-pdf/${termsStatus.acceptance!.id}`, "_blank");
+                      }}
+                      data-testid="button-download-terms-pdf"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      PDF
+                    </Button>
                   )}
                 </div>
+                
+                <Collapsible open={termsExpanded} onOpenChange={setTermsExpanded}>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" className="w-full justify-between" data-testid="button-expand-terms">
+                      <span>{isGerman ? "Nutzungsbedingungen anzeigen" : "View Terms of Use"}</span>
+                      <ChevronDown className={`h-4 w-4 transition-transform ${termsExpanded ? "rotate-180" : ""}`} />
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="mt-2">
+                    <div className="border rounded-lg p-4 bg-muted/30 max-h-96 overflow-y-auto">
+                      <TermsOfUseContent />
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
               </div>
             ) : (
               <div className="space-y-4">

@@ -5,6 +5,10 @@ import { hospitals, anesthesiaRecords, surgeries, termsAcceptances, users, billi
 import { eq, and, gte, lt, sql, desc } from "drizzle-orm";
 import { Resend } from "resend";
 import { jsPDF } from "jspdf";
+import { ObjectStorageService } from "../objectStorage";
+import { randomUUID } from "crypto";
+
+const objectStorageService = new ObjectStorageService();
 
 const router = Router();
 
@@ -628,16 +632,53 @@ router.get("/api/billing/:hospitalId/terms-status", isAuthenticated, async (req:
       hasAccepted: !!acceptance,
       currentVersion: CURRENT_TERMS_VERSION,
       acceptance: acceptance ? {
+        id: acceptance.id,
         signedAt: acceptance.signedAt,
         signedByName: acceptance.signedByName,
         signedByEmail: acceptance.signedByEmail,
         countersignedAt: acceptance.countersignedAt,
         countersignedByName: acceptance.countersignedByName,
+        hasPdf: !!acceptance.pdfUrl,
       } : null,
     });
   } catch (error) {
     console.error("Error fetching terms status:", error);
     res.status(500).json({ message: "Failed to fetch terms status" });
+  }
+});
+
+// Download signed terms PDF
+router.get("/api/billing/:hospitalId/terms-pdf/:acceptanceId", isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId, acceptanceId } = req.params;
+    const userId = req.user.id;
+
+    const userHospitals = await storage.getUserHospitals(userId);
+    if (!userHospitals.some((h) => h.id === hospitalId)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const [acceptance] = await db
+      .select()
+      .from(termsAcceptances)
+      .where(and(
+        eq(termsAcceptances.id, acceptanceId),
+        eq(termsAcceptances.hospitalId, hospitalId)
+      ))
+      .limit(1);
+
+    if (!acceptance) {
+      return res.status(404).json({ message: "Terms acceptance not found" });
+    }
+
+    if (!acceptance.pdfUrl) {
+      return res.status(404).json({ message: "PDF not available for this acceptance" });
+    }
+
+    await objectStorageService.downloadObject(acceptance.pdfUrl, res);
+  } catch (error) {
+    console.error("Error downloading terms PDF:", error);
+    res.status(500).json({ message: "Failed to download terms PDF" });
   }
 });
 
@@ -822,6 +863,20 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
     const pdfBuffer = Buffer.from(pdf.output("arraybuffer"));
     const pdfBase64 = pdfBuffer.toString("base64");
 
+    // Upload PDF to object storage
+    let pdfStorageKey: string | null = null;
+    if (objectStorageService.isConfigured()) {
+      try {
+        const pdfFilename = `terms_of_use_${hospital.name.replace(/\s+/g, "_")}_${signedAt.toISOString().split("T")[0]}_${randomUUID()}.pdf`;
+        const s3Key = `billing/terms/${hospitalId}/${pdfFilename}`;
+        await objectStorageService.uploadBase64ToS3(pdfBase64, s3Key, "application/pdf");
+        pdfStorageKey = `/objects/${s3Key}`;
+        console.log("Terms PDF uploaded to object storage:", pdfStorageKey);
+      } catch (uploadError) {
+        console.error("Failed to upload terms PDF to object storage:", uploadError);
+      }
+    }
+
     // Send email with PDF attachment via Resend
     let emailSentAt: Date | null = null;
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -871,6 +926,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
         signedByEmail: user.email || "",
         signatureImage,
         emailSentAt,
+        pdfUrl: pdfStorageKey,
       })
       .returning();
 
