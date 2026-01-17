@@ -360,7 +360,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Vor-OP Fragebögen für Patienten" : "Pre-operative questionnaires for patients"}
+                      {isGerman ? "Online Vor-OP Fragebögen für Patienten" : "Online pre-operative questionnaires for patients"}
                     </p>
                   </div>
                 </div>
