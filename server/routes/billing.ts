@@ -169,6 +169,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
             retell: hospital.addonRetell ?? false,
             monitor: hospital.addonMonitor ?? false,
             surgery: hospital.addonSurgery ?? false,
+            worktime: hospital.addonWorktime ?? false,
             logistics: hospital.addonLogistics ?? false,
             clinic: hospital.addonClinic ?? false,
           },
@@ -229,6 +230,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
             retell: hospital.addonRetell ?? false,
             monitor: hospital.addonMonitor ?? false,
             surgery: hospital.addonSurgery ?? false,
+            worktime: hospital.addonWorktime ?? false,
             logistics: hospital.addonLogistics ?? false,
             clinic: hospital.addonClinic ?? false,
           },
@@ -244,7 +246,7 @@ router.patch("/api/billing/:hospitalId/addons", isAuthenticated, requireAdminRol
     const { hospitalId } = req.params;
     const { addon, enabled } = req.body;
 
-    const validAddons = ["questionnaire", "dispocura", "retell", "monitor", "surgery", "logistics", "clinic"];
+    const validAddons = ["questionnaire", "dispocura", "retell", "monitor", "surgery", "worktime", "logistics", "clinic"];
     if (!validAddons.includes(addon)) {
       return res.status(400).json({ message: "Invalid addon type" });
     }
@@ -1045,11 +1047,12 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
     const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
     const surgeryAddOn = hospital.addonSurgery ? 0.50 : 0;
     // Flat monthly add-ons
+    const worktimeAddOn = hospital.addonWorktime ? 5.00 : 0;
     const logisticsAddOn = hospital.addonLogistics ? 5.00 : 0;
     const clinicAddOn = hospital.addonClinic ? 10.00 : 0;
     
     const pricePerRecord = basePrice + questionnaireAddOn + dispocuraAddOn + retellAddOn + monitorAddOn + surgeryAddOn;
-    const totalAmount = (recordCount * pricePerRecord) + logisticsAddOn + clinicAddOn;
+    const totalAmount = (recordCount * pricePerRecord) + worktimeAddOn + logisticsAddOn + clinicAddOn;
     
     // Create Stripe invoice
     const invoice = await stripe.invoices.create({
@@ -1169,6 +1172,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       retellPrice: (recordCount * retellAddOn).toFixed(2),
       monitorPrice: (recordCount * monitorAddOn).toFixed(2),
       surgeryPrice: (recordCount * surgeryAddOn).toFixed(2),
+      worktimePrice: worktimeAddOn.toFixed(2),
       logisticsPrice: logisticsAddOn.toFixed(2),
       clinicPrice: clinicAddOn.toFixed(2),
       totalAmount: totalAmount.toFixed(2),

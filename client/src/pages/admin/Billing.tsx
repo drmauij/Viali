@@ -39,7 +39,8 @@ import {
   ChevronDown,
   Scissors,
   Truck,
-  Building2
+  Building2,
+  Timer
 } from "lucide-react";
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
@@ -69,6 +70,7 @@ interface BillingStatus {
     retell: boolean;
     monitor: boolean;
     surgery: boolean;
+    worktime: boolean;
     logistics: boolean;
     clinic: boolean;
   };
@@ -86,6 +88,7 @@ interface Invoice {
   retellPrice: string;
   monitorPrice: string;
   surgeryPrice: string;
+  worktimePrice: string;
   logisticsPrice: string;
   clinicPrice: string;
   totalAmount: string;
@@ -541,7 +544,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isGerman ? "OP-Planung & Dokumentation für Chirurgie" : "OR planning & documentation for surgery"}
+                      {isGerman ? "OP-Dokumentation für Chirurgie" : "OR documentation for surgery"}
                     </p>
                   </div>
                 </div>
@@ -552,6 +555,33 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                     onCheckedChange={(checked) => toggleAddon.mutate({ addon: "surgery", enabled: checked })}
                     disabled={toggleAddon.isPending}
                     data-testid="switch-addon-surgery"
+                  />
+                </div>
+              </div>
+
+              {/* Work Time Logs */}
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Timer className="h-5 w-5 text-indigo-600" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{isGerman ? "Arbeitszeitnachweise" : "Work Time Logs"}</p>
+                      <Badge variant="outline" className="text-xs">
+                        {isGerman ? "Monatlich" : "Monthly"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isGerman ? "Externe Arbeitszeiterfassung & Dokumentation" : "External work time tracking & documentation"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">+5.00 CHF/Mt.</span>
+                  <Switch 
+                    checked={billingStatus.addons.worktime}
+                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "worktime", enabled: checked })}
+                    disabled={toggleAddon.isPending}
+                    data-testid="switch-addon-worktime"
                   />
                 </div>
               </div>
@@ -568,7 +598,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Lager- & Bestellverwaltung" : "Inventory & order management"}
+                      {isGerman ? "Zentrales Bestellmanagementsystem" : "Centralized order management system"}
                     </p>
                   </div>
                 </div>

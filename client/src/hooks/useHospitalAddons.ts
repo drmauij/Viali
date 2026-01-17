@@ -7,6 +7,7 @@ export interface HospitalAddons {
   retell: boolean;
   monitor: boolean;
   surgery: boolean;
+  worktime: boolean;
   logistics: boolean;
   clinic: boolean;
 }
@@ -33,6 +34,7 @@ export function useHospitalAddons() {
       retell: false,
       monitor: false,
       surgery: false,
+      worktime: false,
       logistics: false,
       clinic: false,
     },

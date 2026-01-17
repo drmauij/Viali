@@ -188,40 +188,43 @@ export default function ModuleDrawer() {
   const menuItems = useMemo(() => {
     const items: { id: string; icon: JSX.Element; label: string; route: string }[] = [];
     
-    // Worklogs links - show separate links if user has access to both modules
+    // Worklogs links - only show if worktime addon is enabled
+    // Show separate links if user has access to both modules
     // Otherwise show single link for the module they have access to
-    if (hasAnesthesiaAccess && hasSurgeryAccess) {
-      // User has both - show separate options
-      items.push({
-        id: 'worklogs-anesthesia',
-        icon: <Clock className="w-4 h-4" />,
-        label: t('quickLinks.worklogsAnesthesia', 'Arbeitszeitnachweise (Anästhesie)'),
-        route: '/anesthesia/worklogs',
-      });
-      items.push({
-        id: 'worklogs-surgery',
-        icon: <Clock className="w-4 h-4" />,
-        label: t('quickLinks.worklogsSurgery', 'Arbeitszeitnachweise (Chirurgie)'),
-        route: '/surgery/worklogs',
-      });
-    } else if (hasAnesthesiaAccess) {
-      items.push({
-        id: 'worklogs',
-        icon: <Clock className="w-4 h-4" />,
-        label: t('quickLinks.worklogs', 'Arbeitszeitnachweise'),
-        route: '/anesthesia/worklogs',
-      });
-    } else if (hasSurgeryAccess) {
-      items.push({
-        id: 'worklogs',
-        icon: <Clock className="w-4 h-4" />,
-        label: t('quickLinks.worklogs', 'Arbeitszeitnachweise'),
-        route: '/surgery/worklogs',
-      });
+    if (addons.worktime) {
+      if (hasAnesthesiaAccess && hasSurgeryAccess) {
+        // User has both - show separate options
+        items.push({
+          id: 'worklogs-anesthesia',
+          icon: <Clock className="w-4 h-4" />,
+          label: t('quickLinks.worklogsAnesthesia', 'Arbeitszeitnachweise (Anästhesie)'),
+          route: '/anesthesia/worklogs',
+        });
+        items.push({
+          id: 'worklogs-surgery',
+          icon: <Clock className="w-4 h-4" />,
+          label: t('quickLinks.worklogsSurgery', 'Arbeitszeitnachweise (Chirurgie)'),
+          route: '/surgery/worklogs',
+        });
+      } else if (hasAnesthesiaAccess) {
+        items.push({
+          id: 'worklogs',
+          icon: <Clock className="w-4 h-4" />,
+          label: t('quickLinks.worklogs', 'Arbeitszeitnachweise'),
+          route: '/anesthesia/worklogs',
+        });
+      } else if (hasSurgeryAccess) {
+        items.push({
+          id: 'worklogs',
+          icon: <Clock className="w-4 h-4" />,
+          label: t('quickLinks.worklogs', 'Arbeitszeitnachweise'),
+          route: '/surgery/worklogs',
+        });
+      }
     }
     
     return items;
-  }, [hasAnesthesiaAccess, hasSurgeryAccess, t]);
+  }, [addons.worktime, hasAnesthesiaAccess, hasSurgeryAccess, t]);
 
   if (!isDrawerOpen) return null;
 
