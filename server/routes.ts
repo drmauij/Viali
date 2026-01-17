@@ -78,7 +78,9 @@ import {
   preOpAssessments,
   anesthesiaAirwayManagement,
   insertPersonalTodoSchema,
-  externalWorklogLinks
+  externalWorklogLinks,
+  externalWorklogEntries,
+  workerContracts
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, inArray, sql, asc, desc } from "drizzle-orm";
@@ -3774,6 +3776,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching entry:", error);
       res.status(500).json({ message: "Failed to fetch entry" });
+    }
+  });
+
+  // Delete worklog entry (public with token validation, only pending entries)
+  app.delete('/api/worklog/:token/entries/:entryId', async (req, res) => {
+    try {
+      const { token, entryId } = req.params;
+      const link = await storage.getExternalWorklogLinkByToken(token);
+      
+      if (!link || !link.isActive) {
+        return res.status(404).json({ message: "Invalid or expired link" });
+      }
+      
+      const entry = await storage.getExternalWorklogEntry(entryId);
+      
+      if (!entry || entry.linkId !== link.id) {
+        return res.status(404).json({ message: "Entry not found" });
+      }
+      
+      if (entry.status !== "pending") {
+        return res.status(400).json({ message: "Only pending entries can be deleted" });
+      }
+      
+      await db.delete(externalWorklogEntries).where(eq(externalWorklogEntries.id, entryId));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting entry:", error);
+      res.status(500).json({ message: "Failed to delete entry" });
+    }
+  });
+
+  // Get contracts linked to this worklog email
+  app.get('/api/worklog/:token/contracts', async (req, res) => {
+    try {
+      const { token } = req.params;
+      const link = await storage.getExternalWorklogLinkByToken(token);
+      
+      if (!link || !link.isActive) {
+        return res.status(404).json({ message: "Invalid or expired link" });
+      }
+      
+      const contracts = await db.select({
+        id: workerContracts.id,
+        firstName: workerContracts.firstName,
+        lastName: workerContracts.lastName,
+        email: workerContracts.email,
+        role: workerContracts.role,
+        status: workerContracts.status,
+        workerSignedAt: workerContracts.workerSignedAt,
+        managerSignedAt: workerContracts.managerSignedAt,
+        archivedAt: workerContracts.archivedAt,
+      })
+        .from(workerContracts)
+        .where(and(
+          eq(workerContracts.email, link.email),
+          eq(workerContracts.hospitalId, link.hospitalId)
+        ))
+        .orderBy(desc(workerContracts.createdAt));
+      
+      res.json(contracts);
+    } catch (error) {
+      console.error("Error fetching contracts:", error);
+      res.status(500).json({ message: "Failed to fetch contracts" });
     }
   });
 
