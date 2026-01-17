@@ -36,7 +36,10 @@ import {
   Camera,
   Clock,
   ClipboardList,
-  ChevronDown
+  ChevronDown,
+  Scissors,
+  Truck,
+  Building2
 } from "lucide-react";
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
@@ -65,6 +68,9 @@ interface BillingStatus {
     dispocura: boolean;
     retell: boolean;
     monitor: boolean;
+    surgery: boolean;
+    logistics: boolean;
+    clinic: boolean;
   };
 }
 
@@ -79,6 +85,9 @@ interface Invoice {
   dispocuraPrice: string;
   retellPrice: string;
   monitorPrice: string;
+  surgeryPrice: string;
+  logisticsPrice: string;
+  clinicPrice: string;
   totalAmount: string;
   currency: string;
   stripeInvoiceId: string | null;
@@ -519,23 +528,120 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   />
                 </div>
               </div>
+
+              {/* Surgery Module */}
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Scissors className="h-5 w-5 text-teal-600" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{isGerman ? "Chirurgie-Modul" : "Surgery Module"}</p>
+                      <Badge variant="outline" className="text-xs">
+                        {isGerman ? "Pro Protokoll" : "Per record"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isGerman ? "OP-Planung & Dokumentation für Chirurgie" : "OR planning & documentation for surgery"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">+0.50 CHF</span>
+                  <Switch 
+                    checked={billingStatus.addons.surgery}
+                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "surgery", enabled: checked })}
+                    disabled={toggleAddon.isPending}
+                    data-testid="switch-addon-surgery"
+                  />
+                </div>
+              </div>
+
+              {/* Logistics Module */}
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Truck className="h-5 w-5 text-orange-600" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{isGerman ? "Logistik-Modul" : "Logistics Module"}</p>
+                      <Badge variant="outline" className="text-xs">
+                        {isGerman ? "Monatlich" : "Monthly"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isGerman ? "Lager- & Bestellverwaltung" : "Inventory & order management"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">+5.00 CHF/Mt.</span>
+                  <Switch 
+                    checked={billingStatus.addons.logistics}
+                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "logistics", enabled: checked })}
+                    disabled={toggleAddon.isPending}
+                    data-testid="switch-addon-logistics"
+                  />
+                </div>
+              </div>
+
+              {/* Clinic Module */}
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Building2 className="h-5 w-5 text-emerald-600" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{isGerman ? "Klinik-Modul" : "Clinic Module"}</p>
+                      <Badge variant="outline" className="text-xs">
+                        {isGerman ? "Monatlich" : "Monthly"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isGerman ? "Ambulante Rechnungen & Terminverwaltung" : "Outpatient invoices & appointment management"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">+10.00 CHF/Mt.</span>
+                  <Switch 
+                    checked={billingStatus.addons.clinic}
+                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "clinic", enabled: checked })}
+                    disabled={toggleAddon.isPending}
+                    data-testid="switch-addon-clinic"
+                  />
+                </div>
+              </div>
             </div>
 
             <Separator />
 
             {/* Total Calculation */}
-            <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
-              <p className="font-medium">
-                {isGerman ? "Gesamt pro Protokoll" : "Total per Record"}
-              </p>
-              <p className="text-xl font-bold text-primary">
-                {(3 + 
-                  (billingStatus.addons.questionnaire ? 0.5 : 0) +
-                  (billingStatus.addons.dispocura ? 1 : 0) + 
-                  (billingStatus.addons.retell ? 1 : 0) + 
-                  (billingStatus.addons.monitor ? 1 : 0)
-                ).toFixed(2)} CHF
-              </p>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
+                <p className="font-medium">
+                  {isGerman ? "Gesamt pro Protokoll" : "Total per Record"}
+                </p>
+                <p className="text-xl font-bold text-primary">
+                  {(3 + 
+                    (billingStatus.addons.questionnaire ? 0.5 : 0) +
+                    (billingStatus.addons.dispocura ? 1 : 0) + 
+                    (billingStatus.addons.retell ? 1 : 0) + 
+                    (billingStatus.addons.monitor ? 1 : 0) +
+                    (billingStatus.addons.surgery ? 0.5 : 0)
+                  ).toFixed(2)} CHF
+                </p>
+              </div>
+              {(billingStatus.addons.logistics || billingStatus.addons.clinic) && (
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <p className="font-medium text-muted-foreground">
+                    {isGerman ? "Zusätzlich monatlich" : "Additional Monthly"}
+                  </p>
+                  <p className="text-lg font-semibold text-muted-foreground">
+                    +{(
+                      (billingStatus.addons.logistics ? 5 : 0) +
+                      (billingStatus.addons.clinic ? 10 : 0)
+                    ).toFixed(2)} CHF
+                  </p>
+                </div>
+              )}
             </div>
             
             <p className="text-xs text-muted-foreground text-center">

@@ -6,6 +6,9 @@ export interface HospitalAddons {
   dispocura: boolean;
   retell: boolean;
   monitor: boolean;
+  surgery: boolean;
+  logistics: boolean;
+  clinic: boolean;
 }
 
 interface AddonsResponse {
@@ -29,6 +32,9 @@ export function useHospitalAddons() {
       dispocura: false,
       retell: false,
       monitor: false,
+      surgery: false,
+      logistics: false,
+      clinic: false,
     },
     isLoading,
     error,
