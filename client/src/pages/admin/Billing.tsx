@@ -293,6 +293,27 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
     },
   });
 
+  const generateInvoice = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/billing/${hospitalId}/generate-invoice`);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing", hospitalId, "invoices"] });
+      toast({ 
+        title: isGerman ? "Rechnung erstellt" : "Invoice Generated", 
+        description: `${data.invoice?.recordCount || 0} ${isGerman ? 'Datensätze' : 'records'} - CHF ${data.invoice?.totalAmount || '0.00'}` 
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: isGerman ? "Fehler beim Erstellen der Rechnung" : "Failed to generate invoice", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
   if (statusLoading || termsLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -842,21 +863,39 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               </CardTitle>
               <CardDescription>View and download your invoices</CardDescription>
             </div>
-            {billingStatus.stripeCustomerId && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => openBillingPortal.mutate()}
-                disabled={openBillingPortal.isPending}
-              >
-                {openBillingPortal.isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                )}
-                Manage in Stripe
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {billingStatus.stripeCustomerId && billingStatus.hasPaymentMethod && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => generateInvoice.mutate()}
+                  disabled={generateInvoice.isPending}
+                  data-testid="button-generate-invoice"
+                >
+                  {generateInvoice.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Calculator className="mr-2 h-4 w-4" />
+                  )}
+                  {isGerman ? "Rechnung erstellen" : "Generate Invoice"}
+                </Button>
+              )}
+              {billingStatus.stripeCustomerId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => openBillingPortal.mutate()}
+                  disabled={openBillingPortal.isPending}
+                >
+                  {openBillingPortal.isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                  )}
+                  Manage in Stripe
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
