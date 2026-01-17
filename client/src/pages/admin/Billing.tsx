@@ -214,9 +214,9 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
   });
 
   const { data: invoicesData, isLoading: invoicesLoading } = useQuery<{ invoices: Invoice[] }>({
-    queryKey: ["/api/billing", hospitalId, "invoices"],
+    queryKey: ["/api/billing", hospitalId, "billing-invoices"],
     queryFn: async () => {
-      const res = await fetch(`/api/billing/${hospitalId}/invoices`, { credentials: "include" });
+      const res = await fetch(`/api/billing/${hospitalId}/billing-invoices`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch invoices");
       return res.json();
     },
@@ -299,7 +299,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/billing", hospitalId, "invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/billing", hospitalId, "billing-invoices"] });
       toast({ 
         title: isGerman ? "Rechnung erstellt" : "Invoice Generated", 
         description: `${data.invoice?.recordCount || 0} ${isGerman ? 'Datensätze' : 'records'} - CHF ${data.invoice?.totalAmount || '0.00'}` 

@@ -872,8 +872,8 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
   }
 });
 
-// Get invoice history for a hospital
-router.get("/:hospitalId/invoices", isAuthenticated, async (req, res) => {
+// Get invoice history for a hospital (from local billing_invoices table)
+router.get("/api/billing/:hospitalId/billing-invoices", isAuthenticated, async (req, res) => {
   try {
     const hospitalId = req.params.hospitalId;
     
@@ -891,7 +891,7 @@ router.get("/:hospitalId/invoices", isAuthenticated, async (req, res) => {
 });
 
 // Manual trigger for generating a test invoice (admin only)
-router.post("/:hospitalId/generate-invoice", isAuthenticated, requireAdminRoleCheck, async (req, res) => {
+router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requireAdminRoleCheck, async (req, res) => {
   try {
     const hospitalId = req.params.hospitalId;
     const stripe = getStripe();
@@ -1069,7 +1069,7 @@ router.post("/:hospitalId/generate-invoice", isAuthenticated, requireAdminRoleCh
 });
 
 // Stripe webhook endpoint for invoice events
-router.post("/webhook", raw({ type: 'application/json' }), async (req, res) => {
+router.post("/api/billing/webhook", raw({ type: 'application/json' }), async (req, res) => {
   const stripe = getStripe();
   
   if (!stripe) {
