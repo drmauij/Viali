@@ -1256,12 +1256,13 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
   const isTestAccount = hospitalData.licenseType === "test";
   const TRIAL_DAYS = 15;
   let isWithinTrial = false;
-  if (isTestAccount) {
-    const trialStartDate = hospitalData.trialStartDate ? new Date(hospitalData.trialStartDate) : new Date();
+  if (isTestAccount && hospitalData.trialStartDate) {
+    const trialStartDate = new Date(hospitalData.trialStartDate);
     const trialEndsAt = new Date(trialStartDate);
     trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
     isWithinTrial = new Date() < trialEndsAt;
   }
+  // If test account has no trialStartDate, consider trial expired (no full access)
   
   const hasFullAccess = isFreeAccount || (isTestAccount && isWithinTrial);
   if (!hasFullAccess && !hospitalData.addonQuestionnaire) {

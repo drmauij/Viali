@@ -110,18 +110,64 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
     };
 
     if (hospital.licenseType === "test") {
-      const trialStartDate = hospital.trialStartDate ? new Date(hospital.trialStartDate) : now;
-      const trialEndsAt = new Date(trialStartDate);
-      trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
+      // If no trialStartDate, consider trial expired (forces payment setup)
+      if (!hospital.trialStartDate) {
+        trialInfo = {
+          trialEndsAt: null,
+          trialDaysRemaining: 0,
+          trialExpired: true,
+        };
+      } else {
+        const trialStartDate = new Date(hospital.trialStartDate);
+        const trialEndsAt = new Date(trialStartDate);
+        trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
+        
+        const msRemaining = trialEndsAt.getTime() - now.getTime();
+        const daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
+        
+        trialInfo = {
+          trialEndsAt: trialEndsAt.toISOString(),
+          trialDaysRemaining: daysRemaining,
+          trialExpired: msRemaining <= 0,
+        };
+      }
       
-      const msRemaining = trialEndsAt.getTime() - now.getTime();
-      const daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
-      
-      trialInfo = {
-        trialEndsAt: trialEndsAt.toISOString(),
-        trialDaysRemaining: daysRemaining,
-        trialExpired: msRemaining <= 0,
-      };
+      // Auto-upgrade to basic if trial expired and payment method exists
+      if (trialInfo.trialExpired && hospital.stripePaymentMethodId) {
+        await db
+          .update(hospitals)
+          .set({ licenseType: "basic" })
+          .where(eq(hospitals.id, hospitalId));
+        
+        // Return response with updated license type
+        res.json({
+          licenseType: "basic",
+          hasPaymentMethod: true,
+          stripeCustomerId: hospital.stripeCustomerId,
+          paymentMethod: paymentMethod
+            ? {
+                brand: paymentMethod.card?.brand,
+                last4: paymentMethod.card?.last4,
+                expMonth: paymentMethod.card?.exp_month,
+                expYear: paymentMethod.card?.exp_year,
+              }
+            : null,
+          pricePerRecord,
+          currentMonthRecords,
+          estimatedCost,
+          billingRequired: false,
+          trialEndsAt: null,
+          trialDaysRemaining: null,
+          trialExpired: false,
+          addons: {
+            questionnaire: hospital.addonQuestionnaire ?? false,
+            dispocura: hospital.addonDispocura ?? false,
+            retell: hospital.addonRetell ?? false,
+            monitor: hospital.addonMonitor ?? false,
+          },
+        });
+        return;
+      }
     }
 
     // Determine if billing (payment method) is required
