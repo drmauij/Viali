@@ -88,6 +88,7 @@ export const hospitals = pgTable("hospitals", {
   addonWorktime: boolean("addon_worktime").default(false), // Work time logs (+5 CHF/month)
   addonLogistics: boolean("addon_logistics").default(false), // Centralized order management (+5 CHF/month)
   addonClinic: boolean("addon_clinic").default(false), // Clinic module with invoices & appointments (+10 CHF/month)
+  questionnaireDisabled: boolean("questionnaire_disabled").default(false), // Manual override to disable questionnaire functionality
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -561,6 +561,13 @@
       "when": 1768656137338,
       "tag": "0079_sleepy_exodus",
       "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1768678133366,
+      "tag": "0080_opposite_clea",
+      "breakpoints": true
     }
   ]
 }

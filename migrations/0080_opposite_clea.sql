@@ -1,0 +1,1 @@
+ALTER TABLE "hospitals" ADD COLUMN "questionnaire_disabled" boolean DEFAULT false;
