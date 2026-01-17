@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useMemo, useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useModule } from "@/contexts/ModuleContext";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 
 interface NavItem {
   id: string;
@@ -18,6 +19,7 @@ export default function BottomNav() {
   const [location, navigate] = useLocation();
   const { user } = useAuth();
   const { activeModule } = useModule();
+  const { addons } = useHospitalAddons();
   const [hasCompletedImport, setHasCompletedImport] = useState(false);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -179,7 +181,9 @@ export default function BottomNav() {
         clinicItems.push({ id: "clinic-appointments", icon: "fas fa-calendar-check", label: t('bottomNav.clinic.appointments', 'Appointments'), path: "/clinic/appointments" });
       }
       clinicItems.push({ id: "clinic-patients", icon: "fas fa-users", label: t('bottomNav.clinic.patients'), path: "/clinic/patients" });
-      clinicItems.push({ id: "clinic-questionnaires", icon: "fas fa-file-medical", label: t('bottomNav.clinic.questionnaires', 'Questionnaires'), path: "/clinic/questionnaires" });
+      if (addons.questionnaire) {
+        clinicItems.push({ id: "clinic-questionnaires", icon: "fas fa-file-medical", label: t('bottomNav.clinic.questionnaires', 'Questionnaires'), path: "/clinic/questionnaires" });
+      }
       clinicItems.push({ id: "clinic-invoices", icon: "fas fa-file-invoice-dollar", label: t('bottomNav.clinic.invoices'), path: "/clinic" });
       return clinicItems;
     }

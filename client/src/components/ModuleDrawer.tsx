@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { Copy, Check, Link as LinkIcon, FileText, Clock } from "lucide-react";
 
 interface ModuleCard {
@@ -25,6 +26,7 @@ export default function ModuleDrawer() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { addons } = useHospitalAddons();
   const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
   // Get the active hospital for module access checks
@@ -169,8 +171,8 @@ export default function ModuleDrawer() {
     const links: { id: string; icon: JSX.Element; label: string; url: string; isRoute?: boolean }[] = [];
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
     
-    // Clinic questionnaire link (if hospital has a questionnaire token)
-    if (activeHospital?.questionnaireToken) {
+    // Clinic questionnaire link (if hospital has a questionnaire token and questionnaire addon is enabled)
+    if (activeHospital?.questionnaireToken && addons.questionnaire) {
       links.push({
         id: 'questionnaire',
         icon: <FileText className="w-4 h-4" />,
@@ -180,7 +182,7 @@ export default function ModuleDrawer() {
     }
     
     return links;
-  }, [activeHospital, t]);
+  }, [activeHospital, addons.questionnaire, t]);
 
   // Menu items for navigation (shown in drawer, not as copy links)
   const menuItems = useMemo(() => {
