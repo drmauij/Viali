@@ -130,14 +130,14 @@ export default function ModuleDrawer() {
     if (module.adminOnly && !isAdmin) return false;
     // Business module only for users assigned to business units
     if (module.businessOnly && !hasBusinessAccess) return false;
-    // Clinic module only for users assigned to clinic units
-    if (module.clinicOnly && !hasClinicAccess) return false;
-    // Logistic module only for users assigned to logistic units
-    if (module.logisticOnly && !hasLogisticAccess) return false;
+    // Clinic module only for users assigned to clinic units AND addon enabled
+    if (module.clinicOnly && (!hasClinicAccess || !addons.clinic)) return false;
+    // Logistic module only for users assigned to logistic units AND addon enabled
+    if (module.logisticOnly && (!hasLogisticAccess || !addons.logistics)) return false;
     // Anesthesia module only for anesthesia staff (assigned to anesthesia unit)
     if (module.id === "anesthesia" && !hasAnesthesiaAccess) return false;
-    // Surgery module only for OR staff (assigned to surgery unit)
-    if (module.id === "surgery" && !hasSurgeryAccess) return false;
+    // Surgery module only for OR staff (assigned to surgery unit) AND addon enabled
+    if (module.id === "surgery" && (!hasSurgeryAccess || !addons.surgery)) return false;
     // Hide Inventory based on unit showInventory flag, legacy isBusinessOnly check, or logistic units (they have their own inventory view)
     if (module.id === "inventory" && (!showInventory || isBusinessOnly || hasLogisticAccess)) return false;
     return true;
