@@ -512,6 +512,13 @@
       "when": 1768625527280,
       "tag": "0072_bent_magneto",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1768635257071,
+      "tag": "0073_terms_acceptances",
+      "breakpoints": true
     }
   ]
 }

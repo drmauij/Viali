@@ -8,10 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
+import SignaturePad from "@/components/SignaturePad";
+import { TermsOfUseContent } from "@/components/TermsOfUseContent";
 import { 
   CreditCard, 
   ExternalLink, 
@@ -20,7 +26,9 @@ import {
   CheckCircle2, 
   AlertCircle,
   Trash2,
-  Download
+  Download,
+  FileSignature,
+  Pen
 } from "lucide-react";
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
@@ -52,6 +60,18 @@ interface Invoice {
   created: string;
   pdfUrl: string | null;
   hostedUrl: string | null;
+}
+
+interface TermsStatus {
+  hasAccepted: boolean;
+  currentVersion: string;
+  acceptance: {
+    signedAt: string;
+    signedByName: string;
+    signedByEmail: string;
+    countersignedAt: string | null;
+    countersignedByName: string | null;
+  } | null;
 }
 
 function CardSetupForm({ hospitalId, onSuccess }: { hospitalId: string; onSuccess: () => void }) {
@@ -137,9 +157,15 @@ function CardSetupForm({ hospitalId, onSuccess }: { hospitalId: string; onSucces
 }
 
 function BillingContent({ hospitalId }: { hospitalId: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [showCardForm, setShowCardForm] = useState(false);
+  const [showTermsDialog, setShowTermsDialog] = useState(false);
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [signerName, setSignerName] = useState("");
+  const [signatureImage, setSignatureImage] = useState<string | null>(null);
+  const isGerman = i18n.language === "de";
 
   const { data: billingStatus, isLoading: statusLoading } = useQuery<BillingStatus>({
     queryKey: ["/api/billing", hospitalId, "status"],
@@ -150,12 +176,50 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
     },
   });
 
+  const { data: termsStatus, isLoading: termsLoading } = useQuery<TermsStatus>({
+    queryKey: ["/api/billing", hospitalId, "terms-status"],
+    queryFn: async () => {
+      const res = await fetch(`/api/billing/${hospitalId}/terms-status`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch terms status");
+      return res.json();
+    },
+  });
+
   const { data: invoicesData, isLoading: invoicesLoading } = useQuery<{ invoices: Invoice[] }>({
     queryKey: ["/api/billing", hospitalId, "invoices"],
     queryFn: async () => {
       const res = await fetch(`/api/billing/${hospitalId}/invoices`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch invoices");
       return res.json();
+    },
+  });
+
+  const acceptTermsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/billing/${hospitalId}/accept-terms`, {
+        signatureImage,
+        signerName,
+      });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing", hospitalId, "terms-status"] });
+      setShowTermsDialog(false);
+      setTermsAccepted(false);
+      setSignerName("");
+      setSignatureImage(null);
+      toast({ 
+        title: isGerman ? "Nutzungsbedingungen akzeptiert" : "Terms of Use accepted",
+        description: data.emailSent 
+          ? (isGerman ? "Eine Kopie wurde zur Gegenzeichnung gesendet" : "A copy has been sent for countersigning")
+          : undefined,
+      });
+    },
+    onError: () => {
+      toast({ 
+        title: isGerman ? "Fehler beim Akzeptieren" : "Failed to accept terms", 
+        variant: "destructive" 
+      });
     },
   });
 
@@ -182,7 +246,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
     },
   });
 
-  if (statusLoading) {
+  if (statusLoading || termsLoading) {
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -199,37 +263,216 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
     );
   }
 
+  const hasAcceptedTerms = termsStatus?.hasAccepted ?? false;
+  const canSetupPayment = hasAcceptedTerms || billingStatus.licenseType === "free";
+
   return (
     <div className="space-y-6">
       {billingStatus.licenseType === "free" ? (
         <Alert>
           <CheckCircle2 className="h-4 w-4" />
           <AlertDescription>
-            Your clinic is on the <strong>Free Plan</strong>. No payment required.
+            {isGerman 
+              ? <>Ihre Klinik nutzt den <strong>Free Plan</strong>. Keine Zahlung erforderlich.</>
+              : <>Your clinic is on the <strong>Free Plan</strong>. No payment required.</>}
           </AlertDescription>
         </Alert>
       ) : billingStatus.billingRequired ? (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Please add a payment method to continue using the app.
+            {isGerman 
+              ? "Bitte fügen Sie eine Zahlungsmethode hinzu, um die App weiter nutzen zu können."
+              : "Please add a payment method to continue using the app."}
           </AlertDescription>
         </Alert>
       ) : null}
 
-      <div className="grid gap-6 md:grid-cols-2">
+      {billingStatus.licenseType !== "free" && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              Payment Method
+              <FileSignature className="h-5 w-5" />
+              {isGerman ? "Nutzungsbedingungen" : "Terms of Use"}
             </CardTitle>
             <CardDescription>
-              Manage your payment method for monthly billing
+              {isGerman 
+                ? "Akzeptieren Sie die Nutzungsbedingungen, um die Zahlungseinrichtung zu aktivieren"
+                : "Accept the terms of use to enable payment setup"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {billingStatus.paymentMethod ? (
+            {hasAcceptedTerms ? (
+              <div className="flex items-center gap-3 p-4 border rounded-lg bg-green-50 dark:bg-green-900/20">
+                <CheckCircle2 className="h-6 w-6 text-green-600" />
+                <div>
+                  <p className="font-medium text-green-800 dark:text-green-200">
+                    {isGerman ? "Nutzungsbedingungen akzeptiert" : "Terms of Use Accepted"}
+                  </p>
+                  {termsStatus?.acceptance && (
+                    <p className="text-sm text-muted-foreground">
+                      {isGerman ? "Unterzeichnet von" : "Signed by"} {termsStatus.acceptance.signedByName}{" "}
+                      {isGerman ? "am" : "on"} {new Date(termsStatus.acceptance.signedAt).toLocaleDateString(isGerman ? "de-DE" : "en-US")}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    {isGerman 
+                      ? "Bitte lesen und akzeptieren Sie die Nutzungsbedingungen, bevor Sie eine Zahlungsmethode einrichten."
+                      : "Please read and accept the terms of use before setting up a payment method."}
+                  </AlertDescription>
+                </Alert>
+                <Button 
+                  onClick={() => setShowTermsDialog(true)} 
+                  className="w-full"
+                  data-testid="button-open-terms"
+                >
+                  <FileSignature className="mr-2 h-4 w-4" />
+                  {isGerman ? "Nutzungsbedingungen lesen & akzeptieren" : "Read & Accept Terms of Use"}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      <Dialog open={showTermsDialog} onOpenChange={setShowTermsDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSignature className="h-5 w-5" />
+              {isGerman ? "Nutzungsbedingungen - Viali.app" : "Terms of Use - Viali.app"}
+            </DialogTitle>
+            <DialogDescription>
+              {isGerman 
+                ? "Bitte lesen Sie die Nutzungsbedingungen sorgfältig durch und unterschreiben Sie zur Bestätigung."
+                : "Please read the terms of use carefully and sign to confirm your acceptance."}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <TermsOfUseContent />
+            
+            <Separator />
+            
+            <div className="space-y-4">
+              <div className="flex items-start gap-3">
+                <Checkbox 
+                  id="accept-terms"
+                  checked={termsAccepted}
+                  onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                  data-testid="checkbox-accept-terms"
+                />
+                <Label htmlFor="accept-terms" className="text-sm leading-relaxed">
+                  {isGerman 
+                    ? "Ich habe die Nutzungsbedingungen gelesen und akzeptiere sie im Namen meiner Klinik."
+                    : "I have read and accept the terms of use on behalf of my clinic."}
+                </Label>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="signer-name">
+                  {isGerman ? "Vollständiger Name" : "Full Name"}
+                </Label>
+                <Input 
+                  id="signer-name"
+                  value={signerName}
+                  onChange={(e) => setSignerName(e.target.value)}
+                  placeholder={isGerman ? "Max Mustermann" : "John Doe"}
+                  data-testid="input-signer-name"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label>{isGerman ? "Unterschrift" : "Signature"}</Label>
+                {signatureImage ? (
+                  <div className="space-y-2">
+                    <div className="border rounded-lg p-2 bg-white">
+                      <img src={signatureImage} alt="Signature" className="h-16 mx-auto" />
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setSignatureImage(null)}
+                      data-testid="button-clear-signature"
+                    >
+                      {isGerman ? "Unterschrift löschen" : "Clear Signature"}
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowSignaturePad(true)}
+                    className="w-full"
+                    data-testid="button-add-signature"
+                  >
+                    <Pen className="mr-2 h-4 w-4" />
+                    {isGerman ? "Unterschrift hinzufügen" : "Add Signature"}
+                  </Button>
+                )}
+              </div>
+              
+              <div className="text-sm text-muted-foreground">
+                {isGerman ? "Datum" : "Date"}: {new Date().toLocaleDateString(isGerman ? "de-DE" : "en-US")}
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTermsDialog(false)}>
+              {isGerman ? "Abbrechen" : "Cancel"}
+            </Button>
+            <Button 
+              onClick={() => acceptTermsMutation.mutate()}
+              disabled={!termsAccepted || !signerName.trim() || !signatureImage || acceptTermsMutation.isPending}
+              data-testid="button-submit-terms"
+            >
+              {acceptTermsMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isGerman ? "Akzeptieren & Unterschreiben" : "Accept & Sign"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <SignaturePad 
+        isOpen={showSignaturePad}
+        onClose={() => setShowSignaturePad(false)}
+        onSave={(sig) => {
+          setSignatureImage(sig);
+          setShowSignaturePad(false);
+        }}
+        title={isGerman ? "Ihre Unterschrift" : "Your Signature"}
+      />
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className={!canSetupPayment ? "opacity-60" : ""}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              {isGerman ? "Zahlungsmethode" : "Payment Method"}
+            </CardTitle>
+            <CardDescription>
+              {isGerman 
+                ? "Verwalten Sie Ihre Zahlungsmethode für die monatliche Abrechnung"
+                : "Manage your payment method for monthly billing"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!canSetupPayment ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {isGerman 
+                    ? "Bitte akzeptieren Sie zuerst die Nutzungsbedingungen."
+                    : "Please accept the terms of use first."}
+                </AlertDescription>
+              </Alert>
+            ) : billingStatus.paymentMethod ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex items-center gap-3">

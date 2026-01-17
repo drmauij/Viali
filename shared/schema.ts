@@ -4210,3 +4210,43 @@ export const insertExternalWorklogEntrySchema = createInsertSchema(externalWorkl
 
 export type ExternalWorklogEntry = typeof externalWorklogEntries.$inferSelect;
 export type InsertExternalWorklogEntry = z.infer<typeof insertExternalWorklogEntrySchema>;
+
+// Terms of Use Acceptances - Track signed terms per hospital
+export const termsAcceptances = pgTable("terms_acceptances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  
+  version: varchar("version").notNull().default("1.0"),
+  
+  signedByUserId: varchar("signed_by_user_id").notNull().references(() => users.id),
+  signedByName: varchar("signed_by_name").notNull(),
+  signedByEmail: varchar("signed_by_email").notNull(),
+  
+  signatureImage: text("signature_image").notNull(),
+  signedAt: timestamp("signed_at").defaultNow().notNull(),
+  
+  pdfUrl: varchar("pdf_url"),
+  emailSentAt: timestamp("email_sent_at"),
+  
+  countersignedAt: timestamp("countersigned_at"),
+  countersignedByName: varchar("countersigned_by_name"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_terms_acceptances_hospital").on(table.hospitalId),
+  index("idx_terms_acceptances_version").on(table.version),
+  unique("idx_terms_acceptances_hospital_version").on(table.hospitalId, table.version),
+]);
+
+export const insertTermsAcceptanceSchema = createInsertSchema(termsAcceptances).omit({
+  id: true,
+  createdAt: true,
+  signedAt: true,
+  emailSentAt: true,
+  countersignedAt: true,
+  countersignedByName: true,
+  pdfUrl: true,
+});
+
+export type TermsAcceptance = typeof termsAcceptances.$inferSelect;
+export type InsertTermsAcceptance = z.infer<typeof insertTermsAcceptanceSchema>;
