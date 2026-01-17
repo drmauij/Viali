@@ -20,15 +20,26 @@ const app = express();
 
 declare module 'http' {
   interface IncomingMessage {
-    rawBody: unknown
+    rawBody: Buffer
   }
 }
-app.use(express.json({
-  limit: '50mb',
-  verify: (req, _res, buf) => {
-    req.rawBody = buf;
+
+// Stripe webhook needs raw body - register it before JSON parsing
+app.post('/api/billing/webhook', express.raw({ type: 'application/json' }));
+
+// JSON parsing for all other routes
+app.use((req, res, next) => {
+  // Skip JSON parsing for webhook endpoint (already handled with raw body above)
+  if (req.path === '/api/billing/webhook') {
+    return next();
   }
-}));
+  express.json({
+    limit: '50mb',
+    verify: (req, _res, buf) => {
+      req.rawBody = buf;
+    }
+  })(req, res, next);
+});
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 
 app.use((req, res, next) => {

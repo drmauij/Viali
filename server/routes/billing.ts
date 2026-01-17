@@ -1245,14 +1245,14 @@ router.post("/api/billing/webhook", async (req, res) => {
   
   try {
     if (webhookSecret && sig) {
-      // Use rawBody saved by express.json verify function
-      const rawBody = (req as any).rawBody;
-      if (!rawBody) {
-        throw new Error("Raw body not available for signature verification");
-      }
-      event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+      // req.body is raw Buffer from express.raw() middleware
+      event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
     } else {
-      event = req.body as Stripe.Event;
+      // Parse JSON manually when no signature verification
+      const body = typeof req.body === 'string' || Buffer.isBuffer(req.body) 
+        ? JSON.parse(req.body.toString()) 
+        : req.body;
+      event = body as Stripe.Event;
     }
   } catch (err: any) {
     console.error("Webhook signature verification failed:", err.message);
