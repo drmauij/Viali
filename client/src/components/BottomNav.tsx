@@ -121,10 +121,12 @@ export default function BottomNav() {
 
   const navItems: NavItem[] = useMemo(() => {
     if (activeModule === "anesthesia") {
-      const items: NavItem[] = [
-        { id: "appointments", icon: "fas fa-calendar-check", label: t('bottomNav.anesthesia.appointments', 'Appointments'), path: "/anesthesia/appointments" },
-        { id: "patients", icon: "fas fa-users", label: t('bottomNav.anesthesia.patients'), path: "/anesthesia/patients" },
-      ];
+      const items: NavItem[] = [];
+      // Only show appointments tab if unit has showAppointments enabled (default true)
+      if (activeHospital?.showAppointments !== false) {
+        items.push({ id: "appointments", icon: "fas fa-calendar-check", label: t('bottomNav.anesthesia.appointments', 'Appointments'), path: "/anesthesia/appointments" });
+      }
+      items.push({ id: "patients", icon: "fas fa-users", label: t('bottomNav.anesthesia.patients'), path: "/anesthesia/patients" });
       if (canAccessPreOp) {
         items.push({ id: "preop", icon: "fas fa-clipboard-list", label: t('bottomNav.anesthesia.preop'), path: "/anesthesia/preop" });
       }
@@ -135,10 +137,12 @@ export default function BottomNav() {
     }
     
     if (activeModule === "surgery") {
-      const surgeryItems: NavItem[] = [
-        { id: "appointments", icon: "fas fa-calendar-check", label: t('bottomNav.surgery.appointments', 'Appointments'), path: "/surgery/appointments" },
-        { id: "patients", icon: "fas fa-users", label: t('bottomNav.surgery.patients'), path: "/surgery/patients" },
-      ];
+      const surgeryItems: NavItem[] = [];
+      // Only show appointments tab if unit has showAppointments enabled (default true)
+      if (activeHospital?.showAppointments !== false) {
+        surgeryItems.push({ id: "appointments", icon: "fas fa-calendar-check", label: t('bottomNav.surgery.appointments', 'Appointments'), path: "/surgery/appointments" });
+      }
+      surgeryItems.push({ id: "patients", icon: "fas fa-users", label: t('bottomNav.surgery.patients'), path: "/surgery/patients" });
       // Pre-op tab visible for admin and doctor roles - comes BEFORE OP
       if (canAccessPreOp) {
         surgeryItems.push({ id: "preop", icon: "fas fa-clipboard-list", label: t('bottomNav.surgery.preop', 'Pre-Op'), path: "/surgery/preop" });
