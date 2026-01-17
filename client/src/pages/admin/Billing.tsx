@@ -458,7 +458,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                     <div className="flex items-center gap-2">
                       <p className="font-medium">Dispocura</p>
                       <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Verfügbar" : "Available"}
+                        {isGerman ? "Verfügbar (Galexis Partner-Konto erforderlich)" : "Available (requires Galexis Partner Account)"}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
