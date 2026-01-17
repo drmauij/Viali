@@ -183,13 +183,13 @@ export default function ClinicAppointments() {
     },
   });
 
-  // Check Cal.com configuration
+  // Check Cal.com configuration - only query if retell addon is active
   const { data: calcomConfig, isLoading: calcomConfigLoading } = useQuery<{
     isEnabled: boolean;
     apiKey?: string;
   }>({
     queryKey: [`/api/clinic/${hospitalId}/calcom-config`],
-    enabled: !!hospitalId,
+    enabled: !!hospitalId && addons.retell,
   });
   // Cal.com is only enabled if both the config is set AND the retell addon is active
   const calcomEnabled = addons.retell && calcomConfig?.isEnabled && calcomConfig?.apiKey === '***configured***';
