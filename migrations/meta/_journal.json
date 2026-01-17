@@ -519,6 +519,13 @@
       "when": 1768635257071,
       "tag": "0073_terms_acceptances",
       "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1768700000000,
+      "tag": "0074_addon_services",
+      "breakpoints": true
     }
   ]
 }

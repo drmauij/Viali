@@ -19,46 +19,15 @@ export function TermsOfUseContent() {
 
         <div>
           <h3 className="font-bold text-base mb-2">
-            {isGerman ? "2. Leistungen & Preise" : "2. Services & Pricing"}
+            {isGerman ? "2. Leistungen" : "2. Services"}
           </h3>
-          
-          <div className="space-y-3 text-muted-foreground">
-            <div>
-              <p className="font-medium text-foreground">
-                {isGerman ? "Basis-Paket: 3.00 CHF pro Anästhesie-Protokoll" : "Basic Package: 3.00 CHF per anesthesia record"}
-              </p>
-              <ul className="list-disc list-inside ml-2 mt-1">
-                <li>{isGerman ? "Digitale Anästhesie-Protokolle (Pre-OP, OP, PACU)" : "Digital anesthesia protocols (Pre-OP, OP, PACU)"}</li>
-                <li>{isGerman ? "Bestandsverwaltungssystem (Medikamente, Material, BTM)" : "Inventory management (medications, materials, controlled substances)"}</li>
-                <li>{isGerman ? "Cloud-Hosting inklusive (Exoscale Shared Server, Schweiz)" : "Cloud hosting included (Exoscale Shared Server, Switzerland)"}</li>
-                <li>{isGerman ? "Backups & Updates" : "Backups & updates"}</li>
-                <li>{isGerman ? "Support (Response 2h bei kritischen Events, Mo-Fr 8-18 Uhr)" : "Support (2h response for critical events, Mon-Fri 8-18 CET)"}</li>
-              </ul>
-            </div>
-            
-            <div>
-              <p className="font-medium text-foreground">
-                {isGerman ? "Premium-Paket: 4.00 CHF pro Protokoll (sobald verfügbar)" : "Premium Package: 4.00 CHF per record (when available)"}
-              </p>
-              <ul className="list-disc list-inside ml-2 mt-1">
-                <li>{isGerman ? "Alle Basis-Features" : "All basic features"}</li>
-                <li>{isGerman ? "PLUS: Automatische Datenübertragung (Vital-Parameter via Kamera)" : "PLUS: Automatic vital data transfer via camera"}</li>
-                <li>{isGerman ? "Kamera-Hardware: ca. 100 CHF pro Monitor (einmalig)" : "Camera hardware: ~100 CHF per monitor (one-time)"}</li>
-                <li>{isGerman ? "Installation & Setup: ca. 2-4h à 300 CHF pro Raum" : "Installation & setup: ~2-4h at 300 CHF/room"}</li>
-              </ul>
-            </div>
-            
-            <div>
-              <p className="font-medium text-foreground">
-                {isGerman ? "Individuelle Anpassungen: 300 CHF/Stunde" : "Custom Development: 300 CHF/hour"}
-              </p>
-              <ul className="list-disc list-inside ml-2 mt-1">
-                <li>{isGerman ? "Klinik-spezifische Entwicklungen" : "Clinic-specific development"}</li>
-                <li>{isGerman ? "Integration mit bestehenden Systemen" : "Integration with existing systems"}</li>
-                <li>{isGerman ? "All-inclusive (Entwicklung, Testing, Dokumentation)" : "All-inclusive (development, testing, documentation)"}</li>
-              </ul>
-            </div>
-          </div>
+          <ul className="list-disc list-inside text-muted-foreground">
+            <li>{isGerman ? "Digitale Anästhesie-Protokolle (Pre-OP, OP, PACU)" : "Digital anesthesia protocols (Pre-OP, OP, PACU)"}</li>
+            <li>{isGerman ? "Bestandsverwaltungssystem (Medikamente, Material, BTM)" : "Inventory management (medications, materials, controlled substances)"}</li>
+            <li>{isGerman ? "Cloud-Hosting inklusive (Exoscale Shared Server, Schweiz)" : "Cloud hosting included (Exoscale Shared Server, Switzerland)"}</li>
+            <li>{isGerman ? "Backups & Updates" : "Backups & updates"}</li>
+            <li>{isGerman ? "Optionale Zusatzmodule (siehe Preisübersicht im Abrechnungsbereich)" : "Optional add-on modules (see pricing overview in billing section)"}</li>
+          </ul>
         </div>
 
         <div>
@@ -66,6 +35,7 @@ export function TermsOfUseContent() {
             {isGerman ? "3. Abrechnung & Zahlung" : "3. Billing & Payment"}
           </h3>
           <ul className="list-disc list-inside text-muted-foreground">
+            <li>{isGerman ? "Aktuelle Preise werden im Abrechnungsbereich angezeigt" : "Current pricing is displayed in the billing section"}</li>
             <li>{isGerman ? "Monatliche Abrechnung nach tatsächlicher Nutzung" : "Monthly billing based on actual usage"}</li>
             <li>{isGerman ? "Zahlung per Kreditkarte (in-app)" : "Credit card payment (in-app)"}</li>
             <li>{isGerman ? "Rechnung aus Deutschland (Kleinunternehmer, keine MwSt)" : "Invoice from Germany (small business, no VAT)"}</li>

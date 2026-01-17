@@ -77,6 +77,10 @@ export const hospitals = pgTable("hospitals", {
   runwayTargetDays: integer("runway_target_days").default(14), // Target stock runway in days
   runwayWarningDays: integer("runway_warning_days").default(7), // Warning threshold (critical below this)
   runwayLookbackDays: integer("runway_lookback_days").default(30), // Days to look back for usage calculation
+  // Billing add-on services
+  addonDispocura: boolean("addon_dispocura").default(false), // Dispocura integration for cost calculation (+1 CHF)
+  addonRetell: boolean("addon_retell").default(false), // Retell.ai phone booking system (+1 CHF)
+  addonMonitor: boolean("addon_monitor").default(false), // Camera monitor connection (+1 CHF)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
