@@ -4279,6 +4279,9 @@ export const billingInvoices = pgTable("billing_invoices", {
   dispocuraPrice: decimal("dispocura_price", { precision: 10, scale: 2 }).default("0"),
   retellPrice: decimal("retell_price", { precision: 10, scale: 2 }).default("0"),
   monitorPrice: decimal("monitor_price", { precision: 10, scale: 2 }).default("0"),
+  surgeryPrice: decimal("surgery_price", { precision: 10, scale: 2 }).default("0"), // Surgery module per-record
+  logisticsPrice: decimal("logistics_price", { precision: 10, scale: 2 }).default("0"), // Logistics flat monthly
+  clinicPrice: decimal("clinic_price", { precision: 10, scale: 2 }).default("0"), // Clinic flat monthly
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
   currency: varchar("currency").notNull().default("chf"),
   

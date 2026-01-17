@@ -168,6 +168,9 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
             dispocura: hospital.addonDispocura ?? false,
             retell: hospital.addonRetell ?? false,
             monitor: hospital.addonMonitor ?? false,
+            surgery: hospital.addonSurgery ?? false,
+            logistics: hospital.addonLogistics ?? false,
+            clinic: hospital.addonClinic ?? false,
           },
         });
         return;
@@ -216,12 +219,18 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
             dispocura: true,
             retell: true,
             monitor: true,
+            surgery: true,
+            logistics: true,
+            clinic: true,
           }
         : {
             questionnaire: hospital.addonQuestionnaire ?? false,
             dispocura: hospital.addonDispocura ?? false,
             retell: hospital.addonRetell ?? false,
             monitor: hospital.addonMonitor ?? false,
+            surgery: hospital.addonSurgery ?? false,
+            logistics: hospital.addonLogistics ?? false,
+            clinic: hospital.addonClinic ?? false,
           },
     });
   } catch (error) {
@@ -235,7 +244,7 @@ router.patch("/api/billing/:hospitalId/addons", isAuthenticated, requireAdminRol
     const { hospitalId } = req.params;
     const { addon, enabled } = req.body;
 
-    const validAddons = ["questionnaire", "dispocura", "retell", "monitor"];
+    const validAddons = ["questionnaire", "dispocura", "retell", "monitor", "surgery", "logistics", "clinic"];
     if (!validAddons.includes(addon)) {
       return res.status(400).json({ message: "Invalid addon type" });
     }
@@ -245,6 +254,9 @@ router.patch("/api/billing/:hospitalId/addons", isAuthenticated, requireAdminRol
       dispocura: { addonDispocura: enabled },
       retell: { addonRetell: enabled },
       monitor: { addonMonitor: enabled },
+      surgery: { addonSurgery: enabled },
+      logistics: { addonLogistics: enabled },
+      clinic: { addonClinic: enabled },
     };
 
     await db
@@ -1026,13 +1038,18 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
     
     // Calculate pricing
     const basePrice = parseFloat(hospital.pricePerRecord || '3.00');
+    // Per-record add-ons
     const questionnaireAddOn = hospital.addonQuestionnaire ? 0.50 : 0;
     const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
     const retellAddOn = hospital.addonRetell ? 1.00 : 0;
     const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
+    const surgeryAddOn = hospital.addonSurgery ? 0.50 : 0;
+    // Flat monthly add-ons
+    const logisticsAddOn = hospital.addonLogistics ? 5.00 : 0;
+    const clinicAddOn = hospital.addonClinic ? 10.00 : 0;
     
-    const pricePerRecord = basePrice + questionnaireAddOn + dispocuraAddOn + retellAddOn + monitorAddOn;
-    const totalAmount = recordCount * pricePerRecord;
+    const pricePerRecord = basePrice + questionnaireAddOn + dispocuraAddOn + retellAddOn + monitorAddOn + surgeryAddOn;
+    const totalAmount = (recordCount * pricePerRecord) + logisticsAddOn + clinicAddOn;
     
     // Create Stripe invoice
     const invoice = await stripe.invoices.create({
@@ -1103,6 +1120,40 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       });
     }
     
+    if (hospital.addonSurgery) {
+      await stripe.invoiceItems.create({
+        customer: hospital.stripeCustomerId,
+        invoice: invoice.id,
+        quantity: recordCount,
+        unit_amount: Math.round(surgeryAddOn * 100),
+        currency: 'chf',
+        description: 'Surgery Module Add-on',
+      });
+    }
+    
+    // Flat monthly add-ons (quantity: 1)
+    if (hospital.addonLogistics) {
+      await stripe.invoiceItems.create({
+        customer: hospital.stripeCustomerId,
+        invoice: invoice.id,
+        quantity: 1,
+        unit_amount: Math.round(logisticsAddOn * 100),
+        currency: 'chf',
+        description: 'Logistics & Order Management Module (Monthly)',
+      });
+    }
+    
+    if (hospital.addonClinic) {
+      await stripe.invoiceItems.create({
+        customer: hospital.stripeCustomerId,
+        invoice: invoice.id,
+        quantity: 1,
+        unit_amount: Math.round(clinicAddOn * 100),
+        currency: 'chf',
+        description: 'Clinic Module with Invoices & Appointments (Monthly)',
+      });
+    }
+    
     // Finalize and pay invoice
     const finalizedInvoice = await stripe.invoices.finalizeInvoice(invoice.id);
     
@@ -1117,6 +1168,9 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       dispocuraPrice: (recordCount * dispocuraAddOn).toFixed(2),
       retellPrice: (recordCount * retellAddOn).toFixed(2),
       monitorPrice: (recordCount * monitorAddOn).toFixed(2),
+      surgeryPrice: (recordCount * surgeryAddOn).toFixed(2),
+      logisticsPrice: logisticsAddOn.toFixed(2),
+      clinicPrice: clinicAddOn.toFixed(2),
       totalAmount: totalAmount.toFixed(2),
       currency: 'chf',
       stripeInvoiceId: finalizedInvoice.id,
