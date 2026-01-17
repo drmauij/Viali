@@ -4073,5 +4073,20 @@
     "confirmDeleteMessage": "Are you sure you want to delete this entry? This action cannot be undone.",
     "deleteSuccess": "Entry deleted successfully.",
     "deleteError": "Failed to delete entry."
+  },
+  "appointments": {
+    "bookingType": {
+      "title": "What would you like to book?",
+      "external": "External Booking",
+      "externalDesc": "Book appointment for a patient",
+      "internal": "Internal Booking",
+      "internalDesc": "Book time with a colleague",
+      "offTime": "Off-Time Slot",
+      "offTimeDesc": "Block this time as unavailable",
+      "surgery": "Quick Surgery",
+      "surgeryDesc": "Schedule OR time",
+      "orOnly": "OR Doctors only",
+      "continue": "Continue"
+    }
   }
 }

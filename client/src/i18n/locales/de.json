@@ -4096,5 +4096,20 @@
     "confirmDeleteMessage": "Sind Sie sicher, dass Sie diesen Eintrag löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
     "deleteSuccess": "Eintrag erfolgreich gelöscht.",
     "deleteError": "Eintrag konnte nicht gelöscht werden."
+  },
+  "appointments": {
+    "bookingType": {
+      "title": "Was möchten Sie buchen?",
+      "external": "Externe Buchung",
+      "externalDesc": "Termin für einen Patienten buchen",
+      "internal": "Interne Buchung",
+      "internalDesc": "Zeit mit einem Kollegen buchen",
+      "offTime": "Auszeit-Slot",
+      "offTimeDesc": "Diese Zeit als nicht verfügbar blockieren",
+      "surgery": "Schnelle OP",
+      "surgeryDesc": "OP-Zeit planen",
+      "orOnly": "Nur für OP-Ärzte",
+      "continue": "Weiter"
+    }
   }
 }
