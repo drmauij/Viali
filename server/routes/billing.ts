@@ -1091,7 +1091,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       customer: hospital.stripeCustomerId,
       invoice: invoice.id,
       quantity: recordCount,
-      unit_amount: Math.round(basePrice * 100),
+      unit_amount_decimal: String(Math.round(basePrice * 100)),
       currency: 'chf',
       description: 'Anesthesia Records (Base)',
     });
@@ -1101,7 +1101,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
         customer: hospital.stripeCustomerId,
         invoice: invoice.id,
         quantity: recordCount,
-        unit_amount: Math.round(questionnaireAddOn * 100),
+        unit_amount_decimal: String(Math.round(questionnaireAddOn * 100)),
         currency: 'chf',
         description: 'Online Questionnaires Add-on',
       });
@@ -1112,7 +1112,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
         customer: hospital.stripeCustomerId,
         invoice: invoice.id,
         quantity: recordCount,
-        unit_amount: Math.round(dispocuraAddOn * 100),
+        unit_amount_decimal: String(Math.round(dispocuraAddOn * 100)),
         currency: 'chf',
         description: 'Dispocura Integration Add-on',
       });
@@ -1123,7 +1123,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
         customer: hospital.stripeCustomerId,
         invoice: invoice.id,
         quantity: 1,
-        unit_amount: Math.round(retellAddOn * 100),
+        unit_amount_decimal: String(Math.round(retellAddOn * 100)),
         currency: 'chf',
         description: 'Retell.ai Phone Booking (Monthly)',
       });
@@ -1134,7 +1134,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
         customer: hospital.stripeCustomerId,
         invoice: invoice.id,
         quantity: recordCount,
-        unit_amount: Math.round(monitorAddOn * 100),
+        unit_amount_decimal: String(Math.round(monitorAddOn * 100)),
         currency: 'chf',
         description: 'Monitor Camera Connection Add-on',
       });
@@ -1145,19 +1145,30 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
         customer: hospital.stripeCustomerId,
         invoice: invoice.id,
         quantity: recordCount,
-        unit_amount: Math.round(surgeryAddOn * 100),
+        unit_amount_decimal: String(Math.round(surgeryAddOn * 100)),
         currency: 'chf',
         description: 'Surgery Module Add-on',
       });
     }
     
     // Flat monthly add-ons (quantity: 1)
+    if (hospital.addonWorktime) {
+      await stripe.invoiceItems.create({
+        customer: hospital.stripeCustomerId,
+        invoice: invoice.id,
+        quantity: 1,
+        unit_amount_decimal: String(Math.round(worktimeAddOn * 100)),
+        currency: 'chf',
+        description: 'Work Time Logs Module (Monthly)',
+      });
+    }
+    
     if (hospital.addonLogistics) {
       await stripe.invoiceItems.create({
         customer: hospital.stripeCustomerId,
         invoice: invoice.id,
         quantity: 1,
-        unit_amount: Math.round(logisticsAddOn * 100),
+        unit_amount_decimal: String(Math.round(logisticsAddOn * 100)),
         currency: 'chf',
         description: 'Logistics & Order Management Module (Monthly)',
       });
@@ -1168,7 +1179,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
         customer: hospital.stripeCustomerId,
         invoice: invoice.id,
         quantity: 1,
-        unit_amount: Math.round(clinicAddOn * 100),
+        unit_amount_decimal: String(Math.round(clinicAddOn * 100)),
         currency: 'chf',
         description: 'Clinic Module with Invoices & Appointments (Monthly)',
       });
