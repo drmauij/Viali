@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
@@ -175,6 +175,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const [showCardForm, setShowCardForm] = useState(false);
+  const [cardFormAutoShown, setCardFormAutoShown] = useState(false);
   const [showTermsDialog, setShowTermsDialog] = useState(false);
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -208,6 +209,13 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
       return res.json();
     },
   });
+
+  useEffect(() => {
+    if (billingStatus?.billingRequired && !billingStatus?.paymentMethod && !cardFormAutoShown) {
+      setShowCardForm(true);
+      setCardFormAutoShown(true);
+    }
+  }, [billingStatus, cardFormAutoShown]);
 
   const acceptTermsMutation = useMutation({
     mutationFn: async () => {
