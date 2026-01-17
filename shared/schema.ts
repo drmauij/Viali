@@ -78,11 +78,15 @@ export const hospitals = pgTable("hospitals", {
   runwayTargetDays: integer("runway_target_days").default(14), // Target stock runway in days
   runwayWarningDays: integer("runway_warning_days").default(7), // Warning threshold (critical below this)
   runwayLookbackDays: integer("runway_lookback_days").default(30), // Days to look back for usage calculation
-  // Billing add-on services
-  addonQuestionnaire: boolean("addon_questionnaire").default(true), // Patient questionnaires (+0.5 CHF)
-  addonDispocura: boolean("addon_dispocura").default(false), // Dispocura integration for cost calculation (+1 CHF)
-  addonRetell: boolean("addon_retell").default(false), // Retell.ai phone booking system (+1 CHF)
-  addonMonitor: boolean("addon_monitor").default(false), // Camera monitor connection (+1 CHF)
+  // Billing add-on services - per-record fees
+  addonQuestionnaire: boolean("addon_questionnaire").default(true), // Patient questionnaires (+0.5 CHF/record)
+  addonDispocura: boolean("addon_dispocura").default(false), // Dispocura integration for cost calculation (+1 CHF/record)
+  addonRetell: boolean("addon_retell").default(false), // Retell.ai phone booking system (+1 CHF/record)
+  addonMonitor: boolean("addon_monitor").default(false), // Camera monitor connection (+1 CHF/record)
+  addonSurgery: boolean("addon_surgery").default(false), // Surgery module (+0.5 CHF/record)
+  // Billing add-on services - flat monthly fees
+  addonLogistics: boolean("addon_logistics").default(false), // Centralized order management (+5 CHF/month)
+  addonClinic: boolean("addon_clinic").default(false), // Clinic module with invoices & appointments (+10 CHF/month)
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
