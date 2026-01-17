@@ -126,36 +126,27 @@ export function PostOpInfoCard({ postOpData, pacuBedName, pacuBedId, surgeryId, 
 
             {/* Right column - Post-operative information */}
             <div className="flex-1 space-y-4">
-              {/* Destination and Post-Op Notes on same row */}
+              {/* Destination and Post-Op Notes on same row - no separate titles */}
               {(postOpData?.postOpDestination || postOpData?.postOpNotes) && (
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
                   {/* Destination */}
                   {postOpData?.postOpDestination && (
-                    <div className="flex-shrink-0">
-                      <h4 className="text-sm font-medium mb-2">{t('anesthesia.op.destination')}</h4>
-                      <Badge className={
-                        postOpData.postOpDestination === 'pacu' ? 'bg-blue-500 text-white' :
-                        postOpData.postOpDestination === 'icu' ? 'bg-red-500 text-white' :
-                        postOpData.postOpDestination === 'ward' ? 'bg-green-500 text-white' :
-                        postOpData.postOpDestination === 'home' ? 'bg-gray-500 text-white' :
-                        'bg-gray-500 text-white'
-                      }>
-                        {postOpData.postOpDestination.toUpperCase()}
-                      </Badge>
-                    </div>
+                    <Badge className={
+                      postOpData.postOpDestination === 'pacu' ? 'bg-blue-500 text-white' :
+                      postOpData.postOpDestination === 'icu' ? 'bg-red-500 text-white' :
+                      postOpData.postOpDestination === 'ward' ? 'bg-green-500 text-white' :
+                      postOpData.postOpDestination === 'home' ? 'bg-gray-500 text-white' :
+                      'bg-gray-500 text-white'
+                    }>
+                      {postOpData.postOpDestination.toUpperCase()}
+                    </Badge>
                   )}
 
                   {/* Post-Op Notes */}
                   {postOpData?.postOpNotes && (
-                    <div className="flex-1">
-                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        {t('anesthesia.op.postOperativeNotes')}
-                      </h4>
-                      <p className="text-sm whitespace-pre-wrap bg-muted/30 p-3 rounded-md" data-testid="text-pacu-postop-notes">
-                        {postOpData.postOpNotes}
-                      </p>
-                    </div>
+                    <p className="flex-1 text-sm whitespace-pre-wrap bg-muted/30 p-3 rounded-md" data-testid="text-pacu-postop-notes">
+                      {postOpData.postOpNotes}
+                    </p>
                   )}
                 </div>
               )}
