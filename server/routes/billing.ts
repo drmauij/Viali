@@ -97,6 +97,50 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
     const pricePerRecord = hospital.pricePerRecord ? parseFloat(hospital.pricePerRecord) : 0;
     const estimatedCost = currentMonthRecords * pricePerRecord;
 
+    // Calculate trial status for "test" license type (15 day trial)
+    const TRIAL_DAYS = 15;
+    let trialInfo: {
+      trialEndsAt: string | null;
+      trialDaysRemaining: number | null;
+      trialExpired: boolean;
+    } = {
+      trialEndsAt: null,
+      trialDaysRemaining: null,
+      trialExpired: false,
+    };
+
+    if (hospital.licenseType === "test") {
+      const trialStartDate = hospital.trialStartDate ? new Date(hospital.trialStartDate) : now;
+      const trialEndsAt = new Date(trialStartDate);
+      trialEndsAt.setDate(trialEndsAt.getDate() + TRIAL_DAYS);
+      
+      const msRemaining = trialEndsAt.getTime() - now.getTime();
+      const daysRemaining = Math.max(0, Math.ceil(msRemaining / (1000 * 60 * 60 * 24)));
+      
+      trialInfo = {
+        trialEndsAt: trialEndsAt.toISOString(),
+        trialDaysRemaining: daysRemaining,
+        trialExpired: msRemaining <= 0,
+      };
+    }
+
+    // Determine if billing (payment method) is required
+    // - free: never required
+    // - test: required only after trial expires
+    // - basic: always required
+    const billingRequired = 
+      hospital.licenseType === "free" ? false :
+      hospital.licenseType === "test" ? (trialInfo.trialExpired && !hospital.stripePaymentMethodId) :
+      !hospital.stripePaymentMethodId;
+
+    // Determine addon access:
+    // - free: always full access
+    // - test (within trial): full access
+    // - test (expired) or basic: use database values
+    const hasFullAccess = 
+      hospital.licenseType === "free" || 
+      (hospital.licenseType === "test" && !trialInfo.trialExpired);
+
     res.json({
       licenseType: hospital.licenseType,
       hasPaymentMethod: !!hospital.stripePaymentMethodId,
@@ -112,9 +156,9 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
       pricePerRecord,
       currentMonthRecords,
       estimatedCost,
-      billingRequired: hospital.licenseType !== "free" && !hospital.stripePaymentMethodId,
-      // Free accounts get full access to all addons, otherwise use database values
-      addons: hospital.licenseType === "free" 
+      billingRequired,
+      ...trialInfo,
+      addons: hasFullAccess 
         ? {
             questionnaire: true,
             dispocura: true,
