@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut, Bed, HeartPulse, Plus, Check, Loader2, X } from "lucide-react";
+import { Search, BedDouble, Clock, ArrowRight, Activity, LogOut, Bed, HeartPulse, Plus, Check, Loader2, X, UserCircle, UserRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,7 +17,8 @@ type PacuPatient = {
   surgeryId: string;
   patientId: string;
   patientName: string;
-  patientNumber: string;
+  dateOfBirth: string | null;
+  sex: string | null;
   age: number;
   procedure: string;
   anesthesiaPresenceEndTime: number;
@@ -115,11 +116,20 @@ function PacuPatientCard({
           className="flex-1 cursor-pointer min-w-0"
           onClick={onNavigate}
         >
-          <h3 className="font-semibold text-lg truncate" data-testid={`text-patient-name-${patient.surgeryId}`}>
-            {patient.patientName}
-          </h3>
-          <p className="text-sm text-muted-foreground" data-testid={`text-mrn-${patient.surgeryId}`}>
-            {patient.patientNumber} • {t('anesthesia.pacu.age')} {patient.age}
+          <div className="flex items-center gap-2">
+            {patient.sex === "M" ? (
+              <UserCircle className="h-5 w-5 text-blue-500 flex-shrink-0" />
+            ) : patient.sex === "F" ? (
+              <UserRound className="h-5 w-5 text-pink-500 flex-shrink-0" />
+            ) : (
+              <UserCircle className="h-5 w-5 text-gray-400 flex-shrink-0" />
+            )}
+            <h3 className="font-semibold text-lg truncate" data-testid={`text-patient-name-${patient.surgeryId}`}>
+              {patient.patientName}
+            </h3>
+          </div>
+          <p className="text-sm text-muted-foreground" data-testid={`text-dob-${patient.surgeryId}`}>
+            {patient.dateOfBirth || ''} • {patient.age} {t('anesthesia.pacu.yearsOld', 'y/o')}
           </p>
           
           <div className="mt-2 space-y-1">
@@ -238,7 +248,7 @@ export default function Pacu() {
     (patient) =>
       patient.status === activeTab &&
       (patient.patientName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      patient.patientNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (patient.dateOfBirth && patient.dateOfBirth.includes(searchQuery)) ||
       patient.procedure.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 

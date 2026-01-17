@@ -3158,7 +3158,8 @@ export class DatabaseStorage implements IStorage {
     surgeryId: string;
     patientId: string;
     patientName: string;
-    patientNumber: string;
+    dateOfBirth: string | null;
+    sex: string | null;
     age: number;
     procedure: string;
     anesthesiaPresenceEndTime: number;
@@ -3248,7 +3249,8 @@ export class DatabaseStorage implements IStorage {
           surgeryId: row.surgery.id,
           patientId: row.patient.id,
           patientName: `${row.patient.firstName} ${row.patient.surname}`,
-          patientNumber: row.patient.patientNumber || '',
+          dateOfBirth: row.patient.birthday || null,
+          sex: row.patient.sex || null,
           age,
           procedure: row.surgery.plannedSurgery,
           anesthesiaPresenceEndTime: a2Time || x2Time || statusTimestamp,
