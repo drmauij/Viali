@@ -342,8 +342,8 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
       )}
 
       <Dialog open={showTermsDialog} onOpenChange={setShowTermsDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <FileSignature className="h-5 w-5" />
               {isGerman ? "Nutzungsbedingungen - Viali.app" : "Terms of Use - Viali.app"}
@@ -355,7 +355,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
             <TermsOfUseContent />
             
             <Separator />
@@ -423,7 +423,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
             </div>
           </div>
           
-          <DialogFooter>
+          <DialogFooter className="flex-shrink-0 pt-4 border-t">
             <Button variant="outline" onClick={() => setShowTermsDialog(false)}>
               {isGerman ? "Abbrechen" : "Cancel"}
             </Button>

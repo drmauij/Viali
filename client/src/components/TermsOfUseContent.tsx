@@ -1,13 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 export function TermsOfUseContent() {
   const { t, i18n } = useTranslation();
   const isGerman = i18n.language === "de";
 
   return (
-    <ScrollArea className="h-[400px] pr-4">
-      <div className="space-y-6 text-sm">
+    <div className="space-y-6 text-sm">
         <div>
           <h3 className="font-bold text-base mb-2">
             {isGerman ? "1. Anbieter" : "1. Provider"}
@@ -119,6 +117,5 @@ export function TermsOfUseContent() {
           </p>
         </div>
       </div>
-    </ScrollArea>
   );
 }
