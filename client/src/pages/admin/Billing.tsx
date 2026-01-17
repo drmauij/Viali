@@ -485,7 +485,10 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                     <div className="flex items-center gap-2">
                       <p className="font-medium">Dispocura</p>
                       <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Verfügbar (Galexis Partner-Konto erforderlich)" : "Available (requires Galexis Partner Account)"}
+                        {isGerman 
+                          ? <>Pro Protokoll, erfordert <a href="https://www.galexis.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Galexis</a> Kundenkonto</>
+                          : <>Per record, requires <a href="https://www.galexis.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Galexis</a> Customer account</>
+                        }
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
