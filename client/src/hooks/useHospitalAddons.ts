@@ -22,7 +22,7 @@ export function useHospitalAddons() {
   const hospitalId = activeHospital?.id;
 
   const { data, isLoading, error } = useQuery<AddonsResponse>({
-    queryKey: ["/api/billing", hospitalId, "status"],
+    queryKey: [`/api/billing/${hospitalId}/status`],
     enabled: !!hospitalId,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
