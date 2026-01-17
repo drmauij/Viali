@@ -18,7 +18,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { SurgeonChecklistTab } from "./SurgeonChecklistTab";
-import { PacuBedSelector } from "./PacuBedSelector";
 import type { SurgeryContext } from "@shared/checklistPlaceholders";
 import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
 
@@ -73,17 +72,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     return allSurgeryRooms.filter((room: any) => !room.type || room.type === 'OP');
   }, [allSurgeryRooms]);
   
-  // Get PACU beds for the bed selector
-  const pacuBeds = useMemo(() => {
-    return allSurgeryRooms.filter((room: any) => room.type === 'PACU');
-  }, [allSurgeryRooms]);
-  
-  // Get current PACU bed name
-  const currentPacuBed = useMemo(() => {
-    if (!surgery?.pacuBedId) return null;
-    return allSurgeryRooms.find((room: any) => room.id === surgery.pacuBedId);
-  }, [surgery?.pacuBedId, allSurgeryRooms]);
-
   // Fetch patient details
   const { data: patient } = useQuery<any>({
     queryKey: [`/api/patients/${surgery?.patientId}`],
@@ -497,22 +485,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   </SelectContent>
                 </Select>
               </div>
-
-              {/* PACU Bed Assignment - show when PACU beds are configured */}
-              {pacuBeds.length > 0 && surgery?.hospitalId && (
-                <div className="space-y-2">
-                  <Label>{t('pacu.pacuBed', 'PACU Bed')}</Label>
-                  <PacuBedSelector
-                    surgeryId={surgeryId}
-                    hospitalId={surgery.hospitalId}
-                    currentBedId={surgery?.pacuBedId}
-                    currentBedName={currentPacuBed?.name}
-                    variant="button"
-                    size="default"
-                    disabled={!canWrite}
-                  />
-                </div>
-              )}
 
               {/* Surgery Date */}
               <div className="space-y-2">
