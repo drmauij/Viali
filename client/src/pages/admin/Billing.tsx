@@ -514,7 +514,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                       <Badge variant="outline" className="text-xs">
                         {isGerman 
                           ? <>Pro Protokoll, erfordert <a href="https://www.galexis.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Galexis</a> Kundenkonto</>
-                          : <>Per record, requires <a href="https://www.galexis.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary"> Galexis </a> Customer account</>
+                          : <>Per record, requires{" "}<a href="https://www.galexis.com/" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Galexis</a>{" "}Customer account</>
                         }
                       </Badge>
                     </div>
