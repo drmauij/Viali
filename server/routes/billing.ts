@@ -1044,7 +1044,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
     const questionnaireAddOn = hospital.addonQuestionnaire ? 0.50 : 0;
     const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
     const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
-    const surgeryAddOn = hospital.addonSurgery ? 0.50 : 0;
+    const surgeryAddOn = hospital.addonSurgery ? 1.00 : 0;
     // Flat monthly add-ons
     const worktimeAddOn = hospital.addonWorktime ? 5.00 : 0;
     const logisticsAddOn = hospital.addonLogistics ? 5.00 : 0;
