@@ -57,7 +57,11 @@ export const hospitals = pgTable("hospitals", {
   timezone: varchar("timezone").default("UTC"),
   googleAuthEnabled: boolean("google_auth_enabled").default(true),
   localAuthEnabled: boolean("local_auth_enabled").default(true),
-  licenseType: varchar("license_type", { enum: ["free", "basic"] }).default("free").notNull(),
+  licenseType: varchar("license_type", { enum: ["free", "basic"] }).default("basic").notNull(),
+  // Stripe billing fields
+  stripeCustomerId: varchar("stripe_customer_id"),
+  stripePaymentMethodId: varchar("stripe_payment_method_id"),
+  pricePerRecord: decimal("price_per_record", { precision: 10, scale: 2 }), // Custom price per anesthesia record
   // Invoice company data
   companyName: varchar("company_name"),
   companyStreet: varchar("company_street"),

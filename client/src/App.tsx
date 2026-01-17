@@ -26,6 +26,7 @@ import Checklists from "@/pages/Checklists";
 import AdminHospital from "@/pages/admin/Hospital";
 import AdminUsers from "@/pages/admin/Users";
 import AdminCameraDevices from "@/pages/admin/CameraDevices";
+import AdminBilling from "@/pages/admin/Billing";
 import Signup from "@/pages/Signup";
 import ResetPassword from "@/pages/ResetPassword";
 import ChangePasswordDialog from "@/components/ChangePasswordDialog";
@@ -217,6 +218,7 @@ function Router() {
             <Route path="/admin">{() => <ProtectedRoute requireAdmin><AdminHospital /></ProtectedRoute>}</Route>
             <Route path="/admin/users">{() => <ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>}</Route>
             <Route path="/admin/cameras">{() => <ProtectedRoute requireAdmin><AdminCameraDevices /></ProtectedRoute>}</Route>
+            <Route path="/admin/billing">{() => <ProtectedRoute requireAdmin><AdminBilling /></ProtectedRoute>}</Route>
             {/* Business Module - requires business unit access */}
             <Route path="/business">{() => <ProtectedRoute requireBusiness><SimplifiedDashboard /></ProtectedRoute>}</Route>
             <Route path="/business/staff">{() => <ProtectedRoute requireBusiness><SimplifiedStaff /></ProtectedRoute>}</Route>

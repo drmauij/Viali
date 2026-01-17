@@ -10,6 +10,7 @@ import surgeonChecklistsRouter from "./surgeonChecklists";
 import chatRouter from "./chat";
 import questionnaireRouter from "./questionnaire";
 import camerasRouter from "./cameras";
+import billingRouter from "./billing";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -23,4 +24,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(chatRouter);
   app.use(questionnaireRouter);
   app.use(camerasRouter);
+  app.use(billingRouter);
 }

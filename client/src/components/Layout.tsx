@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import TopBar from "./TopBar";
 import BottomNav from "./BottomNav";
 import ModuleDrawer from "./ModuleDrawer";
+import { BillingLock } from "./BillingLock";
 
 interface Hospital {
   id: string;
@@ -143,7 +144,9 @@ export default function Layout({ children }: LayoutProps) {
         activeHospital={activeHospital}
         onHospitalChange={handleHospitalChange}
       />
-      {children}
+      <BillingLock>
+        {children}
+      </BillingLock>
       <BottomNav />
     </div>
   );
