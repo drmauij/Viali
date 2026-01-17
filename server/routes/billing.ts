@@ -1043,7 +1043,6 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
     // Per-record add-ons
     const questionnaireAddOn = hospital.addonQuestionnaire ? 0.50 : 0;
     const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
-    const retellAddOn = hospital.addonRetell ? 1.00 : 0;
     const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
     const surgeryAddOn = hospital.addonSurgery ? 0.50 : 0;
     // Flat monthly add-ons
@@ -1051,8 +1050,10 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
     const logisticsAddOn = hospital.addonLogistics ? 5.00 : 0;
     const clinicAddOn = hospital.addonClinic ? 10.00 : 0;
     
-    const pricePerRecord = basePrice + questionnaireAddOn + dispocuraAddOn + retellAddOn + monitorAddOn + surgeryAddOn;
-    const totalAmount = (recordCount * pricePerRecord) + worktimeAddOn + logisticsAddOn + clinicAddOn;
+    const pricePerRecord = basePrice + questionnaireAddOn + dispocuraAddOn + monitorAddOn + surgeryAddOn;
+    // Flat monthly add-on for Retell
+    const retellAddOn = hospital.addonRetell ? 15.00 : 0;
+    const totalAmount = (recordCount * pricePerRecord) + worktimeAddOn + logisticsAddOn + clinicAddOn + retellAddOn;
     
     // Create Stripe invoice
     const invoice = await stripe.invoices.create({
@@ -1105,10 +1106,10 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       await stripe.invoiceItems.create({
         customer: hospital.stripeCustomerId,
         invoice: invoice.id,
-        quantity: recordCount,
+        quantity: 1,
         unit_amount: Math.round(retellAddOn * 100),
         currency: 'chf',
-        description: 'Retell.ai Phone Booking Add-on',
+        description: 'Retell.ai Phone Booking (Monthly)',
       });
     }
     
@@ -1169,7 +1170,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       basePrice: (recordCount * basePrice).toFixed(2),
       questionnairePrice: (recordCount * questionnaireAddOn).toFixed(2),
       dispocuraPrice: (recordCount * dispocuraAddOn).toFixed(2),
-      retellPrice: (recordCount * retellAddOn).toFixed(2),
+      retellPrice: retellAddOn.toFixed(2),
       monitorPrice: (recordCount * monitorAddOn).toFixed(2),
       surgeryPrice: (recordCount * surgeryAddOn).toFixed(2),
       worktimePrice: worktimeAddOn.toFixed(2),

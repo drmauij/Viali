@@ -477,33 +477,6 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 </div>
               </div>
 
-              {/* Retell.ai Phone Booking */}
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Phone className="h-5 w-5 text-blue-600" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">Retell.ai</p>
-                      <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Verfügbar" : "Available"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Automatisches Telefon-Buchungssystem" : "Automatic phone booking system"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">+1.00 CHF</span>
-                  <Switch 
-                    checked={billingStatus.addons.retell}
-                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "retell", enabled: checked })}
-                    disabled={toggleAddon.isPending}
-                    data-testid="switch-addon-retell"
-                  />
-                </div>
-              </div>
-
               {/* Camera Monitor Connection */}
               <div className="flex items-center justify-between p-3 border rounded-lg opacity-75">
                 <div className="flex items-center gap-3">
@@ -639,6 +612,33 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   />
                 </div>
               </div>
+
+              {/* Retell.ai Phone Booking - Monthly */}
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Phone className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">Retell.ai</p>
+                      <Badge variant="outline" className="text-xs">
+                        {isGerman ? "Monatlich" : "Monthly"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isGerman ? "Automatisches Telefon-Buchungssystem" : "Automatic phone booking system"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">+15.00 CHF/Mt.</span>
+                  <Switch 
+                    checked={billingStatus.addons.retell}
+                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "retell", enabled: checked })}
+                    disabled={toggleAddon.isPending}
+                    data-testid="switch-addon-retell"
+                  />
+                </div>
+              </div>
             </div>
 
             <Separator />
@@ -653,21 +653,22 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   {(3 + 
                     (billingStatus.addons.questionnaire ? 0.5 : 0) +
                     (billingStatus.addons.dispocura ? 1 : 0) + 
-                    (billingStatus.addons.retell ? 1 : 0) + 
                     (billingStatus.addons.monitor ? 1 : 0) +
                     (billingStatus.addons.surgery ? 0.5 : 0)
                   ).toFixed(2)} CHF
                 </p>
               </div>
-              {(billingStatus.addons.logistics || billingStatus.addons.clinic) && (
+              {(billingStatus.addons.worktime || billingStatus.addons.logistics || billingStatus.addons.clinic || billingStatus.addons.retell) && (
                 <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <p className="font-medium text-muted-foreground">
                     {isGerman ? "Zusätzlich monatlich" : "Additional Monthly"}
                   </p>
                   <p className="text-lg font-semibold text-muted-foreground">
                     +{(
+                      (billingStatus.addons.worktime ? 5 : 0) +
                       (billingStatus.addons.logistics ? 5 : 0) +
-                      (billingStatus.addons.clinic ? 10 : 0)
+                      (billingStatus.addons.clinic ? 10 : 0) +
+                      (billingStatus.addons.retell ? 15 : 0)
                     ).toFixed(2)} CHF
                   </p>
                 </div>
