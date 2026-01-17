@@ -440,7 +440,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">+0.50 CHF</span>
+                  <span className="text-sm font-medium">+1.00 CHF</span>
                   <Switch 
                     checked={billingStatus.addons.questionnaire}
                     onCheckedChange={(checked) => toggleAddon.mutate({ addon: "questionnaire", enabled: checked })}
@@ -651,7 +651,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 </p>
                 <p className="text-xl font-bold text-primary">
                   {(3 + 
-                    (billingStatus.addons.questionnaire ? 0.5 : 0) +
+                    (billingStatus.addons.questionnaire ? 1 : 0) +
                     (billingStatus.addons.dispocura ? 1 : 0) + 
                     (billingStatus.addons.monitor ? 1 : 0) +
                     (billingStatus.addons.surgery ? 1 : 0)

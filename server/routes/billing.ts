@@ -1041,7 +1041,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
     // Calculate pricing
     const basePrice = parseFloat(hospital.pricePerRecord || '3.00');
     // Per-record add-ons
-    const questionnaireAddOn = hospital.addonQuestionnaire ? 0.50 : 0;
+    const questionnaireAddOn = hospital.addonQuestionnaire ? 1.00 : 0;
     const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
     const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
     const surgeryAddOn = hospital.addonSurgery ? 1.00 : 0;
