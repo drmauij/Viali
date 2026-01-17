@@ -272,6 +272,7 @@ router.patch("/api/billing/:hospitalId/addons", isAuthenticated, requireAdminRol
       retell: { addonRetell: enabled },
       monitor: { addonMonitor: enabled },
       surgery: { addonSurgery: enabled },
+      worktime: { addonWorktime: enabled },
       logistics: { addonLogistics: enabled },
       clinic: { addonClinic: enabled },
     };
