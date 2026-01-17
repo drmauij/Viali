@@ -474,6 +474,12 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 ).toFixed(2)} CHF
               </p>
             </div>
+            
+            <p className="text-xs text-muted-foreground text-center">
+              {isGerman 
+                ? "Alle Preise verstehen sich netto. MwSt. kann bei der Zahlung anfallen."
+                : "All prices are net. VAT may apply on payment."}
+            </p>
           </CardContent>
         </Card>
       )}
