@@ -98,6 +98,7 @@ export default function Users() {
     password: "",
     firstName: "",
     lastName: "",
+    phone: "",
     unitId: "",
     role: "",
   });
@@ -132,6 +133,7 @@ export default function Users() {
   const [staffMemberForm, setStaffMemberForm] = useState({
     firstName: "",
     lastName: "",
+    phone: "",
     unitId: "",
     role: "",
   });
@@ -277,7 +279,7 @@ export default function Users() {
   });
 
   const updateUserDetailsMutation = useMutation({
-    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string } }) => {
+    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string; phone?: string } }) => {
       const response = await apiRequest("PATCH", `/api/admin/users/${userId}/details`, { 
         ...data,
         hospitalId: activeHospital?.id 
@@ -433,7 +435,7 @@ export default function Users() {
 
   // Create staff member mutation (auto-generated credentials, no login access)
   const createStaffMemberMutation = useMutation({
-    mutationFn: async (data: { firstName: string; lastName: string; unitId: string; role: string }) => {
+    mutationFn: async (data: { firstName: string; lastName: string; phone?: string; unitId: string; role: string }) => {
       const dummyEmail = `staff_${crypto.randomUUID()}@internal.local`;
       const dummyPassword = generateSecurePassword(16);
       
@@ -442,6 +444,7 @@ export default function Users() {
         password: dummyPassword,
         firstName: data.firstName,
         lastName: data.lastName,
+        phone: data.phone || undefined,
         unitId: data.unitId,
         role: data.role,
         canLogin: false,
@@ -455,7 +458,7 @@ export default function Users() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
       setStaffMemberDialogOpen(false);
-      setStaffMemberForm({ firstName: "", lastName: "", unitId: "", role: "" });
+      setStaffMemberForm({ firstName: "", lastName: "", phone: "", unitId: "", role: "" });
       toast({ title: t("common.success"), description: t("admin.staffMemberCreated") });
     },
     onError: (error: any) => {
@@ -485,7 +488,7 @@ export default function Users() {
   });
 
   const resetUserForm = () => {
-    setUserForm({ email: "", password: "", firstName: "", lastName: "", unitId: "", role: "" });
+    setUserForm({ email: "", password: "", firstName: "", lastName: "", phone: "", unitId: "", role: "" });
     setDetectedExistingUser(null);
     setDetectedUserAlreadyInHospital(false);
     setIsCheckingEmail(false);
@@ -534,7 +537,7 @@ export default function Users() {
   };
 
   const handleCreateStaffMember = () => {
-    setStaffMemberForm({ firstName: "", lastName: "", unitId: "", role: "" });
+    setStaffMemberForm({ firstName: "", lastName: "", phone: "", unitId: "", role: "" });
     setStaffMemberDialogOpen(true);
   };
 
@@ -577,6 +580,7 @@ export default function Users() {
       ...userForm,
       firstName: user.user.firstName || "",
       lastName: user.user.lastName || "",
+      phone: user.user.phone || "",
     });
     setRoleLocationPairs(userPairs);
     setNewPair({ role: "", unitId: "" });
@@ -674,6 +678,7 @@ export default function Users() {
         data: {
           firstName: userForm.firstName,
           lastName: userForm.lastName,
+          phone: userForm.phone || undefined,
         }
       });
     } catch (error) {
@@ -1076,6 +1081,18 @@ export default function Users() {
               </div>
             </div>
             <div>
+              <Label htmlFor="user-phone">{t("admin.phone")}</Label>
+              <Input
+                id="user-phone"
+                type="tel"
+                value={detectedExistingUser ? detectedExistingUser.phone || "" : userForm.phone}
+                onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                placeholder={t("admin.phonePlaceholder")}
+                data-testid="input-user-phone"
+                disabled={!!detectedExistingUser}
+              />
+            </div>
+            <div>
               <Label htmlFor="user-units">{t("admin.units")} *</Label>
               <Select
                 value={userForm.unitId}
@@ -1171,6 +1188,17 @@ export default function Users() {
                   data-testid="input-staff-last-name"
                 />
               </div>
+            </div>
+            <div>
+              <Label htmlFor="staff-phone">{t("admin.phone")}</Label>
+              <Input
+                id="staff-phone"
+                type="tel"
+                value={staffMemberForm.phone}
+                onChange={(e) => setStaffMemberForm({ ...staffMemberForm, phone: e.target.value })}
+                placeholder={t("admin.phonePlaceholder")}
+                data-testid="input-staff-phone"
+              />
             </div>
             <div>
               <Label htmlFor="staff-units">{t("admin.units")} *</Label>
@@ -1286,6 +1314,19 @@ export default function Users() {
                     data-testid="input-edit-last-name"
                   />
                 </div>
+              </div>
+              
+              {/* Phone field */}
+              <div>
+                <Label htmlFor="edit-phone">{t("admin.phone")}</Label>
+                <Input
+                  id="edit-phone"
+                  type="tel"
+                  value={userForm.phone}
+                  onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                  placeholder={t("admin.phonePlaceholder")}
+                  data-testid="input-edit-phone"
+                />
               </div>
 
               {/* Change Password Button */}

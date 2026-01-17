@@ -539,7 +539,7 @@ router.post('/api/admin/:hospitalId/users/add-existing', isAuthenticated, isAdmi
 router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    const { email, password, firstName, lastName, unitId, role, canLogin } = req.body;
+    const { email, password, firstName, lastName, phone, unitId, role, canLogin } = req.body;
     
     if (!email || !password || !firstName || !lastName || !unitId || !role) {
       return res.status(400).json({ message: "All fields are required" });
@@ -610,10 +610,13 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
 
     const newUser = await storage.createUserWithPassword(email, password, firstName, lastName);
 
-    // Set canLogin if provided (for staff member creation - canLogin: false means staff-only)
+    // Set canLogin and phone if provided (for staff member creation - canLogin: false means staff-only)
     const updateData: any = { mustChangePassword: true };
     if (canLogin !== undefined) {
       updateData.canLogin = canLogin;
+    }
+    if (phone) {
+      updateData.phone = phone;
     }
     await db.update(users).set(updateData).where(eq(users.id, newUser.id));
 
@@ -666,7 +669,7 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
 router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { userId } = req.params;
-    const { firstName, lastName, hospitalId } = req.body;
+    const { firstName, lastName, phone, hospitalId } = req.body;
     
     if (!firstName || !lastName) {
       return res.status(400).json({ message: "First name and last name are required" });
@@ -694,7 +697,11 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
       return res.status(403).json({ message: "User does not belong to this hospital" });
     }
 
-    await storage.updateUser(userId, { firstName, lastName });
+    const updateData: any = { firstName, lastName };
+    if (phone !== undefined) {
+      updateData.phone = phone || null;
+    }
+    await storage.updateUser(userId, updateData);
     res.json({ success: true });
   } catch (error) {
     console.error("Error updating user details:", error);

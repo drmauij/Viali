@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useState, useEffect, useMemo } from "react";
-import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo } from "lucide-react";
+import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo, UserPlus } from "lucide-react";
 import { useCreateTodo } from "@/hooks/useCreateTodo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { format } from "date-fns";
@@ -49,6 +49,12 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [implantDetails, setImplantDetails] = useState("");
   const [planningStatus, setPlanningStatus] = useState<"pre-registered" | "confirmed">("pre-registered");
   const [noPreOpRequired, setNoPreOpRequired] = useState(false);
+  
+  // New surgeon form state
+  const [showNewSurgeonForm, setShowNewSurgeonForm] = useState(false);
+  const [newSurgeonFirstName, setNewSurgeonFirstName] = useState("");
+  const [newSurgeonLastName, setNewSurgeonLastName] = useState("");
+  const [newSurgeonPhone, setNewSurgeonPhone] = useState("");
 
   // Fetch surgery details
   const { data: surgery, isLoading } = useQuery<any>({
@@ -95,6 +101,74 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     },
     enabled: !!surgery?.hospitalId,
   });
+
+  // Fetch units to find the surgery unit for creating new surgeons
+  const { data: units = [] } = useQuery<Array<{id: string; name: string; isSurgeryModule: boolean}>>({
+    queryKey: [`/api/admin/${surgery?.hospitalId}/units`],
+    enabled: !!surgery?.hospitalId && showNewSurgeonForm,
+  });
+
+  const surgeryUnit = units.find(u => u.isSurgeryModule);
+
+  // Create surgeon mutation (creates as staff member with doctor role in surgery unit)
+  const createSurgeonMutation = useMutation({
+    mutationFn: async (data: { firstName: string; lastName: string; phone?: string }) => {
+      if (!surgeryUnit || !surgery?.hospitalId) {
+        throw new Error("No surgery unit found");
+      }
+      const dummyEmail = `surgeon_${crypto.randomUUID()}@internal.local`;
+      const dummyPassword = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+        .map(b => b.toString(16).padStart(2, '0')).join('');
+      
+      const response = await apiRequest("POST", `/api/admin/${surgery.hospitalId}/users/create`, {
+        email: dummyEmail,
+        password: dummyPassword,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone || undefined,
+        unitId: surgeryUnit.id,
+        role: "doctor",
+        canLogin: false,
+      });
+      return response.json();
+    },
+    onSuccess: (newSurgeon) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/surgeons`, surgery?.hospitalId] });
+      setSurgeonId(newSurgeon.id);
+      setShowNewSurgeonForm(false);
+      setNewSurgeonFirstName("");
+      setNewSurgeonLastName("");
+      setNewSurgeonPhone("");
+      toast({
+        title: t('anesthesia.quickSchedule.surgeonCreated', 'Surgeon created'),
+        description: t('anesthesia.quickSchedule.surgeonCreatedDescription', 'New surgeon has been added'),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('anesthesia.quickSchedule.creationFailed', 'Creation failed'),
+        description: t('anesthesia.quickSchedule.surgeonCreationFailedDescription', 'Failed to create surgeon'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleCreateSurgeon = () => {
+    if (!newSurgeonFirstName.trim() || !newSurgeonLastName.trim()) {
+      toast({
+        title: t('anesthesia.quickSchedule.missingInformation', 'Missing information'),
+        description: t('anesthesia.quickSchedule.missingSurgeonFields', 'First name and last name are required'),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    createSurgeonMutation.mutate({
+      firstName: newSurgeonFirstName.trim(),
+      lastName: newSurgeonLastName.trim(),
+      phone: newSurgeonPhone.trim() || undefined,
+    });
+  };
 
   // Fetch case notes
   const { data: caseNotes = [], isLoading: isNotesLoading } = useQuery<any[]>({
@@ -522,23 +596,94 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
               {/* Surgeon */}
               <div className="space-y-2">
                 <Label htmlFor="edit-surgeon">{t('anesthesia.editSurgery.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.surgeonOptional')})</span></Label>
-                <Select 
-                  value={surgeonId || "none"} 
-                  onValueChange={(value) => setSurgeonId(value === "none" ? "" : value)}
-                  disabled={!canWrite}
-                >
-                  <SelectTrigger id="edit-surgeon" data-testid="select-edit-surgeon">
-                    <SelectValue placeholder="Select surgeon (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">{t('anesthesia.editSurgery.noSurgeonSelected')}</SelectItem>
-                    {surgeons.map((s: any) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {!showNewSurgeonForm ? (
+                  <div className="flex gap-2">
+                    <Select 
+                      value={surgeonId || "none"} 
+                      onValueChange={(value) => setSurgeonId(value === "none" ? "" : value)}
+                      disabled={!canWrite}
+                    >
+                      <SelectTrigger id="edit-surgeon" data-testid="select-edit-surgeon" className="flex-1">
+                        <SelectValue placeholder="Select surgeon (optional)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{t('anesthesia.editSurgery.noSurgeonSelected')}</SelectItem>
+                        {surgeons.map((s: any) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {canWrite && (
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setShowNewSurgeonForm(true)}
+                        data-testid="button-show-new-surgeon-edit"
+                      >
+                        <UserPlus className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="border rounded-md p-4 space-y-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-medium">{t('anesthesia.quickSchedule.newSurgeon', 'New Surgeon')}</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowNewSurgeonForm(false)}
+                        data-testid="button-cancel-new-surgeon-edit"
+                      >
+                        {t('common.cancel')}
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label htmlFor="new-surgeon-firstname-edit">{t('anesthesia.quickSchedule.firstName')} *</Label>
+                        <Input
+                          id="new-surgeon-firstname-edit"
+                          value={newSurgeonFirstName}
+                          onChange={(e) => setNewSurgeonFirstName(e.target.value)}
+                          data-testid="input-new-surgeon-firstname-edit"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="new-surgeon-lastname-edit">{t('anesthesia.quickSchedule.surname')} *</Label>
+                        <Input
+                          id="new-surgeon-lastname-edit"
+                          value={newSurgeonLastName}
+                          onChange={(e) => setNewSurgeonLastName(e.target.value)}
+                          data-testid="input-new-surgeon-lastname-edit"
+                        />
+                      </div>
+                      <div className="space-y-1 col-span-2">
+                        <Label htmlFor="new-surgeon-phone-edit">{t('anesthesia.quickSchedule.phone')}</Label>
+                        <Input
+                          id="new-surgeon-phone-edit"
+                          type="tel"
+                          placeholder={t('anesthesia.quickSchedule.phonePlaceholder')}
+                          value={newSurgeonPhone}
+                          onChange={(e) => setNewSurgeonPhone(e.target.value)}
+                          data-testid="input-new-surgeon-phone-edit"
+                        />
+                      </div>
+                    </div>
+                    <Button
+                      onClick={handleCreateSurgeon}
+                      disabled={createSurgeonMutation.isPending || !surgeryUnit}
+                      className="w-full"
+                      data-testid="button-create-surgeon-edit"
+                    >
+                      {createSurgeonMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {t('anesthesia.quickSchedule.createSurgeon', 'Create Surgeon')}
+                    </Button>
+                    {!surgeryUnit && units.length > 0 && (
+                      <p className="text-xs text-destructive">{t('anesthesia.quickSchedule.noSurgeryUnit', 'No surgery unit found. Please configure a surgery module first.')}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Planning Status - Hidden for now

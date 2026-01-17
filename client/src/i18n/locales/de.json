@@ -959,6 +959,8 @@
     "firstNamePlaceholder": "Max",
     "lastName": "Nachname",
     "lastNamePlaceholder": "Mustermann",
+    "phone": "Telefon",
+    "phonePlaceholder": "+41 79 123 45 67",
     "nameRequired": "Vorname und Nachname sind erforderlich",
     "location": "Einheit",
     "selectLocation": "Einheit auswählen",
@@ -2764,7 +2766,14 @@
       "missingPatientFields": "Bitte füllen Sie alle erforderlichen Patientenfelder aus.",
       "missingFields": "Bitte wählen Sie einen Patienten und OP-Saal aus und geben Sie Details zur OP ein.",
       "invalidDuration": "Ungültige Dauer",
-      "invalidDurationDescription": "Die Dauer muss größer als 0 Minuten sein."
+      "invalidDurationDescription": "Die Dauer muss größer als 0 Minuten sein.",
+      "newSurgeon": "Neuer Chirurg",
+      "createSurgeon": "Chirurg erstellen",
+      "missingSurgeonFields": "Bitte geben Sie Vor- und Nachnamen des Chirurgen ein.",
+      "surgeonCreated": "Chirurg erstellt",
+      "surgeonCreatedDescription": "Neuer Chirurg wurde erfolgreich hinzugefügt.",
+      "surgeonCreationFailed": "Chirurg konnte nicht erstellt werden",
+      "noSurgeryUnit": "Kein OP-Modul gefunden. Bitte konfigurieren Sie zuerst ein OP-Modul."
     },
     "excelImport": {
       "title": "Aus Excel importieren",

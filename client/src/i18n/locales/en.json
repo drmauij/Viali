@@ -945,6 +945,8 @@
     "firstNamePlaceholder": "John",
     "lastName": "Last Name",
     "lastNamePlaceholder": "Doe",
+    "phone": "Phone",
+    "phonePlaceholder": "+1 234 567 8900",
     "nameRequired": "First name and last name are required",
     "location": "Unit",
     "selectLocation": "Select unit",
@@ -2750,7 +2752,14 @@
       "missingPatientFields": "Please fill in all required patient fields.",
       "missingFields": "Please select a patient, room, and enter surgery details.",
       "invalidDuration": "Invalid Duration",
-      "invalidDurationDescription": "Duration must be greater than 0 minutes."
+      "invalidDurationDescription": "Duration must be greater than 0 minutes.",
+      "newSurgeon": "New Surgeon",
+      "createSurgeon": "Create Surgeon",
+      "missingSurgeonFields": "Please enter first name and surname for the surgeon.",
+      "surgeonCreated": "Surgeon Created",
+      "surgeonCreatedDescription": "New surgeon has been added successfully.",
+      "surgeonCreationFailed": "Surgeon Creation Failed",
+      "noSurgeryUnit": "No surgery unit found. Please configure a surgery module first."
     },
     "excelImport": {
       "title": "Import from Excel",
