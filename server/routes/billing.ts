@@ -644,8 +644,9 @@ router.get("/api/billing/:hospitalId/terms-status", isAuthenticated, async (req:
 router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdminRoleCheck, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const { signatureImage, signerName } = req.body;
+    const { signatureImage, signerName, language } = req.body;
     const userId = req.user.id;
+    const isGerman = language === "de";
 
     if (!signatureImage || !signerName) {
       return res.status(400).json({ message: "Signature and signer name are required" });
@@ -680,12 +681,21 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
     // Generate PDF with terms and signature
     const pdf = new jsPDF();
     const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
     let y = 20;
+    
+    // Helper function to check if we need a new page
+    const checkNewPage = (neededSpace: number) => {
+      if (y + neededSpace > pageHeight - 20) {
+        pdf.addPage();
+        y = 20;
+      }
+    };
     
     // Title
     pdf.setFontSize(18);
     pdf.setFont("helvetica", "bold");
-    pdf.text("Terms of Use - Viali.app", pageWidth / 2, y, { align: "center" });
+    pdf.text(isGerman ? "Nutzungsbedingungen - Viali.app" : "Terms of Use - Viali.app", pageWidth / 2, y, { align: "center" });
     y += 15;
     
     pdf.setFontSize(10);
@@ -693,99 +703,105 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
     pdf.text(`Version: ${CURRENT_TERMS_VERSION}`, pageWidth / 2, y, { align: "center" });
     y += 15;
     
-    // Provider section
+    // 1. Provider section
+    checkNewPage(30);
     pdf.setFontSize(12);
     pdf.setFont("helvetica", "bold");
-    pdf.text("1. Provider", 15, y);
+    pdf.text(isGerman ? "1. Anbieter" : "1. Provider", 15, y);
     y += 7;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    pdf.text("Acutiq, owned by Maurizio Betti", 15, y); y += 5;
+    pdf.text(`Acutiq, ${isGerman ? "Inhaber" : "owned by"} Maurizio Betti`, 15, y); y += 5;
     pdf.text("Bruder-Klaus-Str 18, 78467 Konstanz, Germany", 15, y); y += 5;
     pdf.text("Service: https://use.viali.app", 15, y); y += 10;
     
-    // Service & Pricing section
+    // 2. Services section
+    checkNewPage(40);
     pdf.setFontSize(12);
     pdf.setFont("helvetica", "bold");
-    pdf.text("2. Service & Pricing", 15, y);
+    pdf.text(isGerman ? "2. Leistungen" : "2. Services", 15, y);
     y += 7;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    pdf.text("Basic Package: 3.00 CHF per anesthesia record", 15, y); y += 5;
-    pdf.text("  - Digital anesthesia protocols (Pre-OP, OP, PACU)", 15, y); y += 5;
-    pdf.text("  - Inventory management (medications, materials, controlled substances)", 15, y); y += 5;
-    pdf.text("  - Cloud hosting (Exoscale, Switzerland), backups, updates, support", 15, y); y += 7;
-    pdf.text("Premium Package: 4.00 CHF per record (when available)", 15, y); y += 5;
-    pdf.text("  - All basic features plus automatic vital parameter data transfer via camera", 15, y); y += 5;
-    pdf.text("  - Camera hardware: ~100 CHF per monitor", 15, y); y += 5;
-    pdf.text("  - Installation & setup: ~2-4h at 300 CHF/room", 15, y); y += 7;
-    pdf.text("Custom Development: 300 CHF/hour (integrations, clinic-specific features)", 15, y); y += 12;
+    pdf.text(isGerman ? "  - Digitale Anästhesie-Protokolle (Pre-OP, OP, PACU)" : "  - Digital anesthesia protocols (Pre-OP, OP, PACU)", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Bestandsverwaltungssystem (Medikamente, Material, BTM)" : "  - Inventory management (medications, materials, controlled substances)", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Cloud-Hosting inklusive (Exoscale Shared Server, Schweiz)" : "  - Cloud hosting included (Exoscale Shared Server, Switzerland)", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Backups & Updates" : "  - Backups & updates", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Optionale Zusatzmodule (siehe Preisübersicht im Abrechnungsbereich)" : "  - Optional add-on modules (see pricing overview in billing section)", 15, y); y += 10;
     
-    // Billing section
+    // 3. Billing section
+    checkNewPage(45);
     pdf.setFontSize(12);
     pdf.setFont("helvetica", "bold");
-    pdf.text("3. Billing & Payment", 15, y);
+    pdf.text(isGerman ? "3. Abrechnung & Zahlung" : "3. Billing & Payment", 15, y);
     y += 7;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    pdf.text("  - Monthly billing based on actual usage", 15, y); y += 5;
-    pdf.text("  - Credit card payment (in-app), invoice from Germany (no VAT)", 15, y); y += 5;
-    pdf.text("  - Monthly cancellation possible", 15, y); y += 5;
-    pdf.text("  - Price changes with 3 months notice", 15, y); y += 12;
+    pdf.text(isGerman ? "  - Aktuelle Preise werden im Abrechnungsbereich angezeigt" : "  - Current pricing is displayed in the billing section", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Monatliche Abrechnung nach tatsächlicher Nutzung" : "  - Monthly billing based on actual usage", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Zahlung per Kreditkarte (in-app)" : "  - Credit card payment (in-app)", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Alle Preise verstehen sich netto. MwSt. kann je nach Standort anfallen" : "  - All prices are net. VAT may apply depending on location", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Monatlich kündbar" : "  - Monthly cancellation possible", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Preisänderungen mit 3 Monaten Ankündigungsfrist" : "  - Price changes with 3 months notice", 15, y); y += 10;
     
-    // Data section
+    // 4. Data section
+    checkNewPage(30);
     pdf.setFontSize(12);
     pdf.setFont("helvetica", "bold");
-    pdf.text("4. Data Ownership & Privacy", 15, y);
+    pdf.text(isGerman ? "4. Dateneigentum & Datenschutz" : "4. Data Ownership & Privacy", 15, y);
     y += 7;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    pdf.text("  - Patient data remains exclusive property of the clinic", 15, y); y += 5;
-    pdf.text("  - Subject to Swiss GDPR legislation", 15, y); y += 5;
-    pdf.text("  - Hosted on Exoscale servers (Switzerland)", 15, y); y += 12;
+    pdf.text(isGerman ? "  - Patientendaten bleiben ausschließliches Eigentum der Klinik" : "  - Patient data remains exclusive property of the clinic", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Unterliegt der Schweizer DSGVO-Gesetzgebung" : "  - Subject to Swiss GDPR legislation", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Gehostet auf Exoscale-Servern (Schweiz)" : "  - Hosted on Exoscale servers (Switzerland)", 15, y); y += 10;
     
-    // Liability section
+    // 5. Liability section
+    checkNewPage(35);
     pdf.setFontSize(12);
     pdf.setFont("helvetica", "bold");
-    pdf.text("5. Security & Limitation of Liability", 15, y);
+    pdf.text(isGerman ? "5. Sicherheit & Haftungsbeschränkung" : "5. Security & Limitation of Liability", 15, y);
     y += 7;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    pdf.text("  - Provider implements reasonable security measures and regular backups", 15, y); y += 5;
-    pdf.text("  - No liability for data loss, breaches, or damages from software bugs", 15, y); y += 5;
-    pdf.text("    or improper use of accounts", 15, y); y += 5;
-    pdf.text("  - Maximum liability limited to fees paid in prior 12 months", 15, y); y += 12;
+    pdf.text(isGerman ? "  - Anbieter implementiert angemessene Sicherheitsmaßnahmen und regelmäßige Backups" : "  - Provider implements reasonable security measures and regular backups", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Keine Haftung für Datenverlust, Sicherheitsverletzungen oder Schäden" : "  - No liability for data loss, breaches, or damages from software bugs", 15, y); y += 5;
+    pdf.text(isGerman ? "    durch Software-Fehler oder unsachgemäße Kontonutzung" : "    or improper account use", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Maximale Haftung begrenzt auf die in den letzten 12 Monaten gezahlten Gebühren" : "  - Maximum liability limited to fees paid in prior 12 months", 15, y); y += 10;
     
-    // Support section
+    // 6. Support section
+    checkNewPage(25);
     pdf.setFontSize(12);
     pdf.setFont("helvetica", "bold");
     pdf.text("6. Support", 15, y);
     y += 7;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    pdf.text("  - Critical events: 2h initial response", 15, y); y += 5;
-    pdf.text("  - Mon-Fri 8-18 CET via in-app/email", 15, y); y += 12;
+    pdf.text(isGerman ? "  - Kritische Events: 2h erste Reaktion" : "  - Critical events: 2h initial response", 15, y); y += 5;
+    pdf.text(isGerman ? "  - Mo-Fr 8-18 Uhr CET via In-App/E-Mail" : "  - Mon-Fri 8-18 CET via in-app/email", 15, y); y += 10;
     
-    // Jurisdiction section
+    // 7. Jurisdiction section
+    checkNewPage(20);
     pdf.setFontSize(12);
     pdf.setFont("helvetica", "bold");
-    pdf.text("7. Jurisdiction", 15, y);
+    pdf.text(isGerman ? "7. Gerichtsstand" : "7. Jurisdiction", 15, y);
     y += 7;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    pdf.text("  - All disputes handled by courts in Konstanz, Germany", 15, y); y += 15;
+    pdf.text(isGerman ? "  - Für alle Streitigkeiten sind die Gerichte in Konstanz, Deutschland zuständig" : "  - All disputes are handled by the courts in Konstanz, Germany", 15, y); y += 15;
     
-    // Signature section
+    // Signature section - ensure enough space on current page or start new page
+    checkNewPage(70);
     pdf.setFontSize(12);
     pdf.setFont("helvetica", "bold");
-    pdf.text("Acceptance", 15, y);
+    pdf.text(isGerman ? "Akzeptanz" : "Acceptance", 15, y);
     y += 10;
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
-    pdf.text(`Clinic: ${hospital.name}`, 15, y); y += 6;
-    pdf.text(`Signed by: ${signerName}`, 15, y); y += 6;
-    pdf.text(`Email: ${user.email || "N/A"}`, 15, y); y += 6;
-    pdf.text(`Date: ${signedAt.toLocaleDateString("de-DE")} ${signedAt.toLocaleTimeString("de-DE")}`, 15, y); y += 10;
+    pdf.text(`${isGerman ? "Klinik" : "Clinic"}: ${hospital.name}`, 15, y); y += 6;
+    pdf.text(`${isGerman ? "Unterzeichnet von" : "Signed by"}: ${signerName}`, 15, y); y += 6;
+    pdf.text(`E-Mail: ${user.email || "N/A"}`, 15, y); y += 6;
+    pdf.text(`${isGerman ? "Datum" : "Date"}: ${signedAt.toLocaleDateString(isGerman ? "de-DE" : "en-US")} ${signedAt.toLocaleTimeString(isGerman ? "de-DE" : "en-US")}`, 15, y); y += 10;
     
     // Add signature image
     try {
@@ -796,7 +812,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
     }
     
     pdf.text("_________________________________", 15, y); y += 5;
-    pdf.text("Clinic Representative Signature", 15, y); y += 15;
+    pdf.text(isGerman ? "Unterschrift Klinikvertreter" : "Clinic Representative Signature", 15, y); y += 15;
     
     // Countersignature placeholder
     pdf.text("Countersignature (Acutiq):", 15, y); y += 10;

@@ -234,6 +234,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
       const res = await apiRequest("POST", `/api/billing/${hospitalId}/accept-terms`, {
         signatureImage,
         signerName,
+        language: i18n.language,
       });
       return res.json();
     },
