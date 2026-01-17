@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { MapPin, FileText, AlertTriangle, Pill, Stethoscope, Check, Bed, Plus } from "lucide-react";
+import { Info, FileText, AlertTriangle, Pill, Stethoscope, Check, Bed, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { PacuBedSelector } from "./PacuBedSelector";
 
@@ -109,7 +109,7 @@ export function PostOpInfoCard({ postOpData, pacuBedName, pacuBedId, surgeryId, 
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5" />
+            <Info className="h-5 w-5" />
             {t('anesthesia.op.postOperativeInformation')}
           </CardTitle>
         </CardHeader>
@@ -128,7 +128,7 @@ export function PostOpInfoCard({ postOpData, pacuBedName, pacuBedId, surgeryId, 
             <div className="flex-1 space-y-4">
               {/* Destination and Post-Op Notes on same row - no separate titles */}
               {(postOpData?.postOpDestination || postOpData?.postOpNotes) && (
-                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
                   {/* Destination */}
                   {postOpData?.postOpDestination && (
                     <Badge className={
