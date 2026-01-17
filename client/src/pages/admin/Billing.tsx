@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -28,7 +29,11 @@ import {
   Trash2,
   Download,
   FileSignature,
-  Pen
+  Pen,
+  Calculator,
+  Phone,
+  Camera,
+  Clock
 } from "lucide-react";
 
 const stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY 
@@ -49,6 +54,11 @@ interface BillingStatus {
   currentMonthRecords: number;
   estimatedCost: number;
   billingRequired: boolean;
+  addons: {
+    dispocura: boolean;
+    retell: boolean;
+    monitor: boolean;
+  };
 }
 
 interface Invoice {
@@ -246,6 +256,18 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
     },
   });
 
+  const toggleAddon = useMutation({
+    mutationFn: async ({ addon, enabled }: { addon: string; enabled: boolean }) => {
+      return apiRequest("PATCH", `/api/billing/${hospitalId}/addons`, { addon, enabled });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/billing", hospitalId, "status"] });
+    },
+    onError: () => {
+      toast({ title: isGerman ? "Fehler beim Aktualisieren" : "Failed to update add-on", variant: "destructive" });
+    },
+  });
+
   if (statusLoading || termsLoading) {
     return (
       <div className="flex items-center justify-center py-8">
@@ -287,6 +309,144 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
           </AlertDescription>
         </Alert>
       ) : null}
+
+      {/* Pricing Overview Card */}
+      {billingStatus.licenseType !== "free" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calculator className="h-5 w-5" />
+              {isGerman ? "Preisübersicht" : "Pricing Overview"}
+            </CardTitle>
+            <CardDescription>
+              {isGerman 
+                ? "Basisgebühr und optionale Zusatzmodule pro Anästhesie-Protokoll"
+                : "Base fee and optional add-on modules per anesthesia record"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Base Fee */}
+            <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="font-medium">{isGerman ? "Basisgebühr" : "Base Fee"}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {isGerman ? "Anästhesie-Protokolle, Inventar, Cloud-Hosting" : "Anesthesia records, inventory, cloud hosting"}
+                  </p>
+                </div>
+              </div>
+              <Badge variant="secondary" className="text-lg font-bold">3.00 CHF</Badge>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-muted-foreground">
+                {isGerman ? "Optionale Zusatzmodule" : "Optional Add-ons"}
+              </p>
+
+              {/* Dispocura Integration */}
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Calculator className="h-5 w-5 text-green-600" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">Dispocura</p>
+                      <Badge variant="outline" className="text-xs">
+                        {isGerman ? "Verfügbar" : "Available"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isGerman ? "Automatische Kostenberechnung" : "Automatic cost calculation"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">+1.00 CHF</span>
+                  <Switch 
+                    checked={billingStatus.addons.dispocura}
+                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "dispocura", enabled: checked })}
+                    disabled={toggleAddon.isPending}
+                    data-testid="switch-addon-dispocura"
+                  />
+                </div>
+              </div>
+
+              {/* Retell.ai Phone Booking */}
+              <div className="flex items-center justify-between p-3 border rounded-lg">
+                <div className="flex items-center gap-3">
+                  <Phone className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">Retell.ai</p>
+                      <Badge variant="outline" className="text-xs">
+                        {isGerman ? "Verfügbar" : "Available"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isGerman ? "Automatisches Telefon-Buchungssystem" : "Automatic phone booking system"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium">+1.00 CHF</span>
+                  <Switch 
+                    checked={billingStatus.addons.retell}
+                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "retell", enabled: checked })}
+                    disabled={toggleAddon.isPending}
+                    data-testid="switch-addon-retell"
+                  />
+                </div>
+              </div>
+
+              {/* Camera Monitor Connection */}
+              <div className="flex items-center justify-between p-3 border rounded-lg opacity-75">
+                <div className="flex items-center gap-3">
+                  <Camera className="h-5 w-5 text-orange-500" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{isGerman ? "Monitor-Kamera" : "Monitor Camera"}</p>
+                      <Badge variant="secondary" className="text-xs">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {isGerman ? "In Entwicklung" : "Coming soon"}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {isGerman ? "Automatische Vitaldaten via Kamera" : "Automatic vital data via camera"}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-medium text-muted-foreground">+1.00 CHF</span>
+                  <Switch 
+                    checked={billingStatus.addons.monitor}
+                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "monitor", enabled: checked })}
+                    disabled={true}
+                    data-testid="switch-addon-monitor"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Total Calculation */}
+            <div className="flex items-center justify-between p-3 bg-primary/10 rounded-lg">
+              <p className="font-medium">
+                {isGerman ? "Gesamt pro Protokoll" : "Total per Record"}
+              </p>
+              <p className="text-xl font-bold text-primary">
+                {(3 + 
+                  (billingStatus.addons.dispocura ? 1 : 0) + 
+                  (billingStatus.addons.retell ? 1 : 0) + 
+                  (billingStatus.addons.monitor ? 1 : 0)
+                ).toFixed(2)} CHF
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {billingStatus.licenseType !== "free" && (
         <Card>

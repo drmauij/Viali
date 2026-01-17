@@ -112,10 +112,43 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
       currentMonthRecords,
       estimatedCost,
       billingRequired: hospital.licenseType !== "free" && !hospital.stripePaymentMethodId,
+      addons: {
+        dispocura: hospital.addonDispocura ?? false,
+        retell: hospital.addonRetell ?? false,
+        monitor: hospital.addonMonitor ?? false,
+      },
     });
   } catch (error) {
     console.error("Error fetching billing status:", error);
     res.status(500).json({ message: "Failed to fetch billing status" });
+  }
+});
+
+router.patch("/api/billing/:hospitalId/addons", isAuthenticated, requireAdminRoleCheck, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { addon, enabled } = req.body;
+
+    const validAddons = ["dispocura", "retell", "monitor"];
+    if (!validAddons.includes(addon)) {
+      return res.status(400).json({ message: "Invalid addon type" });
+    }
+
+    const columnMap: Record<string, any> = {
+      dispocura: { addonDispocura: enabled },
+      retell: { addonRetell: enabled },
+      monitor: { addonMonitor: enabled },
+    };
+
+    await db
+      .update(hospitals)
+      .set(columnMap[addon])
+      .where(eq(hospitals.id, hospitalId));
+
+    res.json({ success: true, addon, enabled });
+  } catch (error) {
+    console.error("Error updating addon:", error);
+    res.status(500).json({ message: "Failed to update addon" });
   }
 });
 
