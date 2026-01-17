@@ -98,8 +98,23 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const currentMonthRecords = await countAnesthesiaRecordsForHospital(hospitalId, startOfMonth);
-    const pricePerRecord = hospital.pricePerRecord ? parseFloat(hospital.pricePerRecord) : 0;
-    const estimatedCost = currentMonthRecords * pricePerRecord;
+    
+    // Calculate price per record including base price and per-record add-ons
+    const basePrice = hospital.pricePerRecord ? parseFloat(hospital.pricePerRecord) : 3.00;
+    const questionnaireAddOn = hospital.addonQuestionnaire ? 1.00 : 0;
+    const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
+    const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
+    const surgeryAddOn = hospital.addonSurgery ? 1.00 : 0;
+    const pricePerRecord = basePrice + questionnaireAddOn + dispocuraAddOn + monitorAddOn + surgeryAddOn;
+    
+    // Calculate flat monthly add-ons
+    const worktimeAddOn = hospital.addonWorktime ? 5.00 : 0;
+    const logisticsAddOn = hospital.addonLogistics ? 5.00 : 0;
+    const clinicAddOn = hospital.addonClinic ? 10.00 : 0;
+    const retellAddOn = hospital.addonRetell ? 15.00 : 0;
+    const monthlyFees = worktimeAddOn + logisticsAddOn + clinicAddOn + retellAddOn;
+    
+    const estimatedCost = (currentMonthRecords * pricePerRecord) + monthlyFees;
 
     // Calculate trial status for "test" license type (15 day trial)
     const TRIAL_DAYS = 15;
