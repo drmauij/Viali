@@ -28,6 +28,7 @@ import { useCanWrite } from "@/hooks/useCanWrite";
 import { useModule } from "@/contexts/ModuleContext";
 import { formatDate, formatDateTimeForInput, toProperCase, parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
 import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSettings";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import SignaturePad from "@/components/SignaturePad";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButton";
@@ -101,6 +102,7 @@ export default function PatientDetail() {
   const isPreOpReadOnly = !canWrite;
   const { activeModule } = useModule();
   const isSurgeryModule = activeModule === "surgery";
+  const { addons } = useHospitalAddons();
   const isClinicModule = activeModule === "clinic";
   const moduleBasePath = isClinicModule ? "/clinic" : isSurgeryModule ? "/surgery" : "/anesthesia";
   // Clinic users can edit patient data but cannot create/edit/archive surgeries or access surgery details
@@ -2210,15 +2212,17 @@ export default function PatientDetail() {
               </div>
               {canWrite && (
                 <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsSendQuestionnaireOpen(true)}
-                    data-testid="button-send-questionnaire"
-                    title={t('questionnaire.send.title', 'Send Questionnaire')}
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
+                  {addons.questionnaire && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setIsSendQuestionnaireOpen(true)}
+                      data-testid="button-send-questionnaire"
+                      title={t('questionnaire.send.title', 'Send Questionnaire')}
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     size="icon"

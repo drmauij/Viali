@@ -122,8 +122,8 @@ export default function BottomNav() {
   const navItems: NavItem[] = useMemo(() => {
     if (activeModule === "anesthesia") {
       const items: NavItem[] = [];
-      // Only show appointments tab if unit has showAppointments enabled (default true)
-      if (activeHospital?.showAppointments !== false) {
+      // Only show appointments tab if Clinic add-on is enabled AND unit has showAppointments enabled (default true)
+      if (addons.clinic && activeHospital?.showAppointments !== false) {
         items.push({ id: "appointments", icon: "fas fa-calendar-check", label: t('bottomNav.anesthesia.appointments', 'Appointments'), path: "/anesthesia/appointments" });
       }
       items.push({ id: "patients", icon: "fas fa-users", label: t('bottomNav.anesthesia.patients'), path: "/anesthesia/patients" });
@@ -138,8 +138,8 @@ export default function BottomNav() {
     
     if (activeModule === "surgery") {
       const surgeryItems: NavItem[] = [];
-      // Only show appointments tab if unit has showAppointments enabled (default true)
-      if (activeHospital?.showAppointments !== false) {
+      // Only show appointments tab if Clinic add-on is enabled AND unit has showAppointments enabled (default true)
+      if (addons.clinic && activeHospital?.showAppointments !== false) {
         surgeryItems.push({ id: "appointments", icon: "fas fa-calendar-check", label: t('bottomNav.surgery.appointments', 'Appointments'), path: "/surgery/appointments" });
       }
       surgeryItems.push({ id: "patients", icon: "fas fa-users", label: t('bottomNav.surgery.patients'), path: "/surgery/patients" });
@@ -216,7 +216,7 @@ export default function BottomNav() {
       inventoryItems.push({ id: "checklists", icon: "fas fa-clipboard-check", label: t('bottomNav.checklists', 'Checklists'), path: "/inventory/checklists" });
     }
     return inventoryItems;
-  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments, activeHospital?.showControlledMedications, hasPendingChecklists]);
+  }, [t, activeModule, canAccessPreOp, activeHospital?.role, activeHospital?.showAppointments, activeHospital?.showControlledMedications, hasPendingChecklists, addons.clinic, addons.questionnaire]);
 
   const isActive = (path: string) => {
     if (path === "/inventory/items") {
