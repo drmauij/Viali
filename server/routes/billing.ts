@@ -814,7 +814,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
       try {
         const resend = new Resend(resendApiKey);
         await resend.emails.send({
-          from: "Viali.app <noreply@viali.app>",
+          from: "Viali.app <noreply@mail.viali.app>",
           to: ["info@acutiq.com"],
           subject: `Terms of Use Signed - ${hospital.name}`,
           html: `
