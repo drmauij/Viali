@@ -38,7 +38,7 @@ export function TermsOfUseContent() {
             <li>{isGerman ? "Aktuelle Preise werden im Abrechnungsbereich angezeigt" : "Current pricing is displayed in the billing section"}</li>
             <li>{isGerman ? "Monatliche Abrechnung nach tatsächlicher Nutzung" : "Monthly billing based on actual usage"}</li>
             <li>{isGerman ? "Zahlung per Kreditkarte (in-app)" : "Credit card payment (in-app)"}</li>
-            <li>{isGerman ? "Rechnung aus Deutschland (Kleinunternehmer, keine MwSt)" : "Invoice from Germany (small business, no VAT)"}</li>
+            <li>{isGerman ? "Alle Preise verstehen sich netto. MwSt. kann je nach Standort anfallen" : "All prices are net. VAT may apply depending on location"}</li>
             <li>{isGerman ? "Monatlich kündbar" : "Monthly cancellation possible"}</li>
             <li>{isGerman ? "Preisänderungen mit 3 Monaten Ankündigungsfrist" : "Price changes with 3 months notice"}</li>
           </ul>
