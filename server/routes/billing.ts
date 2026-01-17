@@ -816,6 +816,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
         await resend.emails.send({
           from: "Viali.app <noreply@mail.viali.app>",
           to: ["info@acutiq.com"],
+          replyTo: user.email || undefined,
           subject: `Terms of Use Signed - ${hospital.name}`,
           html: `
             <h2>Terms of Use Acceptance</h2>
@@ -825,7 +826,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
             <p><strong>Email:</strong> ${user.email || "N/A"}</p>
             <p><strong>Date:</strong> ${signedAt.toLocaleDateString("de-DE")} ${signedAt.toLocaleTimeString("de-DE")}</p>
             <p><strong>Version:</strong> ${CURRENT_TERMS_VERSION}</p>
-            <p>Please review and countersign the attached PDF.</p>
+            <p>Please review, countersign, and reply to this email to send the countersigned document back to the customer.</p>
           `,
           attachments: [
             {
