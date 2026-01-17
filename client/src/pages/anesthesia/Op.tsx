@@ -13,6 +13,7 @@ import {
 import { OpInventory } from "@/components/anesthesia/OpInventory";
 import { PatientInfoHeader } from "@/components/anesthesia/PatientInfoHeader";
 import { PostOpInfoCard } from "@/components/anesthesia/PostOpInfoCard";
+import { PacuBedSelector, PacuBedSquare } from "@/components/anesthesia/PacuBedSelector";
 import { StaffTab } from "@/components/anesthesia/StaffTab";
 import { MedicationScheduleCard } from "@/components/anesthesia/MedicationScheduleCard";
 import { IntraoperativeMedicationsCard } from "@/components/anesthesia/IntraoperativeMedicationsCard";
@@ -1527,7 +1528,19 @@ export default function Op() {
           {/* PACU Documentation Tab - Only visible in PACU mode */}
           {isPacuMode && (
             <TabsContent value="pacu" className="flex-1 overflow-y-auto px-6 pb-6 mt-0 space-y-4" data-testid="tab-content-pacu">
-              <PostOpInfoCard postOpData={postOpData} pacuBedName={pacuBedName} pacuBedId={surgery?.pacuBedId} surgeryId={surgeryId} />
+              {/* Two-column layout: Bed square on left, PostOpInfoCard on right */}
+              <div className="flex gap-4 items-start">
+                {/* Floating bed square on the left */}
+                <PacuBedSquare 
+                  surgeryId={surgeryId}
+                  pacuBedName={pacuBedName}
+                  pacuBedId={surgery?.pacuBedId}
+                />
+                {/* Post-operative information card on the right */}
+                <div className="flex-1">
+                  <PostOpInfoCard postOpData={postOpData} pacuBedName={pacuBedName} pacuBedId={surgery?.pacuBedId} surgeryId={surgeryId} hideBedSquare />
+                </div>
+              </div>
               <MedicationScheduleCard postOpData={postOpData} />
               <IntraoperativeMedicationsCard 
                 medications={medicationsData || []} 

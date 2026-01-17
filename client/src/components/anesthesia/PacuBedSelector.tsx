@@ -263,6 +263,59 @@ interface BedListProps {
   isPending: boolean;
 }
 
+interface PacuBedSquareProps {
+  surgeryId: string;
+  pacuBedName?: string | null;
+  pacuBedId?: string | null;
+}
+
+export function PacuBedSquare({ surgeryId, pacuBedName, pacuBedId }: PacuBedSquareProps) {
+  const { t } = useTranslation();
+  const [bedSelectorOpen, setBedSelectorOpen] = useState(false);
+
+  if (pacuBedName) {
+    return (
+      <>
+        <div 
+          className="flex-shrink-0 p-4 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg text-center min-w-[100px] self-start cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900 transition-colors"
+          onClick={() => setBedSelectorOpen(true)}
+          data-testid="button-pacu-bed-square"
+        >
+          <Bed className="h-10 w-10 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
+          <p className="text-2xl font-bold text-blue-700 dark:text-blue-300" data-testid="text-pacu-bed-name">{pacuBedName}</p>
+        </div>
+        <PacuBedSelector
+          surgeryId={surgeryId}
+          currentBedId={pacuBedId || undefined}
+          currentBedName={pacuBedName || undefined}
+          open={bedSelectorOpen}
+          onOpenChange={setBedSelectorOpen}
+          hideTrigger
+        />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div 
+        className="flex-shrink-0 p-4 bg-gray-50 dark:bg-gray-900 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg text-center min-w-[100px] self-start cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+        onClick={() => setBedSelectorOpen(true)}
+        data-testid="button-assign-pacu-bed-square"
+      >
+        <Bed className="h-10 w-10 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('pacu.assignBed', 'Assign Bed')}</p>
+      </div>
+      <PacuBedSelector
+        surgeryId={surgeryId}
+        open={bedSelectorOpen}
+        onOpenChange={setBedSelectorOpen}
+        hideTrigger
+      />
+    </>
+  );
+}
+
 function BedList({ beds, currentBedId, occupiedBeds, onSelect, isPending }: BedListProps) {
   const { t } = useTranslation();
 

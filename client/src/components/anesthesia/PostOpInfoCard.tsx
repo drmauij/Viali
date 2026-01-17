@@ -30,9 +30,10 @@ interface PostOpInfoCardProps {
   pacuBedName?: string | null;
   pacuBedId?: string | null;
   surgeryId?: string;
+  hideBedSquare?: boolean;
 }
 
-export function PostOpInfoCard({ postOpData, pacuBedName, pacuBedId, surgeryId }: PostOpInfoCardProps) {
+export function PostOpInfoCard({ postOpData, pacuBedName, pacuBedId, surgeryId, hideBedSquare = false }: PostOpInfoCardProps) {
   const { t } = useTranslation();
   const [bedSelectorOpen, setBedSelectorOpen] = useState(false);
 
@@ -64,8 +65,13 @@ export function PostOpInfoCard({ postOpData, pacuBedName, pacuBedId, surgeryId }
     </div>
   );
 
-  // If only bed assigned but no post-op info, show compact layout without card
-  if (pacuBedName && !hasPostOpInfo) {
+  // If hideBedSquare is true and no post-op info, don't render anything
+  if (hideBedSquare && !hasPostOpInfo) {
+    return null;
+  }
+
+  // If only bed assigned but no post-op info, show compact layout without card (only when bed square not hidden)
+  if (!hideBedSquare && pacuBedName && !hasPostOpInfo) {
     return (
       <>
         <BedSquare />
@@ -83,8 +89,8 @@ export function PostOpInfoCard({ postOpData, pacuBedName, pacuBedId, surgeryId }
     );
   }
 
-  // If no bed and no post-op info, show assign bed option
-  if (!pacuBedName && !hasPostOpInfo && surgeryId) {
+  // If no bed and no post-op info, show assign bed option (only when bed square not hidden)
+  if (!hideBedSquare && !pacuBedName && !hasPostOpInfo && surgeryId) {
     return (
       <>
         <AssignBedSquare />
@@ -108,13 +114,15 @@ export function PostOpInfoCard({ postOpData, pacuBedName, pacuBedId, surgeryId }
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex gap-4">
-            {/* Left column - PACU Bed compact square */}
-            {pacuBedName ? (
-              <BedSquare />
-            ) : surgeryId ? (
-              <AssignBedSquare />
-            ) : null}
+          <div className={hideBedSquare ? "" : "flex gap-4"}>
+            {/* Left column - PACU Bed compact square (only when not hidden) */}
+            {!hideBedSquare && (
+              pacuBedName ? (
+                <BedSquare />
+              ) : surgeryId ? (
+                <AssignBedSquare />
+              ) : null
+            )}
 
             {/* Right column - Post-operative information */}
             <div className="flex-1 space-y-4">
