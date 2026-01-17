@@ -568,6 +568,13 @@
       "when": 1768678133366,
       "tag": "0080_opposite_clea",
       "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1768679412948,
+      "tag": "0081_strong_wilson_fisk",
+      "breakpoints": true
     }
   ]
 }

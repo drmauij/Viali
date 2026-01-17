@@ -89,6 +89,7 @@ export const hospitals = pgTable("hospitals", {
   addonLogistics: boolean("addon_logistics").default(false), // Centralized order management (+5 CHF/month)
   addonClinic: boolean("addon_clinic").default(false), // Clinic module with invoices & appointments (+10 CHF/month)
   questionnaireDisabled: boolean("questionnaire_disabled").default(false), // Manual override to disable questionnaire functionality
+  preSurgeryReminderDisabled: boolean("pre_surgery_reminder_disabled").default(false), // Manual override to disable pre-surgery SMS reminders
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

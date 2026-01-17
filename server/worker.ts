@@ -1780,6 +1780,13 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
   
   console.log(`[Worker] Pre-surgery reminder for hospital ${hospitalId}`);
   
+  // Check if pre-surgery reminder is manually disabled
+  const hospitalData = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
+  if (hospitalData[0]?.preSurgeryReminderDisabled) {
+    console.log(`[Worker] Skipping pre-surgery reminder - manually disabled for hospital ${hospitalId}`);
+    return;
+  }
+  
   // Get surgeries scheduled for approximately 24 hours from now (22-26 hours window)
   const eligibleSurgeries = await storage.getSurgeriesForPreSurgeryReminder(
     hospitalId, 

@@ -83,6 +83,7 @@ export default function Hospital() {
     runwayWarningDays: 7,
     runwayLookbackDays: 30,
     questionnaireDisabled: false,
+    preSurgeryReminderDisabled: false,
   });
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
 
@@ -474,6 +475,7 @@ export default function Hospital() {
         runwayWarningDays: fullHospitalData.runwayWarningDays ?? 7,
         runwayLookbackDays: fullHospitalData.runwayLookbackDays ?? 30,
         questionnaireDisabled: fullHospitalData.questionnaireDisabled ?? false,
+        preSurgeryReminderDisabled: fullHospitalData.preSurgeryReminderDisabled ?? false,
       });
     }
   }, [fullHospitalData, hospitalDialogOpen, activeTab]);
@@ -514,6 +516,29 @@ export default function Hospital() {
     onError: (error: any) => {
       // Revert local state on error
       setHospitalForm(prev => ({ ...prev, questionnaireDisabled: !prev.questionnaireDisabled }));
+      toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospital"), variant: "destructive" });
+    },
+  });
+
+  // Update pre-surgery reminder disabled mutation (for quick toggle)
+  const updatePreSurgeryReminderDisabledMutation = useMutation({
+    mutationFn: async (disabled: boolean) => {
+      const response = await apiRequest("PATCH", `/api/admin/${activeHospital?.id}`, { preSurgeryReminderDisabled: disabled });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      toast({ 
+        title: t("common.success"), 
+        description: hospitalForm.preSurgeryReminderDisabled 
+          ? t("admin.preSurgeryReminderDisabled", "Pre-surgery reminder disabled")
+          : t("admin.preSurgeryReminderEnabledSuccess", "Pre-surgery reminder enabled")
+      });
+    },
+    onError: (error: any) => {
+      // Revert local state on error
+      setHospitalForm(prev => ({ ...prev, preSurgeryReminderDisabled: !prev.preSurgeryReminderDisabled }));
       toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateHospital"), variant: "destructive" });
     },
   });
@@ -1234,6 +1259,27 @@ export default function Hospital() {
                   }}
                   disabled={updateQuestionnaireDisabledMutation.isPending}
                   data-testid="switch-questionnaire-enabled"
+                />
+              </div>
+              
+              {/* Pre-Surgery Reminder Enable/Disable Toggle */}
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
+                <div className="flex-1">
+                  <Label className="text-sm font-medium">
+                    {t("admin.preSurgeryReminderEnabled", "Pre-Surgery SMS Reminder Enabled")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t("admin.preSurgeryReminderEnabledDescription", "When enabled, patients receive an SMS reminder 24 hours before their surgery")}
+                  </p>
+                </div>
+                <Switch
+                  checked={!hospitalForm.preSurgeryReminderDisabled}
+                  onCheckedChange={(checked) => {
+                    setHospitalForm(prev => ({ ...prev, preSurgeryReminderDisabled: !checked }));
+                    updatePreSurgeryReminderDisabledMutation.mutate(!checked);
+                  }}
+                  disabled={updatePreSurgeryReminderDisabledMutation.isPending}
+                  data-testid="switch-pre-surgery-reminder-enabled"
                 />
               </div>
               
