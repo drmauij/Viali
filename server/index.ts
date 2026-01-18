@@ -151,9 +151,9 @@ app.use((req, res, next) => {
               if (unappliedMigrations.length > 0) {
                 log(`   Found ${unappliedMigrations.length} unapplied migrations`);
                 
-                // Only run migrations >= 0012 which are idempotent (use DO $$ IF NOT EXISTS)
-                // Earlier migrations are not idempotent and should just be marked as applied
-                const FIRST_IDEMPOTENT_MIGRATION = 12;
+                // All migrations are now idempotent (use IF NOT EXISTS patterns)
+                // Safe to run any migration that hasn't been marked as applied
+                const FIRST_IDEMPOTENT_MIGRATION = 0;
                 
                 for (const migration of unappliedMigrations) {
                   const migrationFile = path.join(migrationsPath, `${migration.tag}.sql`);
