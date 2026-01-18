@@ -59,8 +59,7 @@ export default function OpList() {
   const activeHospital = useActiveHospital();
   const isGerman = i18n.language === 'de';
   const hasExternalSurgeryToken = !!activeHospital?.externalSurgeryToken;
-  const hasSurgeryOrAnesthesiaAccess = activeHospital?.isSurgeryModule || activeHospital?.isAnesthesiaModule;
-  const showExternalRequests = hasExternalSurgeryToken && hasSurgeryOrAnesthesiaAccess;
+  const showExternalRequests = hasExternalSurgeryToken && activeHospital?.isSurgeryModule;
   
   // Initialize viewMode from sessionStorage to persist across navigation
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
