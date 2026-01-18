@@ -292,6 +292,10 @@ export default function ExternalSurgeryRequest() {
 
   const progress = ((currentStep + 1) / STEPS.length) * 100;
 
+  const changeLanguage = (lang: string) => {
+    i18n.changeLanguage(lang);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">
       <div className="max-w-2xl mx-auto">
@@ -303,6 +307,32 @@ export default function ExternalSurgeryRequest() {
           <p className="text-muted-foreground">
             {isGerman ? 'OP-Terminreservierung' : 'Surgery Reservation Request'}
           </p>
+          <div className="flex justify-center mt-3">
+            <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+              <button
+                onClick={() => changeLanguage("de")}
+                className={`px-3 py-1.5 text-sm rounded flex items-center gap-1 transition-colors ${
+                  isGerman 
+                    ? "bg-white dark:bg-gray-700 shadow-sm font-medium" 
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+                data-testid="button-lang-de"
+              >
+                🇩🇪 DE
+              </button>
+              <button
+                onClick={() => changeLanguage("en")}
+                className={`px-3 py-1.5 text-sm rounded flex items-center gap-1 transition-colors ${
+                  !isGerman 
+                    ? "bg-white dark:bg-gray-700 shadow-sm font-medium" 
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+                data-testid="button-lang-en"
+              >
+                🇬🇧 EN
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="mb-6">
