@@ -22,11 +22,11 @@ const rateLimitStore = new Map<string, RateLimitEntry>();
 
 setInterval(() => {
   const now = Date.now();
-  for (const [key, entry] of rateLimitStore) {
+  Array.from(rateLimitStore.entries()).forEach(([key, entry]) => {
     if (entry.resetTime < now) {
       rateLimitStore.delete(key);
     }
-  }
+  });
 }, 5 * 60 * 1000);
 
 function createRateLimiter(options: { windowMs: number; maxRequests: number; keyPrefix: string }) {
@@ -368,8 +368,9 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       const patient = await storage.createPatient({
         hospitalId: request.hospitalId,
         firstName: request.patientFirstName,
-        lastName: request.patientLastName,
-        dateOfBirth: request.patientBirthday,
+        surname: request.patientLastName,
+        birthday: request.patientBirthday,
+        sex: 'O',
         email: request.patientEmail || undefined,
         phone: request.patientPhone,
       });
@@ -384,7 +385,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       plannedSurgery: request.surgeryName,
       surgeon: `${request.surgeonFirstName} ${request.surgeonLastName}`,
       notes: request.surgeryNotes || '',
-      admissionTime: admissionTime ? new Date(admissionTime) : null,
+      admissionTime: admissionTime ? new Date(admissionTime) : undefined,
     });
     
     await storage.updateExternalSurgeryRequest(id, {
@@ -440,7 +441,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
         }
       }
       
-      if (request.surgeonPhone && isSmsConfigured(request.hospitalId)) {
+      if (request.surgeonPhone && isSmsConfigured()) {
         try {
           await sendSms(
             request.hospitalId,
