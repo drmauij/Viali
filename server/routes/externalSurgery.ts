@@ -384,6 +384,11 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
     let surgeonUserId: string | null = null;
     const surgeonFullName = `${request.surgeonFirstName} ${request.surgeonLastName}`;
     
+    // Find the surgery unit for this hospital (surgeons must be assigned to surgery unit with role 'doctor')
+    const allUnits = await storage.getUnits(request.hospitalId);
+    const surgeryUnit = allUnits.find(u => u.isSurgeryModule);
+    const surgeryUnitId = surgeryUnit?.id || unitId;
+    
     // Check if a user with matching email + firstName + lastName already exists
     const existingSurgeon = await storage.findUserByEmailAndName(
       request.surgeonEmail,
@@ -393,16 +398,18 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
     
     if (existingSurgeon) {
       surgeonUserId = existingSurgeon.id;
-      // Ensure they're assigned to this hospital
-      const surgeonHospitals = await storage.getUserHospitals(existingSurgeon.id);
-      const isInHospital = surgeonHospitals.some(h => h.id === request.hospitalId);
-      if (!isInHospital) {
-        // Add them to this hospital with staff role
+      // Ensure they're assigned to this hospital's surgery unit as a doctor
+      const hospitalUsers = await storage.getHospitalUsers(request.hospitalId);
+      const hasRoleInSurgeryUnit = hospitalUsers.some(hu => 
+        hu.userId === existingSurgeon.id && hu.unitId === surgeryUnitId && hu.role === 'doctor'
+      );
+      if (!hasRoleInSurgeryUnit) {
+        // Add them to surgery unit with doctor role
         await storage.createUserHospitalRole({
           userId: existingSurgeon.id,
           hospitalId: request.hospitalId,
-          unitId: unitId,
-          role: 'staff',
+          unitId: surgeryUnitId,
+          role: 'doctor',
           isBookable: false,
           isDefaultLogin: false,
           availabilityMode: null,
@@ -422,12 +429,12 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       });
       surgeonUserId = newSurgeon.id;
       
-      // Add them to this hospital with staff role
+      // Add them to surgery unit with doctor role
       await storage.createUserHospitalRole({
         userId: newSurgeon.id,
         hospitalId: request.hospitalId,
-        unitId: unitId,
-        role: 'staff',
+        unitId: surgeryUnitId,
+        role: 'doctor',
         isBookable: false,
         isDefaultLogin: false,
         availabilityMode: null,
