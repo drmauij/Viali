@@ -579,7 +579,7 @@ export default function PatientDetail() {
 
   // Fetch staff-uploaded documents
   const { data: staffDocuments = [], isLoading: isLoadingStaffDocs } = useQuery<StaffDocument[]>({
-    queryKey: ['/api/patients', params?.id, 'documents'],
+    queryKey: [`/api/patients/${params?.id}/documents`, params?.id],
     enabled: !!params?.id && !!activeHospital?.id,
   });
 
@@ -599,7 +599,7 @@ export default function PatientDetail() {
 
   // Fetch note attachments for Documents section
   const { data: noteAttachmentDocs = [], isLoading: isLoadingNoteAttachments } = useQuery<NoteAttachmentDoc[]>({
-    queryKey: ['/api/patients', params?.id, 'note-attachments'],
+    queryKey: [`/api/patients/${params?.id}/note-attachments`, params?.id],
     enabled: !!params?.id && !!activeHospital?.id,
   });
   
@@ -1003,7 +1003,7 @@ export default function PatientDetail() {
       return await apiRequest("DELETE", `/api/patients/${params?.id}/documents/${docId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/patients', params?.id, 'documents'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${params?.id}/documents`] });
       toast({
         title: t('anesthesia.patientDetail.documentDeleted', 'Document deleted'),
         description: t('anesthesia.patientDetail.documentDeletedDesc', 'The document has been removed'),
@@ -1078,7 +1078,7 @@ export default function PatientDetail() {
         description: uploadDescription || null,
       });
       
-      queryClient.invalidateQueries({ queryKey: ['/api/patients', params.id, 'documents'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${params.id}/documents`] });
       
       toast({
         title: t('anesthesia.patientDetail.documentUploaded', 'Document uploaded'),

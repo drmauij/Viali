@@ -76,7 +76,7 @@ export function PatientDocumentsSection({
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   const { data: documents = [], isLoading } = useQuery<PatientDocument[]>({
-    queryKey: ['/api/patients', patientId, 'documents'],
+    queryKey: [`/api/patients/${patientId}/documents`, patientId],
     enabled: !!patientId && !!hospitalId,
   });
 
@@ -111,7 +111,7 @@ export function PatientDocumentsSection({
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/patients', patientId, 'documents'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/documents`] });
       setIsUploadDialogOpen(false);
       setPendingFile(null);
       setUploadCategory('other');
@@ -135,7 +135,7 @@ export function PatientDocumentsSection({
       await apiRequest('PATCH', `/api/patients/${patientId}/documents/${docId}`, { description, reviewed });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/patients', patientId, 'documents'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/documents`] });
       setEditingDocId(null);
     },
     onError: (error: Error) => {
@@ -152,7 +152,7 @@ export function PatientDocumentsSection({
       await apiRequest('DELETE', `/api/patients/${patientId}/documents/${docId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/patients', patientId, 'documents'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${patientId}/documents`] });
       setDeleteConfirmDoc(null);
       toast({
         title: t('common.success'),
