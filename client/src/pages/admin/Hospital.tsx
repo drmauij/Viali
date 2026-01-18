@@ -164,8 +164,15 @@ export default function Hospital() {
     enabled: !!activeHospital?.id && isAdmin,
   });
 
+  // External surgery token query
+  const { data: externalSurgeryTokenData } = useQuery<{ token: string | null }>({
+    queryKey: [`/api/hospitals/${activeHospital?.id}/external-surgery-token`],
+    enabled: !!activeHospital?.id && isAdmin,
+  });
+
   // Questionnaire link state
   const [linkCopied, setLinkCopied] = useState(false);
+  const [externalSurgeryLinkCopied, setExternalSurgeryLinkCopied] = useState(false);
 
   // Determine if we need to poll for job updates
   const hasActiveJob = Array.isArray(priceSyncJobs) && priceSyncJobs.some((j: any) => j.status === 'queued' || j.status === 'processing');
@@ -435,11 +442,61 @@ export default function Hospital() {
     },
   });
 
+  // External surgery token mutations
+  const generateExternalSurgeryTokenMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/hospitals/${activeHospital?.id}/external-surgery-token`, {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${activeHospital?.id}/external-surgery-token`] });
+      toast({ title: t("common.success"), description: t("admin.externalSurgeryLinkGenerated", "External surgery booking link generated") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to generate link", variant: "destructive" });
+    },
+  });
+
+  const deleteExternalSurgeryTokenMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("DELETE", `/api/hospitals/${activeHospital?.id}/external-surgery-token`);
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${activeHospital?.id}/external-surgery-token`] });
+      toast({ title: t("common.success"), description: t("admin.externalSurgeryLinkDisabled", "External surgery booking link disabled") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to disable link", variant: "destructive" });
+    },
+  });
+
   // Helper function to get the questionnaire URL
   const getQuestionnaireUrl = () => {
     if (!questionnaireTokenData?.questionnaireToken) return null;
     const baseUrl = window.location.origin;
     return `${baseUrl}/questionnaire/hospital/${questionnaireTokenData.questionnaireToken}`;
+  };
+
+  // Helper function to get the external surgery booking URL
+  const getExternalSurgeryUrl = () => {
+    if (!externalSurgeryTokenData?.token) return null;
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/external-surgery/${externalSurgeryTokenData.token}`;
+  };
+
+  const handleCopyExternalSurgeryLink = async () => {
+    const url = getExternalSurgeryUrl();
+    if (url) {
+      try {
+        await navigator.clipboard.writeText(url);
+        setExternalSurgeryLinkCopied(true);
+        toast({ title: t("common.success"), description: t("admin.linkCopied", "Link copied to clipboard") });
+        setTimeout(() => setExternalSurgeryLinkCopied(false), 2000);
+      } catch (err) {
+        toast({ title: t("common.error"), description: t("admin.failedToCopy", "Failed to copy link"), variant: "destructive" });
+      }
+    }
   };
 
   const handleCopyLink = async () => {
@@ -1364,6 +1421,104 @@ export default function Hospital() {
                     </div>
                   )}
                 </>
+              )}
+            </div>
+          </div>
+
+          {/* External Surgery Booking Link Card */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-teal-500/10 flex items-center justify-center">
+                  <i className="fas fa-calendar-plus text-teal-500"></i>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground text-lg">
+                    {t("admin.externalSurgeryBookingLink", "External Surgery Booking Link")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.externalSurgeryBookingDescription", "Public link for external surgeons to request surgery appointments")}
+                  </p>
+                </div>
+              </div>
+
+              {externalSurgeryTokenData?.token ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                    <Input
+                      value={getExternalSurgeryUrl() || ""}
+                      readOnly
+                      className="flex-1 bg-background text-sm font-mono"
+                      data-testid="input-external-surgery-url"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCopyExternalSurgeryLink}
+                      data-testid="button-copy-external-surgery-link"
+                    >
+                      {externalSurgeryLinkCopied ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generateExternalSurgeryTokenMutation.mutate()}
+                      disabled={generateExternalSurgeryTokenMutation.isPending}
+                      data-testid="button-regenerate-external-surgery-link"
+                    >
+                      {generateExternalSurgeryTokenMutation.isPending ? (
+                        <i className="fas fa-spinner fa-spin mr-2"></i>
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      {t("admin.regenerateLink", "Regenerate Link")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-destructive border-destructive/50 hover:bg-destructive/10"
+                      onClick={() => {
+                        if (confirm(t("admin.disableExternalSurgeryLinkConfirm", "Are you sure you want to disable this link? External surgeons won't be able to submit requests."))) {
+                          deleteExternalSurgeryTokenMutation.mutate();
+                        }
+                      }}
+                      disabled={deleteExternalSurgeryTokenMutation.isPending}
+                      data-testid="button-disable-external-surgery-link"
+                    >
+                      {deleteExternalSurgeryTokenMutation.isPending ? (
+                        <i className="fas fa-spinner fa-spin mr-2"></i>
+                      ) : (
+                        <Trash2 className="h-4 w-4 mr-2" />
+                      )}
+                      {t("admin.disableLink", "Disable Link")}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3">
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.noExternalSurgeryLinkGenerated", "No external surgery booking link has been generated yet.")}
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => generateExternalSurgeryTokenMutation.mutate()}
+                    disabled={generateExternalSurgeryTokenMutation.isPending}
+                    data-testid="button-generate-external-surgery-link"
+                  >
+                    {generateExternalSurgeryTokenMutation.isPending ? (
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                    ) : (
+                      <LinkIcon className="h-4 w-4 mr-2" />
+                    )}
+                    {t("admin.generateLink", "Generate Link")}
+                  </Button>
+                </div>
               )}
             </div>
           </div>

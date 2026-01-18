@@ -468,6 +468,28 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
   }
 });
 
+router.get('/api/hospitals/:hospitalId/external-surgery-token', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+    
+    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    
+    const hospital = await storage.getHospital(hospitalId);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    
+    res.json({ token: hospital.externalSurgeryToken || null });
+  } catch (error) {
+    console.error("Error fetching token:", error);
+    res.status(500).json({ message: "Failed to fetch token" });
+  }
+});
+
 router.post('/api/hospitals/:hospitalId/external-surgery-token', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
   try {
     const { hospitalId } = req.params;
