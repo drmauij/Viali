@@ -7173,6 +7173,10 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         isOpen={webcamCaptureOpen}
         onClose={() => {
           setWebcamCaptureOpen(false);
+          // If user cancels barcode scanning in step1, advance to step2 (manual entry)
+          if (webcamCaptureTarget === 'codes' && addItemStage === 'step1') {
+            setAddItemStage('step2');
+          }
           setWebcamCaptureTarget(null);
         }}
         onCapture={handleWebcamCapture}
