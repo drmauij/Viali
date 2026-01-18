@@ -3121,8 +3121,6 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   
   const [calcomApiKey, setCalcomApiKey] = useState("");
   const [calcomEnabled, setCalcomEnabled] = useState(false);
-  const [syncBusyBlocks, setSyncBusyBlocks] = useState(true);
-  const [syncTimebutlerAbsences, setSyncTimebutlerAbsences] = useState(true);
   const [showCalcomApiKey, setShowCalcomApiKey] = useState(false);
   const [mappingDialogOpen, setMappingDialogOpen] = useState(false);
   const [mappingForm, setMappingForm] = useState({
@@ -3134,8 +3132,6 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   const { data: calcomConfigData, isLoading: calcomLoading } = useQuery<{
     isEnabled?: boolean;
     apiKey?: string;
-    syncBusyBlocks?: boolean;
-    syncTimebutlerAbsences?: boolean;
     lastSyncAt?: string;
     lastSyncError?: string;
   }>({
@@ -3188,14 +3184,12 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
   useEffect(() => {
     if (calcomConfigData) {
       setCalcomEnabled(calcomConfigData.isEnabled || false);
-      setSyncBusyBlocks(calcomConfigData.syncBusyBlocks ?? true);
-      setSyncTimebutlerAbsences(calcomConfigData.syncTimebutlerAbsences ?? true);
     }
   }, [calcomConfigData]);
 
   // Cal.com config mutation
   const saveCalcomConfigMutation = useMutation({
-    mutationFn: async (data: { apiKey?: string; isEnabled: boolean; syncBusyBlocks: boolean; syncTimebutlerAbsences: boolean }) => {
+    mutationFn: async (data: { apiKey?: string; isEnabled: boolean }) => {
       const response = await apiRequest("PUT", `/api/clinic/${hospitalId}/calcom-config`, data);
       return await response.json();
     },
@@ -3308,8 +3302,6 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                 setCalcomEnabled(checked);
                 saveCalcomConfigMutation.mutate({
                   isEnabled: checked,
-                  syncBusyBlocks,
-                  syncTimebutlerAbsences,
                 });
               }}
               disabled={saveCalcomConfigMutation.isPending}
@@ -3383,28 +3375,6 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
               </div>
             )}
 
-            {/* Sync Options */}
-            <div className="flex flex-wrap gap-4 text-sm border-t border-border pt-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={syncBusyBlocks}
-                  onChange={(e) => setSyncBusyBlocks(e.target.checked)}
-                  className="rounded"
-                />
-                <span>Push clinic appointments as busy blocks</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={syncTimebutlerAbsences}
-                  onChange={(e) => setSyncTimebutlerAbsences(e.target.checked)}
-                  className="rounded"
-                />
-                <span>Push Timebutler absences as busy blocks</span>
-              </label>
-            </div>
-
             {/* API Key Input */}
             <div className="border-t border-border pt-4">
               <Label htmlFor="calcom-key">Cal.com API Key</Label>
@@ -3441,8 +3411,6 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                   onClick={() => saveCalcomConfigMutation.mutate({
                     apiKey: calcomApiKey || undefined,
                     isEnabled: calcomEnabled,
-                    syncBusyBlocks,
-                    syncTimebutlerAbsences,
                   })}
                   disabled={saveCalcomConfigMutation.isPending}
                   data-testid="button-save-calcom"
