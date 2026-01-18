@@ -113,11 +113,8 @@ export default function ExternalSurgeryRequest() {
     },
     onSuccess: (data) => {
       setRequestId(data.requestId);
-      if (uploadedFiles.length === 0) {
-        setIsSubmitted(true);
-      } else {
-        setCurrentStep(3);
-      }
+      // Always proceed to documents step to allow file uploads
+      setCurrentStep(3);
     },
     onError: (error: any) => {
       toast({
@@ -572,17 +569,24 @@ export default function ExternalSurgeryRequest() {
 
             {currentStep === 3 && (
               <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  <span className="text-sm text-green-600 font-medium">
+                    {isGerman ? 'Anfrage erfolgreich übermittelt!' : 'Request successfully submitted!'}
+                  </span>
+                </div>
+                
                 <div className="flex items-center gap-2 mb-4">
                   <Upload className="h-5 w-5 text-primary" />
                   <h3 className="text-lg font-medium">
-                    {isGerman ? 'Dokumente hochladen' : 'Upload Documents'}
+                    {isGerman ? 'Dokumente hochladen (optional)' : 'Upload Documents (optional)'}
                   </h3>
                 </div>
                 
                 <p className="text-sm text-muted-foreground mb-4">
                   {isGerman 
-                    ? 'Laden Sie relevante Dokumente hoch (Befunde, Laborergebnisse, etc.)'
-                    : 'Upload relevant documents (findings, lab results, etc.)'}
+                    ? 'Sie können relevante Dokumente hochladen (Befunde, Laborergebnisse, etc.). Diese werden mit der Patientenakte verknüpft.'
+                    : 'You can upload relevant documents (findings, lab results, etc.). These will be linked to the patient record.'}
                 </p>
                 
                 <div
@@ -660,7 +664,7 @@ export default function ExternalSurgeryRequest() {
                 {submitMutation.isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : currentStep === STEPS.length - 1 ? (
-                  isGerman ? 'Absenden' : 'Submit'
+                  isGerman ? 'Fertig' : 'Finish'
                 ) : currentStep === 2 ? (
                   <>
                     {isGerman ? 'Weiter & Absenden' : 'Continue & Submit'}
