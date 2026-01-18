@@ -273,8 +273,9 @@ export function UnifiedBarcodeScanner({
             <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between z-10 bg-gradient-to-t from-black/80 to-transparent pt-12">
               <Button
                 variant="outline"
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={handleClose}
-                className="bg-white/10 text-white border-white hover:bg-white/20 px-6"
+                className="bg-white/10 text-white border-white hover:bg-white/20 px-6 touch-manipulation"
                 data-testid="close-scanner"
               >
                 <i className="fas fa-times mr-2"></i>
@@ -282,9 +283,10 @@ export function UnifiedBarcodeScanner({
               </Button>
               
               <Button
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={captureForOcr}
                 disabled={isCapturing}
-                className="bg-accent hover:bg-accent/90 px-6 disabled:opacity-50"
+                className="bg-accent hover:bg-accent/90 px-6 disabled:opacity-50 touch-manipulation"
                 data-testid="capture-for-ocr"
               >
                 <i className={`fas ${isCapturing ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
