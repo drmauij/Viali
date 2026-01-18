@@ -366,11 +366,13 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
     // Create or find patient
     let patientId = request.patientId;
     if (!patientId) {
+      const patientNumber = await storage.generatePatientNumber(request.hospitalId);
       const patient = await storage.createPatient({
         hospitalId: request.hospitalId,
         firstName: request.patientFirstName,
         surname: request.patientLastName,
         birthday: request.patientBirthday,
+        patientNumber,
         sex: 'O',
         email: request.patientEmail || undefined,
         phone: request.patientPhone,
@@ -403,6 +405,9 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
           role: 'staff',
           isBookable: false,
           isDefaultLogin: false,
+          availabilityMode: null,
+          calcomUserId: null,
+          calcomEventTypeId: null,
         });
       }
     } else {
@@ -425,6 +430,9 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
         role: 'staff',
         isBookable: false,
         isDefaultLogin: false,
+        availabilityMode: null,
+        calcomUserId: null,
+        calcomEventTypeId: null,
       });
     }
     
