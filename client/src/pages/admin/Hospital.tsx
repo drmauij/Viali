@@ -1245,44 +1245,6 @@ export default function Hospital() {
       {/* Data & Links Tab Content */}
       {activeTab === "data" && (
         <div className="space-y-4">
-          {/* Seed Default Data Card */}
-          <div className="bg-card border border-border rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-foreground text-lg">
-                  <i className="fas fa-database mr-2 text-primary"></i>
-                  {t("admin.defaultDataSetup", "Default Data Setup")}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {t("admin.defaultDataSetupDescription", "Populate hospital with default units, surgery rooms, administration groups, and medications")}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  <i className="fas fa-info-circle mr-1"></i>
-                  {t("admin.defaultDataSetupNote", "Only adds missing items - never replaces existing data")}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSeedDialogOpen(true)}
-                disabled={seedHospitalMutation.isPending}
-                data-testid="button-seed-hospital"
-              >
-                {seedHospitalMutation.isPending ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin mr-2"></i>
-                    {t("admin.seeding", "Seeding...")}
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-seedling mr-2"></i>
-                    {t("admin.seedDefaultData", "Seed Default Data")}
-                  </>
-                )}
-              </Button>
-            </div>
-          </div>
-
           {/* Open Questionnaire Link Section */}
           <div className="bg-card border border-border rounded-lg p-6">
             <div className="space-y-4">
@@ -1527,6 +1489,44 @@ export default function Hospital() {
                   </Button>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Seed Default Data Card */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground text-lg">
+                  <i className="fas fa-database mr-2 text-primary"></i>
+                  {t("admin.defaultDataSetup", "Default Data Setup")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("admin.defaultDataSetupDescription", "Populate hospital with default units, surgery rooms, administration groups, and medications")}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  <i className="fas fa-info-circle mr-1"></i>
+                  {t("admin.defaultDataSetupNote", "Only adds missing items - never replaces existing data")}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSeedDialogOpen(true)}
+                disabled={seedHospitalMutation.isPending}
+                data-testid="button-seed-hospital"
+              >
+                {seedHospitalMutation.isPending ? (
+                  <>
+                    <i className="fas fa-spinner fa-spin mr-2"></i>
+                    {t("admin.seeding", "Seeding...")}
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-seedling mr-2"></i>
+                    {t("admin.seedDefaultData", "Seed Default Data")}
+                  </>
+                )}
+              </Button>
             </div>
           </div>
 
