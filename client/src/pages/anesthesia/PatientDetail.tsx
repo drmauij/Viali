@@ -36,6 +36,7 @@ import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
+import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
 
 type Patient = {
   id: string;
@@ -3900,94 +3901,37 @@ export default function PatientDetail() {
                   </Card>
                 </AccordionItem>
 
-                {/* Patient Uploaded Documents Section */}
-                {patientUploads.length > 0 && (
-                  <AccordionItem value="patient-documents">
-                    <Card className="border-blue-400 dark:border-blue-600">
-                      <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-patient-documents">
-                        <CardTitle className="text-lg text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                          <FileText className="h-5 w-5" />
-                          {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')} ({patientUploads.length})
-                        </CardTitle>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <CardContent className="pt-0">
-                          <p className="text-sm text-muted-foreground mb-4">
-                            {t('anesthesia.patientDetail.patientDocumentsDesc', 'Files uploaded by the patient through the online questionnaire.')}
-                          </p>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {patientUploads.map((upload) => {
-                              const isImage = upload.mimeType?.startsWith('image/');
-                              const categoryLabels: Record<string, string> = {
-                                medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
-                                diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
-                                exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
-                                other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
-                              };
-                              // Use the authenticated API endpoint for file access with hospital_id query param
-                              const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file?hospital_id=${activeHospital?.id}`;
-                              return (
-                                <div 
-                                  key={upload.id}
-                                  className="flex flex-col p-3 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer"
-                                  data-testid={`patient-upload-${upload.id}`}
-                                  onClick={() => {
-                                    // Show document in split-screen preview
-                                    setPreviewDocument({
-                                      id: upload.id,
-                                      fileName: upload.fileName,
-                                      mimeType: upload.mimeType || '',
-                                      url: fileStreamUrl,
-                                    });
-                                  }}
-                                >
-                                  {isImage ? (
-                                    <div className="w-full h-32 mb-2 overflow-hidden rounded bg-muted">
-                                      <img 
-                                        src={fileStreamUrl} 
-                                        alt={upload.fileName}
-                                        className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
-                                        onError={(e) => {
-                                          // On error, hide image and show placeholder
-                                          const target = e.target as HTMLImageElement;
-                                          target.style.display = 'none';
-                                          const parent = target.parentElement;
-                                          if (parent) {
-                                            parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
-                                          }
-                                        }}
-                                      />
-                                    </div>
-                                  ) : (
-                                    <div className="w-full h-32 mb-2 flex items-center justify-center bg-muted rounded">
-                                      <FileText className="h-12 w-12 text-muted-foreground" />
-                                    </div>
-                                  )}
-                                  <div className="space-y-1">
-                                    <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
-                                      {upload.fileName}
-                                    </p>
-                                    <div className="flex items-center justify-between text-xs text-muted-foreground">
-                                      <Badge variant="secondary" className="text-xs">
-                                        {categoryLabels[upload.category] || upload.category}
-                                      </Badge>
-                                      {upload.fileSize && (
-                                        <span>{(upload.fileSize / 1024).toFixed(1)} KB</span>
-                                      )}
-                                    </div>
-                                    {upload.description && (
-                                      <p className="text-xs text-muted-foreground line-clamp-2">{upload.description}</p>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </CardContent>
-                      </AccordionContent>
-                    </Card>
-                  </AccordionItem>
-                )}
+                {/* Patient Documents Section - All Documents with List/Grid Toggle and Upload */}
+                <AccordionItem value="patient-documents">
+                  <Card className="border-blue-400 dark:border-blue-600">
+                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-patient-documents">
+                      <CardTitle className="text-lg text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                        <FileText className="h-5 w-5" />
+                        {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')}
+                      </CardTitle>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <CardContent className="pt-0">
+                        {patient && activeHospital && (
+                          <PatientDocumentsSection
+                            patientId={patient.id}
+                            hospitalId={activeHospital.id}
+                            canWrite={!isPreOpReadOnly}
+                            variant="card"
+                            onPreview={(url, fileName, mimeType) => {
+                              setPreviewDocument({
+                                id: 'preview',
+                                fileName,
+                                mimeType: mimeType || 'application/octet-stream',
+                                url,
+                              });
+                            }}
+                          />
+                        )}
+                      </CardContent>
+                    </AccordionContent>
+                  </Card>
+                </AccordionItem>
 
                 {/* Medications Section */}
                 <AccordionItem value="medications">

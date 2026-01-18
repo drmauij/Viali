@@ -38,7 +38,7 @@ interface PatientDocumentsSectionProps {
   canWrite?: boolean;
   variant?: "accordion" | "card";
   defaultExpanded?: boolean;
-  onPreview?: (url: string, fileName: string) => void;
+  onPreview?: (url: string, fileName: string, mimeType?: string) => void;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -193,7 +193,7 @@ export function PatientDocumentsSection({
   const handlePreviewDocument = async (doc: PatientDocument) => {
     if (onPreview) {
       const fileUrl = `/api/patients/${patientId}/documents/${doc.id}/file`;
-      onPreview(fileUrl, doc.fileName);
+      onPreview(fileUrl, doc.fileName, doc.mimeType);
     } else {
       const fileUrl = `/api/patients/${patientId}/documents/${doc.id}/file`;
       window.open(fileUrl, '_blank');
