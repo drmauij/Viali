@@ -1319,27 +1319,6 @@ export default function Hospital() {
                 />
               </div>
               
-              {/* Pre-Surgery Reminder Enable/Disable Toggle */}
-              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border">
-                <div className="flex-1">
-                  <Label className="text-sm font-medium">
-                    {t("admin.preSurgeryReminderEnabled", "Pre-Surgery SMS Reminder Enabled")}
-                  </Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t("admin.preSurgeryReminderEnabledDescription", "When enabled, patients receive an SMS reminder 24 hours before their surgery")}
-                  </p>
-                </div>
-                <Switch
-                  checked={!hospitalForm.preSurgeryReminderDisabled}
-                  onCheckedChange={(checked) => {
-                    setHospitalForm(prev => ({ ...prev, preSurgeryReminderDisabled: !checked }));
-                    updatePreSurgeryReminderDisabledMutation.mutate(!checked);
-                  }}
-                  disabled={updatePreSurgeryReminderDisabledMutation.isPending}
-                  data-testid="switch-pre-surgery-reminder-enabled"
-                />
-              </div>
-              
               {!hospitalForm.questionnaireDisabled && (
                 <>
                   {questionnaireTokenData?.questionnaireToken ? (
@@ -1422,6 +1401,34 @@ export default function Hospital() {
                   )}
                 </>
               )}
+            </div>
+          </div>
+
+          {/* Pre-Surgery SMS Reminder Card */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-orange-500/10 flex items-center justify-center">
+                  <i className="fas fa-comment-sms text-orange-500"></i>
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground text-lg">
+                    {t("admin.preSurgeryReminderEnabled", "Pre-Surgery SMS Reminder")}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t("admin.preSurgeryReminderEnabledDescription", "When enabled, patients receive an SMS reminder 24 hours before their surgery")}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={!hospitalForm.preSurgeryReminderDisabled}
+                onCheckedChange={(checked) => {
+                  setHospitalForm(prev => ({ ...prev, preSurgeryReminderDisabled: !checked }));
+                  updatePreSurgeryReminderDisabledMutation.mutate(!checked);
+                }}
+                disabled={updatePreSurgeryReminderDisabledMutation.isPending}
+                data-testid="switch-pre-surgery-reminder-enabled"
+              />
             </div>
           </div>
 
