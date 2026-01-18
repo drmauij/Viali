@@ -399,9 +399,11 @@ export function PatientDocumentsSection({
     );
   };
 
+  const hasDocuments = documents.length > 0;
+
   const headerContent = (
     <div className="flex items-center justify-between w-full">
-      <CardTitle className="text-lg text-blue-600 dark:text-blue-400 flex items-center gap-2">
+      <CardTitle className={`text-lg flex items-center gap-2 ${hasDocuments ? 'text-blue-600 dark:text-blue-400' : ''}`}>
         <FileText className="h-5 w-5" />
         {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')} ({documents.length})
       </CardTitle>
@@ -563,8 +565,6 @@ export function PatientDocumentsSection({
       </Dialog>
     </>
   );
-
-  const hasDocuments = documents.length > 0;
 
   if (variant === "accordion") {
     return (
