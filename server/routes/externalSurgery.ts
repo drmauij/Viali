@@ -463,6 +463,22 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       scheduledBy: userId,
     });
     
+    // Transfer documents from external request to patient record
+    const documents = await storage.getExternalSurgeryRequestDocuments(id);
+    for (const doc of documents) {
+      await storage.createPatientDocument({
+        hospitalId: request.hospitalId,
+        patientId,
+        category: 'other',
+        fileName: doc.fileName,
+        fileUrl: doc.fileUrl,
+        mimeType: doc.mimeType || undefined,
+        fileSize: doc.fileSize || undefined,
+        description: `From external surgery request: ${request.surgeryName}`,
+        uploadedBy: userId,
+      });
+    }
+    
     if (sendConfirmation) {
       const hospital = await storage.getHospital(request.hospitalId);
       const hospitalName = hospital?.name || 'the hospital';

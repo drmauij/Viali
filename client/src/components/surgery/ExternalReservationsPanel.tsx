@@ -338,6 +338,30 @@ export function ExternalReservationsPanel({ trigger }: ExternalReservationsPanel
                       </div>
                     )}
 
+                    {request.documents && request.documents.length > 0 && (
+                      <div className="text-sm">
+                        <p className="text-xs font-medium text-muted-foreground uppercase mb-1">
+                          {isGerman ? 'Dokumente' : 'Documents'} ({request.documents.length})
+                        </p>
+                        <div className="space-y-1">
+                          {request.documents.map((doc: { id: string; fileName: string; fileUrl: string }) => (
+                            <a 
+                              key={doc.id}
+                              href={doc.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 text-sm text-primary hover:underline"
+                              data-testid={`document-link-${doc.id}`}
+                            >
+                              <FileText className="h-3 w-3" />
+                              {doc.fileName}
+                              <ExternalLink className="h-3 w-3" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex gap-2 pt-2">
                       <Button 
                         size="sm" 
