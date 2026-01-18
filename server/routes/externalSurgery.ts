@@ -363,6 +363,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       return res.status(400).json({ message: "Request already scheduled" });
     }
     
+    // Create or find patient
     let patientId = request.patientId;
     if (!patientId) {
       const patient = await storage.createPatient({
@@ -377,13 +378,64 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       patientId = patient.id;
     }
     
+    // Create or find external surgeon
+    let surgeonUserId: string | null = null;
+    const surgeonFullName = `${request.surgeonFirstName} ${request.surgeonLastName}`;
+    
+    // Check if a user with matching email + firstName + lastName already exists
+    const existingSurgeon = await storage.findUserByEmailAndName(
+      request.surgeonEmail,
+      request.surgeonFirstName,
+      request.surgeonLastName
+    );
+    
+    if (existingSurgeon) {
+      surgeonUserId = existingSurgeon.id;
+      // Ensure they're assigned to this hospital
+      const surgeonHospitals = await storage.getUserHospitals(existingSurgeon.id);
+      const isInHospital = surgeonHospitals.some(h => h.id === request.hospitalId);
+      if (!isInHospital) {
+        // Add them to this hospital with staff role
+        await storage.createUserHospitalRole({
+          userId: existingSurgeon.id,
+          hospitalId: request.hospitalId,
+          unitId: unitId,
+          role: 'staff',
+          isBookable: false,
+          isDefaultLogin: false,
+        });
+      }
+    } else {
+      // Create new external surgeon user
+      const newSurgeon = await storage.createUser({
+        email: request.surgeonEmail,
+        firstName: request.surgeonFirstName,
+        lastName: request.surgeonLastName,
+        phone: request.surgeonPhone,
+        staffType: 'external',
+        canLogin: false, // External surgeons don't need app access by default
+      });
+      surgeonUserId = newSurgeon.id;
+      
+      // Add them to this hospital with staff role
+      await storage.createUserHospitalRole({
+        userId: newSurgeon.id,
+        hospitalId: request.hospitalId,
+        unitId: unitId,
+        role: 'staff',
+        isBookable: false,
+        isDefaultLogin: false,
+      });
+    }
+    
     const surgery = await storage.createSurgery({
       hospitalId: request.hospitalId,
       patientId,
       surgeryRoomId: surgeryRoomId || null,
       plannedDate: new Date(plannedDate),
       plannedSurgery: request.surgeryName,
-      surgeon: `${request.surgeonFirstName} ${request.surgeonLastName}`,
+      surgeon: surgeonFullName,
+      surgeonId: surgeonUserId,
       notes: request.surgeryNotes || '',
       admissionTime: admissionTime ? new Date(admissionTime) : undefined,
     });

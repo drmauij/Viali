@@ -364,6 +364,8 @@ export interface IStorage {
   updateUserHospitalRole(id: string, updates: Partial<UserHospitalRole>): Promise<UserHospitalRole>;
   deleteUserHospitalRole(id: string): Promise<void>;
   searchUserByEmail(email: string): Promise<User | undefined>;
+  findUserByEmailAndName(email: string, firstName: string, lastName: string): Promise<User | undefined>;
+  createUser(userData: { email: string; firstName: string; lastName: string; phone?: string; staffType?: 'internal' | 'external'; canLogin?: boolean }): Promise<User>;
   createUserWithPassword(email: string, password: string, firstName: string, lastName: string): Promise<User>;
   updateUser(userId: string, updates: Partial<User>): Promise<User>;
   updateUserPassword(userId: string, newPassword: string): Promise<void>;
@@ -1909,6 +1911,38 @@ export class DatabaseStorage implements IStorage {
       .where(eq(users.email, email))
       .limit(1);
     return user;
+  }
+
+  async findUserByEmailAndName(email: string, firstName: string, lastName: string): Promise<User | undefined> {
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(and(
+        eq(users.email, email),
+        eq(users.firstName, firstName),
+        eq(users.lastName, lastName)
+      ))
+      .limit(1);
+    return user;
+  }
+
+  async createUser(userData: { email: string; firstName: string; lastName: string; phone?: string; staffType?: 'internal' | 'external'; canLogin?: boolean }): Promise<User> {
+    const nanoid = (await import('nanoid')).nanoid;
+    
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        id: nanoid(),
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        phone: userData.phone || null,
+        staffType: userData.staffType || 'internal',
+        canLogin: userData.canLogin ?? true,
+        profileImageUrl: null,
+      })
+      .returning();
+    return newUser;
   }
 
   async createUserWithPassword(email: string, password: string, firstName: string, lastName: string): Promise<User> {
