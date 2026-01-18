@@ -88,11 +88,16 @@ export function PatientDocumentsSection({
       });
       const { uploadUrl, storageKey } = await urlRes.json();
 
-      await fetch(uploadUrl, {
+      const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
         headers: { 'Content-Type': file.type },
         body: file,
       });
+
+      if (!uploadResponse.ok) {
+        console.error('S3 upload failed:', uploadResponse.status, uploadResponse.statusText);
+        throw new Error(`File upload failed: ${uploadResponse.statusText || uploadResponse.status}`);
+      }
 
       await apiRequest('POST', `/api/patients/${patientId}/documents`, {
         hospitalId,

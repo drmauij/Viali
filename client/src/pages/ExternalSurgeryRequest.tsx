@@ -158,11 +158,15 @@ export default function ExternalSurgeryRequest() {
         
         const { uploadUrl, fileUrl } = await urlRes.json();
         
-        await fetch(uploadUrl, {
+        const s3Response = await fetch(uploadUrl, {
           method: 'PUT',
           body: file,
           headers: { 'Content-Type': file.type },
         });
+        
+        if (!s3Response.ok) {
+          throw new Error('Failed to upload file to storage');
+        }
         
         const docRes = await fetch(`/public/external-surgery/${token}/documents`, {
           method: 'POST',
