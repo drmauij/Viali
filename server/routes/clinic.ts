@@ -2784,8 +2784,6 @@ router.get('/api/clinic/:hospitalId/calcom-config', isAuthenticated, isClinicAcc
         hospitalId,
         isEnabled: false,
         apiKey: null,
-        syncBusyBlocks: true,
-        syncTimebutlerAbsences: true,
       });
     }
     
@@ -2803,7 +2801,7 @@ router.get('/api/clinic/:hospitalId/calcom-config', isAuthenticated, isClinicAcc
 router.put('/api/clinic/:hospitalId/calcom-config', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const { apiKey, webhookSecret, isEnabled, syncBusyBlocks, syncTimebutlerAbsences } = req.body;
+    const { apiKey, webhookSecret, isEnabled } = req.body;
     
     const existing = await storage.getCalcomConfig(hospitalId);
     
@@ -2812,8 +2810,8 @@ router.put('/api/clinic/:hospitalId/calcom-config', isAuthenticated, isClinicAcc
       apiKey: apiKey === '***configured***' ? existing?.apiKey : apiKey,
       webhookSecret: webhookSecret === '***configured***' ? existing?.webhookSecret : webhookSecret,
       isEnabled: isEnabled ?? existing?.isEnabled ?? false,
-      syncBusyBlocks: syncBusyBlocks ?? existing?.syncBusyBlocks ?? true,
-      syncTimebutlerAbsences: syncTimebutlerAbsences ?? existing?.syncTimebutlerAbsences ?? true,
+      syncBusyBlocks: false, // Disabled - using ICS subscription instead
+      syncTimebutlerAbsences: false, // Disabled - using ICS subscription instead
     });
     
     res.json({
