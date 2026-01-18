@@ -205,7 +205,8 @@
     "moreOptions": "More Options",
     "worklogs": "Work Time Logs",
     "worklogsAnesthesia": "Work Time Logs (Anesthesia)",
-    "worklogsSurgery": "Work Time Logs (Surgery)"
+    "worklogsSurgery": "Work Time Logs (Surgery)",
+    "externalSurgery": "External Surgery Reservation"
   },
   "worklogs": {
     "title": "Work Time Logs",

@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
-import { Copy, Check, Link as LinkIcon, FileText, Clock } from "lucide-react";
+import { Copy, Check, Link as LinkIcon, FileText, Clock, Calendar } from "lucide-react";
 
 interface ModuleCard {
   id: string;
@@ -180,9 +180,19 @@ export default function ModuleDrawer() {
         url: `${baseUrl}/questionnaire/hospital/${activeHospital.questionnaireToken}`,
       });
     }
+
+    // External surgery reservation link (if hospital has the token configured)
+    if (activeHospital?.externalSurgeryToken && (hasSurgeryAccess || hasAnesthesiaAccess)) {
+      links.push({
+        id: 'externalSurgery',
+        icon: <Calendar className="w-4 h-4" />,
+        label: t('quickLinks.externalSurgery', 'OP-Terminreservierung'),
+        url: `${baseUrl}/external-surgery/${activeHospital.externalSurgeryToken}`,
+      });
+    }
     
     return links;
-  }, [activeHospital, addons.questionnaire, t]);
+  }, [activeHospital, addons.questionnaire, hasSurgeryAccess, hasAnesthesiaAccess, t]);
 
   // Menu items for navigation (shown in drawer, not as copy links)
   const menuItems = useMemo(() => {

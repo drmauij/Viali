@@ -211,7 +211,8 @@
     "moreOptions": "Weitere Optionen",
     "worklogs": "Arbeitszeitnachweise",
     "worklogsAnesthesia": "Arbeitszeitnachweise (Anästhesie)",
-    "worklogsSurgery": "Arbeitszeitnachweise (Chirurgie)"
+    "worklogsSurgery": "Arbeitszeitnachweise (Chirurgie)",
+    "externalSurgery": "OP-Terminreservierung (extern)"
   },
   "worklogs": {
     "title": "Arbeitszeitnachweise",

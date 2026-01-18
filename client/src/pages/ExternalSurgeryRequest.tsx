@@ -1,0 +1,667 @@
+import { useState, useCallback } from "react";
+import { useParams } from "wouter";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
+import { 
+  User,
+  Stethoscope,
+  Calendar,
+  Phone,
+  Mail,
+  FileText,
+  Upload,
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Building2
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import { useToast } from "@/hooks/use-toast";
+
+interface FormData {
+  surgeonFirstName: string;
+  surgeonLastName: string;
+  surgeonEmail: string;
+  surgeonPhone: string;
+  surgeryName: string;
+  surgeryDurationMinutes: number;
+  withAnesthesia: boolean;
+  surgeryNotes: string;
+  wishedDate: string;
+  patientFirstName: string;
+  patientLastName: string;
+  patientBirthday: string;
+  patientEmail: string;
+  patientPhone: string;
+}
+
+interface UploadedFile {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType?: string;
+  fileSize?: number;
+  isUploading?: boolean;
+}
+
+const STEPS = [
+  { id: 'surgeon', title: 'Surgeon Information', titleDe: 'Chirurg Informationen' },
+  { id: 'surgery', title: 'Surgery Details', titleDe: 'OP Details' },
+  { id: 'patient', title: 'Patient Information', titleDe: 'Patienten Informationen' },
+  { id: 'documents', title: 'Documents', titleDe: 'Dokumente' },
+];
+
+export default function ExternalSurgeryRequest() {
+  const { token } = useParams<{ token: string }>();
+  const { t, i18n } = useTranslation();
+  const { toast } = useToast();
+  const [currentStep, setCurrentStep] = useState(0);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [requestId, setRequestId] = useState<string | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  
+  const [formData, setFormData] = useState<FormData>({
+    surgeonFirstName: '',
+    surgeonLastName: '',
+    surgeonEmail: '',
+    surgeonPhone: '',
+    surgeryName: '',
+    surgeryDurationMinutes: 60,
+    withAnesthesia: true,
+    surgeryNotes: '',
+    wishedDate: '',
+    patientFirstName: '',
+    patientLastName: '',
+    patientBirthday: '',
+    patientEmail: '',
+    patientPhone: '',
+  });
+
+  const { data: hospitalData, isLoading, error } = useQuery({
+    queryKey: ['external-surgery', token],
+    queryFn: async () => {
+      const res = await fetch(`/public/external-surgery/${token}`);
+      if (!res.ok) throw new Error('Invalid link');
+      return res.json();
+    },
+    enabled: !!token,
+  });
+
+  const submitMutation = useMutation({
+    mutationFn: async (data: FormData) => {
+      const res = await fetch(`/public/external-surgery/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || 'Failed to submit');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setRequestId(data.requestId);
+      if (uploadedFiles.length === 0) {
+        setIsSubmitted(true);
+      } else {
+        setCurrentStep(3);
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleFileUpload = useCallback(async (files: FileList) => {
+    if (!requestId) return;
+    
+    for (const file of Array.from(files)) {
+      const tempId = Math.random().toString(36).substr(2, 9);
+      
+      setUploadedFiles(prev => [...prev, {
+        id: tempId,
+        fileName: file.name,
+        fileUrl: '',
+        mimeType: file.type,
+        fileSize: file.size,
+        isUploading: true,
+      }]);
+      
+      try {
+        const urlRes = await fetch(`/public/external-surgery/${token}/upload-url`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            contentType: file.type,
+            requestId,
+          }),
+        });
+        
+        if (!urlRes.ok) throw new Error('Failed to get upload URL');
+        
+        const { uploadUrl, fileUrl } = await urlRes.json();
+        
+        await fetch(uploadUrl, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': file.type },
+        });
+        
+        const docRes = await fetch(`/public/external-surgery/${token}/documents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requestId,
+            fileName: file.name,
+            fileUrl,
+            mimeType: file.type,
+            fileSize: file.size,
+          }),
+        });
+        
+        if (!docRes.ok) throw new Error('Failed to save document');
+        
+        const doc = await docRes.json();
+        
+        setUploadedFiles(prev => prev.map(f => 
+          f.id === tempId ? { ...f, id: doc.id, fileUrl, isUploading: false } : f
+        ));
+      } catch (err) {
+        setUploadedFiles(prev => prev.filter(f => f.id !== tempId));
+        toast({
+          title: "Upload failed",
+          description: "Could not upload file",
+          variant: "destructive",
+        });
+      }
+    }
+  }, [requestId, token, toast]);
+
+  const updateField = (field: keyof FormData, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const canProceed = () => {
+    switch (currentStep) {
+      case 0:
+        return formData.surgeonFirstName && formData.surgeonLastName && 
+               formData.surgeonEmail && formData.surgeonPhone;
+      case 1:
+        return formData.surgeryName && formData.surgeryDurationMinutes > 0 && formData.wishedDate;
+      case 2:
+        return formData.patientFirstName && formData.patientLastName && 
+               formData.patientBirthday && formData.patientPhone;
+      case 3:
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  const handleNext = () => {
+    if (currentStep < STEPS.length - 1) {
+      if (currentStep === 2 && !requestId) {
+        submitMutation.mutate(formData);
+      } else {
+        setCurrentStep(prev => prev + 1);
+      }
+    } else {
+      setIsSubmitted(true);
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep > 0) {
+      setCurrentStep(prev => prev - 1);
+    }
+  };
+
+  const isGerman = i18n.language === 'de';
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  if (error || !hospitalData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+              <h2 className="text-xl font-semibold mb-2">
+                {isGerman ? 'Ungültiger Link' : 'Invalid Link'}
+              </h2>
+              <p className="text-muted-foreground">
+                {isGerman 
+                  ? 'Dieser Link ist ungültig oder abgelaufen.'
+                  : 'This link is invalid or has expired.'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isSubmitted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+        <Card className="max-w-md w-full">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-semibold mb-2">
+                {isGerman ? 'Anfrage gesendet!' : 'Request Submitted!'}
+              </h2>
+              <p className="text-muted-foreground mb-4">
+                {isGerman 
+                  ? 'Ihre OP-Reservierungsanfrage wurde erfolgreich eingereicht. Sie erhalten eine Bestätigung, sobald der Termin geplant wurde.'
+                  : 'Your surgery reservation request has been successfully submitted. You will receive a confirmation once the appointment has been scheduled.'}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {hospitalData.hospitalName}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const progress = ((currentStep + 1) / STEPS.length) * 100;
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">
+      <div className="max-w-2xl mx-auto">
+        <div className="text-center mb-6">
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <Building2 className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-bold">{hospitalData.hospitalName}</h1>
+          </div>
+          <p className="text-muted-foreground">
+            {isGerman ? 'OP-Terminreservierung' : 'Surgery Reservation Request'}
+          </p>
+        </div>
+
+        <div className="mb-6">
+          <div className="flex justify-between text-sm text-muted-foreground mb-2">
+            <span>{isGerman ? STEPS[currentStep].titleDe : STEPS[currentStep].title}</span>
+            <span>{currentStep + 1} / {STEPS.length}</span>
+          </div>
+          <Progress value={progress} className="h-2" />
+        </div>
+
+        <Card>
+          <CardContent className="pt-6">
+            {currentStep === 0 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <User className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-medium">
+                    {isGerman ? 'Ihre Informationen' : 'Your Information'}
+                  </h3>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="surgeonFirstName">
+                      {isGerman ? 'Vorname' : 'First Name'} *
+                    </Label>
+                    <Input
+                      id="surgeonFirstName"
+                      value={formData.surgeonFirstName}
+                      onChange={(e) => updateField('surgeonFirstName', e.target.value)}
+                      data-testid="input-surgeon-first-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="surgeonLastName">
+                      {isGerman ? 'Nachname' : 'Last Name'} *
+                    </Label>
+                    <Input
+                      id="surgeonLastName"
+                      value={formData.surgeonLastName}
+                      onChange={(e) => updateField('surgeonLastName', e.target.value)}
+                      data-testid="input-surgeon-last-name"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="surgeonEmail">
+                    <Mail className="h-4 w-4 inline mr-1" />
+                    Email *
+                  </Label>
+                  <Input
+                    id="surgeonEmail"
+                    type="email"
+                    value={formData.surgeonEmail}
+                    onChange={(e) => updateField('surgeonEmail', e.target.value)}
+                    data-testid="input-surgeon-email"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="surgeonPhone">
+                    <Phone className="h-4 w-4 inline mr-1" />
+                    {isGerman ? 'Telefon' : 'Phone'} *
+                  </Label>
+                  <Input
+                    id="surgeonPhone"
+                    type="tel"
+                    value={formData.surgeonPhone}
+                    onChange={(e) => updateField('surgeonPhone', e.target.value)}
+                    data-testid="input-surgeon-phone"
+                  />
+                </div>
+              </div>
+            )}
+
+            {currentStep === 1 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Stethoscope className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-medium">
+                    {isGerman ? 'OP Details' : 'Surgery Details'}
+                  </h3>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="surgeryName">
+                    {isGerman ? 'OP Name / Eingriff' : 'Surgery Name'} *
+                  </Label>
+                  <Input
+                    id="surgeryName"
+                    value={formData.surgeryName}
+                    onChange={(e) => updateField('surgeryName', e.target.value)}
+                    placeholder={isGerman ? 'z.B. Brustaugmentation' : 'e.g. Breast Augmentation'}
+                    data-testid="input-surgery-name"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="surgeryDuration">
+                      {isGerman ? 'Dauer (Minuten)' : 'Duration (minutes)'} *
+                    </Label>
+                    <Input
+                      id="surgeryDuration"
+                      type="number"
+                      min={15}
+                      max={720}
+                      value={formData.surgeryDurationMinutes}
+                      onChange={(e) => updateField('surgeryDurationMinutes', parseInt(e.target.value) || 60)}
+                      data-testid="input-surgery-duration"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="wishedDate">
+                      <Calendar className="h-4 w-4 inline mr-1" />
+                      {isGerman ? 'Wunschdatum' : 'Wished Date'} *
+                    </Label>
+                    <Input
+                      id="wishedDate"
+                      type="date"
+                      value={formData.wishedDate}
+                      onChange={(e) => updateField('wishedDate', e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      data-testid="input-wished-date"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <Label htmlFor="withAnesthesia" className="cursor-pointer">
+                    {isGerman ? 'Mit Anästhesie' : 'With Anesthesia'}
+                  </Label>
+                  <Switch
+                    id="withAnesthesia"
+                    checked={formData.withAnesthesia}
+                    onCheckedChange={(checked) => updateField('withAnesthesia', checked)}
+                    data-testid="switch-anesthesia"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="surgeryNotes">
+                    <FileText className="h-4 w-4 inline mr-1" />
+                    {isGerman ? 'OP Notizen' : 'Surgery Notes'}
+                  </Label>
+                  <Textarea
+                    id="surgeryNotes"
+                    value={formData.surgeryNotes}
+                    onChange={(e) => updateField('surgeryNotes', e.target.value)}
+                    placeholder={isGerman ? 'Zusätzliche Informationen...' : 'Additional information...'}
+                    rows={3}
+                    data-testid="textarea-surgery-notes"
+                  />
+                </div>
+              </div>
+            )}
+
+            {currentStep === 2 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <User className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-medium">
+                    {isGerman ? 'Patienten Daten' : 'Patient Information'}
+                  </h3>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="patientFirstName">
+                      {isGerman ? 'Vorname' : 'First Name'} *
+                    </Label>
+                    <Input
+                      id="patientFirstName"
+                      value={formData.patientFirstName}
+                      onChange={(e) => updateField('patientFirstName', e.target.value)}
+                      data-testid="input-patient-first-name"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="patientLastName">
+                      {isGerman ? 'Nachname' : 'Last Name'} *
+                    </Label>
+                    <Input
+                      id="patientLastName"
+                      value={formData.patientLastName}
+                      onChange={(e) => updateField('patientLastName', e.target.value)}
+                      data-testid="input-patient-last-name"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="patientBirthday">
+                    {isGerman ? 'Geburtsdatum' : 'Birthday'} *
+                  </Label>
+                  <FlexibleDateInput
+                    value={formData.patientBirthday}
+                    onChange={(val) => updateField('patientBirthday', val)}
+                    data-testid="input-patient-birthday"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="patientPhone">
+                    <Phone className="h-4 w-4 inline mr-1" />
+                    {isGerman ? 'Telefon' : 'Phone'} *
+                  </Label>
+                  <Input
+                    id="patientPhone"
+                    type="tel"
+                    value={formData.patientPhone}
+                    onChange={(e) => updateField('patientPhone', e.target.value)}
+                    data-testid="input-patient-phone"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="patientEmail">
+                    <Mail className="h-4 w-4 inline mr-1" />
+                    Email ({isGerman ? 'optional' : 'optional'})
+                  </Label>
+                  <Input
+                    id="patientEmail"
+                    type="email"
+                    value={formData.patientEmail}
+                    onChange={(e) => updateField('patientEmail', e.target.value)}
+                    data-testid="input-patient-email"
+                  />
+                </div>
+              </div>
+            )}
+
+            {currentStep === 3 && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Upload className="h-5 w-5 text-primary" />
+                  <h3 className="text-lg font-medium">
+                    {isGerman ? 'Dokumente hochladen' : 'Upload Documents'}
+                  </h3>
+                </div>
+                
+                <p className="text-sm text-muted-foreground mb-4">
+                  {isGerman 
+                    ? 'Laden Sie relevante Dokumente hoch (Befunde, Laborergebnisse, etc.)'
+                    : 'Upload relevant documents (findings, lab results, etc.)'}
+                </p>
+                
+                <div
+                  className="border-2 border-dashed rounded-lg p-8 text-center cursor-pointer hover:border-primary transition-colors"
+                  onClick={() => document.getElementById('file-upload')?.click()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    if (e.dataTransfer.files.length) {
+                      handleFileUpload(e.dataTransfer.files);
+                    }
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                >
+                  <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm text-muted-foreground">
+                    {isGerman 
+                      ? 'Dateien hierher ziehen oder klicken zum Auswählen'
+                      : 'Drag files here or click to select'}
+                  </p>
+                  <input
+                    id="file-upload"
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files?.length) {
+                        handleFileUpload(e.target.files);
+                      }
+                    }}
+                    accept="image/*,.pdf,.doc,.docx"
+                  />
+                </div>
+                
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-2 mt-4">
+                    {uploadedFiles.map((file) => (
+                      <div key={file.id} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4" />
+                          <span className="text-sm truncate max-w-[200px]">{file.fileName}</span>
+                          {file.isUploading && <Loader2 className="h-4 w-4 animate-spin" />}
+                        </div>
+                        {!file.isUploading && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setUploadedFiles(prev => prev.filter(f => f.id !== file.id))}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-between mt-8">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                disabled={currentStep === 0}
+                data-testid="button-back"
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                {isGerman ? 'Zurück' : 'Back'}
+              </Button>
+              
+              <Button
+                onClick={handleNext}
+                disabled={!canProceed() || submitMutation.isPending}
+                data-testid="button-next"
+              >
+                {submitMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : currentStep === STEPS.length - 1 ? (
+                  isGerman ? 'Absenden' : 'Submit'
+                ) : currentStep === 2 ? (
+                  <>
+                    {isGerman ? 'Weiter & Absenden' : 'Continue & Submit'}
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </>
+                ) : (
+                  <>
+                    {isGerman ? 'Weiter' : 'Next'}
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-center mt-4 gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => i18n.changeLanguage('de')}
+            className={i18n.language === 'de' ? 'bg-muted' : ''}
+          >
+            🇩🇪 Deutsch
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => i18n.changeLanguage('en')}
+            className={i18n.language === 'en' ? 'bg-muted' : ''}
+          >
+            🇬🇧 English
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

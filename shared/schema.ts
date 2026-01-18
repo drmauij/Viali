@@ -75,6 +75,7 @@ export const hospitals = pgTable("hospitals", {
   companyLogoUrl: varchar("company_logo_url"),
   questionnaireToken: varchar("questionnaire_token").unique(),
   contractToken: varchar("contract_token").unique(), // Token for public contract form links
+  externalSurgeryToken: varchar("external_surgery_token").unique(), // Token for external surgery reservation links
   // Stock runway alert configuration
   runwayTargetDays: integer("runway_target_days").default(14), // Target stock runway in days
   runwayWarningDays: integer("runway_warning_days").default(7), // Warning threshold (critical below this)
@@ -4325,3 +4326,90 @@ export const insertBillingInvoiceSchema = createInsertSchema(billingInvoices).om
 
 export type BillingInvoice = typeof billingInvoices.$inferSelect;
 export type InsertBillingInvoice = z.infer<typeof insertBillingInvoiceSchema>;
+
+// ========== EXTERNAL SURGERY REQUESTS ==========
+// Requests from external doctors to reserve surgery slots
+
+export const externalSurgeryRequests = pgTable("external_surgery_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  
+  // Surgeon (external doctor) info
+  surgeonFirstName: varchar("surgeon_first_name").notNull(),
+  surgeonLastName: varchar("surgeon_last_name").notNull(),
+  surgeonEmail: varchar("surgeon_email").notNull(),
+  surgeonPhone: varchar("surgeon_phone").notNull(),
+  
+  // Surgery details
+  surgeryName: varchar("surgery_name").notNull(),
+  surgeryDurationMinutes: integer("surgery_duration_minutes").notNull(),
+  withAnesthesia: boolean("with_anesthesia").default(true).notNull(),
+  surgeryNotes: text("surgery_notes"),
+  wishedDate: date("wished_date").notNull(),
+  
+  // Patient info
+  patientFirstName: varchar("patient_first_name").notNull(),
+  patientLastName: varchar("patient_last_name").notNull(),
+  patientBirthday: date("patient_birthday").notNull(),
+  patientEmail: varchar("patient_email"),
+  patientPhone: varchar("patient_phone").notNull(),
+  
+  // Status and linking
+  status: varchar("status", { enum: ["pending", "scheduled", "declined"] }).default("pending").notNull(),
+  surgeryId: varchar("surgery_id").references(() => surgeries.id), // Linked surgery once scheduled
+  patientId: varchar("patient_id").references(() => patients.id), // Linked patient once created
+  
+  // Notification tracking
+  confirmationEmailSent: boolean("confirmation_email_sent").default(false),
+  confirmationSmsSent: boolean("confirmation_sms_sent").default(false),
+  
+  // Admin notes
+  internalNotes: text("internal_notes"),
+  declineReason: text("decline_reason"),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  scheduledAt: timestamp("scheduled_at"),
+  scheduledBy: varchar("scheduled_by").references(() => users.id),
+}, (table) => [
+  index("idx_external_surgery_requests_hospital").on(table.hospitalId),
+  index("idx_external_surgery_requests_status").on(table.status),
+  index("idx_external_surgery_requests_wished_date").on(table.wishedDate),
+]);
+
+export const insertExternalSurgeryRequestSchema = createInsertSchema(externalSurgeryRequests).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  scheduledAt: true,
+  scheduledBy: true,
+  surgeryId: true,
+  patientId: true,
+  confirmationEmailSent: true,
+  confirmationSmsSent: true,
+});
+
+export type ExternalSurgeryRequest = typeof externalSurgeryRequests.$inferSelect;
+export type InsertExternalSurgeryRequest = z.infer<typeof insertExternalSurgeryRequestSchema>;
+
+// External Surgery Request Documents - uploaded by external doctors
+export const externalSurgeryRequestDocuments = pgTable("external_surgery_request_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  requestId: varchar("request_id").notNull().references(() => externalSurgeryRequests.id, { onDelete: 'cascade' }),
+  fileName: varchar("file_name").notNull(),
+  fileUrl: varchar("file_url").notNull(),
+  mimeType: varchar("mime_type"),
+  fileSize: integer("file_size"),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_external_surgery_docs_request").on(table.requestId),
+]);
+
+export const insertExternalSurgeryRequestDocumentSchema = createInsertSchema(externalSurgeryRequestDocuments).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ExternalSurgeryRequestDocument = typeof externalSurgeryRequestDocuments.$inferSelect;
+export type InsertExternalSurgeryRequestDocument = z.infer<typeof insertExternalSurgeryRequestDocumentSchema>;

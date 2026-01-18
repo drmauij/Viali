@@ -1,15 +1,18 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useTranslation } from "react-i18next";
-import { Calendar, TableProperties } from "lucide-react";
+import { Calendar, TableProperties, FileText } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import OPCalendar from "@/components/anesthesia/OPCalendar";
 import SurgerySummaryDialog from "@/components/anesthesia/SurgerySummaryDialog";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { DuplicateRecordsDialog } from "@/components/anesthesia/DuplicateRecordsDialog";
 import { SurgeryPlanningTable } from "@/components/shared/SurgeryPlanningTable";
+import { ExternalReservationsPanel, ExternalRequestsBadge } from "@/components/surgery/ExternalReservationsPanel";
 import { useModule } from "@/contexts/ModuleContext";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest } from "@/lib/queryClient";
 import type { Surgery } from "@shared/schema";
 
@@ -50,9 +53,14 @@ type ViewMode = "calendar" | "table";
 type TableTab = "current" | "past";
 
 export default function OpList() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [, setLocation] = useLocation();
   const { activeModule } = useModule();
+  const { activeHospital } = useActiveHospital();
+  const isGerman = i18n.language === 'de';
+  const hasExternalSurgeryToken = !!activeHospital?.externalSurgeryToken;
+  const hasSurgeryOrAnesthesiaAccess = activeHospital?.isSurgeryModule || activeHospital?.isAnesthesiaModule;
+  const showExternalRequests = hasExternalSurgeryToken && hasSurgeryOrAnesthesiaAccess;
   
   // Initialize viewMode from sessionStorage to persist across navigation
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -266,30 +274,48 @@ export default function OpList() {
           </p>
         </div>
         
-        {/* View Toggle */}
-        <ToggleGroup
-          type="single"
-          value={viewMode}
-          onValueChange={(value) => value && setViewMode(value as ViewMode)}
-          className="border rounded-lg"
-        >
-          <ToggleGroupItem
-            value="calendar"
-            aria-label={t('surgeryPlanning.calendarView')}
-            data-testid="toggle-calendar-view"
+        <div className="flex items-center gap-3">
+          {showExternalRequests && (
+            <ExternalReservationsPanel
+              trigger={
+                <Button 
+                  variant="outline" 
+                  className="relative"
+                  data-testid="button-external-requests"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  {isGerman ? 'Anfragen' : 'Requests'}
+                  <ExternalRequestsBadge />
+                </Button>
+              }
+            />
+          )}
+
+          {/* View Toggle */}
+          <ToggleGroup
+            type="single"
+            value={viewMode}
+            onValueChange={(value) => value && setViewMode(value as ViewMode)}
+            className="border rounded-lg"
           >
-            <Calendar className="h-4 w-4 mr-2" />
-            {t('surgeryPlanning.calendarView')}
-          </ToggleGroupItem>
-          <ToggleGroupItem
-            value="table"
-            aria-label={t('surgeryPlanning.tableView')}
-            data-testid="toggle-table-view"
-          >
-            <TableProperties className="h-4 w-4 mr-2" />
-            {t('surgeryPlanning.tableView')}
-          </ToggleGroupItem>
-        </ToggleGroup>
+            <ToggleGroupItem
+              value="calendar"
+              aria-label={t('surgeryPlanning.calendarView')}
+              data-testid="toggle-calendar-view"
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              {t('surgeryPlanning.calendarView')}
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="table"
+              aria-label={t('surgeryPlanning.tableView')}
+              data-testid="toggle-table-view"
+            >
+              <TableProperties className="h-4 w-4 mr-2" />
+              {t('surgeryPlanning.tableView')}
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
       </div>
 
       {/* Calendar or Table View */}

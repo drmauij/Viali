@@ -236,6 +236,12 @@ import {
   type InsertExternalWorklogLink,
   type ExternalWorklogEntry,
   type InsertExternalWorklogEntry,
+  externalSurgeryRequests,
+  externalSurgeryRequestDocuments,
+  type ExternalSurgeryRequest,
+  type InsertExternalSurgeryRequest,
+  type ExternalSurgeryRequestDocument,
+  type InsertExternalSurgeryRequestDocument,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -789,6 +795,16 @@ export interface IStorage {
   updatePersonalTodo(id: string, updates: Partial<PersonalTodo>): Promise<PersonalTodo>;
   deletePersonalTodo(id: string): Promise<void>;
   reorderPersonalTodos(todoIds: string[], status: string): Promise<void>;
+  
+  // ========== EXTERNAL SURGERY REQUESTS ==========
+  getExternalSurgeryRequests(hospitalId: string, status?: string): Promise<ExternalSurgeryRequest[]>;
+  getExternalSurgeryRequest(id: string): Promise<ExternalSurgeryRequest | undefined>;
+  getExternalSurgeryRequestByHospitalToken(token: string): Promise<{ hospital: Hospital } | undefined>;
+  createExternalSurgeryRequest(request: InsertExternalSurgeryRequest): Promise<ExternalSurgeryRequest>;
+  updateExternalSurgeryRequest(id: string, updates: Partial<ExternalSurgeryRequest>): Promise<ExternalSurgeryRequest>;
+  getExternalSurgeryRequestDocuments(requestId: string): Promise<ExternalSurgeryRequestDocument[]>;
+  createExternalSurgeryRequestDocument(doc: InsertExternalSurgeryRequestDocument): Promise<ExternalSurgeryRequestDocument>;
+  getPendingExternalSurgeryRequestsCount(hospitalId: string): Promise<number>;
   
   // ========== CLINIC APPOINTMENT SCHEDULING ==========
   
@@ -8515,6 +8531,87 @@ export class DatabaseStorage implements IStorage {
 
   async deleteExternalWorklogLink(id: string): Promise<void> {
     await db.delete(externalWorklogLinks).where(eq(externalWorklogLinks.id, id));
+  }
+
+  // ========== EXTERNAL SURGERY REQUESTS ==========
+  
+  async getExternalSurgeryRequests(hospitalId: string, status?: string): Promise<ExternalSurgeryRequest[]> {
+    if (status) {
+      return await db
+        .select()
+        .from(externalSurgeryRequests)
+        .where(and(
+          eq(externalSurgeryRequests.hospitalId, hospitalId),
+          eq(externalSurgeryRequests.status, status)
+        ))
+        .orderBy(desc(externalSurgeryRequests.createdAt));
+    }
+    return await db
+      .select()
+      .from(externalSurgeryRequests)
+      .where(eq(externalSurgeryRequests.hospitalId, hospitalId))
+      .orderBy(desc(externalSurgeryRequests.createdAt));
+  }
+
+  async getExternalSurgeryRequest(id: string): Promise<ExternalSurgeryRequest | undefined> {
+    const [request] = await db
+      .select()
+      .from(externalSurgeryRequests)
+      .where(eq(externalSurgeryRequests.id, id));
+    return request;
+  }
+
+  async getExternalSurgeryRequestByHospitalToken(token: string): Promise<{ hospital: Hospital } | undefined> {
+    const [hospital] = await db
+      .select()
+      .from(hospitals)
+      .where(eq(hospitals.externalSurgeryToken, token));
+    if (!hospital) return undefined;
+    return { hospital };
+  }
+
+  async createExternalSurgeryRequest(request: InsertExternalSurgeryRequest): Promise<ExternalSurgeryRequest> {
+    const [created] = await db
+      .insert(externalSurgeryRequests)
+      .values(request)
+      .returning();
+    return created;
+  }
+
+  async updateExternalSurgeryRequest(id: string, updates: Partial<ExternalSurgeryRequest>): Promise<ExternalSurgeryRequest> {
+    const [updated] = await db
+      .update(externalSurgeryRequests)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(externalSurgeryRequests.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getExternalSurgeryRequestDocuments(requestId: string): Promise<ExternalSurgeryRequestDocument[]> {
+    return await db
+      .select()
+      .from(externalSurgeryRequestDocuments)
+      .where(eq(externalSurgeryRequestDocuments.requestId, requestId))
+      .orderBy(asc(externalSurgeryRequestDocuments.createdAt));
+  }
+
+  async createExternalSurgeryRequestDocument(doc: InsertExternalSurgeryRequestDocument): Promise<ExternalSurgeryRequestDocument> {
+    const [created] = await db
+      .insert(externalSurgeryRequestDocuments)
+      .values(doc)
+      .returning();
+    return created;
+  }
+
+  async getPendingExternalSurgeryRequestsCount(hospitalId: string): Promise<number> {
+    const result = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(externalSurgeryRequests)
+      .where(and(
+        eq(externalSurgeryRequests.hospitalId, hospitalId),
+        eq(externalSurgeryRequests.status, 'pending')
+      ));
+    return result[0]?.count || 0;
   }
 }
 

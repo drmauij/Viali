@@ -62,6 +62,7 @@ import ClinicServices from "@/pages/clinic/Services";
 import ClinicQuestionnaires from "@/pages/clinic/UnassociatedQuestionnaires";
 import ClinicAppointments from "@/pages/clinic/Appointments";
 import PatientQuestionnaire from "@/pages/PatientQuestionnaire";
+import ExternalSurgeryRequest from "@/pages/ExternalSurgeryRequest";
 import LogisticInventory from "@/pages/logistic/LogisticInventory";
 import LogisticOrders from "@/pages/logistic/LogisticOrders";
 import "@/i18n/config";
@@ -162,6 +163,7 @@ function Router() {
         {/* Public routes accessible regardless of auth */}
         <Route path="/questionnaire/:token" component={PatientQuestionnaire} />
         <Route path="/questionnaire/hospital/:token" component={PatientQuestionnaire} />
+        <Route path="/external-surgery/:token" component={ExternalSurgeryRequest} />
         <Route path="/contract/:token" component={WorkerContractForm} />
         <Route path="/worklog/:token" component={ExternalWorklog} />
         

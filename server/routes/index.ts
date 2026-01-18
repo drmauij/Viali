@@ -11,6 +11,7 @@ import chatRouter from "./chat";
 import questionnaireRouter from "./questionnaire";
 import camerasRouter from "./cameras";
 import billingRouter from "./billing";
+import externalSurgeryRouter from "./externalSurgery";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
@@ -25,4 +26,5 @@ export function registerDomainRoutes(app: Express) {
   app.use(questionnaireRouter);
   app.use(camerasRouter);
   app.use(billingRouter);
+  app.use(externalSurgeryRouter);
 }
