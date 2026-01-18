@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
 
@@ -22,19 +22,35 @@ export function FlexibleDateInput({
   "data-testid": dataTestId,
 }: FlexibleDateInputProps) {
   const [displayValue, setDisplayValue] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+  const lastExternalValue = useRef(value);
 
   useEffect(() => {
-    if (value) {
+    if (!isFocused && value !== lastExternalValue.current) {
+      lastExternalValue.current = value;
+      if (value) {
+        const parsed = parseFlexibleDate(value);
+        if (parsed) {
+          setDisplayValue(parsed.displayDate);
+        } else {
+          setDisplayValue(isoToDisplayDate(value) || value);
+        }
+      } else {
+        setDisplayValue("");
+      }
+    }
+  }, [value, isFocused]);
+
+  useEffect(() => {
+    if (!displayValue && value) {
       const parsed = parseFlexibleDate(value);
       if (parsed) {
         setDisplayValue(parsed.displayDate);
       } else {
         setDisplayValue(isoToDisplayDate(value) || value);
       }
-    } else {
-      setDisplayValue("");
     }
-  }, [value]);
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
@@ -42,16 +58,24 @@ export function FlexibleDateInput({
     
     const parsed = parseFlexibleDate(inputValue);
     if (parsed) {
+      lastExternalValue.current = parsed.isoDate;
       onChange(parsed.isoDate);
     } else {
+      lastExternalValue.current = inputValue;
       onChange(inputValue);
     }
   };
 
+  const handleFocus = () => {
+    setIsFocused(true);
+  };
+
   const handleBlur = () => {
+    setIsFocused(false);
     const parsed = parseFlexibleDate(displayValue);
     if (parsed) {
       setDisplayValue(parsed.displayDate);
+      lastExternalValue.current = parsed.isoDate;
       onChange(parsed.isoDate);
     }
   };
@@ -63,6 +87,7 @@ export function FlexibleDateInput({
       placeholder={placeholder}
       value={displayValue}
       onChange={handleChange}
+      onFocus={handleFocus}
       onBlur={handleBlur}
       disabled={disabled}
       className={className}
