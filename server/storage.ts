@@ -767,6 +767,7 @@ export interface IStorage {
   addQuestionnaireUpload(upload: InsertPatientQuestionnaireUpload): Promise<PatientQuestionnaireUpload>;
   getQuestionnaireUploads(responseId: string): Promise<PatientQuestionnaireUpload[]>;
   getQuestionnaireUploadById(id: string): Promise<PatientQuestionnaireUpload | undefined>;
+  updateQuestionnaireUpload(id: string, updates: Partial<{ description: string; reviewed: boolean }>): Promise<PatientQuestionnaireUpload>;
   deleteQuestionnaireUpload(id: string): Promise<void>;
   
   // Questionnaire Review operations
@@ -778,6 +779,7 @@ export interface IStorage {
   getPatientDocuments(patientId: string): Promise<PatientDocument[]>;
   getPatientDocument(id: string): Promise<PatientDocument | undefined>;
   createPatientDocument(doc: InsertPatientDocument): Promise<PatientDocument>;
+  updatePatientDocument(id: string, updates: Partial<PatientDocument>): Promise<PatientDocument>;
   deletePatientDocument(id: string): Promise<void>;
   
   // ========== PERSONAL TODO OPERATIONS ==========
@@ -7137,6 +7139,15 @@ export class DatabaseStorage implements IStorage {
     return upload;
   }
 
+  async updateQuestionnaireUpload(id: string, updates: Partial<{ description: string; reviewed: boolean }>): Promise<PatientQuestionnaireUpload> {
+    const [updated] = await db
+      .update(patientQuestionnaireUploads)
+      .set(updates)
+      .where(eq(patientQuestionnaireUploads.id, id))
+      .returning();
+    return updated;
+  }
+
   async deleteQuestionnaireUpload(id: string): Promise<void> {
     await db
       .delete(patientQuestionnaireUploads)
@@ -7208,6 +7219,15 @@ export class DatabaseStorage implements IStorage {
       .values(doc)
       .returning();
     return created;
+  }
+
+  async updatePatientDocument(id: string, updates: Partial<PatientDocument>): Promise<PatientDocument> {
+    const [updated] = await db
+      .update(patientDocuments)
+      .set(updates)
+      .where(eq(patientDocuments.id, id))
+      .returning();
+    return updated;
   }
 
   async deletePatientDocument(id: string): Promise<void> {

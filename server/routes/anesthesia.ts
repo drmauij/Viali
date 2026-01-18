@@ -727,8 +727,49 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const documents = await storage.getPatientDocuments(id);
-    res.json(documents);
+    // Get staff-uploaded documents
+    const staffDocuments = await storage.getPatientDocuments(id);
+
+    // Also get questionnaire uploads and convert to unified format
+    const questionnaireLinks = await storage.getQuestionnaireLinks(id);
+    const questionnaireDocuments: any[] = [];
+    
+    for (const link of questionnaireLinks) {
+      if (link.response && link.status === 'submitted') {
+        const response = await storage.getQuestionnaireResponse(link.response.id);
+        if (response) {
+          const uploads = await storage.getQuestionnaireUploads(response.id);
+          for (const upload of uploads) {
+            // Convert questionnaire upload to unified document format
+            questionnaireDocuments.push({
+              id: `questionnaire-${upload.id}`,
+              hospitalId: patient.hospitalId,
+              patientId: id,
+              category: upload.category || 'other',
+              fileName: upload.fileName,
+              fileUrl: upload.fileUrl,
+              mimeType: upload.mimeType,
+              fileSize: upload.fileSize,
+              description: upload.description,
+              uploadedBy: null,
+              source: 'questionnaire',
+              reviewed: upload.reviewed || false,
+              questionnaireUploadId: upload.id,
+              createdAt: upload.createdAt,
+            });
+          }
+        }
+      }
+    }
+
+    // Merge and sort by createdAt (newest first)
+    const allDocuments = [...staffDocuments, ...questionnaireDocuments].sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+
+    res.json(allDocuments);
   } catch (error) {
     console.error("Error fetching patient documents:", error);
     res.status(500).json({ message: "Failed to fetch patient documents" });
@@ -840,6 +881,85 @@ router.post('/api/patients/:id/documents', isAuthenticated, requireWriteAccess, 
   }
 });
 
+// Update patient document (description, reviewed status)
+router.patch('/api/patients/:id/documents/:docId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id, docId } = req.params;
+    const { description, reviewed } = req.body;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(id);
+    
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updateData: { description?: string; reviewed?: boolean } = {};
+    if (description !== undefined) updateData.description = description;
+    if (reviewed !== undefined) updateData.reviewed = reviewed;
+
+    // Handle questionnaire uploads (IDs start with "questionnaire-")
+    if (docId.startsWith('questionnaire-')) {
+      const uploadId = docId.replace('questionnaire-', '');
+      const upload = await storage.getQuestionnaireUploadById(uploadId);
+      
+      if (!upload) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Verify ownership: get the questionnaire link and check patient association
+      const response = await storage.getQuestionnaireResponse(upload.responseId);
+      if (!response) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      const link = await storage.getQuestionnaireLink(response.linkId);
+      if (!link || link.patientId !== id) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const updated = await storage.updateQuestionnaireUpload(uploadId, updateData);
+      // Return in unified format
+      res.json({
+        id: `questionnaire-${updated.id}`,
+        hospitalId: patient.hospitalId,
+        patientId: id,
+        category: updated.category || 'other',
+        fileName: updated.fileName,
+        fileUrl: updated.fileUrl,
+        mimeType: updated.mimeType,
+        fileSize: updated.fileSize,
+        description: updated.description,
+        uploadedBy: null,
+        source: 'questionnaire',
+        reviewed: updated.reviewed || false,
+        questionnaireUploadId: updated.id,
+        createdAt: updated.createdAt,
+      });
+      return;
+    }
+
+    // Regular patient document
+    const document = await storage.getPatientDocument(docId);
+    
+    if (!document || document.patientId !== id) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+
+    const updated = await storage.updatePatientDocument(docId, updateData);
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating patient document:", error);
+    res.status(500).json({ message: "Failed to update patient document" });
+  }
+});
+
 // Delete patient document
 router.delete('/api/patients/:id/documents/:docId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
@@ -927,10 +1047,43 @@ router.get('/api/patients/:id/documents/:docId/file', isAuthenticated, async (re
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const document = await storage.getPatientDocument(docId);
-    
-    if (!document || document.patientId !== id) {
-      return res.status(404).json({ message: "Document not found" });
+    let fileUrl: string;
+    let mimeType: string | null = null;
+    let fileName: string;
+
+    // Handle questionnaire uploads (IDs start with "questionnaire-")
+    if (docId.startsWith('questionnaire-')) {
+      const uploadId = docId.replace('questionnaire-', '');
+      const upload = await storage.getQuestionnaireUploadById(uploadId);
+      
+      if (!upload) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      // Verify ownership: get the questionnaire link and check patient association
+      const response = await storage.getQuestionnaireResponse(upload.responseId);
+      if (!response) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      const link = await storage.getQuestionnaireLink(response.linkId);
+      if (!link || link.patientId !== id) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      fileUrl = upload.fileUrl;
+      mimeType = upload.mimeType;
+      fileName = upload.fileName;
+    } else {
+      // Regular patient document
+      const document = await storage.getPatientDocument(docId);
+      
+      if (!document || document.patientId !== id) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      fileUrl = document.fileUrl;
+      mimeType = document.mimeType || null;
+      fileName = document.fileName;
     }
 
     // Stream from S3
@@ -954,7 +1107,7 @@ router.get('/api/patients/:id/documents/:docId/file', isAuthenticated, async (re
       forcePathStyle: true,
     });
 
-    let key = document.fileUrl;
+    let key = fileUrl;
     if (key.startsWith("/objects/")) {
       key = key.slice("/objects/".length);
     }
@@ -965,8 +1118,8 @@ router.get('/api/patients/:id/documents/:docId/file', isAuthenticated, async (re
     }));
 
     res.set({
-      "Content-Type": document.mimeType || "application/octet-stream",
-      "Content-Disposition": `inline; filename="${document.fileName}"`,
+      "Content-Type": mimeType || "application/octet-stream",
+      "Content-Disposition": `inline; filename="${fileName}"`,
       "Cache-Control": "private, max-age=3600",
     });
 

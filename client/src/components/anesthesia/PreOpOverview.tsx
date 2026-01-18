@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle, ListTodo } from "lucide-react";
 import { formatDateTime } from "@/lib/dateUtils";
 import { useCreateTodo } from "@/hooks/useCreateTodo";
+import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
+import { useCanWrite } from "@/hooks/useCanWrite";
 
 type PreOpAssessmentData = {
   // General Data
@@ -139,6 +141,7 @@ const installationLabels: Record<string, string> = {
 
 export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName }: PreOpOverviewProps) {
   const { createTodo, isPending: isTodoPending } = useCreateTodo(hospitalId);
+  const canWrite = useCanWrite();
   const { data: assessment, isLoading } = useQuery<PreOpAssessmentData>({
     queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
     enabled: !!surgeryId,
@@ -542,6 +545,16 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName }:
             </Card>
           )}
         </div>
+      )}
+
+      {/* Patient Documents Section */}
+      {patientId && hospitalId && (
+        <PatientDocumentsSection
+          patientId={patientId}
+          hospitalId={hospitalId}
+          canWrite={canWrite}
+          variant="card"
+        />
       )}
     </div>
   );

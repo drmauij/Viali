@@ -784,6 +784,9 @@ export const patientDocuments = pgTable("patient_documents", {
   fileSize: integer("file_size"),
   description: text("description"),
   uploadedBy: varchar("uploaded_by").references(() => users.id),
+  source: varchar("source", { enum: ["questionnaire", "staff_upload", "import"] }).default("staff_upload"),
+  reviewed: boolean("reviewed").default(false),
+  questionnaireUploadId: varchar("questionnaire_upload_id"),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_patient_documents_hospital").on(table.hospitalId),
@@ -3529,6 +3532,7 @@ export const patientQuestionnaireUploads = pgTable("patient_questionnaire_upload
   mimeType: varchar("mime_type"),
   fileSize: integer("file_size"), // bytes
   description: text("description"), // Patient's description of the file
+  reviewed: boolean("reviewed").default(false), // Staff has reviewed this upload
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_questionnaire_uploads_response").on(table.responseId),
