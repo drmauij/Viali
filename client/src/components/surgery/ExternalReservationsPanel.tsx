@@ -133,7 +133,7 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
 
           {surgeryRooms.length > 0 && (
             <div className="space-y-2">
-              <Label>{isGerman ? 'OP-Saal' : 'Surgery Room'}</Label>
+              <Label>{isGerman ? 'OP-Saal' : 'Surgery Room'} *</Label>
               <Select value={surgeryRoomId} onValueChange={setSurgeryRoomId}>
                 <SelectTrigger>
                   <SelectValue placeholder={isGerman ? 'Saal wählen...' : 'Select room...'} />
@@ -169,7 +169,7 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
           </Button>
           <Button data-testid="button-schedule-confirm" 
             onClick={() => scheduleMutation.mutate()}
-            disabled={!plannedDate || scheduleMutation.isPending}
+            disabled={!plannedDate || !surgeryRoomId || scheduleMutation.isPending}
           >
             {scheduleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isGerman ? 'Termin planen' : 'Schedule'}
