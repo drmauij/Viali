@@ -4222,11 +4222,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       </Dialog>
 
       {/* Add Item Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) resetForm(); }} modal={!webcamCaptureOpen}>
+      <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) resetForm(); }} modal={!webcamCaptureOpen && !unifiedScannerOpen}>
         <DialogContent 
           className="max-w-md max-h-[90vh] overflow-y-auto"
-          onInteractOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
-          onPointerDownOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
+          onInteractOutside={(e) => { if (webcamCaptureOpen || unifiedScannerOpen) e.preventDefault(); }}
+          onPointerDownOutside={(e) => { if (webcamCaptureOpen || unifiedScannerOpen) e.preventDefault(); }}
         >
           <DialogHeader>
             <DialogTitle>{t('items.addNewItem')}</DialogTitle>
