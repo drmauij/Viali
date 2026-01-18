@@ -7176,7 +7176,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           setWebcamCaptureTarget(null);
         }}
         onCapture={handleWebcamCapture}
-        fullFrame={true}
+        fullFrame={webcamCaptureTarget !== 'codes'}
         hint={webcamCaptureTarget === 'codes' ? t('items.cameraHintGtin') : undefined}
       />
     </div>
