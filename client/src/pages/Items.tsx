@@ -3462,9 +3462,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                     </Button>
                     <Button size="sm" onClick={() => {
                         setAddDialogOpen(true);
-                        // Auto-open camera for barcode scanning
-                        setWebcamCaptureTarget('codes');
-                        setWebcamCaptureOpen(true);
+                        // Auto-open unified barcode scanner (same as Step 1)
+                        setUnifiedScannerOpen(true);
                       }} data-testid="add-item-button" className="flex-1 sm:flex-initial">
                       <i className="fas fa-plus mr-2"></i>
                       {t('items.addItem')}
@@ -6407,7 +6406,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   <p className="text-sm text-muted-foreground mb-3">
                     {t('items.addItemsManuallyDesc')}
                   </p>
-                  <Button variant="outline" onClick={() => { handleDismissOnboarding(); setAddDialogOpen(true); setWebcamCaptureTarget('codes'); setWebcamCaptureOpen(true); }} className="w-full" data-testid="onboarding-add-item">
+                  <Button variant="outline" onClick={() => { handleDismissOnboarding(); setAddDialogOpen(true); setUnifiedScannerOpen(true); }} className="w-full" data-testid="onboarding-add-item">
                     <i className="fas fa-plus mr-2"></i>
                     {t('items.addFirstItem')}
                   </Button>
@@ -6730,7 +6729,13 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       {/* Unified Barcode Scanner for Add Item Step 1 */}
       <UnifiedBarcodeScanner
         isOpen={unifiedScannerOpen}
-        onClose={() => setUnifiedScannerOpen(false)}
+        onClose={() => {
+          setUnifiedScannerOpen(false);
+          // If user cancels barcode scanning in step1, advance to step2 (manual entry)
+          if (addItemStage === 'step1') {
+            setAddItemStage('step2');
+          }
+        }}
         onBarcodeDetected={handleUnifiedBarcodeDetected}
         onImageCapture={handleUnifiedImageCapture}
         hint={t('items.pointAtGtinBarcode')}
