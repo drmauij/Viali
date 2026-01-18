@@ -249,10 +249,10 @@ export default function ModuleDrawer() {
 
       {/* Drawer */}
       <div
-        className="fixed top-0 left-0 right-0 bg-background border-b border-border z-50 shadow-lg animate-in slide-in-from-top duration-300"
+        className="fixed top-0 left-0 right-0 bg-background border-b border-border z-50 shadow-lg animate-in slide-in-from-top duration-300 max-h-[85vh] overflow-y-auto"
         data-testid="module-drawer"
       >
-        <div className="max-w-4xl mx-auto p-6">
+        <div className="max-w-4xl mx-auto p-6 pb-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-foreground">{t('modules.title')}</h2>
             <button
