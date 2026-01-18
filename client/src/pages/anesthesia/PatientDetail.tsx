@@ -3902,36 +3902,23 @@ export default function PatientDetail() {
                 </AccordionItem>
 
                 {/* Patient Documents Section - All Documents with List/Grid Toggle and Upload */}
-                <AccordionItem value="patient-documents">
-                  <Card className="border-blue-400 dark:border-blue-600">
-                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-patient-documents">
-                      <CardTitle className="text-lg text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                        <FileText className="h-5 w-5" />
-                        {t('anesthesia.patientDetail.patientDocuments', 'Patient Documents')}
-                      </CardTitle>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <CardContent className="pt-0">
-                        {patient && activeHospital && (
-                          <PatientDocumentsSection
-                            patientId={patient.id}
-                            hospitalId={activeHospital.id}
-                            canWrite={!isPreOpReadOnly}
-                            variant="card"
-                            onPreview={(url, fileName, mimeType) => {
-                              setPreviewDocument({
-                                id: 'preview',
-                                fileName,
-                                mimeType: mimeType || 'application/octet-stream',
-                                url,
-                              });
-                            }}
-                          />
-                        )}
-                      </CardContent>
-                    </AccordionContent>
-                  </Card>
-                </AccordionItem>
+                {patient && activeHospital && (
+                  <PatientDocumentsSection
+                    patientId={patient.id}
+                    hospitalId={activeHospital.id}
+                    canWrite={!isPreOpReadOnly}
+                    variant="accordion"
+                    defaultExpanded={false}
+                    onPreview={(url, fileName, mimeType) => {
+                      setPreviewDocument({
+                        id: 'preview',
+                        fileName,
+                        mimeType: mimeType || 'application/octet-stream',
+                        url,
+                      });
+                    }}
+                  />
+                )}
 
                 {/* Medications Section */}
                 <AccordionItem value="medications">
