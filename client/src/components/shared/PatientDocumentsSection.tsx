@@ -530,7 +530,7 @@ export function PatientDocumentsSection({
             <DialogTitle>{t('anesthesia.patientDetail.takePhoto', 'Take Photo')}</DialogTitle>
             <DialogDescription>{t('anesthesia.patientDetail.takePhotoDesc', 'Capture a photo of the document')}</DialogDescription>
           </DialogHeader>
-          <CameraCapture isOpen={isCameraOpen} onCapture={handleCameraCapture} onClose={() => setIsCameraOpen(false)} />
+          <CameraCapture isOpen={isCameraOpen} onCapture={handleCameraCapture} onClose={() => setIsCameraOpen(false)} fullFrame={true} hint={t('anesthesia.patientDetail.captureDocumentHint', 'Position document in frame')} />
         </DialogContent>
       </Dialog>
 
@@ -559,10 +559,12 @@ export function PatientDocumentsSection({
     </>
   );
 
+  const hasDocuments = documents.length > 0;
+
   if (variant === "accordion") {
     return (
       <AccordionItem value="patient-documents">
-        <Card className="border-blue-400 dark:border-blue-600">
+        <Card className={hasDocuments ? "border-blue-400 dark:border-blue-600" : ""}>
           <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-patient-documents">
             {headerContent}
           </AccordionTrigger>
@@ -580,7 +582,7 @@ export function PatientDocumentsSection({
   }
 
   return (
-    <Card className="border-blue-400 dark:border-blue-600">
+    <Card className={hasDocuments ? "border-blue-400 dark:border-blue-600" : ""}>
       <CardHeader className="pb-3">
         {headerContent}
         <p className="text-sm text-muted-foreground">
