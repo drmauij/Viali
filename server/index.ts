@@ -133,7 +133,7 @@ app.use((req, res, next) => {
               log("✓ Migration tracking initialized - future migrations will work correctly");
             }
           } else {
-            // Migrations table exists, check for missing entries
+            // Migrations table exists, check for missing entries and RUN idempotent ones
             const fs = await import('fs');
             const metaPath = path.join(migrationsPath, 'meta', '_journal.json');
             
@@ -149,9 +149,41 @@ app.use((req, res, next) => {
               );
               
               if (unappliedMigrations.length > 0) {
-                log(`   Marking ${unappliedMigrations.length} migrations as applied...`);
+                log(`   Found ${unappliedMigrations.length} unapplied migrations`);
+                
+                // Only run migrations >= 0012 which are idempotent (use DO $$ IF NOT EXISTS)
+                // Earlier migrations are not idempotent and should just be marked as applied
+                const FIRST_IDEMPOTENT_MIGRATION = 12;
                 
                 for (const migration of unappliedMigrations) {
+                  const migrationFile = path.join(migrationsPath, `${migration.tag}.sql`);
+                  const migrationNumber = parseInt(migration.tag.split('_')[0], 10);
+                  
+                  if (migrationNumber >= FIRST_IDEMPOTENT_MIGRATION && fs.existsSync(migrationFile)) {
+                    const migrationSql = fs.readFileSync(migrationFile, 'utf-8');
+                    
+                    // Split by statement-breakpoint and run each statement
+                    const statements = migrationSql
+                      .split('--> statement-breakpoint')
+                      .map((s: string) => s.trim())
+                      .filter((s: string) => s.length > 0);
+                    
+                    log(`   Running migration: ${migration.tag} (${statements.length} statements)`);
+                    
+                    for (const statement of statements) {
+                      try {
+                        await db.execute(sql.raw(statement));
+                      } catch (stmtError: any) {
+                        // Ignore "already exists" errors for idempotent migrations
+                        if (!stmtError.message?.includes('already exists') && 
+                            !stmtError.message?.includes('duplicate key')) {
+                          log(`   ⚠ Statement warning in ${migration.tag}: ${stmtError.message}`);
+                        }
+                      }
+                    }
+                  }
+                  
+                  // Mark migration as applied
                   const timestamp = Date.now();
                   await db.execute(sql.raw(`
                     INSERT INTO __drizzle_migrations (hash, created_at)
@@ -160,7 +192,7 @@ app.use((req, res, next) => {
                   `));
                 }
                 
-                log("✓ Migration state synchronized");
+                log("✓ Migrations executed and synchronized");
               }
             }
           }

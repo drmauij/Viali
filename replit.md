@@ -73,7 +73,7 @@ For every database schema change, follow these steps:
 - Add constraint: `IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'x')`
 - Drop NOT NULL: `IF EXISTS (SELECT 1 FROM information_schema.columns WHERE ... AND is_nullable = 'NO')`
 
-**Important**: The auto-migration at server startup does NOT apply new migrations. It only marks them as applied if the schema already exists.
+**Auto-migration on startup**: The server automatically runs idempotent migrations (0012+) on startup. Migrations before 0012 are non-idempotent and are only marked as applied (not executed). This ensures new columns/tables are created on both development and production databases safely.
 
 ### System Design Choices
 Core design decisions include:
