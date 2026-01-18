@@ -56,7 +56,7 @@ export default function OpList() {
   const { t, i18n } = useTranslation();
   const [, setLocation] = useLocation();
   const { activeModule } = useModule();
-  const { activeHospital } = useActiveHospital();
+  const activeHospital = useActiveHospital();
   const isGerman = i18n.language === 'de';
   const hasExternalSurgeryToken = !!activeHospital?.externalSurgeryToken;
   const hasSurgeryOrAnesthesiaAccess = activeHospital?.isSurgeryModule || activeHospital?.isAnesthesiaModule;

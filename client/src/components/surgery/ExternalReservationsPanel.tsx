@@ -65,13 +65,10 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
   const scheduleMutation = useMutation({
     mutationFn: async () => {
       const dateTime = new Date(`${plannedDate}T${plannedTime}`);
-      return apiRequest(`/api/external-surgery-requests/${request.id}/schedule`, {
-        method: 'POST',
-        body: JSON.stringify({
-          plannedDate: dateTime.toISOString(),
-          surgeryRoomId: surgeryRoomId || null,
-          sendConfirmation,
-        }),
+      return apiRequest('POST', `/api/external-surgery-requests/${request.id}/schedule`, {
+        plannedDate: dateTime.toISOString(),
+        surgeryRoomId: surgeryRoomId || null,
+        sendConfirmation,
       });
     },
     onSuccess: () => {
@@ -190,7 +187,7 @@ interface ExternalReservationsPanelProps {
 export function ExternalReservationsPanel({ trigger }: ExternalReservationsPanelProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
-  const { activeHospital } = useActiveHospital();
+  const activeHospital = useActiveHospital();
   const isGerman = i18n.language === 'de';
   const [open, setOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<ExternalSurgeryRequest | null>(null);
@@ -210,10 +207,7 @@ export function ExternalReservationsPanel({ trigger }: ExternalReservationsPanel
 
   const declineMutation = useMutation({
     mutationFn: async (requestId: string) => {
-      return apiRequest(`/api/external-surgery-requests/${requestId}`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status: 'declined' }),
-      });
+      return apiRequest('PATCH', `/api/external-surgery-requests/${requestId}`, { status: 'declined' });
     },
     onSuccess: () => {
       toast({
@@ -386,7 +380,7 @@ export function ExternalReservationsPanel({ trigger }: ExternalReservationsPanel
 }
 
 export function ExternalRequestsBadge() {
-  const { activeHospital } = useActiveHospital();
+  const activeHospital = useActiveHospital();
   const hospitalId = activeHospital?.id;
 
   const { data: countData } = useQuery<{ count: number }>({

@@ -13,6 +13,7 @@ interface Hospital {
   isClinicModule?: boolean;
   isLogisticModule?: boolean;
   showControlledMedications?: boolean;
+  externalSurgeryToken?: string | null;
 }
 
 function subscribe(callback: () => void) {
