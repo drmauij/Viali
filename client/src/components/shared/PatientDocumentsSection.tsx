@@ -252,29 +252,39 @@ export function PatientDocumentsSection({
       >
         {isCompactView ? (
           <div className="p-3 flex items-center gap-3">
-            <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="font-medium truncate">{doc.fileName}</span>
-                {doc.source === 'questionnaire' && (
-                  <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
-                    <ClipboardList className="h-3 w-3 mr-1" />
-                    {t('anesthesia.patientDetail.fromQuestionnaire', 'Questionnaire')}
-                  </Badge>
-                )}
-                {needsReview && (
-                  <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
-                    {t('anesthesia.patientDetail.needsReview', 'Needs Review')}
-                  </Badge>
-                )}
+            <div 
+              className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer hover:opacity-70 transition-opacity"
+              onClick={() => handlePreviewDocument(doc)}
+            >
+              <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium truncate">{doc.fileName}</span>
+                  {doc.source === 'questionnaire' && (
+                    <Badge variant="outline" className="text-xs bg-purple-50 text-purple-700 border-purple-200">
+                      <ClipboardList className="h-3 w-3 mr-1" />
+                      {t('anesthesia.patientDetail.fromQuestionnaire', 'Questionnaire')}
+                    </Badge>
+                  )}
+                  {needsReview && (
+                    <Badge variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-200">
+                      {t('anesthesia.patientDetail.needsReview', 'Needs Review')}
+                    </Badge>
+                  )}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  <span>{doc.description || getCategoryLabel(doc.category)}</span>
+                </div>
               </div>
+            </div>
+            <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
               {editingDocId === doc.id ? (
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2">
                   <Input
                     value={editDescription}
                     onChange={(e) => setEditDescription(e.target.value)}
                     placeholder={t('anesthesia.patientDetail.addDescription', 'Add description...')}
-                    className="h-7 text-sm"
+                    className="h-7 text-sm w-40"
                     data-testid={`input-edit-description-${doc.id}`}
                   />
                   <Button size="sm" variant="ghost" onClick={() => saveDescription(doc.id)} data-testid={`button-save-description-${doc.id}`}>
@@ -285,36 +295,33 @@ export function PatientDocumentsSection({
                   </Button>
                 </div>
               ) : (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <span>{doc.description || getCategoryLabel(doc.category)}</span>
+                <>
                   {canWrite && (
-                    <Button size="sm" variant="ghost" className="h-5 w-5 p-0" onClick={() => startEditDescription(doc)} data-testid={`button-edit-description-${doc.id}`}>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => startEditDescription(doc)} data-testid={`button-edit-description-${doc.id}`}>
                       <Pencil className="h-3 w-3" />
                     </Button>
                   )}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-1">
-              {doc.source === 'questionnaire' && canWrite && (
-                <Button
-                  size="sm"
-                  variant={doc.reviewed ? "default" : "outline"}
-                  className="h-7"
-                  onClick={() => toggleReviewed(doc)}
-                  data-testid={`button-toggle-reviewed-${doc.id}`}
-                >
-                  {doc.reviewed ? <Check className="h-3 w-3 mr-1" /> : null}
-                  {doc.reviewed ? t('anesthesia.patientDetail.reviewed', 'Reviewed') : t('anesthesia.patientDetail.markReviewed', 'Mark Reviewed')}
-                </Button>
-              )}
-              <Button size="sm" variant="ghost" onClick={() => handlePreviewDocument(doc)} data-testid={`button-preview-${doc.id}`}>
-                <Eye className="h-4 w-4" />
-              </Button>
-              {canWrite && (
-                <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteConfirmDoc(doc)} data-testid={`button-delete-${doc.id}`}>
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                  {doc.source === 'questionnaire' && canWrite && (
+                    <Button
+                      size="sm"
+                      variant={doc.reviewed ? "default" : "outline"}
+                      className="h-7"
+                      onClick={() => toggleReviewed(doc)}
+                      data-testid={`button-toggle-reviewed-${doc.id}`}
+                    >
+                      {doc.reviewed ? <Check className="h-3 w-3 mr-1" /> : null}
+                      {doc.reviewed ? t('anesthesia.patientDetail.reviewed', 'Reviewed') : t('anesthesia.patientDetail.markReviewed', 'Mark Reviewed')}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" onClick={() => handlePreviewDocument(doc)} data-testid={`button-preview-${doc.id}`}>
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  {canWrite && (
+                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setDeleteConfirmDoc(doc)} data-testid={`button-delete-${doc.id}`}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           </div>
