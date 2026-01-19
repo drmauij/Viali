@@ -1084,6 +1084,11 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
                         medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
                         diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
                         exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
+                        consent: t('anesthesia.patientDetail.uploadCategoryConsent', 'Consent Form'),
+                        lab_result: t('anesthesia.patientDetail.uploadCategoryLabResult', 'Lab Result'),
+                        imaging: t('anesthesia.patientDetail.uploadCategoryImaging', 'Imaging'),
+                        referral: t('anesthesia.patientDetail.uploadCategoryReferral', 'Referral'),
+                        external_report: t('anesthesia.patientDetail.uploadCategoryExternalReport', 'External Report'),
                         other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
                       };
                       const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file?hospital_id=${hospitalId}`;

@@ -3050,6 +3050,7 @@ export default function PatientDetail() {
                         lab_result: t('anesthesia.patientDetail.uploadCategoryLabResult', 'Lab Result'),
                         imaging: t('anesthesia.patientDetail.uploadCategoryImaging', 'Imaging'),
                         referral: t('anesthesia.patientDetail.uploadCategoryReferral', 'Referral'),
+                        external_report: t('anesthesia.patientDetail.uploadCategoryExternalReport', 'External Report'),
                         other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
                       };
                       const fileStreamUrl = `/api/patients/${params?.id}/documents/${doc.id}/file`;
@@ -3235,6 +3236,11 @@ export default function PatientDetail() {
                         medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
                         diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
                         exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
+                        consent: t('anesthesia.patientDetail.uploadCategoryConsent', 'Consent Form'),
+                        lab_result: t('anesthesia.patientDetail.uploadCategoryLabResult', 'Lab Result'),
+                        imaging: t('anesthesia.patientDetail.uploadCategoryImaging', 'Imaging'),
+                        referral: t('anesthesia.patientDetail.uploadCategoryReferral', 'Referral'),
+                        external_report: t('anesthesia.patientDetail.uploadCategoryExternalReport', 'External Report'),
                         other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
                       };
                       const fileStreamUrl = `/api/questionnaire/uploads/${upload.id}/file?hospital_id=${activeHospital?.id}`;
@@ -6142,6 +6148,11 @@ export default function PatientDetail() {
                           medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
                           diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
                           exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
+                          consent: t('anesthesia.patientDetail.uploadCategoryConsent', 'Consent Form'),
+                          lab_result: t('anesthesia.patientDetail.uploadCategoryLabResult', 'Lab Result'),
+                          imaging: t('anesthesia.patientDetail.uploadCategoryImaging', 'Imaging'),
+                          referral: t('anesthesia.patientDetail.uploadCategoryReferral', 'Referral'),
+                          external_report: t('anesthesia.patientDetail.uploadCategoryExternalReport', 'External Report'),
                           other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
                         };
                         return (
@@ -6421,6 +6432,7 @@ export default function PatientDetail() {
                   <SelectItem value="lab_result">{t('anesthesia.patientDetail.uploadCategoryLabResult', 'Lab Result')}</SelectItem>
                   <SelectItem value="imaging">{t('anesthesia.patientDetail.uploadCategoryImaging', 'Imaging')}</SelectItem>
                   <SelectItem value="referral">{t('anesthesia.patientDetail.uploadCategoryReferral', 'Referral')}</SelectItem>
+                  <SelectItem value="external_report">{t('anesthesia.patientDetail.uploadCategoryExternalReport', 'External Report')}</SelectItem>
                   <SelectItem value="other">{t('anesthesia.patientDetail.uploadCategoryOther', 'Other')}</SelectItem>
                 </SelectContent>
               </Select>

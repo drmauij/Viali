@@ -2344,6 +2344,7 @@
       "uploadCategoryLabResult": "Lab Result",
       "uploadCategoryImaging": "Imaging",
       "uploadCategoryReferral": "Referral",
+      "uploadCategoryExternalReport": "External Report",
       "uploadCategoryOther": "Other",
       "patientDocuments": "Patient Documents",
       "patientDocumentsDesc": "Documents associated with this patient, including files from questionnaires and staff uploads.",

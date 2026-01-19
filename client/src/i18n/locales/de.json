@@ -2357,6 +2357,7 @@
       "uploadCategoryLabResult": "Laborergebnis",
       "uploadCategoryImaging": "Bildgebung",
       "uploadCategoryReferral": "Überweisung",
+      "uploadCategoryExternalReport": "Externer Bericht",
       "uploadCategoryOther": "Sonstiges",
       "patientDocuments": "Patientendokumente",
       "patientDocumentsDesc": "Mit diesem Patienten verknüpfte Dokumente, einschliesslich Dateien aus Fragebögen und Uploads vom Personal.",

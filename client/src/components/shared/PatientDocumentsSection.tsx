@@ -49,6 +49,7 @@ const categoryLabels: Record<string, string> = {
   lab_result: "Lab Result",
   imaging: "Imaging",
   referral: "Referral",
+  external_report: "External Report",
   other: "Other",
 };
 
