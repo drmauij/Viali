@@ -547,6 +547,7 @@
     "pointAtGtinPharmacode": "Kamera auf GTIN/Pharmacode-Barcode richten",
     "pointAtProductName": "Kamera auf Produktname/Etikett richten",
     "noCodes": "Keine Codes",
+    "manualEntry": "Manuelle Eingabe",
     "capture": "Aufnehmen",
     "analyzingCodes": "Codes werden analysiert...",
     "analyzingProduct": "Produkt wird analysiert...",
