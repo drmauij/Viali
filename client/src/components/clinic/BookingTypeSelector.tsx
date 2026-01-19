@@ -55,20 +55,10 @@ export function BookingTypeSelector({
     }
   }, [open, canAccessSurgery]);
 
-  const handleContinue = () => {
-    localStorage.setItem(STORAGE_KEY, selectedType);
-    onSelect(selectedType);
+  const handleSelect = (type: BookingType) => {
+    localStorage.setItem(STORAGE_KEY, type);
+    onSelect(type);
     onOpenChange(false);
-  };
-
-  const handleQuickSelect = (type: BookingType) => {
-    if (type === "off_time") {
-      localStorage.setItem(STORAGE_KEY, type);
-      onSelect(type);
-      onOpenChange(false);
-    } else {
-      setSelectedType(type);
-    }
   };
 
   const bookingOptions = [
@@ -136,32 +126,22 @@ export function BookingTypeSelector({
             return (
               <button
                 key={option.type}
-                onClick={() => !isDisabled && handleQuickSelect(option.type)}
+                onClick={() => !isDisabled && handleSelect(option.type)}
                 disabled={isDisabled}
                 className={cn(
                   "w-full flex items-start gap-3 p-3 rounded-lg border-2 text-left transition-all",
-                  isSelected && option.available
-                    ? "border-primary bg-primary/5"
-                    : "border-border hover:border-muted-foreground/30",
-                  isDisabled && "opacity-50 cursor-not-allowed"
+                  "border-border hover:border-primary hover:bg-primary/5",
+                  isDisabled && "opacity-50 cursor-not-allowed hover:border-border hover:bg-transparent"
                 )}
                 data-testid={`booking-type-${option.type}`}
               >
-                <div className={cn(
-                  "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center",
-                  isSelected && option.available
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground"
-                )}>
+                <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-muted text-muted-foreground">
                   <Icon className="w-5 h-5" />
                 </div>
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className={cn(
-                      "font-medium",
-                      isSelected && option.available && "text-primary"
-                    )}>
+                    <span className="font-medium">
                       {option.title}
                     </span>
                     {option.badge && (
@@ -179,32 +159,19 @@ export function BookingTypeSelector({
                     {option.description}
                   </p>
                 </div>
-
-                {isSelected && option.available && !option.quickAction && (
-                  <div className="flex-shrink-0">
-                    <Check className="w-5 h-5 text-primary" />
-                  </div>
-                )}
               </button>
             );
           })}
         </div>
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex pt-2">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            className="flex-1"
+            className="w-full"
             data-testid="button-cancel-booking-type"
           >
             {t("common.cancel", "Cancel")}
-          </Button>
-          <Button
-            onClick={handleContinue}
-            className="flex-1"
-            data-testid="button-continue-booking"
-          >
-            {t("common.continue", "Continue")}
           </Button>
         </div>
       </DialogContent>

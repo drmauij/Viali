@@ -45,6 +45,7 @@ import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import ClinicCalendar from "@/components/clinic/ClinicCalendar";
 import { ManageAvailabilityDialog } from "@/components/clinic/ManageAvailabilityDialog";
 import { BookingTypeSelector, type BookingType } from "@/components/clinic/BookingTypeSelector";
+import QuickCreateSurgeryDialog from "@/components/anesthesia/QuickCreateSurgeryDialog";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService } from "@shared/schema";
 
 type AppointmentWithDetails = ClinicAppointment & {
@@ -72,6 +73,7 @@ export default function ClinicAppointments() {
   const [bookingTypeSelectorOpen, setBookingTypeSelectorOpen] = useState(false);
   const [bookingDialogOpen, setBookingDialogOpen] = useState(false);
   const [internalBookingDialogOpen, setInternalBookingDialogOpen] = useState(false);
+  const [quickSurgeryDialogOpen, setQuickSurgeryDialogOpen] = useState(false);
   const [bookingDefaults, setBookingDefaults] = useState<{ providerId?: string; date?: Date; endDate?: Date }>({});
   const [availabilityDialogOpen, setAvailabilityDialogOpen] = useState(false);
   const [selectedProviderForAvailability, setSelectedProviderForAvailability] = useState<string | undefined>();
@@ -118,6 +120,11 @@ export default function ClinicAppointments() {
     },
     enabled: !!hospitalId,
     staleTime: 0,
+  });
+
+  const { data: surgeryRooms = [] } = useQuery<any[]>({
+    queryKey: [`/api/surgery-rooms/${hospitalId}`],
+    enabled: !!hospitalId && canAccessSurgery,
   });
 
   const updateAppointmentMutation = useMutation({
@@ -274,10 +281,7 @@ export default function ClinicAppointments() {
         break;
       case 'surgery':
         if (canAccessSurgery && bookingDefaults.date) {
-          const dateStr = format(bookingDefaults.date, 'yyyy-MM-dd');
-          const startTimeStr = format(bookingDefaults.date, 'HH:mm');
-          const endTimeStr = bookingDefaults.endDate ? format(bookingDefaults.endDate, 'HH:mm') : format(new Date(bookingDefaults.date.getTime() + 60 * 60000), 'HH:mm');
-          window.location.href = `/anesthesia/op/new?date=${dateStr}&startTime=${startTimeStr}&endTime=${endTimeStr}${bookingDefaults.providerId ? `&providerId=${bookingDefaults.providerId}` : ''}`;
+          setQuickSurgeryDialogOpen(true);
         }
         break;
     }
@@ -536,6 +540,17 @@ export default function ClinicAppointments() {
         providers={providers}
         defaults={bookingDefaults}
       />
+
+      {bookingDefaults.date && (
+        <QuickCreateSurgeryDialog
+          open={quickSurgeryDialogOpen}
+          onOpenChange={setQuickSurgeryDialogOpen}
+          hospitalId={hospitalId}
+          initialDate={bookingDefaults.date}
+          initialEndDate={bookingDefaults.endDate}
+          surgeryRooms={surgeryRooms}
+        />
+      )}
 
       <ManageAvailabilityDialog
         open={availabilityDialogOpen}
