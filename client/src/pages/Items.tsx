@@ -25,7 +25,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { CameraCapture } from "@/components/CameraCapture";
-import { UnifiedBarcodeScanner } from "@/components/UnifiedBarcodeScanner";
 import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
 
 // Check if device has touch capability (mobile/tablet)
@@ -362,7 +361,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [scanningCodeField, setScanningCodeField] = useState<'gtin' | 'pharmacode' | 'supplierCode' | null>(null);
   
   // Unified barcode scanner state for Add Item step 1
-  const [unifiedScannerOpen, setUnifiedScannerOpen] = useState(false);
   
   // Edit Item codes capture state
   const [isAnalyzingEditCodes, setIsAnalyzingEditCodes] = useState(false);
@@ -1618,42 +1616,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     });
   };
 
-  // Compress base64 image (for camera captures)
-  const compressBase64Image = (base64: string): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        
-        // Resize if image is too large (max 1200px for OCR - slightly larger than product photos)
-        const maxSize = 1200;
-        if (width > maxSize || height > maxSize) {
-          if (width > height) {
-            height = (height / width) * maxSize;
-            width = maxSize;
-          } else {
-            width = (width / height) * maxSize;
-            height = maxSize;
-          }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-        
-        // Compress to JPEG with 0.8 quality (slightly higher for OCR clarity)
-        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-        console.log(`[Items] Compressed image from ${base64.length} to ${compressedBase64.length} bytes`);
-        resolve(compressedBase64);
-      };
-      img.onerror = reject;
-      img.src = base64;
-    });
-  };
-
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -1890,113 +1852,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   };
   
   // Handler for direct barcode detection from unified scanner
-  const handleUnifiedBarcodeDetected = async (barcode: string, format: string) => {
-    console.log('[Items] Barcode detected:', barcode, 'format:', format);
-    
-    // Check if it's a GS1 code (contains embedded GTIN, lot, expiry)
-    if (isGS1Code(barcode)) {
-      const parsed = parseGS1Code(barcode);
-      if (parsed.gtin) {
-        setFormData(prev => ({
-          ...prev,
-          gtin: parsed.gtin || '',
-          lotNumber: parsed.lotNumber || prev.lotNumber,
-          expiryDate: parsed.expiryDate || prev.expiryDate,
-        }));
-        toast({
-          title: t('items.barcodeDetected'),
-          description: `GTIN: ${parsed.gtin}`,
-        });
-        // Trigger Galexis lookup with extracted GTIN
-        await lookupGalexisProduct(parsed.gtin);
-        return;
-      }
-    }
-    
-    // Check if the barcode looks like a GTIN (13-14 digits) or pharmacode (7 digits)
-    const cleanBarcode = barcode.replace(/\D/g, '');
-    
-    if (cleanBarcode.length >= 13 && cleanBarcode.length <= 14) {
-      // Likely a GTIN/EAN-13
-      setFormData(prev => ({ ...prev, gtin: cleanBarcode }));
-      toast({
-        title: t('items.barcodeDetected'),
-        description: `GTIN: ${cleanBarcode}`,
-      });
-      await lookupGalexisProduct(cleanBarcode);
-    } else if (cleanBarcode.length === 7) {
-      // Likely a Swiss pharmacode
-      setFormData(prev => ({ ...prev, pharmacode: cleanBarcode }));
-      toast({
-        title: t('items.barcodeDetected'),
-        description: `Pharmacode: ${cleanBarcode}`,
-      });
-      // Could also lookup by pharmacode if Galexis supports it
-      setAddItemStage('step2');
-    } else {
-      // Unknown format, store as barcode and advance
-      setFormData(prev => ({ ...prev, barcode: cleanBarcode || barcode }));
-      toast({
-        title: t('items.barcodeDetected'),
-        description: barcode,
-      });
-      setAddItemStage('step2');
-    }
-  };
-  
-  // Handler for OCR fallback from unified scanner
-  const handleUnifiedImageCapture = async (photo: string) => {
-    console.log('[Items] OCR fallback triggered, photo length:', photo.length);
-    setIsAnalyzingCodes(true);
-    
-    try {
-      // Compress the image for better API performance and consistency
-      const compressedPhoto = await compressBase64Image(photo);
-      setCodesImage(compressedPhoto);
-      
-      console.log('[Items] Sending compressed image to analyze-codes API');
-      const response = await apiRequest('POST', '/api/items/analyze-codes', {
-        image: compressedPhoto
-      });
-      const result: any = await response.json();
-      console.log('[Items] OCR result:', result);
-      
-      const extractedGtin = result.gtin || '';
-      if (extractedGtin) setFormData(prev => ({ ...prev, gtin: extractedGtin }));
-      if (result.pharmacode) setFormData(prev => ({ ...prev, pharmacode: result.pharmacode }));
-      if (result.lotNumber) setFormData(prev => ({ ...prev, lotNumber: result.lotNumber }));
-      if (result.expiryDate) setFormData(prev => ({ ...prev, expiryDate: result.expiryDate }));
-      
-      // If GTIN found, try Galexis lookup
-      if (extractedGtin) {
-        await lookupGalexisProduct(extractedGtin);
-      } else if (result.pharmacode) {
-        toast({
-          title: t('items.codesExtracted'),
-          description: `Pharmacode: ${result.pharmacode}`,
-        });
-        setAddItemStage('step2');
-      } else {
-        toast({
-          title: t('items.noCodesFound'),
-          description: t('items.tryManualEntry'),
-          variant: "destructive",
-        });
-        setAddItemStage('step2');
-      }
-    } catch (error: any) {
-      console.error('OCR analysis failed:', error);
-      toast({
-        title: t('items.failedToExtractCodes'),
-        description: error.message,
-        variant: "destructive",
-      });
-      setAddItemStage('step2');
-    } finally {
-      setIsAnalyzingCodes(false);
-    }
-  };
-
   const handleAddItem = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
@@ -4263,11 +4118,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       </Dialog>
 
       {/* Add Item Dialog */}
-      <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) resetForm(); }} modal={!webcamCaptureOpen && !unifiedScannerOpen}>
+      <Dialog open={addDialogOpen} onOpenChange={(open) => { setAddDialogOpen(open); if (!open) resetForm(); }} modal={!webcamCaptureOpen}>
         <DialogContent 
           className="max-w-md max-h-[90vh] overflow-y-auto"
-          onInteractOutside={(e) => { if (webcamCaptureOpen || unifiedScannerOpen) e.preventDefault(); }}
-          onPointerDownOutside={(e) => { if (webcamCaptureOpen || unifiedScannerOpen) e.preventDefault(); }}
+          onInteractOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
+          onPointerDownOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
         >
           <DialogHeader>
             <DialogTitle>{t('items.addNewItem')}</DialogTitle>
@@ -4301,33 +4156,33 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 onChange={handleCodesImageUpload}
                 className="hidden"
               />
-              <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
-                  className="w-full h-14"
-                  onClick={() => setUnifiedScannerOpen(true)}
+                  className="h-14"
+                  onClick={() => codesFileInputRef.current?.click()}
                   disabled={isAnalyzingCodes || isLookingUpGalexis}
                   data-testid="button-scan-barcode"
                 >
-                  <i className={`fas ${isAnalyzingCodes || isLookingUpGalexis ? 'fa-spinner fa-spin' : 'fa-qrcode'} mr-2 text-lg`}></i>
+                  <i className={`fas ${isAnalyzingCodes || isLookingUpGalexis ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2 text-lg`}></i>
                   <div className="text-left">
                     <div className="font-semibold">
-                      {isAnalyzingCodes ? t('items.analyzing') : isLookingUpGalexis ? t('items.lookingUp') : t('items.scanBarcode')}
+                      {isAnalyzingCodes ? t('items.analyzing') : isLookingUpGalexis ? t('items.lookingUp') : t('controlled.takePhoto')}
                     </div>
-                    <div className="text-xs opacity-80">{t('items.autoDetectOrCapture')}</div>
                   </div>
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  className="h-14"
                   onClick={() => codesGalleryInputRef.current?.click()}
                   disabled={isAnalyzingCodes || isLookingUpGalexis}
-                  className="w-full"
                   data-testid="button-gallery-codes"
                 >
-                  <i className="fas fa-images mr-2"></i>
-                  {t('items.uploadFromGallery')}
+                  <i className="fas fa-images mr-2 text-lg"></i>
+                  <div className="text-left">
+                    <div className="font-semibold">{t('items.uploadFromGallery')}</div>
+                  </div>
                 </Button>
               </div>
               {codesImage && (
@@ -6767,20 +6622,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         }}
       />
       
-      {/* Unified Barcode Scanner for Add Item Step 1 */}
-      <UnifiedBarcodeScanner
-        isOpen={unifiedScannerOpen}
-        onClose={() => {
-          setUnifiedScannerOpen(false);
-          // If user cancels barcode scanning in step1, advance to step2 (manual entry)
-          if (addItemStage === 'step1') {
-            setAddItemStage('step2');
-          }
-        }}
-        onBarcodeDetected={handleUnifiedBarcodeDetected}
-        onImageCapture={handleUnifiedImageCapture}
-        hint={t('items.pointAtGtinBarcode')}
-      />
 
       {/* Transfer Items Dialog */}
       <Dialog open={transferDialogOpen} onOpenChange={(open) => {
