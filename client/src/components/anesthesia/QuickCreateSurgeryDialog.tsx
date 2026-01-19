@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -562,12 +563,11 @@ export default function QuickCreateSurgeryDialog({
                   </div>
                   <div className="space-y-1 col-span-2">
                     <Label htmlFor="new-patient-phone">{t('anesthesia.quickSchedule.phone')}</Label>
-                    <Input
+                    <PhoneInputWithCountry
                       id="new-patient-phone"
-                      type="tel"
                       placeholder={t('anesthesia.quickSchedule.phonePlaceholder')}
                       value={newPatientPhone}
-                      onChange={(e) => setNewPatientPhone(e.target.value)}
+                      onChange={(value) => setNewPatientPhone(value)}
                       data-testid="input-new-patient-phone"
                     />
                   </div>
@@ -753,12 +753,11 @@ export default function QuickCreateSurgeryDialog({
                   </div>
                   <div className="space-y-1 col-span-2">
                     <Label htmlFor="new-surgeon-phone">{t('anesthesia.quickSchedule.phone')}</Label>
-                    <Input
+                    <PhoneInputWithCountry
                       id="new-surgeon-phone"
-                      type="tel"
                       placeholder={t('anesthesia.quickSchedule.phonePlaceholder')}
                       value={newSurgeonPhone}
-                      onChange={(e) => setNewSurgeonPhone(e.target.value)}
+                      onChange={(value) => setNewSurgeonPhone(value)}
                       data-testid="input-new-surgeon-phone"
                     />
                   </div>

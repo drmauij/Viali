@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -399,11 +400,10 @@ export default function ExternalSurgeryRequest() {
                     <Phone className="h-4 w-4 inline mr-1" />
                     {isGerman ? 'Telefon' : 'Phone'} *
                   </Label>
-                  <Input
+                  <PhoneInputWithCountry
                     id="surgeonPhone"
-                    type="tel"
                     value={formData.surgeonPhone}
-                    onChange={(e) => updateField('surgeonPhone', e.target.value)}
+                    onChange={(value) => updateField('surgeonPhone', value)}
                     data-testid="input-surgeon-phone"
                   />
                 </div>
@@ -542,11 +542,10 @@ export default function ExternalSurgeryRequest() {
                     <Phone className="h-4 w-4 inline mr-1" />
                     {isGerman ? 'Telefon' : 'Phone'} *
                   </Label>
-                  <Input
+                  <PhoneInputWithCountry
                     id="patientPhone"
-                    type="tel"
                     value={formData.patientPhone}
-                    onChange={(e) => updateField('patientPhone', e.target.value)}
+                    onChange={(value) => updateField('patientPhone', value)}
                     data-testid="input-patient-phone"
                   />
                 </div>

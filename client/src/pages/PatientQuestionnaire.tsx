@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -1195,11 +1196,10 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
         </div>
         <div>
           <Label htmlFor="phone">{t("questionnaire.personal.phone")}</Label>
-          <Input
+          <PhoneInputWithCountry
             id="phone"
-            type="tel"
             value={formData.patientPhone}
-            onChange={(e) => updateField("patientPhone", e.target.value)}
+            onChange={(value) => updateField("patientPhone", value)}
             data-testid="input-phone"
           />
         </div>
@@ -2020,11 +2020,10 @@ function NotesStep({ formData, updateField, t }: StepProps) {
           </div>
           <div>
             <Label htmlFor="outpatientPhone">{t("questionnaire.history.outpatient.phone")}</Label>
-            <Input
+            <PhoneInputWithCountry
               id="outpatientPhone"
-              type="tel"
               value={formData.outpatientCaregiverPhone}
-              onChange={(e) => updateField("outpatientCaregiverPhone", e.target.value)}
+              onChange={(value) => updateField("outpatientCaregiverPhone", value)}
               data-testid="input-outpatient-phone"
             />
           </div>

@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect, useRef } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -3387,11 +3388,10 @@ export default function PatientDetail() {
                           <h4 className="font-medium text-sm">{t('anesthesia.patientDetail.quickContactEdit')}</h4>
                           <div className="space-y-2">
                             <Label htmlFor="quick-phone" className="text-xs">{t('anesthesia.patientDetail.phone')}</Label>
-                            <Input
+                            <PhoneInputWithCountry
                               id="quick-phone"
-                              type="tel"
                               value={quickContactForm.phone}
-                              onChange={(e) => setQuickContactForm(prev => ({ ...prev, phone: e.target.value }))}
+                              onChange={(value) => setQuickContactForm(prev => ({ ...prev, phone: value }))}
                               placeholder={t('anesthesia.patientDetail.enterPhone')}
                               className="h-8 text-sm"
                               data-testid="input-quick-phone"

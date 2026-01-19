@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -1082,11 +1083,10 @@ export default function Users() {
             </div>
             <div>
               <Label htmlFor="user-phone">{t("admin.phone")}</Label>
-              <Input
+              <PhoneInputWithCountry
                 id="user-phone"
-                type="tel"
                 value={detectedExistingUser ? detectedExistingUser.phone || "" : userForm.phone}
-                onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                onChange={(value) => setUserForm({ ...userForm, phone: value })}
                 placeholder={t("admin.phonePlaceholder")}
                 data-testid="input-user-phone"
                 disabled={!!detectedExistingUser}
@@ -1191,11 +1191,10 @@ export default function Users() {
             </div>
             <div>
               <Label htmlFor="staff-phone">{t("admin.phone")}</Label>
-              <Input
+              <PhoneInputWithCountry
                 id="staff-phone"
-                type="tel"
                 value={staffMemberForm.phone}
-                onChange={(e) => setStaffMemberForm({ ...staffMemberForm, phone: e.target.value })}
+                onChange={(value) => setStaffMemberForm({ ...staffMemberForm, phone: value })}
                 placeholder={t("admin.phonePlaceholder")}
                 data-testid="input-staff-phone"
               />
@@ -1319,11 +1318,10 @@ export default function Users() {
               {/* Phone field */}
               <div>
                 <Label htmlFor="edit-phone">{t("admin.phone")}</Label>
-                <Input
+                <PhoneInputWithCountry
                   id="edit-phone"
-                  type="tel"
                   value={userForm.phone}
-                  onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })}
+                  onChange={(value) => setUserForm({ ...userForm, phone: value })}
                   placeholder={t("admin.phonePlaceholder")}
                   data-testid="input-edit-phone"
                 />

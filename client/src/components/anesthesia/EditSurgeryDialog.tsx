@@ -1,6 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -632,12 +633,11 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                       </div>
                       <div className="space-y-1 col-span-2">
                         <Label htmlFor="new-surgeon-phone-edit">{t('anesthesia.quickSchedule.phone')}</Label>
-                        <Input
+                        <PhoneInputWithCountry
                           id="new-surgeon-phone-edit"
-                          type="tel"
                           placeholder={t('anesthesia.quickSchedule.phonePlaceholder')}
                           value={newSurgeonPhone}
-                          onChange={(e) => setNewSurgeonPhone(e.target.value)}
+                          onChange={(value) => setNewSurgeonPhone(value)}
                           data-testid="input-new-surgeon-phone-edit"
                         />
                       </div>

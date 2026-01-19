@@ -7,6 +7,7 @@ import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
@@ -459,7 +460,11 @@ export default function WorkerContractForm() {
                         <FormItem>
                           <FormLabel>Telefon</FormLabel>
                           <FormControl>
-                            <Input {...field} type="tel" data-testid="input-phone" />
+                            <PhoneInputWithCountry 
+                              value={field.value || ""} 
+                              onChange={field.onChange} 
+                              data-testid="input-phone" 
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

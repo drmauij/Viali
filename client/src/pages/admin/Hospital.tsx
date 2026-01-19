@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -646,6 +647,27 @@ export default function Hospital() {
     },
     onError: (error: any) => {
       toast({ title: t("common.error"), description: error.message || "Failed to reset lists", variant: "destructive" });
+    },
+  });
+
+  // Phone normalization mutation
+  const normalizePhonesMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/hospitals/${activeHospital?.id}/normalize-phones`, {});
+      return await response.json();
+    },
+    onSuccess: (data: { message: string; result: { totalUpdated: number; patientsUpdated: number; usersUpdated: number } }) => {
+      toast({
+        title: t("admin.phoneNormalizationSuccess", "Phone Numbers Normalized"),
+        description: t("admin.phoneNormalizationResult", "{{total}} phone numbers were normalized", { total: data.result.totalUpdated }),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t("admin.phoneNormalizationError", "Error"),
+        description: t("admin.phoneNormalizationErrorMessage", "Failed to normalize phone numbers"),
+        variant: "destructive",
+      });
     },
   });
 
@@ -1563,6 +1585,44 @@ export default function Hospital() {
                   <>
                     <i className="fas fa-rotate-right mr-2"></i>
                     {t("admin.resetLists", "Reset Lists")}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Normalize Phone Numbers Card */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground text-lg">
+                  <i className="fas fa-phone mr-2 text-primary"></i>
+                  {t("admin.normalizePhones", "Normalize Phone Numbers")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("admin.normalizePhonesDescription", "Add +41 prefix to phone numbers without country code and remove leading zeros")}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  <i className="fas fa-info-circle mr-1"></i>
+                  {t("admin.normalizePhonesNote", "Numbers with existing prefixes (e.g., +39, +49) will remain unchanged")}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => normalizePhonesMutation.mutate()}
+                disabled={normalizePhonesMutation.isPending}
+                data-testid="button-normalize-phones"
+              >
+                {normalizePhonesMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {t("admin.normalizing", "Normalizing...")}
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-phone mr-2"></i>
+                    {t("admin.normalizePhones", "Normalize Phone Numbers")}
                   </>
                 )}
               </Button>
@@ -3883,12 +3943,11 @@ function VonageIntegrationCard({ hospitalId }: { hospitalId?: string }) {
           <div className="space-y-4">
             <div>
               <Label htmlFor="test-phone">Phone Number</Label>
-              <Input
+              <PhoneInputWithCountry
                 id="test-phone"
-                type="tel"
                 value={testPhoneNumber}
-                onChange={(e) => setTestPhoneNumber(e.target.value)}
-                placeholder="+41791234567"
+                onChange={(value) => setTestPhoneNumber(value)}
+                placeholder="791234567"
                 data-testid="input-test-phone"
               />
               <p className="text-xs text-muted-foreground mt-1">

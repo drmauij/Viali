@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
+import { patients, surgeries, externalSurgeryRequests } from "@shared/schema";
 import { setupAuth, isAuthenticated, getSessionMiddleware } from "./auth/google";
 import { initSocketIO, broadcastAnesthesiaUpdate, type AnesthesiaDataSection } from "./socket";
 import { 
@@ -3000,6 +3001,169 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error resetting lists:", error);
       res.status(500).json({ message: "Failed to reset lists to defaults" });
+    }
+  });
+
+  // Normalize phone numbers (admin only)
+  // Adds +41 prefix to numbers without prefix, removes leading 0
+  app.post('/api/hospitals/:id/normalize-phones', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { id: hospitalId } = req.params;
+      const userId = req.user.id;
+
+      // Check if user has admin access to this hospital
+      const hospitals = await storage.getUserHospitals(userId);
+      const hospital = hospitals.find(h => h.id === hospitalId && h.role === 'admin');
+      
+      if (!hospital) {
+        return res.status(403).json({ message: "Admin access required to normalize phone numbers" });
+      }
+
+      // Function to normalize a phone number
+      const normalizePhone = (phone: string | null): string | null => {
+        if (!phone) return phone;
+        
+        let cleaned = phone.trim();
+        
+        // If already has a + prefix, leave it as is
+        if (cleaned.startsWith('+')) {
+          return cleaned;
+        }
+        
+        // If starts with 00, assume it's an international format
+        if (cleaned.startsWith('00')) {
+          return '+' + cleaned.slice(2);
+        }
+        
+        // Remove leading 0 if present
+        if (cleaned.startsWith('0')) {
+          cleaned = cleaned.slice(1);
+        }
+        
+        // Add Swiss prefix +41
+        return '+41 ' + cleaned;
+      };
+
+      let patientsUpdated = 0;
+      let usersUpdated = 0;
+      let externalRequestsUpdated = 0;
+
+      // Normalize patient phone numbers
+      const patientsData = await db
+        .select({ id: patients.id, phone: patients.phone })
+        .from(patients)
+        .where(eq(patients.hospitalId, hospitalId));
+      
+      for (const patient of patientsData) {
+        if (patient.phone) {
+          const normalized = normalizePhone(patient.phone);
+          if (normalized !== patient.phone) {
+            await db.update(patients)
+              .set({ phone: normalized })
+              .where(eq(patients.id, patient.id));
+            patientsUpdated++;
+          }
+        }
+      }
+
+      // Normalize user phone numbers for users in this hospital
+      const hospitalRoles = await db
+        .select({ userId: userHospitalRoles.userId })
+        .from(userHospitalRoles)
+        .where(eq(userHospitalRoles.hospitalId, hospitalId));
+      
+      const userIds = hospitalRoles.map(r => r.userId);
+      
+      if (userIds.length > 0) {
+        const usersData = await db
+          .select({ id: users.id, phone: users.phone })
+          .from(users)
+          .where(inArray(users.id, userIds));
+        
+        for (const user of usersData) {
+          if (user.phone) {
+            const normalized = normalizePhone(user.phone);
+            if (normalized !== user.phone) {
+              await db.update(users)
+                .set({ phone: normalized })
+                .where(eq(users.id, user.id));
+              usersUpdated++;
+            }
+          }
+        }
+      }
+
+      // Normalize preOpAssessment phone numbers (linked through surgeries)
+      let preOpUpdated = 0;
+      const preOpData = await db
+        .select({ 
+          id: preOpAssessments.id, 
+          outpatientCaregiverPhone: preOpAssessments.outpatientCaregiverPhone
+        })
+        .from(preOpAssessments)
+        .innerJoin(surgeries, eq(preOpAssessments.surgeryId, surgeries.id))
+        .where(eq(surgeries.hospitalId, hospitalId));
+      
+      for (const p of preOpData) {
+        if (p.outpatientCaregiverPhone) {
+          const normalized = normalizePhone(p.outpatientCaregiverPhone);
+          if (normalized !== p.outpatientCaregiverPhone) {
+            await db.update(preOpAssessments)
+              .set({ outpatientCaregiverPhone: normalized })
+              .where(eq(preOpAssessments.id, p.id));
+            preOpUpdated++;
+          }
+        }
+      }
+
+      // Normalize external surgery request phone numbers
+      const externalRequests = await db
+        .select({ 
+          id: externalSurgeryRequests.id, 
+          surgeonPhone: externalSurgeryRequests.surgeonPhone,
+          patientPhone: externalSurgeryRequests.patientPhone
+        })
+        .from(externalSurgeryRequests)
+        .where(eq(externalSurgeryRequests.hospitalId, hospitalId));
+      
+      for (const r of externalRequests) {
+        const updates: Record<string, string | null> = {};
+        
+        if (r.surgeonPhone) {
+          const normalized = normalizePhone(r.surgeonPhone);
+          if (normalized !== r.surgeonPhone) {
+            updates.surgeonPhone = normalized;
+          }
+        }
+        
+        if (r.patientPhone) {
+          const normalized = normalizePhone(r.patientPhone);
+          if (normalized !== r.patientPhone) {
+            updates.patientPhone = normalized;
+          }
+        }
+        
+        if (Object.keys(updates).length > 0) {
+          await db.update(externalSurgeryRequests)
+            .set(updates)
+            .where(eq(externalSurgeryRequests.id, r.id));
+          externalRequestsUpdated++;
+        }
+      }
+
+      res.json({
+        message: "Phone numbers normalized successfully",
+        result: {
+          patientsUpdated,
+          usersUpdated,
+          preOpUpdated,
+          externalRequestsUpdated,
+          totalUpdated: patientsUpdated + usersUpdated + preOpUpdated + externalRequestsUpdated
+        }
+      });
+    } catch (error) {
+      console.error("Error normalizing phone numbers:", error);
+      res.status(500).json({ message: "Failed to normalize phone numbers" });
     }
   });
 

@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Label } from "@/components/ui/label";
 import { Copy, Mail, Loader2, CheckCircle, Link as LinkIcon, MessageSquare, Clock, AlertCircle } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
@@ -362,11 +363,10 @@ export function SendQuestionnaireDialog({
               <div className="border-t pt-4 space-y-3">
                 <Label>{t('questionnaire.send.orSendSms', 'Or send via SMS')}</Label>
                 <div className="flex gap-2">
-                  <Input
-                    type="tel"
-                    placeholder={t('questionnaire.links.phonePlaceholder', '+41 79 123 45 67')}
+                  <PhoneInputWithCountry
+                    placeholder={t('questionnaire.links.phonePlaceholder', '79 123 45 67')}
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    onChange={(value) => setPhoneNumber(value)}
                     disabled={smsSent}
                     data-testid="input-send-sms"
                   />

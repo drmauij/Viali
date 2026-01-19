@@ -4,6 +4,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -364,12 +365,11 @@ export default function Patients() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="phone">{t('anesthesia.patients.phone')}</Label>
-                    <Input
+                    <PhoneInputWithCountry
                       id="phone"
-                      type="tel"
-                      placeholder="+41 79 123 45 67"
+                      placeholder="79 123 45 67"
                       value={newPatient.phone}
-                      onChange={(e) => setNewPatient({ ...newPatient, phone: e.target.value })}
+                      onChange={(value) => setNewPatient({ ...newPatient, phone: value })}
                       data-testid="input-phone"
                     />
                   </div>
