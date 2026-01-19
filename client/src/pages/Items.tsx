@@ -25,6 +25,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { CameraCapture } from "@/components/CameraCapture";
+import { DirectItemCamera } from "@/components/DirectItemCamera";
 import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
 
 // Check if device has touch capability (mobile/tablet)
@@ -169,6 +170,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState("name");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [directCameraOpen, setDirectCameraOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ItemWithStock | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<UnitType>("Pack");
@@ -3357,9 +3359,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                       {t('items.bulkImport')}
                     </Button>
                     <Button size="sm" onClick={() => {
-                        setAddDialogOpen(true);
-                        // Auto-open unified barcode scanner (same as Step 1)
-                        setUnifiedScannerOpen(true);
+                        setDirectCameraOpen(true);
                       }} data-testid="add-item-button" className="flex-1 sm:flex-initial">
                       <i className="fas fa-plus mr-2"></i>
                       {t('items.addItem')}
@@ -6302,7 +6302,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   <p className="text-sm text-muted-foreground mb-3">
                     {t('items.addItemsManuallyDesc')}
                   </p>
-                  <Button variant="outline" onClick={() => { handleDismissOnboarding(); setAddDialogOpen(true); setUnifiedScannerOpen(true); }} className="w-full" data-testid="onboarding-add-item">
+                  <Button variant="outline" onClick={() => { handleDismissOnboarding(); setDirectCameraOpen(true); }} className="w-full" data-testid="onboarding-add-item">
                     <i className="fas fa-plus mr-2"></i>
                     {t('items.addFirstItem')}
                   </Button>
@@ -7069,6 +7069,78 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         onCapture={handleWebcamCapture}
         fullFrame={webcamCaptureTarget !== 'codes'}
         hint={webcamCaptureTarget === 'codes' ? t('items.cameraHintGtin') : undefined}
+      />
+
+      {/* Direct Camera for streamlined Add Item workflow */}
+      <DirectItemCamera
+        isOpen={directCameraOpen}
+        onClose={() => {
+          // Cancel just closes camera - user can manually open Add dialog if needed
+          setDirectCameraOpen(false);
+          resetForm();
+          setGalexisLookupResult(null);
+        }}
+        onCodesExtracted={async (codes) => {
+          // Reset lookup state at start
+          setGalexisLookupResult(null);
+          
+          // Update form data with extracted codes
+          setFormData(prev => ({
+            ...prev,
+            gtin: codes.gtin || prev.gtin,
+            pharmacode: codes.pharmacode || prev.pharmacode,
+            lotNumber: codes.lotNumber || prev.lotNumber,
+            expiryDate: codes.expiryDate || prev.expiryDate,
+            migel: codes.migel || prev.migel,
+            atc: codes.atc || prev.atc,
+          }));
+
+          // Try Galexis lookup if GTIN found
+          if (codes.gtin && activeHospital?.id) {
+            setIsLookingUpGalexis(true);
+            try {
+              const response = await apiRequest('POST', '/api/items/galexis-lookup', {
+                gtin: codes.gtin,
+                hospitalId: activeHospital.id,
+              });
+              const result: any = await response.json();
+              
+              if (result.found) {
+                setFormData(prev => ({
+                  ...prev,
+                  name: result.name || prev.name,
+                  pharmacode: result.pharmacode || prev.pharmacode,
+                  gtin: result.gtin || prev.gtin,
+                }));
+                setGalexisLookupResult({ found: true });
+                return { galexisFound: true, productName: result.name };
+              } else {
+                // Explicitly set not found
+                setGalexisLookupResult({ found: false, message: result.message });
+              }
+            } catch (error) {
+              console.error('Galexis lookup failed:', error);
+              setGalexisLookupResult({ found: false, message: 'Lookup failed' });
+            } finally {
+              setIsLookingUpGalexis(false);
+            }
+          }
+          
+          return { galexisFound: false };
+        }}
+        onProductInfoExtracted={(info) => {
+          setFormData(prev => ({
+            ...prev,
+            name: info.name || prev.name,
+            description: info.description || prev.description,
+          }));
+        }}
+        onComplete={() => {
+          setDirectCameraOpen(false);
+          setAddDialogOpen(true);
+          setAddItemStage('manual');
+        }}
+        compressImage={compressImage}
       />
     </div>
   );
