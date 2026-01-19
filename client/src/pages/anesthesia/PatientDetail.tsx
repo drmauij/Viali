@@ -2997,151 +2997,23 @@ export default function PatientDetail() {
 
         <TabsContent value="documents" className="mt-0">
           <div className="space-y-6">
-            {/* Staff Documents Section */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="h-5 w-5" />
-                      {t('anesthesia.patientDetail.staffDocuments', 'Staff Documents')}
-                    </CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {t('anesthesia.patientDetail.staffDocumentsDesc', 'Documents uploaded by clinical staff.')}
-                    </p>
-                  </div>
-                  {canWrite && (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsCameraOpen(true)}
-                        data-testid="button-camera-capture"
-                      >
-                        <ImageIcon className="h-4 w-4 mr-2" />
-                        {t('anesthesia.patientDetail.takePhoto', 'Take Photo')}
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => setIsUploadDialogOpen(true)}
-                        data-testid="button-upload-document"
-                      >
-                        <Plus className="h-4 w-4 mr-2" />
-                        {t('anesthesia.patientDetail.uploadDocument', 'Upload Document')}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {isLoadingStaffDocs ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                ) : staffDocuments.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {staffDocuments.map((doc) => {
-                      const isImage = doc.mimeType?.startsWith('image/');
-                      const categoryLabels: Record<string, string> = {
-                        medication_list: t('anesthesia.patientDetail.uploadCategoryMedication', 'Medication List'),
-                        diagnosis: t('anesthesia.patientDetail.uploadCategoryDiagnosis', 'Diagnosis'),
-                        exam_result: t('anesthesia.patientDetail.uploadCategoryExamResult', 'Exam Result'),
-                        consent: t('anesthesia.patientDetail.uploadCategoryConsent', 'Consent Form'),
-                        lab_result: t('anesthesia.patientDetail.uploadCategoryLabResult', 'Lab Result'),
-                        imaging: t('anesthesia.patientDetail.uploadCategoryImaging', 'Imaging'),
-                        referral: t('anesthesia.patientDetail.uploadCategoryReferral', 'Referral'),
-                        external_report: t('anesthesia.patientDetail.uploadCategoryExternalReport', 'External Report'),
-                        other: t('anesthesia.patientDetail.uploadCategoryOther', 'Other'),
-                      };
-                      const fileStreamUrl = `/api/patients/${params?.id}/documents/${doc.id}/file`;
-                      return (
-                        <div 
-                          key={doc.id}
-                          className="flex flex-col p-4 border rounded-lg hover:bg-muted/50 transition-colors group relative"
-                          data-testid={`staff-document-${doc.id}`}
-                        >
-                          {canWrite && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80 hover:bg-destructive hover:text-destructive-foreground"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDocumentToDelete(doc);
-                              }}
-                              data-testid={`button-delete-document-${doc.id}`}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                          <div 
-                            className="cursor-pointer"
-                            onClick={() => {
-                              setPreviewDocument({
-                                id: doc.id,
-                                fileName: doc.fileName,
-                                mimeType: doc.mimeType || '',
-                                url: fileStreamUrl,
-                              });
-                            }}
-                          >
-                            {isImage ? (
-                              <div className="w-full h-40 mb-3 overflow-hidden rounded bg-muted">
-                                <img 
-                                  src={fileStreamUrl} 
-                                  alt={doc.fileName}
-                                  className="w-full h-full object-cover group-hover:opacity-90 transition-opacity"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                    const parent = target.parentElement;
-                                    if (parent) {
-                                      parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
-                                    }
-                                  }}
-                                />
-                              </div>
-                            ) : (
-                              <div className="w-full h-40 mb-3 flex items-center justify-center bg-muted rounded">
-                                <FileText className="h-16 w-16 text-muted-foreground" />
-                              </div>
-                            )}
-                            <div className="space-y-2">
-                              <p className="font-medium truncate group-hover:text-primary transition-colors">
-                                {doc.fileName}
-                              </p>
-                              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                                <Badge variant="secondary">
-                                  {categoryLabels[doc.category] || doc.category}
-                                </Badge>
-                                {doc.fileSize && (
-                                  <span>{(doc.fileSize / 1024).toFixed(1)} KB</span>
-                                )}
-                              </div>
-                              {doc.description && (
-                                <p className="text-sm text-muted-foreground line-clamp-2">{doc.description}</p>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <FileText className="h-12 w-12 text-muted-foreground mb-3" />
-                    <p className="text-muted-foreground">
-                      {t('anesthesia.patientDetail.noStaffDocuments', 'No staff documents uploaded yet.')}
-                    </p>
-                    {canWrite && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {t('anesthesia.patientDetail.noStaffDocumentsHint', 'Use the buttons above to upload documents or take photos.')}
-                      </p>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            {/* Staff Documents Section - Using PatientDocumentsSection component with list/grid toggle */}
+            {patient && activeHospital && (
+              <PatientDocumentsSection
+                patientId={patient.id}
+                hospitalId={activeHospital.id}
+                canWrite={canWrite}
+                variant="card"
+                onPreview={(url, fileName, mimeType) => {
+                  setPreviewDocument({
+                    id: 'preview',
+                    fileName,
+                    mimeType: mimeType || 'application/octet-stream',
+                    url,
+                  });
+                }}
+              />
+            )}
 
             {/* Note Attachments Section */}
             {noteAttachmentDocs.length > 0 && (
