@@ -21,22 +21,23 @@ export function UnifiedBarcodeScanner({
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const bluetoothInputRef = useRef<HTMLInputElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
   
-  const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
 
   const stopStream = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
     setIsVideoReady(false);
-  }, [stream]);
+  }, []);
 
   const startCamera = useCallback(async () => {
     try {
+      console.log("[UnifiedScanner] Requesting camera access...");
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: "environment",
@@ -45,13 +46,38 @@ export function UnifiedBarcodeScanner({
         },
       });
       
-      setStream(mediaStream);
+      streamRef.current = mediaStream;
+      console.log("[UnifiedScanner] Got media stream");
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        
+        // Wait for video to be fully loaded and playing
         videoRef.current.onloadedmetadata = () => {
+          console.log("[UnifiedScanner] Video metadata loaded");
           videoRef.current?.play().then(() => {
-            setIsVideoReady(true);
+            console.log("[UnifiedScanner] Video playing");
+            // Wait a moment for the camera to stabilize and ensure we have valid dimensions
+            setTimeout(() => {
+              if (videoRef.current) {
+                const w = videoRef.current.videoWidth;
+                const h = videoRef.current.videoHeight;
+                console.log(`[UnifiedScanner] Video dimensions: ${w}x${h}`);
+                if (w > 0 && h > 0) {
+                  setIsVideoReady(true);
+                } else {
+                  // Retry after another delay
+                  setTimeout(() => {
+                    if (videoRef.current && videoRef.current.videoWidth > 0) {
+                      setIsVideoReady(true);
+                    }
+                  }, 500);
+                }
+              }
+            }, 300);
+          }).catch(err => {
+            console.error("[UnifiedScanner] Video play error:", err);
+            setError("Failed to start camera preview");
           });
         };
       }
@@ -82,7 +108,7 @@ export function UnifiedBarcodeScanner({
     return () => {
       stopStream();
     };
-  }, [isOpen]);
+  }, [isOpen, startCamera, stopStream]);
 
   const handleBluetoothInput = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
@@ -97,20 +123,51 @@ export function UnifiedBarcodeScanner({
   }, [onBarcodeDetected, onClose, stopStream]);
 
   const captureForOcr = useCallback(async () => {
-    if (isCapturing || !videoRef.current || !isVideoReady) return;
+    const video = videoRef.current;
+    
+    // Validate video is ready with valid dimensions
+    if (!video) {
+      console.error("[UnifiedScanner] No video element");
+      return;
+    }
+    
+    if (isCapturing) {
+      console.log("[UnifiedScanner] Already capturing");
+      return;
+    }
+    
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+    
+    console.log(`[UnifiedScanner] Capture attempt - dimensions: ${videoWidth}x${videoHeight}, ready: ${isVideoReady}`);
+    
+    if (videoWidth <= 0 || videoHeight <= 0) {
+      console.error("[UnifiedScanner] Invalid video dimensions");
+      setError("Camera not ready. Please wait and try again.");
+      return;
+    }
+    
     setIsCapturing(true);
     
     try {
-      const video = videoRef.current;
-      
       const canvas = document.createElement('canvas');
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = videoWidth;
+      canvas.height = videoHeight;
       const ctx = canvas.getContext('2d');
       
       if (ctx) {
-        ctx.drawImage(video, 0, 0);
+        ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
         const photo = canvas.toDataURL("image/jpeg", 0.9);
+        
+        // Validate the captured image has actual content (not just empty)
+        if (photo.length < 1000) {
+          console.error("[UnifiedScanner] Captured image too small:", photo.length);
+          setError("Failed to capture image. Please try again.");
+          setIsCapturing(false);
+          return;
+        }
+        
+        console.log(`[UnifiedScanner] Captured image: ${photo.length} bytes`);
         
         stopStream();
         onImageCapture(photo);
