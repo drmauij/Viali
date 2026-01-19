@@ -6420,6 +6420,57 @@ export default function PatientDetail() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Standalone Document Preview Dialog - shown when viewing documents outside Pre-OP dialog */}
+      <Dialog open={!!previewDocument && !isPreOpOpen} onOpenChange={(open) => !open && setPreviewDocument(null)}>
+        <DialogContent className="max-w-4xl h-[80vh] flex flex-col p-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-background">
+            <div className="flex items-center gap-2 min-w-0">
+              <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <span className="text-sm font-medium truncate">{previewDocument?.fileName}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => previewDocument && window.open(previewDocument.url, '_blank')}
+                data-testid="button-open-document-new-tab"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {t('common.download', 'Download')}
+              </Button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-auto p-4 bg-muted/30">
+            {previewDocument?.mimeType?.startsWith('image/') ? (
+              <img 
+                src={previewDocument.url}
+                alt={previewDocument.fileName}
+                className="w-full h-full object-contain"
+                data-testid="preview-image"
+              />
+            ) : previewDocument?.mimeType === 'application/pdf' ? (
+              <iframe
+                src={previewDocument.url}
+                className="w-full h-full border-0 rounded"
+                title={previewDocument.fileName}
+                data-testid="preview-pdf"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <div className="text-center">
+                  <FileText className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground mb-4">{t('anesthesia.patientDetail.previewNotAvailable', 'Preview not available for this file type')}</p>
+                  <Button onClick={() => previewDocument && window.open(previewDocument.url, '_blank')} data-testid="button-download-file">
+                    <Download className="h-4 w-4 mr-2" />
+                    {t('common.download', 'Download')}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
