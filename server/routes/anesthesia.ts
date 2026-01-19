@@ -770,9 +770,13 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
     });
 
     res.json(allDocuments);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error fetching patient documents:", error);
-    res.status(500).json({ message: "Failed to fetch patient documents" });
+    console.error("Patient ID:", id, "User ID:", userId);
+    res.status(500).json({ 
+      message: "Failed to fetch patient documents",
+      error: error?.message || String(error)
+    });
   }
 });
 
@@ -875,9 +879,13 @@ router.post('/api/patients/:id/documents', isAuthenticated, requireWriteAccess, 
     });
 
     res.status(201).json(document);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating patient document:", error);
-    res.status(500).json({ message: "Failed to create patient document" });
+    console.error("Document data:", { category, fileName, fileUrl, mimeType, fileSize, description });
+    res.status(500).json({ 
+      message: "Failed to create patient document",
+      error: error?.message || String(error)
+    });
   }
 });
 
