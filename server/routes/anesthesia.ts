@@ -710,17 +710,23 @@ router.post('/api/patients/:id/unarchive', isAuthenticated, requireWriteAccess, 
 
 // Get all documents for a patient
 router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res) => {
+  const startTime = Date.now();
+  const { id } = req.params;
+  const userId = req.user?.id;
+  
+  console.log(`[Documents] Starting fetch for patient ${id}, user ${userId}`);
+  
   try {
-    const { id } = req.params;
-    const userId = req.user.id;
-
     const patient = await storage.getPatient(id);
+    console.log(`[Documents] getPatient took ${Date.now() - startTime}ms`);
     
     if (!patient) {
       return res.status(404).json({ message: "Patient not found" });
     }
 
     const hospitals = await storage.getUserHospitals(userId);
+    console.log(`[Documents] getUserHospitals took ${Date.now() - startTime}ms total`);
+    
     const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
     
     if (!hasAccess) {
@@ -729,18 +735,23 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
 
     // Get staff-uploaded documents
     const staffDocuments = await storage.getPatientDocuments(id);
+    console.log(`[Documents] getPatientDocuments returned ${staffDocuments.length} docs, took ${Date.now() - startTime}ms total`);
 
     // Also get questionnaire uploads and convert to unified format
     const questionnaireLinks = await storage.getQuestionnaireLinks(id);
+    console.log(`[Documents] getQuestionnaireLinks returned ${questionnaireLinks.length} links, took ${Date.now() - startTime}ms total`);
+    
     const questionnaireDocuments: any[] = [];
     
-    for (const link of questionnaireLinks) {
-      if (link.response && link.status === 'submitted') {
-        const response = await storage.getQuestionnaireResponse(link.response.id);
+    // Process questionnaire links (limit to avoid N+1 timeout)
+    const submittedLinks = questionnaireLinks.filter(link => link.response && link.status === 'submitted');
+    
+    for (const link of submittedLinks) {
+      try {
+        const response = await storage.getQuestionnaireResponse(link.response!.id);
         if (response) {
           const uploads = await storage.getQuestionnaireUploads(response.id);
           for (const upload of uploads) {
-            // Convert questionnaire upload to unified document format
             questionnaireDocuments.push({
               id: `questionnaire-${upload.id}`,
               hospitalId: patient.hospitalId,
@@ -759,8 +770,13 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
             });
           }
         }
+      } catch (linkError) {
+        console.error(`[Documents] Error processing questionnaire link ${link.id}:`, linkError);
+        // Continue with other links
       }
     }
+    
+    console.log(`[Documents] Processed ${submittedLinks.length} questionnaire links, found ${questionnaireDocuments.length} uploads, took ${Date.now() - startTime}ms total`);
 
     // Merge and sort by createdAt (newest first)
     const allDocuments = [...staffDocuments, ...questionnaireDocuments].sort((a, b) => {
@@ -769,10 +785,11 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
       return dateB - dateA;
     });
 
+    console.log(`[Documents] Returning ${allDocuments.length} total documents, took ${Date.now() - startTime}ms total`);
     res.json(allDocuments);
   } catch (error: any) {
-    console.error("Error fetching patient documents:", error);
-    console.error("Patient ID:", id, "User ID:", userId);
+    console.error(`[Documents] Error after ${Date.now() - startTime}ms:`, error);
+    console.error("[Documents] Patient ID:", id, "User ID:", userId);
     res.status(500).json({ 
       message: "Failed to fetch patient documents",
       error: error?.message || String(error)
