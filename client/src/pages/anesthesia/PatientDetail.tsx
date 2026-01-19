@@ -3083,9 +3083,6 @@ export default function PatientDetail() {
                                 mimeType: doc.mimeType || '',
                                 url: fileStreamUrl,
                               });
-                              if (!isPreOpOpen) {
-                                setIsPreOpOpen(true);
-                              }
                             }}
                           >
                             {isImage ? (
@@ -3273,9 +3270,6 @@ export default function PatientDetail() {
                                 mimeType: upload.mimeType || '',
                                 url: fileStreamUrl,
                               });
-                              if (!isPreOpOpen) {
-                                setIsPreOpOpen(true);
-                              }
                             }}
                           >
                           {isImage ? (

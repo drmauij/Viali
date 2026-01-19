@@ -65,7 +65,7 @@ export function PatientDocumentsSection({
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [isCompactView, setIsCompactView] = useState(false);
+  const [isCompactView, setIsCompactView] = useState(true);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [uploadCategory, setUploadCategory] = useState<PatientDocument['category']>('other');
