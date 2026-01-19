@@ -738,7 +738,7 @@ router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res)
     console.log(`[Documents] getPatientDocuments returned ${staffDocuments.length} docs, took ${Date.now() - startTime}ms total`);
 
     // Also get questionnaire uploads and convert to unified format
-    const questionnaireLinks = await storage.getQuestionnaireLinks(id);
+    const questionnaireLinks = await storage.getQuestionnaireLinksForPatient(id);
     console.log(`[Documents] getQuestionnaireLinks returned ${questionnaireLinks.length} links, took ${Date.now() - startTime}ms total`);
     
     const questionnaireDocuments: any[] = [];
