@@ -181,7 +181,14 @@ export default function UnitWorklogs() {
       return apiRequest('POST', `/api/hospitals/${hospitalId}/worklog/entries/${entryId}/countersign`, { signature });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/pending`] });
+      // Invalidate both pending worklogs (this page) and all worklog entries (business module)
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/pending?unitId=${unitId}`] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/hospitals/${hospitalId}/worklog/entries`);
+        }
+      });
       toast({
         title: t('worklogs.countersignSuccess'),
         description: t('worklogs.countersignSuccessDesc'),
@@ -203,7 +210,14 @@ export default function UnitWorklogs() {
       return apiRequest('POST', `/api/hospitals/${hospitalId}/worklog/entries/${entryId}/reject`, { reason });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/pending`] });
+      // Invalidate both pending worklogs (this page) and all worklog entries (business module)
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/pending?unitId=${unitId}`] });
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes(`/api/hospitals/${hospitalId}/worklog/entries`);
+        }
+      });
       toast({
         title: t('worklogs.rejectSuccess'),
         description: t('worklogs.rejectSuccessDesc'),

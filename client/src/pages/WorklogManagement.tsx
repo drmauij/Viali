@@ -161,13 +161,19 @@ export default function WorklogManagement() {
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
 
+  // Build the query URL with filters
+  const buildWorklogEntriesUrl = () => {
+    const params = new URLSearchParams();
+    if (filterStatus && filterStatus !== 'all') params.append('status', filterStatus);
+    if (filterEmail) params.append('email', filterEmail);
+    if (filterDateFrom) params.append('dateFrom', filterDateFrom);
+    if (filterDateTo) params.append('dateTo', filterDateTo);
+    const queryString = params.toString();
+    return `/api/hospitals/${hospitalId}/worklog/entries${queryString ? `?${queryString}` : ''}`;
+  };
+
   const { data: allEntries = [], isLoading } = useQuery<WorklogEntry[]>({
-    queryKey: ['/api/hospitals', hospitalId, 'worklog', 'entries', { 
-      status: filterStatus !== 'all' ? filterStatus : undefined, 
-      email: filterEmail || undefined, 
-      dateFrom: filterDateFrom || undefined, 
-      dateTo: filterDateTo || undefined 
-    }],
+    queryKey: [buildWorklogEntriesUrl()],
     enabled: !!hospitalId,
   });
 
