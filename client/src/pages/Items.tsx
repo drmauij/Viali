@@ -619,7 +619,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         body: JSON.stringify({
           ...data,
           hospitalId: activeHospital?.id,
-          unitId: activeHospital?.unitId,
+          unitId: effectiveUnitId,
         }),
         credentials: "include",
       });
@@ -664,7 +664,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       // Update item details - include active unitId for access control
       const response = await apiRequest("PATCH", `/api/items/${selectedItem?.id}`, {
         ...data.itemData,
-        activeUnitId: activeHospital?.unitId
+        activeUnitId: effectiveUnitId
       });
       const updatedItem = await response.json();
       
@@ -679,7 +679,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           qty: newStock,
           delta: delta,
           notes: "Stock updated via item edit",
-          activeUnitId: activeHospital?.unitId,
+          activeUnitId: effectiveUnitId,
         });
       }
       
@@ -1047,7 +1047,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     mutationFn: async (data: { itemId: string; qty: number; packSize: number; vendorId?: string }) => {
       const response = await apiRequest("POST", "/api/orders/quick-add", {
         hospitalId: activeHospital?.id,
-        unitId: activeHospital?.unitId,
+        unitId: effectiveUnitId,
         itemId: data.itemId,
         qty: data.qty,
         packSize: data.packSize,
@@ -1056,8 +1056,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, effectiveUnitId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, effectiveUnitId] });
       toast({
         title: t('items.addedToOrder'),
         description: t('items.addedToDraftOrder'),
@@ -1108,12 +1108,12 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "X-Active-Unit-Id": activeHospital?.unitId || "",
+          "X-Active-Unit-Id": effectiveUnitId || "",
         },
         body: JSON.stringify({
           items,
           hospitalId: activeHospital?.id,
-          unitId: activeHospital?.unitId,
+          unitId: effectiveUnitId,
         }),
         credentials: "include",
       });
@@ -1916,7 +1916,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           try {
             await apiRequest("POST", `/api/items/${createdItem.id}/lots`, {
               itemId: createdItem.id,
-              unitId: activeHospital?.unitId,
+              unitId: effectiveUnitId,
               ...lotData,
             });
             toast({
@@ -5569,7 +5569,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                                   try {
                                     const res = await apiRequest("POST", `/api/items/${selectedItem.id}/lots`, {
                                       itemId: selectedItem.id,
-                                      unitId: activeHospital?.unitId,
+                                      unitId: effectiveUnitId,
                                       lotNumber: newLot.lotNumber,
                                       expiryDate: newLot.expiryDate ? new Date(newLot.expiryDate).toISOString() : null,
                                     });
