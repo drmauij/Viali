@@ -325,24 +325,21 @@ export function DirectItemCamera({
                 <Button
                   variant="outline"
                   size="lg"
-                  onClick={mode === "product" ? () => {
-                    // In Step 2, open manual entry dialog
+                  onClick={() => {
+                    // Open manual entry dialog
                     if (stream) {
                       stream.getTracks().forEach(track => track.stop());
                       setStream(null);
                     }
                     setIsVideoReady(false);
                     onComplete();
-                  } : handleCancel}
+                  }}
                   disabled={isProcessing}
                   className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
-                  data-testid="button-camera-cancel"
+                  data-testid="button-camera-manual-entry"
                 >
                   <X className="w-5 h-5 mr-2" />
-                  {mode === "product" 
-                    ? t('items.manualEntry', 'Manual Entry')
-                    : t('common.cancel', 'Cancel')
-                  }
+                  {t('items.manualEntry', 'Manual Entry')}
                 </Button>
 
                 {mode === "codes" && (
