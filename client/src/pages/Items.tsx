@@ -602,12 +602,12 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   }, [activeHospital?.id]);
 
   const { data: vendors = [] } = useQuery<Vendor[]>({
-    queryKey: [`/api/vendors/${activeHospital?.id}`, activeHospital?.unitId],
+    queryKey: [`/api/vendors/${activeHospital?.id}`, effectiveUnitId],
     enabled: !!activeHospital?.id,
   });
 
   const { data: openOrderItems = {} } = useQuery<Record<string, { totalQty: number }>>({
-    queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId],
+    queryKey: [`/api/orders/open-items/${activeHospital?.id}`, effectiveUnitId],
     enabled: !!activeHospital?.id,
   });
 
@@ -6964,13 +6964,13 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
             </Button>
             <Button
               onClick={() => {
-                if (transferTargetUnitId && transferItems.length > 0 && activeHospital?.unitId) {
+                if (transferTargetUnitId && transferItems.length > 0 && effectiveUnitId) {
                   const sourceUnitId = transferDirection === 'to' 
-                    ? activeHospital.unitId 
+                    ? effectiveUnitId 
                     : transferTargetUnitId;
                   const destinationUnitId = transferDirection === 'to' 
                     ? transferTargetUnitId 
-                    : activeHospital.unitId;
+                    : effectiveUnitId;
                   
                   transferItemsMutation.mutate({
                     sourceUnitId,
