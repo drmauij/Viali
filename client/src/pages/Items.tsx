@@ -7133,6 +7133,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
             ...prev,
             name: info.name || prev.name,
             description: info.description || prev.description,
+            packSize: info.unitsPerPack ? String(info.unitsPerPack) : prev.packSize,
           }));
         }}
         onComplete={() => {
@@ -7140,7 +7141,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           setAddDialogOpen(true);
           setAddItemStage('manual');
         }}
-        compressImage={compressImage}
       />
     </div>
   );

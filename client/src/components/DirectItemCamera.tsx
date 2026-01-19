@@ -18,9 +18,9 @@ interface DirectItemCameraProps {
   onProductInfoExtracted: (info: {
     name?: string;
     description?: string;
+    unitsPerPack?: number;
   }) => void;
   onComplete: () => void;
-  compressImage: (file: File) => Promise<string>;
 }
 
 type CameraMode = "codes" | "product";
@@ -32,7 +32,6 @@ export function DirectItemCamera({
   onCodesExtracted,
   onProductInfoExtracted,
   onComplete,
-  compressImage,
 }: DirectItemCameraProps) {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -67,8 +66,9 @@ export function DirectItemCamera({
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: { 
             facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 }
           },
         });
         
@@ -206,6 +206,7 @@ export function DirectItemCamera({
           onProductInfoExtracted({
             name: result.name,
             description: result.description,
+            unitsPerPack: result.unitsPerPack,
           });
           setStatus("success");
           setStatusMessage(t('items.productNameExtracted', 'Product name extracted'));

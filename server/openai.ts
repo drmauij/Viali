@@ -55,10 +55,10 @@ export async function analyzeItemImage(base64Image: string): Promise<ExtractedIt
               type: "text",
               text: `Analyze this pharmaceutical/medical product image and extract ALL visible information in JSON format:
 {
-  "name": "product name (without concentration or size)",
-  "description": "brief description if visible (without size/volume)",
-  "concentration": "concentration/strength (e.g., '10mg/ml', '500mg', '0.9%')",
-  "size": "size/volume of the product (e.g., '100 ml', '500ml', '10mg')",
+  "name": "product name INCLUDING dosage/strength (e.g., 'Novalgin 500 mg', 'NaCl 0.9%', 'Ibuprofen 400mg')",
+  "description": "ALL other visible product info: active ingredient, form, pack contents, manufacturer (e.g., 'Metamizolum natricum 500 mg 50 tabletten')",
+  "concentration": "concentration/strength separately (e.g., '10mg/ml', '500mg', '0.9%')",
+  "size": "size/volume of the product (e.g., '100 ml', '500ml')",
   "barcode": "barcode number if visible (EAN, UPC, etc.)",
   "unit": "packaging unit type - must be one of: 'Pack', 'Single unit'",
   "confidence": "confidence score 0-1 for the extraction",
@@ -70,8 +70,8 @@ export async function analyzeItemImage(base64Image: string): Promise<ExtractedIt
   "productionDate": "PRODUCTION/MANUFACTURING date in YYYY-MM-DD format - date with FACTORY icon (🏭) or labeled 'MFG', 'Herstellung', 'Prod'",
   "ref": "REF/Article number (manufacturer's reference code)",
   "manufacturer": "Manufacturer/Company name (e.g., 'B. Braun', '3M', 'Polymed')",
-  "packContent": "Pack content description (e.g., '10x5ml', '50 Stück', '1000ml')",
-  "unitsPerPack": "Number of individual units in the pack (numeric)",
+  "packContent": "Pack content description (e.g., '10x5ml', '50 Stück', '1000ml', '50 tabletten')",
+  "unitsPerPack": "Number of individual units/tablets/ampoules in the pack (numeric only, e.g., 50 for '50 tabletten')",
   "gs1DataMatrix": "If a GS1 DataMatrix or GS1-128 barcode is visible, extract its full content (e.g., '010402249518831117300801102SH21D8001')"
 }
 
