@@ -96,7 +96,9 @@ router.get('/api/folders/:hospitalId', isAuthenticated, async (req: any, res) =>
     
     if (!moduleType && unitId) {
       const hasUnitAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
-      if (!hasUnitAccess) {
+      // Allow logistics users to access any unit in their hospital
+      const isLogisticsUser = userHospitals.some(h => h.id === hospitalId && h.isLogisticModule);
+      if (!hasUnitAccess && !isLogisticsUser) {
         return res.status(403).json({ message: "Access denied to this unit" });
       }
     }
@@ -242,7 +244,9 @@ router.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
     
     if (!moduleType && unitId) {
       const hasUnitAccess = userHospitals.some(h => h.id === hospitalId && h.unitId === unitId);
-      if (!hasUnitAccess) {
+      // Allow logistics users to access any unit in their hospital
+      const isLogisticsUser = userHospitals.some(h => h.id === hospitalId && h.isLogisticModule);
+      if (!hasUnitAccess && !isLogisticsUser) {
         return res.status(403).json({ message: "Access denied to this unit" });
       }
     }
