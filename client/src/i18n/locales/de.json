@@ -757,6 +757,8 @@
     "photoSavedSecurely": "Patientenetikett-Foto sicher gespeichert",
     "positionLabel": "Positionieren Sie das Patientenetikett innerhalb des Rechtecks",
     "capture": "Aufnehmen",
+    "captureItemPhoto": "Fotografieren Sie das Artikeletikett",
+    "ocrWillExtractInfo": "KI wird Artikelinformationen aus dem Foto extrahieren",
     "notes": "Notizen",
     "notesOptional": "Notizen (Optional)",
     "addNotes": "Zusätzliche Notizen hinzufügen...",

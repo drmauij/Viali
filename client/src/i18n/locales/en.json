@@ -751,6 +751,8 @@
     "photoSavedSecurely": "Patient label photo saved securely",
     "positionLabel": "Position patient label within the rectangle",
     "capture": "Capture",
+    "captureItemPhoto": "Take a photo of the item label",
+    "ocrWillExtractInfo": "AI will extract item information from the photo",
     "notes": "Notes",
     "notesOptional": "Notes (Optional)",
     "addNotes": "Add any additional notes...",

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 
@@ -21,136 +20,23 @@ export function UnifiedBarcodeScanner({
 }: UnifiedBarcodeScannerProps) {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const scannerRef = useRef<Html5Qrcode | null>(null);
   const bluetoothInputRef = useRef<HTMLInputElement>(null);
-  const scannerContainerRef = useRef<HTMLDivElement>(null);
   
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
-  const [scannerActive, setScannerActive] = useState(false);
-  const [lastDetectedCode, setLastDetectedCode] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
-  
-  const readerId = useRef(`unified-reader-${Date.now()}`);
 
-  const stopScanner = useCallback(async () => {
-    if (scannerRef.current) {
-      try {
-        const state = scannerRef.current.getState();
-        if (state === 2) {
-          await scannerRef.current.stop();
-        }
-        scannerRef.current.clear();
-      } catch (error) {
-        console.log("Scanner cleanup:", error);
-      }
-      scannerRef.current = null;
+  const stopStream = useCallback(() => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
     }
-    setScannerActive(false);
-  }, []);
+    setIsVideoReady(false);
+  }, [stream]);
 
-  const startScanner = useCallback(async () => {
-    if (scannerActive || scannerRef.current) return;
-    
-    const containerElement = document.getElementById(readerId.current);
-    if (!containerElement) {
-      console.error("Scanner container not found");
-      return;
-    }
-
+  const startCamera = useCallback(async () => {
     try {
-      setScannerActive(true);
-      const html5QrCode = new Html5Qrcode(readerId.current, {
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.CODE_39,
-          Html5QrcodeSupportedFormats.DATA_MATRIX,
-          Html5QrcodeSupportedFormats.QR_CODE,
-          Html5QrcodeSupportedFormats.ITF,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-        ],
-        verbose: false,
-      });
-      scannerRef.current = html5QrCode;
-
-      const config = {
-        fps: 15,
-        qrbox: { width: 280, height: 180 },
-        aspectRatio: 1.5,
-        disableFlip: false,
-      };
-
-      await html5QrCode.start(
-        { facingMode: "environment" },
-        config,
-        (decodedText, result) => {
-          console.log("[UnifiedScanner] Barcode detected:", decodedText, result?.result?.format?.formatName);
-          setLastDetectedCode(decodedText);
-          
-          stopScanner();
-          onBarcodeDetected(decodedText, result?.result?.format?.formatName || 'unknown');
-          onClose();
-        },
-        () => {}
-      );
-      
-      console.log("[UnifiedScanner] Scanner started successfully");
-    } catch (error: any) {
-      console.error("[UnifiedScanner] Error starting scanner:", error);
-      setScannerActive(false);
-      
-      if (error.message?.includes("NotAllowedError") || error.message?.includes("Permission")) {
-        setError(t('camera.errorAccessing'));
-      }
-    }
-  }, [scannerActive, onBarcodeDetected, onClose, stopScanner, t]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      stopScanner();
-      setLastDetectedCode(null);
-      setError(null);
-      setIsCapturing(false);
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      startScanner();
-    }, 100);
-
-    if (bluetoothInputRef.current) {
-      bluetoothInputRef.current.focus();
-    }
-
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [isOpen, startScanner, stopScanner]);
-
-  const handleBluetoothInput = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      const value = (e.target as HTMLInputElement).value.trim();
-      if (value) {
-        console.log("[UnifiedScanner] Bluetooth scanner input:", value);
-        stopScanner();
-        onBarcodeDetected(value, 'bluetooth');
-        onClose();
-      }
-    }
-  }, [onBarcodeDetected, onClose, stopScanner]);
-
-  const captureForOcr = useCallback(async () => {
-    if (isCapturing) return;
-    setIsCapturing(true);
-    
-    try {
-      await stopScanner();
-      
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: "environment",
@@ -159,17 +45,63 @@ export function UnifiedBarcodeScanner({
         },
       });
       
-      const video = document.createElement('video');
-      video.srcObject = mediaStream;
-      video.playsInline = true;
+      setStream(mediaStream);
       
-      await new Promise<void>((resolve) => {
-        video.onloadedmetadata = () => {
-          video.play().then(() => resolve());
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().then(() => {
+            setIsVideoReady(true);
+          });
         };
-      });
-      
-      await new Promise(resolve => setTimeout(resolve, 300));
+      }
+    } catch (error: any) {
+      console.error("[UnifiedScanner] Camera error:", error);
+      if (error.name === "NotAllowedError" || error.message?.includes("Permission")) {
+        setError(t('camera.errorAccessing'));
+      } else {
+        setError(error.message || "Failed to access camera");
+      }
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      stopStream();
+      setError(null);
+      setIsCapturing(false);
+      return;
+    }
+
+    startCamera();
+
+    if (bluetoothInputRef.current) {
+      bluetoothInputRef.current.focus();
+    }
+
+    return () => {
+      stopStream();
+    };
+  }, [isOpen]);
+
+  const handleBluetoothInput = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      const value = (e.target as HTMLInputElement).value.trim();
+      if (value) {
+        console.log("[UnifiedScanner] Bluetooth scanner input:", value);
+        stopStream();
+        onBarcodeDetected(value, 'bluetooth');
+        onClose();
+      }
+    }
+  }, [onBarcodeDetected, onClose, stopStream]);
+
+  const captureForOcr = useCallback(async () => {
+    if (isCapturing || !videoRef.current || !isVideoReady) return;
+    setIsCapturing(true);
+    
+    try {
+      const video = videoRef.current;
       
       const canvas = document.createElement('canvas');
       canvas.width = video.videoWidth;
@@ -180,12 +112,10 @@ export function UnifiedBarcodeScanner({
         ctx.drawImage(video, 0, 0);
         const photo = canvas.toDataURL("image/jpeg", 0.9);
         
-        mediaStream.getTracks().forEach(track => track.stop());
-        
+        stopStream();
         onImageCapture(photo);
         onClose();
       } else {
-        mediaStream.getTracks().forEach(track => track.stop());
         setError("Failed to capture image");
       }
     } catch (error: any) {
@@ -194,12 +124,12 @@ export function UnifiedBarcodeScanner({
     } finally {
       setIsCapturing(false);
     }
-  }, [isCapturing, stopScanner, onImageCapture, onClose]);
+  }, [isCapturing, isVideoReady, stopStream, onImageCapture, onClose]);
 
   const handleClose = useCallback(() => {
-    stopScanner();
+    stopStream();
     onClose();
-  }, [stopScanner, onClose]);
+  }, [stopStream, onClose]);
 
   if (!isOpen) return null;
 
@@ -233,38 +163,28 @@ export function UnifiedBarcodeScanner({
             <div className="absolute top-4 left-0 right-0 text-center z-20 pointer-events-none">
               <div className="inline-block bg-black/70 px-4 py-2 rounded-lg">
                 <p className="text-white text-base font-medium">
-                  {hint || t('items.pointAtGtinBarcode', 'Point at GTIN/EAN barcode')}
+                  {hint || t('items.captureItemPhoto', 'Take a photo of the item label')}
                 </p>
                 <p className="text-white/70 text-xs mt-1">
-                  {t('items.autoDetectOrCapture', 'Auto-detects barcodes • Tap capture for OCR')}
+                  {t('items.ocrWillExtractInfo', 'AI will extract item information from the photo')}
                 </p>
               </div>
             </div>
 
-            <div 
-              ref={scannerContainerRef}
-              className="flex-1 relative"
-            >
-              <div 
-                id={readerId.current} 
-                className="w-full h-full"
-                style={{ 
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                }}
+            <div className="flex-1 relative overflow-hidden">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
               />
               
-              {scannerActive && (
-                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                  <div className="border-2 border-dashed border-green-400/50 rounded-lg" 
-                       style={{ width: 280, height: 180 }}>
-                    <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-green-400 rounded-tl"></div>
-                    <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-green-400 rounded-tr"></div>
-                    <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-green-400 rounded-bl"></div>
-                    <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-green-400 rounded-br"></div>
+              {!isVideoReady && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black">
+                  <div className="text-white text-center">
+                    <i className="fas fa-spinner fa-spin text-3xl mb-2"></i>
+                    <p>{t('common.loading')}</p>
                   </div>
                 </div>
               )}
@@ -285,16 +205,14 @@ export function UnifiedBarcodeScanner({
               <Button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={captureForOcr}
-                disabled={isCapturing}
+                disabled={isCapturing || !isVideoReady}
                 className="bg-accent hover:bg-accent/90 px-6 disabled:opacity-50 touch-manipulation"
                 data-testid="capture-for-ocr"
               >
                 <i className={`fas ${isCapturing ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
-                {isCapturing ? t('common.loading') : t('items.captureForOcr', 'Capture for OCR')}
+                {isCapturing ? t('common.loading') : t('items.capture', 'Capture')}
               </Button>
             </div>
-
-            <canvas ref={canvasRef} className="hidden" />
           </>
         )}
       </div>
