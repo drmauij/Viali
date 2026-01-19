@@ -1618,6 +1618,42 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     });
   };
 
+  // Compress base64 image (for camera captures)
+  const compressBase64Image = (base64: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        // Resize if image is too large (max 1200px for OCR - slightly larger than product photos)
+        const maxSize = 1200;
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = (height / width) * maxSize;
+            width = maxSize;
+          } else {
+            width = (width / height) * maxSize;
+            height = maxSize;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        
+        // Compress to JPEG with 0.8 quality (slightly higher for OCR clarity)
+        const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+        console.log(`[Items] Compressed image from ${base64.length} to ${compressedBase64.length} bytes`);
+        resolve(compressedBase64);
+      };
+      img.onerror = reject;
+      img.src = base64;
+    });
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
@@ -1910,15 +1946,20 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   
   // Handler for OCR fallback from unified scanner
   const handleUnifiedImageCapture = async (photo: string) => {
-    console.log('[Items] OCR fallback triggered');
+    console.log('[Items] OCR fallback triggered, photo length:', photo.length);
     setIsAnalyzingCodes(true);
-    setCodesImage(photo);
     
     try {
+      // Compress the image for better API performance and consistency
+      const compressedPhoto = await compressBase64Image(photo);
+      setCodesImage(compressedPhoto);
+      
+      console.log('[Items] Sending compressed image to analyze-codes API');
       const response = await apiRequest('POST', '/api/items/analyze-codes', {
-        image: photo
+        image: compressedPhoto
       });
       const result: any = await response.json();
+      console.log('[Items] OCR result:', result);
       
       const extractedGtin = result.gtin || '';
       if (extractedGtin) setFormData(prev => ({ ...prev, gtin: extractedGtin }));
