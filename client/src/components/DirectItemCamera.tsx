@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Loader2, X, Camera, ArrowRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -34,52 +35,129 @@ export function DirectItemCamera({
   compressImage,
 }: DirectItemCameraProps) {
   const { t } = useTranslation();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   
   const [mode, setMode] = useState<CameraMode>("codes");
   const [status, setStatus] = useState<ProcessingStatus>("idle");
   const [statusMessage, setStatusMessage] = useState<string>("");
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
+  const isProcessing = status === "processing" || status === "capturing";
+
+  // Start camera when opened
   useEffect(() => {
-    if (isOpen) {
+    if (!isOpen) {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        setStream(null);
+      }
+      setIsVideoReady(false);
+      setCameraError(null);
       setMode("codes");
       setStatus("idle");
       setStatusMessage("");
-      setTimeout(() => {
-        fileInputRef.current?.click();
-      }, 100);
+      return;
     }
-  }, [isOpen]);
 
-  const switchToProductMode = (message: string) => {
+    async function startCamera() {
+      try {
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: "environment",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          },
+        });
+        
+        setStream(mediaStream);
+        
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play();
+          };
+          videoRef.current.onplaying = () => {
+            setIsVideoReady(true);
+          };
+        }
+      } catch (err) {
+        console.error("Error accessing camera:", err);
+        setCameraError(t('camera.errorAccessing', 'Could not access camera'));
+      }
+    }
+
+    startCamera();
+  }, [isOpen, t]);
+
+  const switchToProductMode = useCallback((message: string) => {
     setStatus("idle");
     setStatusMessage(message);
     setMode("product");
-    setTimeout(() => {
-      fileInputRef.current?.click();
-    }, 800);
-  };
-
-  const handleCapture = useCallback(() => {
-    fileInputRef.current?.click();
   }, []);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const captureAndProcess = useCallback(async () => {
+    if (!videoRef.current || !canvasRef.current || !isVideoReady) {
+      return;
+    }
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    
+    if (!ctx) return;
+
+    const videoWidth = video.videoWidth;
+    const videoHeight = video.videoHeight;
+
+    if (videoWidth === 0 || videoHeight === 0) {
+      return;
+    }
 
     setStatus("processing");
-    setStatusMessage(mode === "codes" ? t('items.analyzingCodes', 'Analyzing codes...') : t('items.analyzingProduct', 'Analyzing product...'));
+    setStatusMessage(mode === "codes" 
+      ? t('items.analyzingCodes', 'Analyzing codes...') 
+      : t('items.analyzingProduct', 'Analyzing product...')
+    );
+
+    // Capture full frame
+    canvas.width = videoWidth;
+    canvas.height = videoHeight;
+    ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
+
+    // Convert to base64 with compression
+    const maxDimension = 1200;
+    let finalWidth = videoWidth;
+    let finalHeight = videoHeight;
+    
+    if (videoWidth > maxDimension || videoHeight > maxDimension) {
+      const ratio = Math.min(maxDimension / videoWidth, maxDimension / videoHeight);
+      finalWidth = Math.round(videoWidth * ratio);
+      finalHeight = Math.round(videoHeight * ratio);
+      
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = finalWidth;
+      tempCanvas.height = finalHeight;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (tempCtx) {
+        tempCtx.drawImage(canvas, 0, 0, finalWidth, finalHeight);
+        canvas.width = finalWidth;
+        canvas.height = finalHeight;
+        ctx.drawImage(tempCanvas, 0, 0);
+      }
+    }
+
+    const imageData = canvas.toDataURL("image/jpeg", 0.8);
 
     try {
-      const compressedImage = await compressImage(file);
-
       if (mode === "codes") {
         const response = await fetch('/api/items/analyze-codes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ image: compressedImage }),
+          body: JSON.stringify({ image: imageData }),
         });
         
         if (!response.ok) throw new Error('Failed to analyze codes');
@@ -104,7 +182,7 @@ export function DirectItemCamera({
             setStatus("success");
             setStatusMessage(t('items.productFoundComplete', 'Product found: {{name}}', { name: productName || 'Item' }));
             setTimeout(() => {
-              onComplete();
+              stopCameraAndComplete();
             }, 1000);
           } else {
             switchToProductMode(t('items.codesNotInDatabase', 'Codes saved. Not in database - capture product name.'));
@@ -117,7 +195,7 @@ export function DirectItemCamera({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ image: compressedImage }),
+          body: JSON.stringify({ image: imageData }),
         });
         
         if (!response.ok) throw new Error('Failed to analyze product');
@@ -137,7 +215,7 @@ export function DirectItemCamera({
         }
         
         setTimeout(() => {
-          onComplete();
+          stopCameraAndComplete();
         }, 800);
       }
     } catch (error: any) {
@@ -151,121 +229,151 @@ export function DirectItemCamera({
         }, 1500);
       } else {
         setTimeout(() => {
-          onComplete();
+          stopCameraAndComplete();
         }, 1500);
       }
-    } finally {
-      e.target.value = '';
     }
-  };
+  }, [isVideoReady, mode, t, onCodesExtracted, onProductInfoExtracted, switchToProductMode]);
 
-  const handleNoCodes = () => {
+  const stopCameraAndComplete = useCallback(() => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsVideoReady(false);
+    onComplete();
+  }, [stream, onComplete]);
+
+  const handleNoCodes = useCallback(() => {
     setStatus("idle");
     setStatusMessage("");
     setMode("product");
-    setTimeout(() => {
-      fileInputRef.current?.click();
-    }, 100);
-  };
+  }, []);
 
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setIsVideoReady(false);
     onClose();
-  };
+  }, [stream, onClose]);
 
   if (!isOpen) return null;
 
-  const isProcessing = status === "processing";
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        onChange={handleFileChange}
-        className="hidden"
-      />
-      
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
-        <div className="text-center mb-8">
-          <h2 className="text-xl font-semibold text-white mb-2">
-            {mode === "codes" 
-              ? t('items.step1ScanCodes', 'Step 1: Scan Codes')
-              : t('items.step2CaptureProduct', 'Step 2: Capture Product Name')
-            }
-          </h2>
-          <p className="text-gray-300 text-sm">
-            {mode === "codes"
-              ? t('items.pointAtGtinPharmacode', 'Point camera at GTIN/Pharmacode barcode')
-              : t('items.pointAtProductName', 'Point camera at product name/label')
-            }
-          </p>
-        </div>
-
-        {statusMessage && (
-          <div className={`mb-8 px-6 py-3 rounded-lg text-center ${
-            status === "success" ? "bg-green-600/90 text-white" :
-            status === "error" ? "bg-red-600/90 text-white" :
-            status === "processing" ? "bg-blue-600/90 text-white" :
-            "bg-gray-700/90 text-white"
-          }`}>
-            {isProcessing && <Loader2 className="inline-block w-4 h-4 mr-2 animate-spin" />}
-            {statusMessage}
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999] bg-black"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <div className="relative w-full h-full">
+        {cameraError ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center text-white p-4">
+              <X className="w-16 h-16 mx-auto mb-4 text-red-500" />
+              <p className="mb-4">{cameraError}</p>
+              <Button onClick={handleCancel}>{t('common.close', 'Close')}</Button>
+            </div>
           </div>
-        )}
+        ) : (
+          <>
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+            />
+            
+            {/* Top instruction bar */}
+            <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/80 to-transparent">
+              <div className="text-center">
+                <h2 className="text-xl font-semibold text-white mb-1">
+                  {mode === "codes" 
+                    ? t('items.step1ScanCodes', 'Step 1: Scan Codes')
+                    : t('items.step2CaptureProduct', 'Step 2: Capture Product Name')
+                  }
+                </h2>
+                <p className="text-gray-300 text-sm">
+                  {mode === "codes"
+                    ? t('items.pointAtGtinPharmacode', 'Point camera at GTIN/Pharmacode barcode')
+                    : t('items.pointAtProductName', 'Point camera at product name/label')
+                  }
+                </p>
+              </div>
+            </div>
 
-        <div className="w-48 h-48 border-4 border-white/30 rounded-2xl flex items-center justify-center mb-8">
-          <Camera className="w-20 h-20 text-white/50" />
-        </div>
-      </div>
-
-      <div className="p-6 pb-10 bg-gradient-to-t from-black/80 to-transparent">
-        <div className="flex gap-3 max-w-md mx-auto">
-          <Button
-            variant="outline"
-            size="lg"
-            onClick={handleCancel}
-            disabled={isProcessing}
-            className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
-            data-testid="button-camera-cancel"
-          >
-            <X className="w-5 h-5 mr-2" />
-            {t('common.cancel', 'Cancel')}
-          </Button>
-
-          {mode === "codes" && (
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={handleNoCodes}
-              disabled={isProcessing}
-              className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
-              data-testid="button-no-codes"
-            >
-              <ArrowRight className="w-5 h-5 mr-2" />
-              {t('items.noCodes', 'No Codes')}
-            </Button>
-          )}
-
-          <Button
-            size="lg"
-            onClick={handleCapture}
-            disabled={isProcessing}
-            className="flex-1 bg-primary text-primary-foreground"
-            data-testid="button-camera-capture"
-          >
-            {isProcessing ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                <Camera className="w-5 h-5 mr-2" />
-                {t('items.capture', 'Capture')}
-              </>
+            {/* Status message overlay */}
+            {statusMessage && (
+              <div className="absolute top-24 left-1/2 -translate-x-1/2">
+                <div className={`px-6 py-3 rounded-lg text-center ${
+                  status === "success" ? "bg-green-600/90 text-white" :
+                  status === "error" ? "bg-red-600/90 text-white" :
+                  status === "processing" ? "bg-blue-600/90 text-white" :
+                  "bg-gray-700/90 text-white"
+                }`}>
+                  {isProcessing && <Loader2 className="inline-block w-4 h-4 mr-2 animate-spin" />}
+                  {statusMessage}
+                </div>
+              </div>
             )}
-          </Button>
-        </div>
+
+            {/* Bottom controls */}
+            <div className="absolute bottom-0 left-0 right-0 p-6 pb-10 bg-gradient-to-t from-black/80 to-transparent">
+              <div className="flex gap-3 max-w-md mx-auto">
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={handleCancel}
+                  disabled={isProcessing}
+                  className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+                  data-testid="button-camera-cancel"
+                >
+                  <X className="w-5 h-5 mr-2" />
+                  {t('common.cancel', 'Cancel')}
+                </Button>
+
+                {mode === "codes" && (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={handleNoCodes}
+                    disabled={isProcessing}
+                    className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+                    data-testid="button-no-codes"
+                  >
+                    <ArrowRight className="w-5 h-5 mr-2" />
+                    {t('items.noCodes', 'No Codes')}
+                  </Button>
+                )}
+
+                <Button
+                  size="lg"
+                  onClick={captureAndProcess}
+                  disabled={isProcessing || !isVideoReady}
+                  className="flex-1 bg-primary text-primary-foreground"
+                  data-testid="button-camera-capture"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : !isVideoReady ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <Camera className="w-5 h-5 mr-2" />
+                      {t('items.capture', 'Capture')}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Hidden canvas for image processing */}
+            <canvas ref={canvasRef} className="hidden" />
+          </>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
