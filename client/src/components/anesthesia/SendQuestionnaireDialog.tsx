@@ -428,7 +428,7 @@ export function SendQuestionnaireDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="questionnaire" className="flex items-center gap-2" data-testid="tab-questionnaire">
               <FileText className="h-4 w-4" />
               {t('messages.tabs.questionnaire', 'Questionnaire')}
@@ -436,6 +436,10 @@ export function SendQuestionnaireDialog({
             <TabsTrigger value="message" className="flex items-center gap-2" data-testid="tab-message">
               <MessageSquare className="h-4 w-4" />
               {t('messages.tabs.customMessage', 'Custom Message')}
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2" data-testid="tab-history">
+              <Clock className="h-4 w-4" />
+              {t('messages.tabs.history', 'History')}
             </TabsTrigger>
           </TabsList>
 
@@ -626,64 +630,65 @@ export function SendQuestionnaireDialog({
                 </div>
               )}
             </TabsContent>
+
+            {/* History Tab */}
+            <TabsContent value="history" className="mt-4">
+              {communicationHistory.length > 0 ? (
+                <ScrollArea className="h-[300px]">
+                  <div className="space-y-2 pr-4">
+                    {communicationHistory.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-start gap-2 p-2 rounded-md bg-muted/50 text-sm"
+                        data-testid={`history-item-${item.id}`}
+                      >
+                        <div className="shrink-0 mt-0.5">
+                          {item.type === 'questionnaire' ? (
+                            <FileText className="h-4 w-4 text-blue-500" />
+                          ) : (
+                            <MessageSquare className="h-4 w-4 text-green-500" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">
+                              {item.type === 'questionnaire' 
+                                ? t('messages.historyQuestionnaire', 'Questionnaire')
+                                : t('messages.historyMessage', 'Message')}
+                            </span>
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              {item.channel === 'email' ? <Mail className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
+                              {item.recipient}
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {format(item.date, 'dd.MM.yyyy HH:mm', { locale: de })}
+                            {item.status && (
+                              <span className="ml-2">
+                                • {item.status === 'submitted' ? t('questionnaire.status.submitted', 'Submitted') :
+                                   item.status === 'reviewed' ? t('questionnaire.status.reviewed', 'Reviewed') :
+                                   item.status === 'pending' ? t('questionnaire.status.pending', 'Pending') :
+                                   item.status}
+                              </span>
+                            )}
+                          </div>
+                          {item.preview && (
+                            <p className="text-xs text-muted-foreground mt-1 truncate">{item.preview}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <Clock className="h-8 w-8 mb-2 opacity-50" />
+                  <p className="text-sm">{t('messages.noHistory', 'No communication history yet')}</p>
+                </div>
+              )}
+            </TabsContent>
           </div>
         </Tabs>
-
-        {/* Unified Communication History */}
-        {communicationHistory.length > 0 && (
-          <div className="border-t pt-4 mt-4">
-            <Label className="flex items-center gap-2 mb-3">
-              <Clock className="h-4 w-4" />
-              {t('messages.history', 'Communication History')}
-            </Label>
-            <ScrollArea className="h-[150px]">
-              <div className="space-y-2 pr-4">
-                {communicationHistory.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-start gap-2 p-2 rounded-md bg-muted/50 text-sm"
-                    data-testid={`history-item-${item.id}`}
-                  >
-                    <div className="shrink-0 mt-0.5">
-                      {item.type === 'questionnaire' ? (
-                        <FileText className="h-4 w-4 text-blue-500" />
-                      ) : (
-                        <MessageSquare className="h-4 w-4 text-green-500" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">
-                          {item.type === 'questionnaire' 
-                            ? t('messages.historyQuestionnaire', 'Questionnaire')
-                            : t('messages.historyMessage', 'Message')}
-                        </span>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          {item.channel === 'email' ? <Mail className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
-                          {item.recipient}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {format(item.date, 'dd.MM.yyyy HH:mm', { locale: de })}
-                        {item.status && (
-                          <span className="ml-2">
-                            • {item.status === 'submitted' ? t('questionnaire.status.submitted', 'Submitted') :
-                               item.status === 'reviewed' ? t('questionnaire.status.reviewed', 'Reviewed') :
-                               item.status === 'pending' ? t('questionnaire.status.pending', 'Pending') :
-                               item.status}
-                          </span>
-                        )}
-                      </div>
-                      {item.preview && (
-                        <p className="text-xs text-muted-foreground mt-1 truncate">{item.preview}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-        )}
       </DialogContent>
     </Dialog>
   );
