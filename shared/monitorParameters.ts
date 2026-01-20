@@ -22,6 +22,14 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
     max: 240
   },
   {
+    standardName: 'Pleth',
+    aliases: ['Pleth', 'Plethysmograph', 'Pleth Rate', 'Pulse Rate', 'PPG'],
+    category: 'vitals',
+    unit: '/min',
+    min: 20,
+    max: 240
+  },
+  {
     standardName: 'SpO2',
     aliases: ['SpO2', 'SPO2', 'Sauerstoffsättigung', 'Oxygen Saturation', 'SaO2'],
     category: 'vitals',
@@ -31,7 +39,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'SysBP',
-    aliases: ['SYS', 'Sys', 'Systolic', 'Systolisch', 'NIBP Sys', 'ABP Sys', 'BP Sys', 'Systol', 'S', 'ART Sys', 'Art sys'],
+    aliases: ['SYS', 'Sys', 'Systolic', 'Systolisch', 'NIBP Sys', 'ABP Sys', 'BP Sys', 'Systol', 'S', 'ART Sys', 'Art sys', 'NIBD', 'NBP'],
     category: 'vitals',
     unit: 'mmHg',
     min: 40,
@@ -47,7 +55,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'Temperature',
-    aliases: ['Temp', 'T', 'Temperatur', 'Temperature', '°C'],
+    aliases: ['Temp', 'T', 'T1', 'T2', 'Temperatur', 'Temperature', '°C'],
     category: 'vitals',
     unit: '°C',
     min: 30,
@@ -79,7 +87,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'MAP',
-    aliases: ['MAP', 'MAD', 'Mean', 'Mean Arterial Pressure', 'Mittlerer arterieller Druck', 'MBP'],
+    aliases: ['MAP', 'MAD', 'MD', 'Mean', 'Mean Arterial Pressure', 'Mittlerer arterieller Druck', 'MBP'],
     category: 'vitals',
     unit: 'mmHg',
     min: 30,
@@ -127,7 +135,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'TidalVolume',
-    aliases: ['VT', 'VTe', 'VTi', 'Vt', 'Tidalvolumen', 'Tidal Volume', 'TV'],
+    aliases: ['VT', 'VTe', 'VTi', 'Vt', 'TVexp', 'TVinsp', 'Tidalvolumen', 'Tidal Volume', 'TV'],
     category: 'ventilation',
     unit: 'mL',
     min: 50,
@@ -175,7 +183,7 @@ export const PARAMETER_MAPPINGS: ParameterAlias[] = [
   },
   {
     standardName: 'Compliance',
-    aliases: ['Compliance', 'C', 'Compliance dyn', 'Cdyn', 'C dyn', 'Dynamic Compliance', 'Cstat', 'Static Compliance', 'ml/mbar', 'mL/cmH2O'],
+    aliases: ['Compliance', 'C', 'Compliance dyn', 'Cdyn', 'C dyn', 'Dynamic Compliance', 'Cstat', 'Static Compliance', 'Compl', 'ml/mbar', 'mL/cmH2O'],
     category: 'ventilation',
     unit: 'mL/cmH2O',
     min: 0,

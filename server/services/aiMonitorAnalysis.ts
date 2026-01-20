@@ -67,35 +67,38 @@ COMPLETE PARAMETER REFERENCE:
 
 VITALS PARAMETERS:
 - HF/HR → Heart Rate (20-240 bpm)
+- Pleth → Plethysmograph pulse rate from SpO2 sensor (20-240 /min) - may differ from HR
 - SpO2 → Oxygen Saturation (50-100%)
 - PI → Perfusion Index (0-20%)
 - ST → ST Segment deviation (-10 to +10 mm)
 - SYS/DIA → Blood Pressure systolic/diastolic (40-250 / 20-180 mmHg)
-- MAP/MAD → Mean Arterial Pressure (30-180 mmHg)
+- NIBD/NBP → Non-Invasive Blood Pressure, same as SYS/DIA (extract as SYS, DIA, MAP)
+- MAP/MAD/MD → Mean Arterial Pressure (30-180 mmHg), often shown in parentheses like "(70)"
 - ART → Invasive Arterial BP (40-200 mmHg)
 - ZVD/CVP → Central Venous Pressure (0-30 mmHg)
-- Temp/T → Temperature (30-45 °C)
+- Temp/T/T1/T2 → Temperature (30-45 °C)
 - Resp/RF → Respiratory Rate from impedance (4-60 /min)
 
 VENTILATION PARAMETERS:
-- CO2 Insp → Inspired CO2 (0-10 mmHg)
-- CO2 Exp/etCO2 → Expired/End-tidal CO2 (15-80 mmHg)
-- O2 Insp/Exp → Inspired/Expired O2 percentages
+- CO2 Insp → Inspired CO2 (0-10 mmHg or %)
+- CO2 Exp/etCO2/Et → Expired/End-tidal CO2 (15-80 mmHg or 3-8%)
+- O2 Insp/Exp/Fi/Et → Inspired/Expired O2 percentages (21-100%)
 - MAC → Minimum Alveolar Concentration (0-3)
 - O2% / FiO2 → Fraction Inspired O2 (21-100%)
-- Fluss/Flow → Gas flow (0-20 L/min)
-- Freq/AF/RR → Respiratory Rate (4-60 /min)
+- Fluss/Flow/Gesamt-Flow → Gas flow (0-20 L/min)
+- Freq/AF/RR/RF → Respiratory Rate (4-60 /min)
 - TInsp → Inspiratory Time (0.2-5 s)
 - Plateau → Plateau percentage (0-100%)
-- VTi/VTe/VT → Tidal Volume inspiratory/expiratory (50-1500 mL)
-- PMax/Ppeak/PIP → Peak Inspiratory Pressure (5-60 mbar)
-- PEEP → Positive End-Expiratory Pressure (0-30 mbar)
+- VTi/VTe/VT/TVexp → Tidal Volume inspiratory/expiratory (50-1500 mL)
+- PMax/Ppeak/PIP/Pinsp → Peak Inspiratory Pressure (5-60 mbar or cmH2O)
+- Pmean → Mean Airway Pressure (2-30 mbar or cmH2O)
+- PEEP → Positive End-Expiratory Pressure (0-30 mbar or cmH2O), may show "Aus" (German for Off) = 0
 - Pplateau → Plateau Pressure (0-50 mbar)
 - MV/MVe → Minute Volume (0-30 L/min)
-- Cdyn → Dynamic Compliance (0-200 mL/mbar)
+- Cdyn/Compl → Dynamic Compliance (0-200 mL/mbar or mL/cmH2O)
 - Resist → Airway Resistance (0-50 mbar/L/s)
 - Trigger → Trigger sensitivity (0-20 L/min)
-- I:E → Inspiration:Expiration ratio
+- I:E/I:E → Inspiration:Expiration ratio (e.g., 1:1, 1:2)
 
 GAS SUPPLY (left side gauges):
 - O2 kPa → Oxygen supply pressure
