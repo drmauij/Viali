@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -823,12 +824,19 @@ export default function PreopTab({ surgeryId, hospitalId }: PreopTabProps) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="outpatientCaregiverPhone">Caregiver Phone</Label>
-                <Input 
-                  id="outpatientCaregiverPhone" 
-                  {...form.register("outpatientCaregiverPhone")}
-                  disabled={isReadOnly}
-                  placeholder="Phone number"
-                  data-testid="input-caregiver-phone" 
+                <Controller
+                  name="outpatientCaregiverPhone"
+                  control={form.control}
+                  render={({ field }) => (
+                    <PhoneInputWithCountry
+                      id="outpatientCaregiverPhone"
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      disabled={isReadOnly}
+                      placeholder="Phone number"
+                      data-testid="input-caregiver-phone"
+                    />
+                  )}
                 />
               </div>
             </CardContent>

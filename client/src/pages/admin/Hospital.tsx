@@ -1166,21 +1166,21 @@ export default function Hospital() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="company-phone-inline">{t("admin.companyPhone")}</Label>
-                  <Input
+                  <PhoneInputWithCountry
                     id="company-phone-inline"
                     value={hospitalForm.companyPhone}
-                    onChange={(e) => setHospitalForm(prev => ({ ...prev, companyPhone: e.target.value }))}
-                    placeholder="+41 44 123 45 67"
+                    onChange={(value) => setHospitalForm(prev => ({ ...prev, companyPhone: value }))}
+                    placeholder="44 123 45 67"
                     data-testid="input-company-phone-inline"
                   />
                 </div>
                 <div>
                   <Label htmlFor="company-fax-inline">{t("admin.companyFax")}</Label>
-                  <Input
+                  <PhoneInputWithCountry
                     id="company-fax-inline"
                     value={hospitalForm.companyFax}
-                    onChange={(e) => setHospitalForm(prev => ({ ...prev, companyFax: e.target.value }))}
-                    placeholder="+41 44 123 45 68"
+                    onChange={(value) => setHospitalForm(prev => ({ ...prev, companyFax: value }))}
+                    placeholder="44 123 45 68"
                     data-testid="input-company-fax-inline"
                   />
                 </div>
@@ -2877,21 +2877,21 @@ export default function Hospital() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="company-phone">{t("admin.companyPhone")}</Label>
-                <Input
+                <PhoneInputWithCountry
                   id="company-phone"
                   value={hospitalForm.companyPhone}
-                  onChange={(e) => setHospitalForm(prev => ({ ...prev, companyPhone: e.target.value }))}
-                  placeholder="+41 44 123 45 67"
+                  onChange={(value) => setHospitalForm(prev => ({ ...prev, companyPhone: value }))}
+                  placeholder="44 123 45 67"
                   data-testid="input-company-phone"
                 />
               </div>
               <div>
                 <Label htmlFor="company-fax">{t("admin.companyFax")}</Label>
-                <Input
+                <PhoneInputWithCountry
                   id="company-fax"
                   value={hospitalForm.companyFax}
-                  onChange={(e) => setHospitalForm(prev => ({ ...prev, companyFax: e.target.value }))}
-                  placeholder="+41 44 123 45 68"
+                  onChange={(value) => setHospitalForm(prev => ({ ...prev, companyFax: value }))}
+                  placeholder="44 123 45 68"
                   data-testid="input-company-fax"
                 />
               </div>

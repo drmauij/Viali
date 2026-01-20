@@ -4519,10 +4519,10 @@ export default function PatientDetail() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="outpatientCaregiverPhone">Caregiver Phone</Label>
-                          <Input
+                          <PhoneInputWithCountry
                             id="outpatientCaregiverPhone"
                             value={assessmentData.outpatientCaregiverPhone}
-                            onChange={(e) => setAssessmentData({...assessmentData, outpatientCaregiverPhone: e.target.value})}
+                            onChange={(value) => setAssessmentData({...assessmentData, outpatientCaregiverPhone: value})}
                             disabled={isPreOpReadOnly}
                             placeholder="Phone number"
                             data-testid="input-caregiver-phone"
@@ -5611,10 +5611,10 @@ export default function PatientDetail() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="edit-phone">{t('anesthesia.patients.phone')}</Label>
-                  <Input
+                  <PhoneInputWithCountry
                     id="edit-phone"
                     value={editForm.phone}
-                    onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                    onChange={(value) => setEditForm({ ...editForm, phone: value })}
                     data-testid="input-edit-phone"
                   />
                 </div>
@@ -5637,12 +5637,12 @@ export default function PatientDetail() {
 
               <div className="space-y-2">
                 <Label htmlFor="edit-emergencyContact">{t('anesthesia.patients.emergencyContact', 'Emergency Contact')}</Label>
-                <Input
+                <PhoneInputWithCountry
                   id="edit-emergencyContact"
                   value={editForm.emergencyContact}
-                  onChange={(e) => setEditForm({ ...editForm, emergencyContact: e.target.value })}
+                  onChange={(value) => setEditForm({ ...editForm, emergencyContact: value })}
                   data-testid="input-edit-emergencyContact"
-                  placeholder="+41 79 123 45 67"
+                  placeholder="79 123 45 67"
                 />
               </div>
             </TabsContent>
