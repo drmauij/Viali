@@ -206,7 +206,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.lastName": "Last Name",
     "questionnaire.personal.birthday": "Date of Birth",
     "questionnaire.personal.email": "Email (optional)",
-    "questionnaire.personal.phone": "Phone (optional)",
+    "questionnaire.personal.phone": "Phone",
     "questionnaire.personal.height": "Height (cm)",
     "questionnaire.personal.weight": "Weight (kg)",
     "questionnaire.conditions.title": "Do you have any of the following conditions?",
@@ -310,6 +310,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.submit.privacy": "Privacy Consent",
     "questionnaire.submit.privacyText": "I consent to the processing of my personal and health data for the purpose of my medical treatment. I confirm that the information provided is accurate to the best of my knowledge.",
     "questionnaire.submit.privacyRequired": "You must accept the privacy consent to submit the questionnaire",
+    "questionnaire.submit.phoneRequired": "Phone number is required",
     "questionnaire.nav.back": "Back",
     "questionnaire.nav.next": "Next",
     "questionnaire.nav.submit": "Submit Questionnaire",
@@ -344,7 +345,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.lastName": "Nachname",
     "questionnaire.personal.birthday": "Geburtsdatum",
     "questionnaire.personal.email": "E-Mail (optional)",
-    "questionnaire.personal.phone": "Telefon (optional)",
+    "questionnaire.personal.phone": "Telefon",
     "questionnaire.personal.height": "Größe (cm)",
     "questionnaire.personal.weight": "Gewicht (kg)",
     "questionnaire.conditions.title": "Haben Sie eine der folgenden Erkrankungen?",
@@ -448,6 +449,7 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.submit.privacy": "Datenschutz-Einwilligung",
     "questionnaire.submit.privacyText": "Ich willige in die Verarbeitung meiner persönlichen und gesundheitlichen Daten zum Zweck meiner medizinischen Behandlung ein. Ich bestätige, dass die gemachten Angaben nach bestem Wissen korrekt sind.",
     "questionnaire.submit.privacyRequired": "Sie müssen der Datenschutzerklärung zustimmen, um den Fragebogen abzusenden",
+    "questionnaire.submit.phoneRequired": "Telefonnummer ist erforderlich",
     "questionnaire.nav.back": "Zurück",
     "questionnaire.nav.next": "Weiter",
     "questionnaire.nav.submit": "Fragebogen absenden",
@@ -787,6 +789,9 @@ export default function PatientQuestionnaire() {
   }, [currentStep]);
 
   const handleSubmit = useCallback(() => {
+    if (!formData.patientPhone) {
+      return;
+    }
     submitMutation.mutate(formData);
   }, [formData, submitMutation]);
 
@@ -1118,7 +1123,7 @@ export default function PatientQuestionnaire() {
               <Button
                 onClick={handleSubmit}
                 className="flex-1 bg-green-600 hover:bg-green-700"
-                disabled={submitMutation.isPending || !formData.privacyConsent}
+                disabled={submitMutation.isPending || !formData.privacyConsent || !formData.patientPhone}
                 data-testid="button-submit"
               >
                 {submitMutation.isPending ? (
@@ -2128,6 +2133,12 @@ function SubmitStep({ formData, updateField, t, onOpenSignature }: SubmitStepPro
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>{t("questionnaire.submit.privacyRequired")}</AlertDescription>
+        </Alert>
+      )}
+      {!formData.patientPhone && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>{t("questionnaire.submit.phoneRequired")}</AlertDescription>
         </Alert>
       )}
     </div>
