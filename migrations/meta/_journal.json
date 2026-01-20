@@ -610,6 +610,13 @@
       "when": 1768749449737,
       "tag": "0086_living_spirit",
       "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1768882829139,
+      "tag": "0087_familiar_mercury",
+      "breakpoints": true
     }
   ]
 }
