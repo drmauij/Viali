@@ -280,3 +280,37 @@ export async function sendWorklogLinkEmail(
     return false;
   }
 }
+
+// Send custom message to patient
+export async function sendCustomPatientEmail(toEmail: string, messageText: string, patientFirstName: string): Promise<boolean> {
+  try {
+    const { client, fromEmail } = getResendClient();
+    
+    await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject: 'Nachricht von Ihrer Praxis',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #333;">Guten Tag${patientFirstName ? ` ${patientFirstName}` : ''},</h2>
+          <div style="background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <p style="margin: 0; white-space: pre-wrap; line-height: 1.6;">${messageText}</p>
+          </div>
+          <p style="color: #666; font-size: 14px; margin-top: 30px;">
+            Bei Fragen können Sie uns jederzeit kontaktieren.
+          </p>
+          <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+          <p style="color: #999; font-size: 12px;">
+            Diese Nachricht wurde automatisch versendet. Bitte antworten Sie nicht direkt auf diese E-Mail.
+          </p>
+        </div>
+      `
+    });
+    
+    console.log(`[Email] Successfully sent custom message to ${toEmail}`);
+    return true;
+  } catch (error) {
+    console.error('[Email] Failed to send custom patient email:', error);
+    throw error;
+  }
+}

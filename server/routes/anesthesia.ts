@@ -2015,6 +2015,86 @@ router.get('/api/patients/:patientId/note-attachments', isAuthenticated, async (
   }
 });
 
+// Get patient messages history
+router.get('/api/patients/:patientId/messages', isAuthenticated, async (req: any, res) => {
+  try {
+    const { patientId } = req.params;
+    const userId = req.user.id;
+    const hospitalId = req.headers['x-hospital-id'] as string;
+
+    const patient = await storage.getPatient(patientId);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const messages = await storage.getPatientMessages(patientId, hospitalId);
+    res.json(messages);
+  } catch (error) {
+    console.error("Error fetching patient messages:", error);
+    res.status(500).json({ message: "Failed to fetch messages" });
+  }
+});
+
+// Send custom message to patient
+router.post('/api/patients/:patientId/messages', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { patientId } = req.params;
+    const userId = req.user.id;
+    const hospitalId = req.headers['x-hospital-id'] as string;
+    const { channel, recipient, message } = req.body;
+
+    if (!channel || !recipient || !message) {
+      return res.status(400).json({ message: "Channel, recipient and message are required" });
+    }
+
+    if (!['email', 'sms'].includes(channel)) {
+      return res.status(400).json({ message: "Channel must be 'email' or 'sms'" });
+    }
+
+    const patient = await storage.getPatient(patientId);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Send the message
+    if (channel === 'email') {
+      const { sendCustomPatientEmail } = await import('../email');
+      await sendCustomPatientEmail(recipient, message, patient.firstName || '');
+    } else if (channel === 'sms') {
+      const { sendSms } = await import('../sms');
+      await sendSms(recipient, message, hospitalId);
+    }
+
+    // Save the message to history
+    const savedMessage = await storage.createPatientMessage({
+      hospitalId,
+      patientId,
+      sentBy: userId,
+      channel,
+      recipient,
+      message,
+      status: 'sent',
+    });
+
+    res.json(savedMessage);
+  } catch (error) {
+    console.error("Error sending patient message:", error);
+    res.status(500).json({ message: "Failed to send message" });
+  }
+});
+
 // Get download URL for attachment
 router.get('/api/notes/attachments/:attachmentId/download', isAuthenticated, async (req: any, res) => {
   try {

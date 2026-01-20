@@ -69,6 +69,8 @@ import {
   patientQuestionnaireReviews,
   // Patient documents (staff uploads)
   patientDocuments,
+  // Patient messages
+  patientMessages,
   type User,
   type UpsertUser,
   type Hospital,
@@ -191,6 +193,9 @@ import {
   type InsertPatientQuestionnaireReview,
   type PatientDocument,
   type InsertPatientDocument,
+  // Patient message types
+  type PatientMessage,
+  type InsertPatientMessage,
   // Personal todo types
   personalTodos,
   type PersonalTodo,
@@ -481,6 +486,10 @@ export interface IStorage {
   deleteNoteAttachment(id: string): Promise<void>;
   getNoteAttachment(id: string): Promise<NoteAttachment | undefined>;
   getPatientNoteAttachments(patientId: string): Promise<(NoteAttachment & { noteContent: string | null })[]>;
+  
+  // Patient Messages operations
+  getPatientMessages(patientId: string, hospitalId: string): Promise<PatientMessage[]>;
+  createPatientMessage(message: InsertPatientMessage): Promise<PatientMessage>;
   
   // Anesthesia Record operations
   getAnesthesiaRecord(surgeryId: string): Promise<AnesthesiaRecord | undefined>;
@@ -7284,6 +7293,29 @@ export class DatabaseStorage implements IStorage {
     await db
       .delete(patientDocuments)
       .where(eq(patientDocuments.id, id));
+  }
+
+  // ========== PATIENT MESSAGE OPERATIONS ==========
+  
+  async getPatientMessages(patientId: string, hospitalId: string): Promise<PatientMessage[]> {
+    return await db
+      .select()
+      .from(patientMessages)
+      .where(
+        and(
+          eq(patientMessages.patientId, patientId),
+          eq(patientMessages.hospitalId, hospitalId)
+        )
+      )
+      .orderBy(desc(patientMessages.createdAt));
+  }
+
+  async createPatientMessage(message: InsertPatientMessage): Promise<PatientMessage> {
+    const [created] = await db
+      .insert(patientMessages)
+      .values(message)
+      .returning();
+    return created;
   }
 
   // ========== PERSONAL TODO OPERATIONS ==========

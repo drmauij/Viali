@@ -6,13 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Label } from "@/components/ui/label";
-import { Copy, Mail, Loader2, CheckCircle, Link as LinkIcon, MessageSquare, Clock, AlertCircle } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Copy, Mail, Loader2, CheckCircle, Link as LinkIcon, MessageSquare, Clock, AlertCircle, FileText, Send } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
+import type { PatientMessage } from "@shared/schema";
 
 interface SendQuestionnaireDialogProps {
   open: boolean;
@@ -42,6 +46,14 @@ export function SendQuestionnaireDialog({
   const [copied, setCopied] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
+  
+  // Custom message state
+  const [customMessage, setCustomMessage] = useState("");
+  const [customEmailAddress, setCustomEmailAddress] = useState(patientEmail || "");
+  const [customPhoneNumber, setCustomPhoneNumber] = useState(patientPhone || "");
+  const [customEmailSent, setCustomEmailSent] = useState(false);
+  const [customSmsSent, setCustomSmsSent] = useState(false);
+  const [activeTab, setActiveTab] = useState("questionnaire");
 
   // Check if SMS is configured
   const { data: smsStatus } = useQuery<{ configured: boolean }>({
@@ -56,6 +68,22 @@ export function SendQuestionnaireDialog({
     queryKey: ['/api/questionnaire/patient', patientId, 'links'],
     queryFn: async () => {
       const res = await fetch(`/api/questionnaire/patient/${patientId}/links`, {
+        headers: {
+          'X-Hospital-Id': activeHospital?.id || '',
+        },
+        credentials: 'include',
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: open && !!patientId && !!activeHospital?.id,
+  });
+
+  // Fetch patient messages history
+  const { data: patientMessages } = useQuery<PatientMessage[]>({
+    queryKey: ['/api/patients', patientId, 'messages'],
+    queryFn: async () => {
+      const res = await fetch(`/api/patients/${patientId}/messages`, {
         headers: {
           'X-Hospital-Id': activeHospital?.id || '',
         },
@@ -104,6 +132,13 @@ export function SendQuestionnaireDialog({
       setCopied(false);
       setEmailSent(false);
       setSmsSent(false);
+      // Reset custom message states
+      setCustomMessage("");
+      setCustomEmailAddress(patientEmail || "");
+      setCustomPhoneNumber(patientPhone || "");
+      setCustomEmailSent(false);
+      setCustomSmsSent(false);
+      setActiveTab("questionnaire");
     }
   }, [open, patientEmail, patientPhone]);
 
@@ -198,11 +233,97 @@ export function SendQuestionnaireDialog({
     },
   });
 
+  // Custom message mutations
+  const sendCustomEmailMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/patients/${patientId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hospital-Id': activeHospital?.id || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          channel: 'email',
+          recipient: customEmailAddress,
+          message: customMessage 
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to send email');
+      return res.json();
+    },
+    onSuccess: () => {
+      setCustomEmailSent(true);
+      setCustomMessage("");
+      queryClient.invalidateQueries({ queryKey: ['/api/patients', patientId, 'messages'] });
+      toast({
+        title: t('messages.emailSent', 'Email sent'),
+        description: t('messages.emailSentDesc', 'Your message was sent via email'),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('messages.emailError', 'Failed to send email'),
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const sendCustomSmsMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/patients/${patientId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hospital-Id': activeHospital?.id || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          channel: 'sms',
+          recipient: customPhoneNumber,
+          message: customMessage 
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to send SMS');
+      return res.json();
+    },
+    onSuccess: () => {
+      setCustomSmsSent(true);
+      setCustomMessage("");
+      queryClient.invalidateQueries({ queryKey: ['/api/patients', patientId, 'messages'] });
+      toast({
+        title: t('messages.smsSent', 'SMS sent'),
+        description: t('messages.smsSentDesc', 'Your message was sent via SMS'),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('messages.smsError', 'Failed to send SMS'),
+        variant: 'destructive',
+      });
+    },
+  });
+
   useEffect(() => {
     if (open && !generatedLink && activeHospital?.id) {
       generateLinkMutation.mutate();
     }
   }, [open, activeHospital?.id]);
+
+  const handleSendCustomEmail = () => {
+    if (!customEmailAddress || !customMessage.trim()) return;
+    sendCustomEmailMutation.mutate();
+  };
+
+  const handleSendCustomSms = () => {
+    if (!customPhoneNumber || !customMessage.trim()) return;
+    sendCustomSmsMutation.mutate();
+  };
+
+  const isSendingCustomEmail = sendCustomEmailMutation.isPending;
+  const isSendingCustomSms = sendCustomSmsMutation.isPending;
 
   const handleCopyLink = () => {
     if (!generatedLink) return;
@@ -235,171 +356,334 @@ export function SendQuestionnaireDialog({
     return null;
   }
 
+  // Build unified communication history
+  const getCommunicationHistory = () => {
+    const history: Array<{
+      id: string;
+      type: 'questionnaire' | 'message';
+      channel: 'email' | 'sms';
+      recipient: string;
+      date: Date;
+      status?: string;
+      preview?: string;
+    }> = [];
+
+    // Add questionnaire sends
+    if (existingLinks) {
+      existingLinks.forEach(link => {
+        if (link.emailSent && link.emailSentAt) {
+          history.push({
+            id: `q-email-${link.id}`,
+            type: 'questionnaire',
+            channel: 'email',
+            recipient: link.emailSentTo || '',
+            date: new Date(link.emailSentAt),
+            status: link.status,
+          });
+        }
+        if (link.smsSent && link.smsSentAt) {
+          history.push({
+            id: `q-sms-${link.id}`,
+            type: 'questionnaire',
+            channel: 'sms',
+            recipient: link.smsSentTo || '',
+            date: new Date(link.smsSentAt),
+            status: link.status,
+          });
+        }
+      });
+    }
+
+    // Add custom messages
+    if (patientMessages) {
+      patientMessages.forEach(msg => {
+        history.push({
+          id: `m-${msg.id}`,
+          type: 'message',
+          channel: msg.channel as 'email' | 'sms',
+          recipient: msg.recipient,
+          date: new Date(msg.createdAt!),
+          preview: msg.message.substring(0, 50) + (msg.message.length > 50 ? '...' : ''),
+        });
+      });
+    }
+
+    // Sort by date descending
+    return history.sort((a, b) => b.date.getTime() - a.date.getTime());
+  };
+
+  const communicationHistory = getCommunicationHistory();
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md" data-testid="dialog-send-questionnaire">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-send-questionnaire">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <LinkIcon className="h-5 w-5 text-primary" />
-            {t('questionnaire.send.title', 'Send Questionnaire')}
+            <Send className="h-5 w-5 text-primary" />
+            {t('messages.dialogTitle', 'Patient Communication')}
           </DialogTitle>
           <DialogDescription>
-            {t('questionnaire.send.description', { name: patientName })}
+            {t('messages.dialogDescription', `Send questionnaire or message to ${patientName}`)}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Send History Banner */}
-        {sendHistory && (
-          <div className="bg-muted/50 border rounded-lg p-3 mb-2" data-testid="questionnaire-send-history">
-            <div className="flex items-start gap-2">
-              <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-              <div className="text-sm space-y-1">
-                <p className="font-medium text-foreground">
-                  {t('questionnaire.send.alreadySent', 'Questionnaire already sent')}
-                </p>
-                {sendHistory.emailSent && sendHistory.emailSentAt && (
-                  <p className="text-muted-foreground flex items-center gap-1">
-                    <Mail className="h-3 w-3" />
-                    {t('questionnaire.send.sentViaEmail', 'Email')}: {sendHistory.emailSentTo || '-'} 
-                    <span className="text-xs">
-                      ({format(new Date(sendHistory.emailSentAt), 'dd.MM.yyyy HH:mm', { locale: de })})
-                    </span>
-                  </p>
-                )}
-                {sendHistory.smsSent && sendHistory.smsSentAt && (
-                  <p className="text-muted-foreground flex items-center gap-1">
-                    <MessageSquare className="h-3 w-3" />
-                    {t('questionnaire.send.sentViaSms', 'SMS')}: {sendHistory.smsSentTo || '-'}
-                    <span className="text-xs">
-                      ({format(new Date(sendHistory.smsSentAt), 'dd.MM.yyyy HH:mm', { locale: de })})
-                    </span>
-                  </p>
-                )}
-                {sendHistory.status && (
-                  <p className="text-xs text-muted-foreground">
-                    {t('questionnaire.send.status', 'Status')}: {
-                      sendHistory.status === 'submitted' ? t('questionnaire.status.submitted', 'Submitted') :
-                      sendHistory.status === 'reviewed' ? t('questionnaire.status.reviewed', 'Reviewed') :
-                      sendHistory.status === 'pending' ? t('questionnaire.status.pending', 'Pending') :
-                      sendHistory.status
-                    }
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-        
-        {isGenerating ? (
-          <div className="flex flex-col items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
-            <p className="text-sm text-muted-foreground">
-              {t('questionnaire.send.generating', 'Generating link...')}
-            </p>
-          </div>
-        ) : generatedLink ? (
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>{t('questionnaire.send.linkLabel', 'Questionnaire Link')}</Label>
-              <div className="flex gap-2">
-                <Input
-                  readOnly
-                  value={`${window.location.origin}/questionnaire/${generatedLink.token}`}
-                  className="text-xs"
-                  data-testid="input-questionnaire-link"
-                />
-                <Button
-                  variant={copied ? "default" : "outline"}
-                  size="icon"
-                  onClick={handleCopyLink}
-                  className="shrink-0"
-                  data-testid="button-copy-questionnaire-link"
-                >
-                  {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="questionnaire" className="flex items-center gap-2" data-testid="tab-questionnaire">
+              <FileText className="h-4 w-4" />
+              {t('messages.tabs.questionnaire', 'Questionnaire')}
+            </TabsTrigger>
+            <TabsTrigger value="message" className="flex items-center gap-2" data-testid="tab-message">
+              <MessageSquare className="h-4 w-4" />
+              {t('messages.tabs.customMessage', 'Custom Message')}
+            </TabsTrigger>
+          </TabsList>
 
-            <div className="border-t pt-4 space-y-3">
-              <Label>{t('questionnaire.send.orSendEmail', 'Or send via email')}</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="email"
-                  placeholder={t('questionnaire.links.emailPlaceholder', 'patient@example.com')}
-                  value={emailAddress}
-                  onChange={(e) => setEmailAddress(e.target.value)}
-                  disabled={emailSent}
-                  data-testid="input-send-email"
-                />
-                <Button
-                  onClick={handleSendEmail}
-                  disabled={!emailAddress || isSending || emailSent}
-                  className="shrink-0"
-                  data-testid="button-send-email"
-                >
-                  {isSending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : emailSent ? (
-                    <>
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      {t('questionnaire.send.sent', 'Sent')}
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="h-4 w-4 mr-1" />
-                      {t('questionnaire.send.send', 'Send')}
-                    </>
+          <div className="flex-1 overflow-auto">
+            {/* Questionnaire Tab */}
+            <TabsContent value="questionnaire" className="mt-4 space-y-4">
+              {isGenerating ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    {t('questionnaire.send.generating', 'Generating link...')}
+                  </p>
+                </div>
+              ) : generatedLink ? (
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>{t('questionnaire.send.linkLabel', 'Questionnaire Link')}</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        readOnly
+                        value={`${window.location.origin}/questionnaire/${generatedLink.token}`}
+                        className="text-xs"
+                        data-testid="input-questionnaire-link"
+                      />
+                      <Button
+                        variant={copied ? "default" : "outline"}
+                        size="icon"
+                        onClick={handleCopyLink}
+                        className="shrink-0"
+                        data-testid="button-copy-questionnaire-link"
+                      >
+                        {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="border-t pt-4 space-y-3">
+                    <Label>{t('questionnaire.send.orSendEmail', 'Send via email')}</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        type="email"
+                        placeholder={t('questionnaire.links.emailPlaceholder', 'patient@example.com')}
+                        value={emailAddress}
+                        onChange={(e) => setEmailAddress(e.target.value)}
+                        disabled={emailSent}
+                        data-testid="input-send-email"
+                      />
+                      <Button
+                        onClick={handleSendEmail}
+                        disabled={!emailAddress || isSending || emailSent}
+                        className="shrink-0"
+                        data-testid="button-send-email"
+                      >
+                        {isSending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : emailSent ? (
+                          <>
+                            <CheckCircle className="h-4 w-4 mr-1" />
+                            {t('questionnaire.send.sent', 'Sent')}
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="h-4 w-4 mr-1" />
+                            {t('questionnaire.send.send', 'Send')}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+
+                  {isSmsConfigured && (
+                    <div className="border-t pt-4 space-y-3">
+                      <Label>{t('questionnaire.send.orSendSms', 'Send via SMS')}</Label>
+                      <div className="flex gap-2">
+                        <PhoneInputWithCountry
+                          placeholder={t('questionnaire.links.phonePlaceholder', '79 123 45 67')}
+                          value={phoneNumber}
+                          onChange={(value) => setPhoneNumber(value)}
+                          disabled={smsSent}
+                          data-testid="input-send-sms"
+                        />
+                        <Button
+                          onClick={handleSendSms}
+                          disabled={!phoneNumber || isSendingSms || smsSent}
+                          className="shrink-0"
+                          data-testid="button-send-sms"
+                        >
+                          {isSendingSms ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : smsSent ? (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-1" />
+                              {t('questionnaire.send.sent', 'Sent')}
+                            </>
+                          ) : (
+                            <>
+                              <MessageSquare className="h-4 w-4 mr-1" />
+                              {t('questionnaire.send.sendSms', 'SMS')}
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
                   )}
-                </Button>
-              </div>
-              {!patientEmail && (
-                <p className="text-xs text-muted-foreground">
-                  {t('questionnaire.send.noEmailHint', 'No email on file for this patient')}
-                </p>
-              )}
-            </div>
+                </div>
+              ) : null}
+            </TabsContent>
 
-            {isSmsConfigured && (
+            {/* Custom Message Tab */}
+            <TabsContent value="message" className="mt-4 space-y-4">
+              <div className="space-y-2">
+                <Label>{t('messages.messageLabel', 'Your message')}</Label>
+                <Textarea
+                  placeholder={t('messages.messagePlaceholder', 'Write your message here...')}
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  rows={4}
+                  data-testid="input-custom-message"
+                />
+              </div>
+
               <div className="border-t pt-4 space-y-3">
-                <Label>{t('questionnaire.send.orSendSms', 'Or send via SMS')}</Label>
+                <Label>{t('messages.sendViaEmail', 'Send via email')}</Label>
                 <div className="flex gap-2">
-                  <PhoneInputWithCountry
-                    placeholder={t('questionnaire.links.phonePlaceholder', '79 123 45 67')}
-                    value={phoneNumber}
-                    onChange={(value) => setPhoneNumber(value)}
-                    disabled={smsSent}
-                    data-testid="input-send-sms"
+                  <Input
+                    type="email"
+                    placeholder={t('questionnaire.links.emailPlaceholder', 'patient@example.com')}
+                    value={customEmailAddress}
+                    onChange={(e) => setCustomEmailAddress(e.target.value)}
+                    disabled={customEmailSent}
+                    data-testid="input-custom-email"
                   />
                   <Button
-                    onClick={handleSendSms}
-                    disabled={!phoneNumber || isSendingSms || smsSent}
+                    onClick={handleSendCustomEmail}
+                    disabled={!customEmailAddress || !customMessage.trim() || isSendingCustomEmail || customEmailSent}
                     className="shrink-0"
-                    data-testid="button-send-sms"
+                    data-testid="button-send-custom-email"
                   >
-                    {isSendingSms ? (
+                    {isSendingCustomEmail ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : smsSent ? (
+                    ) : customEmailSent ? (
                       <>
                         <CheckCircle className="h-4 w-4 mr-1" />
                         {t('questionnaire.send.sent', 'Sent')}
                       </>
                     ) : (
                       <>
-                        <MessageSquare className="h-4 w-4 mr-1" />
-                        {t('questionnaire.send.sendSms', 'SMS')}
+                        <Mail className="h-4 w-4 mr-1" />
+                        {t('questionnaire.send.send', 'Send')}
                       </>
                     )}
                   </Button>
                 </div>
-                {!patientPhone && (
-                  <p className="text-xs text-muted-foreground">
-                    {t('questionnaire.send.noPhoneHint', 'No phone number on file for this patient')}
-                  </p>
-                )}
               </div>
-            )}
+
+              {isSmsConfigured && (
+                <div className="border-t pt-4 space-y-3">
+                  <Label>{t('messages.sendViaSms', 'Send via SMS')}</Label>
+                  <div className="flex gap-2">
+                    <PhoneInputWithCountry
+                      placeholder={t('questionnaire.links.phonePlaceholder', '79 123 45 67')}
+                      value={customPhoneNumber}
+                      onChange={(value) => setCustomPhoneNumber(value)}
+                      disabled={customSmsSent}
+                      data-testid="input-custom-sms"
+                    />
+                    <Button
+                      onClick={handleSendCustomSms}
+                      disabled={!customPhoneNumber || !customMessage.trim() || isSendingCustomSms || customSmsSent}
+                      className="shrink-0"
+                      data-testid="button-send-custom-sms"
+                    >
+                      {isSendingCustomSms ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : customSmsSent ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          {t('questionnaire.send.sent', 'Sent')}
+                        </>
+                      ) : (
+                        <>
+                          <MessageSquare className="h-4 w-4 mr-1" />
+                          {t('questionnaire.send.sendSms', 'SMS')}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </TabsContent>
           </div>
-        ) : null}
+        </Tabs>
+
+        {/* Unified Communication History */}
+        {communicationHistory.length > 0 && (
+          <div className="border-t pt-4 mt-4">
+            <Label className="flex items-center gap-2 mb-3">
+              <Clock className="h-4 w-4" />
+              {t('messages.history', 'Communication History')}
+            </Label>
+            <ScrollArea className="h-[150px]">
+              <div className="space-y-2 pr-4">
+                {communicationHistory.map((item) => (
+                  <div
+                    key={item.id}
+                    className="flex items-start gap-2 p-2 rounded-md bg-muted/50 text-sm"
+                    data-testid={`history-item-${item.id}`}
+                  >
+                    <div className="shrink-0 mt-0.5">
+                      {item.type === 'questionnaire' ? (
+                        <FileText className="h-4 w-4 text-blue-500" />
+                      ) : (
+                        <MessageSquare className="h-4 w-4 text-green-500" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {item.type === 'questionnaire' 
+                            ? t('messages.historyQuestionnaire', 'Questionnaire')
+                            : t('messages.historyMessage', 'Message')}
+                        </span>
+                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                          {item.channel === 'email' ? <Mail className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
+                          {item.recipient}
+                        </span>
+                      </div>
+                      <div className="text-xs text-muted-foreground mt-0.5">
+                        {format(item.date, 'dd.MM.yyyy HH:mm', { locale: de })}
+                        {item.status && (
+                          <span className="ml-2">
+                            • {item.status === 'submitted' ? t('questionnaire.status.submitted', 'Submitted') :
+                               item.status === 'reviewed' ? t('questionnaire.status.reviewed', 'Reviewed') :
+                               item.status === 'pending' ? t('questionnaire.status.pending', 'Pending') :
+                               item.status}
+                          </span>
+                        )}
+                      </div>
+                      {item.preview && (
+                        <p className="text-xs text-muted-foreground mt-1 truncate">{item.preview}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
