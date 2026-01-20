@@ -71,6 +71,15 @@ interface QuestionnaireResponse {
   womanHealthNotes?: string;
   additionalNotes?: string;
   questionsForDoctor?: string;
+  dentalIssues?: Record<string, boolean>;
+  dentalNotes?: string;
+  ponvTransfusionIssues?: Record<string, boolean>;
+  ponvTransfusionNotes?: string;
+  drugUse?: Record<string, boolean>;
+  drugUseDetails?: string;
+  outpatientCaregiverFirstName?: string;
+  outpatientCaregiverLastName?: string;
+  outpatientCaregiverPhone?: string;
   submittedAt?: string;
   lastSavedAt?: string;
 }
@@ -662,6 +671,80 @@ export default function QuestionnaireReviews() {
                                 )}
                               </div>
                             ))}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {(responseDetail.response.outpatientCaregiverFirstName || responseDetail.response.outpatientCaregiverLastName || responseDetail.response.outpatientCaregiverPhone) && (
+                      <>
+                        <Separator />
+                        <div>
+                          <h3 className="flex items-center gap-2 font-semibold mb-3">
+                            <User className="h-4 w-4 text-blue-500" />
+                            {t('questionnaire.outpatientCaregiver.title', 'Outpatient Caregiver')}
+                          </h3>
+                          <div className="grid grid-cols-3 gap-4">
+                            {responseDetail.response.outpatientCaregiverFirstName && (
+                              <div>
+                                <div className="text-sm text-muted-foreground">{t('questionnaire.outpatientCaregiver.firstName', 'First Name')}</div>
+                                <div className="font-medium" data-testid="text-caregiver-firstname">{responseDetail.response.outpatientCaregiverFirstName}</div>
+                              </div>
+                            )}
+                            {responseDetail.response.outpatientCaregiverLastName && (
+                              <div>
+                                <div className="text-sm text-muted-foreground">{t('questionnaire.outpatientCaregiver.lastName', 'Last Name')}</div>
+                                <div className="font-medium" data-testid="text-caregiver-lastname">{responseDetail.response.outpatientCaregiverLastName}</div>
+                              </div>
+                            )}
+                            {responseDetail.response.outpatientCaregiverPhone && (
+                              <div>
+                                <div className="text-sm text-muted-foreground">{t('questionnaire.outpatientCaregiver.phone', 'Phone')}</div>
+                                <div className="font-medium" data-testid="text-caregiver-phone">{responseDetail.response.outpatientCaregiverPhone}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {(responseDetail.response.dentalNotes || responseDetail.response.ponvTransfusionNotes || 
+                      (responseDetail.response.drugUse && Object.values(responseDetail.response.drugUse).some(v => v))) && (
+                      <>
+                        <Separator />
+                        <div>
+                          <h3 className="flex items-center gap-2 font-semibold mb-3">
+                            <Stethoscope className="h-4 w-4 text-red-500" />
+                            {t('questionnaire.additionalMedical.title', 'Additional Medical Information')}
+                          </h3>
+                          <div className="space-y-4">
+                            {responseDetail.response.dentalNotes && (
+                              <div className="space-y-1">
+                                <div className="text-sm font-medium text-muted-foreground">{t('questionnaire.additionalMedical.dentalNotes', 'Dental Notes')}</div>
+                                <div className="p-2 rounded bg-muted/50" data-testid="text-dental-notes">
+                                  {responseDetail.response.dentalNotes}
+                                </div>
+                              </div>
+                            )}
+                            {responseDetail.response.ponvTransfusionNotes && (
+                              <div className="space-y-1">
+                                <div className="text-sm font-medium text-muted-foreground">{t('questionnaire.additionalMedical.ponvTransfusionNotes', 'PONV/Transfusion Notes')}</div>
+                                <div className="p-2 rounded bg-muted/50" data-testid="text-ponv-notes">
+                                  {responseDetail.response.ponvTransfusionNotes}
+                                </div>
+                              </div>
+                            )}
+                            {responseDetail.response.drugUse && Object.values(responseDetail.response.drugUse).some(v => v) && (
+                              <div className="space-y-1">
+                                <div className="text-sm font-medium text-muted-foreground">{t('questionnaire.additionalMedical.drugUse', 'Drug Use')}</div>
+                                <div className="p-2 rounded bg-muted/50" data-testid="text-drug-use">
+                                  <div>{Object.entries(responseDetail.response.drugUse).filter(([_, v]) => v).map(([k]) => k).join(', ')}</div>
+                                  {responseDetail.response.drugUseDetails && (
+                                    <div className="mt-1 text-sm">{responseDetail.response.drugUseDetails}</div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </>

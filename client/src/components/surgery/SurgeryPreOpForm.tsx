@@ -808,6 +808,44 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
           : `⚠️ PATIENT QUESTIONS FOR DOCTOR:\n${qResponseExt.questionsForDoctor}`;
       }
       
+      // Dental Notes -> anesthesiaSurgicalHistoryNotes
+      if (qResponseExt.dentalNotes) {
+        newData.anesthesiaSurgicalHistoryNotes = newData.anesthesiaSurgicalHistoryNotes
+          ? `${newData.anesthesiaSurgicalHistoryNotes}\n\nDental notes: ${qResponseExt.dentalNotes}`
+          : `Dental notes: ${qResponseExt.dentalNotes}`;
+      }
+      
+      // PONV/Transfusion Notes -> anesthesiaSurgicalHistoryNotes
+      if (qResponseExt.ponvTransfusionNotes) {
+        newData.anesthesiaSurgicalHistoryNotes = newData.anesthesiaSurgicalHistoryNotes
+          ? `${newData.anesthesiaSurgicalHistoryNotes}\n\nPONV/Transfusion notes: ${qResponseExt.ponvTransfusionNotes}`
+          : `PONV/Transfusion notes: ${qResponseExt.ponvTransfusionNotes}`;
+      }
+      
+      // Drug Use -> noxen checkboxes
+      if (qResponseExt.drugUse && Object.keys(qResponseExt.drugUse).length > 0) {
+        const activeDrugs = Object.entries(qResponseExt.drugUse)
+          .filter(([_, checked]) => checked)
+          .map(([drug]) => drug);
+        
+        if (activeDrugs.length > 0) {
+          if (!newData.noxen) {
+            newData.noxen = {};
+          }
+          activeDrugs.forEach(drug => {
+            newData.noxen = { ...newData.noxen, [drug]: true };
+          });
+          
+          // Add drug use details to noxenNotes
+          const drugInfo = qResponseExt.drugUseDetails
+            ? `Drug use: ${activeDrugs.join(', ')} - ${qResponseExt.drugUseDetails}`
+            : `Drug use: ${activeDrugs.join(', ')}`;
+          newData.noxenNotes = newData.noxenNotes
+            ? `${newData.noxenNotes}; ${drugInfo}`
+            : drugInfo;
+        }
+      }
+      
       return newData;
     });
     
