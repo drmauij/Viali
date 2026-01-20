@@ -3505,6 +3505,23 @@ export const patientQuestionnaireResponses = pgTable("patient_questionnaire_resp
   breastfeeding: boolean("breastfeeding"),
   womanHealthNotes: text("woman_health_notes"),
   
+  // Dental status
+  dentalIssues: jsonb("dental_issues").$type<Record<string, boolean>>(),
+  dentalNotes: text("dental_notes"),
+  
+  // PONV & Transfusion history
+  ponvTransfusionIssues: jsonb("ponv_transfusion_issues").$type<Record<string, boolean>>(),
+  ponvTransfusionNotes: text("ponv_transfusion_notes"),
+  
+  // Drug use
+  drugUse: jsonb("drug_use").$type<Record<string, boolean>>(),
+  drugUseDetails: text("drug_use_details"),
+  
+  // Outpatient caregiver contact
+  outpatientCaregiverFirstName: varchar("outpatient_caregiver_first_name"),
+  outpatientCaregiverLastName: varchar("outpatient_caregiver_last_name"),
+  outpatientCaregiverPhone: varchar("outpatient_caregiver_phone"),
+  
   // General notes
   additionalNotes: text("additional_notes"),
   questionsForDoctor: text("questions_for_doctor"),
