@@ -865,7 +865,7 @@ router.get("/api/billing/preview-pdf/:documentType", async (req: any, res) => {
       ]);
       addSection(isGerman ? "5. Unterauftragsverarbeiter" : "5. Sub-processors", [
         isGerman ? "Einsatz von Unterauftragsverarbeitern nur mit vorheriger Genehmigung." : "Use of sub-processors only with prior approval.",
-        isGerman ? "Aktuelle Liste: Exoscale (Hosting), Neon (Datenbank)." : "Current list: Exoscale (hosting), Neon (database).",
+        isGerman ? "Aktuelle Liste: Exoscale (Hosting & Datenbank)." : "Current list: Exoscale (hosting & database).",
       ]);
       addSection(isGerman ? "6. Löschung und Rückgabe" : "6. Deletion and Return", [
         isGerman ? "Löschung oder Rückgabe aller Daten nach Vertragsende." : "Deletion or return of all data after contract end.",
@@ -1279,7 +1279,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
       ]);
       addSection(isGerman ? "4. Datenspeicherung" : "4. Data Storage", [
         isGerman ? "- Alle Daten werden auf Servern von Exoscale in der Schweiz gespeichert" : "- All data is stored on Exoscale servers in Switzerland",
-        isGerman ? "- Datenbank: Neon PostgreSQL (EU-Region)" : "- Database: Neon PostgreSQL (EU region)",
+        isGerman ? "- Datenbank: Exoscale PostgreSQL (Schweiz)" : "- Database: Exoscale PostgreSQL (Switzerland)",
         isGerman ? "- Verschlüsselung: Daten werden im Ruhezustand und bei der Übertragung verschlüsselt" : "- Encryption: Data is encrypted at rest and in transit",
         isGerman ? "- Regelmäßige automatische Backups" : "- Regular automatic backups",
       ]);
@@ -1292,7 +1292,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
       ]);
       addSection(isGerman ? "6. Datenweitergabe" : "6. Data Sharing", [
         isGerman ? "- Patientendaten werden nicht an Dritte weitergegeben" : "- Patient data is not shared with third parties",
-        isGerman ? "- Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting), Neon (Datenbank)" : "- Processors: Stripe (payment processing), Exoscale (hosting), Neon (database)",
+        isGerman ? "- Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting & Datenbank)" : "- Processors: Stripe (payment processing), Exoscale (hosting & database)",
         isGerman ? "- Alle Auftragsverarbeiter erfüllen die DSGVO-Anforderungen" : "- All processors comply with GDPR requirements",
       ]);
       addSection(isGerman ? "7. DSG/DSGVO-Konformität" : "7. DSG/GDPR Compliance", [
@@ -1343,7 +1343,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
       addSection(isGerman ? "7. Unterauftragsverarbeiter" : "7. Subprocessors", [
         isGerman ? "Folgende Unterauftragsverarbeiter werden eingesetzt:" : "The following subprocessors are used:",
         isGerman ? "- Exoscale AG, Schweiz - Server-Hosting und Objektspeicher" : "- Exoscale AG, Switzerland - Server hosting and object storage",
-        isGerman ? "- Neon Inc. (EU Region) - Datenbank-Hosting" : "- Neon Inc. (EU Region) - Database hosting",
+        isGerman ? "- Exoscale (Schweiz) - Datenbank-Hosting" : "- Exoscale (Switzerland) - Database hosting",
         isGerman ? "- Stripe Inc. - Zahlungsabwicklung (keine Patientendaten)" : "- Stripe Inc. - Payment processing (no patient data)",
         isGerman ? "- Resend Inc. - E-Mail-Versand (nur Systembenachrichtigungen)" : "- Resend Inc. - Email delivery (system notifications only)",
       ]);

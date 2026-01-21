@@ -48,7 +48,7 @@ export function PrivacyPolicyContent() {
         </h3>
         <ul className="list-disc list-inside text-muted-foreground">
           <li>{isGerman ? "Alle Daten werden auf Servern von Exoscale in der Schweiz gespeichert" : "All data is stored on Exoscale servers in Switzerland"}</li>
-          <li>{isGerman ? "Datenbank: Neon PostgreSQL (EU-Region)" : "Database: Neon PostgreSQL (EU region)"}</li>
+          <li>{isGerman ? "Datenbank: Exoscale PostgreSQL (Schweiz)" : "Database: Exoscale PostgreSQL (Switzerland)"}</li>
           <li>{isGerman ? "Verschlüsselung: Daten werden im Ruhezustand und bei der Übertragung verschlüsselt" : "Encryption: Data is encrypted at rest and in transit"}</li>
           <li>{isGerman ? "Regelmäßige automatische Backups" : "Regular automatic backups"}</li>
         </ul>
@@ -73,7 +73,7 @@ export function PrivacyPolicyContent() {
         </h3>
         <ul className="list-disc list-inside text-muted-foreground">
           <li>{isGerman ? "Patientendaten werden nicht an Dritte weitergegeben" : "Patient data is not shared with third parties"}</li>
-          <li>{isGerman ? "Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting), Neon (Datenbank)" : "Processors: Stripe (payment processing), Exoscale (hosting), Neon (database)"}</li>
+          <li>{isGerman ? "Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting & Datenbank)" : "Processors: Stripe (payment processing), Exoscale (hosting & database)"}</li>
           <li>{isGerman ? "Alle Auftragsverarbeiter erfüllen die DSGVO-Anforderungen" : "All processors comply with GDPR requirements"}</li>
         </ul>
       </div>

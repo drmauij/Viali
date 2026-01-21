@@ -88,7 +88,7 @@ export function AVVContent() {
         </p>
         <ul className="list-disc list-inside text-muted-foreground">
           <li>Exoscale AG, Schweiz - {isGerman ? "Server-Hosting und Objektspeicher" : "Server hosting and object storage"}</li>
-          <li>Neon Inc. (EU Region) - {isGerman ? "Datenbank-Hosting" : "Database hosting"}</li>
+          <li>Exoscale ({isGerman ? "Schweiz" : "Switzerland"}) - {isGerman ? "Datenbank-Hosting" : "Database hosting"}</li>
           <li>Stripe Inc. - {isGerman ? "Zahlungsabwicklung (keine Patientendaten)" : "Payment processing (no patient data)"}</li>
           <li>Resend Inc. - {isGerman ? "E-Mail-Versand (nur Systembenachrichtigungen)" : "Email delivery (system notifications only)"}</li>
         </ul>
