@@ -703,7 +703,10 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                       data-testid={`button-preview-${docType}`}
                     >
                       <Download className="h-4 w-4 mr-2" />
-                      {isGerman ? docLabel.de.split(" ")[0] : docLabel.en.split(" ")[0]}
+                      {docType === "terms" ? (isGerman ? "Nutzung" : "Terms") : 
+                       docType === "agb" ? "AGB" : 
+                       docType === "privacy" ? (isGerman ? "Datenschutz" : "Privacy") : 
+                       (isGerman ? "AVV" : "Data")}
                     </Button>
                   );
                 })}
