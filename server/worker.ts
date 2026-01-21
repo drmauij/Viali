@@ -1266,11 +1266,8 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
   }
   // If test account has no trialStartDate, consider trial expired (no full access)
   
-  const hasFullAccess = isFreeAccount || (isTestAccount && isWithinTrial);
-  if (!hasFullAccess && !hospitalData.addonQuestionnaire) {
-    console.log(`[Worker] Skipping auto-questionnaire dispatch - addon not enabled for hospital ${hospitalId}`);
-    return;
-  }
+  // Note: questionnaire is now included in base fee, no longer need to check addon flag
+  // The only check is if the hospital has manually disabled questionnaires
   
   // Check if questionnaire is manually disabled (override)
   if (hospitalData.questionnaireDisabled) {
@@ -2172,13 +2169,13 @@ async function processMonthlyBilling(job: any): Promise<void> {
     }
     
     // Calculate pricing
+    // Note: questionnaire and surgery are now included in base fee (no extra charge)
     const basePrice = parseFloat(hospital.pricePerRecord || '3.00');
-    const questionnaireAddOn = hospital.addonQuestionnaire ? 0.50 : 0;
     const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
     const retellAddOn = hospital.addonRetell ? 1.00 : 0;
     const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
     
-    const pricePerRecord = basePrice + questionnaireAddOn + dispocuraAddOn + retellAddOn + monitorAddOn;
+    const pricePerRecord = basePrice + dispocuraAddOn + retellAddOn + monitorAddOn;
     const totalAmount = recordCount * pricePerRecord;
     
     // Create Stripe invoice
@@ -2206,16 +2203,7 @@ async function processMonthlyBilling(job: any): Promise<void> {
       description: 'Anesthesia Records (Base)',
     });
     
-    if (hospital.addonQuestionnaire) {
-      await stripe.invoiceItems.create({
-        customer: hospital.stripeCustomerId,
-        invoice: invoice.id,
-        quantity: recordCount,
-        unit_amount: Math.round(questionnaireAddOn * 100),
-        currency: 'chf',
-        description: 'Online Questionnaires Add-on',
-      });
-    }
+    // Note: questionnaire is now included in base fee, no separate line item
     
     if (hospital.addonDispocura) {
       await stripe.invoiceItems.create({
@@ -2260,7 +2248,7 @@ async function processMonthlyBilling(job: any): Promise<void> {
       periodEnd,
       recordCount,
       basePrice: (recordCount * basePrice).toFixed(2),
-      questionnairePrice: (recordCount * questionnaireAddOn).toFixed(2),
+      questionnairePrice: '0.00', // Included in base fee
       dispocuraPrice: (recordCount * dispocuraAddOn).toFixed(2),
       retellPrice: (recordCount * retellAddOn).toFixed(2),
       monitorPrice: (recordCount * monitorAddOn).toFixed(2),

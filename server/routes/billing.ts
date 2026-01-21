@@ -100,12 +100,11 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
     const currentMonthRecords = await countAnesthesiaRecordsForHospital(hospitalId, startOfMonth);
     
     // Calculate price per record including base price and per-record add-ons
+    // Note: questionnaire and surgery are now included in the base fee (no extra charge)
     const basePrice = hospital.pricePerRecord ? parseFloat(hospital.pricePerRecord) : 3.00;
-    const questionnaireAddOn = hospital.addonQuestionnaire ? 1.00 : 0;
     const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
     const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
-    const surgeryAddOn = hospital.addonSurgery ? 1.00 : 0;
-    const pricePerRecord = basePrice + questionnaireAddOn + dispocuraAddOn + monitorAddOn + surgeryAddOn;
+    const pricePerRecord = basePrice + dispocuraAddOn + monitorAddOn;
     
     // Calculate flat monthly add-ons
     const worktimeAddOn = hospital.addonWorktime ? 5.00 : 0;
@@ -179,11 +178,11 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
           trialDaysRemaining: null,
           trialExpired: false,
           addons: {
-            questionnaire: hospital.addonQuestionnaire ?? false,
+            questionnaire: true, // Always included in base fee
             dispocura: hospital.addonDispocura ?? false,
             retell: hospital.addonRetell ?? false,
             monitor: hospital.addonMonitor ?? false,
-            surgery: hospital.addonSurgery ?? false,
+            surgery: true, // Always included in base fee
             worktime: hospital.addonWorktime ?? false,
             logistics: hospital.addonLogistics ?? false,
             clinic: hospital.addonClinic ?? false,
@@ -242,11 +241,11 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
             clinic: true,
           }
         : {
-            questionnaire: hospital.addonQuestionnaire ?? false,
+            questionnaire: true, // Always included in base fee
             dispocura: hospital.addonDispocura ?? false,
             retell: hospital.addonRetell ?? false,
             monitor: hospital.addonMonitor ?? false,
-            surgery: hospital.addonSurgery ?? false,
+            surgery: true, // Always included in base fee
             worktime: hospital.addonWorktime ?? false,
             logistics: hospital.addonLogistics ?? false,
             clinic: hospital.addonClinic ?? false,
@@ -264,17 +263,16 @@ router.patch("/api/billing/:hospitalId/addons", isAuthenticated, requireAdminRol
     const { hospitalId } = req.params;
     const { addon, enabled } = req.body;
 
-    const validAddons = ["questionnaire", "dispocura", "retell", "monitor", "surgery", "worktime", "logistics", "clinic"];
+    // Note: questionnaire and surgery are now included in base fee, not toggleable
+    const validAddons = ["dispocura", "retell", "monitor", "worktime", "logistics", "clinic"];
     if (!validAddons.includes(addon)) {
       return res.status(400).json({ message: "Invalid addon type" });
     }
 
     const columnMap: Record<string, any> = {
-      questionnaire: { addonQuestionnaire: enabled },
       dispocura: { addonDispocura: enabled },
       retell: { addonRetell: enabled },
       monitor: { addonMonitor: enabled },
-      surgery: { addonSurgery: enabled },
       worktime: { addonWorktime: enabled },
       logistics: { addonLogistics: enabled },
       clinic: { addonClinic: enabled },
@@ -1058,18 +1056,17 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
     }
     
     // Calculate pricing
+    // Note: questionnaire and surgery are now included in the base fee (no extra charge)
     const basePrice = parseFloat(hospital.pricePerRecord || '3.00');
-    // Per-record add-ons
-    const questionnaireAddOn = hospital.addonQuestionnaire ? 1.00 : 0;
+    // Per-record add-ons (questionnaire and surgery no longer charged separately)
     const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
     const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
-    const surgeryAddOn = hospital.addonSurgery ? 1.00 : 0;
     // Flat monthly add-ons
     const worktimeAddOn = hospital.addonWorktime ? 5.00 : 0;
     const logisticsAddOn = hospital.addonLogistics ? 5.00 : 0;
     const clinicAddOn = hospital.addonClinic ? 10.00 : 0;
     
-    const pricePerRecord = basePrice + questionnaireAddOn + dispocuraAddOn + monitorAddOn + surgeryAddOn;
+    const pricePerRecord = basePrice + dispocuraAddOn + monitorAddOn;
     // Flat monthly add-on for Retell
     const retellAddOn = hospital.addonRetell ? 15.00 : 0;
     const totalAmount = (recordCount * pricePerRecord) + worktimeAddOn + logisticsAddOn + clinicAddOn + retellAddOn;
@@ -1099,16 +1096,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       description: 'Anesthesia Records (Base)',
     });
     
-    if (hospital.addonQuestionnaire) {
-      await stripe.invoiceItems.create({
-        customer: hospital.stripeCustomerId,
-        invoice: invoice.id,
-        quantity: recordCount,
-        unit_amount_decimal: String(Math.round(questionnaireAddOn * 100)),
-        currency: 'chf',
-        description: 'Online Questionnaires Add-on',
-      });
-    }
+    // Note: questionnaire is now included in base fee, no separate line item
     
     if (hospital.addonDispocura) {
       await stripe.invoiceItems.create({
@@ -1143,16 +1131,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       });
     }
     
-    if (hospital.addonSurgery) {
-      await stripe.invoiceItems.create({
-        customer: hospital.stripeCustomerId,
-        invoice: invoice.id,
-        quantity: recordCount,
-        unit_amount_decimal: String(Math.round(surgeryAddOn * 100)),
-        currency: 'chf',
-        description: 'Surgery Module Add-on',
-      });
-    }
+    // Note: surgery is now included in base fee, no separate line item
     
     // Flat monthly add-ons (quantity: 1)
     if (hospital.addonWorktime) {
@@ -1198,11 +1177,11 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
       periodEnd,
       recordCount,
       basePrice: (recordCount * basePrice).toFixed(2),
-      questionnairePrice: (recordCount * questionnaireAddOn).toFixed(2),
+      questionnairePrice: '0.00', // Included in base fee
       dispocuraPrice: (recordCount * dispocuraAddOn).toFixed(2),
       retellPrice: retellAddOn.toFixed(2),
       monitorPrice: (recordCount * monitorAddOn).toFixed(2),
-      surgeryPrice: (recordCount * surgeryAddOn).toFixed(2),
+      surgeryPrice: '0.00', // Included in base fee
       worktimePrice: worktimeAddOn.toFixed(2),
       logisticsPrice: logisticsAddOn.toFixed(2),
       clinicPrice: clinicAddOn.toFixed(2),

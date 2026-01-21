@@ -409,7 +409,9 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 <div>
                   <p className="font-medium">{isGerman ? "Basisgebühr" : "Base Fee"}</p>
                   <p className="text-sm text-muted-foreground">
-                    {isGerman ? "Anästhesie-Protokolle, Inventar, Cloud-Hosting" : "Anesthesia records, inventory, cloud hosting"}
+                    {isGerman 
+                      ? "Anästhesie-Protokolle, Patientenfragebögen, Chirurgie-Modul, Inventar, Cloud-Hosting" 
+                      : "Anesthesia records, patient questionnaires, surgery module, inventory, cloud hosting"}
                   </p>
                 </div>
               </div>
@@ -423,56 +425,33 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 {isGerman ? "Optionale Zusatzmodule" : "Optional Add-ons"}
               </p>
 
-              {/* Patient Questionnaires */}
-              <div className="flex items-center justify-between p-3 border rounded-lg">
+              {/* Camera Monitor Connection */}
+              <div className="flex items-center justify-between p-3 border rounded-lg opacity-75">
                 <div className="flex items-center gap-3">
-                  <ClipboardList className="h-5 w-5 text-purple-600" />
+                  <Camera className="h-5 w-5 text-orange-500" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="font-medium">{isGerman ? "Patientenfragebögen" : "Patient Questionnaires"}</p>
+                      <p className="font-medium">{isGerman ? "Monitor-Kamera" : "Monitor Camera"}</p>
                       <Badge variant="outline" className="text-xs">
                         {isGerman ? "Pro Protokoll" : "Per record"}
                       </Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        <Clock className="h-3 w-3 mr-1" />
+                        {isGerman ? "In Entwicklung" : "Coming soon"}
+                      </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Online Vor-OP Fragebögen für Patienten" : "Online pre-operative questionnaires for patients"}
+                      {isGerman ? "Automatische Vitaldaten via Kamera" : "Automatic vital data via camera"}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">+1.00 CHF</span>
+                  <span className="text-sm font-medium text-muted-foreground">+1.00 CHF</span>
                   <Switch 
-                    checked={billingStatus.addons.questionnaire}
-                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "questionnaire", enabled: checked })}
-                    disabled={toggleAddon.isPending}
-                    data-testid="switch-addon-questionnaire"
-                  />
-                </div>
-              </div>
-
-              {/* Surgery Module */}
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <Scissors className="h-5 w-5 text-teal-600" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{isGerman ? "Chirurgie-Modul" : "Surgery Module"}</p>
-                      <Badge variant="outline" className="text-xs">
-                        {isGerman ? "Pro Protokoll" : "Per record"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {isGerman ? "OP-Dokumentation für Chirurgie" : "OR documentation for surgery"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium">+1.00 CHF</span>
-                  <Switch 
-                    checked={billingStatus.addons.surgery}
-                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "surgery", enabled: checked })}
-                    disabled={toggleAddon.isPending}
-                    data-testid="switch-addon-surgery"
+                    checked={billingStatus.addons.monitor}
+                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "monitor", enabled: checked })}
+                    disabled={true}
+                    data-testid="switch-addon-monitor"
                   />
                 </div>
               </div>
@@ -533,34 +512,6 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                     onCheckedChange={(checked) => toggleAddon.mutate({ addon: "dispocura", enabled: checked })}
                     disabled={toggleAddon.isPending}
                     data-testid="switch-addon-dispocura"
-                  />
-                </div>
-              </div>
-
-              {/* Camera Monitor Connection */}
-              <div className="flex items-center justify-between p-3 border rounded-lg opacity-75">
-                <div className="flex items-center gap-3">
-                  <Camera className="h-5 w-5 text-orange-500" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{isGerman ? "Monitor-Kamera" : "Monitor Camera"}</p>
-                      <Badge variant="secondary" className="text-xs">
-                        <Clock className="h-3 w-3 mr-1" />
-                        {isGerman ? "In Entwicklung" : "Coming soon"}
-                      </Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {isGerman ? "Automatische Vitaldaten via Kamera" : "Automatic vital data via camera"}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-muted-foreground">+1.00 CHF</span>
-                  <Switch 
-                    checked={billingStatus.addons.monitor}
-                    onCheckedChange={(checked) => toggleAddon.mutate({ addon: "monitor", enabled: checked })}
-                    disabled={true}
-                    data-testid="switch-addon-monitor"
                   />
                 </div>
               </div>
@@ -657,10 +608,8 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 </p>
                 <p className="text-xl font-bold text-primary">
                   {(3 + 
-                    (billingStatus.addons.questionnaire ? 1 : 0) +
                     (billingStatus.addons.dispocura ? 1 : 0) + 
-                    (billingStatus.addons.monitor ? 1 : 0) +
-                    (billingStatus.addons.surgery ? 1 : 0)
+                    (billingStatus.addons.monitor ? 1 : 0)
                   ).toFixed(2)} CHF
                 </p>
               </div>
