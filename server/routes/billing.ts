@@ -901,6 +901,7 @@ router.get("/api/billing/preview-pdf/:documentType", async (req: any, res) => {
         `Exoscale (${isGerman ? "Schweiz" : "Switzerland"}) - ${isGerman ? "Datenbank-Hosting" : "Database hosting"}`,
         `Stripe Inc. - ${isGerman ? "Zahlungsabwicklung (keine Patientendaten)" : "Payment processing (no patient data)"}`,
         `Resend Inc. - ${isGerman ? "E-Mail-Versand (nur Systembenachrichtigungen)" : "Email delivery (system notifications only)"}`,
+        `Vonage Inc. - ${isGerman ? "SMS-Kommunikation (Terminbenachrichtigungen, keine Patientendaten)" : "SMS communications (appointment notifications, no patient data)"}`,
       ]);
       addSection(isGerman ? "8. Löschung und Rückgabe von Daten" : "8. Deletion and Return of Data", [
         isGerman ? "Nach Vertragsende: Löschung aller Daten innerhalb von 30 Tagen" : "After contract termination: Deletion of all data within 30 days",
@@ -1180,6 +1181,7 @@ router.post("/api/billing/:hospitalId/regenerate-pdf/:acceptanceId", isAuthentic
         isGerman ? "- Exoscale (Schweiz) - Datenbank-Hosting" : "- Exoscale (Switzerland) - Database hosting",
         isGerman ? "- Stripe Inc. - Zahlungsabwicklung (keine Patientendaten)" : "- Stripe Inc. - Payment processing (no patient data)",
         isGerman ? "- Resend Inc. - E-Mail-Versand (nur Systembenachrichtigungen)" : "- Resend Inc. - Email delivery (system notifications only)",
+        isGerman ? "- Vonage Inc. - SMS-Kommunikation (Terminbenachrichtigungen, keine Patientendaten)" : "- Vonage Inc. - SMS communications (appointment notifications, no patient data)",
       ]);
       addSection(isGerman ? "8. Löschung und Rückgabe von Daten" : "8. Deletion and Return of Data", [
         isGerman ? "- Nach Vertragsende: Löschung aller Daten innerhalb von 30 Tagen" : "- After contract termination: Deletion of all data within 30 days",
@@ -1475,6 +1477,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
         isGerman ? "- Exoscale (Schweiz) - Datenbank-Hosting" : "- Exoscale (Switzerland) - Database hosting",
         isGerman ? "- Stripe Inc. - Zahlungsabwicklung (keine Patientendaten)" : "- Stripe Inc. - Payment processing (no patient data)",
         isGerman ? "- Resend Inc. - E-Mail-Versand (nur Systembenachrichtigungen)" : "- Resend Inc. - Email delivery (system notifications only)",
+        isGerman ? "- Vonage Inc. - SMS-Kommunikation (Terminbenachrichtigungen, keine Patientendaten)" : "- Vonage Inc. - SMS communications (appointment notifications, no patient data)",
       ]);
       addSection(isGerman ? "8. Löschung und Rückgabe von Daten" : "8. Deletion and Return of Data", [
         isGerman ? "- Nach Vertragsende: Löschung aller Daten innerhalb von 30 Tagen" : "- After contract termination: Deletion of all data within 30 days",

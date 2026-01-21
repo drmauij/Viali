@@ -91,6 +91,7 @@ export function AVVContent() {
           <li>Exoscale ({isGerman ? "Schweiz" : "Switzerland"}) - {isGerman ? "Datenbank-Hosting" : "Database hosting"}</li>
           <li>Stripe Inc. - {isGerman ? "Zahlungsabwicklung (keine Patientendaten)" : "Payment processing (no patient data)"}</li>
           <li>Resend Inc. - {isGerman ? "E-Mail-Versand (nur Systembenachrichtigungen)" : "Email delivery (system notifications only)"}</li>
+          <li>Vonage Inc. - {isGerman ? "SMS-Kommunikation (Terminbenachrichtigungen, keine Patientendaten)" : "SMS communications (appointment notifications, no patient data)"}</li>
         </ul>
       </div>
 
