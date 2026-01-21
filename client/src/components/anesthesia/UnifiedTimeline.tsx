@@ -3747,6 +3747,29 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // Initial view: 60-minute window (1 hour) from -30min to +30min around NOW
     const initialStartTime = currentTime - THIRTY_MINUTES;
     const initialEndTime = currentTime + THIRTY_MINUTES;
+    
+    // Calculate initial zoom percentages for dataZoom (same logic as Reset button)
+    const fullRange = safeEndTime - safeStartTime;
+    let initialZoomStart = 0;
+    let initialZoomEnd = 100;
+    if (fullRange > 0) {
+      // Clamp to data bounds while preserving window size
+      let viewStart = initialStartTime;
+      let viewEnd = initialEndTime;
+      const targetWindow = viewEnd - viewStart;
+      
+      if (viewStart < safeStartTime) {
+        viewStart = safeStartTime;
+        viewEnd = Math.min(safeEndTime, viewStart + targetWindow);
+      }
+      if (viewEnd > safeEndTime) {
+        viewEnd = safeEndTime;
+        viewStart = Math.max(safeStartTime, viewEnd - targetWindow);
+      }
+      
+      initialZoomStart = Math.max(0, Math.min(100, ((viewStart - safeStartTime) / fullRange) * 100));
+      initialZoomEnd = Math.max(0, Math.min(100, ((viewEnd - safeStartTime) / fullRange) * 100));
+    }
 
     // Calculate swimlane positions dynamically with darker group headers
     let currentTop = SWIMLANE_START;
@@ -3911,9 +3934,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       dataZoom: [{
         type: "inside",
         xAxisIndex: grids.map((_, i) => i),
-        // CRITICAL: Do NOT include start/end here - zoom is managed imperatively only
-        // Including zoomPercent here causes viewport jumps when option recomputes
-        // The unified viewport controller and zoom handlers use chart.setOption/dispatchAction
+        // Include initial zoom percentages so chart starts with ±30 min window (same as Reset)
+        // This prevents the chart from initially showing the full data range (e.g., 2 days)
+        start: initialZoomStart,
+        end: initialZoomEnd,
         throttle: 50,
         zoomLock: true,
         orient: 'horizontal',
@@ -3957,7 +3981,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         },
       },
     } as echarts.EChartsOption;
-  // NOTE: zoomPercent is intentionally NOT a dependency - zoom is managed imperatively only
+  // NOTE: Initial zoom is set in dataZoom to start with ±30 min window; subsequent zoom is managed imperatively
   }, [data, isDark, activeSwimlanes, now, currentTime, hrDataPoints, bpDataPoints, spo2DataPoints, ventilationData, medicationDoseData, pendingSysValue, bpEntryMode, collapsedSwimlanes]);
 
   // Calculate component height
