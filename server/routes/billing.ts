@@ -639,6 +639,17 @@ router.get("/api/billing/:hospitalId/invoices", isAuthenticated, async (req: any
 // Terms of Use routes
 const CURRENT_TERMS_VERSION = "1.0";
 
+// All legal document types that must be signed
+const LEGAL_DOCUMENT_TYPES = ["terms", "agb", "privacy", "avv"] as const;
+type LegalDocumentType = typeof LEGAL_DOCUMENT_TYPES[number];
+
+const DOCUMENT_LABELS: Record<LegalDocumentType, { de: string; en: string }> = {
+  terms: { de: "Nutzungsbedingungen", en: "Terms of Use" },
+  agb: { de: "Allgemeine Geschäftsbedingungen", en: "Terms of Service" },
+  privacy: { de: "Datenschutzerklärung", en: "Privacy Policy" },
+  avv: { de: "Auftragsverarbeitungsvertrag", en: "Data Processing Agreement" },
+};
+
 router.get("/api/billing/:hospitalId/terms-status", isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
@@ -649,27 +660,54 @@ router.get("/api/billing/:hospitalId/terms-status", isAuthenticated, async (req:
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const [acceptance] = await db
+    // Fetch all document acceptances for this hospital
+    const acceptances = await db
       .select()
       .from(termsAcceptances)
       .where(and(
         eq(termsAcceptances.hospitalId, hospitalId),
         eq(termsAcceptances.version, CURRENT_TERMS_VERSION)
       ))
-      .orderBy(desc(termsAcceptances.signedAt))
-      .limit(1);
+      .orderBy(desc(termsAcceptances.signedAt));
+
+    // Build status for each document type
+    const documents: Record<string, any> = {};
+    for (const docType of LEGAL_DOCUMENT_TYPES) {
+      const acceptance = acceptances.find((a) => a.documentType === docType);
+      documents[docType] = {
+        hasAccepted: !!acceptance,
+        acceptance: acceptance ? {
+          id: acceptance.id,
+          signedAt: acceptance.signedAt,
+          signedByName: acceptance.signedByName,
+          signedByEmail: acceptance.signedByEmail,
+          countersignedAt: acceptance.countersignedAt,
+          countersignedByName: acceptance.countersignedByName,
+          hasPdf: !!acceptance.pdfUrl,
+        } : null,
+      };
+    }
+
+    // Check if all documents are signed
+    const allAccepted = LEGAL_DOCUMENT_TYPES.every((docType) => documents[docType].hasAccepted);
+
+    // For backward compatibility, also return hasAccepted based on terms document
+    const termsAcceptance = acceptances.find((a) => a.documentType === "terms");
 
     res.json({
-      hasAccepted: !!acceptance,
+      hasAccepted: allAccepted,
       currentVersion: CURRENT_TERMS_VERSION,
-      acceptance: acceptance ? {
-        id: acceptance.id,
-        signedAt: acceptance.signedAt,
-        signedByName: acceptance.signedByName,
-        signedByEmail: acceptance.signedByEmail,
-        countersignedAt: acceptance.countersignedAt,
-        countersignedByName: acceptance.countersignedByName,
-        hasPdf: !!acceptance.pdfUrl,
+      documents,
+      documentTypes: LEGAL_DOCUMENT_TYPES,
+      documentLabels: DOCUMENT_LABELS,
+      acceptance: termsAcceptance ? {
+        id: termsAcceptance.id,
+        signedAt: termsAcceptance.signedAt,
+        signedByName: termsAcceptance.signedByName,
+        signedByEmail: termsAcceptance.signedByEmail,
+        countersignedAt: termsAcceptance.countersignedAt,
+        countersignedByName: termsAcceptance.countersignedByName,
+        hasPdf: !!termsAcceptance.pdfUrl,
       } : null,
     });
   } catch (error) {
@@ -716,12 +754,17 @@ router.get("/api/billing/:hospitalId/terms-pdf/:acceptanceId", isAuthenticated, 
 router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdminRoleCheck, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const { signatureImage, signerName, language } = req.body;
+    const { signatureImage, signerName, language, documentType = "terms" } = req.body;
     const userId = req.user.id;
     const isGerman = language === "de";
 
     if (!signatureImage || !signerName) {
       return res.status(400).json({ message: "Signature and signer name are required" });
+    }
+
+    // Validate document type
+    if (!LEGAL_DOCUMENT_TYPES.includes(documentType as LegalDocumentType)) {
+      return res.status(400).json({ message: `Invalid document type. Must be one of: ${LEGAL_DOCUMENT_TYPES.join(", ")}` });
     }
 
     const hospital = await storage.getHospital(hospitalId);
@@ -734,19 +777,24 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Check if already accepted this version
+    // Check if already accepted this version and document type
     const [existing] = await db
       .select()
       .from(termsAcceptances)
       .where(and(
         eq(termsAcceptances.hospitalId, hospitalId),
-        eq(termsAcceptances.version, CURRENT_TERMS_VERSION)
+        eq(termsAcceptances.version, CURRENT_TERMS_VERSION),
+        eq(termsAcceptances.documentType, documentType)
       ))
       .limit(1);
 
     if (existing) {
-      return res.status(400).json({ message: "Terms already accepted for this version" });
+      const docLabel = DOCUMENT_LABELS[documentType as LegalDocumentType];
+      return res.status(400).json({ message: `${isGerman ? docLabel.de : docLabel.en} already accepted for this version` });
     }
+
+    // Get document label for PDF and email
+    const docLabel = DOCUMENT_LABELS[documentType as LegalDocumentType];
 
     const signedAt = new Date();
     
@@ -764,10 +812,10 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
       }
     };
     
-    // Title
+    // Title - use document-specific label
     pdf.setFontSize(18);
     pdf.setFont("helvetica", "bold");
-    pdf.text(isGerman ? "Nutzungsbedingungen - Viali.app" : "Terms of Use - Viali.app", pageWidth / 2, y, { align: "center" });
+    pdf.text(`${isGerman ? docLabel.de : docLabel.en} - Viali.app`, pageWidth / 2, y, { align: "center" });
     y += 15;
     
     pdf.setFontSize(10);
@@ -898,13 +946,13 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
     let pdfStorageKey: string | null = null;
     if (objectStorageService.isConfigured()) {
       try {
-        const pdfFilename = `terms_of_use_${hospital.name.replace(/\s+/g, "_")}_${signedAt.toISOString().split("T")[0]}_${randomUUID()}.pdf`;
+        const pdfFilename = `${documentType}_${hospital.name.replace(/\s+/g, "_")}_${signedAt.toISOString().split("T")[0]}_${randomUUID()}.pdf`;
         const s3Key = `billing/terms/${hospitalId}/${pdfFilename}`;
         await objectStorageService.uploadBase64ToS3(pdfBase64, s3Key, "application/pdf");
         pdfStorageKey = `/objects/${s3Key}`;
-        console.log("Terms PDF uploaded to object storage:", pdfStorageKey);
+        console.log(`${documentType} PDF uploaded to object storage:`, pdfStorageKey);
       } catch (uploadError) {
-        console.error("Failed to upload terms PDF to object storage:", uploadError);
+        console.error(`Failed to upload ${documentType} PDF to object storage:`, uploadError);
       }
     }
 
@@ -919,10 +967,11 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
           from: "Viali.app <noreply@mail.viali.app>",
           to: ["info@acutiq.com"],
           replyTo: user.email || undefined,
-          subject: `Terms of Use Signed - ${hospital.name}`,
+          subject: `${docLabel.en} Signed - ${hospital.name}`,
           html: `
-            <h2>Terms of Use Acceptance</h2>
-            <p>A new Terms of Use agreement has been signed and requires countersigning.</p>
+            <h2>${docLabel.en} Acceptance</h2>
+            <p>A new ${docLabel.en} agreement has been signed and requires countersigning.</p>
+            <p><strong>Document Type:</strong> ${docLabel.en} (${docLabel.de})</p>
             <p><strong>Clinic:</strong> ${hospital.name}</p>
             <p><strong>Signed by:</strong> ${signerName}</p>
             <p><strong>Email:</strong> ${user.email || "N/A"}</p>
@@ -932,15 +981,15 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
           `,
           attachments: [
             {
-              filename: `terms_of_use_${hospital.name.replace(/\s+/g, "_")}_${signedAt.toISOString().split("T")[0]}.pdf`,
+              filename: `${documentType}_${hospital.name.replace(/\s+/g, "_")}_${signedAt.toISOString().split("T")[0]}.pdf`,
               content: pdfBase64,
             },
           ],
         });
         emailSentAt = new Date();
-        console.log("Terms acceptance email sent successfully");
+        console.log(`${docLabel.en} acceptance email sent successfully`);
       } catch (emailError) {
-        console.error("Failed to send terms acceptance email:", emailError);
+        console.error(`Failed to send ${docLabel.en} acceptance email:`, emailError);
       }
     } else {
       console.log("RESEND_API_KEY not configured, skipping email");
@@ -952,6 +1001,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
       .values({
         hospitalId,
         version: CURRENT_TERMS_VERSION,
+        documentType,
         signedByUserId: userId,
         signedByName: signerName,
         signedByEmail: user.email || "",

@@ -20,6 +20,9 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import SignaturePad from "@/components/SignaturePad";
 import { TermsOfUseContent } from "@/components/TermsOfUseContent";
+import { AGBContent } from "@/components/AGBContent";
+import { PrivacyPolicyContent } from "@/components/PrivacyPolicyContent";
+import { AVVContent } from "@/components/AVVContent";
 import { 
   CreditCard, 
   ExternalLink, 
@@ -103,18 +106,30 @@ interface Invoice {
   createdAt: string;
 }
 
+interface DocumentAcceptance {
+  id: string;
+  signedAt: string;
+  signedByName: string;
+  signedByEmail: string;
+  countersignedAt: string | null;
+  countersignedByName: string | null;
+  hasPdf: boolean;
+}
+
+interface DocumentStatus {
+  hasAccepted: boolean;
+  acceptance: DocumentAcceptance | null;
+}
+
+type LegalDocumentType = "terms" | "agb" | "privacy" | "avv";
+
 interface TermsStatus {
   hasAccepted: boolean;
   currentVersion: string;
-  acceptance: {
-    id: string;
-    signedAt: string;
-    signedByName: string;
-    signedByEmail: string;
-    countersignedAt: string | null;
-    countersignedByName: string | null;
-    hasPdf: boolean;
-  } | null;
+  documents: Record<LegalDocumentType, DocumentStatus>;
+  documentTypes: LegalDocumentType[];
+  documentLabels: Record<LegalDocumentType, { de: string; en: string }>;
+  acceptance: DocumentAcceptance | null;
 }
 
 function CardSetupForm({ hospitalId, onSuccess }: { hospitalId: string; onSuccess: () => void }) {
@@ -208,9 +223,22 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
   const [showSignaturePad, setShowSignaturePad] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [signerName, setSignerName] = useState("");
-  const [termsExpanded, setTermsExpanded] = useState(false);
+  const [expandedDocuments, setExpandedDocuments] = useState<Record<LegalDocumentType, boolean>>({
+    terms: false,
+    agb: false,
+    privacy: false,
+    avv: false,
+  });
   const [signatureImage, setSignatureImage] = useState<string | null>(null);
+  const [activeDocumentType, setActiveDocumentType] = useState<LegalDocumentType>("terms");
   const isGerman = i18n.language === "de";
+  
+  const DOCUMENT_LABELS: Record<LegalDocumentType, { de: string; en: string }> = {
+    terms: { de: "Nutzungsbedingungen", en: "Terms of Use" },
+    agb: { de: "Allgemeine Geschäftsbedingungen (AGB)", en: "Terms of Service" },
+    privacy: { de: "Datenschutzerklärung", en: "Privacy Policy" },
+    avv: { de: "Auftragsverarbeitungsvertrag (AVV)", en: "Data Processing Agreement" },
+  };
 
   const { data: billingStatus, isLoading: statusLoading } = useQuery<BillingStatus>({
     queryKey: ["/api/billing", hospitalId, "status"],
@@ -252,6 +280,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
         signatureImage,
         signerName,
         language: i18n.language,
+        documentType: activeDocumentType,
       });
       return res.json();
     },
@@ -261,16 +290,18 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
       setTermsAccepted(false);
       setSignerName("");
       setSignatureImage(null);
+      const docLabel = DOCUMENT_LABELS[activeDocumentType];
       toast({ 
-        title: isGerman ? "Nutzungsbedingungen akzeptiert" : "Terms of Use accepted",
+        title: isGerman ? `${docLabel.de} akzeptiert` : `${docLabel.en} accepted`,
         description: data.emailSent 
           ? (isGerman ? "Eine Kopie wurde zur Gegenzeichnung gesendet" : "A copy has been sent for countersigning")
           : undefined,
       });
     },
     onError: () => {
+      const docLabel = DOCUMENT_LABELS[activeDocumentType];
       toast({ 
-        title: isGerman ? "Fehler beim Akzeptieren" : "Failed to accept terms", 
+        title: isGerman ? `Fehler beim Akzeptieren: ${docLabel.de}` : `Failed to accept: ${docLabel.en}`, 
         variant: "destructive" 
       });
     },
@@ -644,79 +675,118 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileSignature className="h-5 w-5" />
-              {isGerman ? "Nutzungsbedingungen" : "Terms of Use"}
+              {isGerman ? "Rechtliche Dokumente" : "Legal Documents"}
             </CardTitle>
             <CardDescription>
               {isGerman 
-                ? "Akzeptieren Sie die Nutzungsbedingungen, um die Zahlungseinrichtung zu aktivieren"
-                : "Accept the terms of use to enable payment setup"}
+                ? "Alle Dokumente müssen unterzeichnet werden, um die Zahlungseinrichtung zu aktivieren"
+                : "All documents must be signed to enable payment setup"}
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            {hasAcceptedTerms ? (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-4 border rounded-lg bg-green-50 dark:bg-green-900/20">
-                  <CheckCircle2 className="h-6 w-6 text-green-600" />
-                  <div className="flex-1">
-                    <p className="font-medium text-green-800 dark:text-green-200">
-                      {isGerman ? "Nutzungsbedingungen akzeptiert" : "Terms of Use Accepted"}
-                    </p>
-                    {termsStatus?.acceptance && (
-                      <p className="text-sm text-muted-foreground">
-                        {isGerman ? "Unterzeichnet von" : "Signed by"} {termsStatus.acceptance.signedByName}{" "}
-                        {isGerman ? "am" : "on"} {new Date(termsStatus.acceptance.signedAt).toLocaleDateString(isGerman ? "de-DE" : "en-US")}
-                      </p>
-                    )}
-                  </div>
-                  {termsStatus?.acceptance?.hasPdf && termsStatus.acceptance?.id && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        window.open(`/api/billing/${hospitalId}/terms-pdf/${termsStatus.acceptance!.id}`, "_blank");
-                      }}
-                      data-testid="button-download-terms-pdf"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      PDF
-                    </Button>
+          <CardContent className="space-y-4">
+            {!hasAcceptedTerms && (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {isGerman 
+                    ? "Bitte unterzeichnen Sie alle Dokumente, bevor Sie eine Zahlungsmethode einrichten."
+                    : "Please sign all documents before setting up a payment method."}
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            {(["terms", "agb", "privacy", "avv"] as const).map((docType) => {
+              const docStatus = termsStatus?.documents?.[docType];
+              const docLabel = DOCUMENT_LABELS[docType];
+              const isDocAccepted = docStatus?.hasAccepted ?? false;
+              const acceptance = docStatus?.acceptance;
+              const isExpanded = expandedDocuments[docType];
+              
+              const getDocumentContent = () => {
+                switch (docType) {
+                  case "terms": return <TermsOfUseContent />;
+                  case "agb": return <AGBContent />;
+                  case "privacy": return <PrivacyPolicyContent />;
+                  case "avv": return <AVVContent />;
+                }
+              };
+              
+              return (
+                <div key={docType} className="border rounded-lg overflow-hidden">
+                  {isDocAccepted ? (
+                    <div className="space-y-0">
+                      <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-900/20">
+                        <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-green-800 dark:text-green-200">
+                            {isGerman ? docLabel.de : docLabel.en}
+                          </p>
+                          {acceptance && (
+                            <p className="text-sm text-muted-foreground truncate">
+                              {isGerman ? "Unterzeichnet von" : "Signed by"} {acceptance.signedByName}{" "}
+                              {isGerman ? "am" : "on"} {new Date(acceptance.signedAt).toLocaleDateString(isGerman ? "de-DE" : "en-US")}
+                            </p>
+                          )}
+                        </div>
+                        {acceptance?.hasPdf && acceptance?.id && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              window.open(`/api/billing/${hospitalId}/terms-pdf/${acceptance.id}`, "_blank");
+                            }}
+                            data-testid={`button-download-${docType}-pdf`}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            PDF
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <Collapsible 
+                        open={isExpanded} 
+                        onOpenChange={(open) => setExpandedDocuments(prev => ({ ...prev, [docType]: open }))}
+                      >
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" className="w-full justify-between rounded-none border-t" data-testid={`button-expand-${docType}`}>
+                            <span>{isGerman ? `${docLabel.de} anzeigen` : `View ${docLabel.en}`}</span>
+                            <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
+                          </Button>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <div className="p-4 bg-muted/30 max-h-96 overflow-y-auto border-t">
+                            {getDocumentContent()}
+                          </div>
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+                  ) : (
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="font-medium">{isGerman ? docLabel.de : docLabel.en}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {isGerman ? "Noch nicht unterzeichnet" : "Not yet signed"}
+                          </p>
+                        </div>
+                      </div>
+                      <Button 
+                        onClick={() => {
+                          setActiveDocumentType(docType);
+                          setShowTermsDialog(true);
+                        }} 
+                        className="w-full"
+                        data-testid={`button-sign-${docType}`}
+                      >
+                        <FileSignature className="mr-2 h-4 w-4" />
+                        {isGerman ? `${docLabel.de} lesen & unterschreiben` : `Read & Sign ${docLabel.en}`}
+                      </Button>
+                    </div>
                   )}
                 </div>
-                
-                <Collapsible open={termsExpanded} onOpenChange={setTermsExpanded}>
-                  <CollapsibleTrigger asChild>
-                    <Button variant="ghost" className="w-full justify-between" data-testid="button-expand-terms">
-                      <span>{isGerman ? "Nutzungsbedingungen anzeigen" : "View Terms of Use"}</span>
-                      <ChevronDown className={`h-4 w-4 transition-transform ${termsExpanded ? "rotate-180" : ""}`} />
-                    </Button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-2">
-                    <div className="border rounded-lg p-4 bg-muted/30 max-h-96 overflow-y-auto">
-                      <TermsOfUseContent />
-                    </div>
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    {isGerman 
-                      ? "Bitte lesen und akzeptieren Sie die Nutzungsbedingungen, bevor Sie eine Zahlungsmethode einrichten."
-                      : "Please read and accept the terms of use before setting up a payment method."}
-                  </AlertDescription>
-                </Alert>
-                <Button 
-                  onClick={() => setShowTermsDialog(true)} 
-                  className="w-full"
-                  data-testid="button-open-terms"
-                >
-                  <FileSignature className="mr-2 h-4 w-4" />
-                  {isGerman ? "Nutzungsbedingungen lesen & akzeptieren" : "Read & Accept Terms of Use"}
-                </Button>
-              </div>
-            )}
+              );
+            })}
           </CardContent>
         </Card>
       )}
@@ -726,17 +796,20 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
           <DialogHeader className="flex-shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <FileSignature className="h-5 w-5" />
-              {isGerman ? "Nutzungsbedingungen - Viali.app" : "Terms of Use - Viali.app"}
+              {isGerman ? DOCUMENT_LABELS[activeDocumentType].de : DOCUMENT_LABELS[activeDocumentType].en} - Viali.app
             </DialogTitle>
             <DialogDescription>
               {isGerman 
-                ? "Bitte lesen Sie die Nutzungsbedingungen sorgfältig durch und unterschreiben Sie zur Bestätigung."
-                : "Please read the terms of use carefully and sign to confirm your acceptance."}
+                ? "Bitte lesen Sie das Dokument sorgfältig durch und unterschreiben Sie zur Bestätigung."
+                : "Please read the document carefully and sign to confirm your acceptance."}
             </DialogDescription>
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto space-y-4 pr-2">
-            <TermsOfUseContent />
+            {activeDocumentType === "terms" && <TermsOfUseContent />}
+            {activeDocumentType === "agb" && <AGBContent />}
+            {activeDocumentType === "privacy" && <PrivacyPolicyContent />}
+            {activeDocumentType === "avv" && <AVVContent />}
             
             <Separator />
             
@@ -750,8 +823,8 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 />
                 <Label htmlFor="accept-terms" className="text-sm leading-relaxed">
                   {isGerman 
-                    ? "Ich habe die Nutzungsbedingungen gelesen und akzeptiere sie im Namen meiner Klinik."
-                    : "I have read and accept the terms of use on behalf of my clinic."}
+                    ? `Ich habe die ${DOCUMENT_LABELS[activeDocumentType].de} gelesen und akzeptiere sie im Namen meiner Klinik.`
+                    : `I have read and accept the ${DOCUMENT_LABELS[activeDocumentType].en} on behalf of my clinic.`}
                 </Label>
               </div>
               
