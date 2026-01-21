@@ -849,7 +849,7 @@ router.get("/api/billing/preview-pdf/:documentType", async (req: any, res) => {
       ]);
       addSection(isGerman ? "6. Datenweitergabe" : "6. Data Sharing", [
         isGerman ? "Patientendaten werden nicht an Dritte weitergegeben" : "Patient data is not shared with third parties",
-        isGerman ? "Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting & Datenbank)" : "Processors: Stripe (payment processing), Exoscale (hosting & database)",
+        isGerman ? "Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting & Datenbank), Resend (E-Mail-Versand), Vonage (SMS-Kommunikation)" : "Processors: Stripe (payment processing), Exoscale (hosting & database), Resend (email delivery), Vonage (SMS communications)",
         isGerman ? "Alle Auftragsverarbeiter erfüllen die DSGVO-Anforderungen" : "All processors comply with GDPR requirements",
       ]);
       addSection(isGerman ? "7. DSG/DSGVO-Konformität" : "7. DSG/GDPR Compliance", [
@@ -1127,7 +1127,7 @@ router.post("/api/billing/:hospitalId/regenerate-pdf/:acceptanceId", isAuthentic
       ]);
       addSection(isGerman ? "6. Datenweitergabe" : "6. Data Sharing", [
         isGerman ? "- Patientendaten werden nicht an Dritte weitergegeben" : "- Patient data is not shared with third parties",
-        isGerman ? "- Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting & Datenbank)" : "- Processors: Stripe (payment processing), Exoscale (hosting & database)",
+        isGerman ? "- Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting & Datenbank), Resend (E-Mail-Versand), Vonage (SMS-Kommunikation)" : "- Processors: Stripe (payment processing), Exoscale (hosting & database), Resend (email delivery), Vonage (SMS communications)",
         isGerman ? "- Alle Auftragsverarbeiter erfüllen die DSGVO-Anforderungen" : "- All processors comply with GDPR requirements",
       ]);
       addSection(isGerman ? "7. DSG/DSGVO-Konformität" : "7. DSG/GDPR Compliance", [
@@ -1421,7 +1421,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
       ]);
       addSection(isGerman ? "6. Datenweitergabe" : "6. Data Sharing", [
         isGerman ? "- Patientendaten werden nicht an Dritte weitergegeben" : "- Patient data is not shared with third parties",
-        isGerman ? "- Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting & Datenbank)" : "- Processors: Stripe (payment processing), Exoscale (hosting & database)",
+        isGerman ? "- Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting & Datenbank), Resend (E-Mail-Versand), Vonage (SMS-Kommunikation)" : "- Processors: Stripe (payment processing), Exoscale (hosting & database), Resend (email delivery), Vonage (SMS communications)",
         isGerman ? "- Alle Auftragsverarbeiter erfüllen die DSGVO-Anforderungen" : "- All processors comply with GDPR requirements",
       ]);
       addSection(isGerman ? "7. DSG/DSGVO-Konformität" : "7. DSG/GDPR Compliance", [

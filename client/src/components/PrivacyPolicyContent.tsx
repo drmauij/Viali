@@ -73,7 +73,7 @@ export function PrivacyPolicyContent() {
         </h3>
         <ul className="list-disc list-inside text-muted-foreground">
           <li>{isGerman ? "Patientendaten werden nicht an Dritte weitergegeben" : "Patient data is not shared with third parties"}</li>
-          <li>{isGerman ? "Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting & Datenbank)" : "Processors: Stripe (payment processing), Exoscale (hosting & database)"}</li>
+          <li>{isGerman ? "Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting & Datenbank), Resend (E-Mail-Versand), Vonage (SMS-Kommunikation)" : "Processors: Stripe (payment processing), Exoscale (hosting & database), Resend (email delivery), Vonage (SMS communications)"}</li>
           <li>{isGerman ? "Alle Auftragsverarbeiter erfüllen die DSGVO-Anforderungen" : "All processors comply with GDPR requirements"}</li>
         </ul>
       </div>
