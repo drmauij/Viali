@@ -3516,12 +3516,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           currentXAxisIndex.every((v: number, i: number) => v === expectedXAxisIndex[i]);
         
         if (!indexMatches) {
+          // Preserve current zoom state - use defaults only if explicitly set
+          const hasZoomState = currentDataZoom?.start !== undefined && currentDataZoom?.end !== undefined;
           chart.setOption({
             dataZoom: [{
               xAxisIndex: expectedXAxisIndex,
-              // Preserve current zoom state
-              start: currentDataZoom?.start,
-              end: currentDataZoom?.end,
+              // Only include start/end if they were explicitly set, otherwise let the viewport controller handle it
+              ...(hasZoomState ? { start: currentDataZoom.start, end: currentDataZoom.end } : {}),
             }]
           });
         }
