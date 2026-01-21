@@ -100,14 +100,51 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
         </DialogHeader>
         
         <div className="space-y-4 py-4">
+          {/* Patient Info */}
           <div className="bg-muted p-3 rounded-lg space-y-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase">
+              {isGerman ? 'Patient' : 'Patient'}
+            </p>
             <p className="font-medium">
               {request.patientLastName}, {request.patientFirstName}
             </p>
-            <p className="text-sm text-muted-foreground">{request.surgeryName}</p>
-            <p className="text-sm text-muted-foreground">
-              {isGerman ? 'Dauer:' : 'Duration:'} {request.surgeryDurationMinutes} min
+            {request.patientPhone && (
+              <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <Phone className="h-3 w-3" /> {request.patientPhone}
+              </p>
+            )}
+          </div>
+
+          {/* Surgery Info */}
+          <div className="bg-muted p-3 rounded-lg space-y-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase">
+              {isGerman ? 'Eingriff' : 'Surgery'}
             </p>
+            <p className="font-medium">{request.surgeryName}</p>
+            <p className="text-sm text-muted-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3" /> {request.surgeryDurationMinutes} min
+            </p>
+            {request.surgeryNotes && (
+              <p className="text-sm text-muted-foreground">{request.surgeryNotes}</p>
+            )}
+          </div>
+
+          {/* Surgeon Info */}
+          <div className="bg-muted p-3 rounded-lg space-y-1">
+            <p className="text-xs font-medium text-muted-foreground uppercase">
+              {isGerman ? 'Anfragender Chirurg' : 'Requesting Surgeon'}
+            </p>
+            <p className="font-medium">
+              Dr. {request.surgeonLastName}, {request.surgeonFirstName}
+            </p>
+            <div className="flex flex-col gap-0.5 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Phone className="h-3 w-3" /> {request.surgeonPhone}
+              </span>
+              <span className="flex items-center gap-1">
+                <Mail className="h-3 w-3" /> {request.surgeonEmail}
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -169,7 +206,7 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
           </Button>
           <Button data-testid="button-schedule-confirm" 
             onClick={() => scheduleMutation.mutate()}
-            disabled={!plannedDate || !surgeryRoomId || scheduleMutation.isPending}
+            disabled={!plannedDate || (surgeryRooms.length > 0 && !surgeryRoomId) || scheduleMutation.isPending}
           >
             {scheduleMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isGerman ? 'Termin planen' : 'Schedule'}
