@@ -337,11 +337,11 @@ export function StickyTimelineHeader({
       const hours = date.getHours();
       const minutes = date.getMinutes();
       
-      // At midnight (00:00), show the date
+      // At midnight (00:00), show just the date (bold style via rich text)
       if (hours === 0 && minutes === 0) {
         const day = date.getDate();
         const month = date.getMonth() + 1;
-        return `${day}.${month}.\n00:00`;
+        return `{bold|${day}.${month}.}`;
       }
       
       // Regular time format
@@ -374,6 +374,13 @@ export function StickyTimelineHeader({
           color: isDark ? "#ffffff" : "#000000",
           fontWeight: 500,
           margin: -2,
+          rich: {
+            bold: {
+              fontWeight: 700,
+              fontSize: 12,
+              color: isDark ? "#ffffff" : "#000000",
+            },
+          },
         },
         axisLine: {
           show: true,
@@ -434,11 +441,11 @@ export function StickyTimelineHeader({
           const hours = date.getHours();
           const minutes = date.getMinutes();
           
-          // At midnight (00:00), show the date
+          // At midnight (00:00), show just the date (bold style via rich text)
           if (hours === 0 && minutes === 0) {
             const day = date.getDate();
             const month = date.getMonth() + 1;
-            return `${day}.${month}.\n00:00`;
+            return `{bold|${day}.${month}.}`;
           }
           
           // Regular time format
@@ -454,6 +461,12 @@ export function StickyTimelineHeader({
             interval: intervalMs,
             axisLabel: {
               formatter: formatAxisLabel,
+              rich: {
+                bold: {
+                  fontWeight: 700,
+                  fontSize: 12,
+                },
+              },
             },
           },
         });

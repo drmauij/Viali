@@ -3395,12 +3395,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           viewEnd = contentCenter + FIVE_HOURS / 2;
         }
       } else {
-        // Active record: center on NOW with 15min before and 45min after
+        // Active record: center on NOW with ±30min (same as Reset button)
         const currentTime = now || data.endTime;
-        const fifteenMinutes = 15 * 60 * 1000;
-        const fortyFiveMinutes = 45 * 60 * 1000;
-        viewStart = currentTime - fifteenMinutes;
-        viewEnd = currentTime + fortyFiveMinutes;
+        const thirtyMinutes = 30 * 60 * 1000;
+        viewStart = currentTime - thirtyMinutes;
+        viewEnd = currentTime + thirtyMinutes;
       }
       
       // Clamp to data bounds and preserve window size
