@@ -3526,6 +3526,9 @@ export const patientQuestionnaireResponses = pgTable("patient_questionnaire_resp
   additionalNotes: text("additional_notes"),
   questionsForDoctor: text("questions_for_doctor"),
   
+  // Consent fields
+  smsConsent: boolean("sms_consent").default(false), // Consent to receive SMS notifications
+  
   // Form progress tracking
   currentStep: integer("current_step").default(0),
   completedSteps: jsonb("completed_steps").$type<string[]>(),

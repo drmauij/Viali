@@ -174,6 +174,7 @@ interface FormData {
   submissionDate: string;
   signature: string;
   privacyConsent: boolean;
+  smsConsent: boolean;
   currentStep: number;
   completedSteps: string[];
 }
@@ -310,6 +311,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.submit.privacy": "Privacy Consent",
     "questionnaire.submit.privacyText": "I consent to the processing of my personal and health data for the purpose of my medical treatment. I confirm that the information provided is accurate to the best of my knowledge.",
     "questionnaire.submit.privacyRequired": "You must accept the privacy consent to submit the questionnaire",
+    "questionnaire.personal.smsConsent": "I agree to receive SMS notifications",
+    "questionnaire.personal.smsConsentText": "I consent to receive appointment reminders and important notifications via SMS to the phone number provided above.",
     "questionnaire.submit.phoneRequired": "Phone number is required",
     "questionnaire.nav.back": "Back",
     "questionnaire.nav.next": "Next",
@@ -449,6 +452,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.submit.privacy": "Datenschutz-Einwilligung",
     "questionnaire.submit.privacyText": "Ich willige in die Verarbeitung meiner persönlichen und gesundheitlichen Daten zum Zweck meiner medizinischen Behandlung ein. Ich bestätige, dass die gemachten Angaben nach bestem Wissen korrekt sind.",
     "questionnaire.submit.privacyRequired": "Sie müssen der Datenschutzerklärung zustimmen, um den Fragebogen abzusenden",
+    "questionnaire.personal.smsConsent": "Ich stimme dem Empfang von SMS-Benachrichtigungen zu",
+    "questionnaire.personal.smsConsentText": "Ich willige ein, Terminerinnerungen und wichtige Benachrichtigungen per SMS an die oben angegebene Telefonnummer zu erhalten.",
     "questionnaire.submit.phoneRequired": "Telefonnummer ist erforderlich",
     "questionnaire.nav.back": "Zurück",
     "questionnaire.nav.next": "Weiter",
@@ -523,6 +528,7 @@ export default function PatientQuestionnaire() {
     submissionDate: new Date().toISOString().split('T')[0],
     signature: "",
     privacyConsent: false,
+    smsConsent: false,
     currentStep: 0,
     completedSteps: [],
   });
@@ -594,6 +600,7 @@ export default function PatientQuestionnaire() {
         submissionDate: (existing as any)?.submissionDate || new Date().toISOString().split('T')[0],
         signature: (existing as any)?.signature || "",
         privacyConsent: (existing as any)?.privacyConsent || false,
+        smsConsent: (existing as any)?.smsConsent || false,
         currentStep: Math.min(existing?.currentStep || 0, STEPS.length - 1),
         completedSteps: existing?.completedSteps || [],
       });
@@ -1209,6 +1216,25 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
           />
         </div>
       </div>
+
+      {formData.patientPhone && (
+        <div className="flex items-start gap-3 p-3 border rounded-lg bg-blue-50 dark:bg-blue-900/20">
+          <Checkbox
+            id="sms-consent"
+            checked={formData.smsConsent}
+            onCheckedChange={(checked) => updateField("smsConsent", !!checked)}
+            data-testid="checkbox-sms-consent"
+          />
+          <div>
+            <Label htmlFor="sms-consent" className="cursor-pointer">
+              {t("questionnaire.personal.smsConsent")}
+            </Label>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+              {t("questionnaire.personal.smsConsentText")}
+            </p>
+          </div>
+        </div>
+      )}
 
       <Separator />
 
