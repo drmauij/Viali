@@ -823,92 +823,211 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
     pdf.text(`Version: ${CURRENT_TERMS_VERSION}`, pageWidth / 2, y, { align: "center" });
     y += 15;
     
-    // 1. Provider section
-    checkNewPage(30);
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(isGerman ? "1. Anbieter" : "1. Provider", 15, y);
-    y += 7;
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-    pdf.text(`Acutiq, ${isGerman ? "Inhaber" : "owned by"} Maurizio Betti`, 15, y); y += 5;
-    pdf.text("Bruder-Klaus-Str 18, 78467 Konstanz, Germany", 15, y); y += 5;
-    pdf.text("Service: https://use.viali.app", 15, y); y += 10;
+    // Document-specific content based on documentType
+    const addSection = (title: string, items: string[]) => {
+      checkNewPage(10 + items.length * 6);
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(title, 15, y);
+      y += 7;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      items.forEach((item) => {
+        const lines = pdf.splitTextToSize(item, pageWidth - 30);
+        lines.forEach((line: string) => {
+          checkNewPage(6);
+          pdf.text(line, 15, y);
+          y += 5;
+        });
+      });
+      y += 5;
+    };
+
+    if (documentType === "terms") {
+      // Terms of Use content
+      addSection(isGerman ? "1. Anbieter" : "1. Provider", [
+        `Acutiq, ${isGerman ? "Inhaber" : "owned by"} Maurizio Betti`,
+        "Bruder-Klaus-Str 18, 78467 Konstanz, Germany",
+        "Service: https://use.viali.app",
+      ]);
+      addSection(isGerman ? "2. Leistungen" : "2. Services", [
+        isGerman ? "- Digitale Anästhesie-Protokolle (Pre-OP, OP, PACU)" : "- Digital anesthesia protocols (Pre-OP, OP, PACU)",
+        isGerman ? "- Bestandsverwaltungssystem (Medikamente, Material, BTM)" : "- Inventory management (medications, materials, controlled substances)",
+        isGerman ? "- Cloud-Hosting inklusive (Exoscale Shared Server, Schweiz)" : "- Cloud hosting included (Exoscale Shared Server, Switzerland)",
+        isGerman ? "- Backups & Updates" : "- Backups & updates",
+        isGerman ? "- Optionale Zusatzmodule (siehe Preisübersicht im Abrechnungsbereich)" : "- Optional add-on modules (see pricing overview in billing section)",
+      ]);
+      addSection(isGerman ? "3. Abrechnung & Zahlung" : "3. Billing & Payment", [
+        isGerman ? "- Aktuelle Preise werden im Abrechnungsbereich angezeigt" : "- Current pricing is displayed in the billing section",
+        isGerman ? "- Monatliche Abrechnung nach tatsächlicher Nutzung" : "- Monthly billing based on actual usage",
+        isGerman ? "- Zahlung per Kreditkarte (in-app)" : "- Credit card payment (in-app)",
+        isGerman ? "- Alle Preise verstehen sich netto. MwSt. kann je nach Standort anfallen" : "- All prices are net. VAT may apply depending on location",
+        isGerman ? "- Monatlich kündbar" : "- Monthly cancellation possible",
+        isGerman ? "- Preisänderungen mit 3 Monaten Ankündigungsfrist" : "- Price changes with 3 months notice",
+      ]);
+      addSection(isGerman ? "4. Dateneigentum & Datenschutz" : "4. Data Ownership & Privacy", [
+        isGerman ? "- Patientendaten bleiben ausschließliches Eigentum der Klinik" : "- Patient data remains exclusive property of the clinic",
+        isGerman ? "- Unterliegt der Schweizer DSGVO-Gesetzgebung" : "- Subject to Swiss GDPR legislation",
+        isGerman ? "- Gehostet auf Exoscale-Servern (Schweiz)" : "- Hosted on Exoscale servers (Switzerland)",
+      ]);
+      addSection(isGerman ? "5. Sicherheit & Haftungsbeschränkung" : "5. Security & Limitation of Liability", [
+        isGerman ? "- Anbieter implementiert angemessene Sicherheitsmaßnahmen und regelmäßige Backups" : "- Provider implements reasonable security measures and regular backups",
+        isGerman ? "- Keine Haftung für Datenverlust, Sicherheitsverletzungen oder Schäden durch Software-Fehler oder unsachgemäße Kontonutzung" : "- No liability for data loss, breaches, or damages from software bugs or improper account use",
+        isGerman ? "- Maximale Haftung begrenzt auf die in den letzten 12 Monaten gezahlten Gebühren" : "- Maximum liability limited to fees paid in prior 12 months",
+      ]);
+      addSection("6. Support", [
+        isGerman ? "- Kritische Events: 2h erste Reaktion" : "- Critical events: 2h initial response",
+        isGerman ? "- Mo-Fr 8-18 Uhr CET via In-App/E-Mail" : "- Mon-Fri 8-18 CET via in-app/email",
+      ]);
+      addSection(isGerman ? "7. Gerichtsstand" : "7. Jurisdiction", [
+        isGerman ? "- Für alle Streitigkeiten sind die Gerichte in Konstanz, Deutschland zuständig" : "- All disputes are handled by the courts in Konstanz, Germany",
+      ]);
+    } else if (documentType === "agb") {
+      // AGB (Terms of Service) content
+      addSection(isGerman ? "1. Geltungsbereich" : "1. Scope", [
+        isGerman 
+          ? "Diese Allgemeinen Geschäftsbedingungen (AGB) gelten für alle Verträge zwischen Acutiq (Inhaber: Maurizio Betti, Bruder-Klaus-Str 18, 78467 Konstanz, Deutschland) und dem Kunden über die Nutzung der Viali.app Plattform und damit verbundener Dienstleistungen."
+          : "These Terms of Service apply to all contracts between Acutiq (Owner: Maurizio Betti, Bruder-Klaus-Str 18, 78467 Konstanz, Germany) and the customer for the use of the Viali.app platform and related services.",
+      ]);
+      addSection(isGerman ? "2. Leistungsbeschreibung" : "2. Service Description", [
+        isGerman ? "- Bereitstellung der webbasierten Anästhesie-Dokumentationssoftware" : "- Provision of web-based anesthesia documentation software",
+        isGerman ? "- Cloud-Hosting auf Schweizer Servern (Exoscale)" : "- Cloud hosting on Swiss servers (Exoscale)",
+        isGerman ? "- Regelmäßige Backups und Wartung" : "- Regular backups and maintenance",
+        isGerman ? "- Technischer Support gemäß vereinbartem Serviceumfang" : "- Technical support according to agreed service scope",
+        isGerman ? "- Regelmäßige Software-Updates und Verbesserungen" : "- Regular software updates and improvements",
+      ]);
+      addSection(isGerman ? "3. Preise und Zahlungsbedingungen" : "3. Pricing and Payment Terms", [
+        isGerman ? "- Die aktuellen Preise werden im Abrechnungsbereich der Anwendung angezeigt" : "- Current prices are displayed in the billing section of the application",
+        isGerman ? "- Abrechnung erfolgt monatlich basierend auf der tatsächlichen Nutzung" : "- Billing is monthly based on actual usage",
+        isGerman ? "- Zahlung erfolgt per Kreditkarte über den integrierten Zahlungsanbieter Stripe" : "- Payment is made by credit card via the integrated payment provider Stripe",
+        isGerman ? "- Alle Preise verstehen sich netto; Mehrwertsteuer wird je nach Standort berechnet" : "- All prices are net; VAT is calculated depending on location",
+        isGerman ? "- Bei Zahlungsverzug behält sich der Anbieter das Recht vor, den Zugang zu sperren" : "- In case of payment delay, the provider reserves the right to suspend access",
+      ]);
+      addSection(isGerman ? "4. Vertragslaufzeit und Kündigung" : "4. Contract Term and Termination", [
+        isGerman ? "- Der Vertrag läuft auf unbestimmte Zeit" : "- The contract runs for an indefinite period",
+        isGerman ? "- Kündigung ist jederzeit zum Monatsende möglich" : "- Termination is possible at any time at the end of the month",
+        isGerman ? "- Bei Kündigung werden alle Daten nach 30 Tagen gelöscht, sofern nicht anders vereinbart" : "- Upon termination, all data will be deleted after 30 days unless otherwise agreed",
+        isGerman ? "- Datenexport ist vor Kündigung auf Anfrage möglich" : "- Data export is possible upon request before termination",
+      ]);
+      addSection(isGerman ? "5. Haftungsbeschränkung" : "5. Limitation of Liability", [
+        isGerman ? "- Der Anbieter haftet nicht für Datenverlust durch höhere Gewalt oder Verschulden Dritter" : "- The provider is not liable for data loss due to force majeure or third-party fault",
+        isGerman ? "- Die maximale Haftung ist auf die in den letzten 12 Monaten gezahlten Gebühren begrenzt" : "- Maximum liability is limited to fees paid in the last 12 months",
+        isGerman ? "- Der Anbieter übernimmt keine Haftung für fehlerhafte medizinische Entscheidungen basierend auf der Software" : "- The provider assumes no liability for incorrect medical decisions based on the software",
+        isGerman ? "- Indirekte Schäden und entgangener Gewinn sind von der Haftung ausgeschlossen" : "- Indirect damages and lost profits are excluded from liability",
+      ]);
+      addSection(isGerman ? "6. Verfügbarkeit und Wartung" : "6. Availability and Maintenance", [
+        isGerman ? "- Angestrebte Verfügbarkeit: 99,5% pro Monat" : "- Targeted availability: 99.5% per month",
+        isGerman ? "- Geplante Wartungsarbeiten werden mindestens 48 Stunden im Voraus angekündigt" : "- Planned maintenance is announced at least 48 hours in advance",
+        isGerman ? "- Wartungsarbeiten finden bevorzugt außerhalb der Hauptgeschäftszeiten statt" : "- Maintenance preferably takes place outside main business hours",
+      ]);
+      addSection(isGerman ? "7. Schlussbestimmungen" : "7. Final Provisions", [
+        isGerman ? "- Änderungen dieser AGB werden dem Kunden mit einer Frist von 4 Wochen mitgeteilt" : "- Changes to these Terms of Service will be notified to the customer with 4 weeks notice",
+        isGerman ? "- Gerichtsstand ist Konstanz, Deutschland" : "- Place of jurisdiction is Konstanz, Germany",
+        isGerman ? "- Es gilt deutsches Recht" : "- German law applies",
+      ]);
+    } else if (documentType === "privacy") {
+      // Privacy Policy content
+      addSection(isGerman ? "1. Verantwortlicher" : "1. Data Controller", [
+        `Acutiq, ${isGerman ? "Inhaber" : "owned by"} Maurizio Betti`,
+        "Bruder-Klaus-Str 18, 78467 Konstanz, Germany",
+        "E-Mail: info@acutiq.com",
+      ]);
+      addSection(isGerman ? "2. Erhobene Daten" : "2. Data Collected", [
+        isGerman ? "- Benutzerdaten: Name, E-Mail-Adresse, Rolle, Krankenhauszugehörigkeit" : "- User data: Name, email address, role, hospital affiliation",
+        isGerman ? "- Patientendaten: Gemäß den Anforderungen des medizinischen Dokumentationsbedarfs" : "- Patient data: According to medical documentation requirements",
+        isGerman ? "- Protokolldaten: Zugriffsprotokolle, Aktivitätsprotokolle zur Systemsicherheit" : "- Log data: Access logs, activity logs for system security",
+        isGerman ? "- Medizinische Dokumentation: Anästhesieprotokolle, Vitalzeichen, Medikation" : "- Medical documentation: Anesthesia records, vital signs, medication",
+      ]);
+      addSection(isGerman ? "3. Zweck der Datenverarbeitung" : "3. Purpose of Data Processing", [
+        isGerman ? "- Bereitstellung der Anästhesie-Dokumentationsdienste" : "- Provision of anesthesia documentation services",
+        isGerman ? "- Benutzerauthentifizierung und Zugangskontrolle" : "- User authentication and access control",
+        isGerman ? "- Abrechnung und Vertragsabwicklung" : "- Billing and contract processing",
+        isGerman ? "- Verbesserung der Servicequalität" : "- Service quality improvement",
+        isGerman ? "- Einhaltung gesetzlicher Aufbewahrungspflichten" : "- Compliance with legal retention requirements",
+      ]);
+      addSection(isGerman ? "4. Datenspeicherung" : "4. Data Storage", [
+        isGerman ? "- Alle Daten werden auf Servern von Exoscale in der Schweiz gespeichert" : "- All data is stored on Exoscale servers in Switzerland",
+        isGerman ? "- Datenbank: Neon PostgreSQL (EU-Region)" : "- Database: Neon PostgreSQL (EU region)",
+        isGerman ? "- Verschlüsselung: Daten werden im Ruhezustand und bei der Übertragung verschlüsselt" : "- Encryption: Data is encrypted at rest and in transit",
+        isGerman ? "- Regelmäßige automatische Backups" : "- Regular automatic backups",
+      ]);
+      addSection(isGerman ? "5. Betroffenenrechte" : "5. Data Subject Rights", [
+        isGerman ? "- Auskunftsrecht: Sie haben das Recht zu erfahren, welche Daten über Sie gespeichert sind" : "- Right of access: You have the right to know what data is stored about you",
+        isGerman ? "- Berichtigungsrecht: Sie können die Korrektur unrichtiger Daten verlangen" : "- Right to rectification: You can request correction of inaccurate data",
+        isGerman ? "- Löschungsrecht: Sie können die Löschung Ihrer Daten verlangen (unter Berücksichtigung gesetzlicher Aufbewahrungspflichten)" : "- Right to erasure: You can request deletion of your data (subject to legal retention requirements)",
+        isGerman ? "- Datenübertragbarkeit: Sie können Ihre Daten in einem maschinenlesbaren Format anfordern" : "- Data portability: You can request your data in a machine-readable format",
+        isGerman ? "- Widerspruchsrecht: Sie können der Datenverarbeitung widersprechen" : "- Right to object: You can object to data processing",
+      ]);
+      addSection(isGerman ? "6. Datenweitergabe" : "6. Data Sharing", [
+        isGerman ? "- Patientendaten werden nicht an Dritte weitergegeben" : "- Patient data is not shared with third parties",
+        isGerman ? "- Auftragsverarbeiter: Stripe (Zahlungsabwicklung), Exoscale (Hosting), Neon (Datenbank)" : "- Processors: Stripe (payment processing), Exoscale (hosting), Neon (database)",
+        isGerman ? "- Alle Auftragsverarbeiter erfüllen die DSGVO-Anforderungen" : "- All processors comply with GDPR requirements",
+      ]);
+      addSection(isGerman ? "7. DSG/DSGVO-Konformität" : "7. DSG/GDPR Compliance", [
+        isGerman ? "- Viali.app entspricht dem Schweizer Datenschutzgesetz (DSG) und der EU-DSGVO" : "- Viali.app complies with Swiss Data Protection Act (DSG) and EU GDPR",
+        isGerman ? "- Auftragsverarbeitungsverträge (AVV) mit allen Unterauftragsverarbeitern" : "- Data Processing Agreements (DPA) with all subprocessors",
+        isGerman ? "- Privacy by Design und Privacy by Default" : "- Privacy by Design and Privacy by Default",
+      ]);
+      addSection(isGerman ? "8. Kontakt" : "8. Contact", [
+        isGerman ? "Bei Fragen zum Datenschutz kontaktieren Sie uns unter: info@acutiq.com" : "For privacy questions, contact us at: info@acutiq.com",
+      ]);
+    } else if (documentType === "avv") {
+      // AVV (Data Processing Agreement) content
+      addSection(isGerman ? "1. Gegenstand und Dauer der Verarbeitung" : "1. Subject Matter and Duration of Processing", [
+        isGerman
+          ? "Dieser Auftragsverarbeitungsvertrag (AVV) regelt die Verarbeitung personenbezogener Daten durch Acutiq (Auftragsverarbeiter) im Auftrag der Klinik (Verantwortlicher) im Rahmen der Nutzung der Viali.app Plattform. Die Verarbeitung dauert für die gesamte Vertragslaufzeit."
+          : "This Data Processing Agreement (DPA) governs the processing of personal data by Acutiq (Processor) on behalf of the clinic (Controller) in connection with the use of the Viali.app platform. Processing continues for the entire contract term.",
+      ]);
+      addSection(isGerman ? "2. Art und Zweck der Verarbeitung" : "2. Nature and Purpose of Processing", [
+        isGerman ? "- Speicherung und Verarbeitung von Anästhesie-Dokumentation" : "- Storage and processing of anesthesia documentation",
+        isGerman ? "- Bereitstellung der webbasierten Anwendung" : "- Provision of the web-based application",
+        isGerman ? "- Durchführung von Backups und Systemwartung" : "- Performing backups and system maintenance",
+        isGerman ? "- Technischer Support und Fehlerbehebung" : "- Technical support and troubleshooting",
+      ]);
+      addSection(isGerman ? "3. Art der personenbezogenen Daten" : "3. Type of Personal Data", [
+        isGerman ? "- Patientenstammdaten (Name, Geburtsdatum, Gewicht)" : "- Patient master data (name, date of birth, weight)",
+        isGerman ? "- Gesundheitsdaten (Vitalzeichen, Diagnosen, Medikation)" : "- Health data (vital signs, diagnoses, medication)",
+        isGerman ? "- Benutzerdaten (Name, E-Mail, Benutzerrolle)" : "- User data (name, email, user role)",
+        isGerman ? "- Audit-Daten (Zugriffsprotokolle, Änderungshistorie)" : "- Audit data (access logs, change history)",
+      ]);
+      addSection(isGerman ? "4. Kategorien betroffener Personen" : "4. Categories of Data Subjects", [
+        isGerman ? "- Patienten der Klinik" : "- Patients of the clinic",
+        isGerman ? "- Mitarbeiter der Klinik (Benutzer der Anwendung)" : "- Clinic employees (application users)",
+      ]);
+      addSection(isGerman ? "5. Pflichten des Auftragsverarbeiters" : "5. Obligations of the Processor", [
+        isGerman ? "- Verarbeitung nur nach dokumentierter Weisung des Verantwortlichen" : "- Processing only according to documented instructions from the Controller",
+        isGerman ? "- Gewährleistung der Vertraulichkeit durch alle Mitarbeiter" : "- Ensuring confidentiality by all employees",
+        isGerman ? "- Ergreifung angemessener technischer und organisatorischer Maßnahmen" : "- Implementing appropriate technical and organizational measures",
+        isGerman ? "- Unterstützung bei der Erfüllung von Betroffenenrechten" : "- Support in fulfilling data subject rights",
+        isGerman ? "- Meldung von Datenschutzverletzungen innerhalb von 24 Stunden" : "- Notification of data breaches within 24 hours",
+      ]);
+      addSection(isGerman ? "6. Technische und organisatorische Maßnahmen" : "6. Technical and Organizational Measures", [
+        isGerman ? "- Verschlüsselung aller Daten bei Übertragung (TLS 1.3) und Speicherung" : "- Encryption of all data in transit (TLS 1.3) and at rest",
+        isGerman ? "- Zugriffskontrolle durch rollenbasierte Berechtigungen" : "- Access control through role-based permissions",
+        isGerman ? "- Regelmäßige Sicherheitsaudits und Penetrationstests" : "- Regular security audits and penetration tests",
+        isGerman ? "- Automatische Backups mit Geo-Redundanz" : "- Automatic backups with geo-redundancy",
+        isGerman ? "- Audit-Trail für alle sicherheitsrelevanten Aktionen" : "- Audit trail for all security-relevant actions",
+      ]);
+      addSection(isGerman ? "7. Unterauftragsverarbeiter" : "7. Subprocessors", [
+        isGerman ? "Folgende Unterauftragsverarbeiter werden eingesetzt:" : "The following subprocessors are used:",
+        isGerman ? "- Exoscale AG, Schweiz - Server-Hosting und Objektspeicher" : "- Exoscale AG, Switzerland - Server hosting and object storage",
+        isGerman ? "- Neon Inc. (EU Region) - Datenbank-Hosting" : "- Neon Inc. (EU Region) - Database hosting",
+        isGerman ? "- Stripe Inc. - Zahlungsabwicklung (keine Patientendaten)" : "- Stripe Inc. - Payment processing (no patient data)",
+        isGerman ? "- Resend Inc. - E-Mail-Versand (nur Systembenachrichtigungen)" : "- Resend Inc. - Email delivery (system notifications only)",
+      ]);
+      addSection(isGerman ? "8. Löschung und Rückgabe von Daten" : "8. Deletion and Return of Data", [
+        isGerman ? "- Nach Vertragsende: Löschung aller Daten innerhalb von 30 Tagen" : "- After contract termination: Deletion of all data within 30 days",
+        isGerman ? "- Auf Wunsch: Export aller Daten vor Löschung" : "- Upon request: Export of all data before deletion",
+        isGerman ? "- Schriftliche Bestätigung der Löschung auf Anfrage" : "- Written confirmation of deletion upon request",
+      ]);
+      addSection(isGerman ? "9. Kontrollrechte" : "9. Audit Rights", [
+        isGerman
+          ? "Der Verantwortliche hat das Recht, die Einhaltung dieses Vertrags zu überprüfen. Dies kann durch Einsichtnahme in Zertifizierungen, Berichte oder nach Vereinbarung durch Vor-Ort-Audits erfolgen."
+          : "The Controller has the right to verify compliance with this agreement. This can be done by reviewing certifications, reports, or by on-site audits upon agreement.",
+      ]);
+    }
     
-    // 2. Services section
-    checkNewPage(40);
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(isGerman ? "2. Leistungen" : "2. Services", 15, y);
-    y += 7;
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-    pdf.text(isGerman ? "  - Digitale Anästhesie-Protokolle (Pre-OP, OP, PACU)" : "  - Digital anesthesia protocols (Pre-OP, OP, PACU)", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Bestandsverwaltungssystem (Medikamente, Material, BTM)" : "  - Inventory management (medications, materials, controlled substances)", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Cloud-Hosting inklusive (Exoscale Shared Server, Schweiz)" : "  - Cloud hosting included (Exoscale Shared Server, Switzerland)", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Backups & Updates" : "  - Backups & updates", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Optionale Zusatzmodule (siehe Preisübersicht im Abrechnungsbereich)" : "  - Optional add-on modules (see pricing overview in billing section)", 15, y); y += 10;
-    
-    // 3. Billing section
-    checkNewPage(45);
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(isGerman ? "3. Abrechnung & Zahlung" : "3. Billing & Payment", 15, y);
-    y += 7;
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-    pdf.text(isGerman ? "  - Aktuelle Preise werden im Abrechnungsbereich angezeigt" : "  - Current pricing is displayed in the billing section", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Monatliche Abrechnung nach tatsächlicher Nutzung" : "  - Monthly billing based on actual usage", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Zahlung per Kreditkarte (in-app)" : "  - Credit card payment (in-app)", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Alle Preise verstehen sich netto. MwSt. kann je nach Standort anfallen" : "  - All prices are net. VAT may apply depending on location", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Monatlich kündbar" : "  - Monthly cancellation possible", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Preisänderungen mit 3 Monaten Ankündigungsfrist" : "  - Price changes with 3 months notice", 15, y); y += 10;
-    
-    // 4. Data section
-    checkNewPage(30);
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(isGerman ? "4. Dateneigentum & Datenschutz" : "4. Data Ownership & Privacy", 15, y);
-    y += 7;
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-    pdf.text(isGerman ? "  - Patientendaten bleiben ausschließliches Eigentum der Klinik" : "  - Patient data remains exclusive property of the clinic", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Unterliegt der Schweizer DSGVO-Gesetzgebung" : "  - Subject to Swiss GDPR legislation", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Gehostet auf Exoscale-Servern (Schweiz)" : "  - Hosted on Exoscale servers (Switzerland)", 15, y); y += 10;
-    
-    // 5. Liability section
-    checkNewPage(35);
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(isGerman ? "5. Sicherheit & Haftungsbeschränkung" : "5. Security & Limitation of Liability", 15, y);
-    y += 7;
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-    pdf.text(isGerman ? "  - Anbieter implementiert angemessene Sicherheitsmaßnahmen und regelmäßige Backups" : "  - Provider implements reasonable security measures and regular backups", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Keine Haftung für Datenverlust, Sicherheitsverletzungen oder Schäden" : "  - No liability for data loss, breaches, or damages from software bugs", 15, y); y += 5;
-    pdf.text(isGerman ? "    durch Software-Fehler oder unsachgemäße Kontonutzung" : "    or improper account use", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Maximale Haftung begrenzt auf die in den letzten 12 Monaten gezahlten Gebühren" : "  - Maximum liability limited to fees paid in prior 12 months", 15, y); y += 10;
-    
-    // 6. Support section
-    checkNewPage(25);
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("6. Support", 15, y);
-    y += 7;
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-    pdf.text(isGerman ? "  - Kritische Events: 2h erste Reaktion" : "  - Critical events: 2h initial response", 15, y); y += 5;
-    pdf.text(isGerman ? "  - Mo-Fr 8-18 Uhr CET via In-App/E-Mail" : "  - Mon-Fri 8-18 CET via in-app/email", 15, y); y += 10;
-    
-    // 7. Jurisdiction section
-    checkNewPage(20);
-    pdf.setFontSize(12);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(isGerman ? "7. Gerichtsstand" : "7. Jurisdiction", 15, y);
-    y += 7;
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-    pdf.text(isGerman ? "  - Für alle Streitigkeiten sind die Gerichte in Konstanz, Deutschland zuständig" : "  - All disputes are handled by the courts in Konstanz, Germany", 15, y); y += 15;
+    y += 10;
     
     // Signature section - ensure enough space on current page or start new page
     checkNewPage(70);
