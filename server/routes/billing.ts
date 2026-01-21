@@ -878,14 +878,19 @@ router.post("/api/billing/:hospitalId/regenerate-pdf/:acceptanceId", isAuthentic
 
     // Upload to object storage
     let pdfStorageKey: string | null = null;
-    try {
-      const pdfFilename = `${documentType}_${hospital.name.replace(/\s+/g, "_")}_${signedDate.toISOString().split("T")[0]}_${randomUUID()}.pdf`;
-      const s3Key = await objectStorageService.uploadObject(pdfFilename, pdfBuffer, "application/pdf", "/billing/terms");
-      pdfStorageKey = `/objects/${s3Key}`;
-      console.log(`Regenerated ${documentType} PDF uploaded to object storage:`, pdfStorageKey);
-    } catch (uploadError) {
-      console.error(`Failed to upload regenerated ${documentType} PDF to object storage:`, uploadError);
-      return res.status(500).json({ message: "Failed to upload PDF" });
+    if (objectStorageService.isConfigured()) {
+      try {
+        const s3Key = `billing/terms/${documentType}_${hospital.name.replace(/\s+/g, "_")}_${signedDate.toISOString().split("T")[0]}_${randomUUID()}.pdf`;
+        await objectStorageService.uploadBase64ToS3(pdfBase64, s3Key, "application/pdf");
+        pdfStorageKey = `/objects/${s3Key}`;
+        console.log(`Regenerated ${documentType} PDF uploaded to object storage:`, pdfStorageKey);
+      } catch (uploadError) {
+        console.error(`Failed to upload regenerated ${documentType} PDF to object storage:`, uploadError);
+        return res.status(500).json({ message: "Failed to upload PDF" });
+      }
+    } else {
+      console.log("Object storage not configured, skipping PDF upload");
+      return res.status(500).json({ message: "Object storage not configured" });
     }
 
     // Update acceptance record with PDF URL
