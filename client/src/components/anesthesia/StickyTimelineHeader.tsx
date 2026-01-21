@@ -313,10 +313,42 @@ export function StickyTimelineHeader({
     const visibleEnd = currentEnd || endTime;
     const visibleRange = visibleEnd - visibleStart;
     const viewSpanMinutes = visibleRange / (60 * 1000);
+    const viewSpanHours = viewSpanMinutes / 60;
     
-    // Adaptive interval: 5-min for <= 30 min view, 15-min for wider views
-    const useFineTicks = viewSpanMinutes <= 30;
-    const intervalMs = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000); // 5 or 15 minutes
+    // Adaptive interval based on view span:
+    // - <= 30 min: 5-minute ticks
+    // - <= 6 hours: 15-minute ticks
+    // - <= 24 hours: 1-hour ticks
+    // - > 24 hours: 2-hour ticks (with day labels at midnight)
+    let intervalMs: number;
+    if (viewSpanMinutes <= 30) {
+      intervalMs = 5 * 60 * 1000; // 5 minutes
+    } else if (viewSpanHours <= 6) {
+      intervalMs = 15 * 60 * 1000; // 15 minutes
+    } else if (viewSpanHours <= 24) {
+      intervalMs = 60 * 60 * 1000; // 1 hour
+    } else {
+      intervalMs = 2 * 60 * 60 * 1000; // 2 hours
+    }
+    
+    // Custom formatter that shows date at midnight crossings
+    const formatAxisLabel = (value: number): string => {
+      const date = new Date(value);
+      const hours = date.getHours();
+      const minutes = date.getMinutes();
+      
+      // At midnight (00:00), show the date
+      if (hours === 0 && minutes === 0) {
+        const day = date.getDate();
+        const month = date.getMonth() + 1;
+        return `${day}.${month}.\n00:00`;
+      }
+      
+      // Regular time format
+      const hh = hours.toString().padStart(2, '0');
+      const mm = minutes.toString().padStart(2, '0');
+      return `${hh}:${mm}`;
+    };
 
     return {
       backgroundColor: "transparent",
@@ -336,7 +368,7 @@ export function StickyTimelineHeader({
         interval: intervalMs,
         axisLabel: {
           show: true,
-          formatter: "{HH}:{mm}",
+          formatter: formatAxisLabel,
           fontSize: 11,
           fontFamily: "Poppins, sans-serif",
           color: isDark ? "#ffffff" : "#000000",
@@ -382,14 +414,47 @@ export function StickyTimelineHeader({
         const visibleEnd = currentEnd || endTime;
         const visibleRange = visibleEnd - visibleStart;
         const viewSpanMinutes = visibleRange / (60 * 1000);
-        const useFineTicks = viewSpanMinutes <= 30;
-        const intervalMs = useFineTicks ? (5 * 60 * 1000) : (15 * 60 * 1000);
+        const viewSpanHours = viewSpanMinutes / 60;
+        
+        // Adaptive interval based on view span
+        let intervalMs: number;
+        if (viewSpanMinutes <= 30) {
+          intervalMs = 5 * 60 * 1000; // 5 minutes
+        } else if (viewSpanHours <= 6) {
+          intervalMs = 15 * 60 * 1000; // 15 minutes
+        } else if (viewSpanHours <= 24) {
+          intervalMs = 60 * 60 * 1000; // 1 hour
+        } else {
+          intervalMs = 2 * 60 * 60 * 1000; // 2 hours
+        }
+        
+        // Custom formatter that shows date at midnight crossings
+        const formatAxisLabel = (value: number): string => {
+          const date = new Date(value);
+          const hours = date.getHours();
+          const minutes = date.getMinutes();
+          
+          // At midnight (00:00), show the date
+          if (hours === 0 && minutes === 0) {
+            const day = date.getDate();
+            const month = date.getMonth() + 1;
+            return `${day}.${month}.\n00:00`;
+          }
+          
+          // Regular time format
+          const hh = hours.toString().padStart(2, '0');
+          const mm = minutes.toString().padStart(2, '0');
+          return `${hh}:${mm}`;
+        };
         
         chart.setOption({
           xAxis: {
             min: visibleStart,
             max: visibleEnd,
             interval: intervalMs,
+            axisLabel: {
+              formatter: formatAxisLabel,
+            },
           },
         });
       } catch (e) {

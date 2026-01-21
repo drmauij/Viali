@@ -35,14 +35,18 @@ export function useTimelineData({
     // Medications from surgery should remain visible in PACU view
     const medsToUse = medicationsData;
     
+    // Extended future boundary: 1 year in milliseconds (365 days)
+    // This allows for long-stay patients (overnight, ward patients) while keeping a practical boundary
+    const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+    
     if (!dataToUse || dataToUse.length === 0) {
       const now = new Date().getTime();
       const sixHoursAgo = now - 6 * 60 * 60 * 1000;
-      const sixHoursFuture = now + 6 * 60 * 60 * 1000;
+      const oneYearFuture = now + ONE_YEAR_MS;
 
       return {
         startTime: sixHoursAgo,
-        endTime: sixHoursFuture,
+        endTime: oneYearFuture,
         vitals: {
           sysBP: [],
           diaBP: [],
@@ -137,7 +141,8 @@ export function useTimelineData({
     }
     
     // Active record: extend to future for real-time monitoring
-    const futureExtension = now + 6 * 60 * 60 * 1000;
+    // Extended to 1 year to support long-stay patients (overnight clinics, ward patients)
+    const futureExtension = now + ONE_YEAR_MS;
     const calculatedEndTime = maxTime + 60 * 60 * 1000;
     
     return {
