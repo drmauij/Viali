@@ -751,6 +751,156 @@ router.get("/api/billing/:hospitalId/terms-pdf/:acceptanceId", isAuthenticated, 
   }
 });
 
+// Regenerate PDF for existing acceptance that doesn't have one
+router.post("/api/billing/:hospitalId/regenerate-pdf/:acceptanceId", isAuthenticated, requireAdminRoleCheck, async (req: any, res) => {
+  try {
+    const { hospitalId, acceptanceId } = req.params;
+    const userId = req.user.id;
+
+    const userHospitals = await storage.getUserHospitals(userId);
+    if (!userHospitals.some((h) => h.id === hospitalId)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const [acceptance] = await db
+      .select()
+      .from(termsAcceptances)
+      .where(and(
+        eq(termsAcceptances.id, acceptanceId),
+        eq(termsAcceptances.hospitalId, hospitalId)
+      ))
+      .limit(1);
+
+    if (!acceptance) {
+      return res.status(404).json({ message: "Terms acceptance not found" });
+    }
+
+    if (acceptance.pdfUrl) {
+      return res.status(400).json({ message: "PDF already exists for this acceptance" });
+    }
+
+    const hospital = await storage.getHospital(hospitalId);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const documentType = acceptance.documentType || "terms";
+    const isGerman = true; // Default to German for existing records
+    const docLabel = DOCUMENT_LABELS[documentType as LegalDocumentType] || DOCUMENT_LABELS.terms;
+    const signedAt = acceptance.signedAt || new Date();
+
+    // Generate PDF
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    let y = 20;
+    
+    const checkNewPage = (neededSpace: number) => {
+      if (y + neededSpace > pageHeight - 20) {
+        pdf.addPage();
+        y = 20;
+      }
+    };
+    
+    // Title
+    pdf.setFontSize(18);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(`${isGerman ? docLabel.de : docLabel.en} - Viali.app`, pageWidth / 2, y, { align: "center" });
+    y += 15;
+    
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`Version: ${acceptance.version}`, pageWidth / 2, y, { align: "center" });
+    y += 15;
+
+    // Add document-specific content
+    const addSection = (title: string, items: string[]) => {
+      checkNewPage(10 + items.length * 6);
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(title, 15, y);
+      y += 7;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      items.forEach((item) => {
+        const lines = pdf.splitTextToSize(item, pageWidth - 30);
+        lines.forEach((line: string) => {
+          checkNewPage(6);
+          pdf.text(line, 15, y);
+          y += 5;
+        });
+      });
+      y += 5;
+    };
+
+    // Simple content for regenerated PDFs
+    addSection(isGerman ? "Dokument" : "Document", [
+      `${isGerman ? docLabel.de : docLabel.en}`,
+      `Version: ${acceptance.version}`,
+    ]);
+    
+    y += 10;
+
+    // Signature section
+    checkNewPage(70);
+    pdf.setFontSize(12);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(isGerman ? "Akzeptanz" : "Acceptance", 15, y);
+    y += 10;
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.text(`${isGerman ? "Klinik" : "Clinic"}: ${hospital.name}`, 15, y); y += 6;
+    pdf.text(`${isGerman ? "Unterzeichnet von" : "Signed by"}: ${acceptance.signedByName}`, 15, y); y += 6;
+    pdf.text(`E-Mail: ${acceptance.signedByEmail || "N/A"}`, 15, y); y += 6;
+    const signedDate = new Date(signedAt);
+    pdf.text(`${isGerman ? "Datum" : "Date"}: ${signedDate.toLocaleDateString(isGerman ? "de-DE" : "en-US")} ${signedDate.toLocaleTimeString(isGerman ? "de-DE" : "en-US")}`, 15, y); y += 10;
+    
+    // Add signature image if available
+    if (acceptance.signatureImage) {
+      try {
+        pdf.addImage(acceptance.signatureImage, "PNG", 15, y, 60, 25);
+        y += 30;
+      } catch (e) {
+        console.error("Failed to add signature image to PDF:", e);
+      }
+    }
+    
+    pdf.text("_________________________________", 15, y); y += 5;
+    pdf.text(isGerman ? "Unterschrift Klinikvertreter" : "Clinic Representative Signature", 15, y);
+
+    const pdfBuffer = Buffer.from(pdf.output("arraybuffer"));
+    const pdfBase64 = pdfBuffer.toString("base64");
+
+    // Upload to object storage
+    let pdfStorageKey: string | null = null;
+    try {
+      const pdfFilename = `${documentType}_${hospital.name.replace(/\s+/g, "_")}_${signedDate.toISOString().split("T")[0]}_${randomUUID()}.pdf`;
+      const s3Key = await objectStorageService.uploadObject(pdfFilename, pdfBuffer, "application/pdf", "/billing/terms");
+      pdfStorageKey = `/objects/${s3Key}`;
+      console.log(`Regenerated ${documentType} PDF uploaded to object storage:`, pdfStorageKey);
+    } catch (uploadError) {
+      console.error(`Failed to upload regenerated ${documentType} PDF to object storage:`, uploadError);
+      return res.status(500).json({ message: "Failed to upload PDF" });
+    }
+
+    // Update acceptance record with PDF URL
+    await db
+      .update(termsAcceptances)
+      .set({ pdfUrl: pdfStorageKey })
+      .where(eq(termsAcceptances.id, acceptanceId));
+
+    res.json({ success: true, pdfUrl: pdfStorageKey });
+  } catch (error) {
+    console.error("Error regenerating PDF:", error);
+    res.status(500).json({ message: "Failed to regenerate PDF" });
+  }
+});
+
 router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdminRoleCheck, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;

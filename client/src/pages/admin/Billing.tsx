@@ -728,18 +728,47 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                             </p>
                           )}
                         </div>
-                        {acceptance?.hasPdf && acceptance?.id && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              window.open(`/api/billing/${hospitalId}/terms-pdf/${acceptance.id}`, "_blank");
-                            }}
-                            data-testid={`button-download-${docType}-pdf`}
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            PDF
-                          </Button>
+                        {acceptance?.id && (
+                          acceptance?.hasPdf ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                window.open(`/api/billing/${hospitalId}/terms-pdf/${acceptance.id}`, "_blank");
+                              }}
+                              data-testid={`button-download-${docType}-pdf`}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              PDF
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const res = await apiRequest("POST", `/api/billing/${hospitalId}/regenerate-pdf/${acceptance.id}`);
+                                  if (res.ok) {
+                                    queryClient.invalidateQueries({ queryKey: ["/api/billing", hospitalId, "terms-status"] });
+                                    toast({
+                                      title: isGerman ? "PDF erstellt" : "PDF Generated",
+                                      description: isGerman ? "Sie können das Dokument jetzt herunterladen" : "You can now download the document",
+                                    });
+                                  }
+                                } catch (error) {
+                                  toast({
+                                    title: isGerman ? "Fehler" : "Error",
+                                    description: isGerman ? "PDF konnte nicht erstellt werden" : "Failed to generate PDF",
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                              data-testid={`button-generate-${docType}-pdf`}
+                            >
+                              <FileText className="h-4 w-4 mr-2" />
+                              {isGerman ? "PDF erstellen" : "Generate PDF"}
+                            </Button>
+                          )
                         )}
                       </div>
                       
