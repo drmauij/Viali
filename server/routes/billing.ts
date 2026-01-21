@@ -716,6 +716,183 @@ router.get("/api/billing/:hospitalId/terms-status", isAuthenticated, async (req:
   }
 });
 
+// Generate preview PDF for a document (unsigned, for sharing via WhatsApp etc.)
+router.get("/api/billing/preview-pdf/:documentType", async (req: any, res) => {
+  try {
+    const { documentType } = req.params;
+    const lang = (req.query.lang as string) || "de";
+    const isGerman = lang === "de";
+
+    if (!LEGAL_DOCUMENT_TYPES.includes(documentType as LegalDocumentType)) {
+      return res.status(400).json({ message: "Invalid document type" });
+    }
+
+    const docLabel = DOCUMENT_LABELS[documentType as LegalDocumentType];
+    const version = "1.0";
+
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    let y = 20;
+
+    const checkNewPage = (neededSpace: number) => {
+      if (y + neededSpace > pageHeight - 20) {
+        pdf.addPage();
+        y = 20;
+      }
+    };
+
+    // Title
+    pdf.setFontSize(18);
+    pdf.setFont("helvetica", "bold");
+    pdf.text(`${isGerman ? docLabel.de : docLabel.en} - Viali.app`, pageWidth / 2, y, { align: "center" });
+    y += 10;
+
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica", "normal");
+    pdf.text(`Version: ${version}`, pageWidth / 2, y, { align: "center" });
+    y += 5;
+    pdf.text(isGerman ? "VORSCHAU - NICHT UNTERSCHRIEBEN" : "PREVIEW - NOT SIGNED", pageWidth / 2, y, { align: "center" });
+    y += 15;
+
+    // Add document-specific content
+    const addSection = (title: string, items: string[]) => {
+      checkNewPage(10 + items.length * 6);
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(title, 15, y);
+      y += 7;
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(10);
+      items.forEach((item) => {
+        const lines = pdf.splitTextToSize(item, pageWidth - 30);
+        lines.forEach((line: string) => {
+          checkNewPage(6);
+          pdf.text(line, 15, y);
+          y += 5;
+        });
+      });
+      y += 5;
+    };
+
+    // Document-specific content based on type
+    if (documentType === "terms") {
+      addSection(isGerman ? "1. Geltungsbereich" : "1. Scope", [
+        isGerman ? "Diese Nutzungsbedingungen gelten für die Nutzung der Viali.app Plattform." : "These terms of use apply to the use of the Viali.app platform.",
+        isGerman ? "Mit der Nutzung der Plattform akzeptieren Sie diese Bedingungen." : "By using the platform, you accept these terms.",
+      ]);
+      addSection(isGerman ? "2. Leistungsbeschreibung" : "2. Service Description", [
+        isGerman ? "Viali.app ist eine webbasierte Anwendung für das Krankenhausmanagement." : "Viali.app is a web-based application for hospital management.",
+        isGerman ? "Die Plattform umfasst Module für Anästhesie-Dokumentation, Inventarverwaltung und Abrechnung." : "The platform includes modules for anesthesia documentation, inventory management, and billing.",
+      ]);
+      addSection(isGerman ? "3. Nutzungsrechte" : "3. Usage Rights", [
+        isGerman ? "Sie erhalten ein nicht-exklusives, nicht übertragbares Nutzungsrecht." : "You receive a non-exclusive, non-transferable right to use.",
+        isGerman ? "Die Nutzung ist auf Ihre Organisation beschränkt." : "Usage is limited to your organization.",
+      ]);
+      addSection(isGerman ? "4. Datenschutz" : "4. Data Protection", [
+        isGerman ? "Ihre Daten werden gemäß unserer Datenschutzrichtlinie verarbeitet." : "Your data is processed according to our privacy policy.",
+        isGerman ? "Wir setzen technische und organisatorische Maßnahmen zum Schutz Ihrer Daten ein." : "We implement technical and organizational measures to protect your data.",
+      ]);
+      addSection(isGerman ? "5. Haftung" : "5. Liability", [
+        isGerman ? "Die Haftung ist auf Vorsatz und grobe Fahrlässigkeit beschränkt." : "Liability is limited to intent and gross negligence.",
+        isGerman ? "Bei leichter Fahrlässigkeit haften wir nur bei Verletzung wesentlicher Vertragspflichten." : "In case of slight negligence, we are only liable for breach of essential contractual obligations.",
+      ]);
+    } else if (documentType === "agb") {
+      addSection(isGerman ? "1. Vertragsgegenstand" : "1. Subject of Contract", [
+        isGerman ? "Diese AGB regeln die Geschäftsbeziehung zwischen Ihnen und der Viali GmbH." : "These terms govern the business relationship between you and Viali GmbH.",
+        isGerman ? "Sie gelten für alle Verträge über die Nutzung von Viali.app." : "They apply to all contracts for the use of Viali.app.",
+      ]);
+      addSection(isGerman ? "2. Vertragsschluss" : "2. Contract Conclusion", [
+        isGerman ? "Der Vertrag kommt durch Ihre Registrierung und unsere Bestätigung zustande." : "The contract is concluded by your registration and our confirmation.",
+        isGerman ? "Mit der Registrierung bestätigen Sie, dass Sie befugt sind, für Ihre Organisation zu handeln." : "By registering, you confirm that you are authorized to act for your organization.",
+      ]);
+      addSection(isGerman ? "3. Preise und Zahlung" : "3. Prices and Payment", [
+        isGerman ? "Die aktuellen Preise finden Sie auf unserer Website." : "Current prices can be found on our website.",
+        isGerman ? "Die Zahlung erfolgt monatlich oder jährlich im Voraus." : "Payment is made monthly or annually in advance.",
+        isGerman ? "Alle Preise verstehen sich zzgl. der gesetzlichen Mehrwertsteuer." : "All prices are exclusive of statutory VAT.",
+      ]);
+      addSection(isGerman ? "4. Laufzeit und Kündigung" : "4. Term and Termination", [
+        isGerman ? "Der Vertrag wird auf unbestimmte Zeit geschlossen." : "The contract is concluded for an indefinite period.",
+        isGerman ? "Die Kündigungsfrist beträgt 30 Tage zum Monatsende." : "The notice period is 30 days to the end of the month.",
+      ]);
+      addSection(isGerman ? "5. Gewährleistung" : "5. Warranty", [
+        isGerman ? "Wir gewährleisten eine Verfügbarkeit von 99,5% im Jahresdurchschnitt." : "We guarantee an availability of 99.5% on an annual average.",
+        isGerman ? "Geplante Wartungsarbeiten werden rechtzeitig angekündigt." : "Planned maintenance work is announced in advance.",
+      ]);
+    } else if (documentType === "privacy") {
+      addSection(isGerman ? "1. Verantwortlicher" : "1. Controller", [
+        isGerman ? "Verantwortlich für die Datenverarbeitung ist die Viali GmbH." : "The controller for data processing is Viali GmbH.",
+        isGerman ? "Kontakt: privacy@viali.app" : "Contact: privacy@viali.app",
+      ]);
+      addSection(isGerman ? "2. Erhobene Daten" : "2. Collected Data", [
+        isGerman ? "Wir erheben Stammdaten (Name, E-Mail, Organisation)." : "We collect master data (name, email, organization).",
+        isGerman ? "Nutzungsdaten werden für die Bereitstellung des Dienstes verarbeitet." : "Usage data is processed for providing the service.",
+        isGerman ? "Patientendaten werden nur im Auftrag der Klinik verarbeitet." : "Patient data is only processed on behalf of the clinic.",
+      ]);
+      addSection(isGerman ? "3. Zweck der Verarbeitung" : "3. Purpose of Processing", [
+        isGerman ? "Bereitstellung und Verbesserung unserer Dienste." : "Provision and improvement of our services.",
+        isGerman ? "Vertragsabwicklung und Kundenbetreuung." : "Contract processing and customer support.",
+        isGerman ? "Erfüllung gesetzlicher Pflichten." : "Compliance with legal obligations.",
+      ]);
+      addSection(isGerman ? "4. Rechtsgrundlage" : "4. Legal Basis", [
+        isGerman ? "Vertragserfüllung (Art. 6 Abs. 1 lit. b DSGVO)." : "Contract performance (Art. 6(1)(b) GDPR).",
+        isGerman ? "Berechtigte Interessen (Art. 6 Abs. 1 lit. f DSGVO)." : "Legitimate interests (Art. 6(1)(f) GDPR).",
+        isGerman ? "Einwilligung, soweit erteilt (Art. 6 Abs. 1 lit. a DSGVO)." : "Consent, where given (Art. 6(1)(a) GDPR).",
+      ]);
+      addSection(isGerman ? "5. Ihre Rechte" : "5. Your Rights", [
+        isGerman ? "Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung." : "Access, rectification, erasure, restriction of processing.",
+        isGerman ? "Datenübertragbarkeit und Widerspruchsrecht." : "Data portability and right to object.",
+        isGerman ? "Beschwerderecht bei der Aufsichtsbehörde." : "Right to lodge a complaint with a supervisory authority.",
+      ]);
+    } else if (documentType === "avv") {
+      addSection(isGerman ? "1. Gegenstand und Dauer" : "1. Subject and Duration", [
+        isGerman ? "Dieser Auftragsverarbeitungsvertrag regelt die Verarbeitung personenbezogener Daten." : "This data processing agreement regulates the processing of personal data.",
+        isGerman ? "Er gilt für die Dauer des Hauptvertrages." : "It applies for the duration of the main contract.",
+      ]);
+      addSection(isGerman ? "2. Art und Zweck der Verarbeitung" : "2. Type and Purpose of Processing", [
+        isGerman ? "Erhebung, Speicherung und Nutzung von Patientendaten zur Anästhesie-Dokumentation." : "Collection, storage and use of patient data for anesthesia documentation.",
+        isGerman ? "Inventarverwaltung und Abrechnungsdaten." : "Inventory management and billing data.",
+      ]);
+      addSection(isGerman ? "3. Betroffene Personen" : "3. Data Subjects", [
+        isGerman ? "Patienten der Klinik." : "Patients of the clinic.",
+        isGerman ? "Mitarbeiter der Klinik." : "Employees of the clinic.",
+        isGerman ? "Ansprechpartner bei Lieferanten." : "Contact persons at suppliers.",
+      ]);
+      addSection(isGerman ? "4. Pflichten des Auftragsverarbeiters" : "4. Obligations of the Processor", [
+        isGerman ? "Verarbeitung nur nach dokumentierter Weisung." : "Processing only according to documented instructions.",
+        isGerman ? "Vertraulichkeitsverpflichtung aller Mitarbeiter." : "Confidentiality obligation of all employees.",
+        isGerman ? "Technische und organisatorische Maßnahmen gemäß Art. 32 DSGVO." : "Technical and organizational measures according to Art. 32 GDPR.",
+      ]);
+      addSection(isGerman ? "5. Unterauftragsverarbeiter" : "5. Sub-processors", [
+        isGerman ? "Einsatz von Unterauftragsverarbeitern nur mit vorheriger Genehmigung." : "Use of sub-processors only with prior approval.",
+        isGerman ? "Aktuelle Liste: Exoscale (Hosting), Neon (Datenbank)." : "Current list: Exoscale (hosting), Neon (database).",
+      ]);
+      addSection(isGerman ? "6. Löschung und Rückgabe" : "6. Deletion and Return", [
+        isGerman ? "Löschung oder Rückgabe aller Daten nach Vertragsende." : "Deletion or return of all data after contract end.",
+        isGerman ? "Nachweis der Löschung auf Anfrage." : "Proof of deletion upon request.",
+      ]);
+    }
+
+    // Footer
+    y += 10;
+    checkNewPage(30);
+    pdf.setFontSize(9);
+    pdf.setTextColor(100);
+    pdf.text(isGerman ? "Dieses Dokument dient nur zur Vorschau." : "This document is for preview purposes only.", pageWidth / 2, y, { align: "center" });
+    y += 5;
+    pdf.text(isGerman ? "Die vollständige rechtsverbindliche Version wird bei Vertragsabschluss bereitgestellt." : "The complete legally binding version will be provided upon contract signing.", pageWidth / 2, y, { align: "center" });
+
+    const pdfBuffer = Buffer.from(pdf.output("arraybuffer"));
+    
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${documentType}_preview_${isGerman ? "de" : "en"}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("Error generating preview PDF:", error);
+    res.status(500).json({ message: "Failed to generate preview PDF" });
+  }
+});
+
 // Download signed terms PDF
 router.get("/api/billing/:hospitalId/terms-pdf/:acceptanceId", isAuthenticated, async (req: any, res) => {
   try {

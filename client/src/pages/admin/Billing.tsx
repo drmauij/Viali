@@ -684,6 +684,32 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Preview PDF Downloads for WhatsApp sharing */}
+            <div className="bg-muted/50 rounded-lg p-4">
+              <p className="text-sm font-medium mb-3">
+                {isGerman ? "Vorschau-PDFs herunterladen (zum Weiterleiten)" : "Download Preview PDFs (for sharing)"}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {(["terms", "agb", "privacy", "avv"] as const).map((docType) => {
+                  const docLabel = DOCUMENT_LABELS[docType];
+                  return (
+                    <Button
+                      key={docType}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        window.open(`/api/billing/preview-pdf/${docType}?lang=${isGerman ? "de" : "en"}`, "_blank");
+                      }}
+                      data-testid={`button-preview-${docType}`}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      {isGerman ? docLabel.de.split(" ")[0] : docLabel.en.split(" ")[0]}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+            
             {!hasAcceptedTerms && (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
