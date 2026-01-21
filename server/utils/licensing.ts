@@ -1,6 +1,7 @@
 import { storage, db } from "../storage";
 import { items } from "@shared/schema";
 import { eq, sql } from "drizzle-orm";
+import { Response, NextFunction } from "express";
 
 // Limits removed - all plans now have unlimited access
 // Billing is usage-based (per anesthesia record) for "basic" plan
@@ -74,4 +75,51 @@ export async function checkBillingRequired(hospitalId: string): Promise<{
     hasPaymentMethod,
     licenseType,
   };
+}
+
+// Middleware to enforce billing for basic plan users
+// Blocks creating new anesthesia records if payment method is not set up
+export function requireBillingSetup(req: any, res: Response, next: NextFunction) {
+  const checkBilling = async () => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+
+      // Get the hospital from the request body (for record creation)
+      // or from the surgery being referenced
+      let hospitalId: string | null = null;
+      
+      if (req.body?.hospitalId) {
+        hospitalId = req.body.hospitalId;
+      } else if (req.body?.surgeryId) {
+        const surgery = await storage.getSurgery(req.body.surgeryId);
+        if (surgery) {
+          hospitalId = surgery.hospitalId;
+        }
+      }
+      
+      if (!hospitalId) {
+        return next();
+      }
+
+      const billingStatus = await checkBillingRequired(hospitalId);
+      
+      if (billingStatus.billingRequired) {
+        return res.status(402).json({ 
+          message: "Payment required",
+          code: "BILLING_REQUIRED",
+          details: "A payment method must be set up before creating new anesthesia records. Please go to Admin > Billing to add a payment method."
+        });
+      }
+      
+      next();
+    } catch (error) {
+      console.error("Error checking billing status:", error);
+      next();
+    }
+  };
+  
+  checkBilling();
 }

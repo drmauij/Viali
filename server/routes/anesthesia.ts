@@ -3,6 +3,7 @@ import type { Request, Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
 import { sendSurgeryNoteMentionEmail } from "../email";
+import { requireBillingSetup } from "../utils/licensing";
 import {
   insertHospitalAnesthesiaSettingsSchema,
   insertPatientSchema,
@@ -2292,7 +2293,7 @@ router.get('/api/anesthesia/records/:id', isAuthenticated, async (req: any, res)
   }
 });
 
-router.post('/api/anesthesia/records', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+router.post('/api/anesthesia/records', isAuthenticated, requireWriteAccess, requireBillingSetup, async (req: any, res) => {
   try {
     const userId = req.user.id;
 
