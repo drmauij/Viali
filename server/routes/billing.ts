@@ -316,7 +316,7 @@ router.post("/api/billing/:hospitalId/setup-intent", isAuthenticated, requireAdm
         .limit(1);
       
       if (!termsAcceptance) {
-        return res.status(400).json({ message: "Terms of use must be accepted before setting up payment" });
+        return res.status(400).json({ message: "Terms of Service must be accepted before setting up payment" });
       }
     }
 
@@ -383,7 +383,7 @@ router.post("/api/billing/:hospitalId/confirm-setup", isAuthenticated, requireAd
         .limit(1);
       
       if (!termsAcceptance) {
-        return res.status(400).json({ message: "Terms of use must be accepted before setting up payment" });
+        return res.status(400).json({ message: "Terms of Service must be accepted before setting up payment" });
       }
     }
 
@@ -636,16 +636,15 @@ router.get("/api/billing/:hospitalId/invoices", isAuthenticated, async (req: any
   }
 });
 
-// Terms of Use routes
+// Terms of Service routes
 const CURRENT_TERMS_VERSION = "1.0";
 
 // All legal document types that must be signed
-const LEGAL_DOCUMENT_TYPES = ["terms", "agb", "privacy", "avv"] as const;
+const LEGAL_DOCUMENT_TYPES = ["terms", "privacy", "avv"] as const;
 type LegalDocumentType = typeof LEGAL_DOCUMENT_TYPES[number];
 
 const DOCUMENT_LABELS: Record<LegalDocumentType, { de: string; en: string }> = {
-  terms: { de: "Nutzungsbedingungen", en: "Terms of Use" },
-  agb: { de: "Allgemeine Geschäftsbedingungen", en: "Terms of Service" },
+  terms: { de: "Nutzungsbedingungen", en: "Terms of Service" },
   privacy: { de: "Datenschutzerklärung", en: "Privacy Policy" },
   avv: { de: "Auftragsverarbeitungsvertrag", en: "Data Processing Agreement" },
 };
@@ -777,7 +776,7 @@ router.get("/api/billing/preview-pdf/:documentType", async (req: any, res) => {
 
     // Document-specific content based on type - EXACT match with React components
     if (documentType === "terms") {
-      // Terms of Use - matches TermsOfUseContent.tsx
+      // Terms of Service - matches TermsOfUseContent.tsx
       addSection(isGerman ? "1. Anbieter" : "1. Provider", [
         `Acutiq, ${isGerman ? "Inhaber" : "owned by"} Maurizio Betti`,
         "Bruder-Klaus-Str 18, 78467 Konstanz, Germany",
@@ -814,47 +813,6 @@ router.get("/api/billing/preview-pdf/:documentType", async (req: any, res) => {
       ]);
       addSection(isGerman ? "7. Gerichtsstand" : "7. Jurisdiction", [
         isGerman ? "Für alle Streitigkeiten sind die Gerichte in Konstanz, Deutschland zuständig." : "All disputes are handled by the courts in Konstanz, Germany.",
-      ]);
-    } else if (documentType === "agb") {
-      // AGB - matches AGBContent.tsx
-      addSection(isGerman ? "1. Geltungsbereich" : "1. Scope", [
-        isGerman ? "Diese Allgemeinen Geschäftsbedingungen (AGB) gelten für alle Verträge zwischen Acutiq (Inhaber: Maurizio Betti, Bruder-Klaus-Str 18, 78467 Konstanz, Deutschland) und dem Kunden über die Nutzung der Viali.app Plattform und damit verbundener Dienstleistungen." : "These Terms of Service apply to all contracts between Acutiq (Owner: Maurizio Betti, Bruder-Klaus-Str 18, 78467 Konstanz, Germany) and the customer for the use of the Viali.app platform and related services.",
-      ]);
-      addSection(isGerman ? "2. Leistungsbeschreibung" : "2. Service Description", [
-        isGerman ? "Bereitstellung der webbasierten Anästhesie-Dokumentationssoftware" : "Provision of web-based anesthesia documentation software",
-        isGerman ? "Cloud-Hosting auf Schweizer Servern (Exoscale)" : "Cloud hosting on Swiss servers (Exoscale)",
-        isGerman ? "Regelmäßige Backups und Wartung" : "Regular backups and maintenance",
-        isGerman ? "Technischer Support gemäß vereinbartem Serviceumfang" : "Technical support according to agreed service scope",
-        isGerman ? "Regelmäßige Software-Updates und Verbesserungen" : "Regular software updates and improvements",
-      ]);
-      addSection(isGerman ? "3. Preise und Zahlungsbedingungen" : "3. Pricing and Payment Terms", [
-        isGerman ? "Die aktuellen Preise werden im Abrechnungsbereich der Anwendung angezeigt" : "Current prices are displayed in the billing section of the application",
-        isGerman ? "Abrechnung erfolgt monatlich basierend auf der tatsächlichen Nutzung" : "Billing is monthly based on actual usage",
-        isGerman ? "Zahlung erfolgt per Kreditkarte über den integrierten Zahlungsanbieter Stripe" : "Payment is made by credit card via the integrated payment provider Stripe",
-        isGerman ? "Alle Preise verstehen sich netto; Mehrwertsteuer wird je nach Standort berechnet" : "All prices are net; VAT is calculated depending on location",
-        isGerman ? "Bei Zahlungsverzug behält sich der Anbieter das Recht vor, den Zugang zu sperren" : "In case of payment delay, the provider reserves the right to suspend access",
-      ]);
-      addSection(isGerman ? "4. Vertragslaufzeit und Kündigung" : "4. Contract Term and Termination", [
-        isGerman ? "Der Vertrag läuft auf unbestimmte Zeit" : "The contract runs for an indefinite period",
-        isGerman ? "Kündigung ist jederzeit zum Monatsende möglich" : "Termination is possible at any time at the end of the month",
-        isGerman ? "Bei Kündigung werden alle Daten nach 30 Tagen gelöscht, sofern nicht anders vereinbart" : "Upon termination, all data will be deleted after 30 days unless otherwise agreed",
-        isGerman ? "Datenexport ist vor Kündigung auf Anfrage möglich" : "Data export is possible upon request before termination",
-      ]);
-      addSection(isGerman ? "5. Haftungsbeschränkung" : "5. Limitation of Liability", [
-        isGerman ? "Der Anbieter haftet nicht für Datenverlust durch höhere Gewalt oder Verschulden Dritter" : "The provider is not liable for data loss due to force majeure or third-party fault",
-        isGerman ? "Die maximale Haftung ist auf die in den letzten 12 Monaten gezahlten Gebühren begrenzt" : "Maximum liability is limited to fees paid in the last 12 months",
-        isGerman ? "Der Anbieter übernimmt keine Haftung für fehlerhafte medizinische Entscheidungen basierend auf der Software" : "The provider assumes no liability for incorrect medical decisions based on the software",
-        isGerman ? "Indirekte Schäden und entgangener Gewinn sind von der Haftung ausgeschlossen" : "Indirect damages and lost profits are excluded from liability",
-      ]);
-      addSection(isGerman ? "6. Verfügbarkeit und Wartung" : "6. Availability and Maintenance", [
-        isGerman ? "Angestrebte Verfügbarkeit: 99,5% pro Monat" : "Targeted availability: 99.5% per month",
-        isGerman ? "Geplante Wartungsarbeiten werden mindestens 48 Stunden im Voraus angekündigt" : "Planned maintenance is announced at least 48 hours in advance",
-        isGerman ? "Wartungsarbeiten finden bevorzugt außerhalb der Hauptgeschäftszeiten statt" : "Maintenance preferably takes place outside main business hours",
-      ]);
-      addSection(isGerman ? "7. Schlussbestimmungen" : "7. Final Provisions", [
-        isGerman ? "Änderungen dieser AGB werden dem Kunden mit einer Frist von 4 Wochen mitgeteilt" : "Changes to these Terms of Service will be notified to the customer with 4 weeks notice",
-        isGerman ? "Gerichtsstand ist Konstanz, Deutschland" : "Place of jurisdiction is Konstanz, Germany",
-        isGerman ? "Es gilt deutsches Recht" : "German law applies",
       ]);
     } else if (documentType === "privacy") {
       // Privacy Policy - matches PrivacyPolicyContent.tsx
@@ -1135,48 +1093,6 @@ router.post("/api/billing/:hospitalId/regenerate-pdf/:acceptanceId", isAuthentic
       addSection(isGerman ? "7. Gerichtsstand" : "7. Jurisdiction", [
         isGerman ? "- Für alle Streitigkeiten sind die Gerichte in Konstanz, Deutschland zuständig" : "- All disputes are handled by the courts in Konstanz, Germany",
       ]);
-    } else if (documentType === "agb") {
-      addSection(isGerman ? "1. Geltungsbereich" : "1. Scope", [
-        isGerman 
-          ? "Diese Allgemeinen Geschäftsbedingungen (AGB) gelten für alle Verträge zwischen Acutiq (Inhaber: Maurizio Betti, Bruder-Klaus-Str 18, 78467 Konstanz, Deutschland) und dem Kunden über die Nutzung der Viali.app Plattform und damit verbundener Dienstleistungen."
-          : "These Terms of Service apply to all contracts between Acutiq (Owner: Maurizio Betti, Bruder-Klaus-Str 18, 78467 Konstanz, Germany) and the customer for the use of the Viali.app platform and related services.",
-      ]);
-      addSection(isGerman ? "2. Leistungsbeschreibung" : "2. Service Description", [
-        isGerman ? "- Bereitstellung der webbasierten Anästhesie-Dokumentationssoftware" : "- Provision of web-based anesthesia documentation software",
-        isGerman ? "- Cloud-Hosting auf Schweizer Servern (Exoscale)" : "- Cloud hosting on Swiss servers (Exoscale)",
-        isGerman ? "- Regelmäßige Backups und Wartung" : "- Regular backups and maintenance",
-        isGerman ? "- Technischer Support gemäß vereinbartem Serviceumfang" : "- Technical support according to agreed service scope",
-        isGerman ? "- Regelmäßige Software-Updates und Verbesserungen" : "- Regular software updates and improvements",
-      ]);
-      addSection(isGerman ? "3. Preise und Zahlungsbedingungen" : "3. Pricing and Payment Terms", [
-        isGerman ? "- Die aktuellen Preise werden im Abrechnungsbereich der Anwendung angezeigt" : "- Current prices are displayed in the billing section of the application",
-        isGerman ? "- Abrechnung erfolgt monatlich basierend auf der tatsächlichen Nutzung" : "- Billing is monthly based on actual usage",
-        isGerman ? "- Zahlung erfolgt per Kreditkarte über den integrierten Zahlungsanbieter Stripe" : "- Payment is made by credit card via the integrated payment provider Stripe",
-        isGerman ? "- Alle Preise verstehen sich netto; Mehrwertsteuer wird je nach Standort berechnet" : "- All prices are net; VAT is calculated depending on location",
-        isGerman ? "- Bei Zahlungsverzug behält sich der Anbieter das Recht vor, den Zugang zu sperren" : "- In case of payment delay, the provider reserves the right to suspend access",
-      ]);
-      addSection(isGerman ? "4. Vertragslaufzeit und Kündigung" : "4. Contract Term and Termination", [
-        isGerman ? "- Der Vertrag läuft auf unbestimmte Zeit" : "- The contract runs for an indefinite period",
-        isGerman ? "- Kündigung ist jederzeit zum Monatsende möglich" : "- Termination is possible at any time at the end of the month",
-        isGerman ? "- Bei Kündigung werden alle Daten nach 30 Tagen gelöscht, sofern nicht anders vereinbart" : "- Upon termination, all data will be deleted after 30 days unless otherwise agreed",
-        isGerman ? "- Datenexport ist vor Kündigung auf Anfrage möglich" : "- Data export is possible upon request before termination",
-      ]);
-      addSection(isGerman ? "5. Haftungsbeschränkung" : "5. Limitation of Liability", [
-        isGerman ? "- Der Anbieter haftet nicht für Datenverlust durch höhere Gewalt oder Verschulden Dritter" : "- The provider is not liable for data loss due to force majeure or third-party fault",
-        isGerman ? "- Die maximale Haftung ist auf die in den letzten 12 Monaten gezahlten Gebühren begrenzt" : "- Maximum liability is limited to fees paid in the last 12 months",
-        isGerman ? "- Der Anbieter übernimmt keine Haftung für fehlerhafte medizinische Entscheidungen basierend auf der Software" : "- The provider assumes no liability for incorrect medical decisions based on the software",
-        isGerman ? "- Indirekte Schäden und entgangener Gewinn sind von der Haftung ausgeschlossen" : "- Indirect damages and lost profits are excluded from liability",
-      ]);
-      addSection(isGerman ? "6. Verfügbarkeit und Wartung" : "6. Availability and Maintenance", [
-        isGerman ? "- Angestrebte Verfügbarkeit: 99,5% pro Monat" : "- Targeted availability: 99.5% per month",
-        isGerman ? "- Geplante Wartungsarbeiten werden mindestens 48 Stunden im Voraus angekündigt" : "- Planned maintenance is announced at least 48 hours in advance",
-        isGerman ? "- Wartungsarbeiten finden bevorzugt außerhalb der Hauptgeschäftszeiten statt" : "- Maintenance preferably takes place outside main business hours",
-      ]);
-      addSection(isGerman ? "7. Schlussbestimmungen" : "7. Final Provisions", [
-        isGerman ? "- Änderungen dieser AGB werden dem Kunden mit einer Frist von 4 Wochen mitgeteilt" : "- Changes to these Terms of Service will be notified to the customer with 4 weeks notice",
-        isGerman ? "- Gerichtsstand ist Konstanz, Deutschland" : "- Place of jurisdiction is Konstanz, Germany",
-        isGerman ? "- Es gilt deutsches Recht" : "- German law applies",
-      ]);
     } else if (documentType === "privacy") {
       addSection(isGerman ? "1. Verantwortlicher" : "1. Data Controller", [
         `Acutiq, ${isGerman ? "Inhaber" : "owned by"} Maurizio Betti`,
@@ -1432,7 +1348,7 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
     };
 
     if (documentType === "terms") {
-      // Terms of Use content
+      // Terms of Service content
       addSection(isGerman ? "1. Anbieter" : "1. Provider", [
         `Acutiq, ${isGerman ? "Inhaber" : "owned by"} Maurizio Betti`,
         "Bruder-Klaus-Str 18, 78467 Konstanz, Germany",
@@ -1469,49 +1385,6 @@ router.post("/api/billing/:hospitalId/accept-terms", isAuthenticated, requireAdm
       ]);
       addSection(isGerman ? "7. Gerichtsstand" : "7. Jurisdiction", [
         isGerman ? "- Für alle Streitigkeiten sind die Gerichte in Konstanz, Deutschland zuständig" : "- All disputes are handled by the courts in Konstanz, Germany",
-      ]);
-    } else if (documentType === "agb") {
-      // AGB (Terms of Service) content
-      addSection(isGerman ? "1. Geltungsbereich" : "1. Scope", [
-        isGerman 
-          ? "Diese Allgemeinen Geschäftsbedingungen (AGB) gelten für alle Verträge zwischen Acutiq (Inhaber: Maurizio Betti, Bruder-Klaus-Str 18, 78467 Konstanz, Deutschland) und dem Kunden über die Nutzung der Viali.app Plattform und damit verbundener Dienstleistungen."
-          : "These Terms of Service apply to all contracts between Acutiq (Owner: Maurizio Betti, Bruder-Klaus-Str 18, 78467 Konstanz, Germany) and the customer for the use of the Viali.app platform and related services.",
-      ]);
-      addSection(isGerman ? "2. Leistungsbeschreibung" : "2. Service Description", [
-        isGerman ? "- Bereitstellung der webbasierten Anästhesie-Dokumentationssoftware" : "- Provision of web-based anesthesia documentation software",
-        isGerman ? "- Cloud-Hosting auf Schweizer Servern (Exoscale)" : "- Cloud hosting on Swiss servers (Exoscale)",
-        isGerman ? "- Regelmäßige Backups und Wartung" : "- Regular backups and maintenance",
-        isGerman ? "- Technischer Support gemäß vereinbartem Serviceumfang" : "- Technical support according to agreed service scope",
-        isGerman ? "- Regelmäßige Software-Updates und Verbesserungen" : "- Regular software updates and improvements",
-      ]);
-      addSection(isGerman ? "3. Preise und Zahlungsbedingungen" : "3. Pricing and Payment Terms", [
-        isGerman ? "- Die aktuellen Preise werden im Abrechnungsbereich der Anwendung angezeigt" : "- Current prices are displayed in the billing section of the application",
-        isGerman ? "- Abrechnung erfolgt monatlich basierend auf der tatsächlichen Nutzung" : "- Billing is monthly based on actual usage",
-        isGerman ? "- Zahlung erfolgt per Kreditkarte über den integrierten Zahlungsanbieter Stripe" : "- Payment is made by credit card via the integrated payment provider Stripe",
-        isGerman ? "- Alle Preise verstehen sich netto; Mehrwertsteuer wird je nach Standort berechnet" : "- All prices are net; VAT is calculated depending on location",
-        isGerman ? "- Bei Zahlungsverzug behält sich der Anbieter das Recht vor, den Zugang zu sperren" : "- In case of payment delay, the provider reserves the right to suspend access",
-      ]);
-      addSection(isGerman ? "4. Vertragslaufzeit und Kündigung" : "4. Contract Term and Termination", [
-        isGerman ? "- Der Vertrag läuft auf unbestimmte Zeit" : "- The contract runs for an indefinite period",
-        isGerman ? "- Kündigung ist jederzeit zum Monatsende möglich" : "- Termination is possible at any time at the end of the month",
-        isGerman ? "- Bei Kündigung werden alle Daten nach 30 Tagen gelöscht, sofern nicht anders vereinbart" : "- Upon termination, all data will be deleted after 30 days unless otherwise agreed",
-        isGerman ? "- Datenexport ist vor Kündigung auf Anfrage möglich" : "- Data export is possible upon request before termination",
-      ]);
-      addSection(isGerman ? "5. Haftungsbeschränkung" : "5. Limitation of Liability", [
-        isGerman ? "- Der Anbieter haftet nicht für Datenverlust durch höhere Gewalt oder Verschulden Dritter" : "- The provider is not liable for data loss due to force majeure or third-party fault",
-        isGerman ? "- Die maximale Haftung ist auf die in den letzten 12 Monaten gezahlten Gebühren begrenzt" : "- Maximum liability is limited to fees paid in the last 12 months",
-        isGerman ? "- Der Anbieter übernimmt keine Haftung für fehlerhafte medizinische Entscheidungen basierend auf der Software" : "- The provider assumes no liability for incorrect medical decisions based on the software",
-        isGerman ? "- Indirekte Schäden und entgangener Gewinn sind von der Haftung ausgeschlossen" : "- Indirect damages and lost profits are excluded from liability",
-      ]);
-      addSection(isGerman ? "6. Verfügbarkeit und Wartung" : "6. Availability and Maintenance", [
-        isGerman ? "- Angestrebte Verfügbarkeit: 99,5% pro Monat" : "- Targeted availability: 99.5% per month",
-        isGerman ? "- Geplante Wartungsarbeiten werden mindestens 48 Stunden im Voraus angekündigt" : "- Planned maintenance is announced at least 48 hours in advance",
-        isGerman ? "- Wartungsarbeiten finden bevorzugt außerhalb der Hauptgeschäftszeiten statt" : "- Maintenance preferably takes place outside main business hours",
-      ]);
-      addSection(isGerman ? "7. Schlussbestimmungen" : "7. Final Provisions", [
-        isGerman ? "- Änderungen dieser AGB werden dem Kunden mit einer Frist von 4 Wochen mitgeteilt" : "- Changes to these Terms of Service will be notified to the customer with 4 weeks notice",
-        isGerman ? "- Gerichtsstand ist Konstanz, Deutschland" : "- Place of jurisdiction is Konstanz, Germany",
-        isGerman ? "- Es gilt deutsches Recht" : "- German law applies",
       ]);
     } else if (documentType === "privacy") {
       // Privacy Policy content

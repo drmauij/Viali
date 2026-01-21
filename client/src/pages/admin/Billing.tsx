@@ -20,7 +20,6 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import SignaturePad from "@/components/SignaturePad";
 import { TermsOfUseContent } from "@/components/TermsOfUseContent";
-import { AGBContent } from "@/components/AGBContent";
 import { PrivacyPolicyContent } from "@/components/PrivacyPolicyContent";
 import { AVVContent } from "@/components/AVVContent";
 import { 
@@ -121,7 +120,7 @@ interface DocumentStatus {
   acceptance: DocumentAcceptance | null;
 }
 
-type LegalDocumentType = "terms" | "agb" | "privacy" | "avv";
+type LegalDocumentType = "terms" | "privacy" | "avv";
 
 interface TermsStatus {
   hasAccepted: boolean;
@@ -225,7 +224,6 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
   const [signerName, setSignerName] = useState("");
   const [expandedDocuments, setExpandedDocuments] = useState<Record<LegalDocumentType, boolean>>({
     terms: false,
-    agb: false,
     privacy: false,
     avv: false,
   });
@@ -234,8 +232,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
   const isGerman = i18n.language === "de";
   
   const DOCUMENT_LABELS: Record<LegalDocumentType, { de: string; en: string }> = {
-    terms: { de: "Nutzungsbedingungen", en: "Terms of Use" },
-    agb: { de: "Allgemeine Geschäftsbedingungen (AGB)", en: "Terms of Service" },
+    terms: { de: "Nutzungsbedingungen", en: "Terms of Service" },
     privacy: { de: "Datenschutzerklärung", en: "Privacy Policy" },
     avv: { de: "Auftragsverarbeitungsvertrag (AVV)", en: "Data Processing Agreement" },
   };
@@ -690,7 +687,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                 {isGerman ? "Vorschau-PDFs herunterladen (zum Weiterleiten)" : "Download Preview PDFs (for sharing)"}
               </p>
               <div className="flex flex-wrap gap-2">
-                {(["terms", "agb", "privacy", "avv"] as const).map((docType) => {
+                {(["terms", "privacy", "avv"] as const).map((docType) => {
                   const docLabel = DOCUMENT_LABELS[docType];
                   return (
                     <Button
@@ -704,7 +701,6 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
                     >
                       <Download className="h-4 w-4 mr-2" />
                       {docType === "terms" ? (isGerman ? "Nutzung" : "Terms") : 
-                       docType === "agb" ? "AGB" : 
                        docType === "privacy" ? (isGerman ? "Datenschutz" : "Privacy") : 
                        (isGerman ? "AVV" : "Data")}
                     </Button>
@@ -724,7 +720,7 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               </Alert>
             )}
             
-            {(["terms", "agb", "privacy", "avv"] as const).map((docType) => {
+            {(["terms", "privacy", "avv"] as const).map((docType) => {
               const docStatus = termsStatus?.documents?.[docType];
               const docLabel = DOCUMENT_LABELS[docType];
               const isDocAccepted = docStatus?.hasAccepted ?? false;
@@ -734,7 +730,6 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
               const getDocumentContent = () => {
                 switch (docType) {
                   case "terms": return <TermsOfUseContent />;
-                  case "agb": return <AGBContent />;
                   case "privacy": return <PrivacyPolicyContent />;
                   case "avv": return <AVVContent />;
                 }
@@ -865,7 +860,6 @@ function BillingContent({ hospitalId }: { hospitalId: string }) {
           
           <div className="flex-1 overflow-y-auto space-y-4 pr-2">
             {activeDocumentType === "terms" && <TermsOfUseContent />}
-            {activeDocumentType === "agb" && <AGBContent />}
             {activeDocumentType === "privacy" && <PrivacyPolicyContent />}
             {activeDocumentType === "avv" && <AVVContent />}
             
