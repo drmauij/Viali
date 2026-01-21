@@ -508,12 +508,32 @@ export default function Op() {
 
         // If 404, create the record
         if (response.status === 404) {
-          await apiRequest("POST", "/api/anesthesia/records", {
-            surgeryId: surgeryId,
-          });
-          
-          // Invalidate to refetch the newly created record
-          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+          try {
+            await apiRequest("POST", "/api/anesthesia/records", {
+              surgeryId: surgeryId,
+            });
+            
+            // Invalidate to refetch the newly created record
+            queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+          } catch (createError: any) {
+            // Check for billing required error (402)
+            if (createError.message?.includes("Payment required") || createError.message?.includes("BILLING_REQUIRED")) {
+              // Keep hasAttemptedCreate true to prevent retry spam for billing errors
+              toast({
+                title: t('billing.paymentRequired', 'Payment Required'),
+                description: t('billing.setupPaymentMethodFirst', 'Please set up a payment method in Admin > Billing before creating new anesthesia records.'),
+                variant: "destructive",
+              });
+            } else {
+              // For other errors, allow retry
+              hasAttemptedCreate.current = false;
+              toast({
+                title: t('anesthesia.op.error'),
+                description: createError.message || t('anesthesia.op.errorCreatingRecord'),
+                variant: "destructive",
+              });
+            }
+          }
         } else if (!response.ok) {
           // Other errors (401, 403, 500, etc.) - reset flag and log
           hasAttemptedCreate.current = false;
@@ -521,9 +541,9 @@ export default function Op() {
         }
         // If 200, the record exists - keep flag to prevent re-checking
       } catch (error: any) {
-        // Network error or creation failed - reset flag to allow retry
+        // Network error - reset flag to allow retry
         hasAttemptedCreate.current = false;
-        console.error("Error checking/creating anesthesia record:", error);
+        console.error("Error checking anesthesia record:", error);
         toast({
           title: t('anesthesia.op.error'),
           description: error.message || t('anesthesia.op.errorCreatingRecord'),
