@@ -447,8 +447,24 @@ async function processNextPriceSyncJob() {
               })
               .where(eq(supplierCodes.id, code.id));
             
-            // Also update item description if we have a product name from Galexis
-            if (priceData.description) {
+            // Update item GTIN if we got one from Galexis
+            if (priceData.gtin) {
+              const existingItem = await db.select({ gtin: items.gtin, description: items.description }).from(items).where(eq(items.id, code.itemId)).limit(1);
+              if (existingItem.length > 0) {
+                const updates: any = { updatedAt: new Date() };
+                if (!existingItem[0].gtin && priceData.gtin) {
+                  updates.gtin = priceData.gtin;
+                  console.log(`[Worker] Updated item GTIN for ${code.itemId}: "${priceData.gtin}"`);
+                }
+                if (priceData.description && (!existingItem[0].description || existingItem[0].description !== priceData.description)) {
+                  updates.description = priceData.description;
+                  console.log(`[Worker] Updated item description for ${code.itemId}: "${priceData.description}"`);
+                }
+                if (Object.keys(updates).length > 1) { // More than just updatedAt
+                  await db.update(items).set(updates).where(eq(items.id, code.itemId));
+                }
+              }
+            } else if (priceData.description) {
               const existingItem = await db.select({ description: items.description }).from(items).where(eq(items.id, code.itemId)).limit(1);
               if (existingItem.length > 0 && (!existingItem[0].description || existingItem[0].description !== priceData.description)) {
                 await db.update(items).set({ description: priceData.description, updatedAt: new Date() }).where(eq(items.id, code.itemId));
@@ -474,12 +490,22 @@ async function processNextPriceSyncJob() {
               })
               .where(eq(supplierCodes.id, code.id));
             
-            // Also update item description if we have a product name from Galexis and item has no description
-            if (priceData.description) {
-              const existingItem = await db.select({ description: items.description }).from(items).where(eq(items.id, code.itemId)).limit(1);
-              if (existingItem.length > 0 && !existingItem[0].description) {
-                await db.update(items).set({ description: priceData.description, updatedAt: new Date() }).where(eq(items.id, code.itemId));
-                console.log(`[Worker] Updated item description for ${code.itemId}: "${priceData.description}"`);
+            // Update item GTIN and description if we got them from Galexis
+            if (priceData.gtin || priceData.description) {
+              const existingItem = await db.select({ gtin: items.gtin, description: items.description }).from(items).where(eq(items.id, code.itemId)).limit(1);
+              if (existingItem.length > 0) {
+                const updates: any = { updatedAt: new Date() };
+                if (!existingItem[0].gtin && priceData.gtin) {
+                  updates.gtin = priceData.gtin;
+                  console.log(`[Worker] Updated item GTIN for ${code.itemId}: "${priceData.gtin}"`);
+                }
+                if (!existingItem[0].description && priceData.description) {
+                  updates.description = priceData.description;
+                  console.log(`[Worker] Updated item description for ${code.itemId}: "${priceData.description}"`);
+                }
+                if (Object.keys(updates).length > 1) { // More than just updatedAt
+                  await db.update(items).set(updates).where(eq(items.id, code.itemId));
+                }
               }
             }
           }
@@ -507,61 +533,107 @@ async function processNextPriceSyncJob() {
           }
           
           if (priceData && matchedCode) {
-            // First, demote any other preferred suppliers for this item (especially zero-price ones)
-            // This ensures Galexis with valid price becomes preferred
-            const demotedCount = await db
-              .update(supplierCodes)
-              .set({
-                isPreferred: false,
-                updatedAt: new Date(),
-              })
+            // Check if a Galexis supplier code with this articleCode already exists for this item
+            const existingGalexisCode = await db
+              .select({ id: supplierCodes.id })
+              .from(supplierCodes)
               .where(and(
                 eq(supplierCodes.itemId, item.itemId),
-                eq(supplierCodes.isPreferred, true)
-              ));
+                eq(supplierCodes.supplierName, 'Galexis'),
+                eq(supplierCodes.articleCode, matchedCode)
+              ))
+              .limit(1);
             
-            if (demotedCount.rowCount && demotedCount.rowCount > 0) {
-              console.log(`[Worker] Demoted ${demotedCount.rowCount} existing preferred suppliers for item ${item.itemId} (Galexis price found: ${priceData.basispreis})`);
-            }
-            
-            // Create new Galexis supplier code
-            try {
-              const newId = randomUUID();
-              // Construct catalog URL using pharmacode (dispocura.galexis.com)
+            if (existingGalexisCode.length > 0) {
+              // Update existing code instead of creating duplicate
               const catalogUrl = matchedCode ? `https://dispocura.galexis.com/app#/articles/${matchedCode}` : undefined;
+              await db
+                .update(supplierCodes)
+                .set({
+                  basispreis: String(priceData.basispreis),
+                  publikumspreis: String(priceData.publikumspreis),
+                  lastPriceUpdate: new Date(),
+                  lastChecked: new Date(),
+                  isPreferred: true,
+                  matchStatus: 'confirmed',
+                  matchedProductName: priceData.description || undefined,
+                  catalogUrl: catalogUrl,
+                  updatedAt: new Date(),
+                })
+                .where(eq(supplierCodes.id, existingGalexisCode[0].id));
               
-              await db.insert(supplierCodes).values({
-                id: newId,
-                itemId: item.itemId,
-                supplierName: 'Galexis',
-                articleCode: matchedCode,
-                basispreis: String(priceData.basispreis),
-                publikumspreis: String(priceData.publikumspreis),
-                lastPriceUpdate: new Date(),
-                lastChecked: new Date(),
-                isPreferred: true,
-                matchStatus: 'confirmed',
-                matchedProductName: priceData.description || undefined,
-                catalogUrl: catalogUrl,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-              });
+              console.log(`[Worker] Updated existing Galexis code for item "${item.itemName}" (articleCode: ${matchedCode})`);
+              autoMatchedCount++;
+              itemsWithGalexisCode.add(item.itemId);
               
-              // Also update item description if we have a product name from Galexis
-              if (priceData.description) {
-                const existingItem = await db.select({ description: items.description }).from(items).where(eq(items.id, item.itemId)).limit(1);
-                if (existingItem.length > 0 && !existingItem[0].description) {
-                  await db.update(items).set({ description: priceData.description, updatedAt: new Date() }).where(eq(items.id, item.itemId));
-                  console.log(`[Worker] Updated item description for ${item.itemId}: "${priceData.description}"`);
-                }
+              // Update item GTIN if we got one from Galexis
+              if (priceData.gtin && priceData.gtin !== item.gtin) {
+                await db.update(items).set({ gtin: priceData.gtin, updatedAt: new Date() }).where(eq(items.id, item.itemId));
+                console.log(`[Worker] Updated item GTIN for ${item.itemId}: "${priceData.gtin}"`);
+              }
+            } else {
+              // First, demote any other preferred suppliers for this item (especially zero-price ones)
+              // This ensures Galexis with valid price becomes preferred
+              const demotedCount = await db
+                .update(supplierCodes)
+                .set({
+                  isPreferred: false,
+                  updatedAt: new Date(),
+                })
+                .where(and(
+                  eq(supplierCodes.itemId, item.itemId),
+                  eq(supplierCodes.isPreferred, true)
+                ));
+              
+              if (demotedCount.rowCount && demotedCount.rowCount > 0) {
+                console.log(`[Worker] Demoted ${demotedCount.rowCount} existing preferred suppliers for item ${item.itemId} (Galexis price found: ${priceData.basispreis})`);
               }
               
-              autoMatchedCount++;
-              autoCreatedCount++;
-              itemsWithGalexisCode.add(item.itemId);
-              console.log(`[Worker] Auto-matched item "${item.itemName}" by ${pharmacode ? 'pharmacode' : 'GTIN'} ${matchedCode}, price=${priceData.basispreis}`);
-            } catch (err: any) {
-              console.error(`[Worker] Failed to create supplier code for item ${item.itemId}:`, err.message);
+              // Create new Galexis supplier code
+              try {
+                const newId = randomUUID();
+                // Construct catalog URL using pharmacode (dispocura.galexis.com)
+                const catalogUrl = matchedCode ? `https://dispocura.galexis.com/app#/articles/${matchedCode}` : undefined;
+                
+                await db.insert(supplierCodes).values({
+                  id: newId,
+                  itemId: item.itemId,
+                  supplierName: 'Galexis',
+                  articleCode: matchedCode,
+                  basispreis: String(priceData.basispreis),
+                  publikumspreis: String(priceData.publikumspreis),
+                  lastPriceUpdate: new Date(),
+                  lastChecked: new Date(),
+                  isPreferred: true,
+                  matchStatus: 'confirmed',
+                  matchedProductName: priceData.description || undefined,
+                  catalogUrl: catalogUrl,
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                });
+                
+                // Update item GTIN if we got one from Galexis
+                if (priceData.gtin && priceData.gtin !== item.gtin) {
+                  await db.update(items).set({ gtin: priceData.gtin, updatedAt: new Date() }).where(eq(items.id, item.itemId));
+                  console.log(`[Worker] Updated item GTIN for ${item.itemId}: "${priceData.gtin}"`);
+                }
+                
+                // Also update item description if we have a product name from Galexis
+                if (priceData.description) {
+                  const existingItem = await db.select({ description: items.description }).from(items).where(eq(items.id, item.itemId)).limit(1);
+                  if (existingItem.length > 0 && !existingItem[0].description) {
+                    await db.update(items).set({ description: priceData.description, updatedAt: new Date() }).where(eq(items.id, item.itemId));
+                    console.log(`[Worker] Updated item description for ${item.itemId}: "${priceData.description}"`);
+                  }
+                }
+                
+                autoMatchedCount++;
+                autoCreatedCount++;
+                itemsWithGalexisCode.add(item.itemId);
+                console.log(`[Worker] Auto-matched item "${item.itemName}" by ${pharmacode ? 'pharmacode' : 'GTIN'} ${matchedCode}, price=${priceData.basispreis}`);
+              } catch (err: any) {
+                console.error(`[Worker] Failed to create supplier code for item ${item.itemId}:`, err.message);
+              }
             }
           } else {
             // Has codes but no match found in Galexis
