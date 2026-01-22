@@ -2093,6 +2093,28 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       const result: any = await response.json();
       
       if (result.found) {
+        // Handle GTIN: fill if empty, alert if different
+        const returnedGtin = result.gtin;
+        const currentGtin = itemCodes?.gtin;
+        
+        if (returnedGtin) {
+          if (!currentGtin) {
+            // Fill back GTIN if empty
+            setItemCodes(prev => ({ ...prev, gtin: returnedGtin }));
+            toast({
+              title: t('items.gtinAutoFilled', 'GTIN Auto-filled'),
+              description: `GTIN: ${returnedGtin}`,
+            });
+          } else if (currentGtin !== returnedGtin) {
+            // Alert if GTIN is different
+            toast({
+              title: t('items.gtinMismatch', 'GTIN Mismatch'),
+              description: t('items.gtinMismatchDesc', 'The returned GTIN ({{returned}}) differs from current ({{current}})', { returned: returnedGtin, current: currentGtin }),
+              variant: "destructive",
+            });
+          }
+        }
+        
         // Auto-add supplier with Galexis data
         const supplierData = {
           supplierName: result.supplierName || 'Galexis',
