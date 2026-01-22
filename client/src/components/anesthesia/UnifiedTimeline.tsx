@@ -3735,6 +3735,48 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
   }, [currentZoomStart, currentZoomEnd, currentTime, nowLinePosition, nowLineTransitionsEnabled]);
 
+  // Calculate midnight line positions for day boundary indicators
+  const midnightLinePositions = useMemo(() => {
+    // Don't calculate until zoom state is available
+    if (currentZoomStart === undefined || currentZoomStart === null || 
+        currentZoomEnd === undefined || currentZoomEnd === null) {
+      return [];
+    }
+    
+    const visibleStart = currentZoomStart;
+    const visibleEnd = currentZoomEnd;
+    const visibleRange = visibleEnd - visibleStart;
+    
+    if (visibleRange <= 0) return [];
+    
+    // Find all midnights within the visible range (with some buffer)
+    const positions: { position: string; label: string }[] = [];
+    
+    // Start from midnight of the day of visibleStart
+    const startDate = new Date(visibleStart);
+    startDate.setHours(0, 0, 0, 0);
+    
+    // Loop through each day
+    for (let d = startDate.getTime(); d <= visibleEnd + 24 * 60 * 60 * 1000; d += 24 * 60 * 60 * 1000) {
+      const midnightTime = d;
+      
+      // Check if this midnight is in the visible range
+      if (midnightTime >= visibleStart && midnightTime <= visibleEnd) {
+        const xFraction = (midnightTime - visibleStart) / visibleRange;
+        
+        if (xFraction >= 0 && xFraction <= 1) {
+          // Use same formula as NOW line: calc(200px + fraction * (100% - 210px))
+          const position = `calc(200px + ${xFraction} * (100% - 210px))`;
+          const date = new Date(midnightTime);
+          const label = `${date.getDate()}.${date.getMonth() + 1}.`;
+          positions.push({ position, label });
+        }
+      }
+    }
+    
+    return positions;
+  }, [currentZoomStart, currentZoomEnd]);
+
   // Note: All timeline values (ventilation modes, parameters, medication doses, events) are now
   // rendered as DOM overlays for reliable click handling and scrolling. No ECharts graphics needed.
 
@@ -3926,38 +3968,16 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     // ECharts automatically generates vertical grid lines via splitLine/minorSplitLine in x-axis config
     // No need for custom graphics anymore
     
-    // Generate midnight boundary lines for day separation (using markLine on first series)
-    const midnightMarkLines: any[] = [];
+    // Generate midnight timestamps for day separation
+    const midnightTimestamps: number[] = [];
     const startDate = new Date(safeStartTime);
     startDate.setHours(0, 0, 0, 0);
     if (startDate.getTime() < safeStartTime) {
       startDate.setDate(startDate.getDate() + 1);
     }
     // Generate midnight markers for up to 365 days
-    for (let d = startDate.getTime(); d <= safeEndTime && midnightMarkLines.length < 365; d += 24 * 60 * 60 * 1000) {
-      midnightMarkLines.push({
-        xAxis: d,
-        lineStyle: {
-          color: isDark ? '#3b82f6' : '#2563eb', // Blue to match date labels
-          width: 2,
-          type: 'dashed',
-        },
-        label: {
-          show: false,
-        },
-      });
-    }
-    
-    // Add midnight lines to the first series (HR) as markLine
-    if (series.length > 0 && midnightMarkLines.length > 0) {
-      series[0] = {
-        ...series[0],
-        markLine: {
-          silent: true,
-          symbol: 'none',
-          data: midnightMarkLines,
-        },
-      };
+    for (let d = startDate.getTime(); d <= safeEndTime && midnightTimestamps.length < 365; d += 24 * 60 * 60 * 1000) {
+      midnightTimestamps.push(d);
     }
 
     return {
@@ -7043,6 +7063,21 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           notMerge={false}
         />
       </div>
+
+      {/* Midnight boundary lines overlay */}
+      {midnightLinePositions.map((midnight, index) => (
+        <div
+          key={`midnight-line-${index}`}
+          className="absolute pointer-events-none z-15"
+          style={{
+            left: midnight.position,
+            top: '32px',
+            bottom: '0px',
+            width: '2px',
+            background: 'linear-gradient(to bottom, rgba(100, 116, 139, 0.5) 0%, rgba(100, 116, 139, 0.3) 50%, rgba(100, 116, 139, 0.1) 100%)',
+          }}
+        />
+      ))}
 
       {/* VitalsSwimlane Component - Interactive layer for vitals entry */}
       <VitalsSwimlane
