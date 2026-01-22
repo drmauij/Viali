@@ -112,9 +112,10 @@ export async function requireAdminRole(
     }
 
     const userHospitals = await storage.getUserHospitals(userId);
-    const hospital = userHospitals.find((h) => h.id === hospitalId);
+    // Check if ANY of the user's role entries for this hospital has admin access
+    const hasAdminAccess = userHospitals.some((h) => h.id === hospitalId && h.role === "admin");
 
-    if (!hospital || hospital.role !== "admin") {
+    if (!hasAdminAccess) {
       return res.status(403).json({ message: "Admin access required" });
     }
 
