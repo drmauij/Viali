@@ -70,6 +70,12 @@ interface InventoryUsageEntry {
   unit?: string | null;
 }
 
+interface InventoryItem {
+  id: string;
+  name: string;
+  unit?: string | null;
+}
+
 interface ExportData {
   patient: Patient;
   surgery: Surgery;
@@ -79,6 +85,7 @@ interface ExportData {
   events?: AnesthesiaEvent[];
   medications?: MedicationAdministration[];
   anesthesiaItems?: AnesthesiaItem[];
+  inventoryItems?: InventoryItem[];
   staffMembers?: StaffMember[];
   positions?: PositionEntry[];
   timeMarkers?: TimeMarker[];
@@ -1941,11 +1948,19 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
     doc.text(i18next.t("anesthesia.pdf.inventoryUsageDesc", "Berechneter Materialverbrauch basierend auf Medikamentenverabreichung"), 20, yPos);
     yPos += 6;
 
-    // Build map of item names from anesthesiaItems
+    // Build map of item names from anesthesiaItems and inventoryItems
     const itemNameMap = new Map<string, { name: string; unit: string | null }>();
     if (data.anesthesiaItems) {
       data.anesthesiaItems.forEach(item => {
         itemNameMap.set(item.id, { name: item.name, unit: item.administrationUnit || null });
+      });
+    }
+    // Also include regular inventory items for inventory usage lookup
+    if (data.inventoryItems) {
+      data.inventoryItems.forEach(item => {
+        if (!itemNameMap.has(item.id)) {
+          itemNameMap.set(item.id, { name: item.name, unit: item.unit || null });
+        }
       });
     }
 

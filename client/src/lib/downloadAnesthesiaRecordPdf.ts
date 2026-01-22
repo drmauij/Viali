@@ -47,6 +47,7 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       fetch(`/api/anesthesia/records/surgery/${surgery.id}`, { credentials: "include" }),
       fetch(`/api/anesthesia/preop/surgery/${surgery.id}`, { credentials: "include" }),
       fetch(`/api/anesthesia/items/${hospitalId}`, { credentials: "include" }),
+      fetch(`/api/items/${hospitalId}`, { credentials: "include" }), // Regular inventory items
     ];
     
     // Always fetch settings to ensure we have the correct checklist item keys
@@ -55,20 +56,21 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
     }
     
     const responses = await Promise.all(fetchPromises);
-    const [anesthesiaRecordRes, preOpRes, itemsRes] = responses;
-    const settingsRes = !providedSettings ? responses[3] : null;
+    const [anesthesiaRecordRes, preOpRes, anesthesiaItemsRes, inventoryItemsRes] = responses;
+    const settingsRes = !providedSettings ? responses[4] : null;
 
     // Check for critical failures
     if (!anesthesiaRecordRes.ok && anesthesiaRecordRes.status !== 404) {
       throw new Error("Failed to load anesthesia record");
     }
-    if (!itemsRes.ok) {
+    if (!anesthesiaItemsRes.ok) {
       throw new Error("Failed to load medication data");
     }
 
     const anesthesiaRecord = anesthesiaRecordRes.ok ? await anesthesiaRecordRes.json() : null;
     const preOpAssessment = preOpRes.ok ? await preOpRes.json() : null;
-    const anesthesiaItems = await itemsRes.json();
+    const anesthesiaItems = await anesthesiaItemsRes.json();
+    const inventoryItems = inventoryItemsRes.ok ? await inventoryItemsRes.json() : [];
     
     // Use provided settings or parse fetched settings
     const anesthesiaSettings: AnesthesiaSettingsForPdf | null = providedSettings || 
@@ -216,6 +218,7 @@ export async function downloadAnesthesiaRecordPdf(options: DownloadPdfOptions): 
       events,
       medications,
       anesthesiaItems,
+      inventoryItems,
       staffMembers,
       positions,
       timeMarkers: (anesthesiaRecord?.timeMarkers as any[]) || [],
