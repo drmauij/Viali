@@ -74,136 +74,153 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    // Run database migrations automatically on startup
+    // Check if migrations are needed before running them
+    const fs = await import('fs');
+    const metaPath = path.join(migrationsPath, 'meta', '_journal.json');
+    
+    let shouldRunMigrations = true;
+    
     try {
-      log(`Running database migrations from: ${migrationsPath}`);
-      await migrate(db, { migrationsFolder: migrationsPath });
-      log("✓ Database migrations completed successfully");
-    } catch (error: any) {
-      // Handle migration failures gracefully
-      if (error.message && error.message.includes('already exists')) {
-        log("⚠ Migration encountered existing schema - this may indicate:");
-        log("   1. Schema was applied via db:push in development");
-        log("   2. Previous deployment partially applied migrations");
+      // First check if __drizzle_migrations table exists
+      const tableCheck = await db.execute(sql`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = '__drizzle_migrations'
+        )
+      `);
+      
+      const migrationsTableExists = tableCheck.rows[0]?.exists;
+      
+      if (migrationsTableExists && fs.existsSync(metaPath)) {
+        const journal = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+        const allMigrations = journal.entries || [];
         
-        // Try to recover by manually marking migrations as applied
-        try {
-          // First check if __drizzle_migrations table exists
-          const tableCheck = await db.execute(sql`
-            SELECT EXISTS (
-              SELECT FROM information_schema.tables 
-              WHERE table_schema = 'public' 
-              AND table_name = '__drizzle_migrations'
-            )
-          `);
+        const result = await db.execute(sql`SELECT hash FROM __drizzle_migrations`);
+        const appliedTags = new Set(result.rows.map((r: any) => r.hash));
+        
+        const unappliedMigrations = allMigrations.filter(
+          (m: any) => !appliedTags.has(m.tag)
+        );
+        
+        if (unappliedMigrations.length === 0) {
+          log(`✓ Database up-to-date (${allMigrations.length} migrations applied)`);
+          shouldRunMigrations = false;
+        } else {
+          log(`Found ${unappliedMigrations.length} pending migrations`);
+        }
+      }
+    } catch (checkError: any) {
+      log(`Migration check failed, will run full migration: ${checkError.message}`);
+    }
+    
+    if (shouldRunMigrations) {
+      try {
+        log(`Running database migrations from: ${migrationsPath}`);
+        await migrate(db, { migrationsFolder: migrationsPath });
+        log("✓ Database migrations completed successfully");
+      } catch (error: any) {
+        // Handle migration failures gracefully
+        if (error.message && error.message.includes('already exists')) {
+          log("⚠ Migration encountered existing schema - recovering...");
           
-          const migrationsTableExists = tableCheck.rows[0]?.exists;
-          
-          if (!migrationsTableExists) {
-            // This is a fresh database with schema applied via db:push
-            // Create the migrations table and mark all migrations as applied
-            log("   Creating migration tracking table...");
-            
-            await db.execute(sql`
-              CREATE TABLE IF NOT EXISTS __drizzle_migrations (
-                id SERIAL PRIMARY KEY,
-                hash text NOT NULL UNIQUE,
-                created_at bigint
+          try {
+            // First check if __drizzle_migrations table exists
+            const tableCheck = await db.execute(sql`
+              SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = '__drizzle_migrations'
               )
             `);
             
-            const fs = await import('fs');
-            const metaPath = path.join(migrationsPath, 'meta', '_journal.json');
+            const migrationsTableExists = tableCheck.rows[0]?.exists;
             
-            if (fs.existsSync(metaPath)) {
-              const journal = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-              const allMigrations = journal.entries || [];
+            if (!migrationsTableExists) {
+              log("   Creating migration tracking table...");
               
-              log(`   Marking ${allMigrations.length} existing migrations as applied...`);
+              await db.execute(sql`
+                CREATE TABLE IF NOT EXISTS __drizzle_migrations (
+                  id SERIAL PRIMARY KEY,
+                  hash text NOT NULL UNIQUE,
+                  created_at bigint
+                )
+              `);
               
-              for (const migration of allMigrations) {
-                const timestamp = Date.now();
-                await db.execute(sql.raw(`
-                  INSERT INTO __drizzle_migrations (hash, created_at)
-                  VALUES ('${migration.hash}', ${timestamp})
-                  ON CONFLICT (hash) DO NOTHING
-                `));
-              }
-              
-              log("✓ Migration tracking initialized - future migrations will work correctly");
-            }
-          } else {
-            // Migrations table exists, check for missing entries and RUN idempotent ones
-            const fs = await import('fs');
-            const metaPath = path.join(migrationsPath, 'meta', '_journal.json');
-            
-            if (fs.existsSync(metaPath)) {
-              const journal = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
-              const allMigrations = journal.entries || [];
-              
-              const result = await db.execute(sql`SELECT hash FROM __drizzle_migrations`);
-              const appliedHashes = new Set(result.rows.map((r: any) => r.hash));
-              
-              const unappliedMigrations = allMigrations.filter(
-                (m: any) => !appliedHashes.has(m.hash)
-              );
-              
-              if (unappliedMigrations.length > 0) {
-                log(`   Found ${unappliedMigrations.length} unapplied migrations`);
+              if (fs.existsSync(metaPath)) {
+                const journal = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+                const allMigrations = journal.entries || [];
                 
-                // All migrations are now idempotent (use IF NOT EXISTS patterns)
-                // Safe to run any migration that hasn't been marked as applied
-                const FIRST_IDEMPOTENT_MIGRATION = 0;
+                log(`   Marking ${allMigrations.length} existing migrations as applied...`);
                 
-                for (const migration of unappliedMigrations) {
-                  const migrationFile = path.join(migrationsPath, `${migration.tag}.sql`);
-                  const migrationNumber = parseInt(migration.tag.split('_')[0], 10);
-                  
-                  if (migrationNumber >= FIRST_IDEMPOTENT_MIGRATION && fs.existsSync(migrationFile)) {
-                    const migrationSql = fs.readFileSync(migrationFile, 'utf-8');
-                    
-                    // Split by statement-breakpoint and run each statement
-                    const statements = migrationSql
-                      .split('--> statement-breakpoint')
-                      .map((s: string) => s.trim())
-                      .filter((s: string) => s.length > 0);
-                    
-                    log(`   Running migration: ${migration.tag} (${statements.length} statements)`);
-                    
-                    for (const statement of statements) {
-                      try {
-                        await db.execute(sql.raw(statement));
-                      } catch (stmtError: any) {
-                        // Ignore "already exists" errors for idempotent migrations
-                        if (!stmtError.message?.includes('already exists') && 
-                            !stmtError.message?.includes('duplicate key')) {
-                          log(`   ⚠ Statement warning in ${migration.tag}: ${stmtError.message}`);
-                        }
-                      }
-                    }
-                  }
-                  
-                  // Mark migration as applied
+                for (const migration of allMigrations) {
                   const timestamp = Date.now();
                   await db.execute(sql.raw(`
                     INSERT INTO __drizzle_migrations (hash, created_at)
-                    VALUES ('${migration.hash}', ${timestamp})
+                    VALUES ('${migration.tag}', ${timestamp})
                     ON CONFLICT (hash) DO NOTHING
                   `));
                 }
                 
-                log("✓ Migrations executed and synchronized");
+                log("✓ Migration tracking initialized");
+              }
+            } else {
+              // Migrations table exists, run unapplied idempotent migrations
+              if (fs.existsSync(metaPath)) {
+                const journal = JSON.parse(fs.readFileSync(metaPath, 'utf-8'));
+                const allMigrations = journal.entries || [];
+                
+                const result = await db.execute(sql`SELECT hash FROM __drizzle_migrations`);
+                const appliedTags = new Set(result.rows.map((r: any) => r.hash));
+                
+                const unappliedMigrations = allMigrations.filter(
+                  (m: any) => !appliedTags.has(m.tag)
+                );
+                
+                if (unappliedMigrations.length > 0) {
+                  for (const migration of unappliedMigrations) {
+                    const migrationFile = path.join(migrationsPath, `${migration.tag}.sql`);
+                    
+                    if (fs.existsSync(migrationFile)) {
+                      const migrationSql = fs.readFileSync(migrationFile, 'utf-8');
+                      const statements = migrationSql
+                        .split('--> statement-breakpoint')
+                        .map((s: string) => s.trim())
+                        .filter((s: string) => s.length > 0);
+                      
+                      log(`   Running: ${migration.tag}`);
+                      
+                      for (const statement of statements) {
+                        try {
+                          await db.execute(sql.raw(statement));
+                        } catch (stmtError: any) {
+                          if (!stmtError.message?.includes('already exists') && 
+                              !stmtError.message?.includes('duplicate key')) {
+                            log(`   ⚠ ${stmtError.message}`);
+                          }
+                        }
+                      }
+                    }
+                    
+                    const timestamp = Date.now();
+                    await db.execute(sql.raw(`
+                      INSERT INTO __drizzle_migrations (hash, created_at)
+                      VALUES ('${migration.tag}', ${timestamp})
+                      ON CONFLICT (hash) DO NOTHING
+                    `));
+                  }
+                  
+                  log("✓ Migrations synchronized");
+                }
               }
             }
+          } catch (recoveryError: any) {
+            log("⚠ Could not auto-recover migration state:", recoveryError.message);
           }
-        } catch (recoveryError: any) {
-          log("⚠ Could not auto-recover migration state:", recoveryError.message);
-          log("   Server will continue but new migrations may not apply");
+        } else {
+          log("✗ Migration failed with error:", error.message);
+          throw error;
         }
-      } else {
-        // This is a real migration error - fail hard
-        log("✗ Migration failed with error:", error.message);
-        throw error;
       }
     }
 
