@@ -170,8 +170,10 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [sortBy, setSortBy] = useState("name");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [saveAndCloseAdd, setSaveAndCloseAdd] = useState(true);
   const [directCameraOpen, setDirectCameraOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [openedFromMatches, setOpenedFromMatches] = useState(false);
   const [selectedItem, setSelectedItem] = useState<ItemWithStock | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<UnitType>("Pack");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -644,7 +646,9 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       if (!data) return;
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       resetForm();
-      setAddDialogOpen(false);
+      if (saveAndCloseAdd) {
+        setAddDialogOpen(false);
+      }
       toast({
         title: t('common.success'),
         description: t('items.itemCreatedSuccess'),
@@ -687,7 +691,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      setEditDialogOpen(false);
+      handleCloseEditDialog();
       toast({
         title: t('common.success'),
         description: t('items.itemUpdatedSuccess'),
@@ -702,6 +706,14 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     },
   });
 
+  const handleCloseEditDialog = () => {
+    setEditDialogOpen(false);
+    if (openedFromMatches) {
+      setOpenedFromMatches(false);
+      window.history.back();
+    }
+  };
+
   const deleteItemMutation = useMutation({
     mutationFn: async (itemId: string) => {
       const response = await apiRequest("DELETE", `/api/items/${itemId}`);
@@ -709,7 +721,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      setEditDialogOpen(false);
+      handleCloseEditDialog();
       toast({
         title: t('items.deleteItem'),
         description: t('items.itemDeletedSuccess'),
@@ -915,11 +927,15 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     const params = new URLSearchParams(window.location.search);
     const editItemId = params.get('editItem');
     const tab = params.get('tab');
+    const fromMatches = params.get('from') === 'matches';
     
     if (editItemId) {
       // Find the item
       const item = items.find(i => i.id === editItemId);
       if (item) {
+        // Track if we came from matches page
+        setOpenedFromMatches(fromMatches);
+        
         // Open edit dialog with the specified tab
         setSelectedItem(item);
         setEditFormData({
@@ -968,7 +984,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           setIsLoadingLots(false);
         });
         
-        // Clear URL params without reload
+        // Clear URL params without reload (but keep pathname)
         window.history.replaceState({}, '', window.location.pathname);
       }
     }
@@ -4644,8 +4660,22 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               <Button type="button" variant="outline" onClick={() => { setAddDialogOpen(false); resetForm(); }}>
                 {t('common.cancel')}
               </Button>
-              <Button type="submit" disabled={createItemMutation.isPending || isAnalyzing} data-testid="button-save-item">
-                {createItemMutation.isPending ? t('common.loading') : t('items.addItem')}
+              <Button 
+                type="submit" 
+                variant="secondary"
+                disabled={createItemMutation.isPending || isAnalyzing} 
+                data-testid="button-save-item"
+                onClick={() => setSaveAndCloseAdd(false)}
+              >
+                {createItemMutation.isPending && !saveAndCloseAdd ? t('common.loading') : t('common.save')}
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={createItemMutation.isPending || isAnalyzing} 
+                data-testid="button-save-close-item"
+                onClick={() => setSaveAndCloseAdd(true)}
+              >
+                {createItemMutation.isPending && saveAndCloseAdd ? t('common.loading') : t('items.saveAndClose', 'Save & Close')}
               </Button>
             </div>
             </>
@@ -4655,7 +4685,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       </Dialog>
 
       {/* Edit Item Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen} modal={!webcamCaptureOpen}>
+      <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) handleCloseEditDialog(); else setEditDialogOpen(true); }} modal={!webcamCaptureOpen}>
         <DialogContent 
           className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden"
           onInteractOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
@@ -5733,7 +5763,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 <div></div>
               )}
               <div className="flex gap-2">
-                <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => handleCloseEditDialog()}>
                   {canWrite ? t('common.cancel') : t('common.close')}
                 </Button>
                 {canWrite && (

@@ -92,7 +92,7 @@ export default function SupplierMatches() {
   
   // Navigate to Items page with item edit dialog opened to codes tab
   const openItemCodesEditor = (itemId: string) => {
-    navigate(`/inventory?editItem=${itemId}&tab=codes`);
+    navigate(`/inventory?editItem=${itemId}&tab=codes&from=matches`);
   };
   
   // Filter function for items
