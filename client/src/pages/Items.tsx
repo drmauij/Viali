@@ -4686,7 +4686,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           <div className="flex-shrink-0 bg-background z-10 px-6 pt-6 pb-4 border-b">
             <DialogHeader>
               <DialogTitle>{t('items.editItem')}</DialogTitle>
-              <DialogDescription>{t('items.updateItemDetails')}</DialogDescription>
+              <DialogDescription>{editFormData.name || t('items.updateItemDetails')}</DialogDescription>
             </DialogHeader>
             <Tabs value={editDialogTab} onValueChange={setEditDialogTab} className="w-full mt-4">
               <TabsList className="grid w-full grid-cols-4">
