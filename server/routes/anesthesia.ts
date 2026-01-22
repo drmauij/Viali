@@ -9701,7 +9701,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
 
     for (const item of setItems) {
       try {
-        const config = item.configuration as Record<string, any> || {};
+        const config = (item.config || {}) as Record<string, any>;
         
         switch (item.itemType) {
           case 'peripheral_iv':

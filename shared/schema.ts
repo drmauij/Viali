@@ -4488,7 +4488,7 @@ export const anesthesiaSetItems = pgTable("anesthesia_set_items", {
   
   // Type of item in the set
   itemType: varchar("item_type", { 
-    enum: ["installation", "airway", "technique"] 
+    enum: ["peripheral_iv", "arterial_line", "central_line", "bladder_catheter", "ett", "lma", "mask", "general", "sedation", "regional_spinal", "regional_epidural", "regional_peripheral"] 
   }).notNull(),
   
   // Configuration stored as JSONB - varies by itemType
