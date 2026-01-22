@@ -748,7 +748,7 @@ export default function SupplierMatches() {
           />
           
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0 space-y-6">
+          <div className="flex-1 overflow-y-auto px-6 pt-2 pb-4 min-h-0 space-y-6">
             {isLoadingCodes ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
