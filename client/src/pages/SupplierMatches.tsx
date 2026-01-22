@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -9,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -90,9 +92,74 @@ export default function SupplierMatches() {
   const [searchWithPrice, setSearchWithPrice] = useState("");
   const [searchNoPrice, setSearchNoPrice] = useState("");
   
-  // Navigate to Items page with item edit dialog opened to codes tab
-  const openItemCodesEditor = (itemId: string) => {
-    navigate(`/inventory?editItem=${itemId}&tab=codes&from=matches`);
+  // Edit Codes dialog state
+  const [editCodesOpen, setEditCodesOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<CategorizedItem | null>(null);
+  const [editingItemCodes, setEditingItemCodes] = useState<{ gtin?: string; pharmacode?: string } | null>(null);
+  const [editingSupplierCodes, setEditingSupplierCodes] = useState<SupplierCodeInfo[]>([]);
+  const [isLoadingCodes, setIsLoadingCodes] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Open Edit Codes dialog for an item
+  const openItemCodesEditor = async (itemId: string) => {
+    // Find the item from the categorized data
+    const allItems = [
+      ...(categorizedData?.unmatched || []),
+      ...(categorizedData?.toVerify || []),
+      ...(categorizedData?.confirmedWithPrice || []),
+      ...(categorizedData?.confirmedNoPrice || []),
+    ];
+    const item = allItems.find(i => i.id === itemId);
+    if (!item) return;
+    
+    setEditingItem(item);
+    setEditingItemCodes(item.itemCode ? { gtin: item.itemCode.gtin || "", pharmacode: item.itemCode.pharmacode || "" } : { gtin: "", pharmacode: "" });
+    setEditCodesOpen(true);
+    
+    // Load additional codes data
+    setIsLoadingCodes(true);
+    try {
+      const [codesRes, suppliersRes] = await Promise.all([
+        fetch(`/api/items/${itemId}/codes`, { credentials: "include" }),
+        fetch(`/api/items/${itemId}/suppliers`, { credentials: "include" }),
+      ]);
+      if (codesRes.ok) {
+        const codes = await codesRes.json();
+        if (codes) {
+          setEditingItemCodes({ gtin: codes.gtin || "", pharmacode: codes.pharmacode || "" });
+        }
+      }
+      if (suppliersRes.ok) {
+        const suppliers = await suppliersRes.json();
+        setEditingSupplierCodes(suppliers || []);
+      }
+    } catch (err) {
+      console.error('Failed to load codes:', err);
+    } finally {
+      setIsLoadingCodes(false);
+    }
+  };
+  
+  const handleSaveCodes = async () => {
+    if (!editingItem || !editingItemCodes) return;
+    
+    setIsSaving(true);
+    try {
+      await apiRequest("PATCH", `/api/items/${editingItem.id}/codes`, editingItemCodes);
+      toast({ title: t("common.success"), description: t("items.codesUpdated", "Codes updated successfully") });
+      refetch();
+    } catch (err: any) {
+      toast({ title: t("common.error"), description: err.message, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const handleCloseEditCodes = () => {
+    setEditCodesOpen(false);
+    setEditingItem(null);
+    setEditingItemCodes(null);
+    setEditingSupplierCodes([]);
   };
   
   // Filter function for items
@@ -542,6 +609,87 @@ export default function SupplierMatches() {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Edit Codes Dialog */}
+      <Dialog open={editCodesOpen} onOpenChange={(open) => { if (!open) handleCloseEditCodes(); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('items.editCodes', 'Edit Codes')}</DialogTitle>
+            <DialogDescription>
+              {editingItem?.name}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {/* Item Codes Section */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm">{t('items.itemCodes', 'Item Codes')}</h4>
+              {isLoadingCodes ? (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  {t('common.loading')}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div>
+                    <Label htmlFor="edit-gtin">GTIN/EAN</Label>
+                    <Input 
+                      id="edit-gtin" 
+                      value={editingItemCodes?.gtin || ""}
+                      onChange={(e) => setEditingItemCodes(prev => prev ? { ...prev, gtin: e.target.value } : { gtin: e.target.value })}
+                      placeholder="e.g. 7680123456789"
+                      data-testid="input-edit-gtin"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-pharmacode">Pharmacode</Label>
+                    <Input 
+                      id="edit-pharmacode" 
+                      value={editingItemCodes?.pharmacode || ""}
+                      onChange={(e) => setEditingItemCodes(prev => prev ? { ...prev, pharmacode: e.target.value } : { pharmacode: e.target.value })}
+                      placeholder="e.g. 1234567"
+                      data-testid="input-edit-pharmacode"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Supplier Codes Section */}
+            <div className="space-y-3">
+              <h4 className="font-medium text-sm">{t('items.supplierCodes', 'Supplier Codes')}</h4>
+              {editingSupplierCodes.length > 0 ? (
+                <div className="space-y-2">
+                  {editingSupplierCodes.map((sc, idx) => (
+                    <div key={idx} className="flex items-center gap-2 p-2 bg-muted rounded-lg text-sm">
+                      <span className="font-medium">{sc.supplierName}:</span>
+                      <span>{sc.articleCode}</span>
+                      {sc.basispreis && <Badge variant="secondary">{sc.basispreis}</Badge>}
+                      {sc.matchConfidence && (
+                        <Badge variant={sc.matchConfidence === 'verified' ? 'default' : 'outline'}>
+                          {sc.matchConfidence === 'verified' ? 'Verified' : `${Math.round(parseFloat(sc.matchConfidence) * 100)}%`}
+                        </Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">{t('items.noSupplierCodes', 'No supplier codes yet')}</p>
+              )}
+            </div>
+          </div>
+          
+          {/* Footer */}
+          <div className="flex gap-2 justify-end">
+            <Button type="button" variant="outline" onClick={handleCloseEditCodes}>
+              {t('common.close')}
+            </Button>
+            <Button onClick={handleSaveCodes} disabled={isSaving}>
+              {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('common.saving')}</> : t('common.save')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
