@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { 
   Check, X, ExternalLink, Package, Loader2, 
-  XCircle, DollarSign, AlertTriangle, CheckCircle2, Search, ChevronRight, AlertCircle
+  XCircle, DollarSign, AlertTriangle, CheckCircle2, Search, ChevronRight, AlertCircle, Trash2, Star, Edit, Plus
 } from "lucide-react";
 
 interface ItemCode {
@@ -104,6 +104,21 @@ export default function SupplierMatches() {
   const [codesImage, setCodesImage] = useState<string | null>(null);
   const [scanningCodeField, setScanningCodeField] = useState<'gtin' | 'pharmacode' | 'migel' | 'atc' | null>(null);
   
+  // Supplier management state
+  const [editingSupplierCode, setEditingSupplierCode] = useState<{
+    id: string;
+    supplierName: string;
+    articleCode: string;
+    catalogUrl: string;
+    basispreis: string;
+  } | null>(null);
+  const [newSupplierCode, setNewSupplierCode] = useState({
+    supplierName: "",
+    articleCode: "",
+    catalogUrl: "",
+    basispreis: ""
+  });
+  
   // File input refs for photo capture
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -176,6 +191,22 @@ export default function SupplierMatches() {
     setEditingItemCodes(null);
     setEditingSupplierCodes([]);
     setCodesImage(null);
+    setEditingSupplierCode(null);
+    setNewSupplierCode({ supplierName: "", articleCode: "", catalogUrl: "", basispreis: "" });
+  };
+  
+  // Refresh supplier codes for the current item
+  const refreshSupplierCodes = async () => {
+    if (!editingItem) return;
+    try {
+      const res = await fetch(`/api/items/${editingItem.id}/suppliers`, { credentials: "include" });
+      if (res.ok) {
+        const suppliers = await res.json();
+        setEditingSupplierCodes(suppliers || []);
+      }
+    } catch (err) {
+      console.error('Failed to refresh suppliers:', err);
+    }
   };
   
   // Handle image upload for AI Vision OCR analysis
@@ -688,13 +719,16 @@ export default function SupplierMatches() {
 
       {/* Edit Codes Dialog */}
       <Dialog open={editCodesOpen} onOpenChange={(open) => { if (!open) handleCloseEditCodes(); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('items.editCodes', 'Edit Codes')}</DialogTitle>
-            <DialogDescription>
-              {editingItem?.name}
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden">
+          {/* Fixed Header */}
+          <div className="flex-shrink-0 bg-background z-10 px-6 pt-6 pb-4 border-b">
+            <DialogHeader>
+              <DialogTitle>{t('items.editCodes', 'Edit Codes')}</DialogTitle>
+              <DialogDescription>
+                {editingItem?.name}
+              </DialogDescription>
+            </DialogHeader>
+          </div>
           
           {/* Hidden file inputs for photo capture */}
           <input
@@ -713,7 +747,8 @@ export default function SupplierMatches() {
             className="hidden"
           />
           
-          <div className="space-y-6 py-4">
+          {/* Scrollable Content */}
+          <div className="flex-1 overflow-y-auto px-6 py-4 min-h-0 space-y-6">
             {isLoadingCodes ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -860,43 +895,239 @@ export default function SupplierMatches() {
                   </div>
                 </div>
 
-                {/* Supplier Codes Section */}
+                {/* Supplier Pricing Section */}
                 <div className="space-y-4 pt-4 border-t">
-                  <div className="flex items-center gap-2">
-                    <i className="fas fa-truck text-primary"></i>
-                    <h3 className="font-semibold">{t('items.supplierPricing', 'Supplier Pricing')}</h3>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <i className="fas fa-truck text-primary"></i>
+                      <h3 className="font-semibold">{t('items.supplierPricing', 'Supplier Pricing')}</h3>
+                    </div>
                   </div>
-                  {editingSupplierCodes.length > 0 ? (
+                  
+                  {/* Existing Suppliers List */}
+                  {editingSupplierCodes.length > 0 && (
                     <div className="space-y-2">
-                      {editingSupplierCodes.map((sc, idx) => (
-                        <div key={idx} className="flex items-center gap-2 p-3 bg-muted rounded-lg text-sm">
-                          <span className="font-medium">{sc.supplierName}:</span>
-                          <span>{sc.articleCode}</span>
-                          {sc.basispreis && <Badge variant="secondary">CHF {sc.basispreis}</Badge>}
-                          {sc.matchConfidence && (
-                            <Badge variant={sc.matchConfidence === 'verified' ? 'default' : 'outline'}>
-                              {sc.matchConfidence === 'verified' ? 'Verified' : `${Math.round(parseFloat(sc.matchConfidence) * 100)}%`}
-                            </Badge>
+                      {editingSupplierCodes.map((supplier) => (
+                        <div 
+                          key={supplier.id}
+                          className="p-3 rounded-lg border border-border"
+                          data-testid={`supplier-${supplier.id}`}
+                        >
+                          {editingSupplierCode?.id === supplier.id ? (
+                            <div className="space-y-2">
+                              <div className="grid grid-cols-2 gap-2">
+                                <Input
+                                  placeholder="Supplier name *"
+                                  value={editingSupplierCode.supplierName}
+                                  onChange={(e) => setEditingSupplierCode(prev => prev ? { ...prev, supplierName: e.target.value } : null)}
+                                  data-testid="input-edit-supplier-name"
+                                />
+                                <Input
+                                  placeholder="Article code"
+                                  value={editingSupplierCode.articleCode}
+                                  onChange={(e) => setEditingSupplierCode(prev => prev ? { ...prev, articleCode: e.target.value } : null)}
+                                  data-testid="input-edit-supplier-article"
+                                />
+                                <Input
+                                  placeholder="Catalog URL"
+                                  value={editingSupplierCode.catalogUrl}
+                                  onChange={(e) => setEditingSupplierCode(prev => prev ? { ...prev, catalogUrl: e.target.value } : null)}
+                                  data-testid="input-edit-supplier-url"
+                                />
+                                <Input
+                                  placeholder="Price (CHF)"
+                                  type="number"
+                                  step="0.01"
+                                  value={editingSupplierCode.basispreis}
+                                  onChange={(e) => setEditingSupplierCode(prev => prev ? { ...prev, basispreis: e.target.value } : null)}
+                                  data-testid="input-edit-supplier-price"
+                                />
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setEditingSupplierCode(null)}
+                                  data-testid="button-cancel-edit-supplier"
+                                >
+                                  {t('common.cancel')}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  disabled={!editingSupplierCode.supplierName}
+                                  onClick={async () => {
+                                    if (!editingItem || !editingSupplierCode.supplierName) return;
+                                    try {
+                                      await apiRequest("PUT", `/api/items/${editingItem.id}/suppliers/${editingSupplierCode.id}`, {
+                                        supplierName: editingSupplierCode.supplierName,
+                                        articleCode: editingSupplierCode.articleCode || null,
+                                        catalogUrl: editingSupplierCode.catalogUrl || null,
+                                        basispreis: editingSupplierCode.basispreis || null,
+                                      });
+                                      await refreshSupplierCodes();
+                                      setEditingSupplierCode(null);
+                                      toast({ title: t('common.success'), description: "Supplier updated" });
+                                    } catch (error: any) {
+                                      toast({ title: t('common.error'), description: error.message, variant: "destructive" });
+                                    }
+                                  }}
+                                  data-testid="button-save-edit-supplier"
+                                >
+                                  {t('common.save')}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{supplier.supplierName}</span>
+                                  {supplier.matchConfidence && (
+                                    <Badge variant={supplier.matchConfidence === 'verified' ? 'default' : 'outline'} className="text-xs">
+                                      {supplier.matchConfidence === 'verified' ? 'Verified' : `${Math.round(parseFloat(supplier.matchConfidence) * 100)}%`}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="text-sm text-muted-foreground space-x-3">
+                                  {supplier.articleCode && <span>Art: {supplier.articleCode}</span>}
+                                  {supplier.basispreis && <span>CHF {supplier.basispreis}</span>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                {supplier.catalogUrl && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => window.open(supplier.catalogUrl!, '_blank')}
+                                    data-testid={`link-catalog-${supplier.id}`}
+                                  >
+                                    <ExternalLink className="w-4 h-4" />
+                                  </Button>
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setEditingSupplierCode({
+                                    id: supplier.id,
+                                    supplierName: supplier.supplierName,
+                                    articleCode: supplier.articleCode || '',
+                                    catalogUrl: supplier.catalogUrl || '',
+                                    basispreis: supplier.basispreis || '',
+                                  })}
+                                  data-testid={`button-edit-supplier-${supplier.id}`}
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={async () => {
+                                    if (!editingItem || !window.confirm('Delete this supplier?')) return;
+                                    try {
+                                      await apiRequest("DELETE", `/api/items/${editingItem.id}/suppliers/${supplier.id}`, {});
+                                      setEditingSupplierCodes(prev => prev.filter(s => s.id !== supplier.id));
+                                      toast({ title: t('common.success'), description: "Supplier removed" });
+                                    } catch (error: any) {
+                                      toast({ title: t('common.error'), description: error.message, variant: "destructive" });
+                                    }
+                                  }}
+                                  data-testid={`button-delete-supplier-${supplier.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </div>
+                            </div>
                           )}
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{t('items.noSupplierCodes', 'No supplier codes yet')}</p>
+                  )}
+                  
+                  {/* Add New Supplier Form */}
+                  <div className="p-3 bg-muted/50 rounded-lg space-y-3">
+                    <Label className="text-sm font-medium">{t('items.addSupplier', 'Add Supplier')}</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Supplier name *"
+                        value={newSupplierCode.supplierName}
+                        onChange={(e) => setNewSupplierCode(prev => ({ ...prev, supplierName: e.target.value }))}
+                        data-testid="input-new-supplier-name"
+                      />
+                      <Input
+                        placeholder="Article code"
+                        value={newSupplierCode.articleCode}
+                        onChange={(e) => setNewSupplierCode(prev => ({ ...prev, articleCode: e.target.value }))}
+                        data-testid="input-new-supplier-article"
+                      />
+                      <Input
+                        placeholder="Catalog URL"
+                        value={newSupplierCode.catalogUrl}
+                        onChange={(e) => setNewSupplierCode(prev => ({ ...prev, catalogUrl: e.target.value }))}
+                        data-testid="input-new-supplier-url"
+                      />
+                      <Input
+                        placeholder="Price per pack (CHF)"
+                        type="number"
+                        step="0.01"
+                        value={newSupplierCode.basispreis}
+                        onChange={(e) => setNewSupplierCode(prev => ({ ...prev, basispreis: e.target.value }))}
+                        data-testid="input-new-supplier-price"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full"
+                      disabled={!newSupplierCode.supplierName}
+                      onClick={async () => {
+                        if (!editingItem || !newSupplierCode.supplierName) return;
+                        try {
+                          const res = await apiRequest("POST", `/api/items/${editingItem.id}/suppliers`, {
+                            supplierName: newSupplierCode.supplierName,
+                            articleCode: newSupplierCode.articleCode || null,
+                            catalogUrl: newSupplierCode.catalogUrl || null,
+                            basispreis: newSupplierCode.basispreis || null,
+                            isPreferred: editingSupplierCodes.length === 0,
+                          });
+                          const created = await res.json();
+                          setEditingSupplierCodes(prev => [...prev, created]);
+                          setNewSupplierCode({ supplierName: "", articleCode: "", catalogUrl: "", basispreis: "" });
+                          toast({ title: t('common.success'), description: "Supplier added" });
+                        } catch (error: any) {
+                          toast({ title: t('common.error'), description: error.message, variant: "destructive" });
+                        }
+                      }}
+                      data-testid="button-add-supplier"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      {t('items.addSupplier', 'Add Supplier')}
+                    </Button>
+                  </div>
+                  
+                  {editingSupplierCodes.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-2">{t('items.noSupplierCodes', 'No supplier codes yet')}</p>
                   )}
                 </div>
               </>
             )}
           </div>
           
-          {/* Footer */}
-          <div className="flex gap-2 justify-end">
-            <Button type="button" variant="outline" onClick={handleCloseEditCodes}>
-              {t('common.close')}
-            </Button>
-            <Button onClick={handleSaveCodes} disabled={isSaving || isLoadingCodes || isAnalyzingPhoto}>
-              {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('common.saving')}</> : t('common.save')}
-            </Button>
+          {/* Fixed Footer */}
+          <div className="flex-shrink-0 bg-background z-10 px-6 py-4 border-t">
+            <div className="flex gap-2 justify-end">
+              <Button type="button" variant="outline" onClick={handleCloseEditCodes}>
+                {t('common.close')}
+              </Button>
+              <Button onClick={handleSaveCodes} disabled={isSaving || isLoadingCodes || isAnalyzingPhoto}>
+                {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('common.saving')}</> : t('common.save')}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
