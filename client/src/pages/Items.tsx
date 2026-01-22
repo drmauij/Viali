@@ -84,6 +84,43 @@ function parseCurrencyValue(value: string | number | null | undefined): string |
   return num.toFixed(2);
 }
 
+// Extract pack size from product name/description
+// Looks for patterns like: "10 Amp", "50 Stk", "100 Stück", "20 Stk.", "5 Ampullen", etc.
+function extractPackSizeFromName(name: string | undefined | null): number | null {
+  if (!name) return null;
+  
+  // Patterns to match pack size indicators (case insensitive)
+  // Format: number followed by unit indicator
+  const patterns = [
+    /(\d+)\s*(?:Amp(?:ullen?)?|Ampulle)\b/i,      // 10 Amp, 10 Ampullen, 10 Ampulle
+    /(\d+)\s*(?:Stk\.?|Stück|Stueck)\b/i,         // 50 Stk, 50 Stk., 50 Stück
+    /(\d+)\s*(?:St\.?)\b/i,                        // 20 St, 20 St.
+    /(\d+)\s*(?:Tabl?\.?|Tabletten?)\b/i,         // 30 Tab, 30 Tabl, 30 Tabletten
+    /(\d+)\s*(?:Kaps\.?|Kapseln?)\b/i,            // 20 Kaps, 20 Kapseln
+    /(\d+)\s*(?:Stk|Pcs?|Pce?s?)\.?\b/i,          // 10 Pcs, 10 Pc
+    /(\d+)\s*(?:Beutel|Btl\.?)\b/i,               // 10 Beutel, 10 Btl
+    /(\d+)\s*(?:Flasche[n]?|Fl\.?)\b/i,           // 5 Flaschen, 5 Fl
+    /(\d+)\s*(?:Tube[n]?)\b/i,                     // 3 Tuben
+    /(\d+)\s*(?:Dos(?:en)?|Dose)\b/i,             // 10 Dosen, 10 Dose
+    /(\d+)\s*(?:Supp\.?|Suppositorien?)\b/i,      // 10 Supp, 10 Suppositorien
+    /(\d+)\s*(?:Inj\.?|Injektionen?)\b/i,         // 5 Inj, 5 Injektionen
+    /(\d+)\s*(?:Einh\.?|Einheiten?)\b/i,          // 100 Einheiten
+    /(\d+)\s*(?:x)\s*\d+/i,                        // 10x5ml pattern - extract first number
+  ];
+  
+  for (const pattern of patterns) {
+    const match = name.match(pattern);
+    if (match && match[1]) {
+      const size = parseInt(match[1], 10);
+      if (size > 0 && size <= 10000) { // Sanity check
+        return size;
+      }
+    }
+  }
+  
+  return null;
+}
+
 // Draggable item wrapper
 function DraggableItem({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
   const { t } = useTranslation();
@@ -378,6 +415,14 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [isLookingUpGalexisEdit, setIsLookingUpGalexisEdit] = useState(false);
   const [galexisEditLookupMessage, setGalexisEditLookupMessage] = useState<string | null>(null);
   const galexisEditLookupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Pack size confirmation dialog state
+  const [packSizeConfirmDialog, setPackSizeConfirmDialog] = useState<{
+    open: boolean;
+    extractedSize: number;
+    currentSize: number;
+    mode: 'confirm_add' | 'choose_action';
+  } | null>(null);
 
   // Transfer items dialog state
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
@@ -2137,6 +2182,31 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           // Update manufacturer if found
           if (result.manufacturer) {
             setItemCodes(prev => ({ ...prev, manufacturer: result.manufacturer }));
+          }
+          
+          // Extract pack size from product name/description
+          const extractedPackSize = extractPackSizeFromName(result.name);
+          const currentPackSize = parseInt(editFormData.packSize) || 0;
+          
+          if (extractedPackSize && extractedPackSize > 0) {
+            if (currentPackSize === 0 || currentPackSize === 1) {
+              // Pack size is empty/default (1) - ask for confirmation to add
+              setPackSizeConfirmDialog({
+                open: true,
+                extractedSize: extractedPackSize,
+                currentSize: currentPackSize,
+                mode: 'confirm_add',
+              });
+            } else if (currentPackSize !== extractedPackSize) {
+              // Pack size is different - ask for action
+              setPackSizeConfirmDialog({
+                open: true,
+                extractedSize: extractedPackSize,
+                currentSize: currentPackSize,
+                mode: 'choose_action',
+              });
+            }
+            // If same, do nothing
           }
           
           setGalexisEditLookupMessage(null);
@@ -6470,6 +6540,85 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
             >
               {bulkDeleteMutation.isPending ? 'Deleting...' : 'Delete Items'}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pack Size Confirmation Dialog */}
+      <Dialog 
+        open={packSizeConfirmDialog?.open || false} 
+        onOpenChange={(open) => !open && setPackSizeConfirmDialog(null)}
+      >
+        <DialogContent data-testid="pack-size-confirm-dialog">
+          <DialogHeader>
+            <DialogTitle>
+              {packSizeConfirmDialog?.mode === 'confirm_add' 
+                ? t('items.packSizeDetected', 'Pack Size Detected')
+                : t('items.packSizeMismatch', 'Pack Size Mismatch')
+              }
+            </DialogTitle>
+            <DialogDescription>
+              {packSizeConfirmDialog?.mode === 'confirm_add' 
+                ? t('items.packSizeDetectedDesc', 'A pack size of {{size}} was found in the product name. Would you like to set this as the pack size?', { size: packSizeConfirmDialog?.extractedSize })
+                : t('items.packSizeMismatchDesc', 'The detected pack size ({{extracted}}) differs from the current value ({{current}}). Which value would you like to use?', { 
+                    extracted: packSizeConfirmDialog?.extractedSize, 
+                    current: packSizeConfirmDialog?.currentSize 
+                  })
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2 mt-4">
+            {packSizeConfirmDialog?.mode === 'confirm_add' ? (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setPackSizeConfirmDialog(null)}
+                  data-testid="pack-size-cancel"
+                >
+                  {t('common.cancel', 'Cancel')}
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (packSizeConfirmDialog) {
+                      setEditFormData(prev => ({ ...prev, packSize: String(packSizeConfirmDialog.extractedSize) }));
+                      toast({
+                        title: t('items.packSizeUpdated', 'Pack Size Updated'),
+                        description: `${t('items.packSize', 'Pack Size')}: ${packSizeConfirmDialog.extractedSize}`,
+                      });
+                    }
+                    setPackSizeConfirmDialog(null);
+                  }}
+                  data-testid="pack-size-confirm"
+                >
+                  {t('items.setPackSize', 'Set Pack Size')}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setPackSizeConfirmDialog(null)}
+                  data-testid="pack-size-keep-current"
+                >
+                  {t('items.keepCurrent', 'Keep Current')} ({packSizeConfirmDialog?.currentSize})
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (packSizeConfirmDialog) {
+                      setEditFormData(prev => ({ ...prev, packSize: String(packSizeConfirmDialog.extractedSize) }));
+                      toast({
+                        title: t('items.packSizeUpdated', 'Pack Size Updated'),
+                        description: `${t('items.packSize', 'Pack Size')}: ${packSizeConfirmDialog.extractedSize}`,
+                      });
+                    }
+                    setPackSizeConfirmDialog(null);
+                  }}
+                  data-testid="pack-size-use-extracted"
+                >
+                  {t('items.useExtracted', 'Use Extracted')} ({packSizeConfirmDialog?.extractedSize})
+                </Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
