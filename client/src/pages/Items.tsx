@@ -5009,60 +5009,22 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   </div>
                 ) : (
                   <>
-                    {/* Capture All Codes Photo Section */}
-                    {canWrite && (
-                      <div className="p-4 rounded-lg border-2 border-dashed border-primary/30 bg-primary/5">
-                        <div className="flex items-center gap-2 mb-2">
-                          <i className="fas fa-camera text-primary"></i>
-                          <Label className="font-semibold">{t('items.captureAllCodes')}</Label>
-                        </div>
-                        <p className="text-xs text-muted-foreground mb-3">{t('items.captureAllCodesDesc')}</p>
-                        <input
-                          type="file"
-                          ref={editCodesFileInputRef}
-                          accept="image/*"
-                          capture="environment"
-                          onChange={handleEditCodesImageUpload}
-                          className="hidden"
-                        />
-                        <input
-                          type="file"
-                          ref={editCodesGalleryInputRef}
-                          accept="image/*"
-                          onChange={handleEditCodesImageUpload}
-                          className="hidden"
-                        />
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleTakePhoto('editCodes')}
-                            disabled={isAnalyzingEditCodes}
-                            data-testid="button-edit-camera-codes"
-                          >
-                            <i className={`fas ${isAnalyzingEditCodes ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
-                            {isAnalyzingEditCodes ? t('items.analyzing') : t('controlled.takePhoto')}
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => editCodesGalleryInputRef.current?.click()}
-                            disabled={isAnalyzingEditCodes}
-                            data-testid="button-edit-gallery-codes"
-                          >
-                            <i className="fas fa-images mr-2"></i>
-                            {t('items.uploadFromGallery')}
-                          </Button>
-                        </div>
-                        {editCodesImage && (
-                          <div className="mt-2">
-                            <img src={editCodesImage} alt="Codes" className="h-12 w-12 object-cover rounded border" />
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    {/* Hidden file inputs for photo capture */}
+                    <input
+                      type="file"
+                      ref={editCodesFileInputRef}
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handleEditCodesImageUpload}
+                      className="hidden"
+                    />
+                    <input
+                      type="file"
+                      ref={editCodesGalleryInputRef}
+                      accept="image/*"
+                      onChange={handleEditCodesImageUpload}
+                      className="hidden"
+                    />
                     
                     {/* Universal Product Codes Section */}
                     <div className="space-y-4">
@@ -5072,18 +5034,38 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                           <h3 className="font-semibold">{t('items.universalCodes')}</h3>
                         </div>
                         {canWrite && (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCodesScanner(true)}
-                            data-testid="button-scan-codes"
-                          >
-                            <i className="fas fa-qrcode mr-2"></i>
-                            Scan
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleTakePhoto('editCodes')}
+                              disabled={isAnalyzingEditCodes}
+                              data-testid="button-edit-camera-codes"
+                            >
+                              <i className={`fas ${isAnalyzingEditCodes ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
+                              {isAnalyzingEditCodes ? t('items.analyzing') : t('controlled.takePhoto')}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => editCodesGalleryInputRef.current?.click()}
+                              disabled={isAnalyzingEditCodes}
+                              data-testid="button-edit-gallery-codes"
+                            >
+                              <i className="fas fa-images mr-2"></i>
+                              {t('items.uploadFromGallery')}
+                            </Button>
+                          </div>
                         )}
                       </div>
+                      {editCodesImage && (
+                        <div className="flex items-center gap-2">
+                          <img src={editCodesImage} alt="Codes" className="h-12 w-12 object-cover rounded border" />
+                          <span className="text-xs text-muted-foreground">{t('items.photoAnalyzed')}</span>
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <Label htmlFor="gtin">GTIN/EAN</Label>
@@ -5197,28 +5179,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                           />
                         </div>
                       </div>
-                      
-                      {canWrite && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="w-full"
-                          onClick={async () => {
-                            if (!selectedItem) return;
-                            try {
-                              await apiRequest("PUT", `/api/items/${selectedItem.id}/codes`, itemCodes || {});
-                              toast({ title: t('common.success'), description: "Product codes saved" });
-                            } catch (error: any) {
-                              toast({ title: t('common.error'), description: error.message, variant: "destructive" });
-                            }
-                          }}
-                          data-testid="button-save-codes"
-                        >
-                          <i className="fas fa-save mr-2"></i>
-                          {t('items.saveCodes')}
-                        </Button>
-                      )}
                     </div>
 
                     {/* Supplier Codes Section */}
