@@ -4699,7 +4699,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           </div>
           
           {/* Scrollable Content */}
-          <form onSubmit={handleUpdateItem} className="flex-1 overflow-y-auto px-6 pt-2 pb-4 min-h-0">
+          <form onSubmit={handleUpdateItem} className="flex-1 overflow-y-auto px-6 pt-2 pb-4 min-h-0 outline-none focus:outline-none">
             <Tabs value={editDialogTab} className="w-full">
               <TabsContent value="details" className="space-y-4 mt-0">
                 {!canWrite && (
