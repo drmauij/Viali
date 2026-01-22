@@ -1,0 +1,617 @@
+import { Router } from "express";
+import { storage } from "../../storage";
+import { isAuthenticated } from "../../auth/google";
+import { insertPatientSchema } from "@shared/schema";
+import { z } from "zod";
+import { requireWriteAccess } from "../../utils";
+
+const router = Router();
+
+router.get('/api/patients', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId, search } = req.query;
+    const userId = req.user.id;
+
+    if (!hospitalId) {
+      return res.status(400).json({ message: "hospitalId is required" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    const patients = await storage.getPatients(hospitalId as string, search as string | undefined);
+    
+    res.json(patients);
+  } catch (error) {
+    console.error("Error fetching patients:", error);
+    res.status(500).json({ message: "Failed to fetch patients" });
+  }
+});
+
+router.get('/api/patients/:id', isAuthenticated, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(id);
+    
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    res.json(patient);
+  } catch (error) {
+    console.error("Error fetching patient:", error);
+    res.status(500).json({ message: "Failed to fetch patient" });
+  }
+});
+
+router.post('/api/patients', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+
+    const validatedData = insertPatientSchema.parse(req.body);
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === validatedData.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    let patientNumber = validatedData.patientNumber;
+    if (!patientNumber) {
+      patientNumber = await storage.generatePatientNumber(validatedData.hospitalId);
+    }
+
+    const patient = await storage.createPatient({
+      ...validatedData,
+      patientNumber,
+      createdBy: userId,
+    });
+    
+    res.status(201).json(patient);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error creating patient:", error);
+    res.status(500).json({ message: "Failed to create patient" });
+  }
+});
+
+router.patch('/api/patients/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const existingPatient = await storage.getPatient(id);
+    
+    if (!existingPatient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === existingPatient.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const patient = await storage.updatePatient(id, req.body);
+    
+    res.json(patient);
+  } catch (error) {
+    console.error("Error updating patient:", error);
+    res.status(500).json({ message: "Failed to update patient" });
+  }
+});
+
+router.post('/api/patients/:id/archive', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const existingPatient = await storage.getPatient(id);
+    
+    if (!existingPatient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === existingPatient.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const patient = await storage.archivePatient(id, userId);
+    
+    res.json({ message: "Patient archived successfully", patient });
+  } catch (error) {
+    console.error("Error archiving patient:", error);
+    res.status(500).json({ message: "Failed to archive patient" });
+  }
+});
+
+router.post('/api/patients/:id/unarchive', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    const existingPatient = await storage.getPatient(id);
+    
+    if (!existingPatient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === existingPatient.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const patient = await storage.unarchivePatient(id);
+    
+    res.json({ message: "Patient restored successfully", patient });
+  } catch (error) {
+    console.error("Error restoring patient:", error);
+    res.status(500).json({ message: "Failed to restore patient" });
+  }
+});
+
+// ========== PATIENT DOCUMENT ROUTES (Staff uploads) ==========
+
+router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res) => {
+  const startTime = Date.now();
+  const { id } = req.params;
+  const userId = req.user?.id;
+  
+  console.log(`[Documents] Starting fetch for patient ${id}, user ${userId}`);
+  
+  try {
+    const patient = await storage.getPatient(id);
+    console.log(`[Documents] getPatient took ${Date.now() - startTime}ms`);
+    
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    console.log(`[Documents] getUserHospitals took ${Date.now() - startTime}ms total`);
+    
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const staffDocuments = await storage.getPatientDocuments(id);
+    console.log(`[Documents] getPatientDocuments returned ${staffDocuments.length} docs, took ${Date.now() - startTime}ms total`);
+
+    const questionnaireLinks = await storage.getQuestionnaireLinksForPatient(id);
+    console.log(`[Documents] getQuestionnaireLinks returned ${questionnaireLinks.length} links, took ${Date.now() - startTime}ms total`);
+    
+    const questionnaireDocuments: any[] = [];
+    
+    const submittedLinks = questionnaireLinks.filter(link => link.response && link.status === 'submitted');
+    
+    for (const link of submittedLinks) {
+      try {
+        const response = await storage.getQuestionnaireResponse(link.response!.id);
+        if (response) {
+          const uploads = await storage.getQuestionnaireUploads(response.id);
+          for (const upload of uploads) {
+            questionnaireDocuments.push({
+              id: `questionnaire-${upload.id}`,
+              hospitalId: patient.hospitalId,
+              patientId: id,
+              category: upload.category || 'other',
+              fileName: upload.fileName,
+              fileUrl: upload.fileUrl,
+              mimeType: upload.mimeType,
+              fileSize: upload.fileSize,
+              description: upload.description,
+              uploadedBy: null,
+              source: 'questionnaire',
+              reviewed: upload.reviewed || false,
+              questionnaireUploadId: upload.id,
+              createdAt: upload.createdAt,
+            });
+          }
+        }
+      } catch (linkError) {
+        console.error(`[Documents] Error processing questionnaire link ${link.id}:`, linkError);
+      }
+    }
+    
+    console.log(`[Documents] Processed ${submittedLinks.length} questionnaire links, found ${questionnaireDocuments.length} uploads, took ${Date.now() - startTime}ms total`);
+
+    const allDocuments = [...staffDocuments, ...questionnaireDocuments].sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+
+    console.log(`[Documents] Returning ${allDocuments.length} total documents, took ${Date.now() - startTime}ms total`);
+    res.json(allDocuments);
+  } catch (error: any) {
+    console.error(`[Documents] Error after ${Date.now() - startTime}ms:`, error);
+    console.error("[Documents] Patient ID:", id, "User ID:", userId);
+    res.status(500).json({ 
+      message: "Failed to fetch patient documents",
+      error: error?.message || String(error)
+    });
+  }
+});
+
+router.post('/api/patients/:id/documents/upload-url', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { filename, contentType } = req.body;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(id);
+    
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const endpoint = process.env.S3_ENDPOINT;
+    const accessKeyId = process.env.S3_ACCESS_KEY;
+    const secretAccessKey = process.env.S3_SECRET_KEY;
+    const bucket = process.env.S3_BUCKET;
+    const region = process.env.S3_REGION || "ch-dk-2";
+
+    if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
+      return res.status(500).json({ message: "Object storage not configured" });
+    }
+
+    const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+    const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+    const { randomUUID } = await import("crypto");
+
+    const s3Client = new S3Client({
+      endpoint,
+      region,
+      credentials: { accessKeyId, secretAccessKey },
+      forcePathStyle: true,
+    });
+
+    const objectId = randomUUID();
+    const extension = filename ? filename.split('.').pop() : '';
+    const objectName = extension ? `${objectId}.${extension}` : objectId;
+    const key = `patient-documents/${patient.hospitalId}/${id}/${objectName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: contentType || 'application/octet-stream',
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
+
+    res.json({
+      uploadUrl,
+      storageKey: `/objects/${key}`,
+      key,
+    });
+  } catch (error) {
+    console.error("Error generating upload URL:", error);
+    res.status(500).json({ message: "Failed to generate upload URL" });
+  }
+});
+
+router.post('/api/patients/:id/documents', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { category, fileName, fileUrl, mimeType, fileSize, description } = req.body;
+
+    const patient = await storage.getPatient(id);
+    
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const document = await storage.createPatientDocument({
+      hospitalId: patient.hospitalId,
+      patientId: id,
+      category: category || 'other',
+      fileName,
+      fileUrl,
+      mimeType,
+      fileSize,
+      description,
+      uploadedBy: userId,
+    });
+
+    res.status(201).json(document);
+  } catch (error: any) {
+    console.error("Error creating patient document:", error);
+    console.error("Document data:", { category, fileName, fileUrl, mimeType, fileSize, description });
+    res.status(500).json({ 
+      message: "Failed to create patient document",
+      error: error?.message || String(error)
+    });
+  }
+});
+
+router.patch('/api/patients/:id/documents/:docId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id, docId } = req.params;
+    const { description, reviewed } = req.body;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(id);
+    
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updateData: { description?: string; reviewed?: boolean } = {};
+    if (description !== undefined) updateData.description = description;
+    if (reviewed !== undefined) updateData.reviewed = reviewed;
+
+    if (docId.startsWith('questionnaire-')) {
+      const uploadId = docId.replace('questionnaire-', '');
+      const upload = await storage.getQuestionnaireUploadById(uploadId);
+      
+      if (!upload) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const response = await storage.getQuestionnaireResponse(upload.responseId);
+      if (!response) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      const link = await storage.getQuestionnaireLink(response.linkId);
+      if (!link || link.patientId !== id) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const updated = await storage.updateQuestionnaireUpload(uploadId, updateData);
+      res.json({
+        id: `questionnaire-${updated.id}`,
+        hospitalId: patient.hospitalId,
+        patientId: id,
+        category: updated.category || 'other',
+        fileName: updated.fileName,
+        fileUrl: updated.fileUrl,
+        mimeType: updated.mimeType,
+        fileSize: updated.fileSize,
+        description: updated.description,
+        uploadedBy: null,
+        source: 'questionnaire',
+        reviewed: updated.reviewed || false,
+        questionnaireUploadId: updated.id,
+        createdAt: updated.createdAt,
+      });
+      return;
+    }
+
+    const document = await storage.getPatientDocument(docId);
+    
+    if (!document || document.patientId !== id) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+
+    const updated = await storage.updatePatientDocument(docId, updateData);
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating patient document:", error);
+    res.status(500).json({ message: "Failed to update patient document" });
+  }
+});
+
+router.delete('/api/patients/:id/documents/:docId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id, docId } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(id);
+    
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const document = await storage.getPatientDocument(docId);
+    
+    if (!document || document.patientId !== id) {
+      return res.status(404).json({ message: "Document not found" });
+    }
+
+    try {
+      const endpoint = process.env.S3_ENDPOINT;
+      const accessKeyId = process.env.S3_ACCESS_KEY;
+      const secretAccessKey = process.env.S3_SECRET_KEY;
+      const bucket = process.env.S3_BUCKET;
+      const region = process.env.S3_REGION || "ch-dk-2";
+
+      if (endpoint && accessKeyId && secretAccessKey && bucket && document.fileUrl) {
+        const { S3Client, DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+        
+        const s3Client = new S3Client({
+          endpoint,
+          region,
+          credentials: { accessKeyId, secretAccessKey },
+          forcePathStyle: true,
+        });
+
+        let key = document.fileUrl;
+        if (key.startsWith("/objects/")) {
+          key = key.slice("/objects/".length);
+        }
+
+        await s3Client.send(new DeleteObjectCommand({
+          Bucket: bucket,
+          Key: key,
+        }));
+      }
+    } catch (s3Error) {
+      console.error("Error deleting file from S3:", s3Error);
+    }
+
+    await storage.deletePatientDocument(docId);
+
+    res.json({ message: "Document deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting patient document:", error);
+    res.status(500).json({ message: "Failed to delete patient document" });
+  }
+});
+
+router.get('/api/patients/:id/documents/:docId/file', isAuthenticated, async (req: any, res) => {
+  try {
+    const { id, docId } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(id);
+    
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    let fileUrl: string;
+    let mimeType: string | null = null;
+    let fileName: string;
+
+    if (docId.startsWith('questionnaire-')) {
+      const uploadId = docId.replace('questionnaire-', '');
+      const upload = await storage.getQuestionnaireUploadById(uploadId);
+      
+      if (!upload) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      const response = await storage.getQuestionnaireResponse(upload.responseId);
+      if (!response) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      const link = await storage.getQuestionnaireLink(response.linkId);
+      if (!link || link.patientId !== id) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      fileUrl = upload.fileUrl;
+      mimeType = upload.mimeType;
+      fileName = upload.fileName;
+    } else {
+      const document = await storage.getPatientDocument(docId);
+      
+      if (!document || document.patientId !== id) {
+        return res.status(404).json({ message: "Document not found" });
+      }
+      
+      fileUrl = document.fileUrl;
+      mimeType = document.mimeType || null;
+      fileName = document.fileName;
+    }
+
+    const endpoint = process.env.S3_ENDPOINT;
+    const accessKeyId = process.env.S3_ACCESS_KEY;
+    const secretAccessKey = process.env.S3_SECRET_KEY;
+    const bucket = process.env.S3_BUCKET;
+    const region = process.env.S3_REGION || "ch-dk-2";
+
+    if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
+      return res.status(500).json({ message: "Object storage not configured" });
+    }
+
+    const { S3Client, GetObjectCommand } = await import("@aws-sdk/client-s3");
+    const { Readable } = await import("stream");
+
+    const s3Client = new S3Client({
+      endpoint,
+      region,
+      credentials: { accessKeyId, secretAccessKey },
+      forcePathStyle: true,
+    });
+
+    let key = fileUrl;
+    if (key.startsWith("/objects/")) {
+      key = key.slice("/objects/".length);
+    }
+
+    const response = await s3Client.send(new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    }));
+
+    res.set({
+      "Content-Type": mimeType || "application/octet-stream",
+      "Content-Disposition": `inline; filename="${fileName}"`,
+      "Cache-Control": "private, max-age=3600",
+    });
+
+    if (response.ContentLength) {
+      res.set("Content-Length", response.ContentLength.toString());
+    }
+
+    if (response.Body instanceof Readable) {
+      response.Body.pipe(res);
+    } else if (response.Body) {
+      const webStream = response.Body as ReadableStream;
+      const nodeStream = Readable.fromWeb(webStream as any);
+      nodeStream.pipe(res);
+    } else {
+      res.status(500).json({ message: "Error streaming file" });
+    }
+  } catch (error: any) {
+    console.error("Error streaming patient document:", error);
+    if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+      res.status(404).json({ message: "File not found in storage" });
+    } else if (!res.headersSent) {
+      res.status(500).json({ message: "Failed to stream document" });
+    }
+  }
+});
+
+export default router;
