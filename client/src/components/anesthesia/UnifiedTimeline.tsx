@@ -3925,6 +3925,40 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // ECharts automatically generates vertical grid lines via splitLine/minorSplitLine in x-axis config
     // No need for custom graphics anymore
+    
+    // Generate midnight boundary lines for day separation (using markLine on first series)
+    const midnightMarkLines: any[] = [];
+    const startDate = new Date(safeStartTime);
+    startDate.setHours(0, 0, 0, 0);
+    if (startDate.getTime() < safeStartTime) {
+      startDate.setDate(startDate.getDate() + 1);
+    }
+    // Generate midnight markers for up to 365 days
+    for (let d = startDate.getTime(); d <= safeEndTime && midnightMarkLines.length < 365; d += 24 * 60 * 60 * 1000) {
+      midnightMarkLines.push({
+        xAxis: d,
+        lineStyle: {
+          color: isDark ? '#3b82f6' : '#2563eb', // Blue to match date labels
+          width: 2,
+          type: 'dashed',
+        },
+        label: {
+          show: false,
+        },
+      });
+    }
+    
+    // Add midnight lines to the first series (HR) as markLine
+    if (series.length > 0 && midnightMarkLines.length > 0) {
+      series[0] = {
+        ...series[0],
+        markLine: {
+          silent: true,
+          symbol: 'none',
+          data: midnightMarkLines,
+        },
+      };
+    }
 
     return {
       backgroundColor: "transparent",

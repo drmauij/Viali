@@ -337,11 +337,11 @@ export function StickyTimelineHeader({
       const hours = date.getHours();
       const minutes = date.getMinutes();
       
-      // At midnight (00:00), show just the date (bold style via rich text)
+      // At midnight (00:00), show just the date with prominent styling
       if (hours === 0 && minutes === 0) {
         const day = date.getDate();
         const month = date.getMonth() + 1;
-        return `{bold|${day}.${month}.}`;
+        return `{date|${day}.${month}.}`;
       }
       
       // Regular time format
@@ -379,6 +379,14 @@ export function StickyTimelineHeader({
               fontWeight: 700,
               fontSize: 12,
               color: isDark ? "#ffffff" : "#000000",
+            },
+            date: {
+              fontWeight: 800,
+              fontSize: 13,
+              color: isDark ? "#60a5fa" : "#2563eb", // Blue color to stand out
+              backgroundColor: isDark ? "rgba(37, 99, 235, 0.2)" : "rgba(37, 99, 235, 0.1)",
+              borderRadius: 3,
+              padding: [2, 4, 2, 4],
             },
           },
         },
@@ -441,11 +449,11 @@ export function StickyTimelineHeader({
           const hours = date.getHours();
           const minutes = date.getMinutes();
           
-          // At midnight (00:00), show just the date (bold style via rich text)
+          // At midnight (00:00), show just the date with prominent styling
           if (hours === 0 && minutes === 0) {
             const day = date.getDate();
             const month = date.getMonth() + 1;
-            return `{bold|${day}.${month}.}`;
+            return `{date|${day}.${month}.}`;
           }
           
           // Regular time format
@@ -465,6 +473,14 @@ export function StickyTimelineHeader({
                 bold: {
                   fontWeight: 700,
                   fontSize: 12,
+                },
+                date: {
+                  fontWeight: 800,
+                  fontSize: 13,
+                  color: isDark ? "#60a5fa" : "#2563eb",
+                  backgroundColor: isDark ? "rgba(37, 99, 235, 0.2)" : "rgba(37, 99, 235, 0.1)",
+                  borderRadius: 3,
+                  padding: [2, 4, 2, 4],
                 },
               },
             },
