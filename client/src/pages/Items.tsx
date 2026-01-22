@@ -2096,9 +2096,9 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         // Auto-add supplier with Galexis data
         const supplierData = {
           supplierName: result.supplierName || 'Galexis',
-          articleCode: result.pharmacode || pharmacode || '',
-          catalogUrl: result.catalogUrl || '',
-          basispreis: result.price ? String(result.price) : '',
+          articleCode: result.pharmacode || pharmacode || null,
+          catalogUrl: result.catalogUrl || null,
+          basispreis: result.price ? String(result.price) : null,
           isPreferred: supplierCodes.length === 0,
         };
         
