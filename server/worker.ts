@@ -447,24 +447,17 @@ async function processNextPriceSyncJob() {
               })
               .where(eq(supplierCodes.id, code.id));
             
-            // Update item GTIN if we got one from Galexis
+            // Update itemCodes GTIN if we got one from Galexis
             if (priceData.gtin) {
-              const existingItem = await db.select({ gtin: items.gtin, description: items.description }).from(items).where(eq(items.id, code.itemId)).limit(1);
-              if (existingItem.length > 0) {
-                const updates: any = { updatedAt: new Date() };
-                if (!existingItem[0].gtin && priceData.gtin) {
-                  updates.gtin = priceData.gtin;
-                  console.log(`[Worker] Updated item GTIN for ${code.itemId}: "${priceData.gtin}"`);
-                }
-                if (priceData.description && (!existingItem[0].description || existingItem[0].description !== priceData.description)) {
-                  updates.description = priceData.description;
-                  console.log(`[Worker] Updated item description for ${code.itemId}: "${priceData.description}"`);
-                }
-                if (Object.keys(updates).length > 1) { // More than just updatedAt
-                  await db.update(items).set(updates).where(eq(items.id, code.itemId));
-                }
+              const existingItemCode = await db.select({ gtin: itemCodes.gtin }).from(itemCodes).where(eq(itemCodes.itemId, code.itemId)).limit(1);
+              if (existingItemCode.length > 0 && !existingItemCode[0].gtin) {
+                await db.update(itemCodes).set({ gtin: priceData.gtin, updatedAt: new Date() }).where(eq(itemCodes.itemId, code.itemId));
+                console.log(`[Worker] Updated itemCode GTIN for ${code.itemId}: "${priceData.gtin}"`);
               }
-            } else if (priceData.description) {
+            }
+            
+            // Update item description if we got one from Galexis
+            if (priceData.description) {
               const existingItem = await db.select({ description: items.description }).from(items).where(eq(items.id, code.itemId)).limit(1);
               if (existingItem.length > 0 && (!existingItem[0].description || existingItem[0].description !== priceData.description)) {
                 await db.update(items).set({ description: priceData.description, updatedAt: new Date() }).where(eq(items.id, code.itemId));
@@ -490,22 +483,21 @@ async function processNextPriceSyncJob() {
               })
               .where(eq(supplierCodes.id, code.id));
             
-            // Update item GTIN and description if we got them from Galexis
-            if (priceData.gtin || priceData.description) {
-              const existingItem = await db.select({ gtin: items.gtin, description: items.description }).from(items).where(eq(items.id, code.itemId)).limit(1);
-              if (existingItem.length > 0) {
-                const updates: any = { updatedAt: new Date() };
-                if (!existingItem[0].gtin && priceData.gtin) {
-                  updates.gtin = priceData.gtin;
-                  console.log(`[Worker] Updated item GTIN for ${code.itemId}: "${priceData.gtin}"`);
-                }
-                if (!existingItem[0].description && priceData.description) {
-                  updates.description = priceData.description;
-                  console.log(`[Worker] Updated item description for ${code.itemId}: "${priceData.description}"`);
-                }
-                if (Object.keys(updates).length > 1) { // More than just updatedAt
-                  await db.update(items).set(updates).where(eq(items.id, code.itemId));
-                }
+            // Update itemCodes GTIN if we got one from Galexis
+            if (priceData.gtin) {
+              const existingItemCode = await db.select({ gtin: itemCodes.gtin }).from(itemCodes).where(eq(itemCodes.itemId, code.itemId)).limit(1);
+              if (existingItemCode.length > 0 && !existingItemCode[0].gtin) {
+                await db.update(itemCodes).set({ gtin: priceData.gtin, updatedAt: new Date() }).where(eq(itemCodes.itemId, code.itemId));
+                console.log(`[Worker] Updated itemCode GTIN for ${code.itemId}: "${priceData.gtin}"`);
+              }
+            }
+            
+            // Update item description if we got one from Galexis
+            if (priceData.description) {
+              const existingItem = await db.select({ description: items.description }).from(items).where(eq(items.id, code.itemId)).limit(1);
+              if (existingItem.length > 0 && !existingItem[0].description) {
+                await db.update(items).set({ description: priceData.description, updatedAt: new Date() }).where(eq(items.id, code.itemId));
+                console.log(`[Worker] Updated item description for ${code.itemId}: "${priceData.description}"`);
               }
             }
           }
@@ -566,10 +558,10 @@ async function processNextPriceSyncJob() {
               autoMatchedCount++;
               itemsWithGalexisCode.add(item.itemId);
               
-              // Update item GTIN if we got one from Galexis
+              // Update itemCodes GTIN if we got one from Galexis (item.gtin comes from itemCodes table)
               if (priceData.gtin && priceData.gtin !== item.gtin) {
-                await db.update(items).set({ gtin: priceData.gtin, updatedAt: new Date() }).where(eq(items.id, item.itemId));
-                console.log(`[Worker] Updated item GTIN for ${item.itemId}: "${priceData.gtin}"`);
+                await db.update(itemCodes).set({ gtin: priceData.gtin, updatedAt: new Date() }).where(eq(itemCodes.itemId, item.itemId));
+                console.log(`[Worker] Updated itemCode GTIN for ${item.itemId}: "${priceData.gtin}"`);
               }
             } else {
               // First, demote any other preferred suppliers for this item (especially zero-price ones)
@@ -612,10 +604,10 @@ async function processNextPriceSyncJob() {
                   updatedAt: new Date(),
                 });
                 
-                // Update item GTIN if we got one from Galexis
+                // Update itemCodes GTIN if we got one from Galexis (item.gtin comes from itemCodes table)
                 if (priceData.gtin && priceData.gtin !== item.gtin) {
-                  await db.update(items).set({ gtin: priceData.gtin, updatedAt: new Date() }).where(eq(items.id, item.itemId));
-                  console.log(`[Worker] Updated item GTIN for ${item.itemId}: "${priceData.gtin}"`);
+                  await db.update(itemCodes).set({ gtin: priceData.gtin, updatedAt: new Date() }).where(eq(itemCodes.itemId, item.itemId));
+                  console.log(`[Worker] Updated itemCode GTIN for ${item.itemId}: "${priceData.gtin}"`);
                 }
                 
                 // Also update item description if we have a product name from Galexis
