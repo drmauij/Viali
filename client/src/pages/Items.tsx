@@ -174,6 +174,12 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [directCameraOpen, setDirectCameraOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [openedFromMatches, setOpenedFromMatches] = useState(false);
+  
+  // Check URL params immediately for dialog-only mode (from matches page)
+  const urlParams = new URLSearchParams(window.location.search);
+  const dialogOnlyMode = urlParams.get('from') === 'matches';
+  const dialogOnlyItemId = urlParams.get('editItem');
+  const dialogOnlyTab = urlParams.get('tab');
   const [selectedItem, setSelectedItem] = useState<ItemWithStock | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<UnitType>("Pack");
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
@@ -920,8 +926,85 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     }
   }, [editFormData.controlled, selectedUnit]);
 
-  // Handle URL parameters for opening edit dialog from /inventory/matches
+  // Handle dialog-only mode (from matches page) - fetch single item directly without loading full list
   useEffect(() => {
+    if (!dialogOnlyMode || !dialogOnlyItemId) return;
+    
+    const fetchSingleItem = async () => {
+      try {
+        // Fetch the single item directly
+        const itemRes = await fetch(`/api/items/single/${dialogOnlyItemId}`, { credentials: "include" });
+        if (!itemRes.ok) throw new Error('Failed to fetch item');
+        const item = await itemRes.json();
+        
+        // Track that we came from matches page
+        setOpenedFromMatches(true);
+        
+        // Open edit dialog with the specified tab
+        setSelectedItem(item);
+        setEditFormData({
+          name: item.name,
+          description: item.description || "",
+          barcode: item.barcodes?.[0] || "",
+          minThreshold: String(item.minThreshold || 0),
+          maxThreshold: String(item.maxThreshold || 0),
+          defaultOrderQty: String(item.defaultOrderQty || 0),
+          packSize: String(item.packSize || 1),
+          currentUnits: String(item.currentUnits || 0),
+          actualStock: String(item.stockLevel?.qtyOnHand || 0),
+          critical: item.critical || false,
+          controlled: item.controlled || false,
+          trackExactQuantity: item.trackExactQuantity || false,
+          imageUrl: item.imageUrl || "",
+          patientPrice: item.patientPrice || "",
+          dailyUsageEstimate: item.dailyUsageEstimate || "",
+          status: (item.status as "active" | "archived") || "active",
+          isInvoiceable: item.isInvoiceable || false,
+        });
+        setSelectedUnit(normalizeUnit(item.unit));
+        setEditDialogTab(dialogOnlyTab === 'codes' ? 'codes' : 'details');
+        setItemCodes(null);
+        setSupplierCodes([]);
+        setItemLots([]);
+        setNewSupplier({ supplierName: "", articleCode: "", catalogUrl: "", basispreis: "" });
+        setNewLot({ lotNumber: "", expiryDate: "" });
+        setEditDialogOpen(true);
+        
+        // Load item codes, supplier codes, and lots in background
+        setIsLoadingCodes(true);
+        setIsLoadingLots(true);
+        Promise.all([
+          fetch(`/api/items/${item.id}/codes`, { credentials: "include" }).then(res => res.json()),
+          fetch(`/api/items/${item.id}/suppliers`, { credentials: "include" }).then(res => res.json()),
+          fetch(`/api/items/${item.id}/lots`, { credentials: "include" }).then(res => res.json())
+        ]).then(([codes, suppliers, lots]) => {
+          setItemCodes(codes || null);
+          setSupplierCodes(suppliers || []);
+          setItemLots(lots || []);
+        }).catch(err => {
+          console.error('Failed to load item data:', err);
+        }).finally(() => {
+          setIsLoadingCodes(false);
+          setIsLoadingLots(false);
+        });
+      } catch (err) {
+        console.error('Failed to load item:', err);
+        toast({
+          title: t('common.error'),
+          description: t('items.failedToLoad'),
+          variant: "destructive",
+        });
+        window.history.back();
+      }
+    };
+    
+    fetchSingleItem();
+  }, [dialogOnlyMode, dialogOnlyItemId, dialogOnlyTab]);
+
+  // Handle URL parameters for opening edit dialog from /inventory/matches (legacy path - when items already loaded)
+  useEffect(() => {
+    // Skip if in dialog-only mode - handled by the effect above
+    if (dialogOnlyMode) return;
     if (!items.length || isLoading) return;
     
     const params = new URLSearchParams(window.location.search);
@@ -988,7 +1071,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         window.history.replaceState({}, '', window.location.pathname);
       }
     }
-  }, [items, isLoading]);
+  }, [items, isLoading, dialogOnlyMode]);
 
   const handleEditItem = async (item: ItemWithStock) => {
     setSelectedItem(item);
@@ -3216,6 +3299,172 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           <h3 className="text-lg font-semibold text-foreground mb-2">{t('items.noHospitalSelected')}</h3>
           <p className="text-muted-foreground">{t('items.selectHospitalToView')}</p>
         </div>
+      </div>
+    );
+  }
+
+  // Dialog-only mode: only show the edit dialog, not the full inventory page
+  if (dialogOnlyMode) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden items-center justify-center bg-background/50">
+        {/* Edit Item Dialog - shown in dialog-only mode from matches page */}
+        <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) handleCloseEditDialog(); else setEditDialogOpen(true); }} modal={true}>
+          <DialogContent 
+            className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden"
+          >
+            {/* Fixed Header */}
+            <div className="flex-shrink-0 bg-background z-10 px-6 pt-6 pb-4 border-b">
+              <DialogHeader>
+                <DialogTitle>{t('items.editItem')}</DialogTitle>
+                <DialogDescription>{t('items.updateItemDetails')}</DialogDescription>
+              </DialogHeader>
+              <Tabs value={editDialogTab} onValueChange={setEditDialogTab} className="w-full mt-4">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="details" data-testid="tab-item-details">{t('items.itemDetails')}</TabsTrigger>
+                  <TabsTrigger value="codes" data-testid="tab-item-codes">Codes</TabsTrigger>
+                  <TabsTrigger value="invoicing" data-testid="tab-item-invoicing">{t('items.invoicing', 'Invoicing')}</TabsTrigger>
+                  <TabsTrigger value="photo" data-testid="tab-item-photo">{t('items.itemPhoto')}</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+            
+            {/* Loading state */}
+            {!selectedItem && (
+              <div className="flex-1 flex items-center justify-center py-8">
+                <i className="fas fa-spinner fa-spin text-2xl text-muted-foreground"></i>
+              </div>
+            )}
+            
+            {/* Scrollable Content - render only when item loaded */}
+            {selectedItem && (
+              <form onSubmit={handleUpdateItem} className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+                <Tabs value={editDialogTab} className="w-full">
+                  <TabsContent value="details" className="space-y-4 mt-0">
+                    <div>
+                      <Label htmlFor="edit-name">{t('items.itemName')} *</Label>
+                      <Input 
+                        id="edit-name" 
+                        name="name" 
+                        value={editFormData.name}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, name: e.target.value }))}
+                        required
+                        data-testid="input-edit-name"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-description">{t('items.description')}</Label>
+                      <Input 
+                        id="edit-description" 
+                        name="description" 
+                        value={editFormData.description}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, description: e.target.value }))}
+                        data-testid="input-edit-description" 
+                      />
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="codes" className="space-y-4 mt-0">
+                    {/* Item Codes Section */}
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-sm">{t('items.itemCodes', 'Item Codes')}</h4>
+                      {isLoadingCodes ? (
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                          <i className="fas fa-spinner fa-spin"></i>
+                          {t('common.loading')}
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div>
+                            <Label htmlFor="edit-gtin">GTIN</Label>
+                            <Input 
+                              id="edit-gtin" 
+                              value={itemCodes?.gtin || ""}
+                              onChange={(e) => setItemCodes(prev => prev ? { ...prev, gtin: e.target.value } : { gtin: e.target.value })}
+                              placeholder="e.g. 7680123456789"
+                              data-testid="input-edit-gtin"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="edit-pharmacode">Pharmacode</Label>
+                            <Input 
+                              id="edit-pharmacode" 
+                              value={itemCodes?.pharmacode || ""}
+                              onChange={(e) => setItemCodes(prev => prev ? { ...prev, pharmacode: e.target.value } : { pharmacode: e.target.value })}
+                              placeholder="e.g. 1234567"
+                              data-testid="input-edit-pharmacode"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Supplier Codes Section */}
+                    <div className="space-y-3">
+                      <h4 className="font-medium text-sm">{t('items.supplierCodes', 'Supplier Codes')}</h4>
+                      {supplierCodes.length > 0 ? (
+                        <div className="space-y-2">
+                          {supplierCodes.map((sc, idx) => (
+                            <div key={idx} className="flex items-center gap-2 p-2 bg-muted rounded-lg text-sm">
+                              <span className="font-medium">{sc.supplierName}:</span>
+                              <span>{sc.articleCode}</span>
+                              {sc.basispreis && <span className="text-xs bg-secondary px-2 py-0.5 rounded">{sc.basispreis}</span>}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">{t('items.noSupplierCodes', 'No supplier codes yet')}</p>
+                      )}
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="invoicing" className="space-y-4 mt-0">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="edit-invoiceable" 
+                        checked={editFormData.isInvoiceable}
+                        onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, isInvoiceable: checked === true }))}
+                        data-testid="checkbox-edit-invoiceable" 
+                      />
+                      <Label htmlFor="edit-invoiceable">{t('items.isInvoiceable', 'Can be invoiced to patients')}</Label>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-patient-price">{t('items.patientPrice', 'Patient Price')}</Label>
+                      <Input 
+                        id="edit-patient-price" 
+                        type="text"
+                        value={editFormData.patientPrice}
+                        onChange={(e) => setEditFormData(prev => ({ ...prev, patientPrice: e.target.value }))}
+                        placeholder="e.g. 12.50"
+                        data-testid="input-edit-patient-price"
+                      />
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="photo" className="space-y-4 mt-0">
+                    {editFormData.imageUrl && (
+                      <div className="relative">
+                        <img src={editFormData.imageUrl} alt="Item" className="w-full h-48 object-contain rounded-lg border" />
+                      </div>
+                    )}
+                    <p className="text-sm text-muted-foreground">{t('items.photoTab', 'Photo management available in full inventory view')}</p>
+                  </TabsContent>
+                </Tabs>
+              </form>
+            )}
+            
+            {/* Fixed Footer */}
+            {selectedItem && (
+              <div className="flex-shrink-0 flex gap-2 justify-end px-6 py-4 bg-background border-t">
+                <Button type="button" variant="outline" onClick={handleCloseEditDialog} data-testid="button-cancel-edit">
+                  {t('common.cancel')}
+                </Button>
+                <Button type="submit" onClick={(e) => { e.preventDefault(); handleUpdateItem(e as any); }} disabled={updateItemMutation.isPending} data-testid="button-save-item">
+                  {updateItemMutation.isPending ? <><i className="fas fa-spinner fa-spin mr-2"></i>{t('common.saving')}</> : t('common.save')}
+                </Button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }

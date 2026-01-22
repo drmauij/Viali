@@ -329,6 +329,37 @@ router.get('/api/items/detail/:itemId', isAuthenticated, async (req: any, res) =
   }
 });
 
+// Single item fetch with stock level - used for dialog-only mode from matches page
+router.get('/api/items/single/:itemId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { itemId } = req.params;
+    const userId = req.user.id;
+    
+    const item = await storage.getItem(itemId);
+    if (!item) {
+      return res.status(404).json({ message: "Item not found" });
+    }
+    
+    // Check hospital access
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some(h => h.id === item.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this item" });
+    }
+    
+    // Get stock level for this item
+    const stockLevel = await storage.getStockLevel(itemId, item.unitId);
+    
+    res.json({ 
+      ...item, 
+      stockLevel: stockLevel || { qtyOnHand: 0, qtyAllocated: 0 }
+    });
+  } catch (error) {
+    console.error("Error fetching single item:", error);
+    res.status(500).json({ message: "Failed to fetch item" });
+  }
+});
+
 router.post('/api/items', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const itemData = insertItemSchema.parse(req.body);
