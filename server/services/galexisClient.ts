@@ -150,7 +150,7 @@ export class GalexisClient {
       console.log('[Galexis] Raw XML response (first 2000 chars):', responseXml.substring(0, 2000));
       
       const parsed = this.parser.parse(responseXml);
-      console.log('[Galexis] Parsed response keys:', Object.keys(parsed));
+      console.log('[Galexis] Parsed response keys:', parsed ? Object.keys(parsed) : 'NULL');
       
       const conditionsResponse = parsed.customerSpecificConditionsResponse;
       
@@ -159,7 +159,7 @@ export class GalexisClient {
         throw new Error('Invalid response format from Galexis');
       }
 
-      console.log('[Galexis] Response keys:', Object.keys(conditionsResponse));
+      console.log('[Galexis] Response keys:', conditionsResponse ? Object.keys(conditionsResponse) : 'NULL');
 
       if (conditionsResponse.clientErrorResponse) {
         const errorMsg = conditionsResponse.clientErrorResponse.message || 
@@ -238,7 +238,7 @@ export class GalexisClient {
       }
       
       console.log(`[Galexis] Pagination status: ${paginationStatus}, extractedKey: "${extractedKey}", prices: ${prices.length}`);
-      console.log(`[Galexis] Response structure keys: ${Object.keys(conditionsResponse).join(', ')}`);
+      console.log(`[Galexis] Response structure keys: ${conditionsResponse ? Object.keys(conditionsResponse).join(', ') : 'NULL'}`);
       
       // Only continue if we have more pages AND we have a valid key to continue with
       if ((conditionsResponse.atFirst || conditionsResponse.inBetween) && extractedKey) {
@@ -246,7 +246,7 @@ export class GalexisClient {
         nextKey = extractedKey;
       } else if (conditionsResponse.atFirst || conditionsResponse.inBetween) {
         // We have a "more pages" indicator but no key - log warning and try to find key
-        console.warn(`[Galexis] WARNING: API indicates more pages but no requestKey found. Response keys: ${JSON.stringify(Object.keys(conditionsResponse))}`);
+        console.warn(`[Galexis] WARNING: API indicates more pages but no requestKey found. Response keys: ${conditionsResponse ? JSON.stringify(Object.keys(conditionsResponse)) : 'NULL'}`);
         console.warn(`[Galexis] browseRequest content: ${JSON.stringify(conditionsResponse.browseRequest)}`);
         console.warn(`[Galexis] atFirst content: ${JSON.stringify(conditionsResponse.atFirst)}`);
         console.warn(`[Galexis] inBetween content: ${JSON.stringify(conditionsResponse.inBetween)}`);
@@ -390,7 +390,7 @@ ${productLines}
       console.log('[Galexis] ProductAvailability Raw XML response (first 2000 chars):', responseXml.substring(0, 2000));
 
       const parsed = this.parser.parse(responseXml);
-      console.log('[Galexis] ProductAvailability Parsed response keys:', Object.keys(parsed));
+      console.log('[Galexis] ProductAvailability Parsed response keys:', parsed ? Object.keys(parsed) : 'NULL');
 
       const availabilityResponse = parsed.productAvailabilityResponse;
       if (!availabilityResponse) {
@@ -424,7 +424,7 @@ ${productLines}
         console.log(`[Galexis] Response line ${index}: pharmacode=${requestedPharmacode}, gtin=${requestedGtin}`);
         console.log(`[Galexis]   - productResponse keys: ${productResponse ? Object.keys(productResponse).join(', ') : 'NULL'}`);
         console.log(`[Galexis]   - availability: ${JSON.stringify(availability)}`);
-        console.log(`[Galexis]   - line keys: ${Object.keys(line).join(', ')}`);
+        console.log(`[Galexis]   - line keys: ${line ? Object.keys(line).join(', ') : 'NULL'}`);
         
         if (!productResponse) {
           console.log(`[Galexis] No productResponse for pharmacode=${requestedPharmacode}, gtin=${requestedGtin}`);
