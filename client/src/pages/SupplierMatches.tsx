@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import BarcodeScanner from "@/components/BarcodeScanner";
 import { 
   Check, X, ExternalLink, Package, Loader2, 
   XCircle, DollarSign, AlertTriangle, CheckCircle2, Search, ChevronRight, AlertCircle
@@ -95,10 +96,17 @@ export default function SupplierMatches() {
   // Edit Codes dialog state
   const [editCodesOpen, setEditCodesOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CategorizedItem | null>(null);
-  const [editingItemCodes, setEditingItemCodes] = useState<{ gtin?: string; pharmacode?: string } | null>(null);
+  const [editingItemCodes, setEditingItemCodes] = useState<{ gtin?: string; pharmacode?: string; migel?: string; atc?: string; manufacturer?: string } | null>(null);
   const [editingSupplierCodes, setEditingSupplierCodes] = useState<SupplierCodeInfo[]>([]);
   const [isLoadingCodes, setIsLoadingCodes] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isAnalyzingPhoto, setIsAnalyzingPhoto] = useState(false);
+  const [codesImage, setCodesImage] = useState<string | null>(null);
+  const [scanningCodeField, setScanningCodeField] = useState<'gtin' | 'pharmacode' | 'migel' | 'atc' | null>(null);
+  
+  // File input refs for photo capture
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   
   // Open Edit Codes dialog for an item
   const openItemCodesEditor = async (itemId: string) => {
@@ -113,7 +121,8 @@ export default function SupplierMatches() {
     if (!item) return;
     
     setEditingItem(item);
-    setEditingItemCodes(item.itemCode ? { gtin: item.itemCode.gtin || "", pharmacode: item.itemCode.pharmacode || "" } : { gtin: "", pharmacode: "" });
+    setEditingItemCodes({ gtin: "", pharmacode: "", migel: "", atc: "", manufacturer: "" });
+    setCodesImage(null);
     setEditCodesOpen(true);
     
     // Load additional codes data
@@ -126,7 +135,13 @@ export default function SupplierMatches() {
       if (codesRes.ok) {
         const codes = await codesRes.json();
         if (codes) {
-          setEditingItemCodes({ gtin: codes.gtin || "", pharmacode: codes.pharmacode || "" });
+          setEditingItemCodes({ 
+            gtin: codes.gtin || "", 
+            pharmacode: codes.pharmacode || "",
+            migel: codes.migel || "",
+            atc: codes.atc || "",
+            manufacturer: codes.manufacturer || ""
+          });
         }
       }
       if (suppliersRes.ok) {
@@ -145,7 +160,7 @@ export default function SupplierMatches() {
     
     setIsSaving(true);
     try {
-      await apiRequest("PATCH", `/api/items/${editingItem.id}/codes`, editingItemCodes);
+      await apiRequest("PUT", `/api/items/${editingItem.id}/codes`, editingItemCodes);
       toast({ title: t("common.success"), description: t("items.codesUpdated", "Codes updated successfully") });
       refetch();
     } catch (err: any) {
@@ -160,6 +175,67 @@ export default function SupplierMatches() {
     setEditingItem(null);
     setEditingItemCodes(null);
     setEditingSupplierCodes([]);
+    setCodesImage(null);
+  };
+  
+  // Handle image upload for AI Vision OCR analysis
+  const handleCodesImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    setIsAnalyzingPhoto(true);
+    
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const base64 = e.target?.result as string;
+      setCodesImage(base64);
+      
+      try {
+        const response = await apiRequest("POST", "/api/items/analyze-codes", { image: base64 });
+        const result = await response.json();
+        
+        if (result.codes) {
+          setEditingItemCodes(prev => {
+            const current = prev ?? { gtin: "", pharmacode: "", migel: "", atc: "", manufacturer: "" };
+            return {
+              ...current,
+              gtin: result.codes.gtin || current.gtin || "",
+              pharmacode: result.codes.pharmacode || current.pharmacode || "",
+              migel: result.codes.migel || current.migel || "",
+              atc: result.codes.atc || current.atc || "",
+              manufacturer: result.codes.manufacturer || current.manufacturer || "",
+            };
+          });
+          toast({ title: t("common.success"), description: t("items.codesExtracted", "Codes extracted from image") });
+        }
+      } catch (err: any) {
+        console.error("Failed to analyze image:", err);
+        toast({ title: t("common.error"), description: err.message || "Failed to analyze image", variant: "destructive" });
+      } finally {
+        setIsAnalyzingPhoto(false);
+      }
+    };
+    reader.readAsDataURL(file);
+    
+    // Reset file input
+    event.target.value = "";
+  };
+  
+  // Handle barcode scan result
+  const handleCodeScan = (code: string) => {
+    if (!scanningCodeField) return;
+    
+    setEditingItemCodes(prev => ({
+      ...prev,
+      [scanningCodeField]: code
+    }));
+    
+    toast({ 
+      title: t("items.codeScanned", "Code Scanned"), 
+      description: `${scanningCodeField.toUpperCase()}: ${code}` 
+    });
+    setScanningCodeField(null);
   };
   
   // Filter function for items
@@ -612,7 +688,7 @@ export default function SupplierMatches() {
 
       {/* Edit Codes Dialog */}
       <Dialog open={editCodesOpen} onOpenChange={(open) => { if (!open) handleCloseEditCodes(); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('items.editCodes', 'Edit Codes')}</DialogTitle>
             <DialogDescription>
@@ -620,63 +696,197 @@ export default function SupplierMatches() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-4 py-4">
-            {/* Item Codes Section */}
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm">{t('items.itemCodes', 'Item Codes')}</h4>
-              {isLoadingCodes ? (
-                <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  {t('common.loading')}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div>
-                    <Label htmlFor="edit-gtin">GTIN/EAN</Label>
-                    <Input 
-                      id="edit-gtin" 
-                      value={editingItemCodes?.gtin || ""}
-                      onChange={(e) => setEditingItemCodes(prev => prev ? { ...prev, gtin: e.target.value } : { gtin: e.target.value })}
-                      placeholder="e.g. 7680123456789"
-                      data-testid="input-edit-gtin"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="edit-pharmacode">Pharmacode</Label>
-                    <Input 
-                      id="edit-pharmacode" 
-                      value={editingItemCodes?.pharmacode || ""}
-                      onChange={(e) => setEditingItemCodes(prev => prev ? { ...prev, pharmacode: e.target.value } : { pharmacode: e.target.value })}
-                      placeholder="e.g. 1234567"
-                      data-testid="input-edit-pharmacode"
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Supplier Codes Section */}
-            <div className="space-y-3">
-              <h4 className="font-medium text-sm">{t('items.supplierCodes', 'Supplier Codes')}</h4>
-              {editingSupplierCodes.length > 0 ? (
-                <div className="space-y-2">
-                  {editingSupplierCodes.map((sc, idx) => (
-                    <div key={idx} className="flex items-center gap-2 p-2 bg-muted rounded-lg text-sm">
-                      <span className="font-medium">{sc.supplierName}:</span>
-                      <span>{sc.articleCode}</span>
-                      {sc.basispreis && <Badge variant="secondary">{sc.basispreis}</Badge>}
-                      {sc.matchConfidence && (
-                        <Badge variant={sc.matchConfidence === 'verified' ? 'default' : 'outline'}>
-                          {sc.matchConfidence === 'verified' ? 'Verified' : `${Math.round(parseFloat(sc.matchConfidence) * 100)}%`}
-                        </Badge>
-                      )}
+          {/* Hidden file inputs for photo capture */}
+          <input
+            type="file"
+            ref={cameraInputRef}
+            accept="image/*"
+            capture="environment"
+            onChange={handleCodesImageUpload}
+            className="hidden"
+          />
+          <input
+            type="file"
+            ref={galleryInputRef}
+            accept="image/*"
+            onChange={handleCodesImageUpload}
+            className="hidden"
+          />
+          
+          <div className="space-y-6 py-4">
+            {isLoadingCodes ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <>
+                {/* Universal Product Codes Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <i className="fas fa-barcode text-primary"></i>
+                      <h3 className="font-semibold">{t('items.universalCodes', 'Universal Codes')}</h3>
                     </div>
-                  ))}
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => cameraInputRef.current?.click()}
+                        disabled={isAnalyzingPhoto}
+                        data-testid="button-edit-camera-codes"
+                      >
+                        <i className={`fas ${isAnalyzingPhoto ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
+                        {isAnalyzingPhoto ? t('items.analyzing', 'Analyzing...') : t('controlled.takePhoto', 'Take Photo')}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => galleryInputRef.current?.click()}
+                        disabled={isAnalyzingPhoto}
+                        data-testid="button-edit-gallery-codes"
+                      >
+                        <i className="fas fa-images mr-2"></i>
+                        {t('items.uploadFromGallery', 'Gallery')}
+                      </Button>
+                    </div>
+                  </div>
+                  {codesImage && (
+                    <div className="flex items-center gap-2">
+                      <img src={codesImage} alt="Codes" className="h-12 w-12 object-cover rounded border" />
+                      <span className="text-xs text-muted-foreground">{t('items.photoAnalyzed', 'Photo analyzed')}</span>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <Label htmlFor="edit-gtin">GTIN/EAN</Label>
+                      <div className="flex gap-1">
+                        <Input 
+                          id="edit-gtin"
+                          placeholder="e.g., 7680123456789"
+                          value={editingItemCodes?.gtin || ""}
+                          onChange={(e) => setEditingItemCodes(prev => prev ? { ...prev, gtin: e.target.value } : { gtin: e.target.value })}
+                          data-testid="input-edit-gtin"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 flex-shrink-0"
+                          onClick={() => setScanningCodeField('gtin')}
+                          data-testid="button-scan-edit-gtin"
+                        >
+                          <i className="fas fa-barcode text-xs"></i>
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-pharmacode">Pharmacode</Label>
+                      <div className="flex gap-1">
+                        <Input 
+                          id="edit-pharmacode"
+                          placeholder="7-digit Swiss code"
+                          value={editingItemCodes?.pharmacode || ""}
+                          onChange={(e) => setEditingItemCodes(prev => prev ? { ...prev, pharmacode: e.target.value } : { pharmacode: e.target.value })}
+                          data-testid="input-edit-pharmacode"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 flex-shrink-0"
+                          onClick={() => setScanningCodeField('pharmacode')}
+                          data-testid="button-scan-edit-pharmacode"
+                        >
+                          <i className="fas fa-barcode text-xs"></i>
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-migel">MiGeL Code</Label>
+                      <div className="flex gap-1">
+                        <Input 
+                          id="edit-migel"
+                          placeholder="Swiss device code"
+                          value={editingItemCodes?.migel || ""}
+                          onChange={(e) => setEditingItemCodes(prev => prev ? { ...prev, migel: e.target.value } : { migel: e.target.value })}
+                          data-testid="input-edit-migel"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 flex-shrink-0"
+                          onClick={() => setScanningCodeField('migel')}
+                          data-testid="button-scan-edit-migel"
+                        >
+                          <i className="fas fa-barcode text-xs"></i>
+                        </Button>
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="edit-atc">ATC Code</Label>
+                      <div className="flex gap-1">
+                        <Input 
+                          id="edit-atc"
+                          placeholder="e.g., N02BE01"
+                          value={editingItemCodes?.atc || ""}
+                          onChange={(e) => setEditingItemCodes(prev => prev ? { ...prev, atc: e.target.value } : { atc: e.target.value })}
+                          data-testid="input-edit-atc"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 flex-shrink-0"
+                          onClick={() => setScanningCodeField('atc')}
+                          data-testid="button-scan-edit-atc"
+                        >
+                          <i className="fas fa-barcode text-xs"></i>
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <Label htmlFor="edit-manufacturer">Manufacturer</Label>
+                      <Input 
+                        id="edit-manufacturer"
+                        placeholder="e.g., B. Braun, 3M"
+                        value={editingItemCodes?.manufacturer || ""}
+                        onChange={(e) => setEditingItemCodes(prev => prev ? { ...prev, manufacturer: e.target.value } : { manufacturer: e.target.value })}
+                        data-testid="input-edit-manufacturer"
+                      />
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">{t('items.noSupplierCodes', 'No supplier codes yet')}</p>
-              )}
-            </div>
+
+                {/* Supplier Codes Section */}
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <i className="fas fa-truck text-primary"></i>
+                    <h3 className="font-semibold">{t('items.supplierPricing', 'Supplier Pricing')}</h3>
+                  </div>
+                  {editingSupplierCodes.length > 0 ? (
+                    <div className="space-y-2">
+                      {editingSupplierCodes.map((sc, idx) => (
+                        <div key={idx} className="flex items-center gap-2 p-3 bg-muted rounded-lg text-sm">
+                          <span className="font-medium">{sc.supplierName}:</span>
+                          <span>{sc.articleCode}</span>
+                          {sc.basispreis && <Badge variant="secondary">CHF {sc.basispreis}</Badge>}
+                          {sc.matchConfidence && (
+                            <Badge variant={sc.matchConfidence === 'verified' ? 'default' : 'outline'}>
+                              {sc.matchConfidence === 'verified' ? 'Verified' : `${Math.round(parseFloat(sc.matchConfidence) * 100)}%`}
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{t('items.noSupplierCodes', 'No supplier codes yet')}</p>
+                  )}
+                </div>
+              </>
+            )}
           </div>
           
           {/* Footer */}
@@ -684,12 +894,26 @@ export default function SupplierMatches() {
             <Button type="button" variant="outline" onClick={handleCloseEditCodes}>
               {t('common.close')}
             </Button>
-            <Button onClick={handleSaveCodes} disabled={isSaving}>
+            <Button onClick={handleSaveCodes} disabled={isSaving || isLoadingCodes || isAnalyzingPhoto}>
               {isSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t('common.saving')}</> : t('common.save')}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+      
+      {/* Barcode Scanner for individual code fields */}
+      <BarcodeScanner
+        isOpen={scanningCodeField !== null}
+        onClose={() => setScanningCodeField(null)}
+        onScan={(code) => {
+          if (scanningCodeField) {
+            handleCodeScan(code);
+          }
+        }}
+        onManualEntry={() => {
+          setScanningCodeField(null);
+        }}
+      />
 
     </div>
   );
