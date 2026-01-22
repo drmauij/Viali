@@ -16,6 +16,10 @@ export const TWO_HOURS = 120 * 60 * 1000;
 export const FOUR_HOURS = 240 * 60 * 1000;
 export const EIGHT_HOURS = 480 * 60 * 1000;
 export const TWENTY_HOURS = 1200 * 60 * 1000;
+export const ONE_DAY = 24 * 60 * 60 * 1000;
+export const TWO_DAYS = 2 * 24 * 60 * 60 * 1000;
+export const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
+export const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
 
 // ===== ZOOM LEVELS =====
 
@@ -33,6 +37,10 @@ export const ZOOM_LEVELS = [
   FOUR_HOURS,       // 240 min (4 hours)
   EIGHT_HOURS,      // 480 min (8 hours)
   TWENTY_HOURS,     // 1200 min (20 hours)
+  ONE_DAY,          // 24 hours (1 day)
+  TWO_DAYS,         // 48 hours (2 days)
+  THREE_DAYS,       // 72 hours (3 days)
+  ONE_WEEK,         // 168 hours (7 days)
 ];
 
 /**

@@ -1102,6 +1102,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // When set, prevents auto-recentering on data changes
   const userPinnedViewportRef = useRef<boolean>(false);
   
+  // Ref to track if initial dataZoom has been applied to the chart
+  // Once applied, we stop including start/end in chartOptions to preserve user zoom state
+  const initialZoomAppliedRef = useRef<boolean>(false);
+  
   // ========== UNIFIED VIEWPORT CONTROLLER ==========
   // Single source of truth for viewport state management
   // Prevents competing effects from causing viewport jumps
@@ -3340,6 +3344,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       controller.capturedContentBounds = null;
       hasSetInitialZoomRef.current = false;
       userPinnedViewportRef.current = false;
+      initialZoomAppliedRef.current = false; // Allow initial zoom for new record
     }
     
     // Skip if already initialized for this record
@@ -3442,6 +3447,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       controller.hasInitialized = true;
       controller.initializedForRecordId = anesthesiaRecordId ?? null;
       hasSetInitialZoomRef.current = true;
+      initialZoomAppliedRef.current = true; // Prevent chartOptions from overriding zoom
       
       return true;
     };
@@ -3934,10 +3940,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       dataZoom: [{
         type: "inside",
         xAxisIndex: grids.map((_, i) => i),
-        // Include initial zoom percentages so chart starts with ±30 min window (same as Reset)
-        // This prevents the chart from initially showing the full data range (e.g., 2 days)
-        start: initialZoomStart,
-        end: initialZoomEnd,
+        // Only include initial zoom percentages on first render
+        // After initial zoom is applied, omit start/end to preserve user zoom state
+        ...(initialZoomAppliedRef.current ? {} : { start: initialZoomStart, end: initialZoomEnd }),
         throttle: 50,
         zoomLock: true,
         orient: 'horizontal',
