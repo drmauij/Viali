@@ -1515,12 +1515,25 @@ async function processTimebutlerIcsSync(job: any): Promise<void> {
           absenceType = 'training';
         }
         
+        // ICS all-day events: DTEND is EXCLUSIVE (the day after the last day)
+        // For DATE (not DATE-TIME) values, we need to subtract 1 day from end
+        // Check if this is an all-day event (no time component, dates only)
+        const isAllDayEvent = vevent.datetype === 'date' || 
+          (startDate instanceof Date && startDate.getHours() === 0 && startDate.getMinutes() === 0);
+        
+        let adjustedEndDate = endDate;
+        if (isAllDayEvent && endDate instanceof Date) {
+          // Subtract 1 day for exclusive end date in ICS all-day events
+          adjustedEndDate = new Date(endDate);
+          adjustedEndDate.setDate(adjustedEndDate.getDate() - 1);
+        }
+        
         absences.push({
           providerId: user.id,
           hospitalId: job.hospitalId,
           absenceType,
           startDate: startDate instanceof Date ? startDate.toISOString().split('T')[0] : startDate,
-          endDate: endDate instanceof Date ? endDate.toISOString().split('T')[0] : endDate,
+          endDate: adjustedEndDate instanceof Date ? adjustedEndDate.toISOString().split('T')[0] : adjustedEndDate,
           externalId: `ics-${user.id}-${key}`,
           notes: summary,
         });
