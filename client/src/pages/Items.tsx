@@ -2161,11 +2161,13 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         }
         
         // Auto-add supplier with Galexis data
+        // Use basispreis (base price) or yourPrice (customer-specific price) from Galexis response
+        const priceValue = result.yourPrice || result.basispreis;
         const supplierData = {
           supplierName: result.supplierName || 'Galexis',
           articleCode: result.pharmacode || pharmacode || null,
           catalogUrl: result.catalogUrl || null,
-          basispreis: result.price ? String(result.price) : null,
+          basispreis: priceValue ? String(priceValue) : null,
           isPreferred: supplierCodes.length === 0,
         };
         
