@@ -9511,4 +9511,390 @@ router.patch('/api/surgery/preop/:id', isAuthenticated, requireWriteAccess, asyn
   }
 });
 
+// ========== ANESTHESIA SETS ==========
+
+// Get all anesthesia sets for a hospital
+router.get('/api/anesthesia-sets/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const sets = await storage.getAnesthesiaSets(hospitalId);
+    res.json(sets);
+  } catch (error) {
+    console.error("Error fetching anesthesia sets:", error);
+    res.status(500).json({ message: "Failed to fetch anesthesia sets" });
+  }
+});
+
+// Get a single anesthesia set with its items
+router.get('/api/anesthesia-sets/set/:setId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { setId } = req.params;
+    const userId = req.user.id;
+
+    const set = await storage.getAnesthesiaSet(setId);
+    if (!set) {
+      return res.status(404).json({ message: "Anesthesia set not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const items = await storage.getAnesthesiaSetItems(setId);
+    res.json({ ...set, items });
+  } catch (error) {
+    console.error("Error fetching anesthesia set:", error);
+    res.status(500).json({ message: "Failed to fetch anesthesia set" });
+  }
+});
+
+// Create an anesthesia set (admin only)
+router.post('/api/anesthesia-sets', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { hospitalId, name, description, items } = req.body;
+
+    if (!hospitalId || !name) {
+      return res.status(400).json({ message: "hospitalId and name are required" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const set = await storage.createAnesthesiaSet({
+      hospitalId,
+      name,
+      description,
+      createdBy: userId,
+    });
+
+    // Add items if provided
+    if (items && Array.isArray(items)) {
+      for (const item of items) {
+        await storage.createAnesthesiaSetItem({
+          setId: set.id,
+          itemType: item.itemType,
+          config: item.config,
+          sortOrder: item.sortOrder || 0,
+        });
+      }
+    }
+
+    const setItems = await storage.getAnesthesiaSetItems(set.id);
+    res.status(201).json({ ...set, items: setItems });
+  } catch (error) {
+    console.error("Error creating anesthesia set:", error);
+    res.status(500).json({ message: "Failed to create anesthesia set" });
+  }
+});
+
+// Update an anesthesia set (admin only)
+router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { setId } = req.params;
+    const userId = req.user.id;
+    const { name, description, isActive, items } = req.body;
+
+    const set = await storage.getAnesthesiaSet(setId);
+    if (!set) {
+      return res.status(404).json({ message: "Anesthesia set not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedSet = await storage.updateAnesthesiaSet(setId, { name, description, isActive });
+
+    // If items provided, replace all items
+    if (items && Array.isArray(items)) {
+      await storage.deleteAnesthesiaSetItems(setId);
+      for (const item of items) {
+        await storage.createAnesthesiaSetItem({
+          setId,
+          itemType: item.itemType,
+          config: item.config,
+          sortOrder: item.sortOrder || 0,
+        });
+      }
+    }
+
+    const setItems = await storage.getAnesthesiaSetItems(setId);
+    res.json({ ...updatedSet, items: setItems });
+  } catch (error) {
+    console.error("Error updating anesthesia set:", error);
+    res.status(500).json({ message: "Failed to update anesthesia set" });
+  }
+});
+
+// Delete an anesthesia set (admin only)
+router.delete('/api/anesthesia-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { setId } = req.params;
+    const userId = req.user.id;
+
+    const set = await storage.getAnesthesiaSet(setId);
+    if (!set) {
+      return res.status(404).json({ message: "Anesthesia set not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    await storage.deleteAnesthesiaSet(setId);
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting anesthesia set:", error);
+    res.status(500).json({ message: "Failed to delete anesthesia set" });
+  }
+});
+
+// ========== INVENTORY SETS ==========
+
+// Get all inventory sets for a hospital (optionally filtered by unit)
+router.get('/api/inventory-sets/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { unitId } = req.query;
+    const userId = req.user.id;
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const sets = await storage.getInventorySets(hospitalId, unitId as string | undefined);
+    res.json(sets);
+  } catch (error) {
+    console.error("Error fetching inventory sets:", error);
+    res.status(500).json({ message: "Failed to fetch inventory sets" });
+  }
+});
+
+// Get a single inventory set with its items
+router.get('/api/inventory-sets/set/:setId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { setId } = req.params;
+    const userId = req.user.id;
+
+    const set = await storage.getInventorySet(setId);
+    if (!set) {
+      return res.status(404).json({ message: "Inventory set not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const items = await storage.getInventorySetItems(setId);
+    res.json({ ...set, items });
+  } catch (error) {
+    console.error("Error fetching inventory set:", error);
+    res.status(500).json({ message: "Failed to fetch inventory set" });
+  }
+});
+
+// Create an inventory set (admin only)
+router.post('/api/inventory-sets', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { hospitalId, unitId, name, description, items } = req.body;
+
+    if (!hospitalId || !name) {
+      return res.status(400).json({ message: "hospitalId and name are required" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const set = await storage.createInventorySet({
+      hospitalId,
+      unitId: unitId || null,
+      name,
+      description,
+      createdBy: userId,
+    });
+
+    // Add items if provided
+    if (items && Array.isArray(items)) {
+      for (const item of items) {
+        await storage.createInventorySetItem({
+          setId: set.id,
+          itemId: item.itemId,
+          quantity: item.quantity || 1,
+          sortOrder: item.sortOrder || 0,
+        });
+      }
+    }
+
+    const setItems = await storage.getInventorySetItems(set.id);
+    res.status(201).json({ ...set, items: setItems });
+  } catch (error) {
+    console.error("Error creating inventory set:", error);
+    res.status(500).json({ message: "Failed to create inventory set" });
+  }
+});
+
+// Update an inventory set (admin only)
+router.patch('/api/inventory-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { setId } = req.params;
+    const userId = req.user.id;
+    const { name, description, isActive, items } = req.body;
+
+    const set = await storage.getInventorySet(setId);
+    if (!set) {
+      return res.status(404).json({ message: "Inventory set not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updatedSet = await storage.updateInventorySet(setId, { name, description, isActive });
+
+    // If items provided, replace all items
+    if (items && Array.isArray(items)) {
+      await storage.deleteInventorySetItems(setId);
+      for (const item of items) {
+        await storage.createInventorySetItem({
+          setId,
+          itemId: item.itemId,
+          quantity: item.quantity || 1,
+          sortOrder: item.sortOrder || 0,
+        });
+      }
+    }
+
+    const setItems = await storage.getInventorySetItems(setId);
+    res.json({ ...updatedSet, items: setItems });
+  } catch (error) {
+    console.error("Error updating inventory set:", error);
+    res.status(500).json({ message: "Failed to update inventory set" });
+  }
+});
+
+// Delete an inventory set (admin only)
+router.delete('/api/inventory-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { setId } = req.params;
+    const userId = req.user.id;
+
+    const set = await storage.getInventorySet(setId);
+    if (!set) {
+      return res.status(404).json({ message: "Inventory set not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    await storage.deleteInventorySet(setId);
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting inventory set:", error);
+    res.status(500).json({ message: "Failed to delete inventory set" });
+  }
+});
+
+// Apply an inventory set to an anesthesia record (add items to usage)
+router.post('/api/inventory-sets/:setId/apply', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { setId } = req.params;
+    const { anesthesiaRecordId } = req.body;
+    const userId = req.user.id;
+
+    if (!anesthesiaRecordId) {
+      return res.status(400).json({ message: "anesthesiaRecordId is required" });
+    }
+
+    const set = await storage.getInventorySet(setId);
+    if (!set) {
+      return res.status(404).json({ message: "Inventory set not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Get set items and apply them to the anesthesia record
+    const setItems = await storage.getInventorySetItems(setId);
+    
+    for (const setItem of setItems) {
+      // Check if there's already usage for this item
+      const existingUsage = await storage.getInventoryUsageByItem(anesthesiaRecordId, setItem.itemId);
+      
+      if (existingUsage) {
+        // Add to existing quantity
+        const currentQty = existingUsage.overrideQty !== null 
+          ? Number(existingUsage.overrideQty) 
+          : Number(existingUsage.calculatedQty);
+        await storage.updateInventoryUsage(existingUsage.id, {
+          overrideQty: currentQty + setItem.quantity,
+          overrideReason: `Applied set: ${set.name}`,
+          overriddenBy: userId,
+          overriddenAt: new Date(),
+        });
+      } else {
+        // Create new usage record
+        await storage.createInventoryUsage({
+          anesthesiaRecordId,
+          itemId: setItem.itemId,
+          calculatedQty: "0",
+          overrideQty: String(setItem.quantity),
+          overrideReason: `Applied set: ${set.name}`,
+          overriddenBy: userId,
+          overriddenAt: new Date(),
+        });
+      }
+    }
+
+    res.json({ message: "Set applied successfully", itemsApplied: setItems.length });
+  } catch (error) {
+    console.error("Error applying inventory set:", error);
+    res.status(500).json({ message: "Failed to apply inventory set" });
+  }
+});
+
 export default router;

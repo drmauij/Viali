@@ -247,6 +247,20 @@ import {
   type InsertExternalSurgeryRequest,
   type ExternalSurgeryRequestDocument,
   type InsertExternalSurgeryRequestDocument,
+  // Anesthesia Sets
+  anesthesiaSets,
+  anesthesiaSetItems,
+  type AnesthesiaSet,
+  type InsertAnesthesiaSet,
+  type AnesthesiaSetItem,
+  type InsertAnesthesiaSetItem,
+  // Inventory Sets
+  inventorySets,
+  inventorySetItems,
+  type InventorySet,
+  type InsertInventorySet,
+  type InventorySetItem,
+  type InsertInventorySetItem,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -931,6 +945,30 @@ export interface IStorage {
     reminderSent: boolean;
   }>>;
   markSurgeryReminderSent(surgeryId: string): Promise<void>;
+  
+  // Anesthesia Sets operations
+  getAnesthesiaSets(hospitalId: string): Promise<AnesthesiaSet[]>;
+  getAnesthesiaSet(id: string): Promise<AnesthesiaSet | null>;
+  getAnesthesiaSetItems(setId: string): Promise<AnesthesiaSetItem[]>;
+  createAnesthesiaSet(set: InsertAnesthesiaSet): Promise<AnesthesiaSet>;
+  updateAnesthesiaSet(id: string, updates: Partial<AnesthesiaSet>): Promise<AnesthesiaSet>;
+  deleteAnesthesiaSet(id: string): Promise<void>;
+  createAnesthesiaSetItem(item: InsertAnesthesiaSetItem): Promise<AnesthesiaSetItem>;
+  deleteAnesthesiaSetItems(setId: string): Promise<void>;
+  
+  // Inventory Sets operations
+  getInventorySets(hospitalId: string, unitId?: string): Promise<InventorySet[]>;
+  getInventorySet(id: string): Promise<InventorySet | null>;
+  getInventorySetItems(setId: string): Promise<InventorySetItem[]>;
+  createInventorySet(set: InsertInventorySet): Promise<InventorySet>;
+  updateInventorySet(id: string, updates: Partial<InventorySet>): Promise<InventorySet>;
+  deleteInventorySet(id: string): Promise<void>;
+  createInventorySetItem(item: InsertInventorySetItem): Promise<InventorySetItem>;
+  deleteInventorySetItems(setId: string): Promise<void>;
+  
+  // Additional inventory usage operations for sets
+  getInventoryUsageByItem(anesthesiaRecordId: string, itemId: string): Promise<InventoryUsage | null>;
+  createInventoryUsage(usage: InsertInventoryUsage): Promise<InventoryUsage>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -8678,6 +8716,157 @@ export class DatabaseStorage implements IStorage {
         eq(externalSurgeryRequests.status, 'pending')
       ));
     return result[0]?.count || 0;
+  }
+
+  // ========== ANESTHESIA SETS ==========
+
+  async getAnesthesiaSets(hospitalId: string): Promise<AnesthesiaSet[]> {
+    return await db
+      .select()
+      .from(anesthesiaSets)
+      .where(and(
+        eq(anesthesiaSets.hospitalId, hospitalId),
+        eq(anesthesiaSets.isActive, true)
+      ))
+      .orderBy(asc(anesthesiaSets.sortOrder), asc(anesthesiaSets.name));
+  }
+
+  async getAnesthesiaSet(id: string): Promise<AnesthesiaSet | null> {
+    const [set] = await db
+      .select()
+      .from(anesthesiaSets)
+      .where(eq(anesthesiaSets.id, id));
+    return set || null;
+  }
+
+  async getAnesthesiaSetItems(setId: string): Promise<AnesthesiaSetItem[]> {
+    return await db
+      .select()
+      .from(anesthesiaSetItems)
+      .where(eq(anesthesiaSetItems.setId, setId))
+      .orderBy(asc(anesthesiaSetItems.sortOrder));
+  }
+
+  async createAnesthesiaSet(set: InsertAnesthesiaSet): Promise<AnesthesiaSet> {
+    const [created] = await db
+      .insert(anesthesiaSets)
+      .values(set)
+      .returning();
+    return created;
+  }
+
+  async updateAnesthesiaSet(id: string, updates: Partial<AnesthesiaSet>): Promise<AnesthesiaSet> {
+    const [updated] = await db
+      .update(anesthesiaSets)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(anesthesiaSets.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteAnesthesiaSet(id: string): Promise<void> {
+    await db.delete(anesthesiaSets).where(eq(anesthesiaSets.id, id));
+  }
+
+  async createAnesthesiaSetItem(item: InsertAnesthesiaSetItem): Promise<AnesthesiaSetItem> {
+    const [created] = await db
+      .insert(anesthesiaSetItems)
+      .values(item)
+      .returning();
+    return created;
+  }
+
+  async deleteAnesthesiaSetItems(setId: string): Promise<void> {
+    await db.delete(anesthesiaSetItems).where(eq(anesthesiaSetItems.setId, setId));
+  }
+
+  // ========== INVENTORY SETS ==========
+
+  async getInventorySets(hospitalId: string, unitId?: string): Promise<InventorySet[]> {
+    const conditions = [
+      eq(inventorySets.hospitalId, hospitalId),
+      eq(inventorySets.isActive, true),
+    ];
+    
+    if (unitId) {
+      conditions.push(or(eq(inventorySets.unitId, unitId), isNull(inventorySets.unitId))!);
+    }
+    
+    return await db
+      .select()
+      .from(inventorySets)
+      .where(and(...conditions))
+      .orderBy(asc(inventorySets.sortOrder), asc(inventorySets.name));
+  }
+
+  async getInventorySet(id: string): Promise<InventorySet | null> {
+    const [set] = await db
+      .select()
+      .from(inventorySets)
+      .where(eq(inventorySets.id, id));
+    return set || null;
+  }
+
+  async getInventorySetItems(setId: string): Promise<InventorySetItem[]> {
+    return await db
+      .select()
+      .from(inventorySetItems)
+      .where(eq(inventorySetItems.setId, setId))
+      .orderBy(asc(inventorySetItems.sortOrder));
+  }
+
+  async createInventorySet(set: InsertInventorySet): Promise<InventorySet> {
+    const [created] = await db
+      .insert(inventorySets)
+      .values(set)
+      .returning();
+    return created;
+  }
+
+  async updateInventorySet(id: string, updates: Partial<InventorySet>): Promise<InventorySet> {
+    const [updated] = await db
+      .update(inventorySets)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(inventorySets.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteInventorySet(id: string): Promise<void> {
+    await db.delete(inventorySets).where(eq(inventorySets.id, id));
+  }
+
+  async createInventorySetItem(item: InsertInventorySetItem): Promise<InventorySetItem> {
+    const [created] = await db
+      .insert(inventorySetItems)
+      .values(item)
+      .returning();
+    return created;
+  }
+
+  async deleteInventorySetItems(setId: string): Promise<void> {
+    await db.delete(inventorySetItems).where(eq(inventorySetItems.setId, setId));
+  }
+
+  // ========== ADDITIONAL INVENTORY USAGE FOR SETS ==========
+
+  async getInventoryUsageByItem(anesthesiaRecordId: string, itemId: string): Promise<InventoryUsage | null> {
+    const [usage] = await db
+      .select()
+      .from(inventoryUsage)
+      .where(and(
+        eq(inventoryUsage.anesthesiaRecordId, anesthesiaRecordId),
+        eq(inventoryUsage.itemId, itemId)
+      ));
+    return usage || null;
+  }
+
+  async createInventoryUsage(usage: InsertInventoryUsage): Promise<InventoryUsage> {
+    const [created] = await db
+      .insert(inventoryUsage)
+      .values(usage)
+      .returning();
+    return created;
   }
 }
 
