@@ -373,6 +373,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   
   // Individual barcode scan state for Edit Item codes
   const [scanningEditCodeField, setScanningEditCodeField] = useState<'gtin' | 'pharmacode' | 'migel' | 'atc' | null>(null);
+  
+  // Edit dialog Galexis auto-lookup state
+  const [isLookingUpGalexisEdit, setIsLookingUpGalexisEdit] = useState(false);
+  const [galexisEditLookupMessage, setGalexisEditLookupMessage] = useState<string | null>(null);
+  const galexisEditLookupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Transfer items dialog state
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
@@ -707,6 +712,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
 
   const handleCloseEditDialog = () => {
     setEditDialogOpen(false);
+    setIsLookingUpGalexisEdit(false);
+    setGalexisEditLookupMessage(null);
+    if (galexisEditLookupTimeoutRef.current) {
+      clearTimeout(galexisEditLookupTimeoutRef.current);
+    }
   };
 
   const deleteItemMutation = useMutation({
@@ -980,6 +990,35 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       }
     }
   }, [items, isLoading]);
+
+  // Auto-trigger Galexis lookup when GTIN or Pharmacode changes in Edit dialog (if no suppliers exist)
+  useEffect(() => {
+    // Only trigger if we're in the codes tab, have an item selected, and no suppliers yet
+    if (!selectedItem || !editDialogOpen || editDialogTab !== 'codes' || isLoadingCodes) return;
+    if (supplierCodes.length > 0) return; // Already has suppliers
+    if (isLookingUpGalexisEdit) return; // Already looking up
+    
+    const gtin = itemCodes?.gtin?.trim();
+    const pharmacode = itemCodes?.pharmacode?.trim();
+    
+    // Need at least one code to lookup
+    if (!gtin && !pharmacode) return;
+    
+    // Debounce the lookup
+    if (galexisEditLookupTimeoutRef.current) {
+      clearTimeout(galexisEditLookupTimeoutRef.current);
+    }
+    
+    galexisEditLookupTimeoutRef.current = setTimeout(() => {
+      lookupGalexisForEdit(gtin, pharmacode);
+    }, 800); // 800ms debounce
+    
+    return () => {
+      if (galexisEditLookupTimeoutRef.current) {
+        clearTimeout(galexisEditLookupTimeoutRef.current);
+      }
+    };
+  }, [itemCodes?.gtin, itemCodes?.pharmacode, selectedItem, editDialogOpen, editDialogTab, supplierCodes.length, isLoadingCodes]);
 
   const handleEditItem = async (item: ItemWithStock) => {
     setSelectedItem(item);
@@ -2035,6 +2074,73 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       });
     } finally {
       setIsLookingUpGalexis(false);
+    }
+  };
+  
+  // Galexis product lookup for Edit Item dialog - auto-adds supplier when found
+  const lookupGalexisForEdit = async (gtin?: string, pharmacode?: string) => {
+    if ((!gtin && !pharmacode) || !activeHospital?.id || !selectedItem) return;
+    
+    setIsLookingUpGalexisEdit(true);
+    setGalexisEditLookupMessage(t('items.lookingUpGalexis', 'Looking up in Galexis...'));
+    
+    try {
+      const response = await apiRequest('POST', '/api/items/galexis-lookup', {
+        gtin: gtin || undefined,
+        pharmacode: pharmacode || undefined,
+        hospitalId: activeHospital.id,
+      });
+      const result: any = await response.json();
+      
+      if (result.found) {
+        // Auto-add supplier with Galexis data
+        const supplierData = {
+          supplierName: result.supplierName || 'Galexis',
+          articleCode: result.pharmacode || pharmacode || '',
+          catalogUrl: result.catalogUrl || '',
+          basispreis: result.price ? String(result.price) : '',
+          isPreferred: supplierCodes.length === 0,
+        };
+        
+        try {
+          const createRes = await apiRequest("POST", `/api/items/${selectedItem.id}/suppliers`, supplierData);
+          const created = await createRes.json();
+          setSupplierCodes(prev => [...prev, created]);
+          
+          // Update item name if it was empty or generic
+          if (result.name && (!selectedItem.name || selectedItem.name === 'New Item')) {
+            setEditFormData(prev => ({ ...prev, name: result.name }));
+          }
+          
+          // Update manufacturer if found
+          if (result.manufacturer) {
+            setItemCodes(prev => ({ ...prev, manufacturer: result.manufacturer }));
+          }
+          
+          setGalexisEditLookupMessage(null);
+          toast({
+            title: t('items.galexisProductFound'),
+            description: t('items.supplierAutoAdded', 'Supplier info added from Galexis'),
+          });
+        } catch (supplierError: any) {
+          console.error('Failed to add supplier from Galexis:', supplierError);
+          setGalexisEditLookupMessage(null);
+        }
+      } else {
+        // No result found or no integration
+        setGalexisEditLookupMessage(
+          result.noIntegration 
+            ? t('items.galexisNotConfigured', 'Galexis not configured') 
+            : t('items.galexisProductNotFound', 'Product not found in Galexis')
+        );
+        // Clear message after 3 seconds
+        setTimeout(() => setGalexisEditLookupMessage(null), 3000);
+      }
+    } catch (error: any) {
+      console.error('Galexis lookup error:', error);
+      setGalexisEditLookupMessage(null);
+    } finally {
+      setIsLookingUpGalexisEdit(false);
     }
   };
   
@@ -5189,6 +5295,23 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                           <h3 className="font-semibold">{t('items.supplierPricing')}</h3>
                         </div>
                       </div>
+                      
+                      {/* Galexis Auto-Lookup Status */}
+                      {(isLookingUpGalexisEdit || galexisEditLookupMessage) && (
+                        <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${isLookingUpGalexisEdit ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300' : galexisEditLookupMessage?.includes('not found') || galexisEditLookupMessage?.includes('not configured') ? 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300' : 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300'}`} data-testid="galexis-lookup-status">
+                          {isLookingUpGalexisEdit ? (
+                            <>
+                              <i className="fas fa-spinner fa-spin"></i>
+                              <span>{t('items.lookingUpGalexis', 'Looking up in Galexis...')}</span>
+                            </>
+                          ) : (
+                            <>
+                              <i className={`fas ${galexisEditLookupMessage?.includes('not found') || galexisEditLookupMessage?.includes('not configured') ? 'fa-info-circle' : 'fa-check-circle'}`}></i>
+                              <span>{galexisEditLookupMessage}</span>
+                            </>
+                          )}
+                        </div>
+                      )}
                       
                       {/* Existing Suppliers List */}
                       {supplierCodes.length > 0 && (
