@@ -1098,6 +1098,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // State to control NOW line transitions - use state instead of ref to trigger re-renders
   const [nowLineTransitionsEnabled, setNowLineTransitionsEnabled] = useState<boolean>(false);
   
+  // Ref to track previous zoom values - used to detect zoom changes vs time-only changes
+  const prevZoomRef = useRef<{ start: number | undefined; end: number | undefined }>({ start: undefined, end: undefined });
+  
   // Ref to track if user has manually adjusted viewport (pan/zoom)
   // When set, prevents auto-recentering on data changes
   const userPinnedViewportRef = useRef<boolean>(false);
@@ -3708,6 +3711,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return;
     }
     
+    // Detect if zoom changed (not just time)
+    const zoomChanged = prevZoomRef.current.start !== currentZoomStart || 
+                        prevZoomRef.current.end !== currentZoomEnd;
+    
+    // Update prev zoom ref
+    prevZoomRef.current = { start: currentZoomStart, end: currentZoomEnd };
+    
     const visibleStart = currentZoomStart;
     const visibleEnd = currentZoomEnd;
     const visibleRange = visibleEnd - visibleStart;
@@ -3723,14 +3733,22 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // Only update if position changed (avoid unnecessary re-renders)
     if (newPosition !== nowLinePosition) {
-      setNowLinePosition(newPosition);
-      
-      // Enable transitions after first position is set with correct zoom data
-      // Use setTimeout to ensure position is set first, then enable transitions
-      if (!nowLineTransitionsEnabled) {
+      // If zoom changed, disable transitions temporarily for instant repositioning
+      if (zoomChanged && nowLineTransitionsEnabled) {
+        setNowLineTransitionsEnabled(false);
+        setNowLinePosition(newPosition);
+        // Re-enable transitions after a short delay for smooth time-based updates
         setTimeout(() => {
           setNowLineTransitionsEnabled(true);
-        }, 100);
+        }, 50);
+      } else {
+        setNowLinePosition(newPosition);
+        // Enable transitions after first position is set with correct zoom data
+        if (!nowLineTransitionsEnabled) {
+          setTimeout(() => {
+            setNowLineTransitionsEnabled(true);
+          }, 100);
+        }
       }
     }
   }, [currentZoomStart, currentZoomEnd, currentTime, nowLinePosition, nowLineTransitionsEnabled]);
