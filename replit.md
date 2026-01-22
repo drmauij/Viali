@@ -23,6 +23,21 @@ The frontend uses React, TypeScript, and Vite, with Wouter for routing, TanStack
 ### Backend
 The backend is built with Express.js and TypeScript, utilizing a PostgreSQL database managed by Drizzle ORM. Authentication supports Google OAuth and local email/password via Passport.js with session-based authentication. The API is RESTful, featuring centralized error handling, bcrypt for password hashing, and robust role-based access control. It follows a modular architecture with domain-specific route modules. Key backend services include AI-powered medical monitor OCR and patient data encryption.
 
+### Backend Route Organization
+Routes are organized into modular files by domain:
+- **server/routes/anesthesia/**: 163 routes across 10 modular files:
+  - `settings.ts` - Surgery rooms, medication groups, administration groups configuration
+  - `patients.ts` - Patient CRUD and search
+  - `surgeries.ts` - Surgery scheduling and management
+  - `records.ts` - Anesthesia record lifecycle (create, update, lock, delete)
+  - `preop.ts` - Pre-operative assessment forms
+  - `vitals.ts` - Vital signs and monitoring data
+  - `medications.ts` - Medication administration
+  - `events.ts` - Timeline events (anesthesia start/end, intubation, etc.)
+  - `staff.ts` - Staff assignments to cases
+  - `inventory.ts` - Anesthesia-specific inventory management
+  - `index.ts` - Consolidates and exports all route modules
+
 ### Authentication & Authorization
 Viali implements a hybrid authentication strategy (Google OAuth and local email/password) combined with robust role-based and multi-hospital authorization. A comprehensive user management system handles user creation, password changes, and hospital assignments, enforcing data isolation between hospitals at the API layer.
 
