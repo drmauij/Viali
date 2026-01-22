@@ -9590,7 +9590,7 @@ router.post('/api/anesthesia-sets', isAuthenticated, requireAdminRole, requireWr
         await storage.createAnesthesiaSetItem({
           setId: set.id,
           itemType: item.itemType,
-          config: item.config,
+          config: item.config || item.configuration || {},
           sortOrder: item.sortOrder || 0,
         });
       }
@@ -9632,7 +9632,7 @@ router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireAdminRole, r
         await storage.createAnesthesiaSetItem({
           setId,
           itemType: item.itemType,
-          config: item.config,
+          config: item.config || item.configuration || {},
           sortOrder: item.sortOrder || 0,
         });
       }
