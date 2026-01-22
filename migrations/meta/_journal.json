@@ -645,6 +645,13 @@
       "when": 1769027708208,
       "tag": "0091_short_living_lightning",
       "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1769072462848,
+      "tag": "0092_icy_caretaker",
+      "breakpoints": true
     }
   ]
 }
