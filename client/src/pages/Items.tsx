@@ -3456,7 +3456,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
             {selectedItem && (
               <div className="flex-shrink-0 flex gap-2 justify-end px-6 py-4 bg-background border-t">
                 <Button type="button" variant="outline" onClick={handleCloseEditDialog} data-testid="button-cancel-edit">
-                  {t('common.cancel')}
+                  {t('common.close')}
                 </Button>
                 <Button type="submit" onClick={(e) => { e.preventDefault(); handleUpdateItem(e as any); }} disabled={updateItemMutation.isPending} data-testid="button-save-item">
                   {updateItemMutation.isPending ? <><i className="fas fa-spinner fa-spin mr-2"></i>{t('common.saving')}</> : t('common.save')}
@@ -6013,7 +6013,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               )}
               <div className="flex gap-2">
                 <Button type="button" variant="outline" onClick={() => handleCloseEditDialog()}>
-                  {canWrite ? t('common.cancel') : t('common.close')}
+                  {t('common.close')}
                 </Button>
                 {canWrite && (
                   <Button 
