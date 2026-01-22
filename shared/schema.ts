@@ -4463,3 +4463,128 @@ export const insertPatientMessageSchema = createInsertSchema(patientMessages).om
 
 export type PatientMessage = typeof patientMessages.$inferSelect;
 export type InsertPatientMessage = z.infer<typeof insertPatientMessageSchema>;
+
+// ========== ANESTHESIA SETS ==========
+// Predefined sets of anesthesia options (installations, techniques) for quick entry
+
+export const anesthesiaSets = pgTable("anesthesia_sets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_anesthesia_sets_hospital").on(table.hospitalId),
+]);
+
+// Items within an anesthesia set (installations, airway, technique, etc.)
+export const anesthesiaSetItems = pgTable("anesthesia_set_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  setId: varchar("set_id").notNull().references(() => anesthesiaSets.id, { onDelete: 'cascade' }),
+  
+  // Type of item in the set
+  itemType: varchar("item_type", { 
+    enum: ["installation", "airway", "technique"] 
+  }).notNull(),
+  
+  // Configuration stored as JSONB - varies by itemType
+  config: jsonb("config").$type<{
+    // For installations (peripheral, arterial, central, bladder)
+    category?: "peripheral" | "arterial" | "central" | "bladder";
+    location?: string;
+    gauge?: string;
+    lumens?: number;
+    technique?: string;
+    bladderType?: string;
+    bladderSize?: string;
+    
+    // For airway
+    airwayDevice?: string;
+    size?: string;
+    depth?: number;
+    cuffPressure?: number;
+    laryngoscopeType?: string;
+    laryngoscopeBlade?: string;
+    
+    // For technique
+    technique?: "general" | "sedation" | "regional_spinal" | "regional_epidural" | "regional_peripheral";
+    approach?: "tiva" | "balanced";
+    spinalLocation?: string;
+    epiduralLocation?: string;
+    blockTechnique?: string;
+    blockSide?: "left" | "right" | "bilateral";
+  }>().notNull(),
+  
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_anesthesia_set_items_set").on(table.setId),
+]);
+
+export const insertAnesthesiaSetSchema = createInsertSchema(anesthesiaSets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertAnesthesiaSetItemSchema = createInsertSchema(anesthesiaSetItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type AnesthesiaSet = typeof anesthesiaSets.$inferSelect;
+export type InsertAnesthesiaSet = z.infer<typeof insertAnesthesiaSetSchema>;
+export type AnesthesiaSetItem = typeof anesthesiaSetItems.$inferSelect;
+export type InsertAnesthesiaSetItem = z.infer<typeof insertAnesthesiaSetItemSchema>;
+
+// ========== INVENTORY SETS ==========
+// Predefined sets of inventory items with quantities for quick entry
+
+export const inventorySets = pgTable("inventory_sets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  unitId: varchar("unit_id").references(() => units.id), // Optional: scope to specific unit
+  name: varchar("name").notNull(),
+  description: text("description"),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_inventory_sets_hospital").on(table.hospitalId),
+  index("idx_inventory_sets_unit").on(table.unitId),
+]);
+
+// Items within an inventory set with quantities
+export const inventorySetItems = pgTable("inventory_set_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  setId: varchar("set_id").notNull().references(() => inventorySets.id, { onDelete: 'cascade' }),
+  itemId: varchar("item_id").notNull().references(() => items.id, { onDelete: 'cascade' }),
+  quantity: integer("quantity").notNull().default(1),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_inventory_set_items_set").on(table.setId),
+  index("idx_inventory_set_items_item").on(table.itemId),
+]);
+
+export const insertInventorySetSchema = createInsertSchema(inventorySets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertInventorySetItemSchema = createInsertSchema(inventorySetItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InventorySet = typeof inventorySets.$inferSelect;
+export type InsertInventorySet = z.infer<typeof insertInventorySetSchema>;
+export type InventorySetItem = typeof inventorySetItems.$inferSelect;
+export type InsertInventorySetItem = z.infer<typeof insertInventorySetItemSchema>;
