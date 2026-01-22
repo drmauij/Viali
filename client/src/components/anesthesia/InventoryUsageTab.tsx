@@ -5,13 +5,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight, Search, X } from "lucide-react";
+import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight, Search, X, Settings, Loader2, Trash2 } from "lucide-react";
 import { ControlledItemsCommitDialog } from "./ControlledItemsCommitDialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { formatDate } from "@/lib/dateUtils";
 import type { Module } from "@/contexts/ModuleContext";
+import type { InventorySet, InventorySetItem } from "@shared/schema";
 
 interface InventoryUsageTabProps {
   anesthesiaRecordId: string;
@@ -68,6 +74,12 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
   const [searchTerm, setSearchTerm] = useState("");
   // State for tracking which commits are expanded to show details
   const [expandedCommits, setExpandedCommits] = useState<Set<string>>(() => new Set());
+  
+  // Inventory Sets state
+  const [setsExpanded, setSetsExpanded] = useState(true);
+  const [showManageSetsDialog, setShowManageSetsDialog] = useState(false);
+  const [applyingSetId, setApplyingSetId] = useState<string | null>(null);
+  const isAdmin = activeHospital?.role === 'admin';
 
   // Toggle folder expansion
   const toggleFolder = (folderId: string) => {
@@ -155,7 +167,41 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
     enabled: !!surgery?.patientId,
   });
 
-  
+  // Fetch inventory sets for quick apply
+  const { data: inventorySets = [], isLoading: setsLoading } = useQuery<InventorySet[]>({
+    queryKey: ['/api/inventory-sets', activeHospital?.id, activeHospital?.unitId],
+    queryFn: async () => {
+      const url = activeHospital?.unitId 
+        ? `/api/inventory-sets/${activeHospital?.id}?unitId=${activeHospital?.unitId}`
+        : `/api/inventory-sets/${activeHospital?.id}`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch inventory sets');
+      return res.json();
+    },
+    enabled: !!activeHospital?.id,
+  });
+
+  // Apply inventory set mutation
+  const applySetMutation = useMutation({
+    mutationFn: async (setId: string) => {
+      return apiRequest('POST', `/api/inventory-sets/${setId}/apply`, { anesthesiaRecordId });
+    },
+    onSuccess: () => {
+      toast({ title: "Set applied", description: "The inventory set has been applied to this record." });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/inventory/${anesthesiaRecordId}`] });
+      setApplyingSetId(null);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to apply set.", variant: "destructive" });
+      setApplyingSetId(null);
+    },
+  });
+
+  const handleApplySet = (setId: string) => {
+    setApplyingSetId(setId);
+    applySetMutation.mutate(setId);
+  };
+
   // Trigger inventory calculation on mount and periodically for running infusions
   useEffect(() => {
     if (!anesthesiaRecordId) return;
@@ -529,6 +575,98 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
         </Button>
       </div>
 
+      {/* Inventory Sets - Quick Apply */}
+      <Collapsible open={setsExpanded} onOpenChange={setSetsExpanded}>
+        <Card className="mb-4">
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/30">
+              <div className="flex items-center gap-2">
+                {setsExpanded ? (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                )}
+                <Package className="h-4 w-4" />
+                <span className="font-semibold text-sm">Quick Apply Sets</span>
+                {inventorySets.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">{inventorySets.length}</Badge>
+                )}
+              </div>
+              {isAdmin && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowManageSetsDialog(true);
+                  }}
+                  data-testid="button-manage-inventory-sets"
+                >
+                  <Settings className="h-4 w-4 mr-1" />
+                  Manage
+                </Button>
+              )}
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              {setsLoading ? (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : inventorySets.length === 0 ? (
+                <div className="py-4 text-center text-muted-foreground text-sm">
+                  <p>No inventory sets configured</p>
+                  {isAdmin && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      onClick={() => setShowManageSetsDialog(true)}
+                      className="mt-1"
+                    >
+                      Create your first set
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {inventorySets.map((set) => (
+                    <Button
+                      key={set.id}
+                      variant="outline"
+                      size="sm"
+                      className="justify-start h-auto py-2 px-3"
+                      onClick={() => handleApplySet(set.id)}
+                      disabled={applyingSetId === set.id}
+                      data-testid={`button-apply-inventory-set-${set.id}`}
+                    >
+                      {applyingSetId === set.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      ) : (
+                        <Plus className="h-4 w-4 mr-2" />
+                      )}
+                      <span className="truncate">{set.name}</span>
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {/* Inventory Sets Management Dialog */}
+      {isAdmin && (
+        <InventorySetsManageDialog
+          open={showManageSetsDialog}
+          onOpenChange={setShowManageSetsDialog}
+          hospitalId={activeHospital?.id || ''}
+          unitId={activeHospital?.unitId}
+          sets={inventorySets}
+          items={items}
+        />
+      )}
+
       {/* Commit History with Expandable Details */}
       {commits.length > 0 && (
         <Card className="mb-4">
@@ -794,5 +932,240 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
         patientBirthday={patient?.birthday}
       />
     </div>
+  );
+}
+
+// ============================================================================
+// INVENTORY SETS MANAGEMENT DIALOG (Admin Only)
+// ============================================================================
+
+interface ManageDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  hospitalId: string;
+  unitId?: string;
+  sets: InventorySet[];
+  items: Item[];
+}
+
+function InventorySetsManageDialog({ open, onOpenChange, hospitalId, unitId, sets, items }: ManageDialogProps) {
+  const { toast } = useToast();
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newSetName, setNewSetName] = useState('');
+  const [newSetDescription, setNewSetDescription] = useState('');
+  const [newSetItems, setNewSetItems] = useState<Array<{
+    itemId: string;
+    quantity: number;
+  }>>([]);
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { name: string; description: string; items: any[] }) => {
+      return apiRequest('POST', `/api/inventory-sets`, { ...data, hospitalId, unitId });
+    },
+    onSuccess: () => {
+      toast({ title: "Set created", description: "The inventory set has been created." });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory-sets', hospitalId] });
+      resetForm();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create set.", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (setId: string) => {
+      return apiRequest('DELETE', `/api/inventory-sets/${setId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Set deleted", description: "The inventory set has been deleted." });
+      queryClient.invalidateQueries({ queryKey: ['/api/inventory-sets', hospitalId] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete set.", variant: "destructive" });
+    },
+  });
+
+  const resetForm = () => {
+    setShowCreateForm(false);
+    setNewSetName('');
+    setNewSetDescription('');
+    setNewSetItems([]);
+  };
+
+  const handleCreateSet = () => {
+    if (!newSetName.trim()) {
+      toast({ title: "Error", description: "Set name is required.", variant: "destructive" });
+      return;
+    }
+    if (newSetItems.length === 0) {
+      toast({ title: "Error", description: "Add at least one item to the set.", variant: "destructive" });
+      return;
+    }
+    createMutation.mutate({
+      name: newSetName.trim(),
+      description: newSetDescription.trim(),
+      items: newSetItems,
+    });
+  };
+
+  const addSetItem = () => {
+    setNewSetItems(prev => [...prev, { itemId: '', quantity: 1 }]);
+  };
+
+  const updateSetItem = (index: number, updates: Partial<{ itemId: string; quantity: number }>) => {
+    setNewSetItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
+  };
+
+  const removeSetItem = (index: number) => {
+    setNewSetItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Manage Inventory Sets</DialogTitle>
+          <DialogDescription>
+            Create and manage predefined inventory bundles for quick application.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {!showCreateForm ? (
+            <>
+              <Button
+                onClick={() => setShowCreateForm(true)}
+                className="w-full"
+                data-testid="button-create-new-inventory-set"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Set
+              </Button>
+
+              {sets.length === 0 ? (
+                <p className="text-center text-muted-foreground py-6">
+                  No inventory sets yet. Create your first one above.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {sets.map((set) => (
+                    <div key={set.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{set.name}</p>
+                        {set.description && (
+                          <p className="text-sm text-muted-foreground">{set.description}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteMutation.mutate(set.id)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-inventory-set-${set.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="inventory-set-name">Set Name *</Label>
+                <Input
+                  id="inventory-set-name"
+                  value={newSetName}
+                  onChange={(e) => setNewSetName(e.target.value)}
+                  placeholder="e.g., Standard Propofol Setup"
+                  data-testid="input-inventory-set-name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="inventory-set-description">Description</Label>
+                <Textarea
+                  id="inventory-set-description"
+                  value={newSetDescription}
+                  onChange={(e) => setNewSetDescription(e.target.value)}
+                  placeholder="Brief description of this set..."
+                  data-testid="input-inventory-set-description"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Items in Set</Label>
+                  <Button variant="outline" size="sm" onClick={addSetItem}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Item
+                  </Button>
+                </div>
+
+                {newSetItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center border rounded-lg">
+                    No items added yet. Add items to include in this set.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {newSetItems.map((item, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 border rounded-lg">
+                        <Select
+                          value={item.itemId}
+                          onValueChange={(value) => updateSetItem(index, { itemId: value })}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Select item" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {items.map(invItem => (
+                              <SelectItem key={invItem.id} value={invItem.id}>{invItem.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={item.quantity}
+                          onChange={(e) => updateSetItem(index, { quantity: parseInt(e.target.value) || 1 })}
+                          className="w-20"
+                          data-testid={`input-set-item-qty-${index}`}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeSetItem(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={resetForm}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateSet}
+                  disabled={createMutation.isPending || !newSetName.trim() || newSetItems.length === 0}
+                  data-testid="button-save-inventory-set"
+                >
+                  {createMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                  )}
+                  Save Set
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
