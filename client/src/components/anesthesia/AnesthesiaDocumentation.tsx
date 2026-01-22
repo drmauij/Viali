@@ -4,13 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, X, Download, Printer, Loader2, Trash2 } from "lucide-react";
+import { Plus, X, Download, Printer, Loader2, Trash2, Settings, Package, ChevronRight, Check } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useTranslation } from "react-i18next";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useActiveHospital } from "@/hooks/useActiveHospital";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   useInstallations,
   useCreateInstallation,
@@ -26,10 +31,397 @@ import {
   useCreatePeripheralBlock,
   useDeletePeripheralBlock,
 } from "@/lib/anesthesiaDocumentation";
-import type { AnesthesiaInstallation, InsertAnesthesiaInstallation } from "@shared/schema";
+import type { AnesthesiaInstallation, InsertAnesthesiaInstallation, AnesthesiaSet, AnesthesiaSetItem } from "@shared/schema";
 
 interface SectionProps {
   anesthesiaRecordId: string;
+}
+
+// ============================================================================
+// ANESTHESIA SETS SECTION
+// ============================================================================
+
+interface AnesthesiaSetWithItems extends AnesthesiaSet {
+  items?: AnesthesiaSetItem[];
+}
+
+export function AnesthesiaSetsSection({ anesthesiaRecordId }: SectionProps) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const activeHospital = useActiveHospital();
+  const isAdmin = activeHospital?.role === 'admin';
+  
+  const [showManageDialog, setShowManageDialog] = useState(false);
+  const [editingSet, setEditingSet] = useState<AnesthesiaSetWithItems | null>(null);
+  const [applyingSetId, setApplyingSetId] = useState<string | null>(null);
+
+  const { data: sets = [], isLoading } = useQuery<AnesthesiaSet[]>({
+    queryKey: ['/api/anesthesia-sets', activeHospital?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/anesthesia-sets/${activeHospital?.id}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch sets');
+      return res.json();
+    },
+    enabled: !!activeHospital?.id,
+  });
+
+  const applySetMutation = useMutation({
+    mutationFn: async (setId: string) => {
+      return apiRequest('POST', `/api/anesthesia-sets/${setId}/apply/${anesthesiaRecordId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Set applied", description: "The anesthesia set has been applied to this record." });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/installations/${anesthesiaRecordId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/general-technique/${anesthesiaRecordId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/airway-management/${anesthesiaRecordId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/neuraxial-blocks/${anesthesiaRecordId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/peripheral-blocks/${anesthesiaRecordId}`] });
+      setApplyingSetId(null);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to apply set.", variant: "destructive" });
+      setApplyingSetId(null);
+    },
+  });
+
+  const handleApplySet = (setId: string) => {
+    setApplyingSetId(setId);
+    applySetMutation.mutate(setId);
+  };
+
+  if (!anesthesiaRecordId) {
+    return (
+      <CardContent className="py-8 text-center text-muted-foreground">
+        No anesthesia record selected
+      </CardContent>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <CardContent className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </CardContent>
+    );
+  }
+
+  return (
+    <CardContent className="space-y-4 pt-0">
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Quickly apply predefined configurations
+        </p>
+        {isAdmin && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowManageDialog(true)}
+            data-testid="button-manage-anesthesia-sets"
+          >
+            <Settings className="h-4 w-4 mr-1" />
+            Manage Sets
+          </Button>
+        )}
+      </div>
+
+      {sets.length === 0 ? (
+        <div className="py-6 text-center text-muted-foreground border rounded-lg">
+          <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p>No anesthesia sets configured</p>
+          {isAdmin && (
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => setShowManageDialog(true)}
+              className="mt-2"
+            >
+              Create your first set
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          {sets.map((set) => (
+            <div
+              key={set.id}
+              className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{set.name}</p>
+                {set.description && (
+                  <p className="text-xs text-muted-foreground truncate">{set.description}</p>
+                )}
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => handleApplySet(set.id)}
+                disabled={applyingSetId === set.id}
+                data-testid={`button-apply-set-${set.id}`}
+              >
+                {applyingSetId === set.id ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <ChevronRight className="h-4 w-4 mr-1" />
+                    Apply
+                  </>
+                )}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isAdmin && (
+        <AnesthesiaSetsManageDialog
+          open={showManageDialog}
+          onOpenChange={setShowManageDialog}
+          hospitalId={activeHospital?.id || ''}
+          sets={sets}
+          editingSet={editingSet}
+          setEditingSet={setEditingSet}
+        />
+      )}
+    </CardContent>
+  );
+}
+
+// ============================================================================
+// ANESTHESIA SETS MANAGEMENT DIALOG (Admin Only)
+// ============================================================================
+
+interface ManageDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  hospitalId: string;
+  sets: AnesthesiaSet[];
+  editingSet: AnesthesiaSetWithItems | null;
+  setEditingSet: (set: AnesthesiaSetWithItems | null) => void;
+}
+
+function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, editingSet, setEditingSet }: ManageDialogProps) {
+  const { toast } = useToast();
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [newSetName, setNewSetName] = useState('');
+  const [newSetDescription, setNewSetDescription] = useState('');
+  const [newSetItems, setNewSetItems] = useState<Array<{
+    itemType: string;
+    configuration: Record<string, any>;
+  }>>([]);
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { name: string; description: string; items: any[] }) => {
+      return apiRequest('POST', `/api/anesthesia-sets`, { ...data, hospitalId });
+    },
+    onSuccess: () => {
+      toast({ title: "Set created", description: "The anesthesia set has been created." });
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia-sets', hospitalId] });
+      resetForm();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create set.", variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (setId: string) => {
+      return apiRequest('DELETE', `/api/anesthesia-sets/${setId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Set deleted", description: "The anesthesia set has been deleted." });
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia-sets', hospitalId] });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete set.", variant: "destructive" });
+    },
+  });
+
+  const resetForm = () => {
+    setShowCreateForm(false);
+    setNewSetName('');
+    setNewSetDescription('');
+    setNewSetItems([]);
+  };
+
+  const handleCreateSet = () => {
+    if (!newSetName.trim()) {
+      toast({ title: "Error", description: "Set name is required.", variant: "destructive" });
+      return;
+    }
+    createMutation.mutate({
+      name: newSetName.trim(),
+      description: newSetDescription.trim(),
+      items: newSetItems,
+    });
+  };
+
+  const addSetItem = () => {
+    setNewSetItems(prev => [...prev, { itemType: 'peripheral_iv', configuration: {} }]);
+  };
+
+  const updateSetItem = (index: number, updates: Partial<{ itemType: string; configuration: Record<string, any> }>) => {
+    setNewSetItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
+  };
+
+  const removeSetItem = (index: number) => {
+    setNewSetItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const itemTypeOptions = [
+    { value: 'peripheral_iv', label: 'Peripheral IV Line' },
+    { value: 'arterial_line', label: 'Arterial Line' },
+    { value: 'central_line', label: 'Central Line' },
+    { value: 'bladder_catheter', label: 'Bladder Catheter' },
+    { value: 'ett', label: 'ETT (Endotracheal Tube)' },
+    { value: 'lma', label: 'LMA (Laryngeal Mask Airway)' },
+    { value: 'mask', label: 'Mask Ventilation' },
+    { value: 'tci', label: 'TCI (Target Controlled Infusion)' },
+    { value: 'spinal', label: 'Spinal Anesthesia' },
+    { value: 'epidural', label: 'Epidural Anesthesia' },
+    { value: 'nerve_block', label: 'Peripheral Nerve Block' },
+  ];
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Manage Anesthesia Sets</DialogTitle>
+          <DialogDescription>
+            Create and manage predefined anesthesia configurations for quick application.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {!showCreateForm ? (
+            <>
+              <Button
+                onClick={() => setShowCreateForm(true)}
+                className="w-full"
+                data-testid="button-create-new-set"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Set
+              </Button>
+
+              {sets.length === 0 ? (
+                <p className="text-center text-muted-foreground py-6">
+                  No anesthesia sets yet. Create your first one above.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {sets.map((set) => (
+                    <div key={set.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{set.name}</p>
+                        {set.description && (
+                          <p className="text-sm text-muted-foreground">{set.description}</p>
+                        )}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteMutation.mutate(set.id)}
+                        disabled={deleteMutation.isPending}
+                        data-testid={`button-delete-set-${set.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="set-name">Set Name *</Label>
+                <Input
+                  id="set-name"
+                  value={newSetName}
+                  onChange={(e) => setNewSetName(e.target.value)}
+                  placeholder="e.g., Standard GA Setup"
+                  data-testid="input-set-name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="set-description">Description</Label>
+                <Textarea
+                  id="set-description"
+                  value={newSetDescription}
+                  onChange={(e) => setNewSetDescription(e.target.value)}
+                  placeholder="Brief description of this set..."
+                  data-testid="input-set-description"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Items in Set</Label>
+                  <Button variant="outline" size="sm" onClick={addSetItem}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Item
+                  </Button>
+                </div>
+
+                {newSetItems.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center border rounded-lg">
+                    No items added yet. Add items to include in this set.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {newSetItems.map((item, index) => (
+                      <div key={index} className="flex items-center gap-2 p-2 border rounded-lg">
+                        <Select
+                          value={item.itemType}
+                          onValueChange={(value) => updateSetItem(index, { itemType: value })}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Select item type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {itemTypeOptions.map(opt => (
+                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeSetItem(index)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={resetForm}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateSet}
+                  disabled={createMutation.isPending || !newSetName.trim()}
+                  data-testid="button-save-set"
+                >
+                  {createMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-2" />
+                  )}
+                  Save Set
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 // ============================================================================
@@ -2071,7 +2463,19 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
 export default function AnesthesiaDocumentation({ anesthesiaRecordId }: { anesthesiaRecordId: string }) {
   return (
     <Card className="w-full">
-      <Accordion type="multiple" defaultValue={["installations", "general", "neuraxial", "peripheral"]} className="w-full">
+      <Accordion type="multiple" defaultValue={["sets", "installations", "general", "neuraxial", "peripheral"]} className="w-full">
+        <AccordionItem value="sets">
+          <AccordionTrigger className="px-6 hover:no-underline">
+            <CardTitle className="text-xl flex items-center gap-2">
+              <Package className="h-5 w-5" />
+              Quick Apply Sets
+            </CardTitle>
+          </AccordionTrigger>
+          <AccordionContent>
+            <AnesthesiaSetsSection anesthesiaRecordId={anesthesiaRecordId} />
+          </AccordionContent>
+        </AccordionItem>
+
         <AccordionItem value="installations">
           <AccordionTrigger className="px-6 hover:no-underline">
             <CardTitle className="text-xl">Installations</CardTitle>

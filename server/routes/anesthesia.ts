@@ -9672,6 +9672,149 @@ router.delete('/api/anesthesia-sets/:setId', isAuthenticated, requireAdminRole, 
   }
 });
 
+// Apply an anesthesia set to an anesthesia record
+router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { setId, anesthesiaRecordId } = req.params;
+    const userId = req.user.id;
+
+    const set = await storage.getAnesthesiaSet(setId);
+    if (!set) {
+      return res.status(404).json({ message: "Anesthesia set not found" });
+    }
+
+    const record = await storage.getAnesthesiaRecord(anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Get set items and apply them based on their type
+    const setItems = await storage.getAnesthesiaSetItems(setId);
+    let appliedCount = 0;
+
+    for (const item of setItems) {
+      try {
+        const config = item.configuration as Record<string, any> || {};
+        
+        switch (item.itemType) {
+          case 'peripheral_iv':
+            await storage.createAnesthesiaInstallation({
+              anesthesiaRecordId,
+              category: 'peripheral',
+              attempts: 1,
+              notes: config.notes || null,
+              location: config.location || null,
+              isPreExisting: false,
+              metadata: config,
+            });
+            appliedCount++;
+            break;
+            
+          case 'arterial_line':
+            await storage.createAnesthesiaInstallation({
+              anesthesiaRecordId,
+              category: 'arterial',
+              attempts: 1,
+              notes: config.notes || null,
+              location: config.location || null,
+              isPreExisting: false,
+              metadata: config,
+            });
+            appliedCount++;
+            break;
+            
+          case 'central_line':
+            await storage.createAnesthesiaInstallation({
+              anesthesiaRecordId,
+              category: 'central',
+              attempts: 1,
+              notes: config.notes || null,
+              location: config.location || null,
+              isPreExisting: false,
+              metadata: config,
+            });
+            appliedCount++;
+            break;
+            
+          case 'bladder_catheter':
+            await storage.createAnesthesiaInstallation({
+              anesthesiaRecordId,
+              category: 'bladder',
+              attempts: 1,
+              notes: config.notes || null,
+              location: null,
+              isPreExisting: false,
+              metadata: config,
+            });
+            appliedCount++;
+            break;
+            
+          case 'ett':
+          case 'lma':
+          case 'mask':
+            // Apply airway management
+            await storage.upsertAirwayManagement(anesthesiaRecordId, {
+              airwayType: item.itemType,
+              size: config.size || null,
+              attempts: 1,
+              cormackLehane: config.cormackLehane || null,
+              notes: config.notes || null,
+            });
+            appliedCount++;
+            break;
+            
+          case 'spinal':
+          case 'epidural':
+            // Create neuraxial block
+            await storage.createNeuraxialBlock({
+              anesthesiaRecordId,
+              blockType: item.itemType,
+              level: config.level || null,
+              medication: config.medication || null,
+              dose: config.dose || null,
+              volume: config.volume || null,
+              notes: config.notes || null,
+            });
+            appliedCount++;
+            break;
+            
+          case 'nerve_block':
+            // Create peripheral block
+            await storage.createPeripheralBlock({
+              anesthesiaRecordId,
+              blockType: config.blockType || 'other',
+              location: config.location || null,
+              medication: config.medication || null,
+              dose: config.dose || null,
+              volume: config.volume || null,
+              guidance: config.guidance || 'ultrasound',
+              notes: config.notes || null,
+            });
+            appliedCount++;
+            break;
+            
+          default:
+            console.log(`Unknown item type: ${item.itemType}`);
+        }
+      } catch (itemError) {
+        console.error(`Error applying set item ${item.id}:`, itemError);
+      }
+    }
+
+    res.json({ message: "Set applied successfully", appliedCount });
+  } catch (error) {
+    console.error("Error applying anesthesia set:", error);
+    res.status(500).json({ message: "Failed to apply anesthesia set" });
+  }
+});
+
 // ========== INVENTORY SETS ==========
 
 // Get all inventory sets for a hospital (optionally filtered by unit)
