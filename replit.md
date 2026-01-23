@@ -116,7 +116,8 @@ Core design decisions include:
 - **Universal Value Editing System**: Consistent `EditableValue` component for click-to-edit functionality.
 - **Anesthesia Record Enhancements**: Common event quick-add, OP calendar status indicators, full localization (English/German), comprehensive PDF export with visual charts, historical record viewport centering, record locking, and sticker documentation storage in Exoscale S3.
 - **Raspberry Pi Camera Integration**: Automated vital signs capture using Raspberry Pi devices, uploading to Exoscale S3, with API endpoints and a React hook for image fetching and Vision AI OCR processing.
-- **Clinic Appointment Booking System**: Manages provider bookability and availability (`provider_availability`, `provider_time_off`, `provider_absences`, `clinic_appointments`).
+- **Clinic Appointment Booking System**: Manages provider bookability and availability (`provider_availability`, `provider_time_off`, `provider_absences`, `clinic_appointments`). Supports both shared hospital calendars (default for small clinics) and unit-specific calendars via `hasOwnCalendar` flag on units.
+- **Shared Hospital Calendar Architecture**: By default, units share a hospital-wide calendar. Units can opt-in to their own calendar via the `hasOwnCalendar` boolean. Clinic tables (`clinic_providers`, `provider_availability`, `provider_time_off`, `provider_availability_windows`) support both scopes via nullable `unitId` (hospital-level when null with `hospitalId` set) or specific `unitId` (unit-specific).
 - **Bidirectional Cal.com Sync for RetellAI Voice Booking**: Real-time synchronization between the clinic calendar and Cal.com for appointment booking. This includes outbound sync (clinic appointments to Cal.com busy blocks) and inbound sync (Cal.com webhooks for booking creation/updates/cancellations).
 
 ## External Dependencies

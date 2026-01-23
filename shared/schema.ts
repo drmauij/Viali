@@ -114,6 +114,7 @@ export const units = pgTable("units", {
   showControlledMedications: boolean("show_controlled_medications").default(false), // UI control: show Controlled (BTM) tab for this unit
   questionnairePhone: varchar("questionnaire_phone"), // Help line phone for patient questionnaire emails
   infoFlyerUrl: varchar("info_flyer_url"), // URL to unit info flyer PDF
+  hasOwnCalendar: boolean("has_own_calendar").default(false), // When false: uses hospital-level shared calendar. When true: has unit-specific providers/availability
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_units_hospital").on(table.hospitalId),
@@ -3656,9 +3657,11 @@ export type InsertPersonalTodo = z.infer<typeof insertPersonalTodoSchema>;
 // ============================================
 
 // Clinic Providers - Controls which users appear as bookable providers in the calendar
+// When unitId is NULL and hospitalId is set, this is a hospital-level provider (shared across all units without hasOwnCalendar)
 export const clinicProviders = pgTable("clinic_providers", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  hospitalId: varchar("hospital_id").references(() => hospitals.id, { onDelete: 'cascade' }), // Hospital-level providers when unitId is null
+  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }), // Unit-specific providers when set
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   isBookable: boolean("is_bookable").default(true).notNull(),
   
@@ -3672,9 +3675,9 @@ export const clinicProviders = pgTable("clinic_providers", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
+  index("idx_clinic_providers_hospital").on(table.hospitalId),
   index("idx_clinic_providers_unit").on(table.unitId),
   index("idx_clinic_providers_user").on(table.userId),
-  unique("unique_clinic_provider").on(table.unitId, table.userId),
 ]);
 
 export const insertClinicProviderSchema = createInsertSchema(clinicProviders).omit({
@@ -3686,10 +3689,12 @@ export type InsertClinicProvider = z.infer<typeof insertClinicProviderSchema>;
 export type ClinicProvider = typeof clinicProviders.$inferSelect;
 
 // Provider Availability - Weekly schedule patterns
+// When unitId is NULL and hospitalId is set, this is hospital-level availability
 export const providerAvailability = pgTable("provider_availability", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   providerId: varchar("provider_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  hospitalId: varchar("hospital_id").references(() => hospitals.id, { onDelete: 'cascade' }), // Hospital-level when unitId is null
+  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }), // Unit-specific when set
   
   // Day of week (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
   dayOfWeek: integer("day_of_week").notNull(),
@@ -3708,15 +3713,18 @@ export const providerAvailability = pgTable("provider_availability", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_provider_availability_provider").on(table.providerId),
+  index("idx_provider_availability_hospital").on(table.hospitalId),
   index("idx_provider_availability_unit").on(table.unitId),
   index("idx_provider_availability_day").on(table.dayOfWeek),
 ]);
 
 // Provider Time Off - Manual holidays and blocked dates with optional recurrence
+// When unitId is NULL and hospitalId is set, this is hospital-level time off
 export const providerTimeOff = pgTable("provider_time_off", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   providerId: varchar("provider_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  hospitalId: varchar("hospital_id").references(() => hospitals.id, { onDelete: 'cascade' }), // Hospital-level when unitId is null
+  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }), // Unit-specific when set
   
   // Date range (inclusive) - for non-recurring, this is the actual date
   // For recurring, startDate is the first occurrence
@@ -3744,6 +3752,7 @@ export const providerTimeOff = pgTable("provider_time_off", {
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_provider_time_off_provider").on(table.providerId),
+  index("idx_provider_time_off_hospital").on(table.hospitalId),
   index("idx_provider_time_off_dates").on(table.startDate, table.endDate),
   index("idx_provider_time_off_recurring").on(table.isRecurring),
 ]);
@@ -3752,10 +3761,12 @@ export const providerTimeOff = pgTable("provider_time_off", {
 // Used for:
 // 1. On-demand providers who only come on specific days (add windows when available)
 // 2. Overriding recurring schedule for specific dates (e.g., working an extra Saturday)
+// When unitId is NULL and hospitalId is set, this is hospital-level window
 export const providerAvailabilityWindows = pgTable("provider_availability_windows", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   providerId: varchar("provider_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
-  unitId: varchar("unit_id").notNull().references(() => units.id, { onDelete: 'cascade' }),
+  hospitalId: varchar("hospital_id").references(() => hospitals.id, { onDelete: 'cascade' }), // Hospital-level when unitId is null
+  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }), // Unit-specific when set
   
   // Specific date for this availability window
   date: date("date").notNull(),
@@ -3774,6 +3785,7 @@ export const providerAvailabilityWindows = pgTable("provider_availability_window
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
   index("idx_provider_avail_windows_provider").on(table.providerId),
+  index("idx_provider_avail_windows_hospital").on(table.hospitalId),
   index("idx_provider_avail_windows_unit").on(table.unitId),
   index("idx_provider_avail_windows_date").on(table.date),
 ]);

@@ -260,6 +260,25 @@ function expandRecurringTimeOff(
   return results;
 }
 
+// Helper to get calendar scope based on unit's hasOwnCalendar setting
+// Returns { unitId: string | null, hospitalId: string }
+// If unit has own calendar: unitId is the actual unit ID, hospitalId is used for context
+// If unit shares hospital calendar: unitId is null, hospitalId is used for queries
+async function getCalendarScope(unitId: string, hospitalId: string): Promise<{ 
+  effectiveUnitId: string | null; 
+  effectiveHospitalId: string;
+  hasOwnCalendar: boolean;
+}> {
+  const unit = await storage.getUnit(unitId);
+  const hasOwnCalendar = unit?.hasOwnCalendar ?? false;
+  
+  return {
+    effectiveUnitId: hasOwnCalendar ? unitId : null,
+    effectiveHospitalId: hospitalId,
+    hasOwnCalendar,
+  };
+}
+
 const router = Router();
 
 // Middleware to check clinic module access
@@ -1787,11 +1806,19 @@ router.put('/api/clinic/:hospitalId/clinic-providers/:userId', isAuthenticated, 
 // ========================================
 
 // Get provider availability
+// Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
 router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
-    const { unitId, providerId } = req.params;
+    const { hospitalId, unitId, providerId } = req.params;
     
-    const availability = await storage.getProviderAvailability(providerId, unitId);
+    // Determine calendar scope based on unit's hasOwnCalendar setting
+    const scope = await getCalendarScope(unitId, hospitalId);
+    
+    const availability = await storage.getProviderAvailability(
+      providerId, 
+      scope.effectiveUnitId, 
+      scope.effectiveHospitalId
+    );
     
     res.json(availability);
   } catch (error) {
@@ -1801,9 +1828,13 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabi
 });
 
 // Get all weekly schedules for a unit (for calendar availability display)
+// Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
 router.get('/api/clinic/:hospitalId/units/:unitId/weekly-schedules', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
     const { hospitalId, unitId } = req.params;
+    
+    // Determine calendar scope
+    const scope = await getCalendarScope(unitId, hospitalId);
     
     // Get all bookable providers for this hospital
     const providers = await storage.getBookableProvidersByHospital(hospitalId);
@@ -1812,7 +1843,11 @@ router.get('/api/clinic/:hospitalId/units/:unitId/weekly-schedules', isAuthentic
     const schedules: Record<string, any[]> = {};
     
     await Promise.all(providers.map(async (provider) => {
-      const availability = await storage.getProviderAvailability(provider.userId, unitId);
+      const availability = await storage.getProviderAvailability(
+        provider.userId, 
+        scope.effectiveUnitId,
+        scope.effectiveHospitalId
+      );
       schedules[provider.userId] = availability;
     }));
     
@@ -1824,16 +1859,25 @@ router.get('/api/clinic/:hospitalId/units/:unitId/weekly-schedules', isAuthentic
 });
 
 // Set provider availability (replaces all for this provider/unit)
+// Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
 router.put('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
   try {
-    const { unitId, providerId } = req.params;
+    const { hospitalId, unitId, providerId } = req.params;
     const { availability } = req.body;
     
     if (!Array.isArray(availability)) {
       return res.status(400).json({ message: "Availability must be an array" });
     }
     
-    const result = await storage.setProviderAvailability(providerId, unitId, availability);
+    // Determine calendar scope
+    const scope = await getCalendarScope(unitId, hospitalId);
+    
+    const result = await storage.setProviderAvailability(
+      providerId, 
+      scope.effectiveUnitId, 
+      availability,
+      scope.effectiveHospitalId
+    );
     
     res.json(result);
   } catch (error) {
@@ -1847,16 +1891,21 @@ router.put('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabi
 // ========================================
 
 // Get provider time off
+// Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
 router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-off', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
-    const { unitId, providerId } = req.params;
+    const { hospitalId, unitId, providerId } = req.params;
     const { startDate, endDate } = req.query;
+    
+    // Determine calendar scope
+    const scope = await getCalendarScope(unitId, hospitalId);
     
     const timeOff = await storage.getProviderTimeOff(
       providerId, 
-      unitId, 
+      scope.effectiveUnitId, 
       startDate as string, 
-      endDate as string
+      endDate as string,
+      scope.effectiveHospitalId
     );
     
     res.json(timeOff);
@@ -1867,15 +1916,20 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-off
 });
 
 // Create time off
+// Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
 router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-off', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
   try {
-    const { unitId, providerId } = req.params;
+    const { hospitalId, unitId, providerId } = req.params;
     const userId = req.user.id;
+    
+    // Determine calendar scope
+    const scope = await getCalendarScope(unitId, hospitalId);
     
     const validatedData = insertProviderTimeOffSchema.parse({
       ...req.body,
       providerId,
-      unitId,
+      unitId: scope.effectiveUnitId ?? undefined,
+      hospitalId: scope.effectiveUnitId === null ? scope.effectiveHospitalId : undefined,
       createdBy: userId,
     });
     
@@ -1893,16 +1947,27 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/time-of
 
 // Get all time off for a unit (for calendar display)
 // Expands recurring time off into individual occurrences for the requested date range
+// Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
 router.get('/api/clinic/:hospitalId/units/:unitId/time-off', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
     const { hospitalId, unitId } = req.params;
     const { startDate, endDate, expand } = req.query;
     
-    const timeOffs = await storage.getProviderTimeOffsForUnit(
-      unitId,
-      startDate as string | undefined,
-      endDate as string | undefined
-    );
+    // Determine calendar scope
+    const scope = await getCalendarScope(unitId, hospitalId);
+    
+    // Fetch time offs from appropriate scope
+    const timeOffs = scope.effectiveUnitId 
+      ? await storage.getProviderTimeOffsForUnit(
+          scope.effectiveUnitId,
+          startDate as string | undefined,
+          endDate as string | undefined
+        )
+      : await storage.getProviderTimeOffsForHospital(
+          scope.effectiveHospitalId,
+          startDate as string | undefined,
+          endDate as string | undefined
+        );
     
     // If expand=true and we have date range, expand recurring time off
     if (expand === 'true' && startDate && endDate) {
@@ -1985,16 +2050,21 @@ router.put('/api/clinic/:hospitalId/providers/:userId/availability-mode', isAuth
 // ========================================
 
 // Get provider availability windows
+// Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
 router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability-windows', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
-    const { unitId, providerId } = req.params;
+    const { hospitalId, unitId, providerId } = req.params;
     const { startDate, endDate } = req.query;
+    
+    // Determine calendar scope
+    const scope = await getCalendarScope(unitId, hospitalId);
     
     const windows = await storage.getProviderAvailabilityWindows(
       providerId, 
-      unitId,
+      scope.effectiveUnitId,
       startDate as string | undefined,
-      endDate as string | undefined
+      endDate as string | undefined,
+      scope.effectiveHospitalId
     );
     
     res.json(windows);
@@ -2005,16 +2075,27 @@ router.get('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availabi
 });
 
 // Get all availability windows for a unit (for calendar display)
+// Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
 router.get('/api/clinic/:hospitalId/units/:unitId/availability-windows', isAuthenticated, isClinicAccess, async (req, res) => {
   try {
-    const { unitId } = req.params;
+    const { hospitalId, unitId } = req.params;
     const { startDate, endDate } = req.query;
     
-    const windows = await storage.getProviderAvailabilityWindowsForUnit(
-      unitId,
-      startDate as string | undefined,
-      endDate as string | undefined
-    );
+    // Determine calendar scope
+    const scope = await getCalendarScope(unitId, hospitalId);
+    
+    // Fetch windows from appropriate scope
+    const windows = scope.effectiveUnitId
+      ? await storage.getProviderAvailabilityWindowsForUnit(
+          scope.effectiveUnitId,
+          startDate as string | undefined,
+          endDate as string | undefined
+        )
+      : await storage.getProviderAvailabilityWindowsForHospital(
+          scope.effectiveHospitalId,
+          startDate as string | undefined,
+          endDate as string | undefined
+        );
     
     res.json(windows);
   } catch (error) {
@@ -2024,9 +2105,10 @@ router.get('/api/clinic/:hospitalId/units/:unitId/availability-windows', isAuthe
 });
 
 // Create availability window
+// Uses shared hospital calendar if unit doesn't have hasOwnCalendar = true
 router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availability-windows', isAuthenticated, isClinicAccess, requireWriteAccess, async (req: any, res) => {
   try {
-    const { unitId, providerId } = req.params;
+    const { hospitalId, unitId, providerId } = req.params;
     const userId = req.user.id;
     
     const { date, startTime, endTime, slotDurationMinutes, notes } = req.body;
@@ -2035,9 +2117,13 @@ router.post('/api/clinic/:hospitalId/units/:unitId/providers/:providerId/availab
       return res.status(400).json({ message: "Date, start time, and end time are required" });
     }
     
+    // Determine calendar scope
+    const scope = await getCalendarScope(unitId, hospitalId);
+    
     const window = await storage.createProviderAvailabilityWindow({
       providerId,
-      unitId,
+      unitId: scope.effectiveUnitId ?? undefined,
+      hospitalId: scope.effectiveUnitId === null ? scope.effectiveHospitalId : undefined,
       date,
       startTime,
       endTime,

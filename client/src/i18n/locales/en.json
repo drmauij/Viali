@@ -962,6 +962,8 @@
     "showInventory": "Show Inventory Module",
     "showAppointments": "Show Appointments Tab",
     "showControlledMedications": "Show Controlled Medications (BTM)",
+    "hasOwnCalendar": "Has own calendar",
+    "hasOwnCalendarHint": "When enabled, this unit has its own calendar separate from the shared hospital calendar. When disabled (default), this unit shares the hospital-wide calendar with all other units.",
     "questionnairePhone": "Questionnaire Help Phone",
     "questionnairePhonePlaceholder": "79 123 45 67",
     "questionnairePhoneHint": "This phone number will be shown in patient questionnaire emails as the contact for help.",

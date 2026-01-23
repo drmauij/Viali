@@ -968,6 +968,8 @@
     "showInventory": "Inventar-Modul anzeigen",
     "showAppointments": "Termine-Tab anzeigen",
     "showControlledMedications": "BTM-Verwaltung anzeigen",
+    "hasOwnCalendar": "Eigenen Kalender verwenden",
+    "hasOwnCalendarHint": "Wenn aktiviert, hat diese Einheit einen eigenen Kalender, der vom gemeinsamen Krankenhauskalender getrennt ist. Wenn deaktiviert (Standard), teilt sich diese Einheit den krankenhausweiten Kalender mit allen anderen Einheiten.",
     "questionnairePhone": "Fragebogen Hilfe-Telefon",
     "questionnairePhonePlaceholder": "79 123 45 67",
     "questionnairePhoneHint": "Diese Telefonnummer wird in Patienten-Fragebogen-E-Mails als Kontakt für Hilfe angezeigt.",

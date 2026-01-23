@@ -106,6 +106,7 @@ export default function Hospital() {
     showInventory: true,
     showAppointments: true,
     showControlledMedications: false,
+    hasOwnCalendar: false,
     questionnairePhone: "",
     infoFlyerUrl: "",
   });
@@ -682,6 +683,7 @@ export default function Hospital() {
       showInventory: true,
       showAppointments: true,
       showControlledMedications: false,
+      hasOwnCalendar: false,
       questionnairePhone: "",
       infoFlyerUrl: "",
     });
@@ -718,6 +720,7 @@ export default function Hospital() {
       showInventory: (unit as any).showInventory !== false,
       showAppointments: (unit as any).showAppointments !== false,
       showControlledMedications: (unit as any).showControlledMedications || false,
+      hasOwnCalendar: (unit as any).hasOwnCalendar || false,
       questionnairePhone: unit.questionnairePhone || "",
       infoFlyerUrl: (unit as any).infoFlyerUrl || "",
     });
@@ -742,6 +745,7 @@ export default function Hospital() {
       showInventory: unitForm.showInventory,
       showAppointments: unitForm.showAppointments,
       showControlledMedications: unitForm.showControlledMedications,
+      hasOwnCalendar: unitForm.hasOwnCalendar,
       questionnairePhone: unitForm.questionnairePhone || null,
       infoFlyerUrl: unitForm.infoFlyerUrl || null,
     };
@@ -2444,7 +2448,21 @@ export default function Hospital() {
                     {t("admin.showControlledMedications")}
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="has-own-calendar"
+                    checked={unitForm.hasOwnCalendar}
+                    onCheckedChange={(checked) => setUnitForm({ ...unitForm, hasOwnCalendar: !!checked })}
+                    data-testid="checkbox-has-own-calendar"
+                  />
+                  <Label htmlFor="has-own-calendar" className="text-sm font-normal cursor-pointer">
+                    {t("admin.hasOwnCalendar", "Has own calendar")}
+                  </Label>
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                {t("admin.hasOwnCalendarHint", "When enabled, this unit has its own calendar separate from the shared hospital calendar. When disabled (default), this unit shares the hospital-wide calendar with all other units.")}
+              </p>
             </div>
             <Separator />
             <div>

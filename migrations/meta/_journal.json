@@ -659,6 +659,13 @@
       "when": 1769180500000,
       "tag": "0093_add_user_archived_at",
       "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1769265600000,
+      "tag": "0094_add_shared_hospital_calendar",
+      "breakpoints": true
     }
   ]
 }

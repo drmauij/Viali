@@ -865,23 +865,28 @@ export interface IStorage {
   getBookableProvidersByHospital(hospitalId: string): Promise<(ClinicProvider & { user: User })[]>;
   
   // Provider Availability
-  getProviderAvailability(providerId: string, unitId: string): Promise<ProviderAvailability[]>;
-  setProviderAvailability(providerId: string, unitId: string, availability: InsertProviderAvailability[]): Promise<ProviderAvailability[]>;
+  // unitId can be null for hospital-level (shared calendar) availability
+  getProviderAvailability(providerId: string, unitId: string | null, hospitalId?: string): Promise<ProviderAvailability[]>;
+  setProviderAvailability(providerId: string, unitId: string | null, availability: InsertProviderAvailability[], hospitalId?: string): Promise<ProviderAvailability[]>;
   updateProviderAvailability(id: string, updates: Partial<ProviderAvailability>): Promise<ProviderAvailability>;
   
   // Provider Availability Mode (on userHospitalRoles)
   updateProviderAvailabilityMode(hospitalId: string, userId: string, mode: 'always_available' | 'windows_required'): Promise<ClinicProvider>;
   
   // Provider Availability Windows (date-specific availability)
-  getProviderAvailabilityWindows(providerId: string, unitId: string, startDate?: string, endDate?: string): Promise<ProviderAvailabilityWindow[]>;
+  // unitId can be null for hospital-level (shared calendar) windows
+  getProviderAvailabilityWindows(providerId: string, unitId: string | null, startDate?: string, endDate?: string, hospitalId?: string): Promise<ProviderAvailabilityWindow[]>;
   getProviderAvailabilityWindowsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<ProviderAvailabilityWindow[]>;
+  getProviderAvailabilityWindowsForHospital(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderAvailabilityWindow[]>;
   createProviderAvailabilityWindow(window: InsertProviderAvailabilityWindow): Promise<ProviderAvailabilityWindow>;
   updateProviderAvailabilityWindow(id: string, updates: Partial<ProviderAvailabilityWindow>): Promise<ProviderAvailabilityWindow>;
   deleteProviderAvailabilityWindow(id: string): Promise<void>;
   
   // Provider Time Off
-  getProviderTimeOff(providerId: string, unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]>;
+  // unitId can be null for hospital-level (shared calendar) time off
+  getProviderTimeOff(providerId: string, unitId: string | null, startDate?: string, endDate?: string, hospitalId?: string): Promise<ProviderTimeOff[]>;
   getProviderTimeOffsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]>;
+  getProviderTimeOffsForHospital(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]>;
   createProviderTimeOff(timeOff: InsertProviderTimeOff): Promise<ProviderTimeOff>;
   updateProviderTimeOff(id: string, updates: Partial<ProviderTimeOff>): Promise<ProviderTimeOff>;
   deleteProviderTimeOff(id: string): Promise<void>;
@@ -7530,34 +7535,65 @@ export class DatabaseStorage implements IStorage {
     return unique;
   }
 
-  async getProviderAvailability(providerId: string, unitId: string): Promise<ProviderAvailability[]> {
+  async getProviderAvailability(providerId: string, unitId: string | null, hospitalId?: string): Promise<ProviderAvailability[]> {
+    // If unitId is null, query hospital-level availability (shared calendar)
+    if (unitId === null && hospitalId) {
+      return await db
+        .select()
+        .from(providerAvailability)
+        .where(and(
+          eq(providerAvailability.providerId, providerId),
+          eq(providerAvailability.hospitalId, hospitalId),
+          isNull(providerAvailability.unitId)
+        ))
+        .orderBy(asc(providerAvailability.dayOfWeek));
+    }
+    
+    // Unit-specific availability
     return await db
       .select()
       .from(providerAvailability)
       .where(and(
         eq(providerAvailability.providerId, providerId),
-        eq(providerAvailability.unitId, unitId)
+        eq(providerAvailability.unitId, unitId!)
       ))
       .orderBy(asc(providerAvailability.dayOfWeek));
   }
 
-  async setProviderAvailability(providerId: string, unitId: string, availability: InsertProviderAvailability[]): Promise<ProviderAvailability[]> {
-    // Delete existing availability for this provider/unit
-    await db
-      .delete(providerAvailability)
-      .where(and(
-        eq(providerAvailability.providerId, providerId),
-        eq(providerAvailability.unitId, unitId)
-      ));
+  async setProviderAvailability(providerId: string, unitId: string | null, availability: InsertProviderAvailability[], hospitalId?: string): Promise<ProviderAvailability[]> {
+    // Delete existing availability for this provider at appropriate level
+    if (unitId === null && hospitalId) {
+      // Hospital-level (shared calendar)
+      await db
+        .delete(providerAvailability)
+        .where(and(
+          eq(providerAvailability.providerId, providerId),
+          eq(providerAvailability.hospitalId, hospitalId),
+          isNull(providerAvailability.unitId)
+        ));
+    } else {
+      // Unit-specific
+      await db
+        .delete(providerAvailability)
+        .where(and(
+          eq(providerAvailability.providerId, providerId),
+          eq(providerAvailability.unitId, unitId!)
+        ));
+    }
     
     if (availability.length === 0) {
       return [];
     }
     
-    // Insert new availability
+    // Insert new availability with appropriate scope
     const inserted = await db
       .insert(providerAvailability)
-      .values(availability.map(a => ({ ...a, providerId, unitId })))
+      .values(availability.map(a => ({ 
+        ...a, 
+        providerId, 
+        unitId: unitId ?? undefined,
+        hospitalId: unitId === null ? hospitalId : undefined
+      })))
       .returning();
     
     return inserted;
@@ -7572,11 +7608,16 @@ export class DatabaseStorage implements IStorage {
     return updated;
   }
 
-  async getProviderTimeOff(providerId: string, unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]> {
-    let conditions = [
-      eq(providerTimeOff.providerId, providerId),
-      eq(providerTimeOff.unitId, unitId)
-    ];
+  async getProviderTimeOff(providerId: string, unitId: string | null, startDate?: string, endDate?: string, hospitalId?: string): Promise<ProviderTimeOff[]> {
+    let conditions: any[] = [eq(providerTimeOff.providerId, providerId)];
+    
+    // If unitId is null, query hospital-level time off (shared calendar)
+    if (unitId === null && hospitalId) {
+      conditions.push(eq(providerTimeOff.hospitalId, hospitalId));
+      conditions.push(isNull(providerTimeOff.unitId));
+    } else {
+      conditions.push(eq(providerTimeOff.unitId, unitId!));
+    }
     
     if (startDate) {
       conditions.push(gte(providerTimeOff.endDate, startDate));
@@ -7616,7 +7657,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProviderTimeOffsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]> {
-    let conditions = [eq(providerTimeOff.unitId, unitId)];
+    let conditions: any[] = [eq(providerTimeOff.unitId, unitId)];
+    
+    if (startDate) {
+      conditions.push(gte(providerTimeOff.endDate, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(providerTimeOff.startDate, endDate));
+    }
+    
+    return await db
+      .select()
+      .from(providerTimeOff)
+      .where(and(...conditions))
+      .orderBy(asc(providerTimeOff.startDate));
+  }
+
+  async getProviderTimeOffsForHospital(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderTimeOff[]> {
+    let conditions: any[] = [
+      eq(providerTimeOff.hospitalId, hospitalId),
+      isNull(providerTimeOff.unitId)
+    ];
     
     if (startDate) {
       conditions.push(gte(providerTimeOff.endDate, startDate));
@@ -7669,11 +7730,16 @@ export class DatabaseStorage implements IStorage {
     return this.mapRoleToClinicProvider(updated);
   }
 
-  async getProviderAvailabilityWindows(providerId: string, unitId: string, startDate?: string, endDate?: string): Promise<ProviderAvailabilityWindow[]> {
-    let conditions = [
-      eq(providerAvailabilityWindows.providerId, providerId),
-      eq(providerAvailabilityWindows.unitId, unitId)
-    ];
+  async getProviderAvailabilityWindows(providerId: string, unitId: string | null, startDate?: string, endDate?: string, hospitalId?: string): Promise<ProviderAvailabilityWindow[]> {
+    let conditions: any[] = [eq(providerAvailabilityWindows.providerId, providerId)];
+    
+    // If unitId is null, query hospital-level windows (shared calendar)
+    if (unitId === null && hospitalId) {
+      conditions.push(eq(providerAvailabilityWindows.hospitalId, hospitalId));
+      conditions.push(isNull(providerAvailabilityWindows.unitId));
+    } else {
+      conditions.push(eq(providerAvailabilityWindows.unitId, unitId!));
+    }
     
     if (startDate) {
       conditions.push(gte(providerAvailabilityWindows.date, startDate));
@@ -7690,7 +7756,27 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProviderAvailabilityWindowsForUnit(unitId: string, startDate?: string, endDate?: string): Promise<ProviderAvailabilityWindow[]> {
-    let conditions = [eq(providerAvailabilityWindows.unitId, unitId)];
+    let conditions: any[] = [eq(providerAvailabilityWindows.unitId, unitId)];
+    
+    if (startDate) {
+      conditions.push(gte(providerAvailabilityWindows.date, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(providerAvailabilityWindows.date, endDate));
+    }
+    
+    return await db
+      .select()
+      .from(providerAvailabilityWindows)
+      .where(and(...conditions))
+      .orderBy(asc(providerAvailabilityWindows.date));
+  }
+
+  async getProviderAvailabilityWindowsForHospital(hospitalId: string, startDate?: string, endDate?: string): Promise<ProviderAvailabilityWindow[]> {
+    let conditions: any[] = [
+      eq(providerAvailabilityWindows.hospitalId, hospitalId),
+      isNull(providerAvailabilityWindows.unitId)
+    ];
     
     if (startDate) {
       conditions.push(gte(providerAvailabilityWindows.date, startDate));
