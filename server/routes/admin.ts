@@ -231,6 +231,8 @@ router.post('/api/admin/:hospitalId/units', isAuthenticated, isAdmin, async (req
       isLogisticModule,
       showInventory: showInventory !== false, // default true
       showAppointments: showAppointments !== false, // default true
+      showControlledMedications: false, // default false
+      hasOwnCalendar: false, // default false - shares hospital calendar
       questionnairePhone: questionnairePhone || null,
       infoFlyerUrl: infoFlyerUrl || null,
     });

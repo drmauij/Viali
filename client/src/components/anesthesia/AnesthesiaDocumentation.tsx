@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, X, Download, Printer, Loader2, Trash2, Settings, Package, ChevronRight, Check, Pencil } from "lucide-react";
+import { Plus, X, Download, Printer, Loader2, Trash2, Settings, Package, ChevronRight, Check, Pencil, MessageCircle, User, Mail, Stethoscope } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -2457,77 +2457,143 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
         />
       </div>
 
-      <div className="pt-3 border-t space-y-2">
-        <Label className="text-sm font-semibold">Patient Communication</Label>
+      {/* Chat-like Patient Communication Timeline */}
+      <div className="pt-3 border-t space-y-3">
+        <Label className="text-sm font-semibold flex items-center gap-2">
+          <MessageCircle className="h-4 w-4" />
+          Patient Communication
+        </Label>
         
-        <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
-          <input
-            type="checkbox"
-            checked={patientInformed}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              const timestamp = checked ? new Date().toISOString() : null;
-              setPatientInformed(checked);
-              setPatientInformedAt(timestamp);
-              const payload = buildCompletePayload({ 
-                patientInformed: checked,
-                patientInformedAt: timestamp,
-              });
-              if (payload) {
-                reportAutoSave.mutate(payload);
-              }
-            }}
-            className="h-4 w-4"
-            data-testid="checkbox-patient-informed"
-          />
-          <span className="text-sm">Patient informed about difficult airway</span>
-        </label>
+        <div className="space-y-2 pl-2 border-l-2 border-muted ml-2">
+          {/* Patient Informed Message */}
+          <label 
+            className={`relative pl-4 py-2 cursor-pointer rounded-r-lg transition-colors flex items-start justify-between gap-2 ${
+              patientInformed ? 'bg-green-50 dark:bg-green-950/30' : 'hover:bg-muted/50'
+            }`}
+            data-testid="comm-patient-informed"
+          >
+            <div className="absolute -left-[9px] top-3 w-4 h-4 rounded-full border-2 border-background flex items-center justify-center"
+              style={{ backgroundColor: patientInformed ? '#22c55e' : '#d1d5db' }}>
+              {patientInformed && <Check className="h-2.5 w-2.5 text-white" />}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm font-medium">Patient informed about difficult airway</span>
+              </div>
+              {patientInformedAt && (
+                <p className="text-xs text-muted-foreground mt-1 ml-5">
+                  {new Date(patientInformedAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+            <input
+              type="checkbox"
+              checked={patientInformed}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                const timestamp = checked ? new Date().toISOString() : null;
+                setPatientInformed(checked);
+                setPatientInformedAt(timestamp);
+                const payload = buildCompletePayload({ 
+                  patientInformed: checked,
+                  patientInformedAt: timestamp,
+                });
+                if (payload) {
+                  reportAutoSave.mutate(payload);
+                }
+              }}
+              className="h-4 w-4 mt-0.5 accent-green-500"
+              data-testid="checkbox-patient-informed"
+            />
+          </label>
 
-        <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
-          <input
-            type="checkbox"
-            checked={letterSentToPatient}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              const timestamp = checked ? new Date().toISOString() : null;
-              setLetterSentToPatient(checked);
-              setLetterSentAt(timestamp);
-              const payload = buildCompletePayload({ 
-                letterSentToPatient: checked,
-                letterSentAt: timestamp,
-              });
-              if (payload) {
-                reportAutoSave.mutate(payload);
-              }
-            }}
-            className="h-4 w-4"
-            data-testid="checkbox-letter-sent"
-          />
-          <span className="text-sm">Patient letter sent</span>
-        </label>
+          {/* Letter Sent Message */}
+          <label 
+            className={`relative pl-4 py-2 cursor-pointer rounded-r-lg transition-colors flex items-start justify-between gap-2 ${
+              letterSentToPatient ? 'bg-blue-50 dark:bg-blue-950/30' : 'hover:bg-muted/50'
+            }`}
+            data-testid="comm-letter-sent"
+          >
+            <div className="absolute -left-[9px] top-3 w-4 h-4 rounded-full border-2 border-background flex items-center justify-center"
+              style={{ backgroundColor: letterSentToPatient ? '#3b82f6' : '#d1d5db' }}>
+              {letterSentToPatient && <Check className="h-2.5 w-2.5 text-white" />}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm font-medium">Patient letter sent</span>
+              </div>
+              {letterSentAt && (
+                <p className="text-xs text-muted-foreground mt-1 ml-5">
+                  {new Date(letterSentAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+            <input
+              type="checkbox"
+              checked={letterSentToPatient}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                const timestamp = checked ? new Date().toISOString() : null;
+                setLetterSentToPatient(checked);
+                setLetterSentAt(timestamp);
+                const payload = buildCompletePayload({ 
+                  letterSentToPatient: checked,
+                  letterSentAt: timestamp,
+                });
+                if (payload) {
+                  reportAutoSave.mutate(payload);
+                }
+              }}
+              className="h-4 w-4 mt-0.5 accent-blue-500"
+              data-testid="checkbox-letter-sent"
+            />
+          </label>
 
-        <label className="flex items-center gap-2 cursor-pointer p-2 rounded hover:bg-muted/50">
-          <input
-            type="checkbox"
-            checked={gpNotified}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              const timestamp = checked ? new Date().toISOString() : null;
-              setGpNotified(checked);
-              setGpNotifiedAt(timestamp);
-              const payload = buildCompletePayload({ 
-                gpNotified: checked,
-                gpNotifiedAt: timestamp,
-              });
-              if (payload) {
-                reportAutoSave.mutate(payload);
-              }
-            }}
-            className="h-4 w-4"
-            data-testid="checkbox-gp-notified"
-          />
-          <span className="text-sm">GP notified</span>
-        </label>
+          {/* GP Notified Message */}
+          <label 
+            className={`relative pl-4 py-2 cursor-pointer rounded-r-lg transition-colors flex items-start justify-between gap-2 ${
+              gpNotified ? 'bg-purple-50 dark:bg-purple-950/30' : 'hover:bg-muted/50'
+            }`}
+            data-testid="comm-gp-notified"
+          >
+            <div className="absolute -left-[9px] top-3 w-4 h-4 rounded-full border-2 border-background flex items-center justify-center"
+              style={{ backgroundColor: gpNotified ? '#a855f7' : '#d1d5db' }}>
+              {gpNotified && <Check className="h-2.5 w-2.5 text-white" />}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <Stethoscope className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-sm font-medium">GP notified</span>
+              </div>
+              {gpNotifiedAt && (
+                <p className="text-xs text-muted-foreground mt-1 ml-5">
+                  {new Date(gpNotifiedAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+            <input
+              type="checkbox"
+              checked={gpNotified}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                const timestamp = checked ? new Date().toISOString() : null;
+                setGpNotified(checked);
+                setGpNotifiedAt(timestamp);
+                const payload = buildCompletePayload({ 
+                  gpNotified: checked,
+                  gpNotifiedAt: timestamp,
+                });
+                if (payload) {
+                  reportAutoSave.mutate(payload);
+                }
+              }}
+              className="h-4 w-4 mt-0.5 accent-purple-500"
+              data-testid="checkbox-gp-notified"
+            />
+          </label>
+        </div>
       </div>
     </div>
   );
