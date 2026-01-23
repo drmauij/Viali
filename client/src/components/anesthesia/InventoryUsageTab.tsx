@@ -1200,14 +1200,38 @@ function InventorySetsManageDialog({ open, onOpenChange, hospitalId, unitId, set
                             ))}
                           </SelectContent>
                         </Select>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => updateFormItem(index, { quantity: parseInt(e.target.value) || 1 })}
-                          className="w-20"
-                          data-testid={`input-set-item-qty-${index}`}
-                        />
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={() => updateFormItem(index, { quantity: Math.max(1, item.quantity - 1) })}
+                            disabled={item.quantity <= 1}
+                          >
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <Input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '');
+                              updateFormItem(index, { quantity: parseInt(val) || 1 });
+                            }}
+                            onFocus={(e) => e.target.select()}
+                            className="w-14 text-center"
+                            data-testid={`input-set-item-qty-${index}`}
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 shrink-0"
+                            onClick={() => updateFormItem(index, { quantity: item.quantity + 1 })}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
                         <Button
                           variant="ghost"
                           size="icon"
