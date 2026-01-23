@@ -639,23 +639,29 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
         ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}/` 
         : 'https://use.viali.app/');
     
-    try {
-      const { sendWelcomeEmail } = await import('../resend');
-      console.log('[User Creation] Attempting to send welcome email to:', newUser.email);
-      const result = await sendWelcomeEmail(
-        newUser.email!,
-        newUser.firstName!,
-        hospital?.name || 'Your Hospital',
-        password,
-        loginUrl
-      );
-      if (result.success) {
-        console.log('[User Creation] Welcome email sent successfully:', result.data);
-      } else {
-        console.error('[User Creation] Failed to send welcome email:', result.error);
+    // Skip sending welcome email to .local addresses (test/internal users)
+    const emailDomain = newUser.email?.toLowerCase().split('@')[1] || '';
+    if (emailDomain.endsWith('.local') || emailDomain === 'local') {
+      console.log('[User Creation] Skipping welcome email for .local address:', newUser.email);
+    } else {
+      try {
+        const { sendWelcomeEmail } = await import('../resend');
+        console.log('[User Creation] Attempting to send welcome email to:', newUser.email);
+        const result = await sendWelcomeEmail(
+          newUser.email!,
+          newUser.firstName!,
+          hospital?.name || 'Your Hospital',
+          password,
+          loginUrl
+        );
+        if (result.success) {
+          console.log('[User Creation] Welcome email sent successfully:', result.data);
+        } else {
+          console.error('[User Creation] Failed to send welcome email:', result.error);
+        }
+      } catch (emailError) {
+        console.error('[User Creation] Exception sending welcome email:', emailError);
       }
-    } catch (emailError) {
-      console.error('[User Creation] Exception sending welcome email:', emailError);
     }
 
     const { passwordHash: _, ...sanitizedUser } = newUser;
