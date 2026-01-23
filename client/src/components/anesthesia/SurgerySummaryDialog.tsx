@@ -3,6 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, UserRoundCog, UserCog, ExternalLink } from "lucide-react";
+import { SiTelegram } from "react-icons/si";
+import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -40,8 +43,10 @@ export default function SurgerySummaryDialog({
   const { t } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
+  const { addons } = useHospitalAddons();
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
 
   const { data: surgery } = useQuery<any>({
     queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
@@ -262,6 +267,18 @@ export default function SurgerySummaryDialog({
                 >
                   <UserCog className="h-4 w-4 mr-1" />
                   {t('anesthesia.surgerySummary.editPatient')}
+                </Button>
+              )}
+              {/* Send Questionnaire Button - visible if questionnaire addon is enabled */}
+              {addons.questionnaire && patient && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSendDialogOpen(true)}
+                  title={t('questionnaire.send.title', 'Send Questionnaire')}
+                  data-testid="button-send-questionnaire"
+                >
+                  <SiTelegram className="h-4 w-4 text-[#0088cc]" />
                 </Button>
               )}
             </div>
@@ -610,6 +627,18 @@ export default function SurgerySummaryDialog({
           </Button>
         </div>
       </DialogContent>
+      
+      {/* Send Questionnaire Dialog */}
+      {patient && (
+        <SendQuestionnaireDialog
+          open={sendDialogOpen}
+          onOpenChange={setSendDialogOpen}
+          patientId={patient.id}
+          patientName={`${patient.firstName} ${patient.surname}`}
+          patientEmail={patient.email}
+          patientPhone={patient.phone}
+        />
+      )}
     </Dialog>
   );
 }

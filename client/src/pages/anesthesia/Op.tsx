@@ -1358,7 +1358,7 @@ export default function Op() {
     {/* Patient Weight Dialog - shown on load if weight is missing */}
     <PatientWeightDialog
       open={showWeightDialog}
-      patientName={patient ? `${patient.surname}, ${patient.firstname}` : undefined}
+      patientName={patient ? `${patient.surname}, ${patient.firstName}` : undefined}
       onSave={handleWeightSave}
     />
     
@@ -1728,7 +1728,9 @@ export default function Op() {
                 surgeryId={surgeryId!} 
                 hospitalId={activeHospital?.id}
                 patientId={patient?.id}
-                patientName={patient ? `${patient.surname}, ${patient.firstname}` : undefined}
+                patientName={patient ? `${patient.surname}, ${patient.firstName}` : undefined}
+                patientEmail={patient?.email}
+                patientPhone={patient?.phone}
               />
             )}
           </TabsContent>

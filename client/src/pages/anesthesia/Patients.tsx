@@ -12,7 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, UserPlus, ScanBarcode, UserCircle, UserRound, Loader2, Send } from "lucide-react";
+import { Search, UserPlus, ScanBarcode, UserCircle, UserRound, Loader2 } from "lucide-react";
+import { SiTelegram } from "react-icons/si";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
@@ -545,7 +546,7 @@ export default function Patients() {
                       title={t('questionnaire.send.title', 'Send Questionnaire')}
                       data-testid={`button-send-form-${patient.id}`}
                     >
-                      <Send className="h-4 w-4" />
+                      <SiTelegram className="h-4 w-4 text-[#0088cc]" />
                     </Button>
                   )}
                 </div>

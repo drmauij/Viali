@@ -1,11 +1,15 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle, ListTodo } from "lucide-react";
+import { SiTelegram } from "react-icons/si";
 import { formatDateTime } from "@/lib/dateUtils";
 import { useCreateTodo } from "@/hooks/useCreateTodo";
 import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
 import { useCanWrite } from "@/hooks/useCanWrite";
+import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
+import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 
 type PreOpAssessmentData = {
   // General Data
@@ -88,6 +92,8 @@ interface PreOpOverviewProps {
   hospitalId?: string;
   patientId?: string;
   patientName?: string;
+  patientEmail?: string | null;
+  patientPhone?: string | null;
 }
 
 const illnessLabels: Record<string, string> = {
@@ -139,9 +145,12 @@ const installationLabels: Record<string, string> = {
   drainageTube: "Drainage Tube",
 };
 
-export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName }: PreOpOverviewProps) {
+export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, patientEmail, patientPhone }: PreOpOverviewProps) {
   const { createTodo, isPending: isTodoPending } = useCreateTodo(hospitalId);
   const canWrite = useCanWrite();
+  const { addons } = useHospitalAddons();
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  
   const { data: assessment, isLoading } = useQuery<PreOpAssessmentData>({
     queryKey: [`/api/anesthesia/preop/surgery/${surgeryId}`],
     enabled: !!surgeryId,
@@ -163,8 +172,36 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName }:
 
   if (!assessment) {
     return (
-      <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-        <p>No assessment data</p>
+      <div className="space-y-4 p-4">
+        {/* Header with Send Questionnaire Button - visible even without assessment */}
+        {addons.questionnaire && patientId && patientName && (
+          <div className="flex justify-end">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSendDialogOpen(true)}
+              title="Send Questionnaire"
+              data-testid="button-send-questionnaire-preop-no-data"
+            >
+              <SiTelegram className="h-5 w-5 text-[#0088cc]" />
+            </Button>
+          </div>
+        )}
+        <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
+          <p>No assessment data</p>
+        </div>
+        
+        {/* Send Questionnaire Dialog */}
+        {patientId && patientName && (
+          <SendQuestionnaireDialog
+            open={sendDialogOpen}
+            onOpenChange={setSendDialogOpen}
+            patientId={patientId}
+            patientName={patientName}
+            patientEmail={patientEmail}
+            patientPhone={patientPhone}
+          />
+        )}
       </div>
     );
   }
@@ -353,6 +390,21 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName }:
 
   return (
     <div className="space-y-4 p-4">
+      {/* Header with Send Questionnaire Button */}
+      {addons.questionnaire && patientId && patientName && (
+        <div className="flex justify-end">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setSendDialogOpen(true)}
+            title="Send Questionnaire"
+            data-testid="button-send-questionnaire-preop"
+          >
+            <SiTelegram className="h-5 w-5 text-[#0088cc]" />
+          </Button>
+        </div>
+      )}
+      
       {/* Special Notes - Highlighted at top */}
       {data.specialNotes?.trim() && (
         <Card className="border-blue-500 dark:border-blue-700 group">
@@ -554,6 +606,18 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName }:
           hospitalId={hospitalId}
           canWrite={canWrite}
           variant="card"
+        />
+      )}
+      
+      {/* Send Questionnaire Dialog */}
+      {patientId && patientName && (
+        <SendQuestionnaireDialog
+          open={sendDialogOpen}
+          onOpenChange={setSendDialogOpen}
+          patientId={patientId}
+          patientName={patientName}
+          patientEmail={patientEmail}
+          patientPhone={patientPhone}
         />
       )}
     </div>

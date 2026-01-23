@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Mail, Send, Loader2 } from "lucide-react";
+import { SiTelegram } from "react-icons/si";
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
@@ -361,17 +362,17 @@ export default function SurgeryPreOpList() {
                         </div>
                       ) : (
                         <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 px-2 text-xs"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleSendFormToPatient(surgery);
                           }}
                           data-testid={`button-send-form-${surgery.id}`}
+                          title={t('surgery.preop.sendForm', 'Send Form')}
                         >
-                          <Mail className="h-3 w-3 mr-1" />
-                          {t('surgery.preop.sendForm', 'Send Form')}
+                          <SiTelegram className="h-4 w-4 text-[#0088cc]" />
                         </Button>
                       )
                     )}
