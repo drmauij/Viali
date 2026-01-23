@@ -158,7 +158,8 @@ import { ScoresDialog } from "./dialogs/ScoresDialog";
 import { EventsTimesPanel } from "./EventsTimesPanel";
 import type { EventComment, AnesthesiaTimeMarker } from "@/hooks/useEventState";
 
-export { VitalPoint, TimelineVitals, TimelineEvent, InfusionSegment, InfusionSession, UnifiedTimelineData, SwimlaneConfig, ChartExportResult, SwimlaneExportResult, UnifiedTimelineRef, ANESTHESIA_TIME_MARKERS } from "./unifiedTimeline";
+export type { VitalPoint, TimelineVitals, TimelineEvent, InfusionSegment, InfusionSession, UnifiedTimelineData, SwimlaneConfig, ChartExportResult, SwimlaneExportResult, UnifiedTimelineRef } from "./unifiedTimeline";
+export { ANESTHESIA_TIME_MARKERS } from "./unifiedTimeline";
 
 export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   data: UnifiedTimelineData;
