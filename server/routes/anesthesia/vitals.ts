@@ -138,7 +138,6 @@ router.get('/api/anesthesia/vitals/snapshot/:recordId', isAuthenticated, async (
 router.post('/api/anesthesia/vitals/points', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;
-    console.log('[VITALS-DEBUG] Received vital point request body:', JSON.stringify(req.body, null, 2));
     const validatedData = addVitalPointSchema.parse(req.body);
     const recordId = validatedData.anesthesiaRecordId;
 
