@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, X, Download, Printer, Loader2, Trash2, Settings, Package, ChevronRight, Check } from "lucide-react";
+import { Plus, X, Download, Printer, Loader2, Trash2, Settings, Package, ChevronRight, Check, Pencil } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -202,13 +202,15 @@ interface ManageDialogProps {
 
 function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, editingSet, setEditingSet }: ManageDialogProps) {
   const { toast } = useToast();
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [newSetName, setNewSetName] = useState('');
-  const [newSetDescription, setNewSetDescription] = useState('');
-  const [newSetItems, setNewSetItems] = useState<Array<{
+  const [showForm, setShowForm] = useState(false);
+  const [editingSetId, setEditingSetId] = useState<string | null>(null);
+  const [formName, setFormName] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [formItems, setFormItems] = useState<Array<{
     itemType: string;
     configuration: Record<string, any>;
   }>>([]);
+  const [loadingSetId, setLoadingSetId] = useState<string | null>(null);
 
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; description: string; items: any[] }) => {
@@ -221,6 +223,24 @@ function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, edit
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to create set.", variant: "destructive" });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: { setId: string; name: string; description: string; items: any[] }) => {
+      return apiRequest('PATCH', `/api/anesthesia-sets/${data.setId}`, {
+        name: data.name,
+        description: data.description,
+        items: data.items,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Set updated", description: "The anesthesia set has been updated." });
+      queryClient.invalidateQueries({ queryKey: ['/api/anesthesia-sets', hospitalId] });
+      resetForm();
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update set.", variant: "destructive" });
     },
   });
 
@@ -238,34 +258,75 @@ function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, edit
   });
 
   const resetForm = () => {
-    setShowCreateForm(false);
-    setNewSetName('');
-    setNewSetDescription('');
-    setNewSetItems([]);
+    setShowForm(false);
+    setEditingSetId(null);
+    setFormName('');
+    setFormDescription('');
+    setFormItems([]);
   };
 
-  const handleCreateSet = () => {
-    if (!newSetName.trim()) {
+  const handleEditSet = async (setId: string) => {
+    setLoadingSetId(setId);
+    try {
+      const res = await fetch(`/api/anesthesia-sets/set/${setId}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch set');
+      const data = await res.json();
+      
+      setEditingSetId(setId);
+      setFormName(data.name || '');
+      setFormDescription(data.description || '');
+      setFormItems((data.items || []).map((item: any) => ({
+        itemType: item.itemType,
+        configuration: item.config || {},
+      })));
+      setShowForm(true);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to load set for editing.", variant: "destructive" });
+    } finally {
+      setLoadingSetId(null);
+    }
+  };
+
+  const handleSaveSet = () => {
+    if (!formName.trim()) {
       toast({ title: "Error", description: "Set name is required.", variant: "destructive" });
       return;
     }
-    createMutation.mutate({
-      name: newSetName.trim(),
-      description: newSetDescription.trim(),
-      items: newSetItems,
-    });
+    
+    if (editingSetId) {
+      updateMutation.mutate({
+        setId: editingSetId,
+        name: formName.trim(),
+        description: formDescription.trim(),
+        items: formItems,
+      });
+    } else {
+      createMutation.mutate({
+        name: formName.trim(),
+        description: formDescription.trim(),
+        items: formItems,
+      });
+    }
   };
 
-  const addSetItem = () => {
-    setNewSetItems(prev => [...prev, { itemType: 'peripheral_iv', configuration: {} }]);
+  const addFormItem = () => {
+    setFormItems(prev => [...prev, { itemType: 'peripheral_iv', configuration: {} }]);
   };
 
-  const updateSetItem = (index: number, updates: Partial<{ itemType: string; configuration: Record<string, any> }>) => {
-    setNewSetItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
+  const updateFormItem = (index: number, updates: Partial<{ itemType: string; configuration: Record<string, any> }>) => {
+    setFormItems(prev => prev.map((item, i) => i === index ? { ...item, ...updates } : item));
   };
 
-  const removeSetItem = (index: number) => {
-    setNewSetItems(prev => prev.filter((_, i) => i !== index));
+  const removeFormItem = (index: number) => {
+    setFormItems(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleStartCreate = () => {
+    setEditingSetId(null);
+    setFormName('');
+    setFormDescription('');
+    setFormItems([]);
+    setShowForm(true);
   };
 
   const itemTypeOptions = [
@@ -293,10 +354,10 @@ function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, edit
         </DialogHeader>
 
         <div className="space-y-4">
-          {!showCreateForm ? (
+          {!showForm ? (
             <>
               <Button
-                onClick={() => setShowCreateForm(true)}
+                onClick={handleStartCreate}
                 className="w-full"
                 data-testid="button-create-new-set"
               >
@@ -312,21 +373,36 @@ function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, edit
                 <div className="space-y-2">
                   {sets.map((set) => (
                     <div key={set.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
+                      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleEditSet(set.id)}>
                         <p className="font-medium">{set.name}</p>
                         {set.description && (
                           <p className="text-sm text-muted-foreground">{set.description}</p>
                         )}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => deleteMutation.mutate(set.id)}
-                        disabled={deleteMutation.isPending}
-                        data-testid={`button-delete-set-${set.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditSet(set.id)}
+                          disabled={loadingSetId === set.id}
+                          data-testid={`button-edit-set-${set.id}`}
+                        >
+                          {loadingSetId === set.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Pencil className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteMutation.mutate(set.id)}
+                          disabled={deleteMutation.isPending}
+                          data-testid={`button-delete-set-${set.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -338,8 +414,8 @@ function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, edit
                 <Label htmlFor="set-name">Set Name *</Label>
                 <Input
                   id="set-name"
-                  value={newSetName}
-                  onChange={(e) => setNewSetName(e.target.value)}
+                  value={formName}
+                  onChange={(e) => setFormName(e.target.value)}
                   placeholder="e.g., Standard GA Setup"
                   data-testid="input-set-name"
                 />
@@ -349,8 +425,8 @@ function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, edit
                 <Label htmlFor="set-description">Description</Label>
                 <Textarea
                   id="set-description"
-                  value={newSetDescription}
-                  onChange={(e) => setNewSetDescription(e.target.value)}
+                  value={formDescription}
+                  onChange={(e) => setFormDescription(e.target.value)}
                   placeholder="Brief description of this set..."
                   data-testid="input-set-description"
                 />
@@ -358,24 +434,24 @@ function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, edit
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Items in Set</Label>
-                  <Button variant="outline" size="sm" onClick={addSetItem}>
+                  <Label>Items in Set ({formItems.length})</Label>
+                  <Button variant="outline" size="sm" onClick={addFormItem}>
                     <Plus className="h-4 w-4 mr-1" />
                     Add Item
                   </Button>
                 </div>
 
-                {newSetItems.length === 0 ? (
+                {formItems.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4 text-center border rounded-lg">
                     No items added yet. Add items to include in this set.
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {newSetItems.map((item, index) => (
+                    {formItems.map((item, index) => (
                       <div key={index} className="flex items-center gap-2 p-2 border rounded-lg">
                         <Select
                           value={item.itemType}
-                          onValueChange={(value) => updateSetItem(index, { itemType: value })}
+                          onValueChange={(value) => updateFormItem(index, { itemType: value })}
                         >
                           <SelectTrigger className="flex-1">
                             <SelectValue placeholder="Select item type" />
@@ -389,7 +465,7 @@ function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, edit
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => removeSetItem(index)}
+                          onClick={() => removeFormItem(index)}
                         >
                           <X className="h-4 w-4" />
                         </Button>
@@ -404,16 +480,16 @@ function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, edit
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleCreateSet}
-                  disabled={createMutation.isPending || !newSetName.trim()}
+                  onClick={handleSaveSet}
+                  disabled={createMutation.isPending || updateMutation.isPending || !formName.trim()}
                   data-testid="button-save-set"
                 >
-                  {createMutation.isPending ? (
+                  {(createMutation.isPending || updateMutation.isPending) ? (
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : (
                     <Check className="h-4 w-4 mr-2" />
                   )}
-                  Save Set
+                  {editingSetId ? 'Update Set' : 'Save Set'}
                 </Button>
               </DialogFooter>
             </div>
