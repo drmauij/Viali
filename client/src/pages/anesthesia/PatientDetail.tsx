@@ -2220,7 +2220,7 @@ export default function PatientDetail() {
                       size="icon"
                       onClick={() => setIsSendQuestionnaireOpen(true)}
                       data-testid="button-send-questionnaire"
-                      title={t('questionnaire.send.title', 'Send Questionnaire')}
+                      title={t('common.patientCommunication', 'Patient Communication')}
                     >
                       <Send className="h-4 w-4" />
                     </Button>

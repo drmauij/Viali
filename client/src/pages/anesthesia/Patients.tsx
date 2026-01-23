@@ -542,7 +542,7 @@ export default function Patients() {
                         setSelectedPatientForForm(patient);
                         setSendFormDialogOpen(true);
                       }}
-                      title={t('questionnaire.send.title', 'Send Questionnaire')}
+                      title={t('common.patientCommunication', 'Patient Communication')}
                       data-testid={`button-send-form-${patient.id}`}
                     >
                       <Send className="h-4 w-4 text-white" />

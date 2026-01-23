@@ -252,7 +252,7 @@ export default function SurgerySummaryDialog({
                   data-testid="button-send-questionnaire"
                 >
                   <Send className="h-4 w-4 mr-1 text-white" />
-                  {t('questionnaire.send.title', 'Send Questionnaire')}
+                  {t('common.patientCommunication', 'Patient Communication')}
                 </Button>
               )}
               {/* View Patient Detail Link */}

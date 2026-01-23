@@ -369,7 +369,7 @@ export default function SurgeryPreOpList() {
                             handleSendFormToPatient(surgery);
                           }}
                           data-testid={`button-send-form-${surgery.id}`}
-                          title={t('surgery.preop.sendForm', 'Send Form')}
+                          title={t('common.patientCommunication', 'Patient Communication')}
                         >
                           <Send className="h-4 w-4 text-white" />
                         </Button>

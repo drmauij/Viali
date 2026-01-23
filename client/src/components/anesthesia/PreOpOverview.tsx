@@ -179,7 +179,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
               variant="ghost"
               size="icon"
               onClick={() => setSendDialogOpen(true)}
-              title="Send Questionnaire"
+              title="Patient Communication"
               data-testid="button-send-questionnaire-preop-no-data"
             >
               <Send className="h-5 w-5 text-white" />
@@ -396,7 +396,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
             variant="ghost"
             size="icon"
             onClick={() => setSendDialogOpen(true)}
-            title="Send Questionnaire"
+            title="Patient Communication"
             data-testid="button-send-questionnaire-preop"
           >
             <Send className="h-5 w-5 text-white" />
