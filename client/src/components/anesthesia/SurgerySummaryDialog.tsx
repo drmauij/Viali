@@ -329,7 +329,7 @@ export default function SurgerySummaryDialog({
                           `${surgeryDate} at ${surgeryTime}`,
                           duration != null ? `${duration} min` : null,
                           room?.name,
-                          surgery.surgeon,
+                          surgery.surgeon ? (surgery.surgeonPhone ? `${surgery.surgeon} (${surgery.surgeonPhone})` : surgery.surgeon) : null,
                           surgery.status === 'cancelled' ? 'CANCELLED' : null
                         ].filter(Boolean).join(', ')}
                       </div>

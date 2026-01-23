@@ -216,7 +216,16 @@ router.get('/api/anesthesia/surgeries/:id', isAuthenticated, async (req: any, re
       return res.status(403).json({ message: "Access denied" });
     }
 
-    res.json(surgery);
+    // Fetch surgeon details if surgeonId is present
+    let surgeonPhone: string | null = null;
+    if (surgery.surgeonId) {
+      const surgeonUser = await storage.getUser(surgery.surgeonId);
+      if (surgeonUser) {
+        surgeonPhone = surgeonUser.phone || null;
+      }
+    }
+
+    res.json({ ...surgery, surgeonPhone });
   } catch (error) {
     console.error("Error fetching surgery:", error);
     res.status(500).json({ message: "Failed to fetch surgery" });
