@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, ExternalLink, UserRoundCog } from "lucide-react";
-import { SiTelegram } from "react-icons/si";
+import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, ExternalLink, UserRoundCog, Send } from "lucide-react";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { Link } from "wouter";
@@ -252,7 +251,7 @@ export default function SurgerySummaryDialog({
                   onClick={() => setSendDialogOpen(true)}
                   data-testid="button-send-questionnaire"
                 >
-                  <SiTelegram className="h-4 w-4 mr-1 text-[#0088cc]" />
+                  <Send className="h-4 w-4 mr-1 text-white" />
                   {t('questionnaire.send.title', 'Send Questionnaire')}
                 </Button>
               )}

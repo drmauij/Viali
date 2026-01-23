@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Search, UserCircle, UserRound, Calendar, User, ClipboardList, FileCheck, FileEdit, CalendarPlus, PauseCircle, Loader2, Stethoscope, EyeOff, Mail, Send, Download, CheckSquare, Square } from "lucide-react";
-import { SiTelegram } from "react-icons/si";
 import { formatDate } from "@/lib/dateUtils";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
@@ -642,7 +641,7 @@ export default function PreOpList() {
                           data-testid={`button-send-form-${surgery.id}`}
                           title={t('anesthesia.preop.sendForm')}
                         >
-                          <SiTelegram className="h-4 w-4 text-[#0088cc]" />
+                          <Send className="h-4 w-4 text-white" />
                         </Button>
                       )
                     )}

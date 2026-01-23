@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, AlertCircle, ListTodo } from "lucide-react";
-import { SiTelegram } from "react-icons/si";
+import { Loader2, AlertCircle, ListTodo, Send } from "lucide-react";
 import { formatDateTime } from "@/lib/dateUtils";
 import { useCreateTodo } from "@/hooks/useCreateTodo";
 import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
@@ -183,7 +182,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
               title="Send Questionnaire"
               data-testid="button-send-questionnaire-preop-no-data"
             >
-              <SiTelegram className="h-5 w-5 text-[#0088cc]" />
+              <Send className="h-5 w-5 text-white" />
             </Button>
           </div>
         )}
@@ -400,7 +399,7 @@ export function PreOpOverview({ surgeryId, hospitalId, patientId, patientName, p
             title="Send Questionnaire"
             data-testid="button-send-questionnaire-preop"
           >
-            <SiTelegram className="h-5 w-5 text-[#0088cc]" />
+            <Send className="h-5 w-5 text-white" />
           </Button>
         </div>
       )}
