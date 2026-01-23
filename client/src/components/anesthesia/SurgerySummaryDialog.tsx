@@ -269,20 +269,23 @@ export default function SurgerySummaryDialog({
                   {t('anesthesia.surgerySummary.editPatient')}
                 </Button>
               )}
-              {/* Send Questionnaire Button - visible if questionnaire addon is enabled */}
-              {addons.questionnaire && patient && (
+            </div>
+            </div>
+            
+            {/* Send Questionnaire Button - horizontal row at bottom of patient section */}
+            {addons.questionnaire && patient && (
+              <div className="pt-2 border-t border-border/50">
                 <Button
-                  variant="ghost"
-                  size="icon"
+                  variant="outline"
+                  size="sm"
                   onClick={() => setSendDialogOpen(true)}
-                  title={t('questionnaire.send.title', 'Send Questionnaire')}
                   data-testid="button-send-questionnaire"
                 >
-                  <SiTelegram className="h-4 w-4 text-[#0088cc]" />
+                  <SiTelegram className="h-4 w-4 mr-1 text-[#0088cc]" />
+                  {t('questionnaire.send.title', 'Send Questionnaire')}
                 </Button>
-              )}
-            </div>
-            </div>
+              </div>
+            )}
             
             {/* Patient Allergies from Patient Record */}
             {((patient.allergies && patient.allergies.length > 0) || patient.otherAllergies) && (
