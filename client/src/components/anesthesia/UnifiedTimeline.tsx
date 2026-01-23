@@ -3,6 +3,21 @@ import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
 import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2, ArrowUpDown, GripVertical, Check, Copy, Lock, LockOpen } from "lucide-react";
 import {
+  VitalPoint,
+  TimelineVitals,
+  TimelineEvent,
+  InfusionSegment,
+  InfusionSession,
+  UnifiedTimelineData,
+  SwimlaneConfig,
+  AnesthesiaItem,
+  AdministrationGroup,
+  ChartExportResult,
+  SwimlaneExportResult,
+  UnifiedTimelineRef,
+} from "./unifiedTimeline/types";
+import { ANESTHESIA_TIME_MARKERS, FOUR_HOURS_MS } from "./unifiedTimeline/constants";
+import {
   DndContext,
   closestCenter,
   KeyboardSensor,
@@ -138,152 +153,9 @@ import { ScoresSwimlane } from "./swimlanes/ScoresSwimlane";
 import { VASDialog } from "./dialogs/VASDialog";
 import { ScoresDialog } from "./dialogs/ScoresDialog";
 import { EventsTimesPanel } from "./EventsTimesPanel";
-
-/**
- * UnifiedTimeline - Refactored for robustness and flexibility
- * 
- * Features:
- * - Dynamic swimlanes - easy to add/remove at runtime
- * - Consistent vertical grid lines across all swimlanes
- * - Simplified configuration with centralized swimlane definitions
- * - Dark/light theme support
- */
-
-export type VitalPoint = [number, number]; // [timestamp(ms), value]
-
-export type TimelineVitals = {
-  hr?: VitalPoint[];
-  sysBP?: VitalPoint[];
-  diaBP?: VitalPoint[];
-  spo2?: VitalPoint[];
-};
-
-export type TimelineEvent = {
-  time: number; // ms
-  swimlane: string; // Now flexible - any swimlane id
-  label: string;
-  icon?: string;
-  color?: string;
-  duration?: number; // ms - for range items like infusions
-  row?: number; // for multiple medication rows
-};
-
-// EventComment and AnesthesiaTimeMarker types imported from useEventState hook
 import type { EventComment, AnesthesiaTimeMarker } from "@/hooks/useEventState";
 
-// Infusion segment - represents a single rate period
-export type InfusionSegment = {
-  id: string;
-  startTime: number; // ms
-  rateValue: string; // e.g., "100ml/h", "5µg/kg/min", or "" for free-flow
-  rateUnit?: string;
-  note?: string;
-  setBy?: string; // user who set this rate
-  endTime: number | null; // null if ongoing
-};
-
-// Infusion session - represents a continuous infusion (start to stop)
-export type InfusionSession = {
-  id: string;
-  swimlaneId: string;
-  drugName: string; // e.g., "Propofol 1%"
-  startedBy?: string;
-  startTime: number; // ms
-  isFreeFlow: boolean; // true = dashed line, false = solid line
-  segments: InfusionSegment[]; // rate changes over time
-  stopTime: number | null; // null if still running
-  stoppedBy?: string;
-};
-
-export type UnifiedTimelineData = {
-  startTime: number;
-  endTime: number;
-  vitals: TimelineVitals;
-  events: TimelineEvent[];
-  medications?: any[]; // Raw medication records from API
-  apiEvents?: any[]; // Raw event records from API (renamed to avoid conflict with timeline events)
-  isHistoricalData?: boolean; // True if vitals data is older than 1 hour - used for viewport centering
-};
-
-// Predefined anesthesia time markers in sequence (type imported from useEventState hook)
-export const ANESTHESIA_TIME_MARKERS: Omit<AnesthesiaTimeMarker, 'time'>[] = [
-  { id: 'A1', code: 'A1', label: 'Anesthesia Presence Start', color: '#FFFFFF', bgColor: '#EF4444' }, // Red
-  { id: 'E', code: 'E', label: 'OR Entrance', color: '#FFFFFF', bgColor: '#10B981' }, // Green
-  { id: 'X1', code: 'X1', label: 'Anesthesia Start', color: '#FFFFFF', bgColor: '#F97316' }, // Orange
-  { id: 'I', code: 'I', label: 'End of Induction', color: '#FFFFFF', bgColor: '#F59E0B' }, // Amber
-  { id: 'L', code: 'L', label: 'Patient Positioning', color: '#FFFFFF', bgColor: '#3B82F6' }, // Blue
-  { id: 'B1', code: 'B1', label: 'Surgical Measures Start', color: '#000000', bgColor: '#06B6D4' }, // Cyan
-  { id: 'O1', code: 'O1', label: 'Surgical Incision', color: '#FFFFFF', bgColor: '#8B5CF6' }, // Purple
-  { id: 'O2', code: 'O2', label: 'Surgical Suture', color: '#FFFFFF', bgColor: '#8B5CF6' }, // Purple
-  { id: 'B2', code: 'B2', label: 'Surgical Measures End', color: '#000000', bgColor: '#06B6D4' }, // Cyan
-  { id: 'X2', code: 'X2', label: 'Anesthesia End', color: '#FFFFFF', bgColor: '#F97316' }, // Orange
-  { id: 'X', code: 'X', label: 'OR Exit', color: '#FFFFFF', bgColor: '#10B981' }, // Green
-  { id: 'A2', code: 'A2', label: 'Anesthesia Presence End', color: '#FFFFFF', bgColor: '#EF4444' }, // Red
-  { id: 'P', code: 'P', label: 'PACU End', color: '#FFFFFF', bgColor: '#EC4899' }, // Pink
-];
-
-// Centralized swimlane configuration - easy to add/remove swimlanes
-type SwimlaneConfig = {
-  id: string;
-  label: string;
-  height: number;
-  colorLight: string;
-  colorDark: string;
-  // Metadata for anesthesia items
-  // rateUnit determines item type: null = bolus, "free" = free-flow infusion, other = rate-controlled pump
-  rateUnit?: string | null;
-  defaultDose?: string | null; // Default dose value (e.g., "12" or "25-35-50" for ranges)
-  administrationUnit?: string | null; // Unit for doses (e.g., "mg", "μg", "ml")
-  ampuleTotalContent?: string | null; // Ampule total content (e.g., "200 mg") for TCI actual amount unit
-  itemId?: string; // Reference to the original item
-  hierarchyLevel?: 'parent' | 'group' | 'item'; // For three-level hierarchy styling
-};
-
-// Type for anesthesia-configured items
-type AnesthesiaItem = {
-  id: string;
-  name: string;
-  administrationUnit?: string;
-  administrationRoute?: string;
-  ampuleConcentration?: string;
-  ampuleTotalContent?: string;
-  medicationGroup?: string;
-  rateUnit?: string | null; // null = bolus, "free" = free-flow infusion, other = rate-controlled pump
-  administrationGroup?: string;
-  defaultDose?: string | null;
-};
-
-// Type for administration groups
-type AdministrationGroup = {
-  id: string;
-  name: string;
-  hospitalId: string;
-  sortOrder: number;
-  createdAt: string;
-};
-
-// Chart export result with dimensions for proper PDF aspect ratio
-export interface ChartExportResult {
-  image: string;
-  width: number;
-  height: number;
-}
-
-// Swimlane section export for Approach B (separate images per section)
-export interface SwimlaneExportResult {
-  vitals: ChartExportResult | null;       // HR, BP, SpO2, Temp chart
-  medications: ChartExportResult | null;  // Bolus doses + infusions
-  ventilation: ChartExportResult | null;  // Ventilation parameters
-  others: ChartExportResult | null;       // Staff, events, positions, rhythm, etc.
-  timeRange: { start: number; end: number }; // Common time range for alignment
-}
-
-// Ref type for UnifiedTimeline
-export interface UnifiedTimelineRef {
-  getChartImage: () => Promise<string | null>;
-  exportForPdf: () => Promise<ChartExportResult | null>;
-  exportSwimlanesForPdf: () => Promise<SwimlaneExportResult | null>; // Approach B: per-section exports
-}
+export { VitalPoint, TimelineVitals, TimelineEvent, InfusionSegment, InfusionSession, UnifiedTimelineData, SwimlaneConfig, ChartExportResult, SwimlaneExportResult, UnifiedTimelineRef, ANESTHESIA_TIME_MARKERS } from "./unifiedTimeline";
 
 export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   data: UnifiedTimelineData;
