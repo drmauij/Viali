@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -8,8 +8,7 @@ import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country"
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Copy, Mail, Loader2, CheckCircle, MessageSquare, Clock, FileText, Send, ChevronDown, ChevronUp, Smartphone, Info } from "lucide-react";
+import { Copy, Mail, Loader2, CheckCircle, MessageSquare, Clock, FileText, Send, Smartphone, Info, Plus, X } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -42,12 +41,13 @@ export function SendQuestionnaireDialog({
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
   const { addons } = useHospitalAddons();
+  const scrollRef = useRef<HTMLDivElement>(null);
   
   const [generatedLink, setGeneratedLink] = useState<{ token: string; linkId: string } | null>(null);
   const [copied, setCopied] = useState(false);
   
   // Compose section state
-  const [composeOpen, setComposeOpen] = useState(false);
+  const [isComposing, setIsComposing] = useState(false);
   const [messageType, setMessageType] = useState<MessageType>("questionnaire");
   const [sendMedium, setSendMedium] = useState<SendMedium>("email");
   const [emailAddress, setEmailAddress] = useState(patientEmail || "");
@@ -120,12 +120,19 @@ export function SendQuestionnaireDialog({
       setPhoneNumber(patientPhone || "");
       setCopied(false);
       setCustomMessage("");
-      setComposeOpen(false);
+      setIsComposing(false);
       setMessageType("questionnaire");
       setSendMedium("email");
       setSendSuccess(false);
     }
   }, [open, patientEmail, patientPhone]);
+
+  // Scroll to bottom when history changes
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [existingLinks, patientMessages]);
 
   const generateLinkMutation = useMutation({
     mutationFn: async () => {
@@ -214,7 +221,7 @@ export function SendQuestionnaireDialog({
       });
       setTimeout(() => {
         setSendSuccess(false);
-        setComposeOpen(false);
+        setIsComposing(false);
         setCustomMessage("");
       }, 1500);
     },
@@ -282,12 +289,12 @@ export function SendQuestionnaireDialog({
       queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient', patientId, 'links'] });
       queryClient.invalidateQueries({ queryKey: ['/api/patients', patientId, 'messages'] });
       toast({
-        title: t('questionnaire.links.smsSent', 'SMS sent'),
-        description: t('questionnaire.links.smsSentDesc', 'Message sent via SMS'),
+        title: t('questionnaire.links.smsSent', 'SMS sent!'),
+        description: t('questionnaire.links.smsSentDesc', 'Message was delivered.'),
       });
       setTimeout(() => {
         setSendSuccess(false);
-        setComposeOpen(false);
+        setIsComposing(false);
         setCustomMessage("");
       }, 1500);
     },
@@ -301,10 +308,10 @@ export function SendQuestionnaireDialog({
   });
 
   useEffect(() => {
-    if (open && !generatedLink && activeHospital?.id) {
+    if (open && !generatedLink && activeHospital?.id && isComposing && messageType === "questionnaire") {
       generateLinkMutation.mutate();
     }
-  }, [open, activeHospital?.id]);
+  }, [open, activeHospital?.id, isComposing, messageType]);
 
   const handleCopyLink = () => {
     if (!generatedLink) return;
@@ -397,163 +404,178 @@ export function SendQuestionnaireDialog({
           channel: msg.channel as 'email' | 'sms',
           recipient: msg.recipient,
           date: new Date(msg.createdAt!),
-          preview: msg.message.substring(0, 50) + (msg.message.length > 50 ? '...' : ''),
+          preview: msg.message.substring(0, 80) + (msg.message.length > 80 ? '...' : ''),
         });
       });
     }
 
-    // Sort by date descending
-    return history.sort((a, b) => b.date.getTime() - a.date.getTime());
+    // Sort by date ascending (oldest first, like a chat)
+    return history.sort((a, b) => a.date.getTime() - b.date.getTime());
   };
 
   const communicationHistory = getCommunicationHistory();
 
-  const getMessageTypeLabel = (type: MessageType) => {
+  const getMessageTypeIcon = (type: 'questionnaire' | 'message' | 'infoflyer', channel: 'email' | 'sms') => {
+    if (type === 'questionnaire') {
+      return <FileText className="h-4 w-4" />;
+    } else if (type === 'infoflyer') {
+      return <Info className="h-4 w-4" />;
+    } else {
+      return <MessageSquare className="h-4 w-4" />;
+    }
+  };
+
+  const getMessageBubbleColor = (type: 'questionnaire' | 'message' | 'infoflyer') => {
     switch (type) {
-      case "questionnaire":
-        return t('messages.compose.questionnaire', 'Questionnaire Link');
-      case "custom":
-        return t('messages.compose.custom', 'Custom Message');
-      case "infoflyer":
-        return t('messages.compose.infoflyer', 'Anesthesia Infoflyer');
+      case 'questionnaire':
+        return 'bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800';
+      case 'infoflyer':
+        return 'bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800';
       default:
-        return '';
+        return 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800';
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-hidden flex flex-col" data-testid="dialog-send-questionnaire">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-lg h-[80vh] max-h-[600px] flex flex-col p-0" data-testid="dialog-send-questionnaire">
+        <DialogHeader className="px-4 pt-4 pb-2 border-b shrink-0">
           <DialogTitle className="flex items-center gap-2">
-            <Send className="h-5 w-5 text-primary" />
+            <MessageSquare className="h-5 w-5 text-primary" />
             {t('messages.dialogTitle', 'Patient Communication')}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm">
             {patientName}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Communication History - Main Content */}
-        <div className="flex-1 overflow-hidden">
-          <ScrollArea className="h-[250px]">
+        {/* Chat History - Scrollable Area */}
+        <ScrollArea className="flex-1 px-4" ref={scrollRef}>
+          <div className="py-4 space-y-3">
             {communicationHistory.length > 0 ? (
-              <div className="space-y-2 pr-4">
-                {communicationHistory.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex items-start gap-2 p-2 rounded-md bg-muted/50 text-sm"
-                    data-testid={`history-item-${item.id}`}
-                  >
-                    <div className="shrink-0 mt-0.5">
-                      {item.type === 'questionnaire' ? (
-                        <FileText className="h-4 w-4 text-blue-500" />
-                      ) : item.type === 'infoflyer' ? (
-                        <Info className="h-4 w-4 text-purple-500" />
-                      ) : (
-                        <MessageSquare className="h-4 w-4 text-green-500" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">
-                          {item.type === 'questionnaire' 
-                            ? t('messages.historyQuestionnaire', 'Questionnaire')
-                            : item.type === 'infoflyer'
-                            ? t('messages.historyInfoflyer', 'Infoflyer')
-                            : t('messages.historyMessage', 'Message')}
-                        </span>
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          {item.channel === 'email' ? <Mail className="h-3 w-3" /> : <Smartphone className="h-3 w-3" />}
-                          {item.recipient}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {format(item.date, 'dd.MM.yyyy HH:mm', { locale: de })}
-                        {item.status && (
-                          <span className="ml-2">
-                            • {item.status === 'submitted' ? t('questionnaire.status.submitted', 'Submitted') :
-                               item.status === 'reviewed' ? t('questionnaire.status.reviewed', 'Reviewed') :
-                               item.status === 'pending' ? t('questionnaire.status.pending', 'Pending') :
-                               item.status}
-                          </span>
-                        )}
-                      </div>
-                      {item.preview && (
-                        <p className="text-xs text-muted-foreground mt-1 truncate">{item.preview}</p>
-                      )}
-                    </div>
+              communicationHistory.map((item) => (
+                <div
+                  key={item.id}
+                  className={`p-3 rounded-lg border ${getMessageBubbleColor(item.type)} ml-auto max-w-[85%]`}
+                  data-testid={`history-item-${item.id}`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`p-1 rounded ${
+                      item.type === 'questionnaire' ? 'bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200' :
+                      item.type === 'infoflyer' ? 'bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-200' :
+                      'bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-200'
+                    }`}>
+                      {getMessageTypeIcon(item.type, item.channel)}
+                    </span>
+                    <span className="text-sm font-medium">
+                      {item.type === 'questionnaire' 
+                        ? t('messages.historyQuestionnaire', 'Questionnaire')
+                        : item.type === 'infoflyer'
+                        ? t('messages.historyInfoflyer', 'Infoflyer')
+                        : t('messages.historyMessage', 'Message')}
+                    </span>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1 ml-auto">
+                      {item.channel === 'email' ? <Mail className="h-3 w-3" /> : <Smartphone className="h-3 w-3" />}
+                    </span>
                   </div>
-                ))}
-              </div>
+                  <p className="text-xs text-muted-foreground mb-1 truncate">
+                    {t('messages.sentTo', 'To')}: {item.recipient}
+                  </p>
+                  {item.preview && (
+                    <p className="text-sm text-foreground/80 mb-1">{item.preview}</p>
+                  )}
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{format(item.date, 'dd.MM.yyyy HH:mm', { locale: de })}</span>
+                    {item.status && (
+                      <span className={`px-1.5 py-0.5 rounded text-xs ${
+                        item.status === 'submitted' ? 'bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-200' :
+                        item.status === 'reviewed' ? 'bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200' :
+                        'bg-yellow-200 dark:bg-yellow-800 text-yellow-700 dark:text-yellow-200'
+                      }`}>
+                        {item.status === 'submitted' ? t('questionnaire.status.submitted', 'Submitted') :
+                         item.status === 'reviewed' ? t('questionnaire.status.reviewed', 'Reviewed') :
+                         item.status === 'pending' ? t('questionnaire.status.pending', 'Pending') :
+                         item.status}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))
             ) : (
-              <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-                <Clock className="h-8 w-8 mb-2 opacity-50" />
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <Clock className="h-10 w-10 mb-3 opacity-40" />
                 <p className="text-sm">{t('messages.noHistory', 'No communication history yet')}</p>
+                <p className="text-xs mt-1">{t('messages.startConversation', 'Send your first message below')}</p>
               </div>
             )}
-          </ScrollArea>
-        </div>
+          </div>
+        </ScrollArea>
 
-        {/* Compose Section - Expandable */}
-        <div className="border-t pt-3">
-          <Collapsible open={composeOpen} onOpenChange={setComposeOpen}>
-            <CollapsibleTrigger asChild>
+        {/* Compose Section - Fixed at Bottom */}
+        <div className="border-t bg-muted/30 shrink-0">
+          {!isComposing ? (
+            <div className="p-3">
               <Button 
-                variant="outline" 
-                className="w-full justify-between"
+                onClick={() => setIsComposing(true)}
+                className="w-full"
                 data-testid="button-compose-message"
               >
-                <span className="flex items-center gap-2">
-                  <Send className="h-4 w-4" />
-                  {t('messages.compose.title', 'Send New Message')}
-                </span>
-                {composeOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                <Plus className="h-4 w-4 mr-2" />
+                {t('messages.compose.title', 'Send New Message')}
               </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-4 pt-4">
-              {/* Message Type Selection */}
-              <div className="space-y-2">
-                <Label>{t('messages.compose.messageType', 'What to send')}</Label>
-                <div className="flex gap-2 flex-wrap">
+            </div>
+          ) : (
+            <div className="p-3 space-y-3">
+              {/* Close button */}
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">{t('messages.compose.newMessage', 'New Message')}</Label>
+                <Button variant="ghost" size="icon" onClick={() => setIsComposing(false)} className="h-6 w-6">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Message Type Pills */}
+              <div className="flex gap-1.5 flex-wrap">
+                <Button
+                  variant={messageType === "questionnaire" ? "default" : "outline"}
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setMessageType("questionnaire")}
+                  data-testid="button-type-questionnaire"
+                >
+                  <FileText className="h-3 w-3 mr-1" />
+                  {t('messages.compose.questionnaire', 'Questionnaire')}
+                </Button>
+                <Button
+                  variant={messageType === "custom" ? "default" : "outline"}
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setMessageType("custom")}
+                  data-testid="button-type-custom"
+                >
+                  <MessageSquare className="h-3 w-3 mr-1" />
+                  {t('messages.compose.custom', 'Custom')}
+                </Button>
+                {hasInfoflyer && (
                   <Button
-                    variant={messageType === "questionnaire" ? "default" : "outline"}
+                    variant={messageType === "infoflyer" ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setMessageType("questionnaire")}
-                    data-testid="button-type-questionnaire"
+                    className="h-7 text-xs"
+                    onClick={() => setMessageType("infoflyer")}
+                    data-testid="button-type-infoflyer"
                   >
-                    <FileText className="h-4 w-4 mr-1" />
-                    {t('messages.compose.questionnaire', 'Questionnaire')}
+                    <Info className="h-3 w-3 mr-1" />
+                    {t('messages.compose.infoflyer', 'Infoflyer')}
                   </Button>
-                  <Button
-                    variant={messageType === "custom" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setMessageType("custom")}
-                    data-testid="button-type-custom"
-                  >
-                    <MessageSquare className="h-4 w-4 mr-1" />
-                    {t('messages.compose.custom', 'Custom')}
-                  </Button>
-                  {hasInfoflyer && (
-                    <Button
-                      variant={messageType === "infoflyer" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setMessageType("infoflyer")}
-                      data-testid="button-type-infoflyer"
-                    >
-                      <Info className="h-4 w-4 mr-1" />
-                      {t('messages.compose.infoflyer', 'Infoflyer')}
-                    </Button>
-                  )}
-                </div>
+                )}
               </div>
 
               {/* Questionnaire Link Display */}
               {messageType === "questionnaire" && (
-                <div className="space-y-2">
+                <div>
                   {isGenerating ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin" />
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
                       {t('questionnaire.send.generating', 'Generating link...')}
                     </div>
                   ) : generatedLink ? (
@@ -561,17 +583,17 @@ export function SendQuestionnaireDialog({
                       <Input
                         readOnly
                         value={`${window.location.origin}/questionnaire/${generatedLink.token}`}
-                        className="text-xs"
+                        className="text-xs h-8"
                         data-testid="input-questionnaire-link"
                       />
                       <Button
                         variant={copied ? "default" : "outline"}
                         size="icon"
                         onClick={handleCopyLink}
-                        className="shrink-0"
+                        className="shrink-0 h-8 w-8"
                         data-testid="button-copy-questionnaire-link"
                       >
-                        {copied ? <CheckCircle className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        {copied ? <CheckCircle className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                       </Button>
                     </div>
                   ) : null}
@@ -580,107 +602,92 @@ export function SendQuestionnaireDialog({
 
               {/* Custom Message Input */}
               {messageType === "custom" && (
-                <div className="space-y-2">
-                  <Label>{t('messages.messageLabel', 'Your message')}</Label>
-                  <Textarea
-                    placeholder={t('messages.messagePlaceholder', 'Write your message here...')}
-                    value={customMessage}
-                    onChange={(e) => setCustomMessage(e.target.value)}
-                    rows={3}
-                    data-testid="input-custom-message"
-                  />
-                </div>
+                <Textarea
+                  placeholder={t('messages.messagePlaceholder', 'Write your message here...')}
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  rows={2}
+                  className="text-sm resize-none"
+                  data-testid="input-custom-message"
+                />
               )}
 
               {/* Infoflyer Preview */}
               {messageType === "infoflyer" && hasInfoflyer && (
-                <div className="space-y-2">
-                  <Label>{t('messages.compose.infoflyerPreview', 'Infoflyer content will be sent')}</Label>
-                  <div className="p-2 rounded-md bg-muted/50 text-sm text-muted-foreground max-h-20 overflow-y-auto">
-                    {unitSettings?.infoflyerContent?.substring(0, 150)}
-                    {(unitSettings?.infoflyerContent?.length || 0) > 150 && '...'}
-                  </div>
+                <div className="p-2 rounded-md bg-muted text-xs text-muted-foreground max-h-16 overflow-y-auto">
+                  {unitSettings?.infoflyerContent?.substring(0, 150)}
+                  {(unitSettings?.infoflyerContent?.length || 0) > 150 && '...'}
                 </div>
               )}
 
-              {/* Send Medium Selection */}
-              <div className="space-y-2">
-                <Label>{t('messages.compose.sendVia', 'Send via')}</Label>
-                <div className="flex gap-2">
+              {/* Send Medium + Recipient + Send Button in one row */}
+              <div className="flex gap-2 items-end">
+                {/* Medium Toggle */}
+                <div className="flex gap-1">
                   <Button
                     variant={sendMedium === "email" ? "default" : "outline"}
-                    size="sm"
+                    size="icon"
+                    className="h-9 w-9"
                     onClick={() => setSendMedium("email")}
                     data-testid="button-medium-email"
+                    title={t('common.email', 'Email')}
                   >
-                    <Mail className="h-4 w-4 mr-1" />
-                    {t('common.email', 'Email')}
+                    <Mail className="h-4 w-4" />
                   </Button>
                   {isSmsConfigured && (
                     <Button
                       variant={sendMedium === "sms" ? "default" : "outline"}
-                      size="sm"
+                      size="icon"
+                      className="h-9 w-9"
                       onClick={() => setSendMedium("sms")}
                       data-testid="button-medium-sms"
+                      title={t('common.sms', 'SMS')}
                     >
-                      <Smartphone className="h-4 w-4 mr-1" />
-                      {t('common.sms', 'SMS')}
+                      <Smartphone className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
-              </div>
 
-              {/* Recipient Input */}
-              <div className="space-y-2">
-                <Label>
-                  {sendMedium === "email" 
-                    ? t('messages.compose.emailAddress', 'Email address')
-                    : t('messages.compose.phoneNumber', 'Phone number')}
-                </Label>
-                {sendMedium === "email" ? (
-                  <Input
-                    type="email"
-                    placeholder={t('questionnaire.links.emailPlaceholder', 'patient@example.com')}
-                    value={emailAddress}
-                    onChange={(e) => setEmailAddress(e.target.value)}
-                    data-testid="input-send-email"
-                  />
-                ) : (
-                  <PhoneInputWithCountry
-                    placeholder={t('questionnaire.links.phonePlaceholder', '79 123 45 67')}
-                    value={phoneNumber}
-                    onChange={(value) => setPhoneNumber(value)}
-                    data-testid="input-send-sms"
-                  />
-                )}
-              </div>
+                {/* Recipient Input */}
+                <div className="flex-1">
+                  {sendMedium === "email" ? (
+                    <Input
+                      type="email"
+                      placeholder={t('questionnaire.links.emailPlaceholder', 'patient@example.com')}
+                      value={emailAddress}
+                      onChange={(e) => setEmailAddress(e.target.value)}
+                      className="h-9"
+                      data-testid="input-send-email"
+                    />
+                  ) : (
+                    <PhoneInputWithCountry
+                      placeholder={t('questionnaire.links.phonePlaceholder', '79 123 45 67')}
+                      value={phoneNumber}
+                      onChange={(value) => setPhoneNumber(value)}
+                      data-testid="input-send-sms"
+                    />
+                  )}
+                </div>
 
-              {/* Send Button */}
-              <Button
-                onClick={handleSend}
-                disabled={!canSend() || isSending || sendSuccess}
-                className="w-full"
-                data-testid="button-send-message"
-              >
-                {isSending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {t('common.sending', 'Sending...')}
-                  </>
-                ) : sendSuccess ? (
-                  <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    {t('questionnaire.send.sent', 'Sent')}
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    {t('messages.compose.sendButton', 'Send')} {getMessageTypeLabel(messageType)}
-                  </>
-                )}
-              </Button>
-            </CollapsibleContent>
-          </Collapsible>
+                {/* Send Button */}
+                <Button
+                  onClick={handleSend}
+                  disabled={!canSend() || isSending || sendSuccess}
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  data-testid="button-send-message"
+                >
+                  {isSending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : sendSuccess ? (
+                    <CheckCircle className="h-4 w-4" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
