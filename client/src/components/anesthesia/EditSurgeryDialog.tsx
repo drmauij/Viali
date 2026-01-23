@@ -13,7 +13,10 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useState, useEffect, useMemo } from "react";
-import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo, UserPlus } from "lucide-react";
+import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo, UserPlus, Check, ChevronsUpDown } from "lucide-react";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { useCreateTodo } from "@/hooks/useCreateTodo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { format } from "date-fns";
@@ -52,6 +55,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   
   // New surgeon form state
   const [showNewSurgeonForm, setShowNewSurgeonForm] = useState(false);
+  const [surgeonSearchOpen, setSurgeonSearchOpen] = useState(false);
   const [newSurgeonFirstName, setNewSurgeonFirstName] = useState("");
   const [newSurgeonLastName, setNewSurgeonLastName] = useState("");
   const [newSurgeonPhone, setNewSurgeonPhone] = useState("");
@@ -90,6 +94,19 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     },
     enabled: !!surgery?.hospitalId,
   });
+
+  // Sort surgeons alphabetically by surname
+  const sortedSurgeons = useMemo(() => {
+    return [...surgeons].sort((a, b) => {
+      const getSurname = (name: string) => {
+        const parts = (name || '').trim().split(/\s+/);
+        return parts.length > 1 ? parts[parts.length - 1] : parts[0] || '';
+      };
+      return getSurname(a.name).localeCompare(getSurname(b.name));
+    });
+  }, [surgeons]);
+
+  const selectedSurgeon = sortedSurgeons.find(s => s.id === surgeonId);
 
   // Fetch units to find the surgery unit for creating new surgeons
   const { data: units = [] } = useQuery<Array<{id: string; name: string; isSurgeryModule: boolean}>>({
@@ -571,23 +588,67 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 <Label htmlFor="edit-surgeon">{t('anesthesia.editSurgery.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.surgeonOptional')})</span></Label>
                 {!showNewSurgeonForm ? (
                   <div className="flex gap-2">
-                    <Select 
-                      value={surgeonId || "none"} 
-                      onValueChange={(value) => setSurgeonId(value === "none" ? "" : value)}
-                      disabled={!canWrite}
-                    >
-                      <SelectTrigger id="edit-surgeon" data-testid="select-edit-surgeon" className="flex-1">
-                        <SelectValue placeholder="Select surgeon (optional)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">{t('anesthesia.editSurgery.noSurgeonSelected')}</SelectItem>
-                        {surgeons.map((s: any) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Popover open={surgeonSearchOpen} onOpenChange={setSurgeonSearchOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={surgeonSearchOpen}
+                          className="flex-1 justify-between"
+                          disabled={!canWrite}
+                          data-testid="select-edit-surgeon"
+                        >
+                          {selectedSurgeon
+                            ? selectedSurgeon.name
+                            : t('anesthesia.editSurgery.noSurgeonSelected')}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[300px] p-0">
+                        <Command>
+                          <CommandInput placeholder={t('anesthesia.quickSchedule.searchSurgeons', 'Search surgeons...')} />
+                          <CommandList>
+                            <CommandEmpty>{t('anesthesia.quickSchedule.noSurgeonsAvailable')}</CommandEmpty>
+                            <CommandGroup>
+                              <CommandItem
+                                value="none"
+                                onSelect={() => {
+                                  setSurgeonId("");
+                                  setSurgeonSearchOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    !surgeonId ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <span className="text-muted-foreground italic">{t('anesthesia.editSurgery.noSurgeonSelected')}</span>
+                              </CommandItem>
+                              {sortedSurgeons.map((s: any) => (
+                                <CommandItem
+                                  key={s.id}
+                                  value={s.name}
+                                  onSelect={() => {
+                                    setSurgeonId(s.id);
+                                    setSurgeonSearchOpen(false);
+                                  }}
+                                  data-testid={`surgeon-option-${s.id}`}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      surgeonId === s.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  {s.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                     {canWrite && (
                       <Button
                         variant="outline"

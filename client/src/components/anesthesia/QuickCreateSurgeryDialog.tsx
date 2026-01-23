@@ -39,6 +39,7 @@ export default function QuickCreateSurgeryDialog({
   const { t } = useTranslation();
   const { toast } = useToast();
   const [patientSearchOpen, setPatientSearchOpen] = useState(false);
+  const [surgeonSearchOpen, setSurgeonSearchOpen] = useState(false);
   const [showNewPatientForm, setShowNewPatientForm] = useState(false);
   const [showNewSurgeonForm, setShowNewSurgeonForm] = useState(false);
   
@@ -205,6 +206,19 @@ export default function QuickCreateSurgeryDialog({
     queryKey: [`/api/surgeons?hospitalId=${hospitalId}`],
     enabled: !!hospitalId && open,
   });
+
+  // Sort surgeons alphabetically by surname (extract surname from "FirstName LastName" format)
+  const sortedSurgeons = useMemo(() => {
+    return [...surgeons].sort((a, b) => {
+      const getSurname = (name: string) => {
+        const parts = name.trim().split(/\s+/);
+        return parts.length > 1 ? parts[parts.length - 1] : parts[0];
+      };
+      return getSurname(a.name).localeCompare(getSurname(b.name));
+    });
+  }, [surgeons]);
+
+  const selectedSurgeon = sortedSurgeons.find(s => s.id === surgeonId);
 
   // Fetch units to find the surgery unit for creating new surgeons
   const { data: units = [] } = useQuery<Array<{id: string; name: string; isSurgeryModule: boolean}>>({
@@ -681,35 +695,69 @@ export default function QuickCreateSurgeryDialog({
             <Label htmlFor="surgeon">{t('anesthesia.quickSchedule.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.surgeonOptional')})</span></Label>
             {!showNewSurgeonForm ? (
               <div className="flex gap-2">
-                <Select 
-                  value={surgeonId || "none"} 
-                  onValueChange={(value) => setSurgeonId(value === "none" ? "" : value)}
-                  disabled={isLoadingSurgeons}
-                >
-                  <SelectTrigger id="surgeon" data-testid="select-surgeon" className="flex-1">
-                    <SelectValue placeholder={isLoadingSurgeons ? t('anesthesia.quickSchedule.loadingSurgeons') : t('anesthesia.quickSchedule.selectSurgeon')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">
-                      <span className="text-muted-foreground italic">{t('anesthesia.quickSchedule.noSurgeonSelected')}</span>
-                    </SelectItem>
-                    {isLoadingSurgeons ? (
-                      <SelectItem value="loading" disabled>
-                        {t('anesthesia.quickSchedule.loadingSurgeons')}
-                      </SelectItem>
-                    ) : surgeons.length === 0 ? (
-                      <SelectItem value="no-surgeons" disabled>
-                        {t('anesthesia.quickSchedule.noSurgeonsAvailable')}
-                      </SelectItem>
-                    ) : (
-                      surgeons.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
+                <Popover open={surgeonSearchOpen} onOpenChange={setSurgeonSearchOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={surgeonSearchOpen}
+                      className="flex-1 justify-between"
+                      disabled={isLoadingSurgeons}
+                      data-testid="select-surgeon"
+                    >
+                      {isLoadingSurgeons 
+                        ? t('anesthesia.quickSchedule.loadingSurgeons')
+                        : selectedSurgeon
+                          ? selectedSurgeon.name
+                          : t('anesthesia.quickSchedule.noSurgeonSelected')}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0">
+                    <Command>
+                      <CommandInput placeholder={t('anesthesia.quickSchedule.searchSurgeons', 'Search surgeons...')} />
+                      <CommandList>
+                        <CommandEmpty>{t('anesthesia.quickSchedule.noSurgeonsAvailable')}</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem
+                            value="none"
+                            onSelect={() => {
+                              setSurgeonId("");
+                              setSurgeonSearchOpen(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                !surgeonId ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            <span className="text-muted-foreground italic">{t('anesthesia.quickSchedule.noSurgeonSelected')}</span>
+                          </CommandItem>
+                          {sortedSurgeons.map((s) => (
+                            <CommandItem
+                              key={s.id}
+                              value={s.name}
+                              onSelect={() => {
+                                setSurgeonId(s.id);
+                                setSurgeonSearchOpen(false);
+                              }}
+                              data-testid={`surgeon-option-${s.id}`}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  surgeonId === s.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {s.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
                 <Button
                   variant="outline"
                   size="icon"
