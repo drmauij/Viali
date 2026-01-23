@@ -126,6 +126,11 @@ export default function Users() {
   const [lastRoleWarningOpen, setLastRoleWarningOpen] = useState(false);
   const [pendingRemoveRoleId, setPendingRemoveRoleId] = useState<string | null>(null);
 
+  // Archive user confirmation dialog state (double confirmation)
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false);
+  const [archiveDialogStep, setArchiveDialogStep] = useState<1 | 2>(1);
+  const [userToArchive, setUserToArchive] = useState<HospitalUser | null>(null);
+
   // Tab state for user types
   const [activeTab, setActiveTab] = useState<"appUsers" | "staffMembers">("appUsers");
 
@@ -606,9 +611,28 @@ export default function Users() {
   }, [users, editingUserDetails]);
 
   const handleDeleteUser = (user: HospitalUser) => {
-    if (window.confirm(t("admin.deleteUserConfirm", { firstName: user.user.firstName, lastName: user.user.lastName }))) {
-      deleteUserMutation.mutate(user.user.id);
+    setUserToArchive(user);
+    setArchiveDialogStep(1);
+    setArchiveDialogOpen(true);
+  };
+
+  const handleArchiveConfirmStep1 = () => {
+    setArchiveDialogStep(2);
+  };
+
+  const handleArchiveConfirmStep2 = () => {
+    if (userToArchive) {
+      deleteUserMutation.mutate(userToArchive.user.id);
     }
+    setArchiveDialogOpen(false);
+    setUserToArchive(null);
+    setArchiveDialogStep(1);
+  };
+
+  const handleArchiveCancel = () => {
+    setArchiveDialogOpen(false);
+    setUserToArchive(null);
+    setArchiveDialogStep(1);
   };
 
   const handleOpenChangePassword = (user: User) => {
@@ -1754,6 +1778,62 @@ export default function Users() {
             >
               {deleteUserRoleMutation.isPending ? t("common.removing") : t("admin.removeFromHospital")}
             </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Archive User Confirmation Dialog (Double Confirmation) */}
+      <Dialog open={archiveDialogOpen} onOpenChange={(open) => {
+        if (!open) handleArchiveCancel();
+      }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              {archiveDialogStep === 1 
+                ? t("admin.archiveUserTitle", "Archive User") 
+                : t("admin.archiveUserConfirmTitle", "Confirm Archive")}
+            </DialogTitle>
+            <DialogDescription>
+              {archiveDialogStep === 1 
+                ? t("admin.archiveUserStep1", {
+                    firstName: userToArchive?.user.firstName || '',
+                    lastName: userToArchive?.user.lastName || '',
+                    defaultValue: `Are you sure you want to archive ${userToArchive?.user.firstName} ${userToArchive?.user.lastName}? They will be removed from this hospital.`
+                  })
+                : t("admin.archiveUserStep2", {
+                    firstName: userToArchive?.user.firstName || '',
+                    lastName: userToArchive?.user.lastName || '',
+                    defaultValue: `This action cannot be easily undone. ${userToArchive?.user.firstName} ${userToArchive?.user.lastName} will lose access to the system. Please confirm.`
+                  })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 justify-end">
+            <Button 
+              variant="outline" 
+              onClick={handleArchiveCancel}
+              data-testid="button-cancel-archive-user"
+            >
+              {t("common.cancel")}
+            </Button>
+            {archiveDialogStep === 1 ? (
+              <Button
+                variant="destructive"
+                onClick={handleArchiveConfirmStep1}
+                data-testid="button-archive-user-step1"
+              >
+                {t("common.continue", "Continue")}
+              </Button>
+            ) : (
+              <Button
+                variant="destructive"
+                onClick={handleArchiveConfirmStep2}
+                disabled={deleteUserMutation.isPending}
+                data-testid="button-archive-user-step2"
+              >
+                {deleteUserMutation.isPending ? t("common.archiving", "Archiving...") : t("admin.archiveUser", "Archive User")}
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

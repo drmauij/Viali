@@ -1942,7 +1942,12 @@ export class DatabaseStorage implements IStorage {
       .from(userHospitalRoles)
       .innerJoin(users, eq(userHospitalRoles.userId, users.id))
       .innerJoin(units, eq(userHospitalRoles.unitId, units.id))
-      .where(eq(userHospitalRoles.hospitalId, hospitalId))
+      .where(
+        and(
+          eq(userHospitalRoles.hospitalId, hospitalId),
+          isNull(users.archivedAt) // Filter out archived users
+        )
+      )
       .orderBy(asc(users.email));
     
     return results.map(row => ({

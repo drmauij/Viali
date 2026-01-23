@@ -1032,26 +1032,27 @@ router.delete('/api/admin/users/:userId/delete', isAuthenticated, requireWriteAc
     const { userId } = req.params;
     const { hospitalId } = req.query;
     
-    console.log('[Delete User] Request received:', { userId, hospitalId, query: req.query });
+    console.log('[Archive User] Request received:', { userId, hospitalId, query: req.query });
     
     if (!hospitalId) {
-      console.log('[Delete User] ERROR: No hospitalId provided in query');
+      console.log('[Archive User] ERROR: No hospitalId provided in query');
       return res.status(400).json({ message: "Hospital ID is required" });
     }
     
     const currentUserId = req.user.id;
     const hospitals = await storage.getUserHospitals(currentUserId);
-    console.log('[Delete User] User hospitals:', hospitals.map(h => ({ id: h.id, role: h.role })));
+    console.log('[Archive User] User hospitals:', hospitals.map(h => ({ id: h.id, role: h.role })));
     
     const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
     if (!hasAdminRole) {
-      console.log('[Delete User] Admin check failed - no admin role found for hospital:', hospitalId);
+      console.log('[Archive User] Admin check failed - no admin role found for hospital:', hospitalId);
       return res.status(403).json({ message: "Admin access required" });
     }
 
+    // Remove user's roles for this hospital
     const userHospitalsData = await storage.getUserHospitals(userId);
-    
     const hospitalRoles = userHospitalsData.filter(h => h.id === hospitalId);
+    
     for (const role of hospitalRoles) {
       const [roleRecord] = await db
         .select()
@@ -1070,34 +1071,32 @@ router.delete('/api/admin/users/:userId/delete', isAuthenticated, requireWriteAc
       }
     }
     
+    // Check if user has remaining access to other hospitals
     const remainingHospitals = userHospitalsData.filter(h => h.id !== hospitalId);
     
-    const [activityCount] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(activities)
-      .where(eq(activities.userId, userId));
-    
-    const hasActivities = activityCount?.count > 0;
-    
-    if (remainingHospitals.length === 0 && !hasActivities) {
-      await storage.deleteUser(userId);
+    // If user has no remaining hospital access, archive them (soft delete)
+    if (remainingHospitals.length === 0) {
+      await db
+        .update(users)
+        .set({ archivedAt: new Date() })
+        .where(eq(users.id, userId));
+      
+      console.log('[Archive User] User archived:', userId);
       res.json({ 
         success: true, 
-        deleted: true,
-        message: "User completely removed from system"
+        archived: true,
+        message: "User archived successfully"
       });
     } else {
       res.json({ 
         success: true, 
-        deleted: false,
-        message: hasActivities 
-          ? "User removed from hospital but preserved for audit trail"
-          : "User removed from hospital but has access to other hospitals"
+        archived: false,
+        message: "User removed from hospital but has access to other hospitals"
       });
     }
   } catch (error) {
-    console.error("Error deleting user:", error);
-    res.status(500).json({ message: "Failed to delete user" });
+    console.error("Error archiving user:", error);
+    res.status(500).json({ message: "Failed to archive user" });
   }
 });
 
