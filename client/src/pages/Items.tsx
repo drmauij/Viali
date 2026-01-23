@@ -16,8 +16,8 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import UpgradeDialog from "@/components/UpgradeDialog";
 import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
-import type { Item, StockLevel, InsertItem, Vendor, Folder, Lot } from "@shared/schema";
-import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors, useDraggable, useDroppable } from "@dnd-kit/core";
+import type { InsertItem, Vendor, Folder, Lot } from "@shared/schema";
+import { DndContext, DragEndEvent, DragOverlay, closestCorners, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, Folder as FolderIcon, FolderPlus, Edit2, Trash2, GripVertical, X, ArrowRightLeft, ArrowRight, ArrowLeft, Plus, Minus, Search, Loader2 } from "lucide-react";
 import Papa from "papaparse";
 import ExcelJS from "exceljs";
@@ -27,171 +27,17 @@ import BarcodeScanner from "@/components/BarcodeScanner";
 import { CameraCapture } from "@/components/CameraCapture";
 import { DirectItemCamera } from "@/components/DirectItemCamera";
 import { parseGS1Code, isGS1Code } from "@/lib/gs1Parser";
-
-// Check if device has touch capability (mobile/tablet)
-function isTouchDevice(): boolean {
-  return 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-}
-
-type FilterType = "all" | "runningLow" | "stockout" | "archived";
-
-interface ItemWithStock extends Item {
-  stockLevel?: StockLevel;
-  soonestExpiry?: Date;
-}
-
-type UnitType = "Pack" | "Single unit";
-
-// Parse currency-formatted values like "CHF 12,34" or "€ 45,67" to clean numeric string
-function parseCurrencyValue(value: string | number | null | undefined): string | undefined {
-  if (value === null || value === undefined || value === '') return undefined;
-  
-  // If already a number, return as string
-  if (typeof value === 'number') {
-    return isNaN(value) ? undefined : value.toString();
-  }
-  
-  let str = String(value).trim();
-  
-  // Remove common currency symbols and codes
-  str = str.replace(/^(CHF|EUR|USD|€|\$|Fr\.|SFr\.?)\s*/i, '');
-  str = str.replace(/\s*(CHF|EUR|USD|€|\$|Fr\.|SFr\.?)$/i, '');
-  
-  // Remove thousands separators and normalize decimal
-  // European format: 1'234,56 or 1.234,56 → 1234.56
-  // US format: 1,234.56 → 1234.56
-  
-  // Check if comma is used as decimal separator (European format)
-  // Pattern: has comma followed by exactly 2 digits at the end
-  const europeanDecimal = /,\d{2}$/.test(str);
-  
-  if (europeanDecimal) {
-    // European format: remove apostrophe/dot thousands separators, convert comma to dot
-    str = str.replace(/['.\s]/g, '').replace(',', '.');
-  } else {
-    // US format or no decimal: remove comma/apostrophe thousands separators
-    str = str.replace(/[',\s]/g, '');
-  }
-  
-  // Remove any remaining non-numeric characters except dot and minus
-  str = str.replace(/[^\d.\-]/g, '');
-  
-  // Validate it's a valid number
-  const num = parseFloat(str);
-  if (isNaN(num)) return undefined;
-  
-  // Return with 2 decimal places for currency
-  return num.toFixed(2);
-}
-
-// Extract pack size from product name/description
-// Looks for patterns like: "10 Amp", "50 Stk", "100 Stück", "20 Stk.", "5 Ampullen", etc.
-function extractPackSizeFromName(name: string | undefined | null): number | null {
-  if (!name) return null;
-  
-  // Patterns to match pack size indicators (case insensitive)
-  // Format: number followed by unit indicator
-  const patterns = [
-    /(\d+)\s*(?:Amp(?:ullen?)?|Ampulle)\b/i,      // 10 Amp, 10 Ampullen, 10 Ampulle
-    /(\d+)\s*(?:Stk\.?|Stück|Stueck)\b/i,         // 50 Stk, 50 Stk., 50 Stück
-    /(\d+)\s*(?:St\.?)\b/i,                        // 20 St, 20 St.
-    /(\d+)\s*(?:Tabl?\.?|Tabletten?)\b/i,         // 30 Tab, 30 Tabl, 30 Tabletten
-    /(\d+)\s*(?:Kaps\.?|Kapseln?)\b/i,            // 20 Kaps, 20 Kapseln
-    /(\d+)\s*(?:Stk|Pcs?|Pce?s?)\.?\b/i,          // 10 Pcs, 10 Pc
-    /(\d+)\s*(?:Beutel|Btl\.?)\b/i,               // 10 Beutel, 10 Btl
-    /(\d+)\s*(?:Flasche[n]?|Fl\.?)\b/i,           // 5 Flaschen, 5 Fl
-    /(\d+)\s*(?:Tube[n]?)\b/i,                     // 3 Tuben
-    /(\d+)\s*(?:Dos(?:en)?|Dose)\b/i,             // 10 Dosen, 10 Dose
-    /(\d+)\s*(?:Supp\.?|Suppositorien?)\b/i,      // 10 Supp, 10 Suppositorien
-    /(\d+)\s*(?:Inj\.?|Injektionen?)\b/i,         // 5 Inj, 5 Injektionen
-    /(\d+)\s*(?:Einh\.?|Einheiten?)\b/i,          // 100 Einheiten
-    /(\d+)\s*(?:x)\s*\d+/i,                        // 10x5ml pattern - extract first number
-  ];
-  
-  for (const pattern of patterns) {
-    const match = name.match(pattern);
-    if (match && match[1]) {
-      const size = parseInt(match[1], 10);
-      if (size > 0 && size <= 10000) { // Sanity check
-        return size;
-      }
-    }
-  }
-  
-  return null;
-}
-
-// Draggable item wrapper
-function DraggableItem({ id, children, disabled }: { id: string; children: React.ReactNode; disabled?: boolean }) {
-  const { t } = useTranslation();
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id,
-    disabled,
-  });
-
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-    opacity: isDragging ? 0.5 : 1,
-  } : undefined;
-
-  return (
-    <div ref={setNodeRef} style={style} className="relative">
-      {/* Drag handle - always visible for mobile/touch support */}
-      {!disabled && (
-        <div 
-          {...listeners} 
-          {...attributes}
-          className="absolute left-1 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-10 bg-muted/80 rounded p-1 touch-none"
-          data-testid={`drag-handle-${id}`}
-          title={t('items.dragToMove')}
-        >
-          <GripVertical className="w-4 h-4 text-muted-foreground" />
-        </div>
-      )}
-      <div className={!disabled ? "pl-8" : ""}>
-        {children}
-      </div>
-    </div>
-  );
-}
-
-// Drop indicator component
-function DropIndicator({ position }: { position: 'above' | 'below' }) {
-  return (
-    <div 
-      className={`absolute left-0 right-0 h-0.5 bg-primary z-20 ${position === 'above' ? '-top-1' : '-bottom-1'}`}
-      style={{ pointerEvents: 'none' }}
-    />
-  );
-}
-
-// Droppable folder wrapper
-function DroppableFolder({ 
-  id, 
-  children, 
-  showDropIndicator 
-}: { 
-  id: string; 
-  children: React.ReactNode;
-  showDropIndicator?: 'above' | 'below' | null;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id });
-
-  return (
-    <div 
-      ref={setNodeRef} 
-      className={`relative ${isOver ? "ring-2 ring-primary rounded-lg bg-primary/5 transition-all" : "transition-all"}`}
-    >
-      {showDropIndicator && <DropIndicator position={showDropIndicator} />}
-      {children}
-    </div>
-  );
-}
-
-interface ItemsProps {
-  overrideUnitId?: string;
-  readOnly?: boolean;
-}
+import { 
+  type FilterType, 
+  type ItemWithStock, 
+  type UnitType, 
+  type ItemsProps,
+  isTouchDevice, 
+  parseCurrencyValue, 
+  extractPackSizeFromName,
+  DraggableItem,
+  DroppableFolder
+} from "./items";
 
 export default function Items({ overrideUnitId, readOnly = false }: ItemsProps = {}) {
   const { t } = useTranslation();

@@ -28,6 +28,11 @@ Large components are modularized for maintainability:
   - `EditValueForm.tsx` - Vitals editing form component
   - `SortableMedicationItem.tsx` - Drag-and-drop medication item component
   - `index.ts` - Re-exports all modules
+- **client/src/pages/items/**: Extracted modules from Items.tsx:
+  - `types.ts` - Type definitions (FilterType, ItemWithStock, UnitType, ItemsProps)
+  - `helpers.ts` - Helper functions (isTouchDevice, parseCurrencyValue, extractPackSizeFromName)
+  - `DragDropComponents.tsx` - DnD components (DraggableItem, DropIndicator, DroppableFolder)
+  - `index.ts` - Re-exports all modules
 
 ### Backend
 The backend is built with Express.js and TypeScript, utilizing a PostgreSQL database managed by Drizzle ORM. Authentication supports Google OAuth and local email/password via Passport.js with session-based authentication. The API is RESTful, featuring centralized error handling, bcrypt for password hashing, and robust role-based access control. It follows a modular architecture with domain-specific route modules. Key backend services include AI-powered medical monitor OCR and patient data encryption.

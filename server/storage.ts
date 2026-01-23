@@ -268,6 +268,33 @@ import { eq, and, desc, asc, sql, inArray, lte, gte, lt, or, ilike, isNull } fro
 import { calculateInventoryForMedication, calculateRateControlledAmpules, calculateRateControlledVolume, volumeToAmpules } from "./services/inventoryCalculations";
 import { encryptCredential, decryptCredential } from "./utils/encryption";
 
+/**
+ * Storage Module Navigation Guide
+ * ================================
+ * This file contains all database operations organized by domain.
+ * 
+ * INTERFACE (IStorage): Lines ~271-970
+ * - User/Auth operations
+ * - Hospital operations
+ * - Folder/Item/Stock operations
+ * - Order operations
+ * - Activity/Alert operations
+ * - Unit/User management
+ * - Checklist operations
+ * - Medication config operations
+ * - Anesthesia module operations (largest section)
+ * - Chat module operations
+ * - Clinic provider operations
+ * - External integrations (Cal.com, Timebutler, Worklog)
+ * 
+ * IMPLEMENTATION (DatabaseStorage): Lines ~975-8875
+ * - Same organization as interface
+ * - Search for "// ========== SECTION NAME" to navigate
+ * 
+ * Future refactoring: Consider extracting large sections (Anesthesia ~4700 lines)
+ * into separate repository classes with dependency injection.
+ */
+
 export interface IStorage {
   // User operations (mandatory for Replit Auth)
   getUser(id: string): Promise<User | undefined>;
