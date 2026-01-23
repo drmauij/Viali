@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, UserRoundCog, UserCog, ExternalLink } from "lucide-react";
+import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, ExternalLink, UserRoundCog } from "lucide-react";
 import { SiTelegram } from "react-icons/si";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
@@ -240,41 +240,12 @@ export default function SurgerySummaryDialog({
                   </div>
                 )}
               </div>
-              <div className="flex flex-col gap-2 shrink-0 ml-2">
-              {/* View Patient Detail Link */}
-              <Link 
-                href={activeModule === 'surgery' ? `/surgery/patients/${patient.id}` : `/anesthesia/patients/${patient.id}`}
-                onClick={() => onOpenChange(false)}
-              >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  data-testid="button-view-patient-detail"
-                >
-                  <ExternalLink className="h-4 w-4 mr-1" />
-                  {t('anesthesia.surgerySummary.viewPatientDetail')}
-                </Button>
-              </Link>
-              {/* Edit Patient Button - available to admin, doctor, and nurse roles */}
-              {['admin', 'doctor', 'nurse'].includes(activeHospital?.role || '') && onEditPatient && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onEditPatient}
-                  className="w-full"
-                  data-testid="button-edit-patient"
-                >
-                  <UserCog className="h-4 w-4 mr-1" />
-                  {t('anesthesia.surgerySummary.editPatient')}
-                </Button>
-              )}
-            </div>
             </div>
             
-            {/* Send Questionnaire Button - horizontal row at bottom of patient section */}
-            {addons.questionnaire && patient && (
-              <div className="pt-2 border-t border-border/50">
+            {/* Action buttons - horizontal row at bottom of patient section */}
+            <div className="pt-2 border-t border-border/50 flex flex-wrap gap-2">
+              {/* Send Questionnaire Button */}
+              {addons.questionnaire && patient && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -284,8 +255,22 @@ export default function SurgerySummaryDialog({
                   <SiTelegram className="h-4 w-4 mr-1 text-[#0088cc]" />
                   {t('questionnaire.send.title', 'Send Questionnaire')}
                 </Button>
-              </div>
-            )}
+              )}
+              {/* View Patient Detail Link */}
+              <Link 
+                href={activeModule === 'surgery' ? `/surgery/patients/${patient.id}` : `/anesthesia/patients/${patient.id}`}
+                onClick={() => onOpenChange(false)}
+              >
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-view-patient-detail"
+                >
+                  <ExternalLink className="h-4 w-4 mr-1" />
+                  {t('anesthesia.surgerySummary.viewPatientDetail')}
+                </Button>
+              </Link>
+            </div>
             
             {/* Patient Allergies from Patient Record */}
             {((patient.allergies && patient.allergies.length > 0) || patient.otherAllergies) && (
