@@ -696,39 +696,43 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
           case 'ett':
           case 'lma':
           case 'mask':
-            await storage.upsertAirwayManagement(anesthesiaRecordId, {
-              airwayType: item.itemType,
+            await storage.upsertAirwayManagement({
+              anesthesiaRecordId,
+              airwayDevice: item.itemType,
               size: config.size || null,
-              attempts: 1,
+              intubationAttempts: config.attempts || 1,
               cormackLehane: config.cormackLehane || null,
               notes: config.notes || null,
             });
             appliedCount++;
             break;
             
-          case 'spinal':
-          case 'epidural':
+          case 'regional_spinal':
             await storage.createNeuraxialBlock({
               anesthesiaRecordId,
-              blockType: item.itemType,
+              blockType: 'spinal',
               level: config.level || null,
-              medication: config.medication || null,
-              dose: config.dose || null,
-              volume: config.volume || null,
               notes: config.notes || null,
             });
             appliedCount++;
             break;
             
-          case 'nerve_block':
+          case 'regional_epidural':
+            await storage.createNeuraxialBlock({
+              anesthesiaRecordId,
+              blockType: 'epidural',
+              level: config.level || null,
+              notes: config.notes || null,
+            });
+            appliedCount++;
+            break;
+            
+          case 'regional_peripheral':
             await storage.createPeripheralBlock({
               anesthesiaRecordId,
               blockType: config.blockType || 'other',
-              location: config.location || null,
-              medication: config.medication || null,
-              dose: config.dose || null,
-              volume: config.volume || null,
-              guidance: config.guidance || 'ultrasound',
+              laterality: config.laterality || null,
+              guidanceTechnique: config.guidance || 'ultrasound',
               notes: config.notes || null,
             });
             appliedCount++;
@@ -938,12 +942,8 @@ router.post('/api/inventory-sets/:setId/apply', isAuthenticated, requireWriteAcc
         const currentQty = existingUsage.overrideQty !== null 
           ? Number(existingUsage.overrideQty) 
           : Number(existingUsage.calculatedQty);
-        await storage.updateInventoryUsage(existingUsage.id, {
-          overrideQty: currentQty + setItem.quantity,
-          overrideReason: `Applied set: ${set.name}`,
-          overriddenBy: userId,
-          overriddenAt: new Date(),
-        });
+        const newQty = currentQty + setItem.quantity;
+        await storage.updateInventoryUsage(existingUsage.id, newQty, `Applied set: ${set.name}`, userId);
       } else {
         await storage.createInventoryUsage({
           anesthesiaRecordId,

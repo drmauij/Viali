@@ -108,19 +108,23 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false, h
     // Convert to base64
     const photo = canvas.toDataURL("image/jpeg", 0.9);
     
-    // Stop the stream and close immediately
+    // Stop the stream immediately
     if (stream) {
       stream.getTracks().forEach(track => track.stop());
       setStream(null);
     }
     setIsVideoReady(false);
     setError(null);
-    onClose();
     
-    // Call onCapture after closing to prevent re-render issues
-    setTimeout(() => {
-      onCapture(photo);
-    }, 0);
+    // Call onCapture first to ensure the photo is captured before state changes
+    // Then close the camera after a short delay to allow state to propagate
+    onCapture(photo);
+    
+    // Use requestAnimationFrame to ensure onCapture state updates are processed
+    // before triggering the close which might cause unmounting
+    requestAnimationFrame(() => {
+      onClose();
+    });
   };
 
   const handleClose = () => {
