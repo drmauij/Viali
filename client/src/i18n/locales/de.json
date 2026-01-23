@@ -3873,6 +3873,28 @@
     "implantInfo": "Implantatdetails",
     "preOpInfo": "Präoperative Beurteilung"
   },
+  "messages": {
+    "dialogTitle": "Patientenkommunikation",
+    "dialogDescription": "Kommunikationsverlauf und Nachrichten senden",
+    "noHistory": "Noch kein Kommunikationsverlauf",
+    "historyQuestionnaire": "Fragebogen",
+    "historyMessage": "Nachricht",
+    "historyInfoflyer": "Infoflyer",
+    "compose": {
+      "title": "Neue Nachricht senden",
+      "messageType": "Was senden",
+      "questionnaire": "Fragebogen",
+      "custom": "Eigene Nachricht",
+      "infoflyer": "Infoflyer",
+      "sendVia": "Senden via",
+      "emailAddress": "E-Mail-Adresse",
+      "phoneNumber": "Telefonnummer",
+      "sendButton": "Senden",
+      "infoflyerPreview": "Infoflyer-Inhalt wird gesendet"
+    },
+    "messageLabel": "Ihre Nachricht",
+    "messagePlaceholder": "Schreiben Sie Ihre Nachricht hier..."
+  },
   "questionnaire": {
     "openLink": "Fragebogen-Link öffnen",
     "linkCopied": "Link in Zwischenablage kopiert",

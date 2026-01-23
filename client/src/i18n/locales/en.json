@@ -3835,6 +3835,28 @@
     "implantInfo": "Implant Details",
     "preOpInfo": "Pre-Operative Assessment"
   },
+  "messages": {
+    "dialogTitle": "Patient Communication",
+    "dialogDescription": "Communication history and send messages",
+    "noHistory": "No communication history yet",
+    "historyQuestionnaire": "Questionnaire",
+    "historyMessage": "Message",
+    "historyInfoflyer": "Infoflyer",
+    "compose": {
+      "title": "Send New Message",
+      "messageType": "What to send",
+      "questionnaire": "Questionnaire",
+      "custom": "Custom Message",
+      "infoflyer": "Infoflyer",
+      "sendVia": "Send via",
+      "emailAddress": "Email address",
+      "phoneNumber": "Phone number",
+      "sendButton": "Send",
+      "infoflyerPreview": "Infoflyer content will be sent"
+    },
+    "messageLabel": "Your message",
+    "messagePlaceholder": "Write your message here..."
+  },
   "questionnaire": {
     "openLink": "Open Questionnaire Link",
     "linkCopied": "Link copied to clipboard",
