@@ -20,6 +20,15 @@ Deployment Environment: The application is deployed to a custom server on **Exos
 ### Frontend
 The frontend uses React, TypeScript, and Vite, with Wouter for routing, TanStack Query for state management, and Shadcn/ui (Radix UI) with Tailwind CSS for a mobile-first design. Key features include an interactive OP Schedule with drag-and-drop, a full-screen OP Monitoring System with Apache ECharts for vitals visualization and AI-powered data extraction, integrated barcode scanning, and dynamic, role-based navigation across modules.
 
+### Frontend Component Organization
+Large components are modularized for maintainability:
+- **client/src/components/anesthesia/unifiedTimeline/**: Extracted modules from UnifiedTimeline.tsx:
+  - `types.ts` - Type definitions (VitalPoint, TimelineVitals, TimelineEvent, InfusionSession, SwimlaneConfig, etc.)
+  - `constants.ts` - ANESTHESIA_TIME_MARKERS and time constants
+  - `EditValueForm.tsx` - Vitals editing form component
+  - `SortableMedicationItem.tsx` - Drag-and-drop medication item component
+  - `index.ts` - Re-exports all modules
+
 ### Backend
 The backend is built with Express.js and TypeScript, utilizing a PostgreSQL database managed by Drizzle ORM. Authentication supports Google OAuth and local email/password via Passport.js with session-based authentication. The API is RESTful, featuring centralized error handling, bcrypt for password hashing, and robust role-based access control. It follows a modular architecture with domain-specific route modules. Key backend services include AI-powered medical monitor OCR and patient data encryption.
 
