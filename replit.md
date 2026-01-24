@@ -110,7 +110,8 @@ Core design decisions include:
 - **Order & Item Lifecycle Management**: End-to-end order creation, submission, PDF export, and transactional item management with image uploads and AI analysis.
 - **User Management**: Secure user creation, role assignment, and password management.
 - **Custom Sorting**: Drag-and-drop functionality for organizing items and folders.
-- **Bulk Import with AI & Background Worker**: AI-powered bulk photo import using OpenAI Vision API, processed asynchronously.
+- **Bulk Import with AI & Background Worker**: AI-powered bulk photo import using Vision AI, processed asynchronously.
+- **Switchable Vision AI Provider**: Hospital-level selection between OpenAI GPT-4o-mini and Mistral Pixtral for vision analysis tasks (inventory item/code extraction, anesthesia monitor OCR). Configured in Admin > Hospital > Integrations tab. Falls back to OpenAI if MISTRAL_API_KEY is not configured.
 - **Anesthesia Module**: Configurable inventory locations, role-based access, comprehensive timeline CRUD for all swimlanes (Times, Events, Medications, etc.) using React Query, BIS/TOF monitoring, automated inventory usage calculation, and comprehensive documentation with electronic signatures and server-side audit trails.
 - **Hospital Seed Data System**: Automated and manual provisioning of new hospitals with default data.
 - **Universal Value Editing System**: Consistent `EditableValue` component for click-to-edit functionality.
