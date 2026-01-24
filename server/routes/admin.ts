@@ -183,6 +183,7 @@ router.get('/api/surgeons', isAuthenticated, async (req: any, res) => {
         id: hu.user.id,
         name: `${hu.user.firstName || ''} ${hu.user.lastName || ''}`.trim() || hu.user.email || 'Unknown',
         email: hu.user.email,
+        phone: hu.user.phone || null,
       }));
 
     res.json(surgeons);

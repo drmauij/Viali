@@ -66,6 +66,7 @@ type Surgeon = {
   id: string;
   name: string;
   email: string | null;
+  phone: string | null;
 };
 
 type PatientInvoice = {
@@ -2908,6 +2909,12 @@ export default function PatientDetail() {
                   <div>
                     <p className="text-muted-foreground">{t('anesthesia.patientDetail.surgeon')}</p>
                     <p className="font-medium">{surgery.surgeon || t('anesthesia.patientDetail.notAssigned')}</p>
+                    {surgery.surgeonId && (() => {
+                      const surgeonData = surgeons.find(s => s.id === surgery.surgeonId);
+                      return surgeonData?.phone ? (
+                        <p className="text-sm text-muted-foreground">{surgeonData.phone}</p>
+                      ) : null;
+                    })()}
                   </div>
                   <div>
                     <p className="text-muted-foreground">{t('anesthesia.patientDetail.room')}</p>
