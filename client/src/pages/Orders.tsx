@@ -1034,8 +1034,19 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                       <div className="mb-3 space-y-1 text-xs border-t border-border pt-2">
                         {order.orderLines.map(line => (
                           <div key={line.id} className="flex justify-between text-muted-foreground">
-                            <span className="truncate flex-1 mr-2">{line.item?.name || 'Unknown Item'}</span>
-                            <span className="font-medium text-foreground">{line.qty}x</span>
+                            <div className="flex-1 mr-2 min-w-0">
+                              <span className="truncate block">{line.item?.name || 'Unknown Item'}</span>
+                              {(order.vendor?.name || line.item?.pharmacode || line.item?.gtin) && (
+                                <span className="text-[10px] text-muted-foreground/70 block truncate">
+                                  {[
+                                    order.vendor?.name,
+                                    line.item?.pharmacode && `PC: ${line.item.pharmacode}`,
+                                    line.item?.gtin && `GTIN: ${line.item.gtin}`
+                                  ].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-medium text-foreground shrink-0">{line.qty}x</span>
                           </div>
                         ))}
                       </div>
@@ -1143,8 +1154,19 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                       <div className="mb-2 space-y-1 text-xs border-t border-border pt-2">
                         {order.orderLines.map(line => (
                           <div key={line.id} className="flex justify-between text-muted-foreground">
-                            <span className="truncate flex-1 mr-2">{line.item?.name || 'Unknown Item'}</span>
-                            <span className="font-medium text-foreground">{line.qty}x</span>
+                            <div className="flex-1 mr-2 min-w-0">
+                              <span className="truncate block">{line.item?.name || 'Unknown Item'}</span>
+                              {(order.vendor?.name || line.item?.pharmacode || line.item?.gtin) && (
+                                <span className="text-[10px] text-muted-foreground/70 block truncate">
+                                  {[
+                                    order.vendor?.name,
+                                    line.item?.pharmacode && `PC: ${line.item.pharmacode}`,
+                                    line.item?.gtin && `GTIN: ${line.item.gtin}`
+                                  ].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-medium text-foreground shrink-0">{line.qty}x</span>
                           </div>
                         ))}
                       </div>
@@ -1223,8 +1245,19 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                       <div className="mb-2 space-y-1 text-xs border-t border-border pt-2">
                         {order.orderLines.map(line => (
                           <div key={line.id} className="flex justify-between text-muted-foreground">
-                            <span className="truncate flex-1 mr-2">{line.item?.name || 'Unknown Item'}</span>
-                            <span className="font-medium text-foreground">{line.qty}x</span>
+                            <div className="flex-1 mr-2 min-w-0">
+                              <span className="truncate block">{line.item?.name || 'Unknown Item'}</span>
+                              {(order.vendor?.name || line.item?.pharmacode || line.item?.gtin) && (
+                                <span className="text-[10px] text-muted-foreground/70 block truncate">
+                                  {[
+                                    order.vendor?.name,
+                                    line.item?.pharmacode && `PC: ${line.item.pharmacode}`,
+                                    line.item?.gtin && `GTIN: ${line.item.gtin}`
+                                  ].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-medium text-foreground shrink-0">{line.qty}x</span>
                           </div>
                         ))}
                       </div>
@@ -1474,6 +1507,15 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           )}
                           <div className="flex-1">
                             <p className="font-medium text-foreground">{line.item.name}</p>
+                            {(selectedOrder.vendor?.name || line.item.pharmacode || line.item.gtin) && (
+                              <p className="text-xs text-muted-foreground/70 truncate">
+                                {[
+                                  selectedOrder.vendor?.name,
+                                  line.item.pharmacode && `PC: ${line.item.pharmacode}`,
+                                  line.item.gtin && `GTIN: ${line.item.gtin}`
+                                ].filter(Boolean).join(' · ')}
+                              </p>
+                            )}
                             <div className="flex items-center gap-1.5 mt-1">
                               <span className={`text-base font-semibold ${stockStatus.color}`}>
                                 {currentQty}
