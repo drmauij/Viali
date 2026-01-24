@@ -45,18 +45,21 @@ async function throwIfResNotOk(res: Response, url?: string) {
       }
     }
     
-    // Report API errors to Sentry for monitoring
-    Sentry.captureException(error, {
-      tags: {
-        type: "api_error",
-        status: res.status,
-        url: url || res.url,
-      },
-      extra: {
-        response: text,
-        statusText: res.statusText,
-      },
-    });
+    // Report API errors to Sentry, but skip expected 401s on auth endpoints
+    const isExpected401 = res.status === 401 && (url?.includes('/api/auth/') || res.url.includes('/api/auth/'));
+    if (!isExpected401) {
+      Sentry.captureException(error, {
+        tags: {
+          type: "api_error",
+          status: res.status,
+          url: url || res.url,
+        },
+        extra: {
+          response: text,
+          statusText: res.statusText,
+        },
+      });
+    }
     
     throw error;
   }
