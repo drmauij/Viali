@@ -237,12 +237,25 @@ app.use((req, res, next) => {
 
     const server = await registerRoutes(app);
 
-    app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+    app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
       const status = err.status || err.statusCode || 500;
       const message = err.message || "Internal Server Error";
 
+      // Report server errors to Sentry (4xx and 5xx)
+      Sentry.captureException(err, {
+        tags: {
+          type: "api_error",
+          status: status,
+          method: req.method,
+          path: req.path,
+        },
+        extra: {
+          query: req.query,
+          userId: (req as any).user?.id,
+        },
+      });
+
       res.status(status).json({ message });
-      throw err;
     });
 
     // importantly only setup vite in development and after

@@ -1,5 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { clientSessionId } from "@/utils/sessionId";
+import * as Sentry from "@sentry/react";
 
 function getActiveHospitalAndUnit(): { hospitalId: string | null; unitId: string | null; role: string | null } {
   const activeHospitalKey = localStorage.getItem('activeHospital');
@@ -23,27 +24,41 @@ function getActiveUnitId(): string | null {
   return getActiveHospitalAndUnit().unitId;
 }
 
-async function throwIfResNotOk(res: Response) {
+async function throwIfResNotOk(res: Response, url?: string) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
     
     // Try to parse JSON error response and extract message
+    let error: Error;
     try {
       const errorData = JSON.parse(text);
       if (errorData.message) {
-        throw new Error(errorData.message);
+        error = new Error(errorData.message);
+      } else {
+        error = new Error(`${res.status}: ${text}`);
       }
-      // If JSON but no message field, use full format
-      throw new Error(`${res.status}: ${text}`);
     } catch (e) {
-      // If not valid JSON, check if error is from JSON.parse
       if (e instanceof SyntaxError) {
-        // Not JSON, use full format
-        throw new Error(`${res.status}: ${text}`);
+        error = new Error(`${res.status}: ${text}`);
+      } else {
+        throw e;
       }
-      // Otherwise it's the error we threw above, re-throw it
-      throw e;
     }
+    
+    // Report API errors to Sentry for monitoring
+    Sentry.captureException(error, {
+      tags: {
+        type: "api_error",
+        status: res.status,
+        url: url || res.url,
+      },
+      extra: {
+        response: text,
+        statusText: res.statusText,
+      },
+    });
+    
+    throw error;
   }
 }
 
@@ -76,7 +91,7 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  await throwIfResNotOk(res);
+  await throwIfResNotOk(res, `${method} ${url}`);
   return res;
 }
 
@@ -109,7 +124,7 @@ export const getQueryFn: <T>(options: {
       return null;
     }
 
-    await throwIfResNotOk(res);
+    await throwIfResNotOk(res, `GET ${queryKey[0]}`);
     return await res.json();
   };
 
