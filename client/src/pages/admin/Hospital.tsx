@@ -1128,17 +1128,19 @@ export default function Hospital() {
                     />
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-2">
-                      <Label htmlFor="company-street-inline">{t("admin.companyStreet")}</Label>
-                      <Input
-                        id="company-street-inline"
-                        value={hospitalForm.companyStreet}
-                        onChange={(e) => setHospitalForm(prev => ({ ...prev, companyStreet: e.target.value }))}
-                        placeholder={t("admin.companyStreetPlaceholder")}
-                        data-testid="input-company-street-inline"
-                      />
-                    </div>
+                  <div>
+                    <Label htmlFor="company-street-inline">{t("admin.companyStreet")}</Label>
+                    <Input
+                      id="company-street-inline"
+                      value={hospitalForm.companyStreet}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, companyStreet: e.target.value }))}
+                      placeholder={t("admin.companyStreetPlaceholder")}
+                      data-testid="input-company-street-inline"
+                    />
+                  </div>
+
+                  {/* Postal Code and City on same row */}
+                  <div className="grid grid-cols-3 gap-4">
                     <div>
                       <Label htmlFor="company-postal-code-inline">{t("admin.companyPostalCode")}</Label>
                       <Input
@@ -1149,45 +1151,43 @@ export default function Hospital() {
                         data-testid="input-company-postal-code-inline"
                       />
                     </div>
+                    <div className="col-span-2">
+                      <Label htmlFor="company-city-inline">{t("admin.companyCity")}</Label>
+                      <Input
+                        id="company-city-inline"
+                        value={hospitalForm.companyCity}
+                        onChange={(e) => setHospitalForm(prev => ({ ...prev, companyCity: e.target.value }))}
+                        placeholder={t("admin.companyCityPlaceholder")}
+                        data-testid="input-company-city-inline"
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="company-city-inline">{t("admin.companyCity")}</Label>
-                    <Input
-                      id="company-city-inline"
-                      value={hospitalForm.companyCity}
-                      onChange={(e) => setHospitalForm(prev => ({ ...prev, companyCity: e.target.value }))}
-                      placeholder={t("admin.companyCityPlaceholder")}
-                      data-testid="input-company-city-inline"
-                    />
+                  {/* Phone and Email on same row */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="company-phone-inline">{t("admin.companyPhone")}</Label>
+                      <PhoneInputWithCountry
+                        id="company-phone-inline"
+                        value={hospitalForm.companyPhone}
+                        onChange={(value) => setHospitalForm(prev => ({ ...prev, companyPhone: value }))}
+                        placeholder="44 123 45 67"
+                        data-testid="input-company-phone-inline"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="company-email-inline">{t("admin.companyEmail")}</Label>
+                      <Input
+                        id="company-email-inline"
+                        type="email"
+                        value={hospitalForm.companyEmail}
+                        onChange={(e) => setHospitalForm(prev => ({ ...prev, companyEmail: e.target.value }))}
+                        placeholder="info@klinik.ch"
+                        data-testid="input-company-email-inline"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Contact Info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="company-phone-inline">{t("admin.companyPhone")}</Label>
-                  <PhoneInputWithCountry
-                    id="company-phone-inline"
-                    value={hospitalForm.companyPhone}
-                    onChange={(value) => setHospitalForm(prev => ({ ...prev, companyPhone: value }))}
-                    placeholder="44 123 45 67"
-                    data-testid="input-company-phone-inline"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="company-email-inline">{t("admin.companyEmail")}</Label>
-                <Input
-                  id="company-email-inline"
-                  type="email"
-                  value={hospitalForm.companyEmail}
-                  onChange={(e) => setHospitalForm(prev => ({ ...prev, companyEmail: e.target.value }))}
-                  placeholder="info@klinik.ch"
-                  data-testid="input-company-email-inline"
-                />
               </div>
 
               {/* Stock Runway Alert Configuration */}
@@ -2843,17 +2843,19 @@ export default function Hospital() {
                   />
                 </div>
                 
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="col-span-2">
-                    <Label htmlFor="company-street">{t("admin.companyStreet")}</Label>
-                    <Input
-                      id="company-street"
-                      value={hospitalForm.companyStreet}
-                      onChange={(e) => setHospitalForm(prev => ({ ...prev, companyStreet: e.target.value }))}
-                      placeholder={t("admin.companyStreetPlaceholder")}
-                      data-testid="input-company-street"
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="company-street">{t("admin.companyStreet")}</Label>
+                  <Input
+                    id="company-street"
+                    value={hospitalForm.companyStreet}
+                    onChange={(e) => setHospitalForm(prev => ({ ...prev, companyStreet: e.target.value }))}
+                    placeholder={t("admin.companyStreetPlaceholder")}
+                    data-testid="input-company-street"
+                  />
+                </div>
+
+                {/* Postal Code and City on same row */}
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="company-postal-code">{t("admin.companyPostalCode")}</Label>
                     <Input
@@ -2864,45 +2866,43 @@ export default function Hospital() {
                       data-testid="input-company-postal-code"
                     />
                   </div>
+                  <div className="col-span-2">
+                    <Label htmlFor="company-city">{t("admin.companyCity")}</Label>
+                    <Input
+                      id="company-city"
+                      value={hospitalForm.companyCity}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, companyCity: e.target.value }))}
+                      placeholder={t("admin.companyCityPlaceholder")}
+                      data-testid="input-company-city"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <Label htmlFor="company-city">{t("admin.companyCity")}</Label>
-                  <Input
-                    id="company-city"
-                    value={hospitalForm.companyCity}
-                    onChange={(e) => setHospitalForm(prev => ({ ...prev, companyCity: e.target.value }))}
-                    placeholder={t("admin.companyCityPlaceholder")}
-                    data-testid="input-company-city"
-                  />
+                {/* Phone and Email on same row */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="company-phone">{t("admin.companyPhone")}</Label>
+                    <PhoneInputWithCountry
+                      id="company-phone"
+                      value={hospitalForm.companyPhone}
+                      onChange={(value) => setHospitalForm(prev => ({ ...prev, companyPhone: value }))}
+                      placeholder="44 123 45 67"
+                      data-testid="input-company-phone"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="company-email">{t("admin.companyEmail")}</Label>
+                    <Input
+                      id="company-email"
+                      type="email"
+                      value={hospitalForm.companyEmail}
+                      onChange={(e) => setHospitalForm(prev => ({ ...prev, companyEmail: e.target.value }))}
+                      placeholder="info@klinik.ch"
+                      data-testid="input-company-email"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {/* Contact Info */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="company-phone">{t("admin.companyPhone")}</Label>
-                <PhoneInputWithCountry
-                  id="company-phone"
-                  value={hospitalForm.companyPhone}
-                  onChange={(value) => setHospitalForm(prev => ({ ...prev, companyPhone: value }))}
-                  placeholder="44 123 45 67"
-                  data-testid="input-company-phone"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="company-email">{t("admin.companyEmail")}</Label>
-              <Input
-                id="company-email"
-                type="email"
-                value={hospitalForm.companyEmail}
-                onChange={(e) => setHospitalForm(prev => ({ ...prev, companyEmail: e.target.value }))}
-                placeholder="info@klinik.ch"
-                data-testid="input-company-email"
-              />
             </div>
 
             {/* Stock Runway Alert Configuration */}
