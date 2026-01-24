@@ -1,9 +1,6 @@
 import OpenAI from "openai";
 import { tryDecodeWithMultipleStrategies } from "./services/barcodeDecoder";
-
-// Using gpt-4o-mini for cost-effective image analysis
-// This is using OpenAI's API, which points to OpenAI's API servers and requires your own API key.
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+import { getVisionAiClient, getVisionModel, VisionAiProvider } from "./services/visionAiFactory";
 
 interface ExtractedItemData {
   name?: string;
@@ -27,14 +24,14 @@ interface ExtractedItemData {
   gs1DataMatrix?: string;
 }
 
-export async function analyzeItemImage(base64Image: string): Promise<ExtractedItemData> {
+export async function analyzeItemImage(base64Image: string, hospitalId?: string): Promise<ExtractedItemData> {
   try {
     // First, try to decode any barcodes in the image using ZXing
     let decodedBarcode: { gtin?: string; lotNumber?: string; expiryDate?: string; productionDate?: string; text?: string } | null = null;
     try {
       decodedBarcode = await tryDecodeWithMultipleStrategies(base64Image);
       if (decodedBarcode) {
-        console.log('[OpenAI] Barcode decoded successfully:', {
+        console.log('[VisionAI] Barcode decoded successfully:', {
           gtin: decodedBarcode.gtin,
           lot: decodedBarcode.lotNumber,
           expiry: decodedBarcode.expiryDate,
@@ -42,11 +39,18 @@ export async function analyzeItemImage(base64Image: string): Promise<ExtractedIt
         });
       }
     } catch (barcodeError) {
-      console.log('[OpenAI] Barcode decoding failed, continuing with AI analysis');
+      console.log('[VisionAI] Barcode decoding failed, continuing with AI analysis');
     }
 
+    // Get the appropriate AI client based on hospital settings
+    const { client: openai, provider } = hospitalId 
+      ? await getVisionAiClient(hospitalId)
+      : { client: new (await import("openai")).default({ apiKey: process.env.OPENAI_API_KEY }), provider: "openai" as VisionAiProvider };
+    const model = getVisionModel(provider);
+    console.log(`[VisionAI] Using ${provider} (${model}) for item analysis`);
+
     const visionResponse = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model,
       messages: [
         {
           role: "user",
@@ -222,14 +226,14 @@ interface ExtractedCodesData {
   confidence: number;
 }
 
-export async function analyzeCodesImage(base64Image: string): Promise<ExtractedCodesData> {
+export async function analyzeCodesImage(base64Image: string, hospitalId?: string): Promise<ExtractedCodesData> {
   try {
     // First, try to decode any barcodes in the image using ZXing
     let decodedBarcode: { gtin?: string; lotNumber?: string; expiryDate?: string; productionDate?: string; text?: string } | null = null;
     try {
       decodedBarcode = await tryDecodeWithMultipleStrategies(base64Image);
       if (decodedBarcode) {
-        console.log('[OpenAI] Barcode decoded successfully for codes extraction:', {
+        console.log('[VisionAI] Barcode decoded successfully for codes extraction:', {
           gtin: decodedBarcode.gtin,
           lot: decodedBarcode.lotNumber,
           expiry: decodedBarcode.expiryDate,
@@ -237,11 +241,18 @@ export async function analyzeCodesImage(base64Image: string): Promise<ExtractedC
         });
       }
     } catch (barcodeError) {
-      console.log('[OpenAI] Barcode decoding failed, continuing with AI analysis for codes');
+      console.log('[VisionAI] Barcode decoding failed, continuing with AI analysis for codes');
     }
 
+    // Get the appropriate AI client based on hospital settings
+    const { client: openai, provider } = hospitalId 
+      ? await getVisionAiClient(hospitalId)
+      : { client: new (await import("openai")).default({ apiKey: process.env.OPENAI_API_KEY }), provider: "openai" as VisionAiProvider };
+    const model = getVisionModel(provider);
+    console.log(`[VisionAI] Using ${provider} (${model}) for codes extraction`);
+
     const visionResponse = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model,
       messages: [
         {
           role: "user",
@@ -331,9 +342,17 @@ interface BulkItemExtraction {
 
 export async function analyzeBulkItemImages(
   base64Images: string[], 
-  onProgress?: (current: number, total: number, percent: number) => void | Promise<void>
+  onProgress?: (current: number, total: number, percent: number) => void | Promise<void>,
+  hospitalId?: string
 ): Promise<BulkItemExtraction[]> {
   try {
+    // Get the appropriate AI client based on hospital settings
+    const { client: openai, provider } = hospitalId 
+      ? await getVisionAiClient(hospitalId)
+      : { client: new (await import("openai")).default({ apiKey: process.env.OPENAI_API_KEY }), provider: "openai" as VisionAiProvider };
+    const model = getVisionModel(provider);
+    console.log(`[VisionAI] Using ${provider} (${model}) for bulk item analysis`);
+
     // Process images in small batches to stay within strict 30s deployment timeout
     // Each batch of 3 images takes ~12-20 seconds, safely completing under 30s
     const BATCH_SIZE = 3;
@@ -361,7 +380,7 @@ export async function analyzeBulkItemImages(
       }
 
       const visionResponse = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model,
         messages: [
           {
             role: "user",

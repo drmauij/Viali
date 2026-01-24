@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { findStandardParameter } from "@shared/monitorParameters";
+import { getVisionAiClient, getVisionModel, VisionAiProvider } from "./visionAiFactory";
 
 interface RawParameter {
   detectedName: string;
@@ -198,11 +199,16 @@ Return ONLY a JSON object with an array of drugs:
   ]
 }`;
 
-export async function analyzeMonitorImage(base64Image: string): Promise<MonitorAnalysisResult> {
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+export async function analyzeMonitorImage(base64Image: string, hospitalId?: string): Promise<MonitorAnalysisResult> {
+  // Get the appropriate AI client based on hospital settings
+  const { client: openai, provider } = hospitalId 
+    ? await getVisionAiClient(hospitalId)
+    : { client: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }), provider: "openai" as VisionAiProvider };
+  const model = getVisionModel(provider);
+  console.log(`[VisionAI] Using ${provider} (${model}) for monitor analysis`);
 
   const response = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model,
     messages: [
       {
         role: "user",
@@ -271,7 +277,8 @@ export async function transcribeVoice(audioData: string): Promise<string> {
   return transcription;
 }
 
-export async function parseDrugCommand(transcription: string): Promise<DrugCommand[]> {
+export async function parseDrugCommand(transcription: string, hospitalId?: string): Promise<DrugCommand[]> {
+  // Drug command parsing uses text-only, so we use OpenAI for consistency
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   const response = await openai.chat.completions.create({

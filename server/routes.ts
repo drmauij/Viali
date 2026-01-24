@@ -241,9 +241,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Remove data URL prefix if present
       const base64Image = image.replace(/^data:image\/\w+;base64,/, '');
+      const hospitalId = req.body.hospitalId || req.headers['x-active-hospital-id'];
       
       const { analyzeItemImage } = await import('./openai');
-      const extractedData = await analyzeItemImage(base64Image);
+      const extractedData = await analyzeItemImage(base64Image, hospitalId);
       
       res.json(extractedData);
     } catch (error: any) {
@@ -262,9 +263,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Remove data URL prefix if present
       const base64Image = image.replace(/^data:image\/\w+;base64,/, '');
+      const hospitalId = req.body.hospitalId || req.headers['x-active-hospital-id'];
       
       const { analyzeCodesImage } = await import('./openai');
-      const extractedCodes = await analyzeCodesImage(base64Image);
+      const extractedCodes = await analyzeCodesImage(base64Image, hospitalId);
       
       res.json(extractedCodes);
     } catch (error: any) {
@@ -394,7 +396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[Bulk Import] Starting analysis of ${base64Images.length} images for hospital ${hospitalId}`);
       
       const { analyzeBulkItemImages } = await import('./openai');
-      const extractedItems = await analyzeBulkItemImages(base64Images);
+      const extractedItems = await analyzeBulkItemImages(base64Images, undefined, hospitalId);
       
       console.log(`[Bulk Import] Completed analysis, extracted ${extractedItems.length} items`);
       
@@ -463,7 +465,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         try {
           // Extract codes from image
-          const extractedCodes = await analyzeCodesImage(base64Image);
+          const extractedCodes = await analyzeCodesImage(base64Image, hospitalId);
           const gtin = extractedCodes.gtin || '';
           
           let item: any = {
@@ -527,12 +529,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI medical monitor analysis for anesthesia vitals and ventilation
   app.post('/api/analyze-monitor', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
-      const { image } = req.body;
+      const { image, hospitalId } = req.body;
+      const effectiveHospitalId = hospitalId || req.headers['x-active-hospital-id'];
       if (!image) {
         return res.status(400).json({ message: "Image data is required" });
       }
 
-      const result = await analyzeMonitorImage(image);
+      const result = await analyzeMonitorImage(image, effectiveHospitalId);
       res.json(result);
     } catch (error: any) {
       console.error("Error analyzing monitor image:", error);
@@ -1326,7 +1329,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             progressPercent,
           });
           console.log(`[Import Job Worker] Progress: ${currentImage}/${totalImages} (${progressPercent}%)`);
-        }
+        },
+        job.hospitalId
       );
 
       // Update job with results

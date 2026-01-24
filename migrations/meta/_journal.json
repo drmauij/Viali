@@ -666,6 +666,13 @@
       "when": 1769265600000,
       "tag": "0094_add_shared_hospital_calendar",
       "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1769330000000,
+      "tag": "0096_add_vision_ai_provider",
+      "breakpoints": true
     }
   ]
 }

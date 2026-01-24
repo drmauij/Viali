@@ -45,7 +45,8 @@ async function processNextImportJob() {
             progressPercent,
           });
           console.log(`[Worker] Job ${job.id}: ${currentImage}/${totalImages} (${progressPercent}%)`);
-        }
+        },
+        job.hospitalId
       );
 
       await storage.updateImportJob(job.id, {

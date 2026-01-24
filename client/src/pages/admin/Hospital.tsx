@@ -2230,6 +2230,9 @@ export default function Hospital() {
         <div className="space-y-6">
           <h2 className="text-lg font-semibold text-foreground">{t("admin.integrations", "Integrations")}</h2>
           
+          {/* Vision AI Provider Card */}
+          <VisionAiProviderCard hospitalId={activeHospital?.id} currentProvider={activeHospital?.visionAiProvider} />
+
           {/* Calendar Sync Integration Card (Timebutler/ICS) */}
           <TimebutlerSyncCard hospitalId={activeHospital?.id} />
 
@@ -3676,6 +3679,128 @@ function CalcomIntegrationCard({ hospitalId }: { hospitalId?: string }) {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Vision AI Provider Card Component
+function VisionAiProviderCard({ hospitalId, currentProvider }: { hospitalId?: string; currentProvider?: string }) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  
+  const [selectedProvider, setSelectedProvider] = useState<"openai" | "pixtral">(
+    (currentProvider as "openai" | "pixtral") || "openai"
+  );
+
+  // Sync state when prop changes
+  useEffect(() => {
+    setSelectedProvider((currentProvider as "openai" | "pixtral") || "openai");
+  }, [currentProvider]);
+
+  // Update vision AI provider mutation
+  const updateProviderMutation = useMutation({
+    mutationFn: async (provider: "openai" | "pixtral") => {
+      const response = await apiRequest("PATCH", `/api/hospitals/${hospitalId}`, {
+        visionAiProvider: provider,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/hospitals', hospitalId] });
+      queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+      toast({ 
+        title: t("common.success"), 
+        description: t("admin.visionAiProviderUpdated", "Vision AI provider updated successfully"),
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: t("common.error"), 
+        description: error.message || "Failed to update vision AI provider", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  if (!hospitalId) return null;
+
+  const handleProviderChange = (provider: "openai" | "pixtral") => {
+    setSelectedProvider(provider);
+    updateProviderMutation.mutate(provider);
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+            <Eye className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground">{t("admin.visionAi", "Vision AI")}</h3>
+            <p className="text-sm text-muted-foreground">
+              {t("admin.visionAiDescription", "AI provider for image analysis (inventory items, monitor OCR)")}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            onClick={() => handleProviderChange("openai")}
+            disabled={updateProviderMutation.isPending}
+            className={`p-4 rounded-lg border-2 transition-all ${
+              selectedProvider === "openai"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50"
+            }`}
+            data-testid="button-select-openai"
+          >
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">AI</span>
+              </div>
+              <span className="font-medium">OpenAI GPT-4o</span>
+              <span className="text-xs text-muted-foreground">gpt-4o-mini</span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => handleProviderChange("pixtral")}
+            disabled={updateProviderMutation.isPending}
+            className={`p-4 rounded-lg border-2 transition-all ${
+              selectedProvider === "pixtral"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50"
+            }`}
+            data-testid="button-select-pixtral"
+          >
+            <div className="flex flex-col items-center gap-2">
+              <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-red-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">M</span>
+              </div>
+              <span className="font-medium">Mistral Pixtral</span>
+              <span className="text-xs text-muted-foreground">pixtral-large-latest</span>
+            </div>
+          </button>
+        </div>
+
+        <div className="text-sm text-muted-foreground">
+          <p>
+            {selectedProvider === "openai" 
+              ? t("admin.openaiDescription", "Uses OpenAI's GPT-4o-mini vision model. Requires OPENAI_API_KEY secret.")
+              : t("admin.pixtralDescription", "Uses Mistral's Pixtral vision model. Requires MISTRAL_API_KEY secret.")}
+          </p>
+        </div>
+
+        {updateProviderMutation.isPending && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <i className="fas fa-spinner fa-spin"></i>
+            <span>{t("common.saving", "Saving...")}</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
