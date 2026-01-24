@@ -434,7 +434,7 @@ export const orders = pgTable("orders", {
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   unitId: varchar("unit_id").notNull().references(() => units.id),
   vendorId: varchar("vendor_id").references(() => vendors.id),
-  status: varchar("status").notNull().default("draft"), // draft, sent, received
+  status: varchar("status").notNull().default("draft"), // draft, ready_to_send, sent, received
   createdBy: varchar("created_by").notNull().references(() => users.id),
   totalAmount: decimal("total_amount", { precision: 10, scale: 2 }),
   notes: text("notes"),

@@ -42,7 +42,7 @@ interface ItemWithStock extends Item {
   stockLevel?: StockLevel;
 }
 
-type OrderStatus = "draft" | "sent" | "received";
+type OrderStatus = "draft" | "ready_to_send" | "sent" | "received";
 type UnitType = "Pack" | "Single unit";
 
 const normalizeUnit = (unit: string | undefined | null): UnitType => {
