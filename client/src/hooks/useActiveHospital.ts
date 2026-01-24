@@ -14,6 +14,7 @@ interface Hospital {
   isLogisticModule?: boolean;
   showControlledMedications?: boolean;
   externalSurgeryToken?: string | null;
+  visionAiProvider?: string;
 }
 
 function subscribe(callback: () => void) {
