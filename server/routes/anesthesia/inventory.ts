@@ -846,7 +846,7 @@ router.post('/api/inventory-sets', isAuthenticated, requireAdminRole, requireWri
   }
 });
 
-router.patch('/api/inventory-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/inventory-sets/:setId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { setId } = req.params;
     const userId = req.user.id;
@@ -858,10 +858,10 @@ router.patch('/api/inventory-sets/:setId', isAuthenticated, requireAdminRole, re
     }
 
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    const hasAdminAccess = hospitals.some(h => h.id === set.hospitalId && h.role === "admin");
     
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
+    if (!hasAdminAccess) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const updatedSet = await storage.updateInventorySet(setId, { name, description, isActive });
