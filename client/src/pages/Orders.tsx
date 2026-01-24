@@ -180,8 +180,9 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
   
   // Helper to invalidate order caches (works for both standard and logistics mode)
   const invalidateOrderCaches = () => {
-    queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
-    queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, activeHospital?.unitId] });
+    // Standard mode query key includes unitId in the URL
+    queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
+    queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
     if (logisticMode) {
       queryClient.invalidateQueries({ queryKey: [`/api/logistic/orders/${activeHospital?.id}`] });
     }
@@ -601,14 +602,15 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
     },
     onMutate: async ({ lineId, offlineWorked }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId] });
+      const queryKey = [`/api/orders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId];
+      await queryClient.cancelQueries({ queryKey });
       
       // Snapshot the previous value
-      const previousOrders = queryClient.getQueryData<OrderWithDetails[]>([`/api/orders/${activeHospital?.id}`, activeHospital?.unitId]);
+      const previousOrders = queryClient.getQueryData<OrderWithDetails[]>(queryKey);
       
       // Optimistically update to the new value
       queryClient.setQueryData<OrderWithDetails[]>(
-        [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId],
+        queryKey,
         (old) => {
           if (!old) return old;
           return old.map(order => ({
@@ -623,13 +625,13 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
       );
       
       // Return context with snapshot
-      return { previousOrders };
+      return { previousOrders, queryKey };
     },
     onError: (_error, _variables, context) => {
       // Rollback to previous value on error
-      if (context?.previousOrders) {
+      if (context?.previousOrders && context?.queryKey) {
         queryClient.setQueryData(
-          [`/api/orders/${activeHospital?.id}`, activeHospital?.unitId],
+          context.queryKey,
           context.previousOrders
         );
       }
