@@ -231,6 +231,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Update hospital settings (admin only)
+  app.patch('/api/hospitals/:hospitalId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { hospitalId } = req.params;
+      const userId = req.user.id;
+      
+      // Check if user has admin access to this hospital
+      const userHospitals = await storage.getUserHospitals(userId);
+      const hospitalAccess = userHospitals.find(h => h.id === hospitalId && h.role === 'admin');
+      
+      if (!hospitalAccess) {
+        return res.status(403).json({ message: "Admin access required to update hospital settings" });
+      }
+      
+      // Whitelist allowed fields to update
+      const { visionAiProvider } = req.body;
+      const updates: any = {};
+      
+      if (visionAiProvider !== undefined) {
+        if (!['openai', 'pixtral'].includes(visionAiProvider)) {
+          return res.status(400).json({ message: "Invalid vision AI provider. Must be 'openai' or 'pixtral'" });
+        }
+        updates.visionAiProvider = visionAiProvider;
+      }
+      
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ message: "No valid fields to update" });
+      }
+      
+      const updatedHospital = await storage.updateHospital(hospitalId, updates);
+      res.json(updatedHospital);
+    } catch (error: any) {
+      console.error("Error updating hospital:", error);
+      res.status(500).json({ message: "Failed to update hospital settings" });
+    }
+  });
+  
   // AI image analysis for item data extraction
   app.post('/api/items/analyze-image', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
