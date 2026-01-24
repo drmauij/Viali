@@ -641,7 +641,7 @@ export default function PreOpList() {
                           data-testid={`button-send-form-${surgery.id}`}
                           title={t('common.patientCommunication', 'Patient Communication')}
                         >
-                          <Send className="h-4 w-4 text-white" />
+                          <Send className="h-4 w-4 text-primary" />
                         </Button>
                       )
                     )}
