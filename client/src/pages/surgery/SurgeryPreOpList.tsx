@@ -338,8 +338,8 @@ export default function SurgeryPreOpList() {
                         {t('surgery.preop.consentUploaded')}
                       </Badge>
                     )}
-                    {/* Button to send pre-op form to patient (only for planned items and if questionnaire addon is enabled) */}
-                    {item.status === 'planned' && addons.questionnaire && (
+                    {/* Button to send pre-op form to patient (if questionnaire addon is enabled) */}
+                    {addons.questionnaire && (
                       item.questionnaireEmailSent ? (
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
