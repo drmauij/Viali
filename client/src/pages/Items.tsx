@@ -3810,13 +3810,13 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                                       )}
                                     </div>
                                     <div className="ml-auto flex gap-1 items-center">
-                                      {canWrite && (item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
+                                      {canWrite && !item.controlled && 
                                        (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
                                         <button
                                           onClick={(e) => handleQuickReduce(e, item)}
                                           className="px-2 py-1 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600 transition-colors flex-shrink-0"
                                           data-testid={`item-${item.id}-quick-reduce`}
-                                          title="Reduce 1 unit"
+                                          title={item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? "Reduce 1 unit" : "Reduce 1 pack"}
                                         >
                                           -1
                                         </button>
@@ -4081,13 +4081,13 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                         )}
                       </div>
                       <div className="ml-auto flex gap-1 items-center">
-                        {canWrite && (item.trackExactQuantity || item.unit.toLowerCase() === 'single unit') && !item.controlled && 
+                        {canWrite && !item.controlled && 
                          (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
                           <button
                             onClick={(e) => handleQuickReduce(e, item)}
                             className="px-2 py-1 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600 transition-colors flex-shrink-0"
                             data-testid={`item-${item.id}-quick-reduce`}
-                            title="Reduce 1 unit"
+                            title={item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? "Reduce 1 unit" : "Reduce 1 pack"}
                           >
                             -1
                           </button>

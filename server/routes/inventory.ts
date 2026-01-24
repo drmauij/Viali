@@ -721,7 +721,19 @@ router.patch('/api/items/:itemId/reduce-unit', isAuthenticated, requireWriteAcce
       const updatedItem = await storage.getItem(itemId);
       res.json(updatedItem);
     } else {
-      return res.status(400).json({ message: "Quick reduce is only available for items with exact quantity tracking or single unit items" });
+      // Pack items without trackExactQuantity - reduce pack count by 1
+      const currentStock = await storage.getStockLevel(itemId, unitId);
+      const currentQty = currentStock?.qtyOnHand || 0;
+      
+      if (currentQty <= 0) {
+        return res.status(400).json({ message: "No packs available to reduce" });
+      }
+      
+      const newQty = currentQty - 1;
+      await storage.updateStockLevel(itemId, unitId, newQty);
+      
+      const updatedItem = await storage.getItem(itemId);
+      res.json(updatedItem);
     }
   } catch (error) {
     console.error("Error reducing unit:", error);
