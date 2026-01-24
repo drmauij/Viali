@@ -324,9 +324,6 @@ export default function CameraDevices() {
         </div>
       </div>
 
-      {/* Vision AI Provider Selection */}
-      <VisionAiProviderCard hospitalId={activeHospital?.id} currentProvider={activeHospital?.visionAiProvider} />
-
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
           <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -408,6 +405,9 @@ export default function CameraDevices() {
           ))}
         </div>
       )}
+
+      {/* Vision AI Provider Selection */}
+      <VisionAiProviderCard hospitalId={activeHospital?.id} currentProvider={activeHospital?.visionAiProvider} />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
