@@ -886,7 +886,7 @@ router.patch('/api/inventory-sets/:setId', isAuthenticated, requireAdminRole, re
   }
 });
 
-router.delete('/api/inventory-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+router.delete('/api/inventory-sets/:setId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { setId } = req.params;
     const userId = req.user.id;
@@ -897,10 +897,10 @@ router.delete('/api/inventory-sets/:setId', isAuthenticated, requireAdminRole, r
     }
 
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    const hasAdminAccess = hospitals.some(h => h.id === set.hospitalId && h.role === "admin");
     
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
+    if (!hasAdminAccess) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     await storage.deleteInventorySet(setId);
