@@ -1503,6 +1503,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                                   offlineWorked: checked === true,
                                 });
                               }}
+                              onClick={(e) => e.stopPropagation()}
                               data-testid={`offline-worked-${line.id}`}
                               className="mt-1"
                               title="Mark as offline worked"
