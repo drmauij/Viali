@@ -626,7 +626,7 @@ export default function PreOpList() {
                             }}
                             data-testid={`button-resend-form-${surgery.id}`}
                           >
-                            <Send className="h-3 w-3" />
+                            <Send className="h-3 w-3 text-primary" />
                           </Button>
                         </div>
                       ) : (

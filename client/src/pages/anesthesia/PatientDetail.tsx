@@ -2222,7 +2222,7 @@ export default function PatientDetail() {
                       data-testid="button-send-questionnaire"
                       title={t('common.patientCommunication', 'Patient Communication')}
                     >
-                      <Send className="h-4 w-4" />
+                      <Send className="h-4 w-4 text-primary" />
                     </Button>
                   )}
                   <Button
