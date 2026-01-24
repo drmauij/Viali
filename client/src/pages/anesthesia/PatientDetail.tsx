@@ -5436,15 +5436,15 @@ export default function PatientDetail() {
               </Card>
             </TabsContent>
             
-            <TabsContent value="communication" className="flex-1 overflow-hidden mt-0">
-              <Card className="h-full flex flex-col">
-                <CardHeader className="shrink-0 pb-2">
+            <TabsContent value="communication" className="flex-1 overflow-y-auto px-6 pb-6 space-y-6 mt-0">
+              <Card>
+                <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Send className="h-5 w-5" />
                     {t('common.patientCommunication', 'Patient Communication')}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="flex-1 overflow-hidden p-0">
+                <CardContent className="p-0">
                   <PatientCommunicationContent
                     patientId={patient?.id || ''}
                     patientName={patient ? `${patient.firstName} ${patient.surname}` : ''}
