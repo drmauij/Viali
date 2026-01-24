@@ -1036,13 +1036,13 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           <div key={line.id} className="flex justify-between text-muted-foreground">
                             <div className="flex-1 mr-2 min-w-0">
                               <span className="truncate block">{line.item?.name || 'Unknown Item'}</span>
-                              {(order.vendor?.name || (line.item as any)?.preferredSupplierCode?.articleNumber || (line.item as any)?.pharmacode || (line.item as any)?.gtin) && (
+                              {(order.vendor?.name || (line.item as any)?.preferredSupplierCode?.articleCode || (line.item as any)?.itemCodes?.pharmacode || (line.item as any)?.itemCodes?.gtin) && (
                                 <span className="text-[10px] text-muted-foreground/70 block truncate">
                                   {[
                                     (line.item as any)?.preferredSupplierCode?.supplierName || order.vendor?.name,
-                                    (line.item as any)?.preferredSupplierCode?.articleNumber && `Art: ${(line.item as any).preferredSupplierCode.articleNumber}`,
-                                    (line.item as any)?.pharmacode && `PC: ${(line.item as any).pharmacode}`,
-                                    (line.item as any)?.gtin && `GTIN: ${(line.item as any).gtin}`
+                                    (line.item as any)?.preferredSupplierCode?.articleCode && `Art: ${(line.item as any).preferredSupplierCode.articleCode}`,
+                                    (line.item as any)?.itemCodes?.pharmacode && `PC: ${(line.item as any).itemCodes.pharmacode}`,
+                                    (line.item as any)?.itemCodes?.gtin && `GTIN: ${(line.item as any).itemCodes.gtin}`
                                   ].filter(Boolean).join(' · ')}
                                 </span>
                               )}
@@ -1157,13 +1157,13 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           <div key={line.id} className="flex justify-between text-muted-foreground">
                             <div className="flex-1 mr-2 min-w-0">
                               <span className="truncate block">{line.item?.name || 'Unknown Item'}</span>
-                              {(order.vendor?.name || (line.item as any)?.preferredSupplierCode?.articleNumber || (line.item as any)?.pharmacode || (line.item as any)?.gtin) && (
+                              {(order.vendor?.name || (line.item as any)?.preferredSupplierCode?.articleCode || (line.item as any)?.itemCodes?.pharmacode || (line.item as any)?.itemCodes?.gtin) && (
                                 <span className="text-[10px] text-muted-foreground/70 block truncate">
                                   {[
                                     (line.item as any)?.preferredSupplierCode?.supplierName || order.vendor?.name,
-                                    (line.item as any)?.preferredSupplierCode?.articleNumber && `Art: ${(line.item as any).preferredSupplierCode.articleNumber}`,
-                                    (line.item as any)?.pharmacode && `PC: ${(line.item as any).pharmacode}`,
-                                    (line.item as any)?.gtin && `GTIN: ${(line.item as any).gtin}`
+                                    (line.item as any)?.preferredSupplierCode?.articleCode && `Art: ${(line.item as any).preferredSupplierCode.articleCode}`,
+                                    (line.item as any)?.itemCodes?.pharmacode && `PC: ${(line.item as any).itemCodes.pharmacode}`,
+                                    (line.item as any)?.itemCodes?.gtin && `GTIN: ${(line.item as any).itemCodes.gtin}`
                                   ].filter(Boolean).join(' · ')}
                                 </span>
                               )}
@@ -1249,13 +1249,13 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           <div key={line.id} className="flex justify-between text-muted-foreground">
                             <div className="flex-1 mr-2 min-w-0">
                               <span className="truncate block">{line.item?.name || 'Unknown Item'}</span>
-                              {(order.vendor?.name || (line.item as any)?.preferredSupplierCode?.articleNumber || (line.item as any)?.pharmacode || (line.item as any)?.gtin) && (
+                              {(order.vendor?.name || (line.item as any)?.preferredSupplierCode?.articleCode || (line.item as any)?.itemCodes?.pharmacode || (line.item as any)?.itemCodes?.gtin) && (
                                 <span className="text-[10px] text-muted-foreground/70 block truncate">
                                   {[
                                     (line.item as any)?.preferredSupplierCode?.supplierName || order.vendor?.name,
-                                    (line.item as any)?.preferredSupplierCode?.articleNumber && `Art: ${(line.item as any).preferredSupplierCode.articleNumber}`,
-                                    (line.item as any)?.pharmacode && `PC: ${(line.item as any).pharmacode}`,
-                                    (line.item as any)?.gtin && `GTIN: ${(line.item as any).gtin}`
+                                    (line.item as any)?.preferredSupplierCode?.articleCode && `Art: ${(line.item as any).preferredSupplierCode.articleCode}`,
+                                    (line.item as any)?.itemCodes?.pharmacode && `PC: ${(line.item as any).itemCodes.pharmacode}`,
+                                    (line.item as any)?.itemCodes?.gtin && `GTIN: ${(line.item as any).itemCodes.gtin}`
                                   ].filter(Boolean).join(' · ')}
                                 </span>
                               )}
@@ -1510,13 +1510,13 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           )}
                           <div className="flex-1">
                             <p className="font-medium text-foreground">{line.item.name}</p>
-                            {(selectedOrder.vendor?.name || (line.item as any).preferredSupplierCode?.articleNumber || (line.item as any).pharmacode || (line.item as any).gtin) && (
+                            {(selectedOrder.vendor?.name || (line.item as any).preferredSupplierCode?.articleCode || (line.item as any).itemCodes?.pharmacode || (line.item as any).itemCodes?.gtin) && (
                               <p className="text-xs text-muted-foreground/70 truncate">
                                 {[
                                   (line.item as any).preferredSupplierCode?.supplierName || selectedOrder.vendor?.name,
-                                  (line.item as any).preferredSupplierCode?.articleNumber && `Art: ${(line.item as any).preferredSupplierCode.articleNumber}`,
-                                  (line.item as any).pharmacode && `PC: ${(line.item as any).pharmacode}`,
-                                  (line.item as any).gtin && `GTIN: ${(line.item as any).gtin}`
+                                  (line.item as any).preferredSupplierCode?.articleCode && `Art: ${(line.item as any).preferredSupplierCode.articleCode}`,
+                                  (line.item as any).itemCodes?.pharmacode && `PC: ${(line.item as any).itemCodes.pharmacode}`,
+                                  (line.item as any).itemCodes?.gtin && `GTIN: ${(line.item as any).itemCodes.gtin}`
                                 ].filter(Boolean).join(' · ')}
                               </p>
                             )}
