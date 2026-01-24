@@ -545,7 +545,7 @@ export default function Patients() {
                       title={t('common.patientCommunication', 'Patient Communication')}
                       data-testid={`button-send-form-${patient.id}`}
                     >
-                      <Send className="h-4 w-4 text-white" />
+                      <Send className="h-4 w-4 text-primary" />
                     </Button>
                   )}
                 </div>
