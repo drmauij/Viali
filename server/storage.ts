@@ -1493,6 +1493,22 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(stockLevels, and(eq(stockLevels.itemId, items.id), eq(stockLevels.unitId, items.unitId)))
           .where(eq(orderLines.orderId, order.id));
 
+        // Fetch preferred supplier codes for all items in this order
+        const itemIds = lines.map(l => l.item.id);
+        const preferredSupplierCodesResult = itemIds.length > 0 
+          ? await db
+              .select()
+              .from(supplierCodes)
+              .where(and(
+                inArray(supplierCodes.itemId, itemIds),
+                eq(supplierCodes.isPreferred, true)
+              ))
+          : [];
+        
+        const supplierCodesByItemId = new Map(
+          preferredSupplierCodesResult.map(sc => [sc.itemId, sc])
+        );
+
         return {
           ...order,
           vendor,
@@ -1515,6 +1531,7 @@ export class DatabaseStorage implements IStorage {
               ...line.item,
               hospitalUnit: line.hospitalUnit,
               stockLevel: line.stockLevel,
+              preferredSupplierCode: supplierCodesByItemId.get(line.item.id) || null,
             },
           })),
         };
