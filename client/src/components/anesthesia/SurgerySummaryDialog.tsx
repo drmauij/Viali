@@ -251,7 +251,7 @@ export default function SurgerySummaryDialog({
                   onClick={() => setSendDialogOpen(true)}
                   data-testid="button-send-questionnaire"
                 >
-                  <Send className="h-4 w-4 mr-1 text-white" />
+                  <Send className="h-4 w-4 mr-1 text-primary" />
                   {t('common.patientCommunication', 'Patient Communication')}
                 </Button>
               )}
