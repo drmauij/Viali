@@ -685,6 +685,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
   const ordersByStatus = useMemo(() => {
     const grouped: Record<OrderStatus, OrderWithDetails[]> = {
       draft: [],
+      ready_to_send: [],
       sent: [],
       received: [],
     };
@@ -712,6 +713,8 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
     switch (status) {
       case "draft":
         return "chip-muted";
+      case "ready_to_send":
+        return "chip-info";
       case "sent":
         return "chip-warning";
       case "received":
@@ -1073,12 +1076,120 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           className="flex-1"
                           onClick={(e) => {
                             e.stopPropagation();
+                            handleStatusUpdate(order.id, "ready_to_send");
+                          }}
+                          disabled={updateOrderStatusMutation.isPending}
+                          data-testid={`mark-ready-order-${order.id}`}
+                        >
+                          {t('orders.markReady')}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Ready to Send Column */}
+          <div className="kanban-column">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-foreground">{t('orders.readyToSend')}</h3>
+              <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs flex items-center justify-center font-semibold">
+                {ordersByStatus.ready_to_send.length}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {ordersByStatus.ready_to_send.length === 0 ? (
+                <div className="text-center py-6 text-muted-foreground text-sm">
+                  {t('orders.noReadyToSendOrders')}
+                </div>
+              ) : (
+                ordersByStatus.ready_to_send.map((order) => (
+                  <div 
+                    key={order.id} 
+                    className={`kanban-card cursor-pointer ${!canEditOrder(order) ? 'opacity-60 border-muted' : ''}`}
+                    onClick={() => handleEditOrder(order)}
+                    data-testid={`ready-to-send-order-${order.id}`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
+                          {logisticMode && (
+                            <Badge variant="outline" className="text-xs">
+                              <i className="fas fa-building mr-1"></i>
+                              {getUnitName(order.unitId) || 'Unknown Unit'}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          <i className="fas fa-map-marker-alt mr-1"></i>
+                          {getOrderLocation(order)}
+                          {!canEditOrder(order) && <span className="ml-2 text-warning">(Other Unit)</span>}
+                        </p>
+                      </div>
+                      <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
+                        {t('orders.readyToSend')}
+                      </span>
+                    </div>
+                    <button 
+                      className="flex items-center gap-1 text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
+                      onClick={(e) => toggleOrderExpanded(order.id, e)}
+                      data-testid={`expand-ready-order-${order.id}`}
+                    >
+                      {expandedOrders.has(order.id) ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      {t('orders.itemsCount', { count: order.orderLines.length })}
+                    </button>
+                    
+                    {expandedOrders.has(order.id) && order.orderLines.length > 0 && (
+                      <div className="mb-3 space-y-1 text-xs border-t border-border pt-2">
+                        {order.orderLines.map(line => (
+                          <div key={line.id} className="flex justify-between text-muted-foreground">
+                            <div className="flex-1 mr-2 min-w-0">
+                              <span className="truncate block">{line.item?.name || 'Unknown Item'}</span>
+                              {(order.vendor?.name || (line.item as any)?.preferredSupplierCode?.articleCode || (line.item as any)?.itemCodes?.pharmacode || (line.item as any)?.itemCodes?.gtin) && (
+                                <span className="text-[10px] text-muted-foreground/70 block truncate">
+                                  {[
+                                    (line.item as any)?.preferredSupplierCode?.supplierName || order.vendor?.name,
+                                    (line.item as any)?.preferredSupplierCode?.articleCode && `Art: ${(line.item as any).preferredSupplierCode.articleCode}`,
+                                    (line.item as any)?.itemCodes?.pharmacode && `PC: ${(line.item as any).itemCodes.pharmacode}`,
+                                    (line.item as any)?.itemCodes?.gtin && `GTIN: ${(line.item as any).itemCodes.gtin}`
+                                  ].filter(Boolean).join(' · ')}
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-medium text-foreground shrink-0">{line.qty}x</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadOrderPDF(order);
+                        }}
+                        data-testid={`pdf-ready-order-${order.id}`}
+                      >
+                        <i className="fas fa-file-pdf"></i>
+                      </Button>
+                      {canWrite && canEditOrder(order) && (
+                        <Button
+                          size="sm"
+                          className="flex-1"
+                          onClick={(e) => {
+                            e.stopPropagation();
                             handleStatusUpdate(order.id, "sent");
                           }}
                           disabled={updateOrderStatusMutation.isPending}
-                          data-testid={`submit-order-${order.id}`}
+                          data-testid={`send-order-${order.id}`}
                         >
-                          {t('orders.submit')}
+                          {t('orders.sendOrder')}
                         </Button>
                       )}
                     </div>
@@ -1401,7 +1512,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                 {/* Details Tab */}
                 <TabsContent value="details" className="flex-1 overflow-y-auto space-y-4 mt-0">
                   {/* Order Notes */}
-                  {canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && (
+                  {canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'ready_to_send' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && (
                     <div className="p-3 bg-muted/20 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <label className="text-sm font-medium text-foreground">
@@ -1480,7 +1591,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                     const displayQty = line.qty;
                     const displayUnit = line.item.unit;
                     
-                    const canToggleOffline = canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received;
+                    const canToggleOffline = canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'ready_to_send' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received;
                     
                     return (
                     <div key={line.id} className={`flex flex-col gap-2 p-3 border border-border rounded-lg transition-colors ${canToggleOffline ? (line.offlineWorked ? 'bg-green-50 dark:bg-green-950/20' : '') : ''}`} data-testid={`order-line-${line.id}`}>
@@ -1675,7 +1786,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                       </div>
 
                       {/* Line Item Notes */}
-                      {canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received && (
+                      {canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'ready_to_send' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received && (
                         <div className="pt-2 border-t border-border/50">
                           {editingLineNotes === line.id ? (
                             <div className="space-y-2">
@@ -1878,13 +1989,25 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                   {canWrite && selectedOrder.status === 'draft' && canEditOrder(selectedOrder) && (
                     <Button
                       onClick={() => {
+                        handleStatusUpdate(selectedOrder.id, "ready_to_send");
+                        setEditOrderDialogOpen(false);
+                      }}
+                      data-testid="mark-ready-from-edit"
+                    >
+                      <i className="fas fa-check mr-2"></i>
+                      {t('orders.markReady')}
+                    </Button>
+                  )}
+                  {canWrite && selectedOrder.status === 'ready_to_send' && canEditOrder(selectedOrder) && (
+                    <Button
+                      onClick={() => {
                         handleStatusUpdate(selectedOrder.id, "sent");
                         setEditOrderDialogOpen(false);
                       }}
-                      data-testid="submit-from-edit"
+                      data-testid="send-from-edit"
                     >
                       <i className="fas fa-paper-plane mr-2"></i>
-                      {t('orders.submitOrder')}
+                      {t('orders.sendOrder')}
                     </Button>
                   )}
                   {!canEditOrder(selectedOrder) && (
