@@ -273,7 +273,7 @@ export function MedicationSetsDialog({
   };
 
   const filteredMedications = availableMedications.filter(med => 
-    med.itemName.toLowerCase().includes(searchQuery.toLowerCase()) &&
+    (med.itemName || '').toLowerCase().includes(searchQuery.toLowerCase()) &&
     !pendingItems.some(item => item.medicationConfigId === med.id)
   );
 
