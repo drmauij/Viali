@@ -9,6 +9,7 @@ import medicationsRouter from "./medications";
 import eventsRouter from "./events";
 import staffRouter from "./staff";
 import inventoryRouter from "./inventory";
+import installationsRouter from "./installations";
 
 const router = Router();
 
@@ -22,5 +23,6 @@ router.use(medicationsRouter);
 router.use(eventsRouter);
 router.use(staffRouter);
 router.use(inventoryRouter);
+router.use(installationsRouter);
 
 export default router;
