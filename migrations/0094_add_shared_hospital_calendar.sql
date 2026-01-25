@@ -12,6 +12,17 @@ BEGIN
   END IF;
 END $$;
 
+-- Drop unique constraint on clinic_providers since we now allow hospital-level providers
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.table_constraints 
+    WHERE constraint_name = 'unique_clinic_provider' AND table_name = 'clinic_providers'
+  ) THEN
+    ALTER TABLE clinic_providers DROP CONSTRAINT unique_clinic_provider;
+  END IF;
+END $$;
+
 -- Make unitId nullable in clinic_providers to allow hospital-level providers
 -- Hospital-level providers (unitId = NULL) are shared across all units without hasOwnCalendar
 
