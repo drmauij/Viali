@@ -2139,8 +2139,19 @@ export default function PatientDetail() {
     };
   }, []);
 
-  // Loading state
-  if (isLoading) {
+  // Loading state - show simple loading for pre-op route mode
+  if (isLoading || (isPreOpRoute && isLoadingPreOpSurgery)) {
+    // In pre-op route mode, show minimal loading indicator (not patient detail layout)
+    if (isPreOpRoute) {
+      return (
+        <div className="fixed inset-0 flex items-center justify-center bg-background">
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" data-testid="loader-preop" />
+            <p className="text-muted-foreground">{t('anesthesia.patientDetail.loadingPreOp', 'Loading assessment...')}</p>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="container mx-auto p-4 pb-20">
         <Link href="/anesthesia/patients">
@@ -2163,6 +2174,20 @@ export default function PatientDetail() {
 
   // Error state
   if (error || !patient) {
+    // In pre-op route mode, navigate back to pre-op list on error
+    if (isPreOpRoute) {
+      return (
+        <div className="fixed inset-0 flex items-center justify-center bg-background">
+          <div className="flex flex-col items-center gap-3">
+            <AlertCircle className="h-8 w-8 text-destructive" data-testid="icon-error" />
+            <p className="text-foreground font-semibold" data-testid="text-error">{t('anesthesia.patientDetail.patientNotFound')}</p>
+            <Button className="mt-4" onClick={() => setLocation('/anesthesia/preop')} data-testid="button-back-to-preop">
+              {t('anesthesia.preop.backToList', 'Back to Pre-Op List')}
+            </Button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="container mx-auto p-4 pb-20">
         <Link href="/anesthesia/patients">
@@ -2190,9 +2215,9 @@ export default function PatientDetail() {
   }
 
   return (
-    <div className="container mx-auto p-4 pb-20">
-      {/* Sticky Patient Header */}
-      {!isPatientCardVisible && (
+    <div className={`container mx-auto p-4 pb-20 ${isPreOpRoute ? 'hidden' : ''}`}>
+      {/* Sticky Patient Header - hidden in pre-op route mode */}
+      {!isPatientCardVisible && !isPreOpRoute && (
         <div 
           className="fixed top-0 left-0 right-0 bg-background border-b z-50 transition-all duration-200"
           data-testid="sticky-patient-header"
