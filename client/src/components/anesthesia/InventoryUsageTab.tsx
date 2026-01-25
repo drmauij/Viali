@@ -10,10 +10,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight, Search, X, Settings, Loader2, Trash2, Pencil } from "lucide-react";
+import { Package, Minus, Plus, Folder, RotateCcw, CheckCircle, History, Undo, ChevronDown, ChevronRight, Search, X, Settings, Loader2, Trash2, Pencil, Check, ChevronsUpDown } from "lucide-react";
 import { ControlledItemsCommitDialog } from "./ControlledItemsCommitDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { formatDate } from "@/lib/dateUtils";
 import type { Module } from "@/contexts/ModuleContext";
@@ -959,6 +960,7 @@ function InventorySetsManageDialog({ open, onOpenChange, hospitalId, unitId, set
     quantity: number;
   }>>([]);
   const [loadingSetId, setLoadingSetId] = useState<string | null>(null);
+  const [openPopoverIndex, setOpenPopoverIndex] = useState<number | null>(null);
 
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; description: string; items: any[] }) => {
@@ -1011,6 +1013,7 @@ function InventorySetsManageDialog({ open, onOpenChange, hospitalId, unitId, set
     setFormName('');
     setFormDescription('');
     setFormItems([]);
+    setOpenPopoverIndex(null);
   };
 
   const handleEditSet = async (setId: string) => {
@@ -1081,190 +1084,245 @@ function InventorySetsManageDialog({ open, onOpenChange, hospitalId, unitId, set
     setFormItems(prev => prev.filter((_, i) => i !== index));
   };
 
+  const getItemName = (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    return item?.name || 'Select item...';
+  };
+
+  const handleDialogChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      setOpenPopoverIndex(null);
+    }
+    onOpenChange(isOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Manage Inventory Sets</DialogTitle>
-          <DialogDescription>
-            Create and manage predefined inventory bundles for quick application.
-          </DialogDescription>
-        </DialogHeader>
+    <Dialog open={open} onOpenChange={handleDialogChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">
+        {/* Sticky Header */}
+        <div className="sticky top-0 z-10 bg-background border-b px-6 pt-6 pb-4">
+          <DialogHeader>
+            <DialogTitle>Manage Inventory Sets</DialogTitle>
+            <DialogDescription>
+              Create and manage predefined inventory bundles for quick application.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-4">
-          {!showForm ? (
-            <>
-              <Button
-                onClick={handleStartCreate}
-                className="w-full"
-                data-testid="button-create-new-inventory-set"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create New Set
-              </Button>
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          <div className="space-y-4">
+            {!showForm ? (
+              <>
+                <Button
+                  onClick={handleStartCreate}
+                  className="w-full"
+                  data-testid="button-create-new-inventory-set"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create New Set
+                </Button>
 
-              {sets.length === 0 ? (
-                <p className="text-center text-muted-foreground py-6">
-                  No inventory sets yet. Create your first one above.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {sets.map((set) => (
-                    <div key={set.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleEditSet(set.id)}>
-                        <p className="font-medium">{set.name}</p>
-                        {set.description && (
-                          <p className="text-sm text-muted-foreground">{set.description}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditSet(set.id)}
-                          disabled={loadingSetId === set.id}
-                          data-testid={`button-edit-inventory-set-${set.id}`}
-                        >
-                          {loadingSetId === set.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Pencil className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteMutation.mutate(set.id)}
-                          disabled={deleteMutation.isPending}
-                          data-testid={`button-delete-inventory-set-${set.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="inventory-set-name">Set Name *</Label>
-                <Input
-                  id="inventory-set-name"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="e.g., Standard Propofol Setup"
-                  data-testid="input-inventory-set-name"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="inventory-set-description">Description</Label>
-                <Textarea
-                  id="inventory-set-description"
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="Brief description of this set..."
-                  data-testid="input-inventory-set-description"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Items in Set ({formItems.length})</Label>
-                  <Button variant="outline" size="sm" onClick={addFormItem}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Item
-                  </Button>
-                </div>
-
-                {formItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center border rounded-lg">
-                    No items added yet. Add items to include in this set.
+                {sets.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-6">
+                    No inventory sets yet. Create your first one above.
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {formItems.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2 p-2 border rounded-lg">
-                        <Select
-                          value={item.itemId}
-                          onValueChange={(value) => updateFormItem(index, { itemId: value })}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Select item" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {items.map(invItem => (
-                              <SelectItem key={invItem.id} value={invItem.id}>{invItem.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    {sets.map((set) => (
+                      <div key={set.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleEditSet(set.id)}>
+                          <p className="font-medium">{set.name}</p>
+                          {set.description && (
+                            <p className="text-sm text-muted-foreground">{set.description}</p>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="icon"
-                            className="h-8 w-8 shrink-0"
-                            onClick={() => updateFormItem(index, { quantity: Math.max(1, item.quantity - 1) })}
-                            disabled={item.quantity <= 1}
+                            onClick={() => handleEditSet(set.id)}
+                            disabled={loadingSetId === set.id}
+                            data-testid={`button-edit-inventory-set-${set.id}`}
                           >
-                            <Minus className="h-3 w-3" />
+                            {loadingSetId === set.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Pencil className="h-4 w-4" />
+                            )}
                           </Button>
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={item.quantity}
-                            onChange={(e) => {
-                              const val = e.target.value.replace(/\D/g, '');
-                              updateFormItem(index, { quantity: parseInt(val) || 1 });
-                            }}
-                            onFocus={(e) => e.target.select()}
-                            className="w-14 text-center"
-                            data-testid={`input-set-item-qty-${index}`}
-                          />
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="icon"
-                            className="h-8 w-8 shrink-0"
-                            onClick={() => updateFormItem(index, { quantity: item.quantity + 1 })}
+                            onClick={() => deleteMutation.mutate(set.id)}
+                            disabled={deleteMutation.isPending}
+                            data-testid={`button-delete-inventory-set-${set.id}`}
                           >
-                            <Plus className="h-3 w-3" />
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeFormItem(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="inventory-set-name">Set Name *</Label>
+                  <Input
+                    id="inventory-set-name"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    placeholder="e.g., Standard Propofol Setup"
+                    data-testid="input-inventory-set-name"
+                  />
+                </div>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={resetForm}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSaveSet}
-                  disabled={createMutation.isPending || updateMutation.isPending || !formName.trim() || formItems.length === 0}
-                  data-testid="button-save-inventory-set"
-                >
-                  {(createMutation.isPending || updateMutation.isPending) ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <div className="space-y-2">
+                  <Label htmlFor="inventory-set-description">Description</Label>
+                  <Textarea
+                    id="inventory-set-description"
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    placeholder="Brief description of this set..."
+                    data-testid="input-inventory-set-description"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Items in Set ({formItems.length})</Label>
+                    <Button variant="outline" size="sm" onClick={addFormItem} data-testid="button-add-set-item">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Item
+                    </Button>
+                  </div>
+
+                  {formItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center border rounded-lg">
+                      No items added yet. Add items to include in this set.
+                    </p>
                   ) : (
-                    <CheckCircle className="h-4 w-4 mr-2" />
+                    <div className="space-y-2">
+                      {formItems.map((item, index) => (
+                        <div key={index} className="flex items-center gap-2 p-2 border rounded-lg">
+                          <Popover 
+                            open={openPopoverIndex === index} 
+                            onOpenChange={(isOpen) => setOpenPopoverIndex(isOpen ? index : null)}
+                          >
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                aria-expanded={openPopoverIndex === index}
+                                className="flex-1 justify-between font-normal"
+                                data-testid={`select-set-item-${index}`}
+                              >
+                                <span className="truncate">{getItemName(item.itemId)}</span>
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Search items..." />
+                                <CommandList>
+                                  <CommandEmpty>No item found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {items.map((invItem) => (
+                                      <CommandItem
+                                        key={invItem.id}
+                                        value={invItem.name}
+                                        onSelect={() => {
+                                          updateFormItem(index, { itemId: invItem.id });
+                                          setOpenPopoverIndex(null);
+                                        }}
+                                      >
+                                        <Check
+                                          className={`mr-2 h-4 w-4 ${
+                                            item.itemId === invItem.id ? "opacity-100" : "opacity-0"
+                                          }`}
+                                        />
+                                        {invItem.name}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={() => updateFormItem(index, { quantity: Math.max(1, item.quantity - 1) })}
+                              disabled={item.quantity <= 1}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                updateFormItem(index, { quantity: parseInt(val) || 1 });
+                              }}
+                              onFocus={(e) => e.target.select()}
+                              className="w-14 text-center"
+                              data-testid={`input-set-item-qty-${index}`}
+                            />
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 shrink-0"
+                              onClick={() => updateFormItem(index, { quantity: item.quantity + 1 })}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeFormItem(index)}
+                            data-testid={`button-remove-set-item-${index}`}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   )}
-                  {editingSetId ? 'Update Set' : 'Save Set'}
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Sticky Footer - only show when in form mode */}
+        {showForm && (
+          <div className="sticky bottom-0 z-10 bg-background border-t px-6 py-4">
+            <DialogFooter>
+              <Button variant="outline" onClick={resetForm}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveSet}
+                disabled={createMutation.isPending || updateMutation.isPending || !formName.trim() || formItems.length === 0}
+                data-testid="button-save-inventory-set"
+              >
+                {(createMutation.isPending || updateMutation.isPending) ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                )}
+                {editingSetId ? 'Update Set' : 'Save Set'}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
