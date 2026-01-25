@@ -216,7 +216,7 @@ export default function SurgerySummaryDialog({
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
           {/* Patient Info with Allergies */}
           <div className="bg-muted/50 p-4 rounded-lg space-y-3">
-            <div className="flex items-start justify-between">
+            <div className="flex items-start justify-between gap-4">
               <div className="grid grid-cols-2 gap-3 flex-1">
                 <div>
                   <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.name')}</div>
@@ -239,36 +239,37 @@ export default function SurgerySummaryDialog({
                   </div>
                 )}
               </div>
-            </div>
-            
-            {/* Action buttons - horizontal row at bottom of patient section */}
-            <div className="pt-2 border-t border-border/50 flex flex-wrap gap-2">
-              {/* Send Questionnaire Button */}
-              {addons.questionnaire && patient && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSendDialogOpen(true)}
-                  data-testid="button-send-questionnaire"
+              
+              {/* Action buttons - vertically stacked on the right */}
+              <div className="flex flex-col gap-2 shrink-0">
+                {/* View Patient Detail Link */}
+                <Link 
+                  href={activeModule === 'surgery' ? `/surgery/patients/${patient.id}` : `/anesthesia/patients/${patient.id}`}
+                  onClick={() => onOpenChange(false)}
                 >
-                  <Send className="h-4 w-4 mr-1 text-primary" />
-                  {t('common.patientCommunication', 'Patient Communication')}
-                </Button>
-              )}
-              {/* View Patient Detail Link */}
-              <Link 
-                href={activeModule === 'surgery' ? `/surgery/patients/${patient.id}` : `/anesthesia/patients/${patient.id}`}
-                onClick={() => onOpenChange(false)}
-              >
-                <Button
-                  variant="outline"
-                  size="sm"
-                  data-testid="button-view-patient-detail"
-                >
-                  <ExternalLink className="h-4 w-4 mr-1" />
-                  {t('anesthesia.surgerySummary.viewPatientDetail')}
-                </Button>
-              </Link>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    data-testid="button-view-patient-detail"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-1" />
+                    {t('anesthesia.surgerySummary.viewPatientDetail')}
+                  </Button>
+                </Link>
+                {/* Send Questionnaire Button */}
+                {addons.questionnaire && patient && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setSendDialogOpen(true)}
+                    data-testid="button-send-questionnaire"
+                  >
+                    <Send className="h-4 w-4 mr-1 text-primary" />
+                    {t('common.patientCommunication', 'Patient Communication')}
+                  </Button>
+                )}
+              </div>
             </div>
             
             {/* Patient Allergies from Patient Record */}
