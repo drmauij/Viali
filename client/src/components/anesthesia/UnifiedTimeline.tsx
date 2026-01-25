@@ -6802,7 +6802,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       </span>
                     </button>
                     {/* Plus button for on-demand medications (admin users) */}
-                    {!readOnly && anesthesiaRecordId && (
+                    {canWrite && anesthesiaRecordId && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -6826,7 +6826,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       {lane.label}
                     </span>
                     {/* Plus button to add on-demand medications (available for all users) */}
-                    {!readOnly && anesthesiaRecordId && (
+                    {canWrite && anesthesiaRecordId && (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
