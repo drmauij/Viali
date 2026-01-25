@@ -1,7 +1,7 @@
 import { useMemo, useEffect, useRef, useState, useCallback } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Search, GripVertical, Camera, Mic, Square, Loader2 } from "lucide-react";
+import { Search, GripVertical, Camera, Mic, Square, Loader2, Layers } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface StickyTimelineHeaderProps {
@@ -18,6 +18,8 @@ interface StickyTimelineHeaderProps {
   onResetZoom?: () => void;
   onCameraCapture?: (imageBase64: string, timestamp: number) => void;
   onVoiceCommand?: (audioBlob: Blob, timestamp: number) => void;
+  onOpenSets?: () => void;
+  showSetsButton?: boolean;
 }
 
 export function StickyTimelineHeader({
@@ -34,6 +36,8 @@ export function StickyTimelineHeader({
   onResetZoom,
   onCameraCapture,
   onVoiceCommand,
+  onOpenSets,
+  showSetsButton = false,
 }: StickyTimelineHeaderProps) {
   const chartRef = useRef<any>(null);
   const dragRef = useRef<{ isDragging: boolean; startX: number; startY: number }>({
@@ -582,6 +586,20 @@ export function StickyTimelineHeader({
         style={{ left: `${mediaPosition.x}px`, top: `${mediaPosition.y}px`, transform: 'translate(-50%, -50%)' }}
         data-testid="timeline-media-controls-panel"
       >
+        {/* Sets Button - Opens unified anesthesia sets dialog */}
+        {showSetsButton && onOpenSets && (
+          <button
+            data-testid="button-sets"
+            onClick={(e) => { e.stopPropagation(); onOpenSets(); }}
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className="hover:bg-muted active:bg-muted/80 rounded-md h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer pointer-events-auto"
+            title="Anesthesia Sets"
+          >
+            <Layers className="h-4 w-4 sm:h-5 sm:w-5" />
+          </button>
+        )}
+        
         {/* Camera Button - Re-enable pointer events for individual buttons in edit mode */}
         <button
           data-testid="button-camera"
