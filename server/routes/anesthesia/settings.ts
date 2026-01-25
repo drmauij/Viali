@@ -4,10 +4,14 @@ import { isAuthenticated } from "../../auth/google";
 import {
   insertHospitalAnesthesiaSettingsSchema,
   insertMedicationCouplingSchema,
+  insertMedicationSetSchema,
+  insertMedicationSetItemSchema,
   items,
   units,
   medicationConfigs,
   medicationCouplings,
+  medicationSets,
+  medicationSetItems,
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
@@ -712,6 +716,215 @@ router.delete('/api/anesthesia/medication-couplings/:id', isAuthenticated, requi
   } catch (error) {
     console.error("Error deleting medication coupling:", error);
     res.status(500).json({ message: "Failed to delete medication coupling" });
+  }
+});
+
+// ==================== MEDICATION SETS ====================
+
+// Get all medication sets for a hospital (for users to apply)
+router.get('/api/anesthesia/medication-sets/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+    
+    const userUnitId = await getUserUnitForHospital(userId, hospitalId);
+    if (!userUnitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const sets = await db
+      .select({
+        id: medicationSets.id,
+        name: medicationSets.name,
+        description: medicationSets.description,
+        hospitalId: medicationSets.hospitalId,
+        unitId: medicationSets.unitId,
+        sortOrder: medicationSets.sortOrder,
+        createdAt: medicationSets.createdAt,
+      })
+      .from(medicationSets)
+      .where(eq(medicationSets.hospitalId, hospitalId))
+      .orderBy(medicationSets.sortOrder);
+    
+    res.json(sets);
+  } catch (error) {
+    console.error("Error fetching medication sets:", error);
+    res.status(500).json({ message: "Failed to fetch medication sets" });
+  }
+});
+
+// Get a single medication set with its items
+router.get('/api/anesthesia/medication-sets/:hospitalId/:setId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId, setId } = req.params;
+    const userId = req.user.id;
+    
+    const userUnitId = await getUserUnitForHospital(userId, hospitalId);
+    if (!userUnitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+    
+    const [set] = await db
+      .select()
+      .from(medicationSets)
+      .where(and(eq(medicationSets.id, setId), eq(medicationSets.hospitalId, hospitalId)));
+    
+    if (!set) {
+      return res.status(404).json({ message: "Medication set not found" });
+    }
+    
+    const setItems = await db
+      .select({
+        id: medicationSetItems.id,
+        medicationConfigId: medicationSetItems.medicationConfigId,
+        customDose: medicationSetItems.customDose,
+        sortOrder: medicationSetItems.sortOrder,
+        itemId: items.id,
+        itemName: items.name,
+        defaultDose: medicationConfigs.defaultDose,
+        administrationUnit: medicationConfigs.administrationUnit,
+        administrationRoute: medicationConfigs.administrationRoute,
+        administrationGroup: medicationConfigs.administrationGroup,
+      })
+      .from(medicationSetItems)
+      .innerJoin(medicationConfigs, eq(medicationSetItems.medicationConfigId, medicationConfigs.id))
+      .innerJoin(items, eq(medicationConfigs.itemId, items.id))
+      .where(eq(medicationSetItems.setId, setId))
+      .orderBy(medicationSetItems.sortOrder);
+    
+    res.json({ ...set, items: setItems });
+  } catch (error) {
+    console.error("Error fetching medication set:", error);
+    res.status(500).json({ message: "Failed to fetch medication set" });
+  }
+});
+
+// Create a new medication set (admin only)
+router.post('/api/anesthesia/medication-sets', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { hospitalId, name, description, items: setItemsList } = req.body;
+    
+    // Verify user has admin access to this hospital
+    const userRole = await getUserRole(userId, hospitalId);
+    if (userRole !== 'admin') {
+      return res.status(403).json({ message: "Only admins can create medication sets" });
+    }
+    
+    const validatedData = insertMedicationSetSchema.parse({
+      name,
+      description,
+      hospitalId,
+      createdBy: userId,
+    });
+    
+    const [newSet] = await db
+      .insert(medicationSets)
+      .values(validatedData)
+      .returning();
+    
+    // Add items to the set
+    if (setItemsList && Array.isArray(setItemsList) && setItemsList.length > 0) {
+      for (let i = 0; i < setItemsList.length; i++) {
+        const item = setItemsList[i];
+        await db.insert(medicationSetItems).values({
+          setId: newSet.id,
+          medicationConfigId: item.medicationConfigId,
+          customDose: item.customDose || null,
+          sortOrder: i,
+        });
+      }
+    }
+    
+    res.status(201).json(newSet);
+  } catch (error) {
+    console.error("Error creating medication set:", error);
+    res.status(500).json({ message: "Failed to create medication set" });
+  }
+});
+
+// Update a medication set (admin only)
+router.patch('/api/anesthesia/medication-sets/:setId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { setId } = req.params;
+    const userId = req.user.id;
+    const { name, description, items: setItemsList } = req.body;
+    
+    // Get the set to verify access
+    const [existingSet] = await db
+      .select({ hospitalId: medicationSets.hospitalId })
+      .from(medicationSets)
+      .where(eq(medicationSets.id, setId));
+    
+    if (!existingSet) {
+      return res.status(404).json({ message: "Medication set not found" });
+    }
+    
+    // Verify user has admin access to this hospital
+    const userRole = await getUserRole(userId, existingSet.hospitalId);
+    if (userRole !== 'admin') {
+      return res.status(403).json({ message: "Only admins can update medication sets" });
+    }
+    
+    // Update the set
+    const [updated] = await db
+      .update(medicationSets)
+      .set({ name, description, updatedAt: new Date() })
+      .where(eq(medicationSets.id, setId))
+      .returning();
+    
+    // Update items if provided
+    if (setItemsList && Array.isArray(setItemsList)) {
+      // Delete existing items
+      await db.delete(medicationSetItems).where(eq(medicationSetItems.setId, setId));
+      
+      // Add new items
+      for (let i = 0; i < setItemsList.length; i++) {
+        const item = setItemsList[i];
+        await db.insert(medicationSetItems).values({
+          setId: setId,
+          medicationConfigId: item.medicationConfigId,
+          customDose: item.customDose || null,
+          sortOrder: i,
+        });
+      }
+    }
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating medication set:", error);
+    res.status(500).json({ message: "Failed to update medication set" });
+  }
+});
+
+// Delete a medication set (admin only)
+router.delete('/api/anesthesia/medication-sets/:setId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { setId } = req.params;
+    const userId = req.user.id;
+    
+    // Get the set to verify access
+    const [existingSet] = await db
+      .select({ hospitalId: medicationSets.hospitalId })
+      .from(medicationSets)
+      .where(eq(medicationSets.id, setId));
+    
+    if (!existingSet) {
+      return res.status(404).json({ message: "Medication set not found" });
+    }
+    
+    // Verify user has admin access to this hospital
+    const userRole = await getUserRole(userId, existingSet.hospitalId);
+    if (userRole !== 'admin') {
+      return res.status(403).json({ message: "Only admins can delete medication sets" });
+    }
+    
+    await db.delete(medicationSets).where(eq(medicationSets.id, setId));
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting medication set:", error);
+    res.status(500).json({ message: "Failed to delete medication set" });
   }
 });
 
