@@ -673,6 +673,13 @@
       "when": 1769330000000,
       "tag": "0096_add_vision_ai_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1769373313665,
+      "tag": "0096_medication_couplings",
+      "breakpoints": true
     }
   ]
 }

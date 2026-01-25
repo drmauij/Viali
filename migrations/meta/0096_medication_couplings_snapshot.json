@@ -1,6 +1,6 @@
 {
-  "id": "7bd80276-f652-489a-8d12-37f5b9a6c301",
-  "prevId": "ef3b1ccf-11dd-4e73-8233-6075fcedb047",
+  "id": "f9d399b9-087e-4795-a930-4e4bd2f5c8dc",
+  "prevId": "7bd80276-f652-489a-8d12-37f5b9a6c301",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1616,6 +1616,131 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.anesthesia_record_medications": {
+      "name": "anesthesia_record_medications",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "anesthesia_record_id": {
+          "name": "anesthesia_record_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "medication_config_id": {
+          "name": "medication_config_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "imported_at": {
+          "name": "imported_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "imported_by": {
+          "name": "imported_by",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_record_medications_record": {
+          "name": "idx_record_medications_record",
+          "columns": [
+            {
+              "expression": "anesthesia_record_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_record_medications_config": {
+          "name": "idx_record_medications_config",
+          "columns": [
+            {
+              "expression": "medication_config_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "anesthesia_record_medications_anesthesia_record_id_anesthesia_records_id_fk": {
+          "name": "anesthesia_record_medications_anesthesia_record_id_anesthesia_records_id_fk",
+          "tableFrom": "anesthesia_record_medications",
+          "tableTo": "anesthesia_records",
+          "columnsFrom": [
+            "anesthesia_record_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "anesthesia_record_medications_medication_config_id_medication_configs_id_fk": {
+          "name": "anesthesia_record_medications_medication_config_id_medication_configs_id_fk",
+          "tableFrom": "anesthesia_record_medications",
+          "tableTo": "medication_configs",
+          "columnsFrom": [
+            "medication_config_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "anesthesia_record_medications_imported_by_users_id_fk": {
+          "name": "anesthesia_record_medications_imported_by_users_id_fk",
+          "tableFrom": "anesthesia_record_medications",
+          "tableTo": "users",
+          "columnsFrom": [
+            "imported_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "uq_record_medication": {
+          "name": "uq_record_medication",
+          "nullsNotDistinct": false,
+          "columns": [
+            "anesthesia_record_id",
+            "medication_config_id"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -9518,6 +9643,13 @@
           "notNull": false,
           "default": 0
         },
+        "on_demand_only": {
+          "name": "on_demand_only",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -9602,6 +9734,181 @@
           "nullsNotDistinct": false,
           "columns": [
             "item_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.medication_couplings": {
+      "name": "medication_couplings",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "primary_medication_config_id": {
+          "name": "primary_medication_config_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "coupled_medication_config_id": {
+          "name": "coupled_medication_config_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "default_dose": {
+          "name": "default_dose",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "hospital_id": {
+          "name": "hospital_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unit_id": {
+          "name": "unit_id",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "varchar",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_medication_couplings_primary": {
+          "name": "idx_medication_couplings_primary",
+          "columns": [
+            {
+              "expression": "primary_medication_config_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_medication_couplings_coupled": {
+          "name": "idx_medication_couplings_coupled",
+          "columns": [
+            {
+              "expression": "coupled_medication_config_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "medication_couplings_primary_medication_config_id_medication_configs_id_fk": {
+          "name": "medication_couplings_primary_medication_config_id_medication_configs_id_fk",
+          "tableFrom": "medication_couplings",
+          "tableTo": "medication_configs",
+          "columnsFrom": [
+            "primary_medication_config_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "medication_couplings_coupled_medication_config_id_medication_configs_id_fk": {
+          "name": "medication_couplings_coupled_medication_config_id_medication_configs_id_fk",
+          "tableFrom": "medication_couplings",
+          "tableTo": "medication_configs",
+          "columnsFrom": [
+            "coupled_medication_config_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "medication_couplings_hospital_id_hospitals_id_fk": {
+          "name": "medication_couplings_hospital_id_hospitals_id_fk",
+          "tableFrom": "medication_couplings",
+          "tableTo": "hospitals",
+          "columnsFrom": [
+            "hospital_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "medication_couplings_unit_id_units_id_fk": {
+          "name": "medication_couplings_unit_id_units_id_fk",
+          "tableFrom": "medication_couplings",
+          "tableTo": "units",
+          "columnsFrom": [
+            "unit_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "medication_couplings_created_by_users_id_fk": {
+          "name": "medication_couplings_created_by_users_id_fk",
+          "tableFrom": "medication_couplings",
+          "tableTo": "users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "uq_medication_coupling": {
+          "name": "uq_medication_coupling",
+          "nullsNotDistinct": false,
+          "columns": [
+            "primary_medication_config_id",
+            "coupled_medication_config_id"
           ]
         }
       },
