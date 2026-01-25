@@ -9,6 +9,9 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUUID = (value: string): boolean => UUID_REGEX.test(value);
+
 type CoupledMedication = {
   id: string;
   primaryMedicationConfigId: string;
@@ -48,6 +51,7 @@ export function CoupledMedicationsTab({
   const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
+  const [addingMedId, setAddingMedId] = useState<string | null>(null);
 
   const { data: couplings = [], isLoading: isLoadingCouplings } = useQuery<CoupledMedication[]>({
     queryKey: ['/api/anesthesia/medication-couplings', medicationConfigId],
@@ -82,6 +86,7 @@ export function CoupledMedicationsTab({
       });
     },
     onSuccess: () => {
+      setAddingMedId(null);
       queryClient.invalidateQueries({ 
         queryKey: ['/api/anesthesia/medication-couplings', medicationConfigId] 
       });
@@ -94,6 +99,7 @@ export function CoupledMedicationsTab({
       });
     },
     onError: (error: any) => {
+      setAddingMedId(null);
       toast({
         variant: "destructive",
         title: t("anesthesia.couplings.error", "Error"),
@@ -127,6 +133,7 @@ export function CoupledMedicationsTab({
   });
 
   const handleAddCoupling = (coupledMedicationConfigId: string) => {
+    setAddingMedId(coupledMedicationConfigId);
     addCouplingMutation.mutate(coupledMedicationConfigId);
   };
 
@@ -260,8 +267,11 @@ export function CoupledMedicationsTab({
                         {med.defaultDose && (
                           <span>{med.defaultDose} {med.administrationUnit}</span>
                         )}
-                        {med.administrationGroup && (
+                        {med.administrationGroup && !isUUID(med.administrationGroup) && (
                           <span className="ml-2">• {med.administrationGroup}</span>
+                        )}
+                        {(!med.administrationGroup || isUUID(med.administrationGroup)) && (
+                          <span className="ml-2 italic text-muted-foreground/70">• {t("anesthesia.couplings.noDistributionGroup", "No distribution group")}</span>
                         )}
                       </div>
                     </div>
@@ -271,7 +281,7 @@ export function CoupledMedicationsTab({
                       disabled={addCouplingMutation.isPending}
                       data-testid={`button-add-med-${med.id}`}
                     >
-                      {addCouplingMutation.isPending ? (
+                      {addingMedId === med.id && addCouplingMutation.isPending ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <Plus className="h-4 w-4" />
