@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Check, Loader2, Plus, Search } from "lucide-react";
+import { Check, Loader2, Plus, Search, PackageOpen } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -124,10 +124,18 @@ export function OnDemandMedicationDialog({
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : filteredMedications.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              {searchQuery
-                ? t("anesthesia.timeline.noMedicationsFound", "No medications found")
-                : t("anesthesia.timeline.noOnDemandMedications", "No on-demand medications configured for this group")}
+            <div className="flex flex-col items-center justify-center h-full p-6 text-center">
+              <PackageOpen className="h-12 w-12 text-muted-foreground/50 mb-3" />
+              <p className="text-muted-foreground font-medium">
+                {searchQuery
+                  ? t("anesthesia.timeline.noMedicationsFound", "No medications found")
+                  : t("anesthesia.timeline.noOnDemandMedications", "No on-demand medications configured for this group")}
+              </p>
+              {!searchQuery && (
+                <p className="text-sm text-muted-foreground/70 mt-2">
+                  {t("anesthesia.timeline.configureOnDemandHint", "Configure medications as 'on-demand' in Admin settings")}
+                </p>
+              )}
             </div>
           ) : (
             <div className="p-2 space-y-1">
