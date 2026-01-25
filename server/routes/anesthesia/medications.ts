@@ -113,7 +113,8 @@ router.post('/api/anesthesia/medications', isAuthenticated, requireWriteAccess, 
           .select({
             coupledMedicationConfigId: medicationCouplings.coupledMedicationConfigId,
             coupledItemId: items.id,
-            defaultDose: medicationCouplings.defaultDose,
+            overrideDose: medicationCouplings.defaultDose,
+            configDefaultDose: medicationConfigs.defaultDose,
           })
           .from(medicationCouplings)
           .innerJoin(medicationConfigs, eq(medicationCouplings.coupledMedicationConfigId, medicationConfigs.id))
@@ -168,12 +169,15 @@ router.post('/api/anesthesia/medications', isAuthenticated, requireWriteAccess, 
 
           // If this is the first dose, also record the coupled medication usage
           if (existingDoses.length <= 1) {
+            // Use override dose from coupling, or fall back to medication config's default dose
+            const effectiveDose = coupling.overrideDose || coupling.configDefaultDose || undefined;
+            
             const coupledMedication = await storage.createAnesthesiaMedication({
               anesthesiaRecordId: validatedData.anesthesiaRecordId,
               itemId: coupling.coupledItemId,
               timestamp: validatedData.timestamp,
               type: 'bolus',
-              dose: coupling.defaultDose || undefined,
+              dose: effectiveDose,
             });
 
             console.log(`[COUPLED-MEDS] Added inventory usage for coupled medication ${coupling.coupledItemId}`);
