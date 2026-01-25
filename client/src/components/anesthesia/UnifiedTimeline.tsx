@@ -48,6 +48,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { StickyTimelineHeader } from "./StickyTimelineHeader";
 import { MedicationConfigDialog } from "./MedicationConfigDialog";
+import { OnDemandMedicationDialog } from "./dialogs/OnDemandMedicationDialog";
 import { EventDialog } from "./dialogs/EventDialog";
 import { HeartRhythmDialog } from "./dialogs/HeartRhythmDialog";
 import { BISDialog } from "./dialogs/BISDialog";
@@ -633,10 +634,46 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     enabled: !!activeHospital?.id,
   });
 
+  // Fetch imported on-demand medications for this record
+  type ImportedMedication = {
+    id: string;
+    medicationConfigId: string;
+    itemId: string;
+    itemName: string;
+    administrationGroup: string | null;
+  };
+  const { data: importedMedications = [] } = useQuery<ImportedMedication[]>({
+    queryKey: ['/api/anesthesia/records', anesthesiaRecordId, 'imported-medications'],
+    queryFn: async () => {
+      if (!anesthesiaRecordId) return [];
+      const response = await fetch(`/api/anesthesia/records/${anesthesiaRecordId}/imported-medications`, {
+        credentials: 'include'
+      });
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: !!anesthesiaRecordId,
+  });
+
+  // Get set of imported item IDs for quick lookup
+  const importedItemIds = useMemo(() => {
+    return new Set(importedMedications.map(m => m.itemId));
+  }, [importedMedications]);
+
   // Filter to only show items with an administration group assigned
+  // Exclude on-demand items unless they are imported to this record
   const anesthesiaItems = useMemo(() => {
-    return allAnesthesiaItems.filter(item => item.administrationGroup);
-  }, [allAnesthesiaItems]);
+    return allAnesthesiaItems.filter(item => {
+      // Must have an administration group
+      if (!item.administrationGroup) return false;
+      // If it's on-demand only, only include if it's been imported to this record
+      if (item.onDemandOnly) {
+        return importedItemIds.has(item.id);
+      }
+      // Regular items are always included
+      return true;
+    });
+  }, [allAnesthesiaItems, importedItemIds]);
   
   // Mutation for saving medication doses - now using centralized persistence service
   const saveMedicationMutation = useMutation({
@@ -1970,6 +2007,10 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   const [selectedAdminGroupForConfig, setSelectedAdminGroupForConfig] = useState<AdministrationGroup | null>(null);
   const [editingItemForConfig, setEditingItemForConfig] = useState<AnesthesiaItem | null>(null);
   const [adminGroupHoverInfo, setAdminGroupHoverInfo] = useState<{ x: number; y: number; groupName: string } | null>(null);
+  
+  // State for on-demand medication selection dialog
+  const [showOnDemandDialog, setShowOnDemandDialog] = useState(false);
+  const [selectedAdminGroupForOnDemand, setSelectedAdminGroupForOnDemand] = useState<AdministrationGroup | null>(null);
 
   // State for ventilation parameter entry
   const [ventilationHoverInfo, setVentilationHoverInfo] = useState<{ x: number; y: number; time: number; paramKey: keyof typeof ventilationData; label: string } | null>(null);
@@ -6729,41 +6770,79 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               ) : swimlaneConfig?.hierarchyLevel === 'group' ? (
                 // For administration group headers, make entire label area clickable to configure medications (admin only)
                 isAdmin ? (
-                  <button
-                    onClick={() => {
-                      // Find the corresponding admin group by matching lane ID format: admingroup-${group.id}
-                      const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
-                      if (adminGroup) {
-                        setSelectedAdminGroupForConfig(adminGroup);
-                        setEditingItemForConfig(null);
-                        setShowMedicationConfigDialog(true);
-                      }
-                    }}
-                    onMouseMove={(e) => {
-                      if (isTouchDevice) return;
-                      const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
-                      if (adminGroup) {
-                        setAdminGroupHoverInfo({
-                          x: e.clientX,
-                          y: e.clientY,
-                          groupName: adminGroup.name,
-                        });
-                      }
-                    }}
-                    onMouseLeave={() => setAdminGroupHoverInfo(null)}
-                    className="flex items-center gap-1 flex-1 text-left cursor-pointer pointer-events-auto"
-                    data-testid={`button-configure-${lane.id}`}
-                    title="Configure Medications"
-                  >
-                    <span className={`${labelClass} text-black dark:text-white`}>
-                      {lane.label}
-                    </span>
-                  </button>
+                  <>
+                    <button
+                      onClick={() => {
+                        // Find the corresponding admin group by matching lane ID format: admingroup-${group.id}
+                        const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
+                        if (adminGroup) {
+                          setSelectedAdminGroupForConfig(adminGroup);
+                          setEditingItemForConfig(null);
+                          setShowMedicationConfigDialog(true);
+                        }
+                      }}
+                      onMouseMove={(e) => {
+                        if (isTouchDevice) return;
+                        const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
+                        if (adminGroup) {
+                          setAdminGroupHoverInfo({
+                            x: e.clientX,
+                            y: e.clientY,
+                            groupName: adminGroup.name,
+                          });
+                        }
+                      }}
+                      onMouseLeave={() => setAdminGroupHoverInfo(null)}
+                      className="flex items-center gap-1 flex-1 text-left cursor-pointer pointer-events-auto"
+                      data-testid={`button-configure-${lane.id}`}
+                      title="Configure Medications"
+                    >
+                      <span className={`${labelClass} text-black dark:text-white`}>
+                        {lane.label}
+                      </span>
+                    </button>
+                    {/* Plus button for on-demand medications (admin users) */}
+                    {!readOnly && anesthesiaRecordId && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
+                          if (adminGroup) {
+                            setSelectedAdminGroupForOnDemand(adminGroup);
+                            setShowOnDemandDialog(true);
+                          }
+                        }}
+                        className="ml-1 p-0.5 rounded hover:bg-background/20 transition-colors pointer-events-auto"
+                        data-testid={`button-add-on-demand-admin-${lane.id}`}
+                        title={t("anesthesia.timeline.addOnDemandMedication", "Add On-Demand Medication")}
+                      >
+                        <Plus className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                      </button>
+                    )}
+                  </>
                 ) : (
                   <div className="flex items-center gap-1 flex-1">
                     <span className={`${labelClass} text-black dark:text-white`}>
                       {lane.label}
                     </span>
+                    {/* Plus button to add on-demand medications (available for all users) */}
+                    {!readOnly && anesthesiaRecordId && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const adminGroup = administrationGroups.find(g => `admingroup-${g.id}` === lane.id);
+                          if (adminGroup) {
+                            setSelectedAdminGroupForOnDemand(adminGroup);
+                            setShowOnDemandDialog(true);
+                          }
+                        }}
+                        className="ml-1 p-0.5 rounded hover:bg-background/20 transition-colors pointer-events-auto"
+                        data-testid={`button-add-on-demand-${lane.id}`}
+                        title={t("anesthesia.timeline.addOnDemandMedication", "Add On-Demand Medication")}
+                      >
+                        <Plus className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                      </button>
+                    )}
                   </div>
                 )
               ) : swimlaneConfig?.hierarchyLevel === 'item' && lane.itemId ? (
@@ -7620,6 +7699,28 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           setSelectedAdminGroupForConfig(null);
         }}
       />
+
+      {/* On-Demand Medication Selection Dialog */}
+      {anesthesiaRecordId && selectedAdminGroupForOnDemand && (
+        <OnDemandMedicationDialog
+          open={showOnDemandDialog}
+          onOpenChange={(open) => {
+            setShowOnDemandDialog(open);
+            if (!open) {
+              setSelectedAdminGroupForOnDemand(null);
+            }
+          }}
+          anesthesiaRecordId={anesthesiaRecordId}
+          administrationGroupId={selectedAdminGroupForOnDemand.id}
+          administrationGroupName={selectedAdminGroupForOnDemand.name}
+          onMedicationImported={() => {
+            // Invalidate imported medications query to refresh the swimlanes
+            queryClient.invalidateQueries({ 
+              queryKey: ['/api/anesthesia/records', anesthesiaRecordId, 'imported-medications'] 
+            });
+          }}
+        />
+      )}
 
       {/* Infusion Value Entry Dialog */}
       <InfusionDialog
