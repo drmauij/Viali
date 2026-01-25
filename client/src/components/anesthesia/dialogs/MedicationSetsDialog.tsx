@@ -97,7 +97,17 @@ export function MedicationSetsDialog({
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch medications');
-      return response.json();
+      const data = await response.json();
+      // Map AnesthesiaItem to AvailableMedication format
+      return data.map((item: { id: string; medicationConfigId?: string; name: string; defaultDose?: string | null; administrationUnit?: string | null; administrationRoute?: string | null; administrationGroup?: string | null }) => ({
+        id: item.medicationConfigId || item.id,
+        itemId: item.id,
+        itemName: item.name,
+        defaultDose: item.defaultDose || null,
+        administrationUnit: item.administrationUnit || null,
+        administrationRoute: item.administrationRoute || null,
+        administrationGroup: item.administrationGroup || null,
+      }));
     },
     enabled: open && !!hospitalId && (showCreateForm || editingSet !== null),
   });
