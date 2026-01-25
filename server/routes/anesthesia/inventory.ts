@@ -639,8 +639,9 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
     for (const item of setItems) {
       try {
         const config = (item.config || {}) as Record<string, any>;
+        const itemType = item.itemType as string;
         
-        switch (item.itemType) {
+        switch (itemType) {
           case 'peripheral_iv':
             await storage.createAnesthesiaInstallation({
               anesthesiaRecordId,
@@ -700,6 +701,9 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
               anesthesiaRecordId,
               airwayDevice: item.itemType,
               size: config.size || null,
+              depth: config.depth ? parseInt(config.depth) : null,
+              cuffPressure: config.cuffPressure ? parseInt(config.cuffPressure) : null,
+              laryngoscopeType: config.laryngoscopeType || null,
               intubationAttempts: config.attempts || 1,
               cormackLehane: config.cormackLehane || null,
               notes: config.notes || null,
@@ -707,6 +711,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             appliedCount++;
             break;
             
+          case 'spinal':
           case 'regional_spinal':
             await storage.createNeuraxialBlock({
               anesthesiaRecordId,
@@ -717,6 +722,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             appliedCount++;
             break;
             
+          case 'epidural':
           case 'regional_epidural':
             await storage.createNeuraxialBlock({
               anesthesiaRecordId,
@@ -727,6 +733,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             appliedCount++;
             break;
             
+          case 'nerve_block':
           case 'regional_peripheral':
             await storage.createPeripheralBlock({
               anesthesiaRecordId,
@@ -735,6 +742,10 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
               guidanceTechnique: config.guidance || 'ultrasound',
               notes: config.notes || null,
             });
+            appliedCount++;
+            break;
+          
+          case 'tci':
             appliedCount++;
             break;
             

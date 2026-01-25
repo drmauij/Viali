@@ -343,6 +343,308 @@ function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, edit
     { value: 'nerve_block', label: 'Peripheral Nerve Block' },
   ];
 
+  const renderItemConfigFields = (item: { itemType: string; configuration: Record<string, any> }, index: number) => {
+    const updateConfig = (field: string, value: any) => {
+      updateFormItem(index, { configuration: { ...item.configuration, [field]: value } });
+    };
+
+    switch (item.itemType) {
+      case 'peripheral_iv':
+        return (
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t mt-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Location</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.location || ""}
+                onChange={(e) => updateConfig('location', e.target.value)}
+                data-testid={`select-set-pv-location-${index}`}
+              >
+                <option value="">Select location</option>
+                <option value="right-hand">Right Hand</option>
+                <option value="left-hand">Left Hand</option>
+                <option value="right-forearm">Right Forearm</option>
+                <option value="left-forearm">Left Forearm</option>
+                <option value="right-ac-fossa">Right AC Fossa</option>
+                <option value="left-ac-fossa">Left AC Fossa</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Gauge</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.gauge || ""}
+                onChange={(e) => updateConfig('gauge', e.target.value)}
+                data-testid={`select-set-pv-gauge-${index}`}
+              >
+                <option value="">Select gauge</option>
+                <option value="14G">14G</option>
+                <option value="16G">16G</option>
+                <option value="18G">18G</option>
+                <option value="20G">20G</option>
+                <option value="22G">22G</option>
+                <option value="24G">24G</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      case 'arterial_line':
+        return (
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t mt-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Location</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.location || ""}
+                onChange={(e) => updateConfig('location', e.target.value)}
+                data-testid={`select-set-arterial-location-${index}`}
+              >
+                <option value="">Select location</option>
+                <option value="radial-left">Radial Left</option>
+                <option value="radial-right">Radial Right</option>
+                <option value="femoral-left">Femoral Left</option>
+                <option value="femoral-right">Femoral Right</option>
+                <option value="brachial">Brachial</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Gauge</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.gauge || ""}
+                onChange={(e) => updateConfig('gauge', e.target.value)}
+                data-testid={`select-set-arterial-gauge-${index}`}
+              >
+                <option value="">Select gauge</option>
+                <option value="18G">18G</option>
+                <option value="20G">20G</option>
+                <option value="22G">22G</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Technique</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.technique || ""}
+                onChange={(e) => updateConfig('technique', e.target.value)}
+                data-testid={`select-set-arterial-technique-${index}`}
+              >
+                <option value="">Select technique</option>
+                <option value="landmark">Landmark</option>
+                <option value="ultrasound">Ultrasound</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      case 'central_line':
+        return (
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t mt-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Location</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.location || ""}
+                onChange={(e) => updateConfig('location', e.target.value)}
+                data-testid={`select-set-cvc-location-${index}`}
+              >
+                <option value="">Select location</option>
+                <option value="right-ijv">Right IJV</option>
+                <option value="left-ijv">Left IJV</option>
+                <option value="right-subclavian">Right Subclavian</option>
+                <option value="left-subclavian">Left Subclavian</option>
+                <option value="right-femoral">Right Femoral</option>
+                <option value="left-femoral">Left Femoral</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Lumens</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.lumens || ""}
+                onChange={(e) => updateConfig('lumens', e.target.value)}
+                data-testid={`select-set-cvc-lumens-${index}`}
+              >
+                <option value="">Select lumens</option>
+                <option value="1">Single</option>
+                <option value="2">Double</option>
+                <option value="3">Triple</option>
+                <option value="4">Quad</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Depth (cm)</Label>
+              <Input
+                type="number"
+                className="h-8"
+                placeholder="e.g. 16"
+                value={item.configuration.depth || ""}
+                onChange={(e) => updateConfig('depth', e.target.value)}
+                data-testid={`input-set-cvc-depth-${index}`}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Technique</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.technique || ""}
+                onChange={(e) => updateConfig('technique', e.target.value)}
+                data-testid={`select-set-cvc-technique-${index}`}
+              >
+                <option value="">Select technique</option>
+                <option value="landmark">Landmark</option>
+                <option value="ultrasound">Ultrasound</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      case 'bladder_catheter':
+        return (
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t mt-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Type</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.bladderType || ""}
+                onChange={(e) => updateConfig('bladderType', e.target.value)}
+                data-testid={`select-set-bladder-type-${index}`}
+              >
+                <option value="">Select type</option>
+                <option value="foley">Foley (Transurethral)</option>
+                <option value="suprapubic">Suprapubic</option>
+                <option value="three-way">Three-way Foley</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Size (Fr)</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.bladderSize || ""}
+                onChange={(e) => updateConfig('bladderSize', e.target.value)}
+                data-testid={`select-set-bladder-size-${index}`}
+              >
+                <option value="">Select size</option>
+                <option value="12">12 Fr</option>
+                <option value="14">14 Fr</option>
+                <option value="16">16 Fr</option>
+                <option value="18">18 Fr</option>
+                <option value="20">20 Fr</option>
+                <option value="22">22 Fr</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      case 'ett':
+        return (
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t mt-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Tube Size</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.size || ""}
+                onChange={(e) => updateConfig('size', e.target.value)}
+                data-testid={`select-set-ett-size-${index}`}
+              >
+                <option value="">Select size</option>
+                <option value="5.0">5.0</option>
+                <option value="5.5">5.5</option>
+                <option value="6.0">6.0</option>
+                <option value="6.5">6.5</option>
+                <option value="7.0">7.0</option>
+                <option value="7.5">7.5</option>
+                <option value="8.0">8.0</option>
+                <option value="8.5">8.5</option>
+                <option value="9.0">9.0</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Depth (cm)</Label>
+              <Input
+                type="number"
+                className="h-8"
+                placeholder="e.g. 22"
+                value={item.configuration.depth || ""}
+                onChange={(e) => updateConfig('depth', e.target.value)}
+                data-testid={`input-set-ett-depth-${index}`}
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Cuff Pressure (cmH₂O)</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.cuffPressure || ""}
+                onChange={(e) => updateConfig('cuffPressure', e.target.value)}
+                data-testid={`select-set-ett-cuff-${index}`}
+              >
+                <option value="">Select pressure</option>
+                <option value="20">20</option>
+                <option value="25">25</option>
+                <option value="30">30</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Laryngoscope</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.laryngoscopeType || ""}
+                onChange={(e) => updateConfig('laryngoscopeType', e.target.value)}
+                data-testid={`select-set-ett-laryngoscope-${index}`}
+              >
+                <option value="">Select type</option>
+                <option value="direct">Direct</option>
+                <option value="video">Video</option>
+                <option value="fiberoptic">Fiberoptic</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      case 'lma':
+        return (
+          <div className="grid grid-cols-2 gap-3 pt-2 border-t mt-2">
+            <div className="space-y-1">
+              <Label className="text-xs">Size</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.size || ""}
+                onChange={(e) => updateConfig('size', e.target.value)}
+                data-testid={`select-set-lma-size-${index}`}
+              >
+                <option value="">Select size</option>
+                <option value="1">1</option>
+                <option value="1.5">1.5</option>
+                <option value="2">2</option>
+                <option value="2.5">2.5</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+              </select>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Cuff Pressure (cmH₂O)</Label>
+              <select
+                className="w-full border rounded-md p-1.5 text-sm bg-background"
+                value={item.configuration.cuffPressure || ""}
+                onChange={(e) => updateConfig('cuffPressure', e.target.value)}
+                data-testid={`select-set-lma-cuff-${index}`}
+              >
+                <option value="">Select pressure</option>
+                <option value="40">40</option>
+                <option value="50">50</option>
+                <option value="60">60</option>
+              </select>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden p-0">
@@ -451,30 +753,33 @@ function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, edit
                       No items added yet. Add items to include in this set.
                     </p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {formItems.map((item, index) => (
-                        <div key={index} className="flex items-center gap-2 py-2">
-                          <Select
-                            value={item.itemType}
-                            onValueChange={(value) => updateFormItem(index, { itemType: value })}
-                          >
-                            <SelectTrigger className="flex-1">
-                              <SelectValue placeholder="Select item type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {itemTypeOptions.map(opt => (
-                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeFormItem(index)}
-                            data-testid={`button-remove-set-item-${index}`}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                        <div key={index} className="border rounded-lg p-3 bg-slate-50 dark:bg-slate-900">
+                          <div className="flex items-center gap-2">
+                            <Select
+                              value={item.itemType}
+                              onValueChange={(value) => updateFormItem(index, { itemType: value, configuration: {} })}
+                            >
+                              <SelectTrigger className="flex-1">
+                                <SelectValue placeholder="Select item type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {itemTypeOptions.map(opt => (
+                                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeFormItem(index)}
+                              data-testid={`button-remove-set-item-${index}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          {renderItemConfigFields(item, index)}
                         </div>
                       ))}
                     </div>
