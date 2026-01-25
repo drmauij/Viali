@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, ExternalLink, UserRoundCog, Send } from "lucide-react";
+import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { Link } from "wouter";
@@ -46,6 +47,38 @@ export default function SurgerySummaryDialog({
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [isPhoneRevealed, setIsPhoneRevealed] = useState(false);
+
+  // Reset phone reveal state when dialog opens
+  useEffect(() => {
+    if (open) {
+      setIsPhoneRevealed(false);
+    }
+  }, [open]);
+
+  const obfuscatePhone = (phone: string): string => {
+    if (!phone || phone.length < 4) return phone;
+    const visibleEnd = phone.slice(-4);
+    const hiddenPart = phone.slice(0, -4).replace(/[0-9]/g, '*');
+    return hiddenPart + visibleEnd;
+  };
+
+  const handleRevealPhone = async () => {
+    if (!isPhoneRevealed && patient?.id && activeHospital?.id) {
+      try {
+        await apiRequest('POST', '/api/activity/log', {
+          action: 'view_patient_phone',
+          resourceType: 'patient',
+          resourceId: patient.id,
+          hospitalId: activeHospital.id,
+          details: { context: 'surgery_summary_dialog', surgeryId }
+        });
+      } catch (error) {
+        console.error('Failed to log phone reveal action:', error);
+      }
+    }
+    setIsPhoneRevealed(!isPhoneRevealed);
+  };
 
   const { data: surgery } = useQuery<any>({
     queryKey: [`/api/anesthesia/surgeries/${surgeryId}`],
@@ -226,7 +259,28 @@ export default function SurgerySummaryDialog({
                   <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.birthday')}</div>
                   <div className="font-medium">{patientBirthday}</div>
                 </div>
-                {patient.patientNumber && (
+                {patient.phone ? (
+                  <div>
+                    <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.phone', 'Phone')}</div>
+                    <div className="font-medium flex items-center gap-1">
+                      <span data-testid="text-patient-phone">
+                        {isPhoneRevealed ? patient.phone : obfuscatePhone(patient.phone)}
+                      </span>
+                      <button
+                        onClick={handleRevealPhone}
+                        className="p-0.5 hover:bg-muted rounded"
+                        data-testid="button-reveal-phone"
+                        title={isPhoneRevealed ? t('anesthesia.surgerySummary.hidePhone', 'Hide phone') : t('anesthesia.surgerySummary.showPhone', 'Show phone')}
+                      >
+                        {isPhoneRevealed ? (
+                          <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />
+                        ) : (
+                          <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                ) : patient.patientNumber && (
                   <div>
                     <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.patientId')}</div>
                     <div className="font-medium">{patient.patientNumber}</div>

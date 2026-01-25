@@ -208,6 +208,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // NOTE: Anesthesia routes (/api/anesthesia/*, /api/patients/*, /api/surgery-rooms/*, /api/medication-groups/*, /api/administration-groups/*) have been moved to server/routes/anesthesia.ts
 
+  // Activity logging endpoint for tracking sensitive data access
+  app.post('/api/activity/log', isAuthenticated, async (req: any, res) => {
+    try {
+      const { action, resourceType, resourceId, hospitalId, details } = req.body;
+      const userId = req.user.id;
+      
+      if (!action || !resourceType || !resourceId) {
+        return res.status(400).json({ message: "Missing required fields: action, resourceType, resourceId" });
+      }
+
+      await storage.createActivity({
+        userId,
+        action,
+        itemId: resourceType === 'item' ? resourceId : undefined,
+        metadata: {
+          resourceType,
+          resourceId,
+          hospitalId: hospitalId || null,
+          ...details
+        },
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error logging activity:", error);
+      // Don't fail the request for logging errors
+      res.json({ success: true, warning: "Activity may not have been logged" });
+    }
+  });
+
   // Get bulk import image limit for a hospital
   app.get('/api/hospitals/:hospitalId/bulk-import-limit', isAuthenticated, async (req: any, res) => {
     try {
