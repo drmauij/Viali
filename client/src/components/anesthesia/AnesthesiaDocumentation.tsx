@@ -345,156 +345,168 @@ function AnesthesiaSetsManageDialog({ open, onOpenChange, hospitalId, sets, edit
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Manage Anesthesia Sets</DialogTitle>
-          <DialogDescription>
-            Create and manage predefined anesthesia configurations for quick application.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden p-0">
+        {/* Fixed Header */}
+        <div className="shrink-0 bg-background border-b px-6 pt-6 pb-4">
+          <DialogHeader>
+            <DialogTitle>Manage Anesthesia Sets</DialogTitle>
+            <DialogDescription>
+              Create and manage predefined anesthesia configurations for quick application.
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-4">
-          {!showForm ? (
-            <>
-              <Button
-                onClick={handleStartCreate}
-                className="w-full"
-                data-testid="button-create-new-set"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create New Set
-              </Button>
+        {/* Scrollable Content */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
+          <div className="space-y-4">
+            {!showForm ? (
+              <>
+                <Button
+                  onClick={handleStartCreate}
+                  className="w-full"
+                  data-testid="button-create-new-set"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create New Set
+                </Button>
 
-              {sets.length === 0 ? (
-                <p className="text-center text-muted-foreground py-6">
-                  No anesthesia sets yet. Create your first one above.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {sets.map((set) => (
-                    <div key={set.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleEditSet(set.id)}>
-                        <p className="font-medium">{set.name}</p>
-                        {set.description && (
-                          <p className="text-sm text-muted-foreground">{set.description}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditSet(set.id)}
-                          disabled={loadingSetId === set.id}
-                          data-testid={`button-edit-set-${set.id}`}
-                        >
-                          {loadingSetId === set.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Pencil className="h-4 w-4" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => deleteMutation.mutate(set.id)}
-                          disabled={deleteMutation.isPending}
-                          data-testid={`button-delete-set-${set.id}`}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="set-name">Set Name *</Label>
-                <Input
-                  id="set-name"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  placeholder="e.g., Standard GA Setup"
-                  data-testid="input-set-name"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="set-description">Description</Label>
-                <Textarea
-                  id="set-description"
-                  value={formDescription}
-                  onChange={(e) => setFormDescription(e.target.value)}
-                  placeholder="Brief description of this set..."
-                  data-testid="input-set-description"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Items in Set ({formItems.length})</Label>
-                  <Button variant="outline" size="sm" onClick={addFormItem}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    Add Item
-                  </Button>
-                </div>
-
-                {formItems.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center border rounded-lg">
-                    No items added yet. Add items to include in this set.
+                {sets.length === 0 ? (
+                  <p className="text-center text-muted-foreground py-6">
+                    No anesthesia sets yet. Create your first one above.
                   </p>
                 ) : (
                   <div className="space-y-2">
-                    {formItems.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2 p-2 border rounded-lg">
-                        <Select
-                          value={item.itemType}
-                          onValueChange={(value) => updateFormItem(index, { itemType: value })}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Select item type" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {itemTypeOptions.map(opt => (
-                              <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeFormItem(index)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                    {sets.map((set) => (
+                      <div key={set.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleEditSet(set.id)}>
+                          <p className="font-medium">{set.name}</p>
+                          {set.description && (
+                            <p className="text-sm text-muted-foreground">{set.description}</p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditSet(set.id)}
+                            disabled={loadingSetId === set.id}
+                            data-testid={`button-edit-set-${set.id}`}
+                          >
+                            {loadingSetId === set.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Pencil className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => deleteMutation.mutate(set.id)}
+                            disabled={deleteMutation.isPending}
+                            data-testid={`button-delete-set-${set.id}`}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
                   </div>
                 )}
-              </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="set-name">Set Name *</Label>
+                  <Input
+                    id="set-name"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    placeholder="e.g., Standard GA Setup"
+                    data-testid="input-set-name"
+                  />
+                </div>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={resetForm}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleSaveSet}
-                  disabled={createMutation.isPending || updateMutation.isPending || !formName.trim()}
-                  data-testid="button-save-set"
-                >
-                  {(createMutation.isPending || updateMutation.isPending) ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <div className="space-y-2">
+                  <Label htmlFor="set-description">Description</Label>
+                  <Textarea
+                    id="set-description"
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    placeholder="Brief description of this set..."
+                    data-testid="input-set-description"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label>Items in Set ({formItems.length})</Label>
+                    <Button variant="outline" size="sm" onClick={addFormItem} data-testid="button-add-set-item">
+                      <Plus className="h-4 w-4 mr-1" />
+                      Add Item
+                    </Button>
+                  </div>
+
+                  {formItems.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4 text-center border rounded-lg">
+                      No items added yet. Add items to include in this set.
+                    </p>
                   ) : (
-                    <Check className="h-4 w-4 mr-2" />
+                    <div className="space-y-2">
+                      {formItems.map((item, index) => (
+                        <div key={index} className="flex items-center gap-2 py-2">
+                          <Select
+                            value={item.itemType}
+                            onValueChange={(value) => updateFormItem(index, { itemType: value })}
+                          >
+                            <SelectTrigger className="flex-1">
+                              <SelectValue placeholder="Select item type" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {itemTypeOptions.map(opt => (
+                                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeFormItem(index)}
+                            data-testid={`button-remove-set-item-${index}`}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   )}
-                  {editingSetId ? 'Update Set' : 'Save Set'}
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Fixed Footer - only show when in form mode */}
+        {showForm && (
+          <div className="shrink-0 bg-background border-t px-6 py-4">
+            <DialogFooter>
+              <Button variant="outline" onClick={resetForm}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveSet}
+                disabled={createMutation.isPending || updateMutation.isPending || !formName.trim()}
+                data-testid="button-save-set"
+              >
+                {(createMutation.isPending || updateMutation.isPending) ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Check className="h-4 w-4 mr-2" />
+                )}
+                {editingSetId ? 'Update Set' : 'Save Set'}
+              </Button>
+            </DialogFooter>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
