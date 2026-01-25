@@ -35,7 +35,6 @@ import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
 import AnesthesiaRecordButton from "@/components/anesthesia/AnesthesiaRecordButton";
 import { EditSurgeryDialog } from "@/components/anesthesia/EditSurgeryDialog";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
-import { PatientCommunicationContent } from "@/components/anesthesia/PatientCommunicationContent";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
 import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
@@ -3329,6 +3328,15 @@ export default function PatientDetail() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  onClick={() => setIsSendQuestionnaireOpen(true)}
+                  data-testid="button-preop-communication"
+                  title={t('common.patientCommunication', 'Patient Communication')}
+                >
+                  <Send className="h-5 w-5 text-primary" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => {
                     // If opened via URL navigation, use history.back() to return to previous page
                     // If opened via button click, just close the dialog
@@ -3522,10 +3530,9 @@ export default function PatientDetail() {
               <Tabs defaultValue="assessment" className="h-full flex flex-col">
             <div className="px-6 shrink-0">
               <div className="mb-4">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="assessment" data-testid="tab-assessment">{t('anesthesia.patientDetail.preOpAssessment')}</TabsTrigger>
                   <TabsTrigger value="consent" data-testid="tab-consent">{t('anesthesia.patientDetail.informedConsent')}</TabsTrigger>
-                  <TabsTrigger value="communication" data-testid="tab-communication">{t('common.patientCommunication', 'Communication')}</TabsTrigger>
                 </TabsList>
               </div>
             </div>
@@ -5443,25 +5450,6 @@ export default function PatientDetail() {
               </Card>
             </TabsContent>
             
-            <TabsContent value="communication" className="flex-1 overflow-y-auto px-6 pb-6 space-y-6 mt-0">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Send className="h-5 w-5" />
-                    {t('common.patientCommunication', 'Patient Communication')}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <PatientCommunicationContent
-                    patientId={patient?.id || ''}
-                    patientName={patient ? `${patient.firstName} ${patient.surname}` : ''}
-                    patientEmail={patient?.email}
-                    patientPhone={patient?.phone}
-                    isEnabled={!!patient?.id}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
               </Tabs>
             </ResizablePanel>
             
