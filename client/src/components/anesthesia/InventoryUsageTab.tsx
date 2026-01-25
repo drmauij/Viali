@@ -1206,7 +1206,7 @@ function InventorySetsManageDialog({ open, onOpenChange, hospitalId, unitId, set
                   ) : (
                     <div className="space-y-2">
                       {formItems.map((item, index) => (
-                        <div key={index} className="flex items-center gap-2 p-2 border rounded-lg">
+                        <div key={index} className="flex items-center gap-2 py-2">
                           <Popover 
                             open={openPopoverIndex === index} 
                             onOpenChange={(isOpen) => setOpenPopoverIndex(isOpen ? index : null)}
