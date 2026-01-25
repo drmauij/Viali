@@ -1098,9 +1098,9 @@ function InventorySetsManageDialog({ open, onOpenChange, hospitalId, unitId, set
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0">
-        {/* Sticky Header */}
-        <div className="sticky top-0 z-10 bg-background border-b px-6 pt-6 pb-4">
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden p-0">
+        {/* Fixed Header */}
+        <div className="shrink-0 bg-background border-b px-6 pt-6 pb-4">
           <DialogHeader>
             <DialogTitle>Manage Inventory Sets</DialogTitle>
             <DialogDescription>
@@ -1110,7 +1110,7 @@ function InventorySetsManageDialog({ open, onOpenChange, hospitalId, unitId, set
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 min-h-0 overflow-y-auto px-6 py-4">
           <div className="space-y-4">
             {!showForm ? (
               <>
@@ -1301,9 +1301,9 @@ function InventorySetsManageDialog({ open, onOpenChange, hospitalId, unitId, set
           </div>
         </div>
 
-        {/* Sticky Footer - only show when in form mode */}
+        {/* Fixed Footer - only show when in form mode */}
         {showForm && (
-          <div className="sticky bottom-0 z-10 bg-background border-t px-6 py-4">
+          <div className="shrink-0 bg-background border-t px-6 py-4">
             <DialogFooter>
               <Button variant="outline" onClick={resetForm}>
                 Cancel
