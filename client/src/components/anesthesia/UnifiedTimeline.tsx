@@ -6331,8 +6331,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onResetZoom={handleResetZoom}
         onCameraCapture={handleCameraCapture}
         onVoiceCommand={handleVoiceCommand}
-        showSetsButton={canWrite && !!anesthesiaRecordId}
-        onOpenSets={() => setShowMedicationSetsDialog(true)}
       />
       
       {/* Record Lock Status Indicator - shown when record is locked */}

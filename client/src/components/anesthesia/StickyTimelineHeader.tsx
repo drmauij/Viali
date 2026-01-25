@@ -586,20 +586,6 @@ export function StickyTimelineHeader({
         style={{ left: `${mediaPosition.x}px`, top: `${mediaPosition.y}px`, transform: 'translate(-50%, -50%)' }}
         data-testid="timeline-media-controls-panel"
       >
-        {/* Sets Button - Opens unified anesthesia sets dialog */}
-        {showSetsButton && onOpenSets && (
-          <button
-            data-testid="button-sets"
-            onClick={(e) => { e.stopPropagation(); onOpenSets(); }}
-            onMouseDown={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
-            className="hover:bg-muted active:bg-muted/80 rounded-md h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 flex items-center justify-center transition-colors touch-manipulation cursor-pointer pointer-events-auto"
-            title="Anesthesia Sets"
-          >
-            <Layers className="h-4 w-4 sm:h-5 sm:w-5" />
-          </button>
-        )}
-        
         {/* Camera Button - Re-enable pointer events for individual buttons in edit mode */}
         <button
           data-testid="button-camera"

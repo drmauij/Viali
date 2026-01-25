@@ -22,6 +22,7 @@ import { WHOChecklistCard } from "@/components/anesthesia/WHOChecklistCard";
 import { PatientWeightDialog } from "@/components/anesthesia/dialogs/PatientWeightDialog";
 import { DuplicateRecordsDialog } from "@/components/anesthesia/DuplicateRecordsDialog";
 import { CameraConnectionDialog } from "@/components/anesthesia/dialogs/CameraConnectionDialog";
+import { UnifiedAnesthesiaSetsDialog } from "@/components/anesthesia/dialogs/UnifiedAnesthesiaSetsDialog";
 import { useOpData } from "@/hooks/useOpData";
 import { useChecklistState } from "@/hooks/useChecklistState";
 import { usePacuDataFiltering } from "@/hooks/usePacuDataFiltering";
@@ -87,6 +88,7 @@ import {
   MinusCircle,
   MessageSquareText,
   BedDouble,
+  Layers,
   Camera,
   Image,
   ToggleLeft,
@@ -99,6 +101,7 @@ export default function Op() {
   const [location, setLocation] = useLocation();
   const [isOpen, setIsOpen] = useState(true);
   const [openEventsPanel, setOpenEventsPanel] = useState(false);
+  const [showSetsDialog, setShowSetsDialog] = useState(false);
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
   const { activeModule } = useModule();
@@ -1374,6 +1377,22 @@ export default function Op() {
       isSaving={isSavingCamera}
     />
     
+    {/* Unified Anesthesia Sets Dialog */}
+    {activeHospital?.id && (
+      <UnifiedAnesthesiaSetsDialog
+        open={showSetsDialog}
+        onOpenChange={setShowSetsDialog}
+        hospitalId={activeHospital.id}
+        recordId={anesthesiaRecord?.id}
+        isAdmin={activeHospital?.role === 'admin'}
+        onSetApplied={() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/medications', anesthesiaRecord?.id] });
+          queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecord?.id] });
+          queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/records', anesthesiaRecord?.id] });
+        }}
+      />
+    )}
+    
     <Dialog open={isOpen && !showWeightDialog && !showDuplicatesDialog} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
         <h2 className="sr-only" id="op-dialog-title">{isPacuMode ? t('anesthesia.op.pacuMonitor') : t('anesthesia.op.intraoperativeMonitoring')} - {t('anesthesia.op.patient')} {surgery.patientId}</h2>
@@ -1503,6 +1522,18 @@ export default function Op() {
                       <span className="hidden sm:inline">OP</span>
                     </>
                   )}
+                </Button>
+              )}
+              {!isSurgeryMode && anesthesiaRecord?.id && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center gap-1 sm:gap-2 shrink-0"
+                  data-testid="button-open-sets"
+                  onClick={() => setShowSetsDialog(true)}
+                >
+                  <Layers className="h-4 w-4" />
+                  <span className="hidden sm:inline">{t('anesthesia.sets.title', 'Sets')}</span>
                 </Button>
               )}
               {!isSurgeryMode && (
