@@ -56,7 +56,6 @@ import { TOFDialog } from "./dialogs/TOFDialog";
 import { PositionDialog } from "./dialogs/PositionDialog";
 import { MedicationDoseDialog } from "./dialogs/MedicationDoseDialog";
 import { MedicationEditDialog } from "./dialogs/MedicationEditDialog";
-import { UnifiedAnesthesiaSetsDialog } from "./dialogs/UnifiedAnesthesiaSetsDialog";
 import { VentilationDialog } from "./dialogs/VentilationDialog";
 import { VentilationEditDialog } from "./dialogs/VentilationEditDialog";
 import { VentilationModeEditDialog } from "./dialogs/VentilationModeEditDialog";
@@ -2012,9 +2011,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // State for on-demand medication selection dialog
   const [showOnDemandDialog, setShowOnDemandDialog] = useState(false);
   const [selectedAdminGroupForOnDemand, setSelectedAdminGroupForOnDemand] = useState<AdministrationGroup | null>(null);
-
-  // State for medication sets dialog
-  const [showMedicationSetsDialog, setShowMedicationSetsDialog] = useState(false);
 
   // State for ventilation parameter entry
   const [ventilationHoverInfo, setVentilationHoverInfo] = useState<{ x: number; y: number; time: number; paramKey: keyof typeof ventilationData; label: string } | null>(null);
@@ -6759,20 +6755,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   </button>
                   {isMedParent && !collapsedSwimlanes.has(lane.id) && (
                     <>
-                      {/* Medication Sets button - available to all users with write access */}
-                      {canWrite && anesthesiaRecordId && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowMedicationSetsDialog(true);
-                          }}
-                          className="hover:bg-background/10 transition-colors rounded p-1 pointer-events-auto ml-1"
-                          data-testid="button-medication-sets"
-                          title={t("anesthesia.sets.title", "Medication Sets")}
-                        >
-                          <Layers className="w-4 h-4 text-foreground/70" />
-                        </button>
-                      )}
                       {/* Reorder button - admin only */}
                       {isAdmin && (
                         <button
@@ -9402,22 +9384,6 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }}
         readOnly={!canWrite}
       />
-
-      {/* Unified Anesthesia Sets Dialog */}
-      {activeHospital?.id && (
-        <UnifiedAnesthesiaSetsDialog
-          open={showMedicationSetsDialog}
-          onOpenChange={setShowMedicationSetsDialog}
-          hospitalId={activeHospital.id}
-          recordId={anesthesiaRecordId}
-          isAdmin={isAdmin}
-          onSetApplied={() => {
-            queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/medications', anesthesiaRecordId] });
-            queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId] });
-            queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/records', anesthesiaRecordId] });
-          }}
-        />
-      )}
 
       {/* Ventilation Value Edit Dialog */}
       <VentilationEditDialog
