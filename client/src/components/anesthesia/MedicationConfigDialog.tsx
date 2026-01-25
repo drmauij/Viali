@@ -15,10 +15,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Loader2, Check, ChevronsUpDown, Plus, Trash2, Copy } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, Check, ChevronsUpDown, Plus, Trash2, Copy, Link2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { CoupledMedicationsTab } from "./CoupledMedicationsTab";
 
 type Item = {
   id: string;
@@ -78,6 +80,9 @@ export function MedicationConfigDialog({
 
   // Quick add form state
   const [quickAddName, setQuickAddName] = useState("");
+  
+  // Tab state (only used in edit mode)
+  const [activeTab, setActiveTab] = useState<"config" | "couplings">("config");
 
   // Fetch ALL inventory items from the anesthesia unit (not just configured ones)
   const { data: allInventoryItems = [] } = useQuery<Item[]>({
@@ -323,8 +328,25 @@ export function MedicationConfigDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-          {/* Item Selection with Searchable Combobox */}
+        {/* Show tabs when editing an existing medication */}
+        {editingItem && (
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "config" | "couplings")} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="config" data-testid="tab-configuration">
+                {t("anesthesia.couplings.configurationTab", "Configuration")}
+              </TabsTrigger>
+              <TabsTrigger value="couplings" data-testid="tab-couplings">
+                <Link2 className="h-4 w-4 mr-1" />
+                {t("anesthesia.couplings.couplingsTab", "Coupled")}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        )}
+
+        {/* Configuration tab content or form for new medications */}
+        {(!editingItem || activeTab === "config") && (
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            {/* Item Selection with Searchable Combobox */}
           <div className="grid gap-2">
             <Label>{t("anesthesia.timeline.selectItem")}</Label>
             <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
@@ -574,7 +596,18 @@ export function MedicationConfigDialog({
               </div>
             </>
           )}
-        </div>
+          </div>
+        )}
+
+        {/* Coupled Medications tab content - only shown in edit mode when tab is selected */}
+        {editingItem && activeTab === "couplings" && (
+          <div className="py-4 max-h-[60vh] overflow-y-auto">
+            <CoupledMedicationsTab
+              medicationConfigId={editingItem.id}
+              medicationName={editingItem.name}
+            />
+          </div>
+        )}
 
         <DialogFooter>
           <div className="flex justify-between w-full">

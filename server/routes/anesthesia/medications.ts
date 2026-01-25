@@ -5,9 +5,13 @@ import { isAuthenticated } from "../../auth/google";
 import {
   insertAnesthesiaMedicationSchema,
   anesthesiaMedications,
+  medicationConfigs,
+  medicationCouplings,
+  anesthesiaRecordMedications,
+  items,
 } from "@shared/schema";
 import { z } from "zod";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { requireWriteAccess } from "../../utils";
 import { broadcastAnesthesiaUpdate } from "../../socket";
 
@@ -94,6 +98,102 @@ router.post('/api/anesthesia/medications', isAuthenticated, requireWriteAccess, 
       userId,
       clientSessionId: getClientSessionId(req),
     });
+
+    // Auto-import coupled medications
+    try {
+      // 1. Find the medication config for this item
+      const [medConfig] = await db
+        .select({ id: medicationConfigs.id })
+        .from(medicationConfigs)
+        .where(eq(medicationConfigs.itemId, validatedData.itemId));
+
+      if (medConfig) {
+        // 2. Find all coupled medications for this medication config
+        const couplings = await db
+          .select({
+            coupledMedicationConfigId: medicationCouplings.coupledMedicationConfigId,
+            coupledItemId: items.id,
+            defaultDose: medicationCouplings.defaultDose,
+          })
+          .from(medicationCouplings)
+          .innerJoin(medicationConfigs, eq(medicationCouplings.coupledMedicationConfigId, medicationConfigs.id))
+          .innerJoin(items, eq(medicationConfigs.itemId, items.id))
+          .where(eq(medicationCouplings.primaryMedicationConfigId, medConfig.id));
+
+        // 3. For each coupled medication, auto-import it to the record (if not already)
+        for (const coupling of couplings) {
+          // Check if already imported
+          const [existingImport] = await db
+            .select({ id: anesthesiaRecordMedications.id })
+            .from(anesthesiaRecordMedications)
+            .where(
+              and(
+                eq(anesthesiaRecordMedications.anesthesiaRecordId, validatedData.anesthesiaRecordId),
+                eq(anesthesiaRecordMedications.medicationConfigId, coupling.coupledMedicationConfigId)
+              )
+            );
+
+          if (!existingImport) {
+            // Auto-import the coupled medication
+            await db.insert(anesthesiaRecordMedications).values({
+              anesthesiaRecordId: validatedData.anesthesiaRecordId,
+              medicationConfigId: coupling.coupledMedicationConfigId,
+              importedBy: userId,
+            });
+
+            console.log(`[COUPLED-MEDS] Auto-imported coupled medication ${coupling.coupledMedicationConfigId} for record ${validatedData.anesthesiaRecordId}`);
+            
+            // Broadcast the import update for real-time UI
+            broadcastAnesthesiaUpdate({
+              recordId: validatedData.anesthesiaRecordId,
+              section: 'recordMedications',
+              data: { medicationConfigId: coupling.coupledMedicationConfigId },
+              timestamp: Date.now(),
+              userId,
+              clientSessionId: getClientSessionId(req),
+            });
+          }
+
+          // 4. Add the coupled medication to inventory as "used" (create a medication record)
+          // Only add if this is the first dose of the primary medication in this record
+          const existingDoses = await db
+            .select({ id: anesthesiaMedications.id })
+            .from(anesthesiaMedications)
+            .where(
+              and(
+                eq(anesthesiaMedications.anesthesiaRecordId, validatedData.anesthesiaRecordId),
+                eq(anesthesiaMedications.itemId, validatedData.itemId)
+              )
+            );
+
+          // If this is the first dose, also record the coupled medication usage
+          if (existingDoses.length <= 1) {
+            const coupledMedication = await storage.createAnesthesiaMedication({
+              anesthesiaRecordId: validatedData.anesthesiaRecordId,
+              itemId: coupling.coupledItemId,
+              timestamp: validatedData.timestamp,
+              type: 'bolus',
+              dose: coupling.defaultDose || undefined,
+            });
+
+            console.log(`[COUPLED-MEDS] Added inventory usage for coupled medication ${coupling.coupledItemId}`);
+            
+            // Broadcast the coupled medication for real-time UI
+            broadcastAnesthesiaUpdate({
+              recordId: validatedData.anesthesiaRecordId,
+              section: 'medications',
+              data: coupledMedication,
+              timestamp: Date.now(),
+              userId,
+              clientSessionId: getClientSessionId(req),
+            });
+          }
+        }
+      }
+    } catch (couplingError) {
+      // Log but don't fail the main medication creation
+      console.error('[COUPLED-MEDS] Error processing coupled medications:', couplingError);
+    }
     
     res.status(201).json(newMedication);
   } catch (error) {

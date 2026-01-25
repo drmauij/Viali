@@ -1199,6 +1199,29 @@ export const anesthesiaRecordMedications = pgTable("anesthesia_record_medication
   unique("uq_record_medication").on(table.anesthesiaRecordId, table.medicationConfigId),
 ]);
 
+// Medication Couplings - Define medications that should be automatically added together
+// Example: When Kefzol is given, NaCl 0.9% 100ml is automatically added as the diluent
+export const medicationCouplings = pgTable("medication_couplings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  primaryMedicationConfigId: varchar("primary_medication_config_id").notNull().references(() => medicationConfigs.id, { onDelete: 'cascade' }),
+  coupledMedicationConfigId: varchar("coupled_medication_config_id").notNull().references(() => medicationConfigs.id, { onDelete: 'cascade' }),
+  
+  // Optional: default dose/quantity for the coupled medication
+  defaultDose: varchar("default_dose"),
+  notes: text("notes"),
+  
+  // Scope: hospital-level or unit-level coupling
+  hospitalId: varchar("hospital_id").references(() => hospitals.id, { onDelete: 'cascade' }),
+  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }),
+  
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+}, (table) => [
+  index("idx_medication_couplings_primary").on(table.primaryMedicationConfigId),
+  index("idx_medication_couplings_coupled").on(table.coupledMedicationConfigId),
+  unique("uq_medication_coupling").on(table.primaryMedicationConfigId, table.coupledMedicationConfigId),
+]);
+
 // Anesthesia Installations - Track peripheral/arterial/central line placements
 export const anesthesiaInstallations = pgTable("anesthesia_installations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2234,8 +2257,26 @@ export const checklistCompletionsRelations = relations(checklistCompletions, ({ 
   completedByUser: one(users, { fields: [checklistCompletions.completedBy], references: [users.id] }),
 }));
 
-export const medicationConfigsRelations = relations(medicationConfigs, ({ one }) => ({
+export const medicationConfigsRelations = relations(medicationConfigs, ({ one, many }) => ({
   item: one(items, { fields: [medicationConfigs.itemId], references: [items.id] }),
+  couplings: many(medicationCouplings, { relationName: 'primaryMedication' }),
+  coupledTo: many(medicationCouplings, { relationName: 'coupledMedication' }),
+}));
+
+export const medicationCouplingsRelations = relations(medicationCouplings, ({ one }) => ({
+  primaryMedication: one(medicationConfigs, { 
+    fields: [medicationCouplings.primaryMedicationConfigId], 
+    references: [medicationConfigs.id],
+    relationName: 'primaryMedication'
+  }),
+  coupledMedication: one(medicationConfigs, { 
+    fields: [medicationCouplings.coupledMedicationConfigId], 
+    references: [medicationConfigs.id],
+    relationName: 'coupledMedication'
+  }),
+  hospital: one(hospitals, { fields: [medicationCouplings.hospitalId], references: [hospitals.id] }),
+  unit: one(units, { fields: [medicationCouplings.unitId], references: [units.id] }),
+  createdByUser: one(users, { fields: [medicationCouplings.createdBy], references: [users.id] }),
 }));
 
 // Insert schemas
@@ -2354,6 +2395,11 @@ export const insertMedicationConfigSchema = createInsertSchema(medicationConfigs
 export const insertAnesthesiaRecordMedicationSchema = createInsertSchema(anesthesiaRecordMedications).omit({
   id: true,
   importedAt: true,
+});
+
+export const insertMedicationCouplingSchema = createInsertSchema(medicationCouplings).omit({
+  id: true,
+  createdAt: true,
 });
 
 export const insertMedicationGroupSchema = createInsertSchema(medicationGroups).omit({
@@ -3131,6 +3177,8 @@ export type MedicationConfig = typeof medicationConfigs.$inferSelect;
 export type InsertMedicationConfig = z.infer<typeof insertMedicationConfigSchema>;
 export type AnesthesiaRecordMedication = typeof anesthesiaRecordMedications.$inferSelect;
 export type InsertAnesthesiaRecordMedication = z.infer<typeof insertAnesthesiaRecordMedicationSchema>;
+export type MedicationCoupling = typeof medicationCouplings.$inferSelect;
+export type InsertMedicationCoupling = z.infer<typeof insertMedicationCouplingSchema>;
 export type MedicationGroup = typeof medicationGroups.$inferSelect;
 export type InsertMedicationGroup = z.infer<typeof insertMedicationGroupSchema>;
 export type AdministrationGroup = typeof administrationGroups.$inferSelect;

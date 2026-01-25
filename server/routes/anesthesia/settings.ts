@@ -3,9 +3,11 @@ import { storage, db } from "../../storage";
 import { isAuthenticated } from "../../auth/google";
 import {
   insertHospitalAnesthesiaSettingsSchema,
+  insertMedicationCouplingSchema,
   items,
   units,
   medicationConfigs,
+  medicationCouplings,
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
@@ -461,6 +463,254 @@ router.patch('/api/anesthesia/settings/:hospitalId', isAuthenticated, requireWri
     }
     console.error("Error updating anesthesia settings:", error);
     res.status(500).json({ message: "Failed to update anesthesia settings" });
+  }
+});
+
+// ============ Medication Couplings API ============
+
+// Helper function to verify user has access to a medication config
+async function verifyMedicationConfigAccess(userId: string, medicationConfigId: string): Promise<{ hasAccess: boolean; hospitalId?: string }> {
+  const [config] = await db
+    .select({ itemId: medicationConfigs.itemId })
+    .from(medicationConfigs)
+    .where(eq(medicationConfigs.id, medicationConfigId));
+  
+  if (!config) return { hasAccess: false };
+  
+  const [item] = await db
+    .select({ hospitalId: items.hospitalId })
+    .from(items)
+    .where(eq(items.id, config.itemId));
+  
+  if (!item || !item.hospitalId) return { hasAccess: false };
+  
+  const hospitals = await storage.getUserHospitals(userId);
+  const hasAccess = hospitals.some(h => h.id === item.hospitalId);
+  
+  return { hasAccess, hospitalId: item.hospitalId };
+}
+
+// Get all couplings for a medication config
+router.get('/api/anesthesia/medication-couplings/:medicationConfigId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { medicationConfigId } = req.params;
+    const userId = req.user.id;
+    
+    // Verify access to the medication config
+    const { hasAccess } = await verifyMedicationConfigAccess(userId, medicationConfigId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this medication config" });
+    }
+    
+    const couplings = await db
+      .select({
+        id: medicationCouplings.id,
+        primaryMedicationConfigId: medicationCouplings.primaryMedicationConfigId,
+        coupledMedicationConfigId: medicationCouplings.coupledMedicationConfigId,
+        defaultDose: medicationCouplings.defaultDose,
+        notes: medicationCouplings.notes,
+        hospitalId: medicationCouplings.hospitalId,
+        unitId: medicationCouplings.unitId,
+        createdAt: medicationCouplings.createdAt,
+        coupledItemId: items.id,
+        coupledItemName: items.name,
+        coupledDefaultDose: medicationConfigs.defaultDose,
+        coupledAdministrationUnit: medicationConfigs.administrationUnit,
+        coupledAdministrationRoute: medicationConfigs.administrationRoute,
+      })
+      .from(medicationCouplings)
+      .innerJoin(medicationConfigs, eq(medicationCouplings.coupledMedicationConfigId, medicationConfigs.id))
+      .innerJoin(items, eq(medicationConfigs.itemId, items.id))
+      .where(eq(medicationCouplings.primaryMedicationConfigId, medicationConfigId));
+    
+    res.json(couplings);
+  } catch (error) {
+    console.error("Error fetching medication couplings:", error);
+    res.status(500).json({ message: "Failed to fetch medication couplings" });
+  }
+});
+
+// Search available medications to couple (excludes already coupled ones)
+router.get('/api/anesthesia/medication-couplings/:medicationConfigId/available', isAuthenticated, async (req: any, res) => {
+  try {
+    const { medicationConfigId } = req.params;
+    const userId = req.user.id;
+    const search = (req.query.search as string || '').toLowerCase();
+    
+    // Verify access to the primary medication config
+    const { hasAccess, hospitalId } = await verifyMedicationConfigAccess(userId, medicationConfigId);
+    if (!hasAccess || !hospitalId) {
+      return res.status(403).json({ message: "Access denied to this medication config" });
+    }
+    
+    // Get medication configs with item names - only from the same hospital
+    const allMedications = await db
+      .select({
+        id: medicationConfigs.id,
+        itemId: items.id,
+        itemName: items.name,
+        defaultDose: medicationConfigs.defaultDose,
+        administrationUnit: medicationConfigs.administrationUnit,
+        administrationRoute: medicationConfigs.administrationRoute,
+        administrationGroup: medicationConfigs.administrationGroup,
+      })
+      .from(medicationConfigs)
+      .innerJoin(items, eq(medicationConfigs.itemId, items.id))
+      .where(eq(items.hospitalId, hospitalId));
+    
+    // Get already coupled medication config IDs
+    const existingCouplings = await db
+      .select({ coupledId: medicationCouplings.coupledMedicationConfigId })
+      .from(medicationCouplings)
+      .where(eq(medicationCouplings.primaryMedicationConfigId, medicationConfigId));
+    
+    const existingCoupledIds = new Set(existingCouplings.map(c => c.coupledId));
+    
+    // Filter: exclude the primary medication itself and already coupled ones
+    const available = allMedications.filter(med => 
+      med.id !== medicationConfigId && 
+      !existingCoupledIds.has(med.id) &&
+      (search === '' || med.itemName.toLowerCase().includes(search))
+    );
+    
+    res.json(available);
+  } catch (error) {
+    console.error("Error searching available medications:", error);
+    res.status(500).json({ message: "Failed to search medications" });
+  }
+});
+
+// Create a new medication coupling
+router.post('/api/anesthesia/medication-couplings', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const { primaryMedicationConfigId, coupledMedicationConfigId } = req.body;
+    
+    // Verify access to the primary medication config
+    const primaryAccess = await verifyMedicationConfigAccess(userId, primaryMedicationConfigId);
+    if (!primaryAccess.hasAccess) {
+      return res.status(403).json({ message: "Access denied to primary medication config" });
+    }
+    
+    // Verify access to the coupled medication config
+    const coupledAccess = await verifyMedicationConfigAccess(userId, coupledMedicationConfigId);
+    if (!coupledAccess.hasAccess) {
+      return res.status(403).json({ message: "Access denied to coupled medication config" });
+    }
+    
+    // Ensure both medications belong to the same hospital (prevent cross-hospital couplings)
+    if (primaryAccess.hospitalId !== coupledAccess.hospitalId) {
+      return res.status(400).json({ message: "Cannot create coupling between medications from different hospitals" });
+    }
+    
+    const validatedData = insertMedicationCouplingSchema.parse({
+      ...req.body,
+      createdBy: userId,
+    });
+    
+    const [newCoupling] = await db
+      .insert(medicationCouplings)
+      .values(validatedData)
+      .returning();
+    
+    // Return the coupling with item details
+    const [result] = await db
+      .select({
+        id: medicationCouplings.id,
+        primaryMedicationConfigId: medicationCouplings.primaryMedicationConfigId,
+        coupledMedicationConfigId: medicationCouplings.coupledMedicationConfigId,
+        defaultDose: medicationCouplings.defaultDose,
+        notes: medicationCouplings.notes,
+        hospitalId: medicationCouplings.hospitalId,
+        unitId: medicationCouplings.unitId,
+        createdAt: medicationCouplings.createdAt,
+        coupledItemId: items.id,
+        coupledItemName: items.name,
+        coupledDefaultDose: medicationConfigs.defaultDose,
+        coupledAdministrationUnit: medicationConfigs.administrationUnit,
+        coupledAdministrationRoute: medicationConfigs.administrationRoute,
+      })
+      .from(medicationCouplings)
+      .innerJoin(medicationConfigs, eq(medicationCouplings.coupledMedicationConfigId, medicationConfigs.id))
+      .innerJoin(items, eq(medicationConfigs.itemId, items.id))
+      .where(eq(medicationCouplings.id, newCoupling.id));
+    
+    res.status(201).json(result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid data", errors: error.errors });
+    }
+    console.error("Error creating medication coupling:", error);
+    res.status(500).json({ message: "Failed to create medication coupling" });
+  }
+});
+
+// Update a medication coupling
+router.patch('/api/anesthesia/medication-couplings/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { defaultDose, notes } = req.body;
+    
+    // Get the coupling first to verify access
+    const [coupling] = await db
+      .select({ primaryMedicationConfigId: medicationCouplings.primaryMedicationConfigId })
+      .from(medicationCouplings)
+      .where(eq(medicationCouplings.id, id));
+    
+    if (!coupling) {
+      return res.status(404).json({ message: "Coupling not found" });
+    }
+    
+    // Verify access to the primary medication config
+    const { hasAccess } = await verifyMedicationConfigAccess(userId, coupling.primaryMedicationConfigId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this medication coupling" });
+    }
+    
+    const [updated] = await db
+      .update(medicationCouplings)
+      .set({ defaultDose, notes })
+      .where(eq(medicationCouplings.id, id))
+      .returning();
+    
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating medication coupling:", error);
+    res.status(500).json({ message: "Failed to update medication coupling" });
+  }
+});
+
+// Delete a medication coupling
+router.delete('/api/anesthesia/medication-couplings/:id', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    
+    // Get the coupling first to verify access
+    const [coupling] = await db
+      .select({ primaryMedicationConfigId: medicationCouplings.primaryMedicationConfigId })
+      .from(medicationCouplings)
+      .where(eq(medicationCouplings.id, id));
+    
+    if (!coupling) {
+      return res.status(404).json({ message: "Coupling not found" });
+    }
+    
+    // Verify access to the primary medication config
+    const { hasAccess } = await verifyMedicationConfigAccess(userId, coupling.primaryMedicationConfigId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this medication coupling" });
+    }
+    
+    await db
+      .delete(medicationCouplings)
+      .where(eq(medicationCouplings.id, id));
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting medication coupling:", error);
+    res.status(500).json({ message: "Failed to delete medication coupling" });
   }
 });
 
