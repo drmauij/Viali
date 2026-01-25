@@ -71,7 +71,8 @@ export function AnesthesiaSetsSection({ anesthesiaRecordId }: SectionProps) {
     },
     onSuccess: () => {
       toast({ title: "Set applied", description: "The anesthesia set has been applied to this record." });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/installations/${anesthesiaRecordId}`] });
+      // Must match the query key formats in anesthesiaDocumentation.ts hooks
+      queryClient.invalidateQueries({ queryKey: ["/api/anesthesia/installations", anesthesiaRecordId] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${anesthesiaRecordId}/general-technique`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${anesthesiaRecordId}/airway`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${anesthesiaRecordId}/neuraxial-blocks`] });
