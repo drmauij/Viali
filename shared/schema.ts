@@ -4673,6 +4673,49 @@ export type InsertAnesthesiaSet = z.infer<typeof insertAnesthesiaSetSchema>;
 export type AnesthesiaSetItem = typeof anesthesiaSetItems.$inferSelect;
 export type InsertAnesthesiaSetItem = z.infer<typeof insertAnesthesiaSetItemSchema>;
 
+// Medications within an anesthesia set
+export const anesthesiaSetMedications = pgTable("anesthesia_set_medications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  setId: varchar("set_id").notNull().references(() => anesthesiaSets.id, { onDelete: 'cascade' }),
+  medicationConfigId: varchar("medication_config_id").notNull().references(() => medicationConfigs.id, { onDelete: 'cascade' }),
+  customDose: varchar("custom_dose"), // Optional: override the medication's default dose
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_anesthesia_set_medications_set").on(table.setId),
+  index("idx_anesthesia_set_medications_config").on(table.medicationConfigId),
+  unique("uq_anesthesia_set_medication").on(table.setId, table.medicationConfigId),
+]);
+
+// Inventory items within an anesthesia set
+export const anesthesiaSetInventory = pgTable("anesthesia_set_inventory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  setId: varchar("set_id").notNull().references(() => anesthesiaSets.id, { onDelete: 'cascade' }),
+  itemId: varchar("item_id").notNull().references(() => items.id, { onDelete: 'cascade' }),
+  quantity: integer("quantity").notNull().default(1),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_anesthesia_set_inventory_set").on(table.setId),
+  index("idx_anesthesia_set_inventory_item").on(table.itemId),
+  unique("uq_anesthesia_set_inventory").on(table.setId, table.itemId),
+]);
+
+export const insertAnesthesiaSetMedicationSchema = createInsertSchema(anesthesiaSetMedications).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertAnesthesiaSetInventorySchema = createInsertSchema(anesthesiaSetInventory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type AnesthesiaSetMedication = typeof anesthesiaSetMedications.$inferSelect;
+export type InsertAnesthesiaSetMedication = z.infer<typeof insertAnesthesiaSetMedicationSchema>;
+export type AnesthesiaSetInventoryItem = typeof anesthesiaSetInventory.$inferSelect;
+export type InsertAnesthesiaSetInventoryItem = z.infer<typeof insertAnesthesiaSetInventorySchema>;
+
 // ========== INVENTORY SETS ==========
 // Predefined sets of inventory items with quantities for quick entry
 
