@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState, useEffect, useLayoutEffect, useCallback, forwardRef, useImperativeHandle } from "react";
 import ReactECharts from "echarts-for-react";
 import * as echarts from "echarts";
-import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2, ArrowUpDown, GripVertical, Check, Copy, Lock, LockOpen } from "lucide-react";
+import { Heart, CircleDot, Blend, Plus, X, ChevronDown, ChevronRight, Undo2, Clock, Monitor, ChevronsDownUp, MessageSquareText, Trash2, Pencil, StopCircle, PlayCircle, Droplet, Loader2, ArrowUpDown, GripVertical, Check, Copy, Lock, LockOpen, Layers } from "lucide-react";
 import {
   VitalPoint,
   TimelineVitals,
@@ -56,6 +56,7 @@ import { TOFDialog } from "./dialogs/TOFDialog";
 import { PositionDialog } from "./dialogs/PositionDialog";
 import { MedicationDoseDialog } from "./dialogs/MedicationDoseDialog";
 import { MedicationEditDialog } from "./dialogs/MedicationEditDialog";
+import { MedicationSetsDialog } from "./dialogs/MedicationSetsDialog";
 import { VentilationDialog } from "./dialogs/VentilationDialog";
 import { VentilationEditDialog } from "./dialogs/VentilationEditDialog";
 import { VentilationModeEditDialog } from "./dialogs/VentilationModeEditDialog";
@@ -2011,6 +2012,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   // State for on-demand medication selection dialog
   const [showOnDemandDialog, setShowOnDemandDialog] = useState(false);
   const [selectedAdminGroupForOnDemand, setSelectedAdminGroupForOnDemand] = useState<AdministrationGroup | null>(null);
+
+  // State for medication sets dialog
+  const [showMedicationSetsDialog, setShowMedicationSetsDialog] = useState(false);
 
   // State for ventilation parameter entry
   const [ventilationHoverInfo, setVentilationHoverInfo] = useState<{ x: number; y: number; time: number; paramKey: keyof typeof ventilationData; label: string } | null>(null);
@@ -6753,18 +6757,37 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       {lane.label}
                     </span>
                   </button>
-                  {isMedParent && !collapsedSwimlanes.has(lane.id) && isAdmin && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        enterReorderMode();
-                      }}
-                      className="hover:bg-background/10 transition-colors rounded p-1 pointer-events-auto ml-1"
-                      data-testid="button-reorder-medications"
-                      title={t("anesthesia.timeline.reorderMedications")}
-                    >
-                      <ArrowUpDown className="w-4 h-4 text-foreground/70" />
-                    </button>
+                  {isMedParent && !collapsedSwimlanes.has(lane.id) && (
+                    <>
+                      {/* Medication Sets button - available to all users with write access */}
+                      {canWrite && anesthesiaRecordId && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowMedicationSetsDialog(true);
+                          }}
+                          className="hover:bg-background/10 transition-colors rounded p-1 pointer-events-auto ml-1"
+                          data-testid="button-medication-sets"
+                          title={t("anesthesia.sets.title", "Medication Sets")}
+                        >
+                          <Layers className="w-4 h-4 text-foreground/70" />
+                        </button>
+                      )}
+                      {/* Reorder button - admin only */}
+                      {isAdmin && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            enterReorderMode();
+                          }}
+                          className="hover:bg-background/10 transition-colors rounded p-1 pointer-events-auto ml-1"
+                          data-testid="button-reorder-medications"
+                          title={t("anesthesia.timeline.reorderMedications")}
+                        >
+                          <ArrowUpDown className="w-4 h-4 text-foreground/70" />
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               ) : swimlaneConfig?.hierarchyLevel === 'group' ? (
@@ -9379,6 +9402,20 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         }}
         readOnly={!canWrite}
       />
+
+      {/* Medication Sets Dialog */}
+      {activeHospital?.id && (
+        <MedicationSetsDialog
+          open={showMedicationSetsDialog}
+          onOpenChange={setShowMedicationSetsDialog}
+          hospitalId={activeHospital.id}
+          recordId={anesthesiaRecordId}
+          isAdmin={isAdmin}
+          onSetApplied={() => {
+            // Invalidate medication queries to refresh the list
+          }}
+        />
+      )}
 
       {/* Ventilation Value Edit Dialog */}
       <VentilationEditDialog
