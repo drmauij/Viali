@@ -746,6 +746,17 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             break;
           
           case 'tci':
+          case 'tiva':
+          case 'balanced-gas':
+          case 'sedation':
+          case 'general':
+            // Apply general anesthesia technique
+            await storage.upsertGeneralTechnique({
+              anesthesiaRecordId,
+              approach: itemType === 'general' ? 'balanced-gas' : itemType as 'tiva' | 'tci' | 'balanced-gas' | 'sedation',
+              rsi: config.rsi || false,
+              notes: config.notes || null,
+            });
             appliedCount++;
             break;
             
