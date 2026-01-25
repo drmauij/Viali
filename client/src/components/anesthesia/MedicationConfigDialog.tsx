@@ -24,6 +24,7 @@ import { CoupledMedicationsTab } from "./CoupledMedicationsTab";
 
 type Item = {
   id: string;
+  medicationConfigId?: string;
   name: string;
   rateUnit?: string | null;
   defaultDose?: string | null;
@@ -600,10 +601,10 @@ export function MedicationConfigDialog({
         )}
 
         {/* Coupled Medications tab content - only shown in edit mode when tab is selected */}
-        {editingItem && activeTab === "couplings" && (
+        {editingItem && editingItem.medicationConfigId && activeTab === "couplings" && (
           <div className="py-4 max-h-[60vh] overflow-y-auto">
             <CoupledMedicationsTab
-              medicationConfigId={editingItem.id}
+              medicationConfigId={editingItem.medicationConfigId}
               medicationName={editingItem.name}
             />
           </div>

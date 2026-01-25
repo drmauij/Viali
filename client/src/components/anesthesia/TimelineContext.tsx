@@ -61,6 +61,7 @@ export type SwimlaneConfig = {
  */
 export type AnesthesiaItem = {
   id: string;
+  medicationConfigId?: string;
   name: string;
   administrationUnit?: string;
   administrationRoute?: string;
@@ -71,6 +72,7 @@ export type AnesthesiaItem = {
   administrationGroup?: string;
   defaultDose?: string | null;
   medicationSortOrder?: number | null;
+  onDemandOnly?: boolean | null;
 };
 
 /**

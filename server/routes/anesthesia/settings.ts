@@ -50,6 +50,7 @@ router.get('/api/anesthesia/items/:hospitalId', isAuthenticated, async (req: any
     const anesthesiaItems = await db
       .select({
         id: items.id,
+        medicationConfigId: medicationConfigs.id,
         hospitalId: items.hospitalId,
         unitId: items.unitId,
         folderId: items.folderId,
