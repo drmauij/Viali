@@ -123,7 +123,7 @@ export default function OpList() {
         patientId: selectedPatientId
       }));
       setSummaryOpen(false);
-      setLocation(`/anesthesia/patients/${selectedPatientId}?openPreOp=${selectedSurgeryId}`);
+      setLocation(`/anesthesia/preop/${selectedSurgeryId}`);
     }
   };
 

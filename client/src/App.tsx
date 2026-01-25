@@ -32,6 +32,7 @@ import ResetPassword from "@/pages/ResetPassword";
 import ChangePasswordDialog from "@/components/ChangePasswordDialog";
 import Patients from "@/pages/anesthesia/Patients";
 import PatientDetail from "@/pages/anesthesia/PatientDetail";
+import AnesthesiaPreOpDetail from "@/pages/anesthesia/AnesthesiaPreOpDetail";
 import CaseDetail from "@/pages/anesthesia/CaseDetail";
 import PreOpList from "@/pages/anesthesia/PreOpList";
 import OpList from "@/pages/anesthesia/OpList";
@@ -192,6 +193,7 @@ function Router() {
             <Route path="/anesthesia/patients/:id">{() => <ProtectedRoute requireAnesthesia><PatientDetail /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/cases/:id">{() => <ProtectedRoute requireAnesthesia><CaseDetail /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/preop">{() => <ProtectedRoute requireAnesthesia><PreOpList /></ProtectedRoute>}</Route>
+            <Route path="/anesthesia/preop/:surgeryId">{() => <ProtectedRoute requireAnesthesia><AnesthesiaPreOpDetail /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/op">{() => <ProtectedRoute requireAnesthesia><OpList /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/op/:id">{() => <ProtectedRoute requireAnesthesia><Op /></ProtectedRoute>}</Route>
             <Route path="/anesthesia/cases/:id/op">{() => <ProtectedRoute requireAnesthesia><Op /></ProtectedRoute>}</Route>
