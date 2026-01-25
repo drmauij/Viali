@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Plus, Search, Trash2, X } from "lucide-react";
+import { Loader2, Plus, Search, Trash2, X, Pencil, Check } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
@@ -52,6 +52,8 @@ export function CoupledMedicationsTab({
   const [searchQuery, setSearchQuery] = useState("");
   const [showSearch, setShowSearch] = useState(false);
   const [addingMedId, setAddingMedId] = useState<string | null>(null);
+  const [editingCouplingId, setEditingCouplingId] = useState<string | null>(null);
+  const [editDoseValue, setEditDoseValue] = useState("");
 
   const { data: couplings = [], isLoading: isLoadingCouplings } = useQuery<CoupledMedication[]>({
     queryKey: ['/api/anesthesia/medication-couplings', medicationConfigId],
@@ -132,6 +134,31 @@ export function CoupledMedicationsTab({
     },
   });
 
+  const updateCouplingMutation = useMutation({
+    mutationFn: async ({ couplingId, defaultDose }: { couplingId: string; defaultDose: string | null }) => {
+      return apiRequest('PATCH', `/api/anesthesia/medication-couplings/${couplingId}`, {
+        defaultDose,
+      });
+    },
+    onSuccess: () => {
+      setEditingCouplingId(null);
+      setEditDoseValue("");
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/anesthesia/medication-couplings', medicationConfigId] 
+      });
+      toast({
+        title: t("anesthesia.couplings.doseUpdated", "Custom Dose Updated"),
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: t("anesthesia.couplings.error", "Error"),
+        description: error.message || t("anesthesia.couplings.updateFailed", "Failed to update dose"),
+      });
+    },
+  });
+
   const handleAddCoupling = (coupledMedicationConfigId: string) => {
     setAddingMedId(coupledMedicationConfigId);
     addCouplingMutation.mutate(coupledMedicationConfigId);
@@ -139,6 +166,23 @@ export function CoupledMedicationsTab({
 
   const handleRemoveCoupling = (couplingId: string) => {
     removeCouplingMutation.mutate(couplingId);
+  };
+
+  const handleStartEditDose = (coupling: CoupledMedication) => {
+    setEditingCouplingId(coupling.id);
+    setEditDoseValue(coupling.defaultDose || coupling.coupledDefaultDose || "");
+  };
+
+  const handleSaveDose = (couplingId: string) => {
+    updateCouplingMutation.mutate({ 
+      couplingId, 
+      defaultDose: editDoseValue.trim() || null 
+    });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingCouplingId(null);
+    setEditDoseValue("");
   };
 
   return (
@@ -176,36 +220,101 @@ export function CoupledMedicationsTab({
           </div>
         ) : (
           <div className="space-y-2">
-            {couplings.map((coupling) => (
-              <div
-                key={coupling.id}
-                className="flex items-center justify-between p-3 border rounded-lg bg-card"
-                data-testid={`coupling-item-${coupling.id}`}
-              >
-                <div className="flex-1">
-                  <div className="font-medium">{coupling.coupledItemName}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {coupling.coupledDefaultDose && (
-                      <span>{coupling.coupledDefaultDose} {coupling.coupledAdministrationUnit}</span>
-                    )}
-                    {coupling.coupledAdministrationRoute && (
-                      <Badge variant="outline" className="ml-2 text-xs">
-                        {coupling.coupledAdministrationRoute}
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleRemoveCoupling(coupling.id)}
-                  disabled={removeCouplingMutation.isPending}
-                  data-testid={`button-remove-coupling-${coupling.id}`}
+            {couplings.map((coupling) => {
+              const isEditing = editingCouplingId === coupling.id;
+              const displayDose = coupling.defaultDose || coupling.coupledDefaultDose;
+              const hasCustomDose = !!coupling.defaultDose;
+              
+              return (
+                <div
+                  key={coupling.id}
+                  className="flex items-center justify-between p-3 border rounded-lg bg-card"
+                  data-testid={`coupling-item-${coupling.id}`}
                 >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
-              </div>
-            ))}
+                  <div className="flex-1">
+                    <div className="font-medium">{coupling.coupledItemName}</div>
+                    <div className="text-sm text-muted-foreground flex items-center gap-2 flex-wrap">
+                      {isEditing ? (
+                        <div className="flex items-center gap-1">
+                          <Input
+                            value={editDoseValue}
+                            onChange={(e) => setEditDoseValue(e.target.value)}
+                            className="h-7 w-20 text-sm"
+                            placeholder="Dose"
+                            autoFocus
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSaveDose(coupling.id);
+                              if (e.key === 'Escape') handleCancelEdit();
+                            }}
+                            data-testid={`input-edit-dose-${coupling.id}`}
+                          />
+                          <span>{coupling.coupledAdministrationUnit}</span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={() => handleSaveDose(coupling.id)}
+                            disabled={updateCouplingMutation.isPending}
+                            data-testid={`button-save-dose-${coupling.id}`}
+                          >
+                            {updateCouplingMutation.isPending ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Check className="h-3 w-3 text-green-600" />
+                            )}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 w-7 p-0"
+                            onClick={handleCancelEdit}
+                            data-testid={`button-cancel-edit-${coupling.id}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          <span 
+                            className={`cursor-pointer hover:text-primary ${hasCustomDose ? 'font-medium text-primary' : ''}`}
+                            onClick={() => handleStartEditDose(coupling)}
+                            title={t("anesthesia.couplings.clickToEditDose", "Click to set custom dose")}
+                          >
+                            {displayDose || '?'} {coupling.coupledAdministrationUnit}
+                            {hasCustomDose && (
+                              <span className="ml-1 text-xs text-muted-foreground">(custom)</span>
+                            )}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => handleStartEditDose(coupling)}
+                            data-testid={`button-edit-dose-${coupling.id}`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        </>
+                      )}
+                      {coupling.coupledAdministrationRoute && (
+                        <Badge variant="outline" className="text-xs">
+                          {coupling.coupledAdministrationRoute}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleRemoveCoupling(coupling.id)}
+                    disabled={removeCouplingMutation.isPending}
+                    data-testid={`button-remove-coupling-${coupling.id}`}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
