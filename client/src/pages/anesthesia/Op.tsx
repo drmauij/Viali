@@ -8,8 +8,7 @@ import {
   InstallationsSection,
   GeneralAnesthesiaSection,
   NeuraxialAnesthesiaSection,
-  PeripheralBlocksSection,
-  AnesthesiaSetsSection
+  PeripheralBlocksSection
 } from "@/components/anesthesia/AnesthesiaDocumentation";
 import { OpInventory } from "@/components/anesthesia/OpInventory";
 import { PatientInfoHeader } from "@/components/anesthesia/PatientInfoHeader";
@@ -1614,21 +1613,6 @@ export default function Op() {
               </div>
             ) : (
               <Accordion type="multiple" className="space-y-4 w-full">
-                {/* Quick Apply Sets Section */}
-                <AccordionItem value="quick-apply-sets">
-                  <Card>
-                    <AccordionTrigger className="px-6 py-4 hover:no-underline" data-testid="accordion-quick-apply-sets">
-                      <div className="flex items-center gap-2">
-                        <Package className="h-5 w-5" />
-                        <CardTitle className="text-lg">Quick Apply Sets</CardTitle>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <AnesthesiaSetsSection anesthesiaRecordId={anesthesiaRecord?.id || ''} />
-                    </AccordionContent>
-                  </Card>
-                </AccordionItem>
-
                 {/* Installations Section */}
                 <AccordionItem value="installations">
                   <Card>
