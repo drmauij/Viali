@@ -30,6 +30,7 @@ type Item = {
   ampuleTotalContent?: string | null;
   medicationGroup?: string | null;
   administrationGroup?: string | null;
+  onDemandOnly?: boolean | null;
 };
 
 type AdministrationGroup = {
@@ -73,6 +74,7 @@ export function MedicationConfigDialog({
   const [configIsRateControlled, setConfigIsRateControlled] = useState(false);
   const [configRateUnit, setConfigRateUnit] = useState("ml/h");
   const [configMedicationGroup, setConfigMedicationGroup] = useState("");
+  const [configOnDemandOnly, setConfigOnDemandOnly] = useState(false);
 
   // Quick add form state
   const [quickAddName, setQuickAddName] = useState("");
@@ -118,6 +120,7 @@ export function MedicationConfigDialog({
       setConfigAdministrationUnit(editingItem.administrationUnit || 'mg');
       setConfigAmpuleContent(editingItem.ampuleTotalContent || '');
       setConfigMedicationGroup(editingItem.medicationGroup || '');
+      setConfigOnDemandOnly(editingItem.onDemandOnly || false);
     }
   }, [editingItem]);
 
@@ -134,6 +137,7 @@ export function MedicationConfigDialog({
       setConfigRateUnit("ml/h");
       setConfigMedicationGroup("");
       setConfigAnesthesiaType('medication');
+      setConfigOnDemandOnly(false);
       setSearchQuery("");
       setShowQuickAdd(false);
       setQuickAddName("");
@@ -265,6 +269,7 @@ export function MedicationConfigDialog({
       administrationRoute: configAdministrationRoute,
       administrationUnit: configAdministrationUnit || undefined,
       rateUnit: derivedRateUnit,
+      onDemandOnly: configOnDemandOnly,
     };
 
     updateConfigMutation.mutate({ itemId: selectedItemId, config });
@@ -297,6 +302,7 @@ export function MedicationConfigDialog({
       setConfigAdministrationUnit(item.administrationUnit || 'mg');
       setConfigAmpuleContent(item.ampuleTotalContent || '');
       setConfigMedicationGroup(item.medicationGroup || '');
+      setConfigOnDemandOnly(item.onDemandOnly || false);
     }
     setComboboxOpen(false);
   };
@@ -548,6 +554,24 @@ export function MedicationConfigDialog({
                   )}
                 </>
               )}
+
+              {/* On-Demand Only Option */}
+              <div className="flex items-center space-x-2 pt-2 border-t">
+                <Checkbox
+                  id="config-on-demand"
+                  checked={configOnDemandOnly}
+                  onCheckedChange={(checked) => setConfigOnDemandOnly(checked as boolean)}
+                  data-testid="checkbox-config-on-demand"
+                />
+                <div className="grid gap-0.5">
+                  <Label htmlFor="config-on-demand" className="cursor-pointer">
+                    {t("anesthesia.timeline.onDemandOnly", "On-Demand Only")}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t("anesthesia.timeline.onDemandOnlyDescription", "Not shown by default, but can be added to individual records when needed")}
+                  </p>
+                </div>
+              </div>
             </>
           )}
         </div>

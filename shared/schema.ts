@@ -659,6 +659,9 @@ export const medicationConfigs = pgTable("medication_configs", {
   // Sort order within administration group (for custom ordering in anesthesia record)
   sortOrder: integer("sort_order").default(0),
   
+  // On-demand medications: not shown by default, but can be imported to individual records
+  onDemandOnly: boolean("on_demand_only").default(false),
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
@@ -1180,6 +1183,20 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
   index("idx_anesthesia_records_surgery").on(table.surgeryId),
   index("idx_anesthesia_records_provider").on(table.providerId),
   index("idx_anesthesia_records_status").on(table.caseStatus),
+]);
+
+// Imported On-Demand Medications - Junction table for tracking which on-demand medications
+// have been imported/attached to a specific anesthesia record
+export const anesthesiaRecordMedications = pgTable("anesthesia_record_medications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  anesthesiaRecordId: varchar("anesthesia_record_id").notNull().references(() => anesthesiaRecords.id, { onDelete: 'cascade' }),
+  medicationConfigId: varchar("medication_config_id").notNull().references(() => medicationConfigs.id, { onDelete: 'cascade' }),
+  importedAt: timestamp("imported_at").defaultNow(),
+  importedBy: varchar("imported_by").references(() => users.id),
+}, (table) => [
+  index("idx_record_medications_record").on(table.anesthesiaRecordId),
+  index("idx_record_medications_config").on(table.medicationConfigId),
+  unique("uq_record_medication").on(table.anesthesiaRecordId, table.medicationConfigId),
 ]);
 
 // Anesthesia Installations - Track peripheral/arterial/central line placements
@@ -2334,6 +2351,11 @@ export const insertMedicationConfigSchema = createInsertSchema(medicationConfigs
   updatedAt: true,
 });
 
+export const insertAnesthesiaRecordMedicationSchema = createInsertSchema(anesthesiaRecordMedications).omit({
+  id: true,
+  importedAt: true,
+});
+
 export const insertMedicationGroupSchema = createInsertSchema(medicationGroups).omit({
   id: true,
   createdAt: true,
@@ -3107,6 +3129,8 @@ export type ChecklistDismissal = typeof checklistDismissals.$inferSelect;
 export type InsertChecklistDismissal = z.infer<typeof insertChecklistDismissalSchema>;
 export type MedicationConfig = typeof medicationConfigs.$inferSelect;
 export type InsertMedicationConfig = z.infer<typeof insertMedicationConfigSchema>;
+export type AnesthesiaRecordMedication = typeof anesthesiaRecordMedications.$inferSelect;
+export type InsertAnesthesiaRecordMedication = z.infer<typeof insertAnesthesiaRecordMedicationSchema>;
 export type MedicationGroup = typeof medicationGroups.$inferSelect;
 export type InsertMedicationGroup = z.infer<typeof insertMedicationGroupSchema>;
 export type AdministrationGroup = typeof administrationGroups.$inferSelect;

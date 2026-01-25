@@ -76,6 +76,7 @@ router.get('/api/anesthesia/items/:hospitalId', isAuthenticated, async (req: any
         administrationRoute: medicationConfigs.administrationRoute,
         rateUnit: medicationConfigs.rateUnit,
         medicationSortOrder: medicationConfigs.sortOrder,
+        onDemandOnly: medicationConfigs.onDemandOnly,
       })
       .from(items)
       .innerJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
@@ -118,7 +119,7 @@ router.patch('/api/items/:itemId/anesthesia-config', isAuthenticated, requireWri
 
     const hasMedicationConfig = req.body.medicationGroup || req.body.administrationGroup || 
       req.body.defaultDose || req.body.administrationUnit || req.body.ampuleTotalContent || 
-      req.body.administrationRoute || req.body.rateUnit !== undefined;
+      req.body.administrationRoute || req.body.rateUnit !== undefined || req.body.onDemandOnly !== undefined;
 
     if (hasMedicationConfig) {
       const existingConfig = await db
@@ -139,6 +140,9 @@ router.patch('/api/items/:itemId/anesthesia-config', isAuthenticated, requireWri
         sortOrder: req.body.sortOrder !== undefined 
           ? req.body.sortOrder 
           : (existingConfig.length > 0 ? existingConfig[0].sortOrder : 0),
+        onDemandOnly: req.body.onDemandOnly !== undefined 
+          ? req.body.onDemandOnly 
+          : (existingConfig.length > 0 ? existingConfig[0].onDemandOnly : false),
       };
 
       if (existingConfig.length > 0) {
@@ -171,6 +175,7 @@ router.patch('/api/items/:itemId/anesthesia-config', isAuthenticated, requireWri
         administrationRoute: medicationConfigs.administrationRoute,
         rateUnit: medicationConfigs.rateUnit,
         medicationSortOrder: medicationConfigs.sortOrder,
+        onDemandOnly: medicationConfigs.onDemandOnly,
       })
       .from(items)
       .leftJoin(medicationConfigs, eq(items.id, medicationConfigs.itemId))
