@@ -52,4 +52,156 @@ router.delete("/api/anesthesia/installations/:id", isAuthenticated, async (req: 
   }
 });
 
+// ==================== AIRWAY MANAGEMENT ====================
+
+router.get("/api/anesthesia/:recordId/airway", isAuthenticated, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    const airway = await storage.getAirwayManagement(recordId);
+    res.json(airway || null);
+  } catch (error) {
+    console.error("Error fetching airway management:", error);
+    res.status(500).json({ error: "Failed to fetch airway management" });
+  }
+});
+
+router.post("/api/anesthesia/:recordId/airway", isAuthenticated, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    const airway = await storage.upsertAirwayManagement({
+      ...req.body,
+      anesthesiaRecordId: recordId,
+    });
+    res.json(airway);
+  } catch (error) {
+    console.error("Error saving airway management:", error);
+    res.status(500).json({ error: "Failed to save airway management" });
+  }
+});
+
+router.delete("/api/anesthesia/:recordId/airway", isAuthenticated, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    await storage.deleteAirwayManagement(recordId);
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting airway management:", error);
+    res.status(500).json({ error: "Failed to delete airway management" });
+  }
+});
+
+// ==================== GENERAL TECHNIQUE ====================
+
+router.get("/api/anesthesia/:recordId/general-technique", isAuthenticated, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    const technique = await storage.getGeneralTechnique(recordId);
+    res.json(technique || null);
+  } catch (error) {
+    console.error("Error fetching general technique:", error);
+    res.status(500).json({ error: "Failed to fetch general technique" });
+  }
+});
+
+router.post("/api/anesthesia/:recordId/general-technique", isAuthenticated, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    const technique = await storage.upsertGeneralTechnique({
+      ...req.body,
+      anesthesiaRecordId: recordId,
+    });
+    res.json(technique);
+  } catch (error) {
+    console.error("Error saving general technique:", error);
+    res.status(500).json({ error: "Failed to save general technique" });
+  }
+});
+
+router.delete("/api/anesthesia/:recordId/general-technique", isAuthenticated, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    await storage.deleteGeneralTechnique(recordId);
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting general technique:", error);
+    res.status(500).json({ error: "Failed to delete general technique" });
+  }
+});
+
+// ==================== NEURAXIAL BLOCKS ====================
+
+router.get("/api/anesthesia/:recordId/neuraxial-blocks", isAuthenticated, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    const blocks = await storage.getNeuraxialBlocks(recordId);
+    res.json(blocks || []);
+  } catch (error) {
+    console.error("Error fetching neuraxial blocks:", error);
+    res.status(500).json({ error: "Failed to fetch neuraxial blocks" });
+  }
+});
+
+router.post("/api/anesthesia/:recordId/neuraxial-blocks", isAuthenticated, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    const block = await storage.createNeuraxialBlock({
+      ...req.body,
+      anesthesiaRecordId: recordId,
+    });
+    res.status(201).json(block);
+  } catch (error) {
+    console.error("Error creating neuraxial block:", error);
+    res.status(500).json({ error: "Failed to create neuraxial block" });
+  }
+});
+
+router.delete("/api/anesthesia/neuraxial-blocks/:id", isAuthenticated, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    await storage.deleteNeuraxialBlock(id);
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting neuraxial block:", error);
+    res.status(500).json({ error: "Failed to delete neuraxial block" });
+  }
+});
+
+// ==================== PERIPHERAL BLOCKS ====================
+
+router.get("/api/anesthesia/:recordId/peripheral-blocks", isAuthenticated, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    const blocks = await storage.getPeripheralBlocks(recordId);
+    res.json(blocks || []);
+  } catch (error) {
+    console.error("Error fetching peripheral blocks:", error);
+    res.status(500).json({ error: "Failed to fetch peripheral blocks" });
+  }
+});
+
+router.post("/api/anesthesia/:recordId/peripheral-blocks", isAuthenticated, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    const block = await storage.createPeripheralBlock({
+      ...req.body,
+      anesthesiaRecordId: recordId,
+    });
+    res.status(201).json(block);
+  } catch (error) {
+    console.error("Error creating peripheral block:", error);
+    res.status(500).json({ error: "Failed to create peripheral block" });
+  }
+});
+
+router.delete("/api/anesthesia/peripheral-blocks/:id", isAuthenticated, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    await storage.deletePeripheralBlock(id);
+    res.status(204).send();
+  } catch (error) {
+    console.error("Error deleting peripheral block:", error);
+    res.status(500).json({ error: "Failed to delete peripheral block" });
+  }
+});
+
 export default router;
