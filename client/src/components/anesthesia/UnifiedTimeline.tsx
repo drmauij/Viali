@@ -6812,11 +6812,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                             setShowOnDemandDialog(true);
                           }
                         }}
-                        className="ml-1 p-0.5 rounded hover:bg-background/20 transition-colors pointer-events-auto"
+                        className="ml-1 p-2 rounded-full bg-primary/10 hover:bg-primary/20 active:bg-primary/30 transition-colors pointer-events-auto touch-manipulation"
                         data-testid={`button-add-on-demand-admin-${lane.id}`}
                         title={t("anesthesia.timeline.addOnDemandMedication", "Add On-Demand Medication")}
                       >
-                        <Plus className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                        <Plus className="w-5 h-5 text-primary" />
                       </button>
                     )}
                   </>
@@ -6836,11 +6836,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                             setShowOnDemandDialog(true);
                           }
                         }}
-                        className="ml-1 p-0.5 rounded hover:bg-background/20 transition-colors pointer-events-auto"
+                        className="ml-1 p-2 rounded-full bg-primary/10 hover:bg-primary/20 active:bg-primary/30 transition-colors pointer-events-auto touch-manipulation"
                         data-testid={`button-add-on-demand-${lane.id}`}
                         title={t("anesthesia.timeline.addOnDemandMedication", "Add On-Demand Medication")}
                       >
-                        <Plus className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+                        <Plus className="w-5 h-5 text-primary" />
                       </button>
                     )}
                   </div>
