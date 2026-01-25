@@ -694,6 +694,13 @@
       "when": 1769380596548,
       "tag": "0099_unified_anesthesia_sets",
       "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1769382900000,
+      "tag": "0100_hin_articles",
+      "breakpoints": true
     }
   ]
 }

@@ -355,18 +355,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get Galexis catalog credentials for this hospital
       const catalog = await storage.getGalexisCatalogWithCredentials(hospitalId);
-      if (!catalog) {
+      
+      // If Galexis not configured, try HIN MediUpdate directly
+      if (!catalog || !catalog.customerNumber || !catalog.apiPassword) {
+        const { hinClient } = await import('./services/hinMediupdateClient');
+        const hinResult = await hinClient.lookupByCode(pharmacode || gtin);
+        
+        if (hinResult.found && hinResult.article) {
+          return res.json({
+            found: true,
+            source: 'hin',
+            gtin: hinResult.article.gtin || gtin,
+            pharmacode: hinResult.article.pharmacode || pharmacode,
+            name: hinResult.article.descriptionDe,
+            basispreis: hinResult.article.pexf,
+            publikumspreis: hinResult.article.ppub,
+            yourPrice: hinResult.article.pexf,
+            discountPercent: 0,
+            available: hinResult.article.saleCode === 'A',
+            availabilityMessage: hinResult.article.saleCode === 'A' ? 'Available' : 'Inactive',
+            noGalexis: true,
+          });
+        }
+        
         return res.json({ 
           found: false, 
-          message: "Galexis integration not configured. Please set up Galexis in Supplier Settings.",
-          noIntegration: true 
-        });
-      }
-
-      if (!catalog.customerNumber || !catalog.apiPassword) {
-        return res.json({ 
-          found: false, 
-          message: "Galexis credentials incomplete. Please check API password and customer number in Supplier Settings.",
+          message: "Galexis not configured and product not found in HIN database.",
           noIntegration: true 
         });
       }
@@ -403,24 +417,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         res.json(response);
       } else {
-        const response: any = {
-          found: false,
-          message: results[0]?.error || "Product not found in Galexis catalog",
-          gtin,
-          pharmacode,
-        };
+        // Galexis not found - try HIN MediUpdate as fallback
+        const { hinClient } = await import('./services/hinMediupdateClient');
+        const hinResult = await hinClient.lookupByCode(pharmacode || gtin);
         
-        // Include debug info if requested (important for troubleshooting)
-        if (debug) {
-          response.debugInfo = debugInfo;
-          response.rawResult = results[0];
+        if (hinResult.found && hinResult.article) {
+          const response: any = {
+            found: true,
+            source: 'hin',
+            gtin: hinResult.article.gtin || gtin,
+            pharmacode: hinResult.article.pharmacode || pharmacode,
+            name: hinResult.article.descriptionDe,
+            basispreis: hinResult.article.pexf,
+            publikumspreis: hinResult.article.ppub,
+            yourPrice: hinResult.article.pexf, // HIN doesn't have customer-specific pricing
+            discountPercent: 0,
+            available: hinResult.article.saleCode === 'A',
+            availabilityMessage: hinResult.article.saleCode === 'A' ? 'Available' : 'Inactive',
+          };
+          
+          if (debug) {
+            response.debugInfo = { source: 'hin', galexisDebugInfo: debugInfo };
+          }
+          
+          res.json(response);
+        } else {
+          const response: any = {
+            found: false,
+            message: results[0]?.error || "Product not found in Galexis or HIN database",
+            gtin,
+            pharmacode,
+          };
+          
+          // Include debug info if requested (important for troubleshooting)
+          if (debug) {
+            response.debugInfo = debugInfo;
+            response.rawResult = results[0];
+          }
+          
+          res.json(response);
         }
-        
-        res.json(response);
       }
     } catch (error: any) {
       console.error("Error looking up product in Galexis:", error);
       res.status(500).json({ message: error.message || "Failed to lookup product in Galexis" });
+    }
+  });
+
+  // HIN MediUpdate product lookup - free fallback when Galexis not configured
+  app.post('/api/items/hin-lookup', isAuthenticated, async (req: any, res) => {
+    try {
+      const { gtin, pharmacode } = req.body;
+      if (!gtin && !pharmacode) {
+        return res.status(400).json({ message: "GTIN or Pharmacode is required" });
+      }
+
+      const { hinClient } = await import('./services/hinMediupdateClient');
+      const result = await hinClient.lookupByCode(pharmacode || gtin);
+      
+      if (result.found && result.article) {
+        res.json({
+          found: true,
+          source: 'hin',
+          gtin: result.article.gtin,
+          pharmacode: result.article.pharmacode,
+          name: result.article.descriptionDe,
+          nameFr: result.article.descriptionFr,
+          basispreis: result.article.pexf,
+          publikumspreis: result.article.ppub,
+          swissmedicNo: result.article.swissmedicNo,
+          smcat: result.article.smcat,
+          saleCode: result.article.saleCode,
+          available: result.article.saleCode === 'A',
+        });
+      } else {
+        res.json({
+          found: false,
+          message: "Product not found in HIN MediUpdate database",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error looking up product in HIN:", error);
+      res.status(500).json({ message: error.message || "Failed to lookup product in HIN" });
+    }
+  });
+
+  // HIN MediUpdate sync status
+  app.get('/api/hin/status', isAuthenticated, async (req: any, res) => {
+    try {
+      const { hinClient } = await import('./services/hinMediupdateClient');
+      const status = await hinClient.getSyncStatus();
+      res.json(status);
+    } catch (error: any) {
+      console.error("Error getting HIN sync status:", error);
+      res.status(500).json({ message: error.message || "Failed to get HIN sync status" });
+    }
+  });
+
+  // Trigger HIN MediUpdate sync (admin only)
+  app.post('/api/hin/sync', isAuthenticated, async (req: any, res) => {
+    try {
+      // Check if user is admin
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAdminRole = hospitals.some(h => h.role === 'admin');
+      
+      if (!hasAdminRole) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Start sync in background
+      const { hinClient } = await import('./services/hinMediupdateClient');
+      
+      // Return immediately, sync runs in background
+      res.json({ message: "HIN sync started", status: "syncing" });
+      
+      // Run sync async
+      hinClient.syncArticles((processed, total) => {
+        console.log(`[HIN Sync] Progress: ${processed}/${total}`);
+      }).then(result => {
+        if (result.success) {
+          console.log(`[HIN Sync] Completed: ${result.articlesCount} articles in ${(result.duration / 1000).toFixed(1)}s`);
+        } else {
+          console.error(`[HIN Sync] Failed: ${result.error}`);
+        }
+      }).catch(err => {
+        console.error(`[HIN Sync] Error:`, err);
+      });
+    } catch (error: any) {
+      console.error("Error triggering HIN sync:", error);
+      res.status(500).json({ message: error.message || "Failed to trigger HIN sync" });
     }
   });
 

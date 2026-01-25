@@ -4763,3 +4763,50 @@ export type InventorySet = typeof inventorySets.$inferSelect;
 export type InsertInventorySet = z.infer<typeof insertInventorySetSchema>;
 export type InventorySetItem = typeof inventorySetItems.$inferSelect;
 export type InsertInventorySetItem = z.infer<typeof insertInventorySetItemSchema>;
+
+// ========== HIN MEDIUPDATE ARTICLES ==========
+// Swiss medication/product database from HIN MediUpdate XML (free public data)
+// Used as fallback when Dispocura/Galexis integration is not available
+
+export const hinArticles = pgTable("hin_articles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  pharmacode: varchar("pharmacode"), // Swiss pharmacy code (7 digits)
+  gtin: varchar("gtin"), // EAN-13 barcode
+  swissmedicNo: varchar("swissmedic_no"), // Swissmedic authorization number
+  productNo: varchar("product_no"), // Product group number
+  descriptionDe: text("description_de").notNull(), // German product name
+  descriptionFr: text("description_fr"), // French product name
+  pexf: decimal("pexf", { precision: 10, scale: 2 }), // Ex-factory price (Fabrikabgabepreis)
+  ppub: decimal("ppub", { precision: 10, scale: 2 }), // Public price (Publikumspreis)
+  priceValidFrom: date("price_valid_from"), // Price validity start date
+  smcat: varchar("smcat"), // Swissmedic category (A, B, C, D, E)
+  saleCode: varchar("sale_code"), // Sale status (A=active, I=inactive)
+  vat: varchar("vat"), // VAT category
+  isRefdata: boolean("is_refdata").default(false), // Is in Refdata (Swiss article database)
+  companyGln: varchar("company_gln"), // Company GLN (Global Location Number)
+  lastUpdated: timestamp("last_updated").defaultNow(),
+}, (table) => [
+  index("idx_hin_articles_pharmacode").on(table.pharmacode),
+  index("idx_hin_articles_gtin").on(table.gtin),
+  index("idx_hin_articles_swissmedic").on(table.swissmedicNo),
+]);
+
+// Track HIN sync status
+export const hinSyncStatus = pgTable("hin_sync_status", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  lastSyncAt: timestamp("last_sync_at"),
+  articlesCount: integer("articles_count").default(0),
+  syncDurationMs: integer("sync_duration_ms"),
+  status: varchar("status", { enum: ["idle", "syncing", "success", "error"] }).default("idle"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertHinArticleSchema = createInsertSchema(hinArticles).omit({
+  id: true,
+  lastUpdated: true,
+});
+
+export type HinArticle = typeof hinArticles.$inferSelect;
+export type InsertHinArticle = z.infer<typeof insertHinArticleSchema>;
+export type HinSyncStatus = typeof hinSyncStatus.$inferSelect;
