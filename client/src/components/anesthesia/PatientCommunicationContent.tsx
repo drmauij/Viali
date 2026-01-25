@@ -428,8 +428,8 @@ export function PatientCommunicationContent({
   };
 
   return (
-    <div className="flex flex-col h-full" data-testid="patient-communication-content">
-      <ScrollArea className="flex-1 px-4" ref={scrollRef}>
+    <div className="flex flex-col h-full min-h-0 overflow-hidden" data-testid="patient-communication-content">
+      <ScrollArea className="flex-1 min-h-0 px-4" ref={scrollRef}>
         <div className="py-4 space-y-3">
           {communicationHistory.length > 0 ? (
             communicationHistory.map((item) => (
