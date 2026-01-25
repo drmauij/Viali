@@ -12,10 +12,15 @@ import {
   updateSurgeryStaffSchema,
   updateIntraOpDataSchema,
   updateCountsSterileDataSchema,
+  anesthesiaRecordMedications,
+  medicationConfigs,
+  items,
 } from "@shared/schema";
 import { z } from "zod";
 import { requireWriteAccess } from "../../utils";
 import { broadcastAnesthesiaUpdate } from "../../socket";
+import { db } from "../../db";
+import { eq, and } from "drizzle-orm";
 
 function getClientSessionId(req: Request): string | undefined {
   return req.headers['x-client-session-id'] as string | undefined;
@@ -975,6 +980,258 @@ router.post('/api/anesthesia/records/:id/unlock', isAuthenticated, requireWriteA
   } catch (error) {
     console.error("Error unlocking anesthesia record:", error);
     res.status(500).json({ message: "Failed to unlock anesthesia record" });
+  }
+});
+
+// ==================== ON-DEMAND MEDICATION ENDPOINTS ====================
+
+// Get on-demand medications available for a specific administration group
+router.get('/api/anesthesia/records/:recordId/on-demand-medications/:administrationGroupId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { recordId, administrationGroupId } = req.params;
+    const userId = req.user.id;
+
+    // Get the record and verify access
+    const record = await storage.getAnesthesiaRecordById(recordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Get all on-demand medications for this administration group
+    const onDemandMeds = await db
+      .select({
+        id: medicationConfigs.id,
+        itemId: medicationConfigs.itemId,
+        itemName: items.name,
+        medicationGroup: medicationConfigs.medicationGroup,
+        administrationGroup: medicationConfigs.administrationGroup,
+        defaultDose: medicationConfigs.defaultDose,
+        administrationUnit: medicationConfigs.administrationUnit,
+        ampuleTotalContent: medicationConfigs.ampuleTotalContent,
+        administrationRoute: medicationConfigs.administrationRoute,
+        rateUnit: medicationConfigs.rateUnit,
+        sortOrder: medicationConfigs.sortOrder,
+      })
+      .from(medicationConfigs)
+      .innerJoin(items, eq(medicationConfigs.itemId, items.id))
+      .where(
+        and(
+          eq(medicationConfigs.administrationGroup, administrationGroupId),
+          eq(medicationConfigs.onDemandOnly, true)
+        )
+      )
+      .orderBy(medicationConfigs.sortOrder, items.name);
+
+    // Get already imported medications for this record
+    const importedMeds = await db
+      .select({
+        medicationConfigId: anesthesiaRecordMedications.medicationConfigId,
+      })
+      .from(anesthesiaRecordMedications)
+      .where(eq(anesthesiaRecordMedications.anesthesiaRecordId, recordId));
+
+    const importedConfigIds = new Set(importedMeds.map(m => m.medicationConfigId));
+
+    // Mark each medication with whether it's already imported
+    const medsWithImportStatus = onDemandMeds.map(med => ({
+      ...med,
+      isImported: importedConfigIds.has(med.id),
+    }));
+
+    res.json(medsWithImportStatus);
+  } catch (error) {
+    console.error("Error fetching on-demand medications:", error);
+    res.status(500).json({ message: "Failed to fetch on-demand medications" });
+  }
+});
+
+// Get imported on-demand medications for a record
+router.get('/api/anesthesia/records/:recordId/imported-medications', isAuthenticated, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    const userId = req.user.id;
+
+    // Verify access
+    const record = await storage.getAnesthesiaRecordById(recordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Get all imported on-demand medications with their config details
+    const importedMeds = await db
+      .select({
+        id: anesthesiaRecordMedications.id,
+        medicationConfigId: anesthesiaRecordMedications.medicationConfigId,
+        importedAt: anesthesiaRecordMedications.importedAt,
+        itemId: medicationConfigs.itemId,
+        itemName: items.name,
+        medicationGroup: medicationConfigs.medicationGroup,
+        administrationGroup: medicationConfigs.administrationGroup,
+        defaultDose: medicationConfigs.defaultDose,
+        administrationUnit: medicationConfigs.administrationUnit,
+        ampuleTotalContent: medicationConfigs.ampuleTotalContent,
+        administrationRoute: medicationConfigs.administrationRoute,
+        rateUnit: medicationConfigs.rateUnit,
+        sortOrder: medicationConfigs.sortOrder,
+      })
+      .from(anesthesiaRecordMedications)
+      .innerJoin(medicationConfigs, eq(anesthesiaRecordMedications.medicationConfigId, medicationConfigs.id))
+      .innerJoin(items, eq(medicationConfigs.itemId, items.id))
+      .where(eq(anesthesiaRecordMedications.anesthesiaRecordId, recordId));
+
+    res.json(importedMeds);
+  } catch (error) {
+    console.error("Error fetching imported medications:", error);
+    res.status(500).json({ message: "Failed to fetch imported medications" });
+  }
+});
+
+// Import an on-demand medication to a record
+router.post('/api/anesthesia/records/:recordId/imported-medications', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { recordId } = req.params;
+    const { medicationConfigId } = req.body;
+    const userId = req.user.id;
+
+    if (!medicationConfigId) {
+      return res.status(400).json({ message: "medicationConfigId is required" });
+    }
+
+    // Verify access
+    const record = await storage.getAnesthesiaRecordById(recordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Verify the medication config exists and is on-demand
+    const config = await db
+      .select()
+      .from(medicationConfigs)
+      .where(eq(medicationConfigs.id, medicationConfigId))
+      .limit(1);
+
+    if (!config.length) {
+      return res.status(404).json({ message: "Medication configuration not found" });
+    }
+
+    if (!config[0].onDemandOnly) {
+      return res.status(400).json({ message: "This medication is not configured as on-demand" });
+    }
+
+    // Insert the imported medication
+    const [inserted] = await db
+      .insert(anesthesiaRecordMedications)
+      .values({
+        anesthesiaRecordId: recordId,
+        medicationConfigId,
+        importedBy: userId,
+      })
+      .returning();
+
+    // Return the full medication details
+    const result = await db
+      .select({
+        id: anesthesiaRecordMedications.id,
+        medicationConfigId: anesthesiaRecordMedications.medicationConfigId,
+        importedAt: anesthesiaRecordMedications.importedAt,
+        itemId: medicationConfigs.itemId,
+        itemName: items.name,
+        medicationGroup: medicationConfigs.medicationGroup,
+        administrationGroup: medicationConfigs.administrationGroup,
+        defaultDose: medicationConfigs.defaultDose,
+        administrationUnit: medicationConfigs.administrationUnit,
+        ampuleTotalContent: medicationConfigs.ampuleTotalContent,
+        administrationRoute: medicationConfigs.administrationRoute,
+        rateUnit: medicationConfigs.rateUnit,
+        sortOrder: medicationConfigs.sortOrder,
+      })
+      .from(anesthesiaRecordMedications)
+      .innerJoin(medicationConfigs, eq(anesthesiaRecordMedications.medicationConfigId, medicationConfigs.id))
+      .innerJoin(items, eq(medicationConfigs.itemId, items.id))
+      .where(eq(anesthesiaRecordMedications.id, inserted.id))
+      .limit(1);
+
+    res.json(result[0]);
+  } catch (error: any) {
+    // Handle unique constraint violation
+    if (error.code === '23505') {
+      return res.status(409).json({ message: "Medication already imported to this record" });
+    }
+    console.error("Error importing medication:", error);
+    res.status(500).json({ message: "Failed to import medication" });
+  }
+});
+
+// Remove an imported on-demand medication from a record
+router.delete('/api/anesthesia/records/:recordId/imported-medications/:medicationConfigId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { recordId, medicationConfigId } = req.params;
+    const userId = req.user.id;
+
+    // Verify access
+    const record = await storage.getAnesthesiaRecordById(recordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const surgery = await storage.getSurgery(record.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Delete the imported medication
+    await db
+      .delete(anesthesiaRecordMedications)
+      .where(
+        and(
+          eq(anesthesiaRecordMedications.anesthesiaRecordId, recordId),
+          eq(anesthesiaRecordMedications.medicationConfigId, medicationConfigId)
+        )
+      );
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error removing imported medication:", error);
+    res.status(500).json({ message: "Failed to remove imported medication" });
   }
 });
 
