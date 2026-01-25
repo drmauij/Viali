@@ -1222,6 +1222,36 @@ export const medicationCouplings = pgTable("medication_couplings", {
   unique("uq_medication_coupling").on(table.primaryMedicationConfigId, table.coupledMedicationConfigId),
 ]);
 
+// Medication Sets - Predefined bundles of medications for quick import
+export const medicationSets = pgTable("medication_sets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  unitId: varchar("unit_id").references(() => units.id, { onDelete: 'cascade' }), // Optional: unit-specific sets
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+}, (table) => [
+  index("idx_medication_sets_hospital").on(table.hospitalId),
+  index("idx_medication_sets_unit").on(table.unitId),
+]);
+
+// Medication Set Items - Medications included in a set
+export const medicationSetItems = pgTable("medication_set_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  setId: varchar("set_id").notNull().references(() => medicationSets.id, { onDelete: 'cascade' }),
+  medicationConfigId: varchar("medication_config_id").notNull().references(() => medicationConfigs.id, { onDelete: 'cascade' }),
+  customDose: varchar("custom_dose"), // Optional: override the medication's default dose
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_medication_set_items_set").on(table.setId),
+  index("idx_medication_set_items_config").on(table.medicationConfigId),
+  unique("uq_medication_set_item").on(table.setId, table.medicationConfigId),
+]);
+
 // Anesthesia Installations - Track peripheral/arterial/central line placements
 export const anesthesiaInstallations = pgTable("anesthesia_installations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2402,6 +2432,17 @@ export const insertMedicationCouplingSchema = createInsertSchema(medicationCoupl
   createdAt: true,
 });
 
+export const insertMedicationSetSchema = createInsertSchema(medicationSets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertMedicationSetItemSchema = createInsertSchema(medicationSetItems).omit({
+  id: true,
+  createdAt: true,
+});
+
 export const insertMedicationGroupSchema = createInsertSchema(medicationGroups).omit({
   id: true,
   createdAt: true,
@@ -3179,6 +3220,10 @@ export type AnesthesiaRecordMedication = typeof anesthesiaRecordMedications.$inf
 export type InsertAnesthesiaRecordMedication = z.infer<typeof insertAnesthesiaRecordMedicationSchema>;
 export type MedicationCoupling = typeof medicationCouplings.$inferSelect;
 export type InsertMedicationCoupling = z.infer<typeof insertMedicationCouplingSchema>;
+export type MedicationSet = typeof medicationSets.$inferSelect;
+export type InsertMedicationSet = z.infer<typeof insertMedicationSetSchema>;
+export type MedicationSetItem = typeof medicationSetItems.$inferSelect;
+export type InsertMedicationSetItem = z.infer<typeof insertMedicationSetItemSchema>;
 export type MedicationGroup = typeof medicationGroups.$inferSelect;
 export type InsertMedicationGroup = z.infer<typeof insertMedicationGroupSchema>;
 export type AdministrationGroup = typeof administrationGroups.$inferSelect;
