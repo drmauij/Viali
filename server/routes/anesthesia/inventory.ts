@@ -621,7 +621,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
       return res.status(404).json({ message: "Anesthesia set not found" });
     }
 
-    const record = await storage.getAnesthesiaRecord(anesthesiaRecordId);
+    const record = await storage.getAnesthesiaRecordById(anesthesiaRecordId);
     if (!record) {
       return res.status(404).json({ message: "Anesthesia record not found" });
     }
