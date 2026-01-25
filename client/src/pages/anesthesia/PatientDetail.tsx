@@ -91,6 +91,8 @@ export default function PatientDetail() {
   const [, anesthesiaParams] = useRoute("/anesthesia/patients/:id");
   const [, surgeryParams] = useRoute("/surgery/patients/:id");
   const [, clinicParams] = useRoute("/clinic/patients/:id");
+  // Direct pre-op route - skips patient detail and goes straight to pre-op dialog
+  const [isPreOpRoute, preOpRouteParams] = useRoute("/anesthesia/preop/:surgeryId");
   const params = anesthesiaParams || surgeryParams || clinicParams;
   const [, setLocation] = useLocation();
   const [isCreateCaseOpen, setIsCreateCaseOpen] = useState(false);
@@ -156,10 +158,19 @@ export default function PatientDetail() {
   const [quickContactForm, setQuickContactForm] = useState({ email: "", phone: "" });
   const [isQuickContactSaving, setIsQuickContactSaving] = useState(false);
   
+  // Fetch surgery data when in direct pre-op route mode
+  const { data: preOpSurgery, isLoading: isLoadingPreOpSurgery } = useQuery<Surgery>({
+    queryKey: [`/api/anesthesia/surgeries/${preOpRouteParams?.surgeryId}`],
+    enabled: !!isPreOpRoute && !!preOpRouteParams?.surgeryId,
+  });
+  
+  // Derive patientId from either URL params or surgery (for pre-op route)
+  const derivedPatientId = params?.id || preOpSurgery?.patientId;
+  
   // Fetch patient data from API
   const { data: patient, isLoading, error } = useQuery<Patient>({
-    queryKey: [`/api/patients/${params?.id}`],
-    enabled: !!params?.id,
+    queryKey: [`/api/patients/${derivedPatientId}`],
+    enabled: !!derivedPatientId,
   });
 
   // Fetch surgeries for this patient
@@ -168,8 +179,8 @@ export default function PatientDetail() {
     isLoading: isLoadingSurgeries,
     error: surgeriesError 
   } = useQuery<Surgery[]>({
-    queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${params?.id}`],
-    enabled: !!params?.id && !!activeHospital?.id,
+    queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${derivedPatientId}`],
+    enabled: !!derivedPatientId && !!activeHospital?.id,
   });
 
   // Timeline note type (combined patient notes + surgery notes)
@@ -209,8 +220,8 @@ export default function PatientDetail() {
     data: notesTimeline = [],
     isLoading: isLoadingNotes,
   } = useQuery<TimelineNote[]>({
-    queryKey: [`/api/patients/${params?.id}/notes/timeline`],
-    enabled: !!params?.id,
+    queryKey: [`/api/patients/${derivedPatientId}/notes/timeline`],
+    enabled: !!derivedPatientId,
   });
 
   // State for new patient note
@@ -312,7 +323,7 @@ export default function PatientDetail() {
   // Create patient note mutation with attachments
   const createPatientNoteMutation = useMutation({
     mutationFn: async ({ content, attachments }: { content: string; attachments: File[] }) => {
-      const res = await apiRequest('POST', `/api/patients/${params?.id}/notes`, { content });
+      const res = await apiRequest('POST', `/api/patients/${derivedPatientId}/notes`, { content });
       const noteData = await res.json();
       
       // Upload attachments if any
@@ -323,7 +334,7 @@ export default function PatientDetail() {
       return noteData;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/patients/${params?.id}/notes/timeline`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${derivedPatientId}/notes/timeline`] });
       setNewPatientNote("");
       setPendingAttachments([]);
       toast({
@@ -349,7 +360,7 @@ export default function PatientDetail() {
       return await apiRequest('DELETE', endpoint);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/patients/${params?.id}/notes/timeline`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${derivedPatientId}/notes/timeline`] });
       setNoteToDelete(null);
       toast({
         title: t('anesthesia.patientDetail.noteDeleted', 'Note deleted'),
@@ -370,9 +381,9 @@ export default function PatientDetail() {
     data: patientInvoices = [], 
     isLoading: isLoadingInvoices 
   } = useQuery<PatientInvoice[]>({
-    queryKey: [`/api/clinic/${activeHospital?.id}/invoices`, { patientId: params?.id }],
+    queryKey: [`/api/clinic/${activeHospital?.id}/invoices`, { patientId: derivedPatientId }],
     queryFn: async () => {
-      const response = await fetch(`/api/clinic/${activeHospital?.id}/invoices?patientId=${params?.id}`, {
+      const response = await fetch(`/api/clinic/${activeHospital?.id}/invoices?patientId=${derivedPatientId}`, {
         credentials: 'include',
       });
       if (!response.ok) {
@@ -381,7 +392,7 @@ export default function PatientDetail() {
       }
       return response.json();
     },
-    enabled: !!params?.id && !!activeHospital?.id,
+    enabled: !!derivedPatientId && !!activeHospital?.id,
   });
 
   // Fetch surgeons for the hospital
@@ -432,15 +443,15 @@ export default function PatientDetail() {
   };
   
   const { data: questionnaireLinks = [] } = useQuery<QuestionnaireLink[]>({
-    queryKey: ['/api/questionnaire/patient', params?.id, 'links'],
+    queryKey: ['/api/questionnaire/patient', derivedPatientId, 'links'],
     queryFn: async () => {
-      const response = await fetch(`/api/questionnaire/patient/${params?.id}/links`, {
+      const response = await fetch(`/api/questionnaire/patient/${derivedPatientId}/links`, {
         headers: { 'x-active-hospital-id': activeHospital?.id || '' },
       });
       if (!response.ok) return [];
       return response.json();
     },
-    enabled: !!params?.id && !!activeHospital?.id && isPreOpOpen,
+    enabled: !!derivedPatientId && !!activeHospital?.id && isPreOpOpen,
   });
   
   // Define type for questionnaire uploads
@@ -530,7 +541,7 @@ export default function PatientDetail() {
     },
     onSuccess: () => {
       // Invalidate questionnaire queries to refresh the list
-      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient', params?.id, 'links'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient', derivedPatientId, 'links'] });
       queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/unassociated'] });
       setIsFindQuestionnaireOpen(false);
       setSelectedUnassociatedQuestionnaire(null);
@@ -556,7 +567,7 @@ export default function PatientDetail() {
   const submittedResponseIds = submittedQuestionnaires.map(q => q.response?.id).filter(Boolean).sort().join(',');
   
   const { data: patientUploads = [] } = useQuery<QuestionnaireUpload[]>({
-    queryKey: ['/api/questionnaire/patient-uploads', params?.id, submittedResponseIds],
+    queryKey: ['/api/questionnaire/patient-uploads', derivedPatientId, submittedResponseIds],
     queryFn: async () => {
       // Fetch uploads from all submitted questionnaire responses in parallel
       const responseIds = submittedQuestionnaires.map(q => q.response?.id).filter(Boolean) as string[];
@@ -575,14 +586,14 @@ export default function PatientDetail() {
       const results = await Promise.all(uploadPromises);
       return results.flat();
     },
-    enabled: !!params?.id && !!activeHospital?.id && submittedResponseIds.length > 0,
+    enabled: !!derivedPatientId && !!activeHospital?.id && submittedResponseIds.length > 0,
     staleTime: 30000, // Cache for 30 seconds to avoid redundant calls
   });
 
   // Fetch staff-uploaded documents
   const { data: staffDocuments = [], isLoading: isLoadingStaffDocs } = useQuery<StaffDocument[]>({
-    queryKey: [`/api/patients/${params?.id}/documents`, params?.id],
-    enabled: !!params?.id && !!activeHospital?.id,
+    queryKey: [`/api/patients/${derivedPatientId}/documents`, derivedPatientId],
+    enabled: !!derivedPatientId && !!activeHospital?.id,
   });
 
   // Type for note attachments displayed in Documents section
@@ -601,8 +612,8 @@ export default function PatientDetail() {
 
   // Fetch note attachments for Documents section
   const { data: noteAttachmentDocs = [], isLoading: isLoadingNoteAttachments } = useQuery<NoteAttachmentDoc[]>({
-    queryKey: [`/api/patients/${params?.id}/note-attachments`, params?.id],
-    enabled: !!params?.id && !!activeHospital?.id,
+    queryKey: [`/api/patients/${derivedPatientId}/note-attachments`, derivedPatientId],
+    enabled: !!derivedPatientId && !!activeHospital?.id,
   });
   
   // Document upload state
@@ -668,6 +679,22 @@ export default function PatientDetail() {
       window.history.replaceState({}, '', newUrl);
     }
   }, [patient]);
+
+  // Auto-open pre-op dialog when accessed via direct pre-op route (/anesthesia/preop/:surgeryId)
+  useEffect(() => {
+    if (!isPreOpRoute || !preOpRouteParams?.surgeryId || !patient) return;
+    
+    // Only open if not already open to prevent loops
+    if (!isPreOpOpen) {
+      setSelectedCaseId(preOpRouteParams.surgeryId);
+      setAssessmentData(prev => ({
+        ...prev,
+        allergies: patient.allergies || [],
+      }));
+      preOpOpenedViaUrl.current = true;
+      setIsPreOpOpen(true);
+    }
+  }, [isPreOpRoute, preOpRouteParams?.surgeryId, patient, isPreOpOpen]);
 
   // Check for openEdit query parameter and auto-open edit patient dialog
   useEffect(() => {
@@ -871,7 +898,7 @@ export default function PatientDetail() {
     onSuccess: () => {
       // Invalidate patient-specific surgeries query
       queryClient.invalidateQueries({ 
-        queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${params?.id}`] 
+        queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${derivedPatientId}`] 
       });
       // Invalidate all surgery queries (for OP calendar)
       queryClient.invalidateQueries({ 
@@ -909,7 +936,7 @@ export default function PatientDetail() {
     onSuccess: () => {
       // Invalidate patient-specific surgeries query
       queryClient.invalidateQueries({ 
-        queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${params?.id}`] 
+        queryKey: [`/api/anesthesia/surgeries?hospitalId=${activeHospital?.id}&patientId=${derivedPatientId}`] 
       });
       // Invalidate all surgery queries (for OP calendar)
       queryClient.invalidateQueries({ 
@@ -1002,10 +1029,10 @@ export default function PatientDetail() {
   // Mutation to delete a staff document
   const deleteDocumentMutation = useMutation({
     mutationFn: async (docId: string) => {
-      return await apiRequest("DELETE", `/api/patients/${params?.id}/documents/${docId}`);
+      return await apiRequest("DELETE", `/api/patients/${derivedPatientId}/documents/${docId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/patients/${params?.id}/documents`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${derivedPatientId}/documents`] });
       toast({
         title: t('anesthesia.patientDetail.documentDeleted', 'Document deleted'),
         description: t('anesthesia.patientDetail.documentDeletedDesc', 'The document has been removed'),
@@ -1027,7 +1054,7 @@ export default function PatientDetail() {
       return await apiRequest("DELETE", `/api/questionnaire/uploads/${uploadId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient-uploads', params?.id] });
+      queryClient.invalidateQueries({ queryKey: ['/api/questionnaire/patient-uploads', derivedPatientId] });
       toast({
         title: t('anesthesia.patientDetail.documentDeleted', 'Document deleted'),
         description: t('anesthesia.patientDetail.documentDeletedDesc', 'The document has been removed'),
@@ -1045,12 +1072,12 @@ export default function PatientDetail() {
   
   // Handle file upload to S3
   const handleFileUpload = async (file: File) => {
-    if (!params?.id || !activeHospital?.id) return;
+    if (!derivedPatientId || !activeHospital?.id) return;
     
     setIsUploading(true);
     try {
       // Step 1: Get presigned upload URL using apiRequest
-      const urlResultResponse = await apiRequest("POST", `/api/patients/${params.id}/documents/upload-url`, {
+      const urlResultResponse = await apiRequest("POST", `/api/patients/${derivedPatientId}/documents/upload-url`, {
         filename: file.name,
         contentType: file.type,
       });
@@ -1071,7 +1098,7 @@ export default function PatientDetail() {
       }
       
       // Step 3: Create document record using apiRequest
-      await apiRequest("POST", `/api/patients/${params.id}/documents`, {
+      await apiRequest("POST", `/api/patients/${derivedPatientId}/documents`, {
         category: uploadCategory,
         fileName: file.name,
         fileUrl: storageKey,
@@ -1080,7 +1107,7 @@ export default function PatientDetail() {
         description: uploadDescription || null,
       });
       
-      queryClient.invalidateQueries({ queryKey: [`/api/patients/${params.id}/documents`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/patients/${derivedPatientId}/documents`] });
       
       toast({
         title: t('anesthesia.patientDetail.documentUploaded', 'Document uploaded'),
@@ -1105,7 +1132,7 @@ export default function PatientDetail() {
   
   // Handle camera capture (convert base64 to file and upload)
   const handleCameraCapture = async (photoDataUrl: string) => {
-    if (!params?.id || !activeHospital?.id) return;
+    if (!derivedPatientId || !activeHospital?.id) return;
     
     // Convert base64 to file
     const response = await fetch(photoDataUrl);
@@ -3292,11 +3319,14 @@ export default function PatientDetail() {
         if (!open) {
           // Clear document preview when closing dialog
           setPreviewDocument(null);
-          // If opened via URL navigation, use history.back() to return to previous page
-          // If opened via button click, just close the dialog
-          if (preOpOpenedViaUrl.current && window.history.length > 1) {
+          // If in direct pre-op route mode, navigate back to pre-op list
+          if (isPreOpRoute) {
+            setLocation('/anesthesia/preop');
+          } else if (preOpOpenedViaUrl.current && window.history.length > 1) {
+            // If opened via URL navigation, use history.back() to return to previous page
             window.history.back();
           } else {
+            // If opened via button click, just close the dialog
             setIsPreOpOpen(false);
           }
         } else {
@@ -3338,11 +3368,14 @@ export default function PatientDetail() {
                   variant="ghost"
                   size="icon"
                   onClick={() => {
-                    // If opened via URL navigation, use history.back() to return to previous page
-                    // If opened via button click, just close the dialog
-                    if (preOpOpenedViaUrl.current && window.history.length > 1) {
+                    // If in direct pre-op route mode, navigate back to pre-op list
+                    if (isPreOpRoute) {
+                      setLocation('/anesthesia/preop');
+                    } else if (preOpOpenedViaUrl.current && window.history.length > 1) {
+                      // If opened via URL navigation, use history.back() to return to previous page
                       window.history.back();
                     } else {
+                      // If opened via button click, just close the dialog
                       setIsPreOpOpen(false);
                     }
                   }}

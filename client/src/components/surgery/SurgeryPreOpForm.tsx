@@ -28,8 +28,6 @@ interface SurgeryPreOpFormProps {
   surgeryId: string;
   hospitalId: string;
   patientId?: string;
-  module?: 'surgery' | 'anesthesia';
-  onClose?: () => void;
 }
 
 // Default medication lists (same as anesthesia)
@@ -207,8 +205,7 @@ type QuestionnaireLink = {
   };
 };
 
-export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId, module = 'surgery', onClose }: SurgeryPreOpFormProps) {
-  const apiPrefix = module === 'anesthesia' ? '/api/anesthesia/preop' : '/api/surgery/preop';
+export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: SurgeryPreOpFormProps) {
   const { t } = useTranslation();
   const { toast } = useToast();
   const canWrite = useCanWrite();
@@ -231,7 +228,7 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId, mod
   const [questionnaireSearchTerm, setQuestionnaireSearchTerm] = useState("");
 
   const { data: assessment, isLoading } = useQuery<SurgeryPreOpAssessment>({
-    queryKey: [`${apiPrefix}/surgery/${surgeryId}`],
+    queryKey: [`/api/surgery/preop/surgery/${surgeryId}`],
     enabled: !!surgeryId,
   });
 
@@ -464,15 +461,15 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId, mod
 
   const createMutation = useMutation({
     mutationFn: async (data: Partial<AssessmentData>) => {
-      const response = await apiRequest("POST", apiPrefix, {
+      const response = await apiRequest("POST", '/api/surgery/preop', {
         surgeryId,
         ...data,
       });
       return response.json();
     },
     onSuccess: (newAssessment) => {
-      queryClient.setQueryData([`${apiPrefix}/surgery/${surgeryId}`], newAssessment);
-      queryClient.invalidateQueries({ queryKey: [`${apiPrefix}?hospitalId=${hospitalId}`] });
+      queryClient.setQueryData([`/api/surgery/preop/surgery/${surgeryId}`], newAssessment);
+      queryClient.invalidateQueries({ queryKey: [`/api/surgery/preop?hospitalId=${hospitalId}`] });
       setLastSaved(new Date());
     },
   });
@@ -480,12 +477,12 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId, mod
   const updateMutation = useMutation({
     mutationFn: async (data: Partial<AssessmentData>) => {
       if (!assessment?.id) throw new Error("No assessment ID");
-      const response = await apiRequest("PATCH", `${apiPrefix}/${assessment.id}`, data);
+      const response = await apiRequest("PATCH", `/api/surgery/preop/${assessment.id}`, data);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`${apiPrefix}/surgery/${surgeryId}`] });
-      queryClient.invalidateQueries({ queryKey: [`${apiPrefix}?hospitalId=${hospitalId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/surgery/preop/surgery/${surgeryId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/surgery/preop?hospitalId=${hospitalId}`] });
       setLastSaved(new Date());
     },
   });
