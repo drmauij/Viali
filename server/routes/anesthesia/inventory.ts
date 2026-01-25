@@ -546,7 +546,7 @@ router.post('/api/anesthesia-sets', isAuthenticated, requireAdminRole, requireWr
   }
 });
 
-router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { setId } = req.params;
     const userId = req.user.id;
@@ -558,10 +558,10 @@ router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireAdminRole, r
     }
 
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    const hasAdminAccess = hospitals.some(h => h.id === set.hospitalId && h.role === 'admin');
     
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
+    if (!hasAdminAccess) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     const updatedSet = await storage.updateAnesthesiaSet(setId, { name, description, isActive });
@@ -586,7 +586,7 @@ router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireAdminRole, r
   }
 });
 
-router.delete('/api/anesthesia-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+router.delete('/api/anesthesia-sets/:setId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { setId } = req.params;
     const userId = req.user.id;
@@ -597,10 +597,10 @@ router.delete('/api/anesthesia-sets/:setId', isAuthenticated, requireAdminRole, 
     }
 
     const hospitals = await storage.getUserHospitals(userId);
-    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    const hasAdminAccess = hospitals.some(h => h.id === set.hospitalId && h.role === 'admin');
     
-    if (!hasAccess) {
-      return res.status(403).json({ message: "Access denied" });
+    if (!hasAdminAccess) {
+      return res.status(403).json({ message: "Admin access required" });
     }
 
     await storage.deleteAnesthesiaSet(setId);
