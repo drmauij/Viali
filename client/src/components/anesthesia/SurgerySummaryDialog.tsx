@@ -259,9 +259,9 @@ export default function SurgerySummaryDialog({
                   <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.birthday')}</div>
                   <div className="font-medium">{patientBirthday}</div>
                 </div>
-                {patient.phone ? (
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.phone', 'Phone')}</div>
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.phone', 'Phone')}</div>
+                  {patient.phone ? (
                     <div className="font-medium flex items-center gap-1">
                       <span data-testid="text-patient-phone">
                         {isPhoneRevealed ? patient.phone : obfuscatePhone(patient.phone)}
@@ -279,13 +279,12 @@ export default function SurgerySummaryDialog({
                         )}
                       </button>
                     </div>
-                  </div>
-                ) : patient.patientNumber && (
-                  <div>
-                    <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.patientId')}</div>
-                    <div className="font-medium">{patient.patientNumber}</div>
-                  </div>
-                )}
+                  ) : (
+                    <div className="font-medium text-muted-foreground" data-testid="text-patient-phone-unavailable">
+                      {t('anesthesia.surgerySummary.notAvailable', 'Not available')}
+                    </div>
+                  )}
+                </div>
                 {patient.sex && (
                   <div>
                     <div className="text-xs font-medium text-muted-foreground mb-1">{t('anesthesia.surgerySummary.sex')}</div>
