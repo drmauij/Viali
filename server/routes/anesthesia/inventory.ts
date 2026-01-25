@@ -634,12 +634,14 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
     }
 
     const setItems = await storage.getAnesthesiaSetItems(setId);
+    console.log(`[Apply Set] Set ${setId} has ${setItems.length} items:`, setItems.map(i => ({ id: i.id, type: i.itemType, config: i.config })));
     let appliedCount = 0;
 
     for (const item of setItems) {
       try {
         const config = (item.config || {}) as Record<string, any>;
         const itemType = item.itemType as string;
+        console.log(`[Apply Set] Processing item type: ${itemType}`, config);
         
         switch (itemType) {
           case 'peripheral_iv':

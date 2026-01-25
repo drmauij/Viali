@@ -72,10 +72,10 @@ export function AnesthesiaSetsSection({ anesthesiaRecordId }: SectionProps) {
     onSuccess: () => {
       toast({ title: "Set applied", description: "The anesthesia set has been applied to this record." });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/installations/${anesthesiaRecordId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/general-technique/${anesthesiaRecordId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/airway-management/${anesthesiaRecordId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/neuraxial-blocks/${anesthesiaRecordId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/peripheral-blocks/${anesthesiaRecordId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${anesthesiaRecordId}/general-technique`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${anesthesiaRecordId}/airway`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${anesthesiaRecordId}/neuraxial-blocks`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${anesthesiaRecordId}/peripheral-blocks`] });
       setApplyingSetId(null);
     },
     onError: () => {
