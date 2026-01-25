@@ -56,7 +56,7 @@ import { TOFDialog } from "./dialogs/TOFDialog";
 import { PositionDialog } from "./dialogs/PositionDialog";
 import { MedicationDoseDialog } from "./dialogs/MedicationDoseDialog";
 import { MedicationEditDialog } from "./dialogs/MedicationEditDialog";
-import { MedicationSetsDialog } from "./dialogs/MedicationSetsDialog";
+import { UnifiedAnesthesiaSetsDialog } from "./dialogs/UnifiedAnesthesiaSetsDialog";
 import { VentilationDialog } from "./dialogs/VentilationDialog";
 import { VentilationEditDialog } from "./dialogs/VentilationEditDialog";
 import { VentilationModeEditDialog } from "./dialogs/VentilationModeEditDialog";
@@ -9403,16 +9403,18 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         readOnly={!canWrite}
       />
 
-      {/* Medication Sets Dialog */}
+      {/* Unified Anesthesia Sets Dialog */}
       {activeHospital?.id && (
-        <MedicationSetsDialog
+        <UnifiedAnesthesiaSetsDialog
           open={showMedicationSetsDialog}
           onOpenChange={setShowMedicationSetsDialog}
           hospitalId={activeHospital.id}
           recordId={anesthesiaRecordId}
           isAdmin={isAdmin}
           onSetApplied={() => {
-            // Invalidate medication queries to refresh the list
+            queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/medications', anesthesiaRecordId] });
+            queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId] });
+            queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/records', anesthesiaRecordId] });
           }}
         />
       )}

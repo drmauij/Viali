@@ -250,10 +250,16 @@ import {
   // Anesthesia Sets
   anesthesiaSets,
   anesthesiaSetItems,
+  anesthesiaSetMedications,
+  anesthesiaSetInventory,
   type AnesthesiaSet,
   type InsertAnesthesiaSet,
   type AnesthesiaSetItem,
   type InsertAnesthesiaSetItem,
+  type AnesthesiaSetMedication,
+  type InsertAnesthesiaSetMedication,
+  type AnesthesiaSetInventoryItem,
+  type InsertAnesthesiaSetInventoryItem,
   // Inventory Sets
   inventorySets,
   inventorySetItems,
@@ -987,6 +993,16 @@ export interface IStorage {
   deleteAnesthesiaSet(id: string): Promise<void>;
   createAnesthesiaSetItem(item: InsertAnesthesiaSetItem): Promise<AnesthesiaSetItem>;
   deleteAnesthesiaSetItems(setId: string): Promise<void>;
+  
+  // Anesthesia Set Medications (unified sets)
+  getAnesthesiaSetMedications(setId: string): Promise<AnesthesiaSetMedication[]>;
+  createAnesthesiaSetMedication(item: InsertAnesthesiaSetMedication): Promise<AnesthesiaSetMedication>;
+  deleteAnesthesiaSetMedications(setId: string): Promise<void>;
+  
+  // Anesthesia Set Inventory (unified sets)
+  getAnesthesiaSetInventory(setId: string): Promise<AnesthesiaSetInventoryItem[]>;
+  createAnesthesiaSetInventoryItem(item: InsertAnesthesiaSetInventoryItem): Promise<AnesthesiaSetInventoryItem>;
+  deleteAnesthesiaSetInventory(setId: string): Promise<void>;
   
   // Inventory Sets operations
   getInventorySets(hospitalId: string, unitId?: string): Promise<InventorySet[]>;
@@ -8927,6 +8943,50 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAnesthesiaSetItems(setId: string): Promise<void> {
     await db.delete(anesthesiaSetItems).where(eq(anesthesiaSetItems.setId, setId));
+  }
+
+  // ========== ANESTHESIA SET MEDICATIONS (UNIFIED SETS) ==========
+
+  async getAnesthesiaSetMedications(setId: string): Promise<AnesthesiaSetMedication[]> {
+    return await db
+      .select()
+      .from(anesthesiaSetMedications)
+      .where(eq(anesthesiaSetMedications.setId, setId))
+      .orderBy(asc(anesthesiaSetMedications.sortOrder));
+  }
+
+  async createAnesthesiaSetMedication(item: InsertAnesthesiaSetMedication): Promise<AnesthesiaSetMedication> {
+    const [created] = await db
+      .insert(anesthesiaSetMedications)
+      .values(item)
+      .returning();
+    return created;
+  }
+
+  async deleteAnesthesiaSetMedications(setId: string): Promise<void> {
+    await db.delete(anesthesiaSetMedications).where(eq(anesthesiaSetMedications.setId, setId));
+  }
+
+  // ========== ANESTHESIA SET INVENTORY (UNIFIED SETS) ==========
+
+  async getAnesthesiaSetInventory(setId: string): Promise<AnesthesiaSetInventoryItem[]> {
+    return await db
+      .select()
+      .from(anesthesiaSetInventory)
+      .where(eq(anesthesiaSetInventory.setId, setId))
+      .orderBy(asc(anesthesiaSetInventory.sortOrder));
+  }
+
+  async createAnesthesiaSetInventoryItem(item: InsertAnesthesiaSetInventoryItem): Promise<AnesthesiaSetInventoryItem> {
+    const [created] = await db
+      .insert(anesthesiaSetInventory)
+      .values(item)
+      .returning();
+    return created;
+  }
+
+  async deleteAnesthesiaSetInventory(setId: string): Promise<void> {
+    await db.delete(anesthesiaSetInventory).where(eq(anesthesiaSetInventory.setId, setId));
   }
 
   // ========== INVENTORY SETS ==========

@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { storage, db } from "../../storage";
+import { anesthesiaRecordMedications } from "@shared/schema";
+import { eq } from "drizzle-orm";
 import { isAuthenticated } from "../../auth/google";
 import { requireWriteAccess } from "../../utils";
 import { requireAdminRole } from "../middleware";
@@ -496,8 +498,40 @@ router.get('/api/anesthesia-sets/set/:setId', isAuthenticated, async (req: any, 
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const items = await storage.getAnesthesiaSetItems(setId);
-    res.json({ ...set, items });
+    // Fetch all three categories for unified sets
+    const [items, rawMedications, rawInventoryItems] = await Promise.all([
+      storage.getAnesthesiaSetItems(setId),
+      storage.getAnesthesiaSetMedications(setId),
+      storage.getAnesthesiaSetInventory(setId),
+    ]);
+    
+    // Enrich medications with config and item details
+    const medications = await Promise.all(
+      rawMedications.map(async (med) => {
+        const config = await storage.getMedicationConfig(med.medicationConfigId);
+        const item = config?.itemId ? await storage.getItem(config.itemId) : null;
+        return {
+          ...med,
+          itemName: item?.name || 'Unknown',
+          defaultDose: config?.defaultDose || null,
+          administrationUnit: config?.administrationUnit || null,
+          administrationRoute: config?.administrationRoute || null,
+        };
+      })
+    );
+    
+    // Enrich inventory items with item details
+    const inventoryItems = await Promise.all(
+      rawInventoryItems.map(async (inv) => {
+        const item = await storage.getItem(inv.itemId);
+        return {
+          ...inv,
+          itemName: item?.name || 'Unknown',
+        };
+      })
+    );
+    
+    res.json({ ...set, items, medications, inventoryItems });
   } catch (error) {
     console.error("Error fetching anesthesia set:", error);
     res.status(500).json({ message: "Failed to fetch anesthesia set" });
@@ -507,7 +541,7 @@ router.get('/api/anesthesia-sets/set/:setId', isAuthenticated, async (req: any, 
 router.post('/api/anesthesia-sets', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;
-    const { hospitalId, name, description, items } = req.body;
+    const { hospitalId, name, description, items, medications, inventoryItems } = req.body;
 
     if (!hospitalId || !name) {
       return res.status(400).json({ message: "hospitalId and name are required" });
@@ -527,6 +561,7 @@ router.post('/api/anesthesia-sets', isAuthenticated, requireAdminRole, requireWr
       createdBy: userId,
     });
 
+    // Add technique items
     if (items && Array.isArray(items)) {
       for (const item of items) {
         await storage.createAnesthesiaSetItem({
@@ -538,8 +573,40 @@ router.post('/api/anesthesia-sets', isAuthenticated, requireAdminRole, requireWr
       }
     }
 
-    const setItems = await storage.getAnesthesiaSetItems(set.id);
-    res.status(201).json({ ...set, items: setItems });
+    // Add medications
+    if (medications && Array.isArray(medications)) {
+      for (let i = 0; i < medications.length; i++) {
+        const med = medications[i];
+        await storage.createAnesthesiaSetMedication({
+          setId: set.id,
+          medicationConfigId: med.medicationConfigId,
+          customDose: med.customDose || null,
+          sortOrder: med.sortOrder ?? i,
+        });
+      }
+    }
+
+    // Add inventory items
+    if (inventoryItems && Array.isArray(inventoryItems)) {
+      for (let i = 0; i < inventoryItems.length; i++) {
+        const inv = inventoryItems[i];
+        await storage.createAnesthesiaSetInventoryItem({
+          setId: set.id,
+          itemId: inv.itemId,
+          quantity: inv.quantity || 1,
+          sortOrder: inv.sortOrder ?? i,
+        });
+      }
+    }
+
+    // Fetch all categories
+    const [setItems, setMedications, setInventory] = await Promise.all([
+      storage.getAnesthesiaSetItems(set.id),
+      storage.getAnesthesiaSetMedications(set.id),
+      storage.getAnesthesiaSetInventory(set.id),
+    ]);
+    
+    res.status(201).json({ ...set, items: setItems, medications: setMedications, inventoryItems: setInventory });
   } catch (error) {
     console.error("Error creating anesthesia set:", error);
     res.status(500).json({ message: "Failed to create anesthesia set" });
@@ -550,7 +617,7 @@ router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireWriteAccess,
   try {
     const { setId } = req.params;
     const userId = req.user.id;
-    const { name, description, isActive, items } = req.body;
+    const { name, description, isActive, items, medications, inventoryItems } = req.body;
 
     const set = await storage.getAnesthesiaSet(setId);
     if (!set) {
@@ -566,6 +633,7 @@ router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireWriteAccess,
 
     const updatedSet = await storage.updateAnesthesiaSet(setId, { name, description, isActive });
 
+    // Update technique items if provided
     if (items && Array.isArray(items)) {
       await storage.deleteAnesthesiaSetItems(setId);
       for (const item of items) {
@@ -578,8 +646,42 @@ router.patch('/api/anesthesia-sets/:setId', isAuthenticated, requireWriteAccess,
       }
     }
 
-    const setItems = await storage.getAnesthesiaSetItems(setId);
-    res.json({ ...updatedSet, items: setItems });
+    // Update medications if provided
+    if (medications && Array.isArray(medications)) {
+      await storage.deleteAnesthesiaSetMedications(setId);
+      for (let i = 0; i < medications.length; i++) {
+        const med = medications[i];
+        await storage.createAnesthesiaSetMedication({
+          setId,
+          medicationConfigId: med.medicationConfigId,
+          customDose: med.customDose || null,
+          sortOrder: med.sortOrder ?? i,
+        });
+      }
+    }
+
+    // Update inventory items if provided
+    if (inventoryItems && Array.isArray(inventoryItems)) {
+      await storage.deleteAnesthesiaSetInventory(setId);
+      for (let i = 0; i < inventoryItems.length; i++) {
+        const inv = inventoryItems[i];
+        await storage.createAnesthesiaSetInventoryItem({
+          setId,
+          itemId: inv.itemId,
+          quantity: inv.quantity || 1,
+          sortOrder: inv.sortOrder ?? i,
+        });
+      }
+    }
+
+    // Fetch all categories
+    const [setItems, setMedications, setInventory] = await Promise.all([
+      storage.getAnesthesiaSetItems(setId),
+      storage.getAnesthesiaSetMedications(setId),
+      storage.getAnesthesiaSetInventory(setId),
+    ]);
+    
+    res.json({ ...updatedSet, items: setItems, medications: setMedications, inventoryItems: setInventory });
   } catch (error) {
     console.error("Error updating anesthesia set:", error);
     res.status(500).json({ message: "Failed to update anesthesia set" });
@@ -633,10 +735,19 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const setItems = await storage.getAnesthesiaSetItems(setId);
-    console.log(`[Apply Set] Set ${setId} has ${setItems.length} items:`, setItems.map(i => ({ id: i.id, type: i.itemType, config: i.config })));
+    // Fetch all three categories
+    const [setItems, setMedications, setInventoryItems] = await Promise.all([
+      storage.getAnesthesiaSetItems(setId),
+      storage.getAnesthesiaSetMedications(setId),
+      storage.getAnesthesiaSetInventory(setId),
+    ]);
+    
+    console.log(`[Apply Set] Set ${setId} has ${setItems.length} technique items, ${setMedications.length} medications, ${setInventoryItems.length} inventory items`);
     let appliedCount = 0;
+    let medicationsApplied = 0;
+    let inventoryApplied = 0;
 
+    // Apply technique items
     for (const item of setItems) {
       try {
         const config = (item.config || {}) as Record<string, any>;
@@ -770,7 +881,59 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
       }
     }
 
-    res.json({ message: "Set applied successfully", appliedCount });
+    // Apply medications - import them to the record
+    for (const med of setMedications) {
+      try {
+        // Check if medication is already imported to this record
+        const existingMeds = await db
+          .select({ medicationConfigId: anesthesiaRecordMedications.medicationConfigId })
+          .from(anesthesiaRecordMedications)
+          .where(eq(anesthesiaRecordMedications.anesthesiaRecordId, anesthesiaRecordId));
+        const alreadyImported = existingMeds.some(m => m.medicationConfigId === med.medicationConfigId);
+        
+        if (!alreadyImported) {
+          // Import medication to record using direct db access
+          await db.insert(anesthesiaRecordMedications).values({
+            anesthesiaRecordId,
+            medicationConfigId: med.medicationConfigId,
+          });
+        }
+        
+        medicationsApplied++;
+      } catch (medError) {
+        console.error(`Error applying medication ${med.medicationConfigId}:`, medError);
+      }
+    }
+
+    // Apply inventory items - create usage entries
+    for (const inv of setInventoryItems) {
+      try {
+        // Get or create inventory usage entry for this item
+        const existingUsage = await storage.getInventoryUsageByItem(anesthesiaRecordId, inv.itemId);
+        
+        if (existingUsage) {
+          // Already exists - no need to add again
+          inventoryApplied++;
+        } else {
+          // Create new usage entry
+          await storage.createInventoryUsage({
+            anesthesiaRecordId,
+            itemId: inv.itemId,
+            calculatedQty: String(inv.quantity),
+          });
+          inventoryApplied++;
+        }
+      } catch (invError) {
+        console.error(`Error applying inventory item ${inv.itemId}:`, invError);
+      }
+    }
+
+    res.json({ 
+      message: "Set applied successfully", 
+      appliedCount,
+      medicationsApplied,
+      inventoryApplied,
+    });
   } catch (error) {
     console.error("Error applying anesthesia set:", error);
     res.status(500).json({ message: "Failed to apply anesthesia set" });
