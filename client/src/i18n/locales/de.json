@@ -3460,6 +3460,11 @@
       "targetUnit": "Ziel-Einheit",
       "selectUnit": "Einheit auswählen...",
       "moveServices": "Leistungen verschieben"
+    },
+    "appointments": {
+      "provider": "Anbieter",
+      "noProviders": "Keine Anbieter verfügbar",
+      "unknownPatient": "Unbekannter Patient"
     }
   },
   "business": {

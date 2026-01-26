@@ -18,7 +18,7 @@ import { useLocation } from "wouter";
 import "react-big-calendar/lib/css/react-big-calendar.css";
 import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
 import type { ClinicAppointment, Patient, User as UserType, ClinicService, ClinicProvider } from "@shared/schema";
-import AppointmentsTimelineWeekView from "./AppointmentsTimelineWeekView";
+import AppointmentsWeekView from "./AppointmentsWeekView";
 import ProviderFilterDialog from "./ProviderFilterDialog";
 import EditTimeOffDialog from "./EditTimeOffDialog";
 
@@ -1330,26 +1330,20 @@ export default function ClinicCalendar({
             </CardContent>
           </Card>
         ) : currentView === "week" ? (
-          <AppointmentsTimelineWeekView
+          <AppointmentsWeekView
             providers={filteredProviders}
             appointments={appointments}
-            providerSurgeries={providerSurgeries}
             providerAbsences={providerAbsences}
             providerTimeOffs={providerTimeOffs}
             selectedDate={selectedDate}
             onEventClick={(appt) => onEventClick?.(appt)}
-            onEventDrop={(appointmentId, newStart, newEnd, newProviderId) => {
-              rescheduleAppointmentMutation.mutate({
-                appointmentId,
-                appointmentDate: format(newStart, 'yyyy-MM-dd'),
-                startTime: format(newStart, 'HH:mm'),
-                endTime: format(newEnd, 'HH:mm'),
-                providerId: newProviderId,
-              });
-            }}
             onCanvasClick={(providerId, time) => {
               const endTime = new Date(time.getTime() + 30 * 60 * 1000);
               onBookAppointment?.({ providerId, date: time, endDate: endTime });
+            }}
+            onDayClick={(date) => {
+              setSelectedDate(date);
+              setCurrentView("day");
             }}
             onProviderClick={onProviderClick}
           />

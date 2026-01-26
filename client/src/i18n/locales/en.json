@@ -3445,6 +3445,11 @@
       "targetUnit": "Target Unit",
       "selectUnit": "Select unit...",
       "moveServices": "Move Services"
+    },
+    "appointments": {
+      "provider": "Provider",
+      "noProviders": "No providers available",
+      "unknownPatient": "Unknown Patient"
     }
   },
   "business": {
