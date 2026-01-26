@@ -45,7 +45,9 @@
     "value": "Value",
     "time": "Time",
     "rate": "Rate",
-    "quantity": "Quantity"
+    "quantity": "Quantity",
+    "back": "Back",
+    "next": "Next"
   },
   "dialogs": {
     "editVentilationMode": "Edit Ventilation Mode",

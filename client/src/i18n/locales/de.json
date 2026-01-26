@@ -52,7 +52,9 @@
     "value": "Wert",
     "time": "Zeit",
     "rate": "Rate",
-    "quantity": "Menge"
+    "quantity": "Menge",
+    "back": "Zurück",
+    "next": "Weiter"
   },
   "dialogs": {
     "editVentilationMode": "Beatmungsmodus bearbeiten",
