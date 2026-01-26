@@ -294,7 +294,7 @@ export function PatientCommunicationContent({
       recipient: string;
       date: Date;
       status?: string;
-      preview?: string;
+      message?: string;
     }> = [];
 
     if (existingLinks) {
@@ -330,7 +330,7 @@ export function PatientCommunicationContent({
           channel: msg.channel as 'email' | 'sms',
           recipient: msg.recipient,
           date: new Date(msg.createdAt!),
-          preview: msg.message.substring(0, 80) + (msg.message.length > 80 ? '...' : ''),
+          message: msg.message,
         });
       });
     }
@@ -481,9 +481,9 @@ export function PatientCommunicationContent({
                 <p className="text-xs text-muted-foreground mb-1 truncate">
                   {t('messages.sentTo', 'To')}: {item.recipient}
                 </p>
-                {item.preview && (
+                {item.message && (
                   <div className="text-sm text-foreground/80 mb-1">
-                    {renderMessageContent(item.preview, existingLinks || [])}
+                    {renderMessageContent(item.message, existingLinks || [])}
                   </div>
                 )}
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
