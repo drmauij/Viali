@@ -1753,19 +1753,15 @@ router.get('/api/public/questionnaire/:token/info-flyers', async (req: Request, 
       }
     }
     
-    // Also get units for the hospital with info flyers (OR and Anesthesia modules)
+    // Also get the anesthesia module's info flyer (if different from surgery unit)
     const hospitalUnits = await storage.getUnits(link.hospitalId);
-    for (const unit of hospitalUnits) {
-      if (unit.infoFlyerUrl && (unit.isAnesthesiaModule || unit.isSurgeryModule)) {
-        // Avoid duplicates
-        if (!flyers.some(f => f.flyerUrl === unit.infoFlyerUrl)) {
-          flyers.push({
-            unitName: unit.name,
-            unitType: unit.type,
-            flyerUrl: unit.infoFlyerUrl,
-          });
-        }
-      }
+    const anesthesiaUnit = hospitalUnits.find(u => u.isAnesthesiaModule && u.infoFlyerUrl);
+    if (anesthesiaUnit && !flyers.some(f => f.flyerUrl === anesthesiaUnit.infoFlyerUrl)) {
+      flyers.push({
+        unitName: anesthesiaUnit.name,
+        unitType: anesthesiaUnit.type,
+        flyerUrl: anesthesiaUnit.infoFlyerUrl!,
+      });
     }
     
     // Generate download URLs for each flyer

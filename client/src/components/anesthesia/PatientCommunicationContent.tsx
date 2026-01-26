@@ -24,7 +24,6 @@ interface PatientCommunicationContentProps {
   isEnabled?: boolean;
 }
 
-type MessageType = "questionnaire" | "custom" | "infoflyer";
 type SendMedium = "email" | "sms";
 
 export function PatientCommunicationContent({
@@ -44,7 +43,6 @@ export function PatientCommunicationContent({
   const [copied, setCopied] = useState(false);
   
   const [isComposing, setIsComposing] = useState(false);
-  const [messageType, setMessageType] = useState<MessageType>("questionnaire");
   const [sendMedium, setSendMedium] = useState<SendMedium>("email");
   const [emailAddress, setEmailAddress] = useState(patientEmail || "");
   const [phoneNumber, setPhoneNumber] = useState(patientPhone || "");
@@ -59,7 +57,6 @@ export function PatientCommunicationContent({
       setCopied(false);
       setCustomMessage("");
       setIsComposing(false);
-      setMessageType("questionnaire");
       setSendMedium("email");
       setSendSuccess(false);
     }
@@ -88,6 +85,21 @@ export function PatientCommunicationContent({
   });
 
   const hasInfoflyer = unitSettings?.infoflyerEnabled && unitSettings?.infoflyerContent;
+
+  const { data: patientFlyers } = useQuery<{ flyers: Array<{ unitName: string; downloadUrl: string }> }>({
+    queryKey: ['/api/patients', patientId, 'info-flyers'],
+    queryFn: async () => {
+      const res = await fetch(`/api/patients/${patientId}/info-flyers`, {
+        headers: {
+          'X-Hospital-Id': activeHospital?.id || '',
+        },
+        credentials: 'include',
+      });
+      if (!res.ok) return { flyers: [] };
+      return res.json();
+    },
+    enabled: isEnabled && !!patientId && !!activeHospital?.id,
+  });
 
   const { data: existingLinks } = useQuery<any[]>({
     queryKey: ['/api/questionnaire/patient', patientId, 'links'],
@@ -154,53 +166,21 @@ export function PatientCommunicationContent({
 
   const sendEmailMutation = useMutation({
     mutationFn: async () => {
-      if (messageType === "questionnaire") {
-        if (!generatedLink) throw new Error('No link generated');
-        const res = await fetch(`/api/questionnaire/links/${generatedLink.linkId}/send-email`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Hospital-Id': activeHospital?.id || '',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ email: emailAddress }),
-        });
-        if (!res.ok) throw new Error('Failed to send email');
-        return res.json();
-      } else if (messageType === "custom") {
-        const res = await fetch(`/api/patients/${patientId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Hospital-Id': activeHospital?.id || '',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ 
-            channel: 'email',
-            recipient: emailAddress,
-            message: customMessage 
-          }),
-        });
-        if (!res.ok) throw new Error('Failed to send email');
-        return res.json();
-      } else if (messageType === "infoflyer") {
-        const res = await fetch(`/api/patients/${patientId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Hospital-Id': activeHospital?.id || '',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ 
-            channel: 'email',
-            recipient: emailAddress,
-            message: unitSettings?.infoflyerContent || '',
-            type: 'infoflyer'
-          }),
-        });
-        if (!res.ok) throw new Error('Failed to send email');
-        return res.json();
-      }
+      const res = await fetch(`/api/patients/${patientId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hospital-Id': activeHospital?.id || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          channel: 'email',
+          recipient: emailAddress,
+          message: customMessage 
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to send email');
+      return res.json();
     },
     onSuccess: () => {
       setSendSuccess(true);
@@ -227,53 +207,21 @@ export function PatientCommunicationContent({
 
   const sendSmsMutation = useMutation({
     mutationFn: async () => {
-      if (messageType === "questionnaire") {
-        if (!generatedLink) throw new Error('No link generated');
-        const res = await fetch(`/api/questionnaire/links/${generatedLink.linkId}/send-sms`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Hospital-Id': activeHospital?.id || '',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ phone: phoneNumber }),
-        });
-        if (!res.ok) throw new Error('Failed to send SMS');
-        return res.json();
-      } else if (messageType === "custom") {
-        const res = await fetch(`/api/patients/${patientId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Hospital-Id': activeHospital?.id || '',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ 
-            channel: 'sms',
-            recipient: phoneNumber,
-            message: customMessage 
-          }),
-        });
-        if (!res.ok) throw new Error('Failed to send SMS');
-        return res.json();
-      } else if (messageType === "infoflyer") {
-        const res = await fetch(`/api/patients/${patientId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Hospital-Id': activeHospital?.id || '',
-          },
-          credentials: 'include',
-          body: JSON.stringify({ 
-            channel: 'sms',
-            recipient: phoneNumber,
-            message: unitSettings?.infoflyerContent || '',
-            type: 'infoflyer'
-          }),
-        });
-        if (!res.ok) throw new Error('Failed to send SMS');
-        return res.json();
-      }
+      const res = await fetch(`/api/patients/${patientId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Hospital-Id': activeHospital?.id || '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          channel: 'sms',
+          recipient: phoneNumber,
+          message: customMessage 
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to send SMS');
+      return res.json();
     },
     onSuccess: () => {
       setSendSuccess(true);
@@ -298,11 +246,6 @@ export function PatientCommunicationContent({
     },
   });
 
-  useEffect(() => {
-    if (isEnabled && !generatedLink && activeHospital?.id && isComposing && messageType === "questionnaire") {
-      generateLinkMutation.mutate();
-    }
-  }, [isEnabled, activeHospital?.id, isComposing, messageType]);
 
   const handleCopyLink = () => {
     if (!generatedLink) return;
@@ -318,12 +261,10 @@ export function PatientCommunicationContent({
 
   const handleSend = () => {
     if (sendMedium === "email") {
-      if (!emailAddress) return;
-      if (messageType === "custom" && !customMessage.trim()) return;
+      if (!emailAddress || !customMessage.trim()) return;
       sendEmailMutation.mutate();
     } else {
-      if (!phoneNumber) return;
-      if (messageType === "custom" && !customMessage.trim()) return;
+      if (!phoneNumber || !customMessage.trim()) return;
       sendSmsMutation.mutate();
     }
   };
@@ -333,14 +274,7 @@ export function PatientCommunicationContent({
 
   const canSend = () => {
     const hasRecipient = sendMedium === "email" ? !!emailAddress : !!phoneNumber;
-    if (messageType === "questionnaire") {
-      return hasRecipient && !!generatedLink;
-    } else if (messageType === "custom") {
-      return hasRecipient && !!customMessage.trim();
-    } else if (messageType === "infoflyer") {
-      return hasRecipient && hasInfoflyer;
-    }
-    return false;
+    return hasRecipient && !!customMessage.trim();
   };
 
   if (!addons.questionnaire) {
@@ -511,87 +445,72 @@ export function PatientCommunicationContent({
               </Button>
             </div>
 
+            <Textarea
+              placeholder={t('messages.messagePlaceholder', 'Write your message here...')}
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              rows={3}
+              className="text-sm resize-none"
+              data-testid="input-custom-message"
+            />
+
             <div className="flex gap-1.5 flex-wrap">
               <Button
-                variant={messageType === "questionnaire" ? "default" : "outline"}
+                variant="outline"
                 size="sm"
                 className="h-7 text-xs"
-                onClick={() => setMessageType("questionnaire")}
-                data-testid="button-type-questionnaire"
+                onClick={async () => {
+                  if (!generatedLink) {
+                    await generateLinkMutation.mutateAsync();
+                  }
+                  const link = generatedLink || generateLinkMutation.data?.link;
+                  if (link) {
+                    const url = `${window.location.origin}/questionnaire/${link.token}`;
+                    const template = `\n\n${t('messages.templates.questionnaire', 'Please complete your pre-operative questionnaire:')} ${url}`;
+                    setCustomMessage(prev => prev + template);
+                  }
+                }}
+                disabled={isGenerating}
+                data-testid="button-append-questionnaire"
               >
-                <FileText className="h-3 w-3 mr-1" />
-                {t('messages.compose.questionnaire', 'Questionnaire')}
+                {isGenerating ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <FileText className="h-3 w-3 mr-1" />
+                )}
+                {t('messages.compose.addQuestionnaire', '+ Questionnaire')}
               </Button>
-              <Button
-                variant={messageType === "custom" ? "default" : "outline"}
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setMessageType("custom")}
-                data-testid="button-type-custom"
-              >
-                <MessageSquare className="h-3 w-3 mr-1" />
-                {t('messages.compose.custom', 'Custom')}
-              </Button>
-              {hasInfoflyer && (
+              {(patientFlyers?.flyers?.length || 0) > 0 && (
                 <Button
-                  variant={messageType === "infoflyer" ? "default" : "outline"}
+                  variant="outline"
                   size="sm"
                   className="h-7 text-xs"
-                  onClick={() => setMessageType("infoflyer")}
-                  data-testid="button-type-infoflyer"
+                  onClick={() => {
+                    const flyerLinks = patientFlyers?.flyers?.map(f => 
+                      `${f.unitName}: ${f.downloadUrl}`
+                    ).join('\n') || '';
+                    const template = `\n\n${t('messages.templates.infoflyer', 'Important documents:')}\n${flyerLinks}`;
+                    setCustomMessage(prev => prev + template);
+                  }}
+                  data-testid="button-append-infoflyer"
                 >
                   <Info className="h-3 w-3 mr-1" />
-                  {t('messages.compose.infoflyer', 'Infoflyer')}
+                  {t('messages.compose.addInfoflyer', '+ Infoflyer')}
+                </Button>
+              )}
+              {generatedLink && (
+                <Button
+                  variant={copied ? "default" : "ghost"}
+                  size="sm"
+                  onClick={handleCopyLink}
+                  className="h-7 text-xs ml-auto"
+                  data-testid="button-copy-questionnaire-link"
+                >
+                  {copied ? <CheckCircle className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                  {t('common.copyLink', 'Copy Link')}
                 </Button>
               )}
             </div>
-
-            {messageType === "questionnaire" && (
-              <div>
-                {isGenerating ? (
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    {t('questionnaire.send.generating', 'Generating link...')}
-                  </div>
-                ) : generatedLink ? (
-                  <div className="flex gap-2">
-                    <Input
-                      readOnly
-                      value={`${window.location.origin}/questionnaire/${generatedLink.token}`}
-                      className="text-xs h-8"
-                      data-testid="input-questionnaire-link"
-                    />
-                    <Button
-                      variant={copied ? "default" : "outline"}
-                      size="icon"
-                      onClick={handleCopyLink}
-                      className="shrink-0 h-8 w-8"
-                      data-testid="button-copy-questionnaire-link"
-                    >
-                      {copied ? <CheckCircle className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            )}
-
-            {messageType === "custom" && (
-              <Textarea
-                placeholder={t('messages.messagePlaceholder', 'Write your message here...')}
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                rows={2}
-                className="text-sm resize-none"
-                data-testid="input-custom-message"
-              />
-            )}
-
-            {messageType === "infoflyer" && hasInfoflyer && (
-              <div className="p-2 rounded-md bg-muted text-xs text-muted-foreground max-h-16 overflow-y-auto">
-                {unitSettings?.infoflyerContent?.substring(0, 150)}
-                {(unitSettings?.infoflyerContent?.length || 0) > 150 && '...'}
-              </div>
-            )}
 
             <div className="flex gap-2 items-end">
               <div className="flex gap-1">

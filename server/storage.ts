@@ -967,6 +967,7 @@ export interface IStorage {
     patientBirthday: Date | null;
     plannedDate: Date;
     plannedSurgery: string;
+    surgeryRoomId: string | null;
     hasQuestionnaireSent: boolean;
     hasExistingQuestionnaire: boolean;
   }>>;
@@ -981,6 +982,7 @@ export interface IStorage {
     patientPhone: string | null;
     plannedDate: Date;
     admissionTime: Date | null;
+    surgeryRoomId: string | null;
     reminderSent: boolean;
   }>>;
   markSurgeryReminderSent(surgeryId: string): Promise<void>;
@@ -8519,6 +8521,7 @@ export class DatabaseStorage implements IStorage {
         patientBirthday: patients.birthday,
         plannedDate: surgeries.plannedDate,
         plannedSurgery: surgeries.plannedSurgery,
+        surgeryRoomId: surgeries.surgeryRoomId,
         // Check if there's any questionnaire link with emailSent=true OR smsSent=true for this surgery OR patient
         hasQuestionnaireSent: sql<boolean>`EXISTS (
           SELECT 1 FROM patient_questionnaire_links pql 
@@ -8567,6 +8570,7 @@ export class DatabaseStorage implements IStorage {
     patientPhone: string | null;
     plannedDate: Date;
     admissionTime: Date | null;
+    surgeryRoomId: string | null;
     reminderSent: boolean;
   }>> {
     // Calculate the time window: surgeries planned in approximately hoursAhead hours
@@ -8586,6 +8590,7 @@ export class DatabaseStorage implements IStorage {
         patientPhone: patients.phone,
         plannedDate: surgeries.plannedDate,
         admissionTime: surgeries.admissionTime,
+        surgeryRoomId: surgeries.surgeryRoomId,
         reminderSent: surgeries.reminderSent,
       })
       .from(surgeries)

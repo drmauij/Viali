@@ -18,6 +18,78 @@ const SCHEDULED_JOB_CHECK_INTERVAL_MS = 60000; // Check for scheduled jobs every
 const AUTO_QUESTIONNAIRE_DAYS_AHEAD = 14; // Send questionnaires 2 weeks before surgery
 const PRE_SURGERY_REMINDER_HOURS_AHEAD = 24; // Send fasting reminders 24 hours before surgery
 
+interface InfoFlyerData {
+  unitName: string;
+  unitType: string | null;
+  flyerUrl: string;
+  downloadUrl?: string;
+}
+
+/**
+ * Get relevant info flyers for a surgery:
+ * 1. The surgery room's unit flyer (if exists)
+ * 2. The anesthesia module's flyer (if exists and different)
+ */
+async function getRelevantInfoFlyers(
+  hospitalId: string,
+  surgeryRoomId: string | null
+): Promise<InfoFlyerData[]> {
+  const flyers: InfoFlyerData[] = [];
+  
+  // Get surgery room's unit flyer
+  if (surgeryRoomId) {
+    const room = await storage.getSurgeryRoomById(surgeryRoomId);
+    if (room && room.unitId) {
+      const unit = await storage.getUnit(room.unitId);
+      if (unit && unit.infoFlyerUrl) {
+        flyers.push({
+          unitName: unit.name,
+          unitType: unit.type,
+          flyerUrl: unit.infoFlyerUrl,
+        });
+      }
+    }
+  }
+  
+  // Get anesthesia module's flyer (if different)
+  const hospitalUnits = await storage.getUnits(hospitalId);
+  const anesthesiaUnit = hospitalUnits.find(u => u.isAnesthesiaModule && u.infoFlyerUrl);
+  if (anesthesiaUnit && !flyers.some(f => f.flyerUrl === anesthesiaUnit.infoFlyerUrl)) {
+    flyers.push({
+      unitName: anesthesiaUnit.name,
+      unitType: anesthesiaUnit.type,
+      flyerUrl: anesthesiaUnit.infoFlyerUrl!,
+    });
+  }
+  
+  return flyers;
+}
+
+/**
+ * Generate download URLs for info flyers using object storage
+ */
+async function generateFlyerDownloadUrls(flyers: InfoFlyerData[]): Promise<InfoFlyerData[]> {
+  if (flyers.length === 0) return [];
+  
+  const { ObjectStorageService } = await import('./objectStorage');
+  const objectStorageService = new ObjectStorageService();
+  
+  return Promise.all(
+    flyers.map(async (flyer) => {
+      try {
+        if (objectStorageService.isConfigured() && flyer.flyerUrl.startsWith('/objects/')) {
+          const downloadUrl = await objectStorageService.getObjectDownloadURL(flyer.flyerUrl, 86400); // 24 hour expiry
+          return { ...flyer, downloadUrl };
+        }
+        return { ...flyer, downloadUrl: flyer.flyerUrl };
+      } catch (error) {
+        console.error(`Error getting download URL for ${flyer.flyerUrl}:`, error);
+        return { ...flyer, downloadUrl: flyer.flyerUrl };
+      }
+    })
+  );
+}
+
 async function processNextImportJob() {
   try {
     const job = await storage.getNextQueuedJob();
@@ -1168,7 +1240,8 @@ async function sendQuestionnaireEmail(
   patientEmail: string,
   patientName: string,
   hospitalId: string,
-  unitId: string | null
+  unitId: string | null,
+  infoFlyers: InfoFlyerData[] = []
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const hospital = await storage.getHospital(hospitalId);
@@ -1193,6 +1266,33 @@ async function sendQuestionnaireEmail(
       ? `Bei Fragen oder wenn Sie Hilfe benötigen, rufen Sie uns bitte an unter <strong>${helpPhone}</strong>.`
       : `Bei Fragen kontaktieren Sie bitte unser Büro.`;
     
+    // Build info flyer section if available
+    let flyerSectionEN = '';
+    let flyerSectionDE = '';
+    if (infoFlyers.length > 0) {
+      const flyerLinksEN = infoFlyers.map(f => 
+        `<a href="${f.downloadUrl || f.flyerUrl}" style="color: #0066cc;">${f.unitName} Information</a>`
+      ).join('<br/>');
+      const flyerLinksDE = infoFlyers.map(f => 
+        `<a href="${f.downloadUrl || f.flyerUrl}" style="color: #cc0000;">${f.unitName} Informationen</a>`
+      ).join('<br/>');
+      
+      flyerSectionEN = `
+        <div style="background-color: #e0f2fe; border-left: 4px solid #0066cc; padding: 15px; margin: 20px 0;">
+          <h4 style="margin: 0 0 10px 0; color: #0066cc;">📄 Important Documents</h4>
+          <p style="margin: 0; font-size: 14px;">Please review the following information before your procedure:</p>
+          <p style="margin: 10px 0 0 0;">${flyerLinksEN}</p>
+        </div>
+      `;
+      flyerSectionDE = `
+        <div style="background-color: #fef2f2; border-left: 4px solid #cc0000; padding: 15px; margin: 20px 0;">
+          <h4 style="margin: 0 0 10px 0; color: #cc0000;">📄 Wichtige Dokumente</h4>
+          <p style="margin: 0; font-size: 14px;">Bitte lesen Sie die folgenden Informationen vor Ihrem Eingriff:</p>
+          <p style="margin: 10px 0 0 0;">${flyerLinksDE}</p>
+        </div>
+      `;
+    }
+    
     // Send bilingual email using Resend
     const { Resend } = await import('resend');
     const resend = new Resend(process.env.RESEND_API_KEY);
@@ -1216,6 +1316,7 @@ async function sendQuestionnaireEmail(
             </p>
             <p style="font-size: 13px; color: #666;">Or copy and paste this link into your browser:</p>
             <p style="color: #0066cc; word-break: break-all; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">${questionnaireUrl}</p>
+            ${flyerSectionEN}
             <p>${helpContactEN}</p>
           </div>
           
@@ -1230,6 +1331,7 @@ async function sendQuestionnaireEmail(
                 Fragebogen ausfüllen
               </a>
             </p>
+            ${flyerSectionDE}
             <p>${helpContactDE}</p>
           </div>
           
@@ -1258,7 +1360,8 @@ async function sendQuestionnaireSms(
   patientPhone: string,
   patientName: string,
   hospitalId: string,
-  unitId: string | null
+  unitId: string | null,
+  infoFlyers: InfoFlyerData[] = []
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!isSmsConfigured()) {
@@ -1282,6 +1385,14 @@ async function sendQuestionnaireSms(
     // Build a short bilingual SMS message (SMS has character limits)
     // Standard SMS = 160 chars, concatenated can be longer but charged per segment
     let message = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${questionnaireUrl}`;
+    
+    // Add info flyer links if available
+    if (infoFlyers.length > 0) {
+      message += `\n\n📄 Infos:`;
+      for (const flyer of infoFlyers) {
+        message += `\n${flyer.downloadUrl || flyer.flyerUrl}`;
+      }
+    }
     
     if (helpPhone) {
       message += `\n\nBei Fragen / Questions: ${helpPhone}`;
@@ -1415,6 +1526,10 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
         language: 'de',
       });
       
+      // Get relevant info flyers for this surgery (surgery room unit + anesthesia module)
+      const flyers = await getRelevantInfoFlyers(hospitalId, surgery.surgeryRoomId);
+      const flyersWithUrls = await generateFlyerDownloadUrls(flyers);
+      
       // Try email first, fall back to SMS
       let sendSuccess = false;
       let usedMethod: 'email' | 'sms' = 'email';
@@ -1425,7 +1540,8 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
           surgery.patientEmail!,
           patientName,
           hospitalId,
-          null // No specific unit for auto-dispatch
+          null,
+          flyersWithUrls
         );
         
         if (emailResult.success) {
@@ -1449,7 +1565,8 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
           surgery.patientPhone!,
           patientName,
           hospitalId,
-          null
+          null,
+          flyersWithUrls
         );
         
         if (smsResult.success) {
@@ -1915,6 +2032,10 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       // Format surgery date for display
       const surgeryDate = new Date(surgery.plannedDate);
       
+      // Get relevant info flyers for this surgery
+      const flyers = await getRelevantInfoFlyers(hospitalId, surgery.surgeryRoomId);
+      const flyersWithUrls = await generateFlyerDownloadUrls(flyers);
+      
       // Fasting instructions in German/English bilingual format
       const fastingInstructionsDe = 'Nüchternheitsregeln: Keine feste Nahrung ab 6 Stunden vor der OP. Klare Flüssigkeiten (Wasser, Tee ohne Milch) bis 2 Stunden vorher erlaubt.';
       const fastingInstructionsEn = 'Fasting rules: No solid food 6 hours before surgery. Clear liquids (water, tea without milk) allowed until 2 hours before.';
@@ -1932,7 +2053,17 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
           ? `Reminder: Your surgery tomorrow. Please arrive at the clinic by ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}.`
           : `Reminder: Your surgery tomorrow.`;
         
-        const smsMessage = `${hospitalName}: ${surgeryInfoDe}\n\n${fastingInstructionsDe}\n\n---\n\n${surgeryInfoEn}\n\n${fastingInstructionsEn}`;
+        let smsMessage = `${hospitalName}: ${surgeryInfoDe}\n\n${fastingInstructionsDe}`;
+        
+        // Add info flyer links if available
+        if (flyersWithUrls.length > 0) {
+          smsMessage += '\n\n📄 Infos:';
+          for (const flyer of flyersWithUrls) {
+            smsMessage += `\n${flyer.downloadUrl || flyer.flyerUrl}`;
+          }
+        }
+        
+        smsMessage += `\n\n---\n\n${surgeryInfoEn}\n\n${fastingInstructionsEn}`;
         
         const smsResult = await sendSms(surgery.patientPhone!, smsMessage, hospitalId);
         
@@ -1950,7 +2081,8 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
           patientName,
           hospitalName,
           surgeryDate,
-          surgery.admissionTime ? new Date(surgery.admissionTime) : null
+          surgery.admissionTime ? new Date(surgery.admissionTime) : null,
+          flyersWithUrls
         );
         
         if (emailResult.success) {
@@ -2012,7 +2144,8 @@ async function sendPreSurgeryReminderEmail(
   patientName: string,
   hospitalName: string,
   surgeryDate: Date,
-  admissionTime: Date | null
+  admissionTime: Date | null,
+  infoFlyers: InfoFlyerData[] = []
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { Resend } = await import('resend');
@@ -2034,6 +2167,33 @@ async function sendPreSurgeryReminderEmail(
       timeInfoEn = ` at ${admissionTimeStr}`;
       admissionInfoDe = `<p style="color: #059669; font-weight: bold;">Bitte kommen Sie um ${admissionTimeStr} in die Klinik.</p>`;
       admissionInfoEn = `<p style="color: #059669; font-weight: bold;">Please arrive at the clinic by ${admissionTimeStr}.</p>`;
+    }
+    
+    // Build info flyer section if available
+    let flyerSectionDE = '';
+    let flyerSectionEN = '';
+    if (infoFlyers.length > 0) {
+      const flyerLinksDE = infoFlyers.map(f => 
+        `<a href="${f.downloadUrl || f.flyerUrl}" style="color: #2563eb;">${f.unitName} Informationen</a>`
+      ).join('<br/>');
+      const flyerLinksEN = infoFlyers.map(f => 
+        `<a href="${f.downloadUrl || f.flyerUrl}" style="color: #2563eb;">${f.unitName} Information</a>`
+      ).join('<br/>');
+      
+      flyerSectionDE = `
+        <div style="background-color: #e0f2fe; border-left: 4px solid #2563eb; padding: 15px; margin: 20px 0;">
+          <h4 style="margin: 0 0 10px 0; color: #2563eb;">📄 Wichtige Dokumente</h4>
+          <p style="margin: 0; font-size: 14px;">Bitte lesen Sie die folgenden Informationen:</p>
+          <p style="margin: 10px 0 0 0;">${flyerLinksDE}</p>
+        </div>
+      `;
+      flyerSectionEN = `
+        <div style="background-color: #e0f2fe; border-left: 4px solid #2563eb; padding: 15px; margin: 20px 0;">
+          <h4 style="margin: 0 0 10px 0; color: #2563eb;">📄 Important Documents</h4>
+          <p style="margin: 0; font-size: 14px;">Please review the following information:</p>
+          <p style="margin: 10px 0 0 0;">${flyerLinksEN}</p>
+        </div>
+      `;
     }
     
     const htmlContent = `
@@ -2059,6 +2219,8 @@ async function sendPreSurgeryReminderEmail(
           </ul>
         </div>
         
+        ${flyerSectionDE}
+        
         <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;" />
         
         <div style="margin-bottom: 20px;">
@@ -2079,6 +2241,8 @@ async function sendPreSurgeryReminderEmail(
             <li>Clear liquids (water, tea without milk) are allowed until 2 hours before</li>
           </ul>
         </div>
+        
+        ${flyerSectionEN}
         
         <p style="color: #6b7280; font-size: 14px;">
           Bei Fragen kontaktieren Sie uns bitte. / Please contact us if you have questions.
