@@ -635,7 +635,7 @@ export function UnifiedAnesthesiaSetsDialog({
   );
 
   const renderFormFooter = () => (
-    <div className="flex gap-2">
+    <div className="flex gap-2 justify-end">
       <Button
         variant="outline"
         onClick={() => {
@@ -758,7 +758,7 @@ export function UnifiedAnesthesiaSetsDialog({
             </TabsContent>
 
             <TabsContent value="manage" className="flex-1 overflow-auto mt-4">
-              <div className="mb-4">
+              <div className="flex justify-end mb-4">
                 <Button onClick={() => setShowCreateForm(true)} data-testid="button-create-set">
                   <Plus className="h-4 w-4 mr-2" />
                   {t("anesthesia.sets.createNew", "Create New Set")}
