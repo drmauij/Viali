@@ -29,7 +29,7 @@ export default function TimelineWeekView({
   onEventClick,
   onCanvasClick,
 }: TimelineWeekViewProps) {
-  const { i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   
   // Calculate week days (Monday to Sunday)
   const weekDays = useMemo(() => {
@@ -116,13 +116,13 @@ export default function TimelineWeekView({
   // Get patient name
   const getPatientName = (patientId: string) => {
     const patient = patients.find((p: any) => p.id === patientId);
-    return patient ? `${patient.surname}, ${patient.firstName}` : "Unknown";
+    return patient ? `${patient.surname}, ${patient.firstName}` : t('opCalendar.weekView.unknownPatient');
   };
 
   // Get room name
   const getRoomName = (roomId: string) => {
     const room = surgeryRooms.find((r: any) => r.id === roomId);
-    return room ? room.name : "?";
+    return room ? room.name : t('opCalendar.weekView.unknownRoom');
   };
 
   // Get status color for surgery
@@ -274,7 +274,7 @@ export default function TimelineWeekView({
                       data-testid={`surgery-event-${surgery.id}`}
                     >
                       {isTruncatedStart && (
-                        <div className="text-[8px] text-center opacity-60">▲ earlier</div>
+                        <div className="text-[8px] text-center opacity-60">▲ {t('opCalendar.weekView.earlier')}</div>
                       )}
                       <div className="text-[10px] font-semibold truncate">
                         {startTime} {roomName}
@@ -290,7 +290,7 @@ export default function TimelineWeekView({
                         </div>
                       )}
                       {isTruncatedEnd && height > 40 && (
-                        <div className="text-[8px] text-center opacity-60 absolute bottom-0 left-0 right-0">▼ later</div>
+                        <div className="text-[8px] text-center opacity-60 absolute bottom-0 left-0 right-0">▼ {t('opCalendar.weekView.later')}</div>
                       )}
                     </div>
                   );

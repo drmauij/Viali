@@ -4085,7 +4085,13 @@
     "removalFailed": "Entfernung fehlgeschlagen",
     "removalFailedDesc": "Personal konnte nicht aus dem Saal entfernt werden.",
     "noSurgeries": "Keine OPs",
-    "noSurgeriesDesc": "Für diesen Tag sind keine OPs geplant."
+    "noSurgeriesDesc": "Für diesen Tag sind keine OPs geplant.",
+    "weekView": {
+      "earlier": "früher",
+      "later": "später",
+      "unknownPatient": "Unbekannt",
+      "unknownRoom": "?"
+    }
   },
   "staffPool": {
     "planStaff": "Personal planen",
