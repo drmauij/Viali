@@ -26,8 +26,15 @@ type AnesthesiaSet = {
 type TechniqueItem = {
   id: string;
   itemType: string;
-  itemValue: string;
+  itemValue?: string;
   sortOrder: number;
+  config?: Record<string, any>;
+};
+
+type PendingTechnique = {
+  itemType: string;
+  itemValue: string;
+  metadata: Record<string, any>;
 };
 
 type MedicationItem = {
@@ -78,14 +85,127 @@ interface UnifiedAnesthesiaSetsDialogProps {
   onSetApplied?: () => void;
 }
 
-const TECHNIQUE_OPTIONS = [
-  { type: 'installation', values: ['peripheral', 'arterial', 'central', 'bladder'], label: 'Installation' },
-  { type: 'technique', values: ['general', 'sedation', 'regional', 'local', 'mac'], label: 'General Anesthesia' },
-  { type: 'airway', values: ['lma', 'ett', 'mask', 'nasal', 'fiberoptic'], label: 'Airway Management' },
-  { type: 'neuraxial', values: ['spinal', 'epidural', 'cse'], label: 'Neuraxial Anesthesia' },
-  { type: 'peripheral_block', values: ['interscalene', 'supraclavicular', 'infraclavicular', 'axillary', 'femoral', 'adductor_canal', 'popliteal', 'ankle', 'tap', 'erector_spinae', 'pecs', 'serratus'], label: 'Peripheral Block' },
-  { type: 'asa_status', values: ['1', '2', '3', '4', '5', '6'], label: 'ASA Status' },
-  { type: 'mallampati', values: ['1', '2', '3', '4'], label: 'Mallampati' },
+const TECHNIQUE_CATEGORIES = [
+  { 
+    type: 'peripheral_venous', 
+    label: 'Peripheral Venous Access',
+    category: 'installation',
+    fields: [
+      { key: 'location', label: 'Location', type: 'select', options: ['right-hand', 'left-hand', 'right-forearm', 'left-forearm', 'right-ac-fossa', 'left-ac-fossa'] },
+      { key: 'gauge', label: 'Gauge', type: 'select', options: ['14G', '16G', '18G', '20G', '22G', '24G'] },
+    ]
+  },
+  { 
+    type: 'arterial_line', 
+    label: 'Arterial Line',
+    category: 'installation',
+    fields: [
+      { key: 'location', label: 'Location', type: 'select', options: ['radial-left', 'radial-right', 'femoral-left', 'femoral-right', 'brachial'] },
+      { key: 'gauge', label: 'Gauge', type: 'select', options: ['18G', '20G', '22G'] },
+      { key: 'technique', label: 'Technique', type: 'select', options: ['direct', 'transfixion', 'ultrasound'] },
+    ]
+  },
+  { 
+    type: 'central_venous', 
+    label: 'Central Venous Catheter',
+    category: 'installation',
+    fields: [
+      { key: 'location', label: 'Location', type: 'select', options: ['right-ijv', 'left-ijv', 'right-subclavian', 'left-subclavian', 'right-femoral', 'left-femoral'] },
+      { key: 'lumens', label: 'Lumens', type: 'select', options: ['1', '2', '3', '4'] },
+      { key: 'depth', label: 'Depth (cm)', type: 'number' },
+      { key: 'technique', label: 'Technique', type: 'select', options: ['landmark', 'ultrasound'] },
+    ]
+  },
+  { 
+    type: 'bladder_catheter', 
+    label: 'Bladder Catheter',
+    category: 'installation',
+    fields: [
+      { key: 'bladderType', label: 'Type', type: 'select', options: ['foley', 'suprapubic', 'three-way'] },
+      { key: 'size', label: 'Size (Fr)', type: 'select', options: ['12', '14', '16', '18', '20', '22'] },
+    ]
+  },
+  { 
+    type: 'general_anesthesia', 
+    label: 'General Anesthesia',
+    category: 'anesthesia',
+    fields: [
+      { key: 'approach', label: 'Maintenance Type', type: 'select', options: ['tiva', 'tci', 'balanced-gas', 'sedation'] },
+      { key: 'rsi', label: 'RSI', type: 'checkbox' },
+    ]
+  },
+  { 
+    type: 'airway_management', 
+    label: 'Airway Management',
+    category: 'anesthesia',
+    fields: [
+      { key: 'device', label: 'Device', type: 'select', options: ['ett', 'spiral-tube', 'rae-tube', 'dlt-left', 'dlt-right', 'lma', 'lma-auragain', 'facemask', 'tracheostomy'] },
+      { key: 'size', label: 'Size', type: 'text' },
+      { key: 'depth', label: 'Depth (cm)', type: 'select', options: ['19', '20', '21', '22', '23', '24', '25'] },
+      { key: 'cuffPressure', label: 'Cuff Pressure (cmH₂O)', type: 'select', options: ['15', '20', '22', '24', '25', '26', '28', '30'] },
+    ]
+  },
+  { 
+    type: 'spinal', 
+    label: 'Spinal Anesthesia',
+    category: 'neuraxial',
+    fields: [
+      { key: 'level', label: 'Level', type: 'text', placeholder: 'e.g., L3-L4' },
+      { key: 'needleGauge', label: 'Needle', type: 'text', placeholder: 'e.g., 25G Pencil Point' },
+      { key: 'sensoryLevel', label: 'Sensory Level', type: 'text', placeholder: 'e.g., T4' },
+    ]
+  },
+  { 
+    type: 'epidural', 
+    label: 'Epidural Anesthesia',
+    category: 'neuraxial',
+    fields: [
+      { key: 'level', label: 'Level', type: 'text', placeholder: 'e.g., L3-L4' },
+      { key: 'needleGauge', label: 'Needle', type: 'text', placeholder: 'e.g., 18G Tuohy' },
+      { key: 'catheterDepth', label: 'Catheter Depth (cm)', type: 'number' },
+      { key: 'sensoryLevel', label: 'Sensory Level', type: 'text', placeholder: 'e.g., T6' },
+    ]
+  },
+  { 
+    type: 'cse', 
+    label: 'Combined Spinal-Epidural',
+    category: 'neuraxial',
+    fields: [
+      { key: 'level', label: 'Level', type: 'text', placeholder: 'e.g., L3-L4' },
+      { key: 'spinalNeedle', label: 'Spinal Needle', type: 'text' },
+      { key: 'epiduralNeedle', label: 'Epidural Needle', type: 'text' },
+      { key: 'catheterDepth', label: 'Catheter Depth (cm)', type: 'number' },
+    ]
+  },
+  { 
+    type: 'peripheral_block', 
+    label: 'Peripheral Nerve Block',
+    category: 'regional',
+    fields: [
+      { key: 'blockType', label: 'Block Type', type: 'select', options: ['interscalene', 'supraclavicular', 'infraclavicular', 'axillary', 'femoral', 'sciatic', 'popliteal', 'adductor-canal', 'ankle-block', 'tap', 'ql', 'pecs', 'serratus', 'erector-spinae', 'intercostal', 'paravertebral'] },
+      { key: 'laterality', label: 'Side', type: 'select', options: ['left', 'right', 'bilateral'] },
+      { key: 'guidance', label: 'Guidance', type: 'select', options: ['ultrasound', 'nerve-stimulator', 'both', 'landmark'] },
+      { key: 'needleType', label: 'Needle Type', type: 'text', placeholder: 'e.g., 22G 50mm' },
+      { key: 'catheter', label: 'Catheter Placed', type: 'checkbox' },
+    ]
+  },
+  { 
+    type: 'asa_status', 
+    label: 'ASA Status',
+    category: 'assessment',
+    fields: [
+      { key: 'status', label: 'ASA Class', type: 'select', options: ['1', '2', '3', '4', '5', '6'] },
+      { key: 'emergency', label: 'Emergency (E)', type: 'checkbox' },
+    ]
+  },
+  { 
+    type: 'mallampati', 
+    label: 'Mallampati Score',
+    category: 'assessment',
+    fields: [
+      { key: 'score', label: 'Score', type: 'select', options: ['1', '2', '3', '4'] },
+    ]
+  },
 ];
 
 export function UnifiedAnesthesiaSetsDialog({
@@ -105,12 +225,12 @@ export function UnifiedAnesthesiaSetsDialog({
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [applyingSetId, setApplyingSetId] = useState<string | null>(null);
   
-  const [pendingTechniques, setPendingTechniques] = useState<Array<{ itemType: string; itemValue: string }>>([]);
+  const [pendingTechniques, setPendingTechniques] = useState<PendingTechnique[]>([]);
+  const [currentTechniqueMetadata, setCurrentTechniqueMetadata] = useState<Record<string, any>>({});
   const [pendingMedications, setPendingMedications] = useState<Array<{ medicationConfigId: string; itemName: string; customDose: string | null; defaultDose: string | null; unit: string | null }>>([]);
   const [pendingInventory, setPendingInventory] = useState<Array<{ itemId: string; itemName: string; quantity: number }>>([]);
   
   const [techniqueType, setTechniqueType] = useState<string>("");
-  const [techniqueValue, setTechniqueValue] = useState<string>("");
   const [medSearchQuery, setMedSearchQuery] = useState("");
   const [invSearchQuery, setInvSearchQuery] = useState("");
   const [editingMedIdx, setEditingMedIdx] = useState<number | null>(null);
@@ -258,7 +378,7 @@ export function UnifiedAnesthesiaSetsDialog({
     setPendingMedications([]);
     setPendingInventory([]);
     setTechniqueType("");
-    setTechniqueValue("");
+    setCurrentTechniqueMetadata({});
     setMedSearchQuery("");
     setInvSearchQuery("");
   };
@@ -272,10 +392,14 @@ export function UnifiedAnesthesiaSetsDialog({
       setEditingSet(setWithDetails);
       setNewSetName(setWithDetails.name);
       setNewSetDescription(setWithDetails.description || "");
-      setPendingTechniques(setWithDetails.items.map(item => ({
-        itemType: item.itemType,
-        itemValue: item.itemValue,
-      })));
+      setPendingTechniques(setWithDetails.items.map(item => {
+        const category = TECHNIQUE_CATEGORIES.find(c => c.type === item.itemType);
+        return {
+          itemType: item.itemType,
+          itemValue: item.itemValue || category?.label || item.itemType,
+          metadata: item.config || {},
+        };
+      }));
       setPendingMedications(setWithDetails.medications.map(med => ({
         medicationConfigId: med.medicationConfigId,
         itemName: med.itemName || 'Unknown',
@@ -292,11 +416,16 @@ export function UnifiedAnesthesiaSetsDialog({
   };
 
   const handleAddTechnique = () => {
-    if (!techniqueType || !techniqueValue) return;
-    if (pendingTechniques.some(t => t.itemType === techniqueType && t.itemValue === techniqueValue)) return;
-    setPendingTechniques([...pendingTechniques, { itemType: techniqueType, itemValue: techniqueValue }]);
+    if (!techniqueType) return;
+    const category = TECHNIQUE_CATEGORIES.find(c => c.type === techniqueType);
+    if (!category) return;
+    setPendingTechniques([...pendingTechniques, { 
+      itemType: techniqueType, 
+      itemValue: category.label,
+      metadata: { ...currentTechniqueMetadata }
+    }]);
     setTechniqueType("");
-    setTechniqueValue("");
+    setCurrentTechniqueMetadata({});
   };
 
   const handleAddMedication = (med: AvailableMedication) => {
@@ -330,6 +459,7 @@ export function UnifiedAnesthesiaSetsDialog({
         itemType: t.itemType,
         itemValue: t.itemValue,
         sortOrder: idx,
+        config: t.metadata,
       })),
       medications: pendingMedications.map((m, idx) => ({
         medicationConfigId: m.medicationConfigId,
@@ -355,6 +485,7 @@ export function UnifiedAnesthesiaSetsDialog({
           itemType: t.itemType,
           itemValue: t.itemValue,
           sortOrder: idx,
+          config: t.metadata,
         })),
         medications: pendingMedications.map((m, idx) => ({
           medicationConfigId: m.medicationConfigId,
@@ -386,7 +517,77 @@ export function UnifiedAnesthesiaSetsDialog({
     !pendingInventory.some(i => i.itemId === item.id)
   );
 
-  const selectedTechniqueOption = TECHNIQUE_OPTIONS.find(t => t.type === techniqueType);
+  const selectedTechniqueCategory = TECHNIQUE_CATEGORIES.find(c => c.type === techniqueType);
+
+  const renderTechniqueFields = () => {
+    if (!selectedTechniqueCategory) return null;
+    
+    return (
+      <div className="mt-3 p-3 border rounded-md bg-muted/30 space-y-3">
+        <div className="text-sm font-medium">{selectedTechniqueCategory.label} - Template Fields</div>
+        <div className="grid grid-cols-2 gap-3">
+          {selectedTechniqueCategory.fields.map((field: any) => (
+            <div key={field.key} className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">{field.label}</label>
+              {field.type === 'select' ? (
+                <select
+                  className="w-full border rounded-md p-2 text-sm bg-background"
+                  value={currentTechniqueMetadata[field.key] || ""}
+                  onChange={(e) => setCurrentTechniqueMetadata(prev => ({ ...prev, [field.key]: e.target.value }))}
+                >
+                  <option value="">Select...</option>
+                  {field.options?.map((opt: string) => (
+                    <option key={opt} value={opt}>
+                      {opt.replace(/-/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())}
+                    </option>
+                  ))}
+                </select>
+              ) : field.type === 'checkbox' ? (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={currentTechniqueMetadata[field.key] || false}
+                    onChange={(e) => setCurrentTechniqueMetadata(prev => ({ ...prev, [field.key]: e.target.checked }))}
+                    className="h-4 w-4"
+                  />
+                  <span className="text-sm">Yes</span>
+                </label>
+              ) : field.type === 'number' ? (
+                <Input
+                  type="number"
+                  placeholder={field.placeholder || ""}
+                  value={currentTechniqueMetadata[field.key] || ""}
+                  onChange={(e) => setCurrentTechniqueMetadata(prev => ({ ...prev, [field.key]: e.target.value }))}
+                  className="h-8 text-sm"
+                />
+              ) : (
+                <Input
+                  placeholder={field.placeholder || ""}
+                  value={currentTechniqueMetadata[field.key] || ""}
+                  onChange={(e) => setCurrentTechniqueMetadata(prev => ({ ...prev, [field.key]: e.target.value }))}
+                  className="h-8 text-sm"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const formatTechniqueMetadata = (metadata: Record<string, any>) => {
+    const parts: string[] = [];
+    Object.entries(metadata).forEach(([key, value]) => {
+      if (value && value !== "") {
+        if (typeof value === 'boolean') {
+          if (value) parts.push(key);
+        } else {
+          parts.push(String(value).replace(/-/g, ' '));
+        }
+      }
+    });
+    return parts.length > 0 ? parts.join(', ') : '';
+  };
 
   const renderSetForm = () => (
     <div className="space-y-4">
@@ -418,43 +619,59 @@ export function UnifiedAnesthesiaSetsDialog({
             </div>
           </AccordionTrigger>
           <AccordionContent>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex gap-2">
-                <Select value={techniqueType} onValueChange={(v) => { setTechniqueType(v); setTechniqueValue(""); }}>
+                <Select value={techniqueType} onValueChange={(v) => { setTechniqueType(v); setCurrentTechniqueMetadata({}); }}>
                   <SelectTrigger className="flex-1">
-                    <SelectValue placeholder={t("anesthesia.sets.selectType", "Select type...")} />
+                    <SelectValue placeholder={t("anesthesia.sets.selectType", "Select technique type...")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {TECHNIQUE_OPTIONS.map(opt => (
-                      <SelectItem key={opt.type} value={opt.type}>
-                        {opt.label || opt.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                      </SelectItem>
+                    <SelectItem value="__header_install" disabled className="font-semibold text-muted-foreground">Installations</SelectItem>
+                    {TECHNIQUE_CATEGORIES.filter(c => c.category === 'installation').map(cat => (
+                      <SelectItem key={cat.type} value={cat.type}>{cat.label}</SelectItem>
+                    ))}
+                    <SelectItem value="__header_anesthesia" disabled className="font-semibold text-muted-foreground">Anesthesia</SelectItem>
+                    {TECHNIQUE_CATEGORIES.filter(c => c.category === 'anesthesia').map(cat => (
+                      <SelectItem key={cat.type} value={cat.type}>{cat.label}</SelectItem>
+                    ))}
+                    <SelectItem value="__header_neuraxial" disabled className="font-semibold text-muted-foreground">Neuraxial</SelectItem>
+                    {TECHNIQUE_CATEGORIES.filter(c => c.category === 'neuraxial').map(cat => (
+                      <SelectItem key={cat.type} value={cat.type}>{cat.label}</SelectItem>
+                    ))}
+                    <SelectItem value="__header_regional" disabled className="font-semibold text-muted-foreground">Regional</SelectItem>
+                    {TECHNIQUE_CATEGORIES.filter(c => c.category === 'regional').map(cat => (
+                      <SelectItem key={cat.type} value={cat.type}>{cat.label}</SelectItem>
+                    ))}
+                    <SelectItem value="__header_assessment" disabled className="font-semibold text-muted-foreground">Assessment</SelectItem>
+                    {TECHNIQUE_CATEGORIES.filter(c => c.category === 'assessment').map(cat => (
+                      <SelectItem key={cat.type} value={cat.type}>{cat.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={techniqueValue} onValueChange={setTechniqueValue} disabled={!techniqueType}>
-                  <SelectTrigger className="flex-1">
-                    <SelectValue placeholder={t("anesthesia.sets.selectValue", "Select value...")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {selectedTechniqueOption?.values.map(val => (
-                      <SelectItem key={val} value={val}>
-                        {val.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={handleAddTechnique} disabled={!techniqueType || !techniqueValue} size="icon" variant="outline">
+                <Button onClick={handleAddTechnique} disabled={!techniqueType} size="icon" variant="outline" data-testid="button-add-technique">
                   <Plus className="h-4 w-4" />
                 </Button>
               </div>
-              <div className="flex flex-wrap gap-1">
-                {pendingTechniques.map((t, idx) => (
-                  <Badge key={idx} variant="outline" className="flex items-center gap-1">
-                    {formatTechniqueLabel(t.itemType, t.itemValue)}
-                    <X className="h-3 w-3 cursor-pointer" onClick={() => setPendingTechniques(pendingTechniques.filter((_, i) => i !== idx))} />
-                  </Badge>
-                ))}
+              
+              {renderTechniqueFields()}
+              
+              <div className="space-y-2">
+                {pendingTechniques.map((t, idx) => {
+                  const metaDisplay = formatTechniqueMetadata(t.metadata);
+                  return (
+                    <div key={idx} className="flex items-start justify-between bg-muted/50 rounded p-2 gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm">{t.itemValue}</div>
+                        {metaDisplay && (
+                          <div className="text-xs text-muted-foreground truncate">{metaDisplay}</div>
+                        )}
+                      </div>
+                      <Button size="sm" variant="ghost" onClick={() => setPendingTechniques(pendingTechniques.filter((_, i) => i !== idx))}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </AccordionContent>
