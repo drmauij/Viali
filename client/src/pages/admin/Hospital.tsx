@@ -2369,11 +2369,11 @@ export default function Hospital() {
 
       {/* Unit Dialog */}
       <Dialog open={unitDialogOpen} onOpenChange={setUnitDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
+        <DialogContent className="max-h-[85vh] flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle>{editingUnit ? t("admin.editUnit") : t("admin.addUnit")}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-4 overflow-y-auto flex-1 pr-2">
             <div>
               <Label htmlFor="unit-name">{t("admin.unitName")} *</Label>
               <Input
@@ -2558,18 +2558,18 @@ export default function Hospital() {
                 {t("admin.infoFlyerHint", "PDF document with info about this unit for patients")}
               </p>
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>
-                {t("common.cancel")}
-              </Button>
-              <Button
-                onClick={handleSaveUnit}
-                disabled={createUnitMutation.isPending || updateUnitMutation.isPending}
-                data-testid="button-save-unit"
-              >
-                {editingUnit ? t("common.edit") : t("common.save")}
-              </Button>
-            </div>
+          </div>
+          <div className="flex gap-2 justify-end pt-4 border-t shrink-0">
+            <Button variant="outline" onClick={() => setUnitDialogOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={handleSaveUnit}
+              disabled={createUnitMutation.isPending || updateUnitMutation.isPending}
+              data-testid="button-save-unit"
+            >
+              {editingUnit ? t("common.edit") : t("common.save")}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

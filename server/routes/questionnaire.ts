@@ -1755,7 +1755,10 @@ router.get('/api/public/questionnaire/:token/info-flyers', async (req: Request, 
     
     // Also get the anesthesia module's info flyer (if different from surgery unit)
     const hospitalUnits = await storage.getUnits(link.hospitalId);
-    const anesthesiaUnit = hospitalUnits.find(u => u.isAnesthesiaModule && u.infoFlyerUrl);
+    // Check for anesthesia unit by flag or by type (fallback)
+    const anesthesiaUnit = hospitalUnits.find(u => 
+      (u.isAnesthesiaModule || u.type === 'anesthesia') && u.infoFlyerUrl
+    );
     if (anesthesiaUnit && !flyers.some(f => f.flyerUrl === anesthesiaUnit.infoFlyerUrl)) {
       flyers.push({
         unitName: anesthesiaUnit.name,
