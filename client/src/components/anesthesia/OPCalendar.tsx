@@ -1107,6 +1107,10 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
                 });
                 setQuickCreateOpen(true);
               }}
+              onDayClick={(date) => {
+                setSelectedDate(date);
+                setCurrentView("day");
+              }}
             />
           ) : (
             <DragAndDropCalendar

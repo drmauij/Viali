@@ -13,6 +13,7 @@ interface TimelineWeekViewProps {
   onEventClick?: (surgeryId: string, patientId: string) => void;
   onEventDrop?: (surgeryId: string, newStart: Date, newEnd: Date, newRoomId: string) => void;
   onCanvasClick?: (groupId: string, time: Date) => void;
+  onDayClick?: (date: Date) => void;
 }
 
 // Business hours
@@ -27,6 +28,7 @@ export default function TimelineWeekView({
   selectedDate,
   onEventClick,
   onCanvasClick,
+  onDayClick,
 }: TimelineWeekViewProps) {
   const { t, i18n } = useTranslation();
   
@@ -210,9 +212,10 @@ export default function TimelineWeekView({
           <div
             key={idx}
             className={cn(
-              "flex-1 p-2 text-center border-r text-sm font-medium",
+              "flex-1 p-2 text-center border-r text-sm font-medium cursor-pointer hover:bg-primary/20 transition-colors",
               isToday(day) && "bg-primary/10 text-primary"
             )}
+            onClick={() => onDayClick?.(day.toDate())}
             data-testid={`day-header-${day.format('YYYY-MM-DD')}`}
           >
             {formatDayHeader(day)}
