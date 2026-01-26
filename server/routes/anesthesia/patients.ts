@@ -653,10 +653,8 @@ router.get('/api/patients/:id/info-flyers', isAuthenticated, async (req: any, re
     }
 
     const hospitalUnits = await storage.getUnits(patient.hospitalId);
-    // Check for anesthesia unit by flag or by type (fallback)
-    const anesthesiaUnit = hospitalUnits.find(u => 
-      (u.isAnesthesiaModule || u.type === 'anesthesia') && u.infoFlyerUrl
-    );
+    // Check for anesthesia unit by type
+    const anesthesiaUnit = hospitalUnits.find(u => u.type === 'anesthesia' && u.infoFlyerUrl);
     if (anesthesiaUnit && !flyers.some(f => f.flyerUrl === anesthesiaUnit.infoFlyerUrl)) {
       flyers.push({
         unitName: anesthesiaUnit.name,
