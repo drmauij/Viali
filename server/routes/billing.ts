@@ -101,7 +101,7 @@ router.get("/api/billing/:hospitalId/status", isAuthenticated, async (req: any, 
     
     // Calculate price per record including base price and per-record add-ons
     // Note: questionnaire and surgery are now included in the base fee (no extra charge)
-    const basePrice = hospital.pricePerRecord ? parseFloat(hospital.pricePerRecord) : 3.00;
+    const basePrice = hospital.pricePerRecord ? parseFloat(hospital.pricePerRecord) : 6.00;
     const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
     const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
     const pricePerRecord = basePrice + dispocuraAddOn + monitorAddOn;
@@ -1690,7 +1690,7 @@ router.post("/api/billing/:hospitalId/generate-invoice", isAuthenticated, requir
     
     // Calculate pricing
     // Note: questionnaire and surgery are now included in the base fee (no extra charge)
-    const basePrice = parseFloat(hospital.pricePerRecord || '3.00');
+    const basePrice = parseFloat(hospital.pricePerRecord || '6.00');
     // Per-record add-ons (questionnaire and surgery no longer charged separately)
     const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
     const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;

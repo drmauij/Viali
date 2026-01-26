@@ -2248,7 +2248,7 @@ async function processMonthlyBilling(job: any): Promise<void> {
     
     // Calculate pricing
     // Note: questionnaire and surgery are now included in base fee (no extra charge)
-    const basePrice = parseFloat(hospital.pricePerRecord || '3.00');
+    const basePrice = parseFloat(hospital.pricePerRecord || '6.00');
     const dispocuraAddOn = hospital.addonDispocura ? 1.00 : 0;
     const retellAddOn = hospital.addonRetell ? 1.00 : 0;
     const monitorAddOn = hospital.addonMonitor ? 1.00 : 0;
