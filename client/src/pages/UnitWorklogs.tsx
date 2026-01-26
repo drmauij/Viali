@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +14,7 @@ import { WorklogLinkManager } from "@/components/WorklogLinkManager";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import type { Hospital } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Loader2, Clock, CheckCircle, XCircle, PenLine, Download, User, Building2 } from "lucide-react";
+import { Loader2, Clock, CheckCircle, XCircle, PenLine, Download, User, Building2, Search } from "lucide-react";
 import { format } from "date-fns";
 import { de, enUS, type Locale } from "date-fns/locale";
 import jsPDF from "jspdf";
@@ -170,9 +171,15 @@ export default function UnitWorklogs() {
   const [showRejectDialog, setShowRejectDialog] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<WorklogEntry | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const { data: pendingEntries = [], isLoading: isPendingLoading } = useQuery<WorklogEntry[]>({
     queryKey: [`/api/hospitals/${hospitalId}/worklog/pending?unitId=${unitId}`],
+    enabled: !!hospitalId && !!unitId,
+  });
+
+  const { data: countersignedEntries = [], isLoading: isCountersignedLoading } = useQuery<WorklogEntry[]>({
+    queryKey: [`/api/hospitals/${hospitalId}/worklog/entries?unitId=${unitId}&status=countersigned`],
     enabled: !!hospitalId && !!unitId,
   });
 
@@ -181,8 +188,9 @@ export default function UnitWorklogs() {
       return apiRequest('POST', `/api/hospitals/${hospitalId}/worklog/entries/${entryId}/countersign`, { signature });
     },
     onSuccess: () => {
-      // Invalidate both pending worklogs (this page) and all worklog entries (business module)
+      // Invalidate pending, countersigned, and all worklog entries
       queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/pending?unitId=${unitId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/hospitals/${hospitalId}/worklog/entries?unitId=${unitId}&status=countersigned`] });
       queryClient.invalidateQueries({ 
         predicate: (query) => {
           const key = query.queryKey[0];
@@ -382,10 +390,27 @@ export default function UnitWorklogs() {
               <Badge variant="secondary" className="ml-1">{pendingEntries.length}</Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="countersigned" className="flex items-center gap-2" data-testid="tab-countersigned">
+            <CheckCircle className="w-4 h-4" />
+            {t('worklogs.statusCountersigned')}
+          </TabsTrigger>
           <TabsTrigger value="links" className="flex items-center gap-2" data-testid="tab-links">
             {t('worklogs.manageLinks')}
           </TabsTrigger>
         </TabsList>
+
+        {(activeTab === "pending" || activeTab === "countersigned") && (
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={t('worklogs.searchPlaceholder', 'Search by name or notes...')}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-worklogs"
+            />
+          </div>
+        )}
 
         <TabsContent value="pending">
           {isPendingLoading ? (
@@ -400,7 +425,66 @@ export default function UnitWorklogs() {
               </CardContent>
             </Card>
           ) : (
-            pendingEntries.map(entry => renderEntryCard(entry))
+            (() => {
+              const filtered = pendingEntries.filter(entry => {
+                if (!searchQuery.trim()) return true;
+                const q = searchQuery.toLowerCase();
+                return (
+                  entry.firstName?.toLowerCase().includes(q) ||
+                  entry.lastName?.toLowerCase().includes(q) ||
+                  `${entry.firstName} ${entry.lastName}`.toLowerCase().includes(q) ||
+                  entry.notes?.toLowerCase().includes(q)
+                );
+              });
+              return filtered.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center text-gray-500">
+                    <Search className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>{t('common.noResults', 'No results found')}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                filtered.map(entry => renderEntryCard(entry))
+              );
+            })()
+          )}
+        </TabsContent>
+
+        <TabsContent value="countersigned">
+          {isCountersignedLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin" />
+            </div>
+          ) : countersignedEntries.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-gray-500">
+                <CheckCircle className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p>{t('worklogs.noCountersigned', 'No countersigned records yet')}</p>
+              </CardContent>
+            </Card>
+          ) : (
+            (() => {
+              const filtered = countersignedEntries.filter(entry => {
+                if (!searchQuery.trim()) return true;
+                const q = searchQuery.toLowerCase();
+                return (
+                  entry.firstName?.toLowerCase().includes(q) ||
+                  entry.lastName?.toLowerCase().includes(q) ||
+                  `${entry.firstName} ${entry.lastName}`.toLowerCase().includes(q) ||
+                  entry.notes?.toLowerCase().includes(q)
+                );
+              });
+              return filtered.length === 0 ? (
+                <Card>
+                  <CardContent className="py-12 text-center text-gray-500">
+                    <Search className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                    <p>{t('common.noResults', 'No results found')}</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                filtered.map(entry => renderEntryCard(entry))
+              );
+            })()
           )}
         </TabsContent>
 
