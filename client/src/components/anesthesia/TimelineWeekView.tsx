@@ -182,7 +182,8 @@ export default function TimelineWeekView({
   };
 
   const formatDayHeader = (day: moment.Moment) => {
-    return day.format('ddd DD.MM');
+    // Explicitly set locale on the moment instance before formatting
+    return day.clone().locale(momentLocale).format('ddd DD.MM');
   };
 
   const handleCanvasClick = (day: moment.Moment, hour: number) => {
