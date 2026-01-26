@@ -2102,6 +2102,9 @@ export default function Hospital() {
             </div>
           )}
 
+          {/* HIN MediUpdate - Free medication data sync */}
+          <HinMediupdateCard />
+
           {/* Galexis Debug Test Section */}
           {supplierCatalogs.some((c: any) => c.supplierName === 'Galexis') && (
             <div className="mt-6 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-4">
@@ -2192,11 +2195,9 @@ export default function Hospital() {
                   </details>
                 </div>
               )}
+
             </div>
           )}
-
-          {/* HIN MediUpdate - Free medication data sync */}
-          <HinMediupdateCard />
         </div>
       )}
 
