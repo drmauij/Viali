@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
@@ -1917,9 +1917,11 @@ export default function Hospital() {
               {supplierCatalogs.map((catalog: any) => {
                 const latestJob = priceSyncJobs.find((j: any) => j.catalogId === catalog.id);
                 const isJobActive = latestJob && (latestJob.status === 'queued' || latestJob.status === 'processing');
+                const isGalexis = catalog.supplierName === 'Galexis';
                 
                 return (
-                  <div key={catalog.id} className="bg-card border border-border rounded-lg p-4">
+                  <Fragment key={catalog.id}>
+                  <div className="bg-card border border-border rounded-lg p-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
@@ -2021,6 +2023,8 @@ export default function Hospital() {
                       </div>
                     )}
                   </div>
+                  {isGalexis && <HinMediupdateCard />}
+                  </Fragment>
                 );
               })}
             </div>
@@ -2101,9 +2105,6 @@ export default function Hospital() {
               </div>
             </div>
           )}
-
-          {/* HIN MediUpdate - Free medication data sync */}
-          <HinMediupdateCard />
 
           {/* Galexis Debug Test Section */}
           {supplierCatalogs.some((c: any) => c.supplierName === 'Galexis') && (
