@@ -289,12 +289,13 @@ export function PatientCommunicationContent({
   const getCommunicationHistory = () => {
     const history: Array<{
       id: string;
-      type: 'questionnaire' | 'message' | 'infoflyer';
+      type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder';
       channel: 'email' | 'sms';
       recipient: string;
       date: Date;
       status?: string;
       message?: string;
+      isAutomatic?: boolean;
     }> = [];
 
     if (existingLinks) {
@@ -324,13 +325,27 @@ export function PatientCommunicationContent({
 
     if (patientMessages) {
       patientMessages.forEach(msg => {
+        const msgAny = msg as any;
+        const isAutomatic = msgAny.isAutomatic === true;
+        const messageType = msgAny.messageType || 'manual';
+        
+        let type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder' = 'message';
+        if (msgAny.type === 'infoflyer') {
+          type = 'infoflyer';
+        } else if (messageType === 'auto_questionnaire') {
+          type = 'auto_questionnaire';
+        } else if (messageType === 'auto_reminder') {
+          type = 'auto_reminder';
+        }
+        
         history.push({
           id: `m-${msg.id}`,
-          type: (msg as any).type === 'infoflyer' ? 'infoflyer' : 'message',
+          type,
           channel: msg.channel as 'email' | 'sms',
           recipient: msg.recipient,
           date: new Date(msg.createdAt!),
           message: msg.message,
+          isAutomatic,
         });
       });
     }
@@ -340,17 +355,22 @@ export function PatientCommunicationContent({
 
   const communicationHistory = getCommunicationHistory();
 
-  const getMessageTypeIcon = (type: 'questionnaire' | 'message' | 'infoflyer') => {
-    if (type === 'questionnaire') {
+  const getMessageTypeIcon = (type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder') => {
+    if (type === 'questionnaire' || type === 'auto_questionnaire') {
       return <FileText className="h-4 w-4" />;
     } else if (type === 'infoflyer') {
       return <Info className="h-4 w-4" />;
+    } else if (type === 'auto_reminder') {
+      return <Clock className="h-4 w-4" />;
     } else {
       return <MessageSquare className="h-4 w-4" />;
     }
   };
 
-  const getMessageBubbleColor = (type: 'questionnaire' | 'message' | 'infoflyer') => {
+  const getMessageBubbleColor = (type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder', isAutomatic?: boolean) => {
+    if (isAutomatic || type === 'auto_questionnaire' || type === 'auto_reminder') {
+      return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700';
+    }
     switch (type) {
       case 'questionnaire':
         return 'bg-blue-100 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800';
@@ -358,6 +378,22 @@ export function PatientCommunicationContent({
         return 'bg-purple-100 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800';
       default:
         return 'bg-green-100 dark:bg-green-900/30 border-green-200 dark:border-green-800';
+    }
+  };
+  
+  const getMessageTypeLabel = (type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder', isAutomatic?: boolean) => {
+    if (type === 'auto_questionnaire') {
+      return t('messages.historyAutoQuestionnaire', '🤖 Auto: Questionnaire');
+    } else if (type === 'auto_reminder') {
+      return t('messages.historyAutoReminder', '🤖 Auto: Surgery Reminder');
+    } else if (type === 'questionnaire') {
+      return t('messages.historyQuestionnaire', 'Questionnaire');
+    } else if (type === 'infoflyer') {
+      return t('messages.historyInfoflyer', 'Infoflyer');
+    } else if (isAutomatic) {
+      return t('messages.historyAutoMessage', '🤖 Auto: Message');
+    } else {
+      return t('messages.historyMessage', 'Message');
     }
   };
 
@@ -456,11 +492,13 @@ export function PatientCommunicationContent({
             communicationHistory.map((item) => (
               <div
                 key={item.id}
-                className={`p-3 rounded-lg border ${getMessageBubbleColor(item.type)} ml-auto max-w-[85%]`}
+                className={`p-3 rounded-lg border ${getMessageBubbleColor(item.type, item.isAutomatic)} ml-auto max-w-[85%]`}
                 data-testid={`history-item-${item.id}`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`p-1 rounded ${
+                    (item.isAutomatic || item.type === 'auto_questionnaire' || item.type === 'auto_reminder') 
+                      ? 'bg-amber-200 dark:bg-amber-800 text-amber-700 dark:text-amber-200' :
                     item.type === 'questionnaire' ? 'bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200' :
                     item.type === 'infoflyer' ? 'bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-200' :
                     'bg-green-200 dark:bg-green-800 text-green-700 dark:text-green-200'
@@ -468,11 +506,7 @@ export function PatientCommunicationContent({
                     {getMessageTypeIcon(item.type)}
                   </span>
                   <span className="text-sm font-medium">
-                    {item.type === 'questionnaire' 
-                      ? t('messages.historyQuestionnaire', 'Questionnaire')
-                      : item.type === 'infoflyer'
-                      ? t('messages.historyInfoflyer', 'Infoflyer')
-                      : t('messages.historyMessage', 'Message')}
+                    {getMessageTypeLabel(item.type, item.isAutomatic)}
                   </span>
                   <span className="text-xs text-muted-foreground flex items-center gap-1 ml-auto">
                     {item.channel === 'email' ? <Mail className="h-3 w-3" /> : <Smartphone className="h-3 w-3" />}

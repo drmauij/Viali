@@ -4580,15 +4580,18 @@ export type ExternalSurgeryRequestDocument = typeof externalSurgeryRequestDocume
 export type InsertExternalSurgeryRequestDocument = z.infer<typeof insertExternalSurgeryRequestDocumentSchema>;
 
 // Patient Messages - custom messages sent to patients via SMS/email
+// messageType: 'manual' = user-sent, 'auto_questionnaire' = 14-day questionnaire, 'auto_reminder' = 24-hour pre-surgery reminder
 export const patientMessages = pgTable("patient_messages", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
   patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
-  sentBy: varchar("sent_by").notNull().references(() => users.id),
+  sentBy: varchar("sent_by").references(() => users.id), // nullable for automatic messages
   channel: varchar("channel", { length: 10 }).notNull(), // 'sms' or 'email'
   recipient: varchar("recipient").notNull(), // phone number or email address
   message: text("message").notNull(),
   status: varchar("status", { length: 20 }).default("sent"), // 'sent', 'delivered', 'failed'
+  isAutomatic: boolean("is_automatic").default(false), // true for system-generated messages
+  messageType: varchar("message_type", { length: 30 }).default("manual"), // 'manual', 'auto_questionnaire', 'auto_reminder'
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => [
   index("idx_patient_messages_hospital").on(table.hospitalId),

@@ -1582,6 +1582,35 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
       }
       
       if (sendSuccess) {
+        // Save the automatic message to patient communication history
+        const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
+        const questionnaireUrl = `${baseUrl}/questionnaire/${linkToken}`;
+        const hospital = await storage.getHospital(hospitalId);
+        
+        let messageText: string;
+        if (usedMethod === 'email') {
+          messageText = `[Automatisch / Automatic] Präoperativer Fragebogen / Pre-operative Questionnaire\n\nLiebe(r) ${patientName},\n\nSie wurden eingeladen, einen präoperativen Fragebogen auszufüllen.\n\nDear ${patientName},\n\nYou have been invited to complete a pre-operative questionnaire.\n\n📋 ${questionnaireUrl}`;
+        } else {
+          messageText = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${questionnaireUrl}`;
+        }
+        
+        try {
+          await storage.createPatientMessage({
+            hospitalId,
+            patientId: surgery.patientId,
+            sentBy: null, // automatic message, no user sender
+            channel: usedMethod,
+            recipient: usedMethod === 'email' ? surgery.patientEmail! : surgery.patientPhone!,
+            message: messageText,
+            status: 'sent',
+            isAutomatic: true,
+            messageType: 'auto_questionnaire',
+          });
+          console.log(`[Worker] Saved auto-questionnaire message to patient communication history`);
+        } catch (msgError) {
+          console.error(`[Worker] Failed to save auto-questionnaire message:`, msgError);
+        }
+        
         successCount++;
         results.push({
           surgeryId: surgery.surgeryId,
@@ -2044,6 +2073,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       let usedMethod: 'sms' | 'email' = 'sms';
       
       // Try SMS first (preferred for urgent reminders)
+      let sentMessageText = '';
       if (hasPhone && isSmsConfigured()) {
         // Build SMS message - only include time if admissionTime is provided
         const surgeryInfoDe = surgery.admissionTime 
@@ -2070,6 +2100,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
         if (smsResult.success) {
           sendSuccess = true;
           usedMethod = 'sms';
+          sentMessageText = smsMessage;
           console.log(`[Worker] Pre-surgery reminder SMS sent to ${patientName}`);
         }
       }
@@ -2088,6 +2119,12 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
         if (emailResult.success) {
           sendSuccess = true;
           usedMethod = 'email';
+          // Build email summary text for patient communication history
+          const dateStr = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long' });
+          const admissionTimeStr = surgery.admissionTime 
+            ? new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+            : '';
+          sentMessageText = `[Automatisch / Automatic] OP-Erinnerung / Surgery Reminder\n\n${dateStr}${admissionTimeStr ? ` um ${admissionTimeStr}` : ''}\n\n${fastingInstructionsDe}\n\n---\n\n${fastingInstructionsEn}`;
           console.log(`[Worker] Pre-surgery reminder email sent to ${patientName}`);
         }
       }
@@ -2095,6 +2132,25 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       if (sendSuccess) {
         // Mark as reminded
         await storage.markSurgeryReminderSent(surgery.surgeryId);
+        
+        // Save the automatic message to patient communication history
+        try {
+          await storage.createPatientMessage({
+            hospitalId,
+            patientId: surgery.patientId!,
+            sentBy: null, // automatic message, no user sender
+            channel: usedMethod,
+            recipient: usedMethod === 'sms' ? surgery.patientPhone! : surgery.patientEmail!,
+            message: sentMessageText,
+            status: 'sent',
+            isAutomatic: true,
+            messageType: 'auto_reminder',
+          });
+          console.log(`[Worker] Saved pre-surgery reminder message to patient communication history`);
+        } catch (msgError) {
+          console.error(`[Worker] Failed to save pre-surgery reminder message:`, msgError);
+        }
+        
         successCount++;
         results.push({
           surgeryId: surgery.surgeryId,

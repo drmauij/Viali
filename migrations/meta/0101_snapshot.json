@@ -1,6 +1,6 @@
 {
-  "id": "5aafaee2-ff52-43e7-a5a8-e3d28ec493ea",
-  "prevId": "9ed146e1-60af-423d-80e5-cfa3e3128525",
+  "id": "00569e53-edd6-4823-a5a9-e87ec4aa327e",
+  "prevId": "5aafaee2-ff52-43e7-a5a8-e3d28ec493ea",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -11714,7 +11714,7 @@
           "name": "sent_by",
           "type": "varchar",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "channel": {
           "name": "channel",
@@ -11740,6 +11740,20 @@
           "primaryKey": false,
           "notNull": false,
           "default": "'sent'"
+        },
+        "is_automatic": {
+          "name": "is_automatic",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "message_type": {
+          "name": "message_type",
+          "type": "varchar(30)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'manual'"
         },
         "created_at": {
           "name": "created_at",
