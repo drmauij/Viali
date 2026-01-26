@@ -540,16 +540,16 @@ export default function ExternalWorklog() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="worklogs">
+          <TabsContent value="worklogs" className="mt-4">
             {!showForm ? (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <Button 
-                  className="w-full" 
+                  className="w-full py-6 text-base" 
                   size="lg"
                   onClick={() => setShowForm(true)}
                   data-testid="button-new-entry"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
+                  <Plus className="w-5 h-5 mr-2" />
                   {t("externalWorklog.newEntry")}
                 </Button>
 
