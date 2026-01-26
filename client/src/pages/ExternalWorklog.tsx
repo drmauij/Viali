@@ -152,15 +152,21 @@ export default function ExternalWorklog() {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem("worklog-theme");
-    if (savedTheme === "dark") {
+    const hasDarkClass = document.documentElement.classList.contains("dark");
+    
+    if (savedTheme === "dark" || (!savedTheme && hasDarkClass)) {
       setIsDark(true);
       document.documentElement.classList.add("dark");
+    } else if (savedTheme === "light") {
+      setIsDark(false);
+      document.documentElement.classList.remove("dark");
     }
   }, []);
 
   const toggleTheme = () => {
-    setIsDark(!isDark);
-    if (!isDark) {
+    const newIsDark = !isDark;
+    setIsDark(newIsDark);
+    if (newIsDark) {
       document.documentElement.classList.add("dark");
       localStorage.setItem("worklog-theme", "dark");
     } else {
@@ -671,7 +677,7 @@ export default function ExternalWorklog() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 transition-colors">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl lg:max-w-4xl mx-auto">
         <div className="flex justify-end gap-2 mb-4">
           <Button
             variant="outline"
@@ -713,22 +719,26 @@ export default function ExternalWorklog() {
         </Card>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
-          <TabsList className="grid w-full grid-cols-3 dark:bg-gray-800">
-            <TabsTrigger value="worklogs" className="dark:data-[state=active]:bg-gray-700" data-testid="tab-worklogs">
-              <History className="w-4 h-4 mr-2" />
-              {t("externalWorklog.tabs.worklogs")}
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto gap-1 dark:bg-gray-800 p-1">
+            <TabsTrigger value="worklogs" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-worklogs">
+              <History className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">{t("externalWorklog.tabs.worklogs")}</span>
+              <span className="sm:hidden">Logs</span>
             </TabsTrigger>
-            <TabsTrigger value="contracts" className="dark:data-[state=active]:bg-gray-700" data-testid="tab-contracts">
-              <FileSignature className="w-4 h-4 mr-2" />
-              {t("externalWorklog.tabs.contracts")}
+            <TabsTrigger value="contracts" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-contracts">
+              <FileSignature className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">{t("externalWorklog.tabs.contracts")}</span>
+              <span className="sm:hidden">Contracts</span>
             </TabsTrigger>
-            <TabsTrigger value="personal" className="dark:data-[state=active]:bg-gray-700" data-testid="tab-personal">
-              <User className="w-4 h-4 mr-2" />
-              {t("externalWorklog.tabs.personalData")}
+            <TabsTrigger value="personal" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-personal">
+              <User className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">{t("externalWorklog.tabs.personalData")}</span>
+              <span className="sm:hidden">Personal</span>
             </TabsTrigger>
-            <TabsTrigger value="reports" className="dark:data-[state=active]:bg-gray-700" data-testid="tab-reports">
-              <FileBarChart className="w-4 h-4 mr-2" />
-              {t("externalWorklog.tabs.reports")}
+            <TabsTrigger value="reports" className="dark:data-[state=active]:bg-gray-700 py-2 text-xs sm:text-sm" data-testid="tab-reports">
+              <FileBarChart className="w-4 h-4 mr-1 sm:mr-2" />
+              <span className="hidden sm:inline">{t("externalWorklog.tabs.reports")}</span>
+              <span className="sm:hidden">Reports</span>
             </TabsTrigger>
           </TabsList>
 
