@@ -508,7 +508,7 @@ router.get('/api/anesthesia-sets/set/:setId', isAuthenticated, async (req: any, 
     // Enrich medications with config and item details
     const medications = await Promise.all(
       rawMedications.map(async (med) => {
-        const config = await storage.getMedicationConfig(med.medicationConfigId);
+        const config = await storage.getMedicationConfigById(med.medicationConfigId);
         const item = config?.itemId ? await storage.getItem(config.itemId) : null;
         return {
           ...med,

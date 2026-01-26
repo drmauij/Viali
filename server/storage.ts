@@ -452,6 +452,7 @@ export interface IStorage {
   
   // Medication Config operations
   getMedicationConfig(itemId: string): Promise<MedicationConfig | undefined>;
+  getMedicationConfigById(id: string): Promise<MedicationConfig | undefined>;
   upsertMedicationConfig(config: InsertMedicationConfig): Promise<MedicationConfig>;
   deleteMedicationConfig(itemId: string): Promise<void>;
   
@@ -2551,6 +2552,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(medicationConfigs)
       .where(eq(medicationConfigs.itemId, itemId));
+    return config;
+  }
+
+  async getMedicationConfigById(id: string): Promise<MedicationConfig | undefined> {
+    const [config] = await db
+      .select()
+      .from(medicationConfigs)
+      .where(eq(medicationConfigs.id, id));
     return config;
   }
 
