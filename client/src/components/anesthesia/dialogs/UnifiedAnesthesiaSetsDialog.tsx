@@ -79,11 +79,13 @@ interface UnifiedAnesthesiaSetsDialogProps {
 }
 
 const TECHNIQUE_OPTIONS = [
-  { type: 'technique', values: ['general', 'sedation', 'regional_spinal', 'regional_epidural', 'regional_peripheral'] },
-  { type: 'airway_management', values: ['lma', 'ett', 'mask', 'none'] },
-  { type: 'asa_status', values: ['1', '2', '3', '4', '5', '6'] },
-  { type: 'mallampati', values: ['1', '2', '3', '4'] },
-  { type: 'cormack_lehane', values: ['1', '2a', '2b', '3', '4'] },
+  { type: 'installation', values: ['peripheral', 'arterial', 'central', 'bladder'], label: 'Installation' },
+  { type: 'technique', values: ['general', 'sedation', 'regional', 'local', 'mac'], label: 'General Anesthesia' },
+  { type: 'airway', values: ['lma', 'ett', 'mask', 'nasal', 'fiberoptic'], label: 'Airway Management' },
+  { type: 'neuraxial', values: ['spinal', 'epidural', 'cse'], label: 'Neuraxial Anesthesia' },
+  { type: 'peripheral_block', values: ['interscalene', 'supraclavicular', 'infraclavicular', 'axillary', 'femoral', 'adductor_canal', 'popliteal', 'ankle', 'tap', 'erector_spinae', 'pecs', 'serratus'], label: 'Peripheral Block' },
+  { type: 'asa_status', values: ['1', '2', '3', '4', '5', '6'], label: 'ASA Status' },
+  { type: 'mallampati', values: ['1', '2', '3', '4'], label: 'Mallampati' },
 ];
 
 export function UnifiedAnesthesiaSetsDialog({
@@ -129,14 +131,19 @@ export function UnifiedAnesthesiaSetsDialog({
   });
 
   const { data: availableMedications = [], isLoading: isLoadingMeds } = useQuery<AvailableMedication[]>({
-    queryKey: ['/api/anesthesia/items', hospitalId, 'configured'],
+    queryKey: ['/api/anesthesia/items', hospitalId],
     queryFn: async () => {
-      const response = await fetch(`/api/anesthesia/items/${hospitalId}?configured=true`, {
+      const response = await fetch(`/api/anesthesia/items/${hospitalId}`, {
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch medications');
       const data = await response.json();
-      return data.filter((item: any) => item.itemName);
+      return data.map((item: any) => ({
+        id: item.medicationConfigId || item.id,
+        itemName: item.name,
+        defaultDose: item.defaultDose,
+        administrationUnit: item.administrationUnit,
+      })).filter((item: any) => item.itemName);
     },
     enabled: open && !!hospitalId,
   });
@@ -144,7 +151,7 @@ export function UnifiedAnesthesiaSetsDialog({
   const { data: inventoryItems = [], isLoading: isLoadingInv } = useQuery<InventoryItemOption[]>({
     queryKey: ['/api/items', hospitalId, 'anesthesia'],
     queryFn: async () => {
-      const response = await fetch(`/api/items?hospitalId=${hospitalId}&module=anesthesia`, {
+      const response = await fetch(`/api/items/${hospitalId}?module=anesthesia`, {
         credentials: 'include'
       });
       if (!response.ok) throw new Error('Failed to fetch inventory items');
@@ -413,14 +420,14 @@ export function UnifiedAnesthesiaSetsDialog({
           <AccordionContent>
             <div className="space-y-2">
               <div className="flex gap-2">
-                <Select value={techniqueType} onValueChange={setTechniqueType}>
+                <Select value={techniqueType} onValueChange={(v) => { setTechniqueType(v); setTechniqueValue(""); }}>
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder={t("anesthesia.sets.selectType", "Select type...")} />
                   </SelectTrigger>
                   <SelectContent>
                     {TECHNIQUE_OPTIONS.map(opt => (
                       <SelectItem key={opt.type} value={opt.type}>
-                        {opt.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                        {opt.label || opt.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
                       </SelectItem>
                     ))}
                   </SelectContent>
