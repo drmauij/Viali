@@ -1,10 +1,9 @@
 import { useMemo } from "react";
 import moment from "moment";
 import "moment/locale/en-gb";
+import "moment/locale/de";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
-
-moment.locale('en-gb');
 
 interface TimelineWeekViewProps {
   surgeryRooms: any[];
@@ -125,10 +124,10 @@ export default function TimelineWeekView({
     return room ? room.name : t('opCalendar.weekView.unknownRoom');
   };
 
-  // Get status color for surgery
+  // Get status color for surgery - using solid backgrounds for readability
   const getStatusClass = (surgery: any) => {
     if (surgery.status === "cancelled") {
-      return "bg-gray-300 border-gray-400 text-gray-600 line-through";
+      return "bg-gray-200 border-gray-500 text-gray-700 line-through";
     }
     
     if (surgery.timeMarkers) {
@@ -138,15 +137,19 @@ export default function TimelineWeekView({
       const hasO1 = surgery.timeMarkers.find((m: any) => m.code === 'O1' && m.time !== null);
       
       if (hasA2 || hasX2) {
-        return "bg-green-100 border-green-500 text-green-800";
+        // Completed - solid green
+        return "bg-green-200 border-green-600 text-green-900";
       } else if (hasO2) {
-        return "bg-yellow-100 border-yellow-500 text-yellow-800";
+        // Suturing - solid yellow
+        return "bg-yellow-200 border-yellow-600 text-yellow-900";
       } else if (hasO1) {
-        return "bg-red-100 border-red-500 text-red-800";
+        // Running - solid red
+        return "bg-red-200 border-red-600 text-red-900";
       }
     }
     
-    return "bg-primary/10 border-primary text-primary";
+    // Planned - solid blue/primary
+    return "bg-blue-200 border-blue-600 text-blue-900";
   };
 
   // Calculate surgery position and height
