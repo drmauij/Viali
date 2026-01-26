@@ -468,8 +468,11 @@ export function PatientCommunicationContent({
                   }
                   if (link) {
                     const url = `${window.location.origin}/questionnaire/${link.token}`;
-                    const template = `\n\n${t('messages.templates.questionnaire', 'Please complete your pre-operative questionnaire:')} ${url}`;
-                    setCustomMessage(prev => prev + template);
+                    const templateText = `${t('messages.templates.questionnaire', 'Please complete your pre-operative questionnaire:')} ${url}`;
+                    setCustomMessage(prev => {
+                      if (!prev.trim()) return templateText;
+                      return prev + '\n' + templateText;
+                    });
                   }
                 }}
                 disabled={isGenerating}
@@ -491,8 +494,11 @@ export function PatientCommunicationContent({
                     const flyerLinks = patientFlyers?.flyers?.map(f => 
                       `${f.unitName}: ${f.downloadUrl}`
                     ).join('\n') || '';
-                    const template = `\n\n${t('messages.templates.infoflyer', 'Important documents:')}\n${flyerLinks}`;
-                    setCustomMessage(prev => prev + template);
+                    const templateText = `${t('messages.templates.infoflyer', 'Important documents:')}\n${flyerLinks}`;
+                    setCustomMessage(prev => {
+                      if (!prev.trim()) return templateText;
+                      return prev + '\n' + templateText;
+                    });
                   }}
                   data-testid="button-append-infoflyer"
                 >
