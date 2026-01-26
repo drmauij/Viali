@@ -50,13 +50,65 @@ export default function TimelineWeekView({
     return slots;
   }, []);
 
-  // Get surgeries for a specific day
+  // Helper to parse marker time (handles both ISO strings and timestamps)
+  const parseMarkerTime = (markerTime: string | number): Date | null => {
+    if (!markerTime) return null;
+    if (typeof markerTime === 'number') {
+      return new Date(markerTime);
+    }
+    const parsed = new Date(markerTime);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  };
+
+  // Calculate display times using O1/O2 markers (matching OPCalendar logic)
+  const getDisplayTimes = (surgery: any): { displayStart: Date; displayEnd: Date } => {
+    const plannedDate = new Date(surgery.plannedDate);
+    const timeMarkers = surgery.timeMarkers || [];
+    
+    const o1Marker = timeMarkers.find((m: any) => m.code === 'O1' && m.time !== null);
+    const o2Marker = timeMarkers.find((m: any) => m.code === 'O2' && m.time !== null);
+    
+    const o1Time = o1Marker ? parseMarkerTime(o1Marker.time) : null;
+    const o2Time = o2Marker ? parseMarkerTime(o2Marker.time) : null;
+    
+    // Use O1 time as start if available, otherwise use planned date
+    let displayStart = plannedDate;
+    if (o1Time) {
+      displayStart = o1Time;
+    }
+    
+    // Calculate planned duration
+    const plannedDurationMs = surgery.duration 
+      ? surgery.duration * 60 * 1000 
+      : 3 * 60 * 60 * 1000; // default 3 hours
+    
+    // Calculate end time based on available markers
+    let displayEnd: Date;
+    if (o1Time && o2Time) {
+      // Both O1 and O2 available - use actual surgery end
+      displayEnd = o2Time;
+    } else if (o1Time) {
+      // Only O1 available - use planned duration from O1 start
+      displayEnd = new Date(displayStart.getTime() + plannedDurationMs);
+    } else {
+      // No O1 - use original logic with planned date
+      displayEnd = surgery.actualEndTime 
+        ? new Date(surgery.actualEndTime)
+        : new Date(plannedDate.getTime() + plannedDurationMs);
+    }
+    
+    return { displayStart, displayEnd };
+  };
+
+  // Get surgeries for a specific day (uses displayStart for accurate placement)
   const getSurgeriesForDay = (day: moment.Moment) => {
     const dayStart = day.clone().startOf('day');
     const dayEnd = day.clone().endOf('day');
     
     return surgeries.filter(surgery => {
-      const surgeryDate = moment(surgery.plannedDate);
+      // Use the same logic as display to determine which day the surgery belongs to
+      const { displayStart } = getDisplayTimes(surgery);
+      const surgeryDate = moment(displayStart);
       return surgeryDate.isBetween(dayStart, dayEnd, 'day', '[]');
     });
   };
@@ -99,13 +151,10 @@ export default function TimelineWeekView({
 
   // Calculate surgery position and height
   const getSurgeryStyle = (surgery: any) => {
-    const startTime = moment(surgery.plannedDate);
-    const endTime = surgery.actualEndTime 
-      ? moment(surgery.actualEndTime)
-      : moment(surgery.plannedDate).add(3, 'hours');
+    const { displayStart, displayEnd } = getDisplayTimes(surgery);
     
-    const startHour = startTime.hour() + startTime.minute() / 60;
-    const endHour = endTime.hour() + endTime.minute() / 60;
+    const startHour = displayStart.getHours() + displayStart.getMinutes() / 60;
+    const endHour = displayEnd.getHours() + displayEnd.getMinutes() / 60;
     
     // Clamp to business hours
     const clampedStart = Math.max(startHour, BUSINESS_HOUR_START);
@@ -114,7 +163,11 @@ export default function TimelineWeekView({
     const top = (clampedStart - BUSINESS_HOUR_START) * HOUR_HEIGHT;
     const height = Math.max((clampedEnd - clampedStart) * HOUR_HEIGHT, 30);
     
-    return { top, height };
+    // Determine if event is truncated (for visual indicator)
+    const isTruncatedStart = startHour < BUSINESS_HOUR_START;
+    const isTruncatedEnd = endHour > BUSINESS_HOUR_END;
+    
+    return { top, height, isTruncatedStart, isTruncatedEnd, displayStart };
   };
 
   const isToday = (day: moment.Moment) => {
@@ -199,24 +252,30 @@ export default function TimelineWeekView({
 
                 {/* Surgery events */}
                 {daySurgeries.map((surgery) => {
-                  const { top, height } = getSurgeryStyle(surgery);
+                  const { top, height, isTruncatedStart, isTruncatedEnd, displayStart } = getSurgeryStyle(surgery);
                   const roomName = getRoomName(surgery.surgeryRoomId);
                   const patientName = getPatientName(surgery.patientId);
                   const procedureName = surgery.plannedSurgery || 'Surgery';
-                  const startTime = moment(surgery.plannedDate).format('HH:mm');
+                  const startTime = moment(displayStart).format('HH:mm');
                   
                   return (
                     <div
                       key={surgery.id}
                       className={cn(
-                        "absolute left-1 right-1 rounded border-l-4 px-1 py-0.5 overflow-hidden cursor-pointer transition-all hover:shadow-md hover:z-10",
-                        getStatusClass(surgery)
+                        "absolute left-1 right-1 border-l-4 px-1 py-0.5 overflow-hidden cursor-pointer transition-all hover:shadow-md hover:z-10",
+                        getStatusClass(surgery),
+                        isTruncatedStart ? "rounded-b" : "rounded-t",
+                        isTruncatedEnd ? "rounded-t" : "rounded-b",
+                        !isTruncatedStart && !isTruncatedEnd && "rounded"
                       )}
                       style={{ top, height: Math.max(height - 2, 28) }}
                       onClick={() => onEventClick?.(surgery.id, surgery.patientId)}
                       title={`${startTime} - ${procedureName}\n${patientName}\n${roomName}`}
                       data-testid={`surgery-event-${surgery.id}`}
                     >
+                      {isTruncatedStart && (
+                        <div className="text-[8px] text-center opacity-60">▲ earlier</div>
+                      )}
                       <div className="text-[10px] font-semibold truncate">
                         {startTime} {roomName}
                       </div>
@@ -229,6 +288,9 @@ export default function TimelineWeekView({
                         <div className="text-[10px] truncate opacity-70">
                           {patientName}
                         </div>
+                      )}
+                      {isTruncatedEnd && height > 40 && (
+                        <div className="text-[8px] text-center opacity-60 absolute bottom-0 left-0 right-0">▼ later</div>
                       )}
                     </div>
                   );
