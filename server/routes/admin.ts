@@ -1185,4 +1185,26 @@ router.post('/api/admin/:hospitalId/upload', isAuthenticated, isAdmin, async (re
   }
 });
 
+// Serve files from object storage (for info flyers, etc.)
+// Path format: /objects/folder/filename
+router.get('/objects/:objectPath(*)', isAuthenticated, async (req: any, res) => {
+  try {
+    const objectPath = `/objects/${req.params.objectPath}`;
+    const { ObjectStorageService } = await import('../objectStorage');
+    const objectStorageService = new ObjectStorageService();
+    
+    if (!objectStorageService.isConfigured()) {
+      return res.status(500).json({ message: "Object storage not configured" });
+    }
+    
+    await objectStorageService.downloadObject(objectPath, res);
+  } catch (error: any) {
+    console.error("Error serving object:", error);
+    if (error.name === 'ObjectNotFoundError') {
+      return res.status(404).json({ message: "File not found" });
+    }
+    res.status(500).json({ message: "Failed to serve file" });
+  }
+});
+
 export default router;
