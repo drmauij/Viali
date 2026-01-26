@@ -630,7 +630,7 @@ router.get('/api/patients/:id/info-flyers', isAuthenticated, async (req: any, re
       return res.status(403).json({ message: "Access denied" });
     }
 
-    const surgeries = await storage.getSurgeriesForPatient(patientId);
+    const surgeries = await storage.getSurgeries(patient.hospitalId, { patientId });
     const upcomingSurgery = surgeries.find(s => 
       s.status !== 'completed' && s.status !== 'cancelled' && 
       new Date(s.plannedDate!) > new Date()
