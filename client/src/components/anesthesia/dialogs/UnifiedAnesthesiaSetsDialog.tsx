@@ -65,6 +65,7 @@ type AvailableMedication = {
   id: string;
   itemId: string;
   itemName: string;
+  medicationConfigId?: string;
   defaultDose: string | null;
   administrationUnit: string | null;
   administrationRoute: string | null;
@@ -259,11 +260,15 @@ export function UnifiedAnesthesiaSetsDialog({
       if (!response.ok) throw new Error('Failed to fetch medications');
       const data = await response.json();
       return data.map((item: any) => ({
-        id: item.medicationConfigId || item.id,
+        id: item.id,
+        itemId: item.id,
         itemName: item.name,
+        medicationConfigId: item.medicationConfigId,
         defaultDose: item.defaultDose,
         administrationUnit: item.administrationUnit,
-      })).filter((item: any) => item.itemName);
+        administrationRoute: item.administrationRoute,
+        administrationGroup: item.administrationGroup,
+      })).filter((item: any) => item.itemName && item.medicationConfigId);
     },
     enabled: open && !!hospitalId,
   });
@@ -429,9 +434,11 @@ export function UnifiedAnesthesiaSetsDialog({
   };
 
   const handleAddMedication = (med: AvailableMedication) => {
-    if (pendingMedications.some(m => m.medicationConfigId === med.id)) return;
+    // Use medicationConfigId (from medicationConfigs.id), not med.id (which is items.id)
+    const configId = med.medicationConfigId || med.id;
+    if (pendingMedications.some(m => m.medicationConfigId === configId)) return;
     setPendingMedications([...pendingMedications, {
-      medicationConfigId: med.id,
+      medicationConfigId: configId,
       itemName: med.itemName,
       customDose: null,
       defaultDose: med.defaultDose,
@@ -509,7 +516,7 @@ export function UnifiedAnesthesiaSetsDialog({
 
   const filteredMedications = availableMedications.filter(med =>
     (med.itemName || '').toLowerCase().includes(medSearchQuery.toLowerCase()) &&
-    !pendingMedications.some(m => m.medicationConfigId === med.id)
+    !pendingMedications.some(m => m.medicationConfigId === med.medicationConfigId)
   );
 
   const filteredInventory = inventoryItems.filter(item =>
