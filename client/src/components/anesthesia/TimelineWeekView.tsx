@@ -30,15 +30,19 @@ export default function TimelineWeekView({
 }: TimelineWeekViewProps) {
   const { t, i18n } = useTranslation();
   
+  // Set moment locale based on current language
+  const momentLocale = i18n.language.startsWith('de') ? 'de' : 'en-gb';
+  moment.locale(momentLocale);
+  
   // Calculate week days (Monday to Sunday)
   const weekDays = useMemo(() => {
     const weekStart = moment(selectedDate).startOf('isoWeek');
     const days = [];
     for (let i = 0; i < 7; i++) {
-      days.push(moment(weekStart).add(i, 'days'));
+      days.push(moment(weekStart).add(i, 'days').locale(momentLocale));
     }
     return days;
-  }, [selectedDate]);
+  }, [selectedDate, momentLocale]);
 
   // Generate time slots (hours)
   const timeSlots = useMemo(() => {
@@ -178,8 +182,7 @@ export default function TimelineWeekView({
   };
 
   const formatDayHeader = (day: moment.Moment) => {
-    const locale = i18n.language.startsWith('de') ? 'de' : 'en-gb';
-    return day.locale(locale).format('ddd DD.MM');
+    return day.format('ddd DD.MM');
   };
 
   const handleCanvasClick = (day: moment.Moment, hour: number) => {
