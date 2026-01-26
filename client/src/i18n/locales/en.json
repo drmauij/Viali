@@ -4376,7 +4376,28 @@
     "tabs": {
       "worklogs": "Work Logs",
       "contracts": "Contracts",
-      "personalData": "Personal Data"
+      "personalData": "Personal Data",
+      "reports": "Reports"
+    },
+    "reports": {
+      "title": "Work Reports",
+      "description": "Create consolidated reports with all your work entries for payment.",
+      "createReport": "Create Report",
+      "selectEntries": "Select Work Entries",
+      "selectEntriesDesc": "Choose which countersigned entries to include in your report.",
+      "selectContract": "Select Contract",
+      "selectContractDesc": "Choose the contract to associate with this report (optional).",
+      "noContracts": "No contracts available. You can still create a report without a contract.",
+      "reviewGenerate": "Review & Download",
+      "reviewGenerateDesc": "Review your report details and download the PDF.",
+      "selectedEntries": "Selected entries",
+      "totalHours": "Total hours",
+      "contract": "Contract",
+      "personalInfo": "Personal information",
+      "incompletePersonalData": "Some personal data is missing. Complete it in the Personal Data tab for a better report.",
+      "generating": "Generating...",
+      "downloadReport": "Download Report",
+      "noCountersignedEntries": "No countersigned entries available. Only countersigned entries can be included in reports."
     },
     "contracts": {
       "title": "My Contracts",

@@ -4415,7 +4415,28 @@
     "tabs": {
       "worklogs": "Arbeitszeiten",
       "contracts": "Verträge",
-      "personalData": "Persönliche Daten"
+      "personalData": "Persönliche Daten",
+      "reports": "Berichte"
+    },
+    "reports": {
+      "title": "Arbeitsberichte",
+      "description": "Erstellen Sie konsolidierte Berichte mit allen Arbeitseinträgen für die Abrechnung.",
+      "createReport": "Bericht erstellen",
+      "selectEntries": "Arbeitseinträge auswählen",
+      "selectEntriesDesc": "Wählen Sie die gegengezeichneten Einträge für Ihren Bericht aus.",
+      "selectContract": "Vertrag auswählen",
+      "selectContractDesc": "Wählen Sie den zugehörigen Vertrag aus (optional).",
+      "noContracts": "Keine Verträge verfügbar. Sie können trotzdem einen Bericht ohne Vertrag erstellen.",
+      "reviewGenerate": "Überprüfen & Herunterladen",
+      "reviewGenerateDesc": "Überprüfen Sie die Berichtdetails und laden Sie das PDF herunter.",
+      "selectedEntries": "Ausgewählte Einträge",
+      "totalHours": "Gesamtstunden",
+      "contract": "Vertrag",
+      "personalInfo": "Persönliche Informationen",
+      "incompletePersonalData": "Einige persönliche Daten fehlen. Vervollständigen Sie diese im Tab 'Persönliche Daten' für einen besseren Bericht.",
+      "generating": "Wird erstellt...",
+      "downloadReport": "Bericht herunterladen",
+      "noCountersignedEntries": "Keine gegengezeichneten Einträge verfügbar. Nur gegengezeichnete Einträge können in Berichte aufgenommen werden."
     },
     "contracts": {
       "title": "Meine Verträge",
