@@ -214,7 +214,7 @@ export function EventDialog({
           onCancel={handleClose}
           onSave={handleSave}
           saveDisabled={!eventTextInput?.trim() || readOnly}
-          saveLabel={editingEvent ? "Save" : "Add"}
+          saveLabel={editingEvent ? t('common.save') : t('common.add')}
         />
       </DialogContent>
     </Dialog>

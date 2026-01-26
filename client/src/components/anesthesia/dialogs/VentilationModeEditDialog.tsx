@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 import { useUpdateVentilationMode, useDeleteVentilationMode } from "@/hooks/useVentilationModeQuery";
+import { useTranslation } from "react-i18next";
 
 interface EditingVentilationMode {
   time: number;
@@ -97,18 +98,20 @@ export function VentilationModeEditDialog({
     setVentilationModeEditTime(0);
   };
 
+  const { t } = useTranslation();
+  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]" data-testid="dialog-ventilation-mode-edit">
         <DialogHeader>
-          <DialogTitle>Edit Ventilation Mode</DialogTitle>
+          <DialogTitle>{t('dialogs.editVentilationMode')}</DialogTitle>
           <DialogDescription>
-            Edit or delete the ventilation mode
+            {t('dialogs.editVentilationModeDesc')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="mode-edit-value">Mode</Label>
+            <Label htmlFor="mode-edit-value">{t('common.mode')}</Label>
             <Select value={ventilationModeEditInput} onValueChange={setVentilationModeEditInput} disabled={readOnly}>
               <SelectTrigger id="mode-edit-value" data-testid="select-mode-edit-value">
                 <SelectValue />

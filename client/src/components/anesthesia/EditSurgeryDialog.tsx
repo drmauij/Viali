@@ -341,8 +341,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     },
     onError: () => {
       toast({
-        title: "Update Failed",
-        description: "Failed to update surgery. Please try again.",
+        title: t('common.updateFailed'),
+        description: t('anesthesia.editSurgery.failedToUpdate'),
         variant: "destructive",
       });
     },
@@ -388,8 +388,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const handleUpdate = () => {
     if (!surgeryDate || !startTime || !plannedSurgery || !surgeryRoomId) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
+        title: t('common.missingInformation'),
+        description: t('common.pleaseFillRequiredFields'),
         variant: "destructive",
       });
       return;
@@ -461,8 +461,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   <div className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex items-center gap-3">
                     <Eye className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                     <div>
-                      <p className="font-medium text-amber-800 dark:text-amber-200">View Only Mode</p>
-                      <p className="text-sm text-amber-600 dark:text-amber-400">You have read-only access.</p>
+                      <p className="font-medium text-amber-800 dark:text-amber-200">{t('common.viewOnlyMode')}</p>
+                      <p className="text-sm text-amber-600 dark:text-amber-400">{t('common.readOnlyAccess')}</p>
                     </div>
                   </div>
                 )}

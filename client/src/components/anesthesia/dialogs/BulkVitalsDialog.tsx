@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { DialogFooterWithTime } from "@/components/anesthesia/DialogFooterWithTime";
 import { useAddVitalPoint, useAddBPPoint } from "@/hooks/useVitalsQuery";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 
 interface BulkVitalsDialogProps {
   open: boolean;
@@ -29,6 +30,7 @@ export function BulkVitalsDialog({
   const [oxygen, setOxygen] = useState("");
   const [currentTime, setCurrentTime] = useState(initialTime);
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   const systolicRef = useRef<HTMLInputElement>(null);
   const diastolicRef = useRef<HTMLInputElement>(null);
@@ -86,8 +88,8 @@ export function BulkVitalsDialog({
     // Validate BP - both or neither must be provided
     if ((sysValue !== null && diaValue === null) || (sysValue === null && diaValue !== null)) {
       toast({
-        title: "Incomplete Blood Pressure",
-        description: "Please enter both systolic and diastolic values, or leave both empty",
+        title: t('dialogs.incompleteBloodPressure'),
+        description: t('dialogs.enterBothBPValues'),
         variant: "destructive",
       });
       return;
@@ -111,8 +113,8 @@ export function BulkVitalsDialog({
     // Check if at least one value is entered
     if (vitalsToAdd.length === 0 && sysValue === null && diaValue === null) {
       toast({
-        title: "No Values Entered",
-        description: "Please enter at least one vital sign value",
+        title: t('dialogs.noValuesEntered'),
+        description: t('dialogs.enterAtLeastOneVital'),
         variant: "destructive",
       });
       return;
@@ -143,16 +145,16 @@ export function BulkVitalsDialog({
       const totalAdded = bpAdded + vitalsToAdd.length;
 
       toast({
-        title: "Vitals Added",
-        description: `Successfully added ${totalAdded} vital sign${totalAdded > 1 ? 's' : ''}`,
+        title: t('dialogs.vitalsAdded'),
+        description: t('dialogs.successfullyAddedVitals', { count: totalAdded }),
       });
 
       onVitalsCreated?.();
       handleClose();
     } catch (error) {
       toast({
-        title: "Error",
-        description: "Failed to save vital signs",
+        title: t('common.error'),
+        description: t('dialogs.failedToSaveVitals'),
         variant: "destructive",
       });
     }
@@ -172,15 +174,15 @@ export function BulkVitalsDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]" data-testid="dialog-bulk-vitals">
         <DialogHeader>
-          <DialogTitle>Bulk Vitals Entry</DialogTitle>
+          <DialogTitle>{t('dialogs.bulkVitalsEntry')}</DialogTitle>
           <DialogDescription>
-            Enter vital signs - use Tab to move between fields, Enter to save
+            {t('dialogs.bulkVitalsEntryDesc')}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="systolic">Systolic (mmHg)</Label>
+              <Label htmlFor="systolic">{t('dialogs.systolic')}</Label>
               <Input
                 ref={systolicRef}
                 id="systolic"
@@ -194,7 +196,7 @@ export function BulkVitalsDialog({
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="diastolic">Diastolic (mmHg)</Label>
+              <Label htmlFor="diastolic">{t('dialogs.diastolic')}</Label>
               <Input
                 ref={diastolicRef}
                 id="diastolic"
@@ -210,7 +212,7 @@ export function BulkVitalsDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="heartRate">Heart Rate (bpm)</Label>
+              <Label htmlFor="heartRate">{t('dialogs.heartRate')}</Label>
               <Input
                 ref={heartRateRef}
                 id="heartRate"
@@ -246,7 +248,7 @@ export function BulkVitalsDialog({
           onCancel={handleClose}
           onSave={!readOnly ? handleSave : undefined}
           saveDisabled={!hasAnyValue || addVitalPointMutation.isPending || readOnly}
-          saveLabel={addVitalPointMutation.isPending ? "Saving..." : "Save All"}
+          saveLabel={addVitalPointMutation.isPending ? t('common.saving') : t('dialogs.saveAll')}
         />
       </DialogContent>
     </Dialog>

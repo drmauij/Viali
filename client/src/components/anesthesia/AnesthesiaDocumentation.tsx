@@ -516,9 +516,9 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid="select-bladder-type"
                 >
                   <option value="">{t('anesthesia.documentation.selectType')}</option>
-                  <option value="foley">Foley (Transurethral)</option>
-                  <option value="suprapubic">Suprapubic</option>
-                  <option value="three-way">Three-way Foley</option>
+                  <option value="foley">{t('anesthesia.documentation.bladderTypes.foley')}</option>
+                  <option value="suprapubic">{t('anesthesia.documentation.bladderTypes.suprapubic')}</option>
+                  <option value="three-way">{t('anesthesia.documentation.bladderTypes.threeWay')}</option>
                 </select>
               </div>
               <div className="space-y-2">
@@ -1577,38 +1577,38 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                   onChange={(e) => handleUpdate(block.id, { blockType: e.target.value })}
                   data-testid={`select-block-type-${index + 1}`}
                 >
-                  <option value="">Select block type</option>
-                  <optgroup label="Upper Extremity">
-                    <option value="interscalene">Interscalene</option>
-                    <option value="supraclavicular">Supraclavicular</option>
-                    <option value="infraclavicular">Infraclavicular</option>
-                    <option value="axillary">Axillary</option>
-                    <option value="radial">Radial Nerve</option>
-                    <option value="median">Median Nerve</option>
-                    <option value="ulnar">Ulnar Nerve</option>
+                  <option value="">{t('anesthesia.documentation.selectBlockType')}</option>
+                  <optgroup label={t('anesthesia.documentation.blockTypeGroups.upperExtremity')}>
+                    <option value="interscalene">{t('anesthesia.documentation.blockTypes.interscalene')}</option>
+                    <option value="supraclavicular">{t('anesthesia.documentation.blockTypes.supraclavicular')}</option>
+                    <option value="infraclavicular">{t('anesthesia.documentation.blockTypes.infraclavicular')}</option>
+                    <option value="axillary">{t('anesthesia.documentation.blockTypes.axillary')}</option>
+                    <option value="radial">{t('anesthesia.documentation.blockTypes.radial')}</option>
+                    <option value="median">{t('anesthesia.documentation.blockTypes.median')}</option>
+                    <option value="ulnar">{t('anesthesia.documentation.blockTypes.ulnar')}</option>
                   </optgroup>
-                  <optgroup label="Lower Extremity">
-                    <option value="femoral">Femoral</option>
-                    <option value="sciatic">Sciatic</option>
-                    <option value="popliteal">Popliteal</option>
-                    <option value="adductor-canal">Adductor Canal</option>
-                    <option value="saphenous">Saphenous</option>
-                    <option value="ankle-block">Ankle Block</option>
+                  <optgroup label={t('anesthesia.documentation.blockTypeGroups.lowerExtremity')}>
+                    <option value="femoral">{t('anesthesia.documentation.blockTypes.femoral')}</option>
+                    <option value="sciatic">{t('anesthesia.documentation.blockTypes.sciatic')}</option>
+                    <option value="popliteal">{t('anesthesia.documentation.blockTypes.popliteal')}</option>
+                    <option value="adductor-canal">{t('anesthesia.documentation.blockTypes.adductorCanal')}</option>
+                    <option value="saphenous">{t('anesthesia.documentation.blockTypes.saphenous')}</option>
+                    <option value="ankle-block">{t('anesthesia.documentation.blockTypes.ankleBlock')}</option>
                   </optgroup>
-                  <optgroup label="Truncal">
-                    <option value="tap">Transversus Abdominis Plane (TAP)</option>
-                    <option value="ql">Quadratus Lumborum (QL)</option>
-                    <option value="pecs">Pectoral (PECS)</option>
-                    <option value="serratus">Serratus Anterior</option>
-                    <option value="erector-spinae">Erector Spinae Plane (ESP)</option>
-                    <option value="intercostal">Intercostal</option>
-                    <option value="paravertebral">Paravertebral</option>
+                  <optgroup label={t('anesthesia.documentation.blockTypeGroups.truncal')}>
+                    <option value="tap">{t('anesthesia.documentation.blockTypes.tap')}</option>
+                    <option value="ql">{t('anesthesia.documentation.blockTypes.ql')}</option>
+                    <option value="pecs">{t('anesthesia.documentation.blockTypes.pecs')}</option>
+                    <option value="serratus">{t('anesthesia.documentation.blockTypes.serratus')}</option>
+                    <option value="erector-spinae">{t('anesthesia.documentation.blockTypes.erectorSpinae')}</option>
+                    <option value="intercostal">{t('anesthesia.documentation.blockTypes.intercostal')}</option>
+                    <option value="paravertebral">{t('anesthesia.documentation.blockTypes.paravertebral')}</option>
                   </optgroup>
-                  <optgroup label="Other">
-                    <option value="superficial-cervical">Superficial Cervical Plexus</option>
-                    <option value="deep-cervical">Deep Cervical Plexus</option>
-                    <option value="stellate-ganglion">Stellate Ganglion</option>
-                    <option value="other">Other</option>
+                  <optgroup label={t('anesthesia.documentation.blockTypeGroups.other')}>
+                    <option value="superficial-cervical">{t('anesthesia.documentation.blockTypes.superficialCervical')}</option>
+                    <option value="deep-cervical">{t('anesthesia.documentation.blockTypes.deepCervical')}</option>
+                    <option value="stellate-ganglion">{t('anesthesia.documentation.blockTypes.stellateGanglion')}</option>
+                    <option value="other">{t('anesthesia.documentation.blockTypes.other')}</option>
                   </optgroup>
                 </select>
               </div>
@@ -1621,9 +1621,9 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid={`select-laterality-${index + 1}`}
                 >
                   <option value="">{t('anesthesia.documentation.selectSide')}</option>
-                  <option value="left">Left</option>
-                  <option value="right">Right</option>
-                  <option value="bilateral">Bilateral</option>
+                  <option value="left">{t('anesthesia.documentation.lateralityOptions.left')}</option>
+                  <option value="right">{t('anesthesia.documentation.lateralityOptions.right')}</option>
+                  <option value="bilateral">{t('anesthesia.documentation.lateralityOptions.bilateral')}</option>
                 </select>
               </div>
             </div>
@@ -1638,10 +1638,10 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid={`select-guidance-${index + 1}`}
                 >
                   <option value="">{t('anesthesia.documentation.selectGuidance')}</option>
-                  <option value="ultrasound">Ultrasound</option>
-                  <option value="nerve-stimulator">Nerve Stimulator</option>
-                  <option value="both">Both</option>
-                  <option value="landmark">Landmark</option>
+                  <option value="ultrasound">{t('anesthesia.documentation.guidanceOptions.ultrasound')}</option>
+                  <option value="nerve-stimulator">{t('anesthesia.documentation.guidanceOptions.nerveStimulator')}</option>
+                  <option value="both">{t('anesthesia.documentation.guidanceOptions.both')}</option>
+                  <option value="landmark">{t('anesthesia.documentation.guidanceOptions.landmark')}</option>
                 </select>
               </div>
               <div className="space-y-2">
@@ -1665,8 +1665,8 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
                   data-testid={`select-catheter-${index + 1}`}
                 >
                   <option value="">{t('anesthesia.documentation.selectOption')}</option>
-                  <option value="yes">Yes</option>
-                  <option value="no">No</option>
+                  <option value="yes">{t('anesthesia.documentation.yesNo.yes')}</option>
+                  <option value="no">{t('anesthesia.documentation.yesNo.no')}</option>
                 </select>
               </div>
               <div className="space-y-2">
@@ -1843,14 +1843,14 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
   return (
     <div className="mt-4 p-4 border-2 border-destructive/50 rounded-lg bg-destructive/5 space-y-4">
       <h4 className="font-semibold text-destructive flex items-center gap-2">
-        Difficult Airway Documentation (DAS Standards)
+        {t('anesthesia.documentation.difficultAirwayTitle')}
       </h4>
 
       <div className="space-y-2">
-        <Label>Description of Incident <span className="text-destructive">*</span></Label>
+        <Label>{t('anesthesia.documentation.descriptionOfIncident')} <span className="text-destructive">*</span></Label>
         <Textarea
           rows={3}
-          placeholder="Describe what made the airway difficult, including clinical findings..."
+          placeholder={t('anesthesia.documentation.placeholders.difficultAirwayDescription')}
           value={description}
           onChange={(e) => {
             const value = e.target.value;
@@ -1866,7 +1866,7 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
 
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <Label>Techniques Attempted</Label>
+          <Label>{t('anesthesia.documentation.techniquesAttempted')}</Label>
           <Button
             type="button"
             size="sm"
@@ -1875,7 +1875,7 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
             data-testid="button-add-technique"
           >
             <Plus className="h-4 w-4 mr-1" />
-            Add Technique
+            {t('anesthesia.documentation.addTechnique')}
           </Button>
         </div>
         
@@ -1883,7 +1883,7 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
           <div key={index} className="flex gap-2 items-start p-3 bg-background rounded border">
             <div className="flex-1 space-y-2">
               <Input
-                placeholder="Technique (e.g., Direct laryngoscopy, Videolaryngoscopy)"
+                placeholder={t('anesthesia.documentation.placeholders.techniqueExample')}
                 value={item.technique}
                 onChange={(e) => handleTechniqueChange(index, 'technique', e.target.value)}
                 data-testid={`input-technique-${index}`}
@@ -1894,12 +1894,12 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
                 onChange={(e) => handleTechniqueChange(index, 'outcome', e.target.value)}
                 data-testid={`select-outcome-${index}`}
               >
-                <option value="failure">Failure</option>
-                <option value="partial">Partial Success</option>
-                <option value="success">Success</option>
+                <option value="failure">{t('anesthesia.documentation.outcomeOptions.failure')}</option>
+                <option value="partial">{t('anesthesia.documentation.outcomeOptions.partial')}</option>
+                <option value="success">{t('anesthesia.documentation.outcomeOptions.success')}</option>
               </select>
               <Input
-                placeholder="Notes (optional - e.g., Grade III view, multiple attempts)"
+                placeholder={t('anesthesia.documentation.placeholders.notesOptional')}
                 value={item.notes || ""}
                 onChange={(e) => handleTechniqueChange(index, 'notes', e.target.value)}
                 data-testid={`input-notes-${index}`}
@@ -1919,15 +1919,15 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
         
         {techniquesAttempted.length === 0 && (
           <p className="text-sm text-muted-foreground italic">
-            No techniques documented. Click "Add Technique" to record attempted approaches.
+            {t('anesthesia.documentation.noTechniquesDocumented')}
           </p>
         )}
       </div>
 
       <div className="space-y-2">
-        <Label>Final Successful Technique <span className="text-destructive">*</span></Label>
+        <Label>{t('anesthesia.documentation.finalSuccessfulTechnique')} <span className="text-destructive">*</span></Label>
         <Input
-          placeholder="e.g., Videolaryngoscopy with bougie"
+          placeholder={t('anesthesia.documentation.placeholders.finalTechnique')}
           value={finalTechnique}
           onChange={(e) => {
             const value = e.target.value;
@@ -1942,10 +1942,10 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
       </div>
 
       <div className="space-y-2">
-        <Label>Equipment Used</Label>
+        <Label>{t('anesthesia.documentation.equipmentUsed')}</Label>
         <Textarea
           rows={2}
-          placeholder="List all airway equipment used (e.g., C-MAC videolaryngoscope, bougie, size 7.0 ETT)"
+          placeholder={t('anesthesia.documentation.placeholders.equipmentUsed')}
           value={equipmentUsed}
           onChange={(e) => {
             const value = e.target.value;
@@ -1960,10 +1960,10 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
       </div>
 
       <div className="space-y-2">
-        <Label>Complications</Label>
+        <Label>{t('anesthesia.documentation.complications')}</Label>
         <Textarea
           rows={2}
-          placeholder="Document any complications (e.g., desaturation, trauma, bleeding)"
+          placeholder={t('anesthesia.documentation.placeholders.complications')}
           value={complications}
           onChange={(e) => {
             const value = e.target.value;
@@ -1978,10 +1978,10 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
       </div>
 
       <div className="space-y-2">
-        <Label>Recommendations for Future Anesthetics</Label>
+        <Label>{t('anesthesia.documentation.recommendationsFutureAnesthetics')}</Label>
         <Textarea
           rows={3}
-          placeholder="Recommendations for future care (e.g., awake fiberoptic intubation, specific equipment requirements)"
+          placeholder={t('anesthesia.documentation.placeholders.recommendations')}
           value={recommendations}
           onChange={(e) => {
             const value = e.target.value;
@@ -1999,7 +1999,7 @@ function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagemen
       <div className="pt-3 border-t space-y-3">
         <Label className="text-sm font-semibold flex items-center gap-2">
           <MessageCircle className="h-4 w-4" />
-          Patient Communication
+          {t('anesthesia.documentation.patientCommunication')}
         </Label>
         
         <div className="space-y-2 pl-2 border-l-2 border-muted ml-2">
