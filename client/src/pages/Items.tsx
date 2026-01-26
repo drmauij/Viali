@@ -234,7 +234,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [addItemStage, setAddItemStage] = useState<'step1' | 'step2' | 'manual'>('step1');
   const [isAnalyzingCodes, setIsAnalyzingCodes] = useState(false);
   const [isLookingUpGalexis, setIsLookingUpGalexis] = useState(false);
-  const [galexisLookupResult, setGalexisLookupResult] = useState<{found: boolean; message?: string; noIntegration?: boolean} | null>(null);
+  const [galexisLookupResult, setGalexisLookupResult] = useState<{found: boolean; message?: string; noIntegration?: boolean; source?: 'galexis' | 'hin'} | null>(null);
   const [codesImage, setCodesImage] = useState<string | null>(null);
   const codesFileInputRef = useRef<HTMLInputElement>(null);
   const codesGalleryInputRef = useRef<HTMLInputElement>(null);
@@ -1930,12 +1930,12 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           gtin: result.gtin || prev.gtin,
         }));
         
-        setGalexisLookupResult({ found: true });
+        setGalexisLookupResult({ found: true, source: result.source || 'galexis' });
         // Auto-advance to manual form with populated fields
         setAddItemStage('manual');
         
         toast({
-          title: t('items.galexisProductFound'),
+          title: result.source === 'hin' ? t('items.hinProductFound') : t('items.galexisProductFound'),
           description: result.name,
         });
       } else {
@@ -4244,13 +4244,15 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 </div>
               )}
               
-              {/* Galexis Lookup Result */}
+              {/* Product Lookup Result */}
               {galexisLookupResult && (
                 <div className={`mt-3 p-3 rounded-lg ${galexisLookupResult.found ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800'}`}>
                   {galexisLookupResult.found ? (
                     <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
                       <i className="fas fa-check-circle"></i>
-                      <span className="text-sm font-medium">{t('items.productFoundViaGalexis')}</span>
+                      <span className="text-sm font-medium">
+                        {galexisLookupResult.source === 'hin' ? t('items.productFoundViaHin') : t('items.productFoundViaGalexis')}
+                      </span>
                     </div>
                   ) : (
                     <div className="text-amber-700 dark:text-amber-300">
@@ -7235,7 +7237,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   pharmacode: result.pharmacode || prev.pharmacode,
                   gtin: result.gtin || prev.gtin,
                 }));
-                setGalexisLookupResult({ found: true });
+                setGalexisLookupResult({ found: true, source: result.source || 'galexis' });
                 return { galexisFound: true, productName: result.name };
               } else {
                 // Explicitly set not found
