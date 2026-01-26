@@ -2194,6 +2194,9 @@ export default function Hospital() {
               )}
             </div>
           )}
+
+          {/* HIN MediUpdate - Free medication data sync */}
+          <HinMediupdateCard />
         </div>
       )}
 
@@ -2210,9 +2213,6 @@ export default function Hospital() {
 
           {/* Vonage SMS Integration Card */}
           <VonageIntegrationCard hospitalId={activeHospital?.id} />
-
-          {/* HIN MediUpdate Integration Card */}
-          <HinMediupdateCard />
         </div>
       )}
 
