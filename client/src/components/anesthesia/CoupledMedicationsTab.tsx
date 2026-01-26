@@ -282,7 +282,7 @@ export function CoupledMedicationsTab({
                           >
                             {displayDose || '?'} {coupling.coupledAdministrationUnit}
                             {hasCustomDose && (
-                              <span className="ml-1 text-xs text-muted-foreground">(custom)</span>
+                              <span className="ml-1 text-xs text-muted-foreground">({t("anesthesia.couplings.custom", "custom")})</span>
                             )}
                           </span>
                           <Button
