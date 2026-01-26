@@ -460,10 +460,12 @@ export function PatientCommunicationContent({
                 size="sm"
                 className="h-7 text-xs"
                 onClick={async () => {
-                  if (!generatedLink) {
-                    await generateLinkMutation.mutateAsync();
+                  let link = generatedLink;
+                  if (!link) {
+                    const result = await generateLinkMutation.mutateAsync();
+                    link = { token: result.link.token, linkId: result.link.id };
+                    setGeneratedLink(link);
                   }
-                  const link = generatedLink || generateLinkMutation.data?.link;
                   if (link) {
                     const url = `${window.location.origin}/questionnaire/${link.token}`;
                     const template = `\n\n${t('messages.templates.questionnaire', 'Please complete your pre-operative questionnaire:')} ${url}`;
