@@ -98,10 +98,6 @@ export default function Hospital() {
   const [unitForm, setUnitForm] = useState({
     name: "",
     type: "",
-    isAnesthesiaModule: false,
-    isSurgeryModule: false,
-    isBusinessModule: false,
-    isClinicModule: false,
     showInventory: true,
     showAppointments: true,
     showControlledMedications: false,
@@ -674,10 +670,6 @@ export default function Hospital() {
     setUnitForm({ 
       name: "", 
       type: "", 
-      isAnesthesiaModule: false,
-      isSurgeryModule: false,
-      isBusinessModule: false,
-      isClinicModule: false,
       showInventory: true,
       showAppointments: true,
       showControlledMedications: false,
@@ -711,10 +703,6 @@ export default function Hospital() {
     setUnitForm({
       name: unit.name,
       type: unit.type || "",
-      isAnesthesiaModule: (unit as any).isAnesthesiaModule || false,
-      isSurgeryModule: (unit as any).isSurgeryModule || false,
-      isBusinessModule: (unit as any).isBusinessModule || false,
-      isClinicModule: (unit as any).isClinicModule || false,
       showInventory: (unit as any).showInventory !== false,
       showAppointments: (unit as any).showAppointments !== false,
       showControlledMedications: (unit as any).showControlledMedications || false,
@@ -731,15 +719,11 @@ export default function Hospital() {
       return;
     }
 
-    // Derive module flags from type selection
+    // Type is the single source of truth
     const type = unitForm.type || null;
     const data = {
       name: unitForm.name,
       type,
-      isAnesthesiaModule: type === "anesthesia",
-      isSurgeryModule: type === "or",
-      isBusinessModule: type === "business",
-      isClinicModule: type === "clinic",
       showInventory: unitForm.showInventory,
       showAppointments: unitForm.showAppointments,
       showControlledMedications: unitForm.showControlledMedications,

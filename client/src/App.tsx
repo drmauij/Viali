@@ -111,25 +111,25 @@ function HomeRedirect() {
       }
 
       // If user's unit has business module enabled, default to business module
-      if (activeHospital.isBusinessModule) {
+      if (activeHospital.unitType === 'business') {
         navigate("/business", { replace: true });
         return;
       }
 
       // If user's unit has anesthesia module enabled, default to anesthesia module
-      if (activeHospital.isAnesthesiaModule) {
+      if (activeHospital.unitType === 'anesthesia') {
         navigate("/anesthesia/op", { replace: true });
         return;
       }
 
       // If user's unit has surgery module enabled, default to surgery module
-      if (activeHospital.isSurgeryModule) {
+      if (activeHospital.unitType === 'or') {
         navigate("/surgery/op", { replace: true });
         return;
       }
 
       // If user's unit has clinic module enabled, default to clinic module
-      if (activeHospital.isClinicModule) {
+      if (activeHospital.unitType === 'clinic') {
         navigate("/clinic", { replace: true });
         return;
       }

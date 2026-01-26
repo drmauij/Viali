@@ -242,13 +242,13 @@ router.post('/api/anesthesia/inventory/:recordId/commit', isAuthenticated, requi
     let targetUnitId: string | null = null;
 
     if (moduleType === 'anesthesia') {
-      const anesthesiaUnit = unitsData.find(u => u.isAnesthesiaModule);
+      const anesthesiaUnit = unitsData.find(u => u.type === 'anesthesia');
       if (!anesthesiaUnit) {
         return res.status(400).json({ message: "No anesthesia unit configured for this hospital" });
       }
       targetUnitId = anesthesiaUnit.id;
     } else if (moduleType === 'surgery') {
-      const surgeryUnit = unitsData.find(u => u.isSurgeryModule);
+      const surgeryUnit = unitsData.find(u => u.type === 'or');
       if (!surgeryUnit) {
         return res.status(400).json({ message: "No surgery unit configured for this hospital" });
       }
@@ -258,8 +258,8 @@ router.post('/api/anesthesia/inventory/:recordId/commit', isAuthenticated, requi
     const hasModuleAccess = hospitals.some(h => {
       if (h.id !== surgery.hospitalId || h.unitId !== targetUnitId) return false;
       
-      if (moduleType === 'anesthesia' && !h.isAnesthesiaModule) return false;
-      if (moduleType === 'surgery' && !h.isSurgeryModule) return false;
+      if (moduleType === 'anesthesia' && h.unitType !== 'anesthesia') return false;
+      if (moduleType === 'surgery' && h.unitType !== 'or') return false;
       
       return true;
     });

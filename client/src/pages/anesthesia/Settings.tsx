@@ -88,7 +88,7 @@ export default function AnesthesiaSettings() {
   // Fetch all items for the hospital's anesthesia units
   const { data: allItems = [], isLoading } = useQuery<Item[]>({
     queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`],
-    enabled: !!activeHospital?.id && !!activeHospital?.unitId && !!activeHospital?.isAnesthesiaModule,
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId && activeHospital?.unitType === 'anesthesia',
   });
 
   // Fetch anesthesia-configured items
@@ -744,7 +744,7 @@ export default function AnesthesiaSettings() {
     );
   }
 
-  if (!activeHospital?.isAnesthesiaModule) {
+  if (activeHospital?.unitType !== 'anesthesia') {
     return (
       <div className="p-6">
         <div className="bg-card border border-border rounded-lg p-8 text-center">

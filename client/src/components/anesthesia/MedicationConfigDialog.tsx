@@ -92,11 +92,11 @@ export function MedicationConfigDialog({
   });
   
   // Fetch anesthesia unit ID for creating new items
-  const { data: hospitalUnits = [] } = useQuery<Array<{ id: string; name: string; isAnesthesiaModule: boolean }>>({
+  const { data: hospitalUnits = [] } = useQuery<Array<{ id: string; name: string; type: string | null }>>({
     queryKey: [`/api/units/${activeHospitalId}`],
     enabled: !!activeHospitalId && open,
   });
-  const anesthesiaUnitId = hospitalUnits.find(u => u.isAnesthesiaModule)?.id;
+  const anesthesiaUnitId = hospitalUnits.find(u => u.type === 'anesthesia')?.id;
 
   // Filter items based on search query
   const filteredItems = allInventoryItems.filter((item) =>

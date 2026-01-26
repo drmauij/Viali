@@ -112,11 +112,11 @@ router.patch('/api/admin/:hospitalId/anesthesia-location', isAuthenticated, isAd
 
     await Promise.all(
       allUnits
-        .filter(u => u.isAnesthesiaModule)
-        .map(u => storage.updateUnit(u.id, { isAnesthesiaModule: false }))
+        .filter(u => u.type === 'anesthesia')
+        .map(u => storage.updateUnit(u.id, { type: null }))
     );
 
-    const updated = await storage.updateUnit(anesthesiaUnitId, { isAnesthesiaModule: true });
+    const updated = await storage.updateUnit(anesthesiaUnitId, { type: 'anesthesia' });
     res.json(updated);
   } catch (error) {
     console.error("Error updating anesthesia location:", error);
@@ -141,11 +141,11 @@ router.patch('/api/admin/:hospitalId/surgery-location', isAuthenticated, isAdmin
 
     await Promise.all(
       allUnits
-        .filter(u => u.isSurgeryModule)
-        .map(u => storage.updateUnit(u.id, { isSurgeryModule: false }))
+        .filter(u => u.type === 'or')
+        .map(u => storage.updateUnit(u.id, { type: null }))
     );
 
-    const updated = await storage.updateUnit(surgeryUnitId, { isSurgeryModule: true });
+    const updated = await storage.updateUnit(surgeryUnitId, { type: 'or' });
     res.json(updated);
   } catch (error) {
     console.error("Error updating surgery location:", error);
@@ -169,7 +169,7 @@ router.get('/api/surgeons', isAuthenticated, async (req: any, res) => {
     }
 
     const allUnits = await storage.getUnits(hospitalId);
-    const surgeryUnit = allUnits.find(u => u.isSurgeryModule);
+    const surgeryUnit = allUnits.find(u => u.type === 'or');
     
     if (!surgeryUnit) {
       return res.json([]);
@@ -340,8 +340,8 @@ router.get('/api/hospitals/:hospitalId/users-by-module', isAuthenticated, async 
     const filteredUsers = allUsers.filter(u => {
       // Only include users who can log in (not staff-only members)
       if (u.user.canLogin === false) return false;
-      if (module === 'anesthesia' && !u.unit.isAnesthesiaModule) return false;
-      if (module === 'surgery' && !u.unit.isSurgeryModule) return false;
+      if (module === 'anesthesia' && u.unit.type !== 'anesthesia') return false;
+      if (module === 'surgery' && u.unit.type !== 'or') return false;
       if (role && u.role !== role) return false;
       return true;
     });

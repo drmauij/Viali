@@ -82,12 +82,12 @@ router.get('/api/folders/:hospitalId', isAuthenticated, async (req: any, res) =>
     if (moduleType) {
       const units = await storage.getUnits(hospitalId);
       if (moduleType === 'anesthesia') {
-        const anesthesiaUnit = units.find(u => u.isAnesthesiaModule);
+        const anesthesiaUnit = units.find(u => u.type === 'anesthesia');
         if (anesthesiaUnit) {
           effectiveUnitId = anesthesiaUnit.id;
         }
       } else if (moduleType === 'surgery') {
-        const surgeryUnit = units.find(u => u.isSurgeryModule);
+        const surgeryUnit = units.find(u => u.type === 'or');
         if (surgeryUnit) {
           effectiveUnitId = surgeryUnit.id;
         }
@@ -230,12 +230,12 @@ router.get('/api/items/:hospitalId', isAuthenticated, async (req: any, res) => {
     if (moduleType) {
       const units = await storage.getUnits(hospitalId);
       if (moduleType === 'anesthesia') {
-        const anesthesiaUnit = units.find(u => u.isAnesthesiaModule);
+        const anesthesiaUnit = units.find(u => u.type === 'anesthesia');
         if (anesthesiaUnit) {
           effectiveUnitId = anesthesiaUnit.id;
         }
       } else if (moduleType === 'surgery') {
-        const surgeryUnit = units.find(u => u.isSurgeryModule);
+        const surgeryUnit = units.find(u => u.type === 'or');
         if (surgeryUnit) {
           effectiveUnitId = surgeryUnit.id;
         }

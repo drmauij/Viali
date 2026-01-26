@@ -28,13 +28,13 @@ export function ProtectedRoute({
 
   // Module access is based on the ACTIVE unit selection
   // When user switches units, available modules change accordingly
-  const hasAnesthesiaAccess = activeHospital?.isAnesthesiaModule === true;
-  const hasSurgeryAccess = activeHospital?.isSurgeryModule === true;
+  const hasAnesthesiaAccess = activeHospital?.unitType === 'anesthesia';
+  const hasSurgeryAccess = activeHospital?.unitType === 'or';
   const hasAdminAccess = activeHospital?.role === "admin";
   const hasDoctorAccess = activeHospital?.role === "doctor";
-  const hasBusinessAccess = activeHospital?.isBusinessModule === true;
-  const hasClinicAccess = activeHospital?.isClinicModule === true;
-  const hasLogisticAccess = activeHospital?.isLogisticModule === true;
+  const hasBusinessAccess = activeHospital?.unitType === 'business';
+  const hasClinicAccess = activeHospital?.unitType === 'clinic';
+  const hasLogisticAccess = activeHospital?.unitType === 'logistic';
 
   // Determine the default redirect path based on active unit's module
   const getDefaultRedirect = (): string => {

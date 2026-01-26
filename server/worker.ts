@@ -53,7 +53,7 @@ async function getRelevantInfoFlyers(
   
   // Get anesthesia module's flyer (if different)
   const hospitalUnits = await storage.getUnits(hospitalId);
-  const anesthesiaUnit = hospitalUnits.find(u => u.isAnesthesiaModule && u.infoFlyerUrl);
+  const anesthesiaUnit = hospitalUnits.find(u => u.type === 'anesthesia' && u.infoFlyerUrl);
   if (anesthesiaUnit && !flyers.some(f => f.flyerUrl === anesthesiaUnit.infoFlyerUrl)) {
     flyers.push({
       unitName: anesthesiaUnit.name,

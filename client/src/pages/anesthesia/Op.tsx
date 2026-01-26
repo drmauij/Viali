@@ -1095,13 +1095,13 @@ export default function Op() {
   // Fetch items for inventory tracking - filtered by current unit
   const { data: items = [] } = useQuery<any[]>({
     queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
-    enabled: !!activeHospital?.id && !!activeHospital?.unitId && !!activeHospital?.isAnesthesiaModule,
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId && activeHospital?.unitType === 'anesthesia',
   });
 
   // Fetch folders - filtered by current unit
   const { data: folders = [] } = useQuery<any[]>({
     queryKey: [`/api/folders/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId],
-    enabled: !!activeHospital?.id && !!activeHospital?.unitId && !!activeHospital?.isAnesthesiaModule,
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId && activeHospital?.unitType === 'anesthesia',
   });
 
   // Group items by folder and sort alphabetically

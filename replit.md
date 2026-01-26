@@ -104,6 +104,19 @@ For every database schema change, follow these steps:
 
 **Auto-migration on startup**: The server automatically runs all idempotent migrations on startup. All migrations (including 0000-0011) have been converted to use IF NOT EXISTS patterns, making them safe to re-run. This ensures new columns/tables are created on both development and production databases safely.
 
+### Unit Type Architecture
+Units have a `type` field that is the single source of truth for determining module functionality:
+- `'anesthesia'` - Anesthesia module units
+- `'or'` - Operating Room / Surgery module units
+- `'business'` - Business module units
+- `'clinic'` - Clinic module units
+- `'logistic'` - Logistics module units
+- `null` or other values - Standard inventory units
+
+**Frontend**: Uses `activeHospital.unitType` to determine module access (e.g., `unitType === 'anesthesia'`)
+**Backend**: Storage layer (`getUserHospitals`) derives deprecated flags from `type` for backwards compatibility. When creating/updating units, the admin routes derive module flags from the `type` field.
+**Note**: The deprecated boolean flags (`isAnesthesiaModule`, `isSurgeryModule`, etc.) are still present in the database schema for backwards compatibility but should not be used as the source of truth. Always use the `type` field.
+
 ### System Design Choices
 Core design decisions include:
 - **Controlled Substances Management**: Workflows for administration logging, verification, electronic signature, and PDF reports.

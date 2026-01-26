@@ -74,8 +74,8 @@ router.get('/api/anesthesia/staff-options/:hospitalId', isAuthenticated, async (
     }
 
     const allUnits = await storage.getUnits(hospitalId);
-    const surgeryUnit = allUnits.find(u => u.isSurgeryModule);
-    const anesthesiaUnit = allUnits.find(u => u.isAnesthesiaModule);
+    const surgeryUnit = allUnits.find(u => u.type === 'or');
+    const anesthesiaUnit = allUnits.find(u => u.type === 'anesthesia');
     
     const hospitalUsers = await storage.getHospitalUsers(hospitalId);
     
@@ -136,8 +136,8 @@ router.get('/api/anesthesia/all-staff-options/:hospitalId', isAuthenticated, asy
     }
 
     const allUnits = await storage.getUnits(hospitalId);
-    const surgeryUnit = allUnits.find(u => u.isSurgeryModule);
-    const anesthesiaUnit = allUnits.find(u => u.isAnesthesiaModule);
+    const surgeryUnit = allUnits.find(u => u.type === 'or');
+    const anesthesiaUnit = allUnits.find(u => u.type === 'anesthesia');
     
     const hospitalUsers = await storage.getHospitalUsers(hospitalId);
     
@@ -218,7 +218,7 @@ router.post('/api/anesthesia/staff-user/:hospitalId', isAuthenticated, requireAd
 
     const allUnits = await storage.getUnits(hospitalId);
     const targetUnit = allUnits.find(u => 
-      roleConfig.unitType === 'surgery' ? u.isSurgeryModule : u.isAnesthesiaModule
+      roleConfig.unitType === 'surgery' ? u.type === 'or' : u.type === 'anesthesia'
     );
 
     if (!targetUnit) {

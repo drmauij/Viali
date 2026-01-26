@@ -7,6 +7,8 @@ interface Hospital {
   role: string;
   unitId: string;
   unitName: string;
+  unitType?: string | null;
+  // Deprecated: use unitType instead - these are derived from unitType for backwards compatibility
   isAnesthesiaModule?: boolean;
   isSurgeryModule?: boolean;
   isBusinessModule?: boolean;

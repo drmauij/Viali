@@ -216,7 +216,7 @@ export default function ClinicalDashboard() {
   const [, setLocation] = useLocation();
   const [period, setPeriod] = useState("month");
 
-  const canAccess = activeHospital?.isAnesthesiaModule && 
+  const canAccess = activeHospital?.unitType === 'anesthesia' && 
     (activeHospital?.role === "admin" || activeHospital?.role === "doctor");
 
   if (!canAccess) {

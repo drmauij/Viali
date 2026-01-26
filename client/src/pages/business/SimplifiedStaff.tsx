@@ -59,8 +59,6 @@ interface RoleInfo {
   unitId: string | null;
   unitName: string | null;
   unitType: string | null;
-  isAnesthesiaModule: boolean;
-  isSurgeryModule: boolean;
 }
 
 interface RoleAssignment {
@@ -69,8 +67,6 @@ interface RoleAssignment {
   unitId: string | null;
   unitName: string | null;
   unitType: string | null;
-  isAnesthesiaModule: boolean;
-  isSurgeryModule: boolean;
 }
 
 interface StaffMember {
@@ -89,9 +85,6 @@ interface UnitOption {
   id: string;
   name: string;
   type: string | null;
-  isAnesthesiaModule: boolean;
-  isSurgeryModule: boolean;
-  isBusinessModule: boolean;
 }
 
 interface HelpTooltipProps {
@@ -141,16 +134,16 @@ function SummaryCard({ title, value, subtitle, helpText, icon, iconBg = "bg-prim
 }
 
 function getRoleLabel(role: string, roleInfo: RoleInfo): string {
-  const { isAnesthesiaModule, isSurgeryModule, unitName } = roleInfo;
+  const { unitType, unitName } = roleInfo;
   
   if (role === 'doctor') {
-    if (isAnesthesiaModule) return 'Anesthesiologist';
-    if (isSurgeryModule) return 'Surgeon';
+    if (unitType === 'anesthesia') return 'Anesthesiologist';
+    if (unitType === 'or') return 'Surgeon';
     return 'Doctor';
   }
   if (role === 'nurse') {
-    if (isAnesthesiaModule) return 'Anesthesia Nurse';
-    if (isSurgeryModule) return 'OR Nurse';
+    if (unitType === 'anesthesia') return 'Anesthesia Nurse';
+    if (unitType === 'or') return 'OR Nurse';
     return 'Nurse';
   }
   if (role === 'manager') return 'Manager';
@@ -162,21 +155,21 @@ function getRoleLabel(role: string, roleInfo: RoleInfo): string {
 }
 
 function getRoleBadgeStyle(role: string, roleInfo: RoleInfo) {
-  const { isAnesthesiaModule, isSurgeryModule } = roleInfo;
+  const { unitType } = roleInfo;
   
-  if (role === 'doctor' && isSurgeryModule) {
+  if (role === 'doctor' && unitType === 'or') {
     return "border-red-500/50 text-red-600 dark:text-red-400";
   }
-  if (role === 'doctor' && isAnesthesiaModule) {
+  if (role === 'doctor' && unitType === 'anesthesia') {
     return "border-blue-500/50 text-blue-600 dark:text-blue-400";
   }
   if (role === 'doctor') {
     return "border-blue-500/50 text-blue-600 dark:text-blue-400";
   }
-  if (role === 'nurse' && isSurgeryModule) {
+  if (role === 'nurse' && unitType === 'or') {
     return "border-green-500/50 text-green-600 dark:text-green-400";
   }
-  if (role === 'nurse' && isAnesthesiaModule) {
+  if (role === 'nurse' && unitType === 'anesthesia') {
     return "border-orange-500/50 text-orange-600 dark:text-orange-400";
   }
   if (role === 'nurse') {

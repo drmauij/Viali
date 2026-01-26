@@ -386,7 +386,7 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
     
     // Find the surgery unit for this hospital (surgeons must be assigned to surgery unit with role 'doctor')
     const allUnits = await storage.getUnits(request.hospitalId);
-    const surgeryUnit = allUnits.find(u => u.isSurgeryModule);
+    const surgeryUnit = allUnits.find(u => u.type === 'or');
     const surgeryUnitId = surgeryUnit?.id || unitId;
     
     // Check if a user with matching email + firstName + lastName already exists

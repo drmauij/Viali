@@ -17,11 +17,7 @@ interface Hospital {
   role: string;
   unitId: string;
   unitName: string;
-  isAnesthesiaModule?: boolean;
-  isSurgeryModule?: boolean;
-  isBusinessModule?: boolean;
-  isClinicModule?: boolean;
-  isLogisticModule?: boolean;
+  unitType?: string | null;
 }
 
 interface TopBarProps {
@@ -66,11 +62,11 @@ export default function TopBar({ hospitals = [], activeHospital, onHospitalChang
 
   const handleOpenPatientInline = useCallback((patientId: string) => {
     // Navigate to the patient detail page for the current module
-    if (activeHospital?.isClinicModule) {
+    if (activeHospital?.unitType === 'clinic') {
       setLocation(`/clinic/patients/${patientId}`);
-    } else if (activeHospital?.isSurgeryModule) {
+    } else if (activeHospital?.unitType === 'or') {
       setLocation(`/surgery/patients/${patientId}`);
-    } else if (activeHospital?.isBusinessModule) {
+    } else if (activeHospital?.unitType === 'business') {
       // Business module can view patients via clinic route
       setLocation(`/clinic/patients/${patientId}`);
     } else {

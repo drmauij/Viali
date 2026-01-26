@@ -139,10 +139,10 @@ export async function getEffectiveUnitId(
   if (moduleType) {
     const units = await storage.getUnits(hospitalId);
     if (moduleType === "anesthesia") {
-      const anesthesiaUnit = units.find((u) => u.isAnesthesiaModule);
+      const anesthesiaUnit = units.find((u) => u.type === 'anesthesia');
       if (anesthesiaUnit) return anesthesiaUnit.id;
     } else if (moduleType === "surgery") {
-      const surgeryUnit = units.find((u) => u.isSurgeryModule);
+      const surgeryUnit = units.find((u) => u.type === 'or');
       if (surgeryUnit) return surgeryUnit.id;
     }
   }

@@ -109,12 +109,12 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const selectedSurgeon = sortedSurgeons.find(s => s.id === surgeonId);
 
   // Fetch units to find the surgery unit for creating new surgeons
-  const { data: units = [] } = useQuery<Array<{id: string; name: string; isSurgeryModule: boolean}>>({
+  const { data: units = [] } = useQuery<Array<{id: string; name: string; type: string | null}>>({
     queryKey: [`/api/admin/${surgery?.hospitalId}/units`],
     enabled: !!surgery?.hospitalId && showNewSurgeonForm,
   });
 
-  const surgeryUnit = units.find(u => u.isSurgeryModule);
+  const surgeryUnit = units.find(u => u.type === 'or');
 
   // Create surgeon mutation (creates as staff member with doctor role in surgery unit)
   const createSurgeonMutation = useMutation({

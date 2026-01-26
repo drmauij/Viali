@@ -154,8 +154,12 @@ export async function seedHospitalData(
         name: unitData.name,
         type: unitData.type,
         parentId: unitData.parentId,
-        isAnesthesiaModule: unitData.name === "Anesthesia",
-        isSurgeryModule: unitData.name === "Operating Room (OR)",
+        // Derive module flags from type (for backwards compatibility)
+        isAnesthesiaModule: unitData.type === "anesthesia",
+        isSurgeryModule: unitData.type === "or",
+        isBusinessModule: unitData.type === "business",
+        isClinicModule: unitData.type === "clinic",
+        isLogisticModule: unitData.type === "logistic",
       });
       result.unitsCreated++;
 

@@ -12,11 +12,7 @@ interface Hospital {
   role: string;
   unitId: string;
   unitName: string;
-  isAnesthesiaModule?: boolean;
-  isSurgeryModule?: boolean;
-  isBusinessModule?: boolean;
-  isClinicModule?: boolean;
-  isLogisticModule?: boolean;
+  unitType?: string | null;
 }
 
 interface LayoutProps {
@@ -69,11 +65,11 @@ export default function Layout({ children }: LayoutProps) {
     
     // Module prefixes for each unit type
     const getModulePrefix = () => {
-      if (hospital.isClinicModule) return "clinic";
-      if (hospital.isBusinessModule) return "business";
-      if (hospital.isAnesthesiaModule) return "anesthesia";
-      if (hospital.isSurgeryModule) return "surgery";
-      if (hospital.isLogisticModule) return "logistic";
+      if (hospital.unitType === 'clinic') return "clinic";
+      if (hospital.unitType === 'business') return "business";
+      if (hospital.unitType === 'anesthesia') return "anesthesia";
+      if (hospital.unitType === 'or') return "surgery";
+      if (hospital.unitType === 'logistic') return "logistic";
       return "inventory";
     };
     
@@ -90,11 +86,11 @@ export default function Layout({ children }: LayoutProps) {
     
     // Check if we're moving between OR modules (anesthesia <-> surgery)
     const isCurrentOrModule = currentModule === "anesthesia" || currentModule === "surgery";
-    const isNewOrModule = hospital.isAnesthesiaModule || hospital.isSurgeryModule;
+    const isNewOrModule = hospital.unitType === 'anesthesia' || hospital.unitType === 'or';
     
     // Check if we're staying in a medical module
     const isCurrentMedical = ["anesthesia", "surgery", "clinic"].includes(currentModule);
-    const isNewMedical = hospital.isAnesthesiaModule || hospital.isSurgeryModule || hospital.isClinicModule;
+    const isNewMedical = hospital.unitType === 'anesthesia' || hospital.unitType === 'or' || hospital.unitType === 'clinic';
     
     // Pages that actually exist in each module - only preserve if target module has the page
     const modulePages: Record<string, string[]> = {
@@ -113,15 +109,15 @@ export default function Layout({ children }: LayoutProps) {
       redirectPath = `/${newModulePrefix}/patients`;
     } else {
       // Default fallback to module home
-      if (hospital.isClinicModule) {
+      if (hospital.unitType === 'clinic') {
         redirectPath = "/clinic";
-      } else if (hospital.isBusinessModule) {
+      } else if (hospital.unitType === 'business') {
         redirectPath = "/business";
-      } else if (hospital.isAnesthesiaModule) {
+      } else if (hospital.unitType === 'anesthesia') {
         redirectPath = "/anesthesia/op";
-      } else if (hospital.isSurgeryModule) {
+      } else if (hospital.unitType === 'or') {
         redirectPath = "/surgery/op";
-      } else if (hospital.isLogisticModule) {
+      } else if (hospital.unitType === 'logistic') {
         redirectPath = "/logistic/inventory";
       } else {
         redirectPath = "/inventory/items";

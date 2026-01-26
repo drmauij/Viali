@@ -40,7 +40,7 @@ router.get('/api/anesthesia/items/:hospitalId', isAuthenticated, async (req: any
       .where(
         and(
           eq(units.hospitalId, hospitalId),
-          eq(units.isAnesthesiaModule, true)
+          eq(units.type, 'anesthesia')
         )
       )
       .limit(1);
