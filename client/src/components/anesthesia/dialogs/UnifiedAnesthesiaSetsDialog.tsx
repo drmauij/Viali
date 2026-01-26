@@ -624,28 +624,30 @@ export function UnifiedAnesthesiaSetsDialog({
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+    </div>
+  );
 
-      <div className="flex gap-2 pt-2">
-        <Button
-          variant="outline"
-          onClick={() => {
-            resetForm();
-            setShowCreateForm(false);
-            setEditingSet(null);
-          }}
-          data-testid="button-cancel-set"
-        >
-          {t("common.cancel", "Cancel")}
-        </Button>
-        <Button
-          onClick={editingSet ? handleUpdateSet : handleCreateSet}
-          disabled={!newSetName.trim() || createSetMutation.isPending || updateSetMutation.isPending}
-          data-testid="button-save-set"
-        >
-          {(createSetMutation.isPending || updateSetMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          {editingSet ? t("common.save", "Save") : t("common.create", "Create")}
-        </Button>
-      </div>
+  const renderFormFooter = () => (
+    <div className="flex gap-2 pt-4 border-t mt-4 bg-background sticky bottom-0">
+      <Button
+        variant="outline"
+        onClick={() => {
+          resetForm();
+          setShowCreateForm(false);
+          setEditingSet(null);
+        }}
+        data-testid="button-cancel-set"
+      >
+        {t("common.cancel", "Cancel")}
+      </Button>
+      <Button
+        onClick={editingSet ? handleUpdateSet : handleCreateSet}
+        disabled={!newSetName.trim() || createSetMutation.isPending || updateSetMutation.isPending}
+        data-testid="button-save-set"
+      >
+        {(createSetMutation.isPending || updateSetMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+        {editingSet ? t("common.save", "Save") : t("common.create", "Create")}
+      </Button>
     </div>
   );
 
@@ -720,8 +722,8 @@ export function UnifiedAnesthesiaSetsDialog({
       }
       onOpenChange(o);
     }}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-4 border-b sticky top-0 bg-background z-10">
           <DialogTitle className="flex items-center gap-2">
             <Layers className="h-5 w-5" />
             {t("anesthesia.sets.title", "Anesthesia Sets")}
@@ -732,8 +734,8 @@ export function UnifiedAnesthesiaSetsDialog({
         </DialogHeader>
 
         {isAdmin && !editingSet && !showCreateForm ? (
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "apply" | "manage")} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "apply" | "manage")} className="flex-1 flex flex-col overflow-hidden px-6 pb-6">
+            <TabsList className="grid w-full grid-cols-2 mt-4">
               <TabsTrigger value="apply" disabled={!recordId} data-testid="tab-apply">
                 <Play className="h-4 w-4 mr-2" />
                 {t("anesthesia.sets.applyTab", "Apply to Record")}
@@ -759,13 +761,18 @@ export function UnifiedAnesthesiaSetsDialog({
             </TabsContent>
           </Tabs>
         ) : (editingSet || showCreateForm) ? (
-          <ScrollArea className="flex-1 pr-4">
-            {renderSetForm()}
-          </ScrollArea>
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <ScrollArea className="flex-1 px-6">
+              {renderSetForm()}
+            </ScrollArea>
+            <div className="px-6 pb-6">
+              {renderFormFooter()}
+            </div>
+          </div>
         ) : (
-          <ScrollArea className="flex-1 pr-4">
+          <div className="flex-1 overflow-auto px-6 pb-6">
             {renderSetList()}
-          </ScrollArea>
+          </div>
         )}
       </DialogContent>
     </Dialog>
