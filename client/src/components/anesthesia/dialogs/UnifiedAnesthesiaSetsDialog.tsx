@@ -628,7 +628,7 @@ export function UnifiedAnesthesiaSetsDialog({
   );
 
   const renderFormFooter = () => (
-    <div className="flex gap-2 pt-4 border-t mt-4 bg-background sticky bottom-0">
+    <div className="flex gap-2">
       <Button
         variant="outline"
         onClick={() => {
@@ -761,11 +761,11 @@ export function UnifiedAnesthesiaSetsDialog({
             </TabsContent>
           </Tabs>
         ) : (editingSet || showCreateForm) ? (
-          <div className="flex flex-col flex-1 overflow-hidden">
-            <ScrollArea className="flex-1 px-6">
+          <div className="flex flex-col flex-1 min-h-0">
+            <div className="flex-1 overflow-y-auto px-6 py-4">
               {renderSetForm()}
-            </ScrollArea>
-            <div className="px-6 pb-6">
+            </div>
+            <div className="px-6 py-4 border-t bg-background shrink-0">
               {renderFormFooter()}
             </div>
           </div>
