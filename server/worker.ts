@@ -17,6 +17,8 @@ const STUCK_JOB_THRESHOLD_MINUTES = 30; // Jobs stuck for >30 minutes
 const SCHEDULED_JOB_CHECK_INTERVAL_MS = 60000; // Check for scheduled jobs every minute
 const AUTO_QUESTIONNAIRE_DAYS_AHEAD = 14; // Send questionnaires 2 weeks before surgery
 const PRE_SURGERY_REMINDER_HOURS_AHEAD = 24; // Send fasting reminders 24 hours before surgery
+const HIN_SYNC_CHECK_INTERVAL_MS = 3600000; // Check HIN sync status every hour
+const HIN_SYNC_MAX_AGE_HOURS = 24; // Re-sync HIN database if older than 24 hours
 
 interface InfoFlyerData {
   unitName: string;
@@ -2612,12 +2614,55 @@ async function checkStuckJobs() {
   }
 }
 
+/**
+ * Check and perform HIN MediUpdate database sync if needed
+ * This is a shared database (not hospital-specific) used as fallback for hospitals without Galexis
+ */
+async function checkAndSyncHinDatabase(): Promise<void> {
+  try {
+    const { hinClient } = await import('./services/hinMediupdateClient');
+    const status = await hinClient.getSyncStatus();
+    
+    if (!status.lastSyncAt) {
+      console.log('[Worker] HIN database never synced, triggering initial sync...');
+    } else {
+      const hoursSinceSync = (Date.now() - new Date(status.lastSyncAt).getTime()) / (1000 * 60 * 60);
+      
+      if (hoursSinceSync < HIN_SYNC_MAX_AGE_HOURS) {
+        return;
+      }
+      
+      console.log(`[Worker] HIN database is ${hoursSinceSync.toFixed(1)} hours old, triggering daily sync...`);
+    }
+    
+    if (status.status === 'syncing') {
+      console.log('[Worker] HIN sync already in progress, skipping...');
+      return;
+    }
+    
+    const result = await hinClient.syncArticles((processed, total) => {
+      if (processed % 10000 === 0) {
+        console.log(`[Worker] HIN sync progress: ${processed}/${total} articles`);
+      }
+    });
+    
+    if (result.success) {
+      console.log(`[Worker] HIN sync completed: ${result.articlesCount} articles in ${(result.duration / 1000).toFixed(1)}s`);
+    } else {
+      console.error(`[Worker] HIN sync failed: ${result.error}`);
+    }
+  } catch (error: any) {
+    console.error('[Worker] Error checking/syncing HIN database:', error.message);
+  }
+}
+
 async function workerLoop() {
   console.log('[Worker] Starting background worker...');
   console.log(`[Worker] Poll interval: ${POLL_INTERVAL_MS}ms, Stuck job check: ${STUCK_JOB_CHECK_INTERVAL_MS}ms`);
   
   let lastStuckJobCheck = Date.now();
   let lastScheduledJobCheck = Date.now();
+  let lastHinSyncCheck = 0; // Check immediately on startup
   
   while (true) {
     try {
@@ -2635,6 +2680,12 @@ async function workerLoop() {
         await schedulePreSurgeryReminderJobs();
         await scheduleMonthlyBillingJobs();
         lastScheduledJobCheck = Date.now();
+      }
+      
+      // Check HIN database sync (every hour, syncs if older than 24 hours)
+      if (Date.now() - lastHinSyncCheck >= HIN_SYNC_CHECK_INTERVAL_MS) {
+        await checkAndSyncHinDatabase();
+        lastHinSyncCheck = Date.now();
       }
       
       // Process import jobs
