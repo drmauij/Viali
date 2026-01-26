@@ -361,6 +361,93 @@ export function PatientCommunicationContent({
     }
   };
 
+  const getQuestionnaireStatusBadge = (status: string | undefined) => {
+    if (!status) return null;
+    const statusConfig = {
+      pending: { label: t('questionnaire.status.pending', 'Pending'), color: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300 border-yellow-300 dark:border-yellow-700' },
+      started: { label: t('questionnaire.status.started', 'Started'), color: 'bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700' },
+      submitted: { label: t('questionnaire.status.submitted', 'Submitted'), color: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700' },
+      reviewed: { label: t('questionnaire.status.reviewed', 'Reviewed'), color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700' },
+      expired: { label: t('questionnaire.status.expired', 'Expired'), color: 'bg-gray-100 dark:bg-gray-900/30 text-gray-500 dark:text-gray-400 border-gray-300 dark:border-gray-600' },
+    };
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
+    return (
+      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium border ${config.color}`}>
+        {config.label}
+      </span>
+    );
+  };
+
+  const renderMessageContent = (text: string, links: any[]) => {
+    // Pattern to match questionnaire URLs like /questionnaire/TOKEN or full URLs
+    const questionnairePattern = /(?:https?:\/\/[^\s]+)?\/questionnaire\/([a-zA-Z0-9_-]+)/g;
+    
+    const parts: Array<{ type: 'text' | 'questionnaire'; content: string; token?: string; link?: any }> = [];
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = questionnairePattern.exec(text)) !== null) {
+      // Add text before match
+      if (match.index > lastIndex) {
+        parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
+      }
+      
+      const token = match[1];
+      const matchedLink = links.find(l => l.token === token);
+      
+      parts.push({ 
+        type: 'questionnaire', 
+        content: match[0], 
+        token,
+        link: matchedLink 
+      });
+      
+      lastIndex = match.index + match[0].length;
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push({ type: 'text', content: text.slice(lastIndex) });
+    }
+    
+    if (parts.length === 0) {
+      return <span>{text}</span>;
+    }
+    
+    return (
+      <span className="whitespace-pre-wrap">
+        {parts.map((part, idx) => {
+          if (part.type === 'text') {
+            return <span key={idx}>{part.content}</span>;
+          }
+          
+          // Render questionnaire link as inline object
+          const link = part.link;
+          const status = link?.status || 'pending';
+          
+          return (
+            <span 
+              key={idx} 
+              className="inline-flex items-center gap-1.5 mx-0.5 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-700 rounded-md"
+              data-testid={`questionnaire-link-${part.token}`}
+            >
+              <FileText className="h-3 w-3 text-blue-600 dark:text-blue-400 shrink-0" />
+              <a 
+                href={`/questionnaire/${part.token}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 dark:text-blue-400 hover:underline text-xs font-medium"
+              >
+                {t('messages.questionnaireLink', 'Questionnaire')}
+              </a>
+              {getQuestionnaireStatusBadge(status)}
+            </span>
+          );
+        })}
+      </span>
+    );
+  };
+
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden" data-testid="patient-communication-content">
       <ScrollArea className="flex-1 min-h-0 px-4" ref={scrollRef}>
@@ -395,7 +482,9 @@ export function PatientCommunicationContent({
                   {t('messages.sentTo', 'To')}: {item.recipient}
                 </p>
                 {item.preview && (
-                  <p className="text-sm text-foreground/80 mb-1">{item.preview}</p>
+                  <div className="text-sm text-foreground/80 mb-1">
+                    {renderMessageContent(item.preview, existingLinks || [])}
+                  </div>
                 )}
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <span>{format(item.date, 'dd.MM.yyyy HH:mm', { locale: de })}</span>
