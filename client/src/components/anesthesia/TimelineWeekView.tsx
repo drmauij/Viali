@@ -34,11 +34,11 @@ export default function TimelineWeekView({
   const momentLocale = i18n.language.startsWith('de') ? 'de' : 'en-gb';
   moment.locale(momentLocale);
   
-  // Calculate week days (Monday to Sunday)
+  // Calculate week days (Monday to Friday - excluding weekends)
   const weekDays = useMemo(() => {
     const weekStart = moment(selectedDate).startOf('isoWeek');
     const days = [];
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 5; i++) {
       days.push(moment(weekStart).add(i, 'days').locale(momentLocale));
     }
     return days;
