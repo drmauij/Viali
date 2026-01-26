@@ -4248,7 +4248,16 @@
       "earlier": "earlier",
       "later": "later",
       "unknownPatient": "Unknown",
-      "unknownRoom": "?"
+      "unknownRoom": "?",
+      "days": {
+        "mon": "Mon",
+        "tue": "Tue",
+        "wed": "Wed",
+        "thu": "Thu",
+        "fri": "Fri",
+        "sat": "Sat",
+        "sun": "Sun"
+      }
     }
   },
   "staffPool": {

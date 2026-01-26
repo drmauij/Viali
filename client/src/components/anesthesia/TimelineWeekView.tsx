@@ -182,8 +182,11 @@ export default function TimelineWeekView({
   };
 
   const formatDayHeader = (day: moment.Moment) => {
-    // Explicitly set locale on the moment instance before formatting
-    return day.clone().locale(momentLocale).format('ddd DD.MM');
+    // Use translation keys for day names instead of moment locale
+    const dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+    const dayKey = dayKeys[day.day()];
+    const translatedDay = t(`opCalendar.weekView.days.${dayKey}`);
+    return `${translatedDay} ${day.format('DD.MM')}`;
   };
 
   const handleCanvasClick = (day: moment.Moment, hour: number) => {
