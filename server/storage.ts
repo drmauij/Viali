@@ -8551,7 +8551,7 @@ export class DatabaseStorage implements IStorage {
         eq(surgeries.hospitalId, hospitalId),
         sql`${surgeries.plannedDate} >= ${startOfDay}`,
         sql`${surgeries.plannedDate} <= ${endOfDay}`,
-        sql`${surgeries.status} IN ('scheduled', 'confirmed')`,
+        sql`${surgeries.status} IN ('planned', 'scheduled', 'confirmed')`,
         isNull(surgeries.archivedAt)
       ));
 
@@ -8595,7 +8595,7 @@ export class DatabaseStorage implements IStorage {
         sql`${surgeries.plannedDate} >= ${windowStart}`,
         sql`${surgeries.plannedDate} <= ${windowEnd}`,
         eq(surgeries.reminderSent, false),
-        sql`${surgeries.status} IN ('scheduled', 'confirmed')`,
+        sql`${surgeries.status} IN ('planned', 'scheduled', 'confirmed')`,
         isNull(surgeries.archivedAt)
       ));
 
