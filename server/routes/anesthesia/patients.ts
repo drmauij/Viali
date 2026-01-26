@@ -4,6 +4,7 @@ import { isAuthenticated } from "../../auth/google";
 import { insertPatientSchema } from "@shared/schema";
 import { z } from "zod";
 import { requireWriteAccess } from "../../utils";
+import { sendSms, isSmsConfigured } from "../../sms";
 
 const router = Router();
 
@@ -685,6 +686,122 @@ router.get('/api/patients/:id/info-flyers', isAuthenticated, async (req: any, re
   } catch (error) {
     console.error("Error fetching patient info flyers:", error);
     res.status(500).json({ message: "Failed to fetch info flyers" });
+  }
+});
+
+// Get patient messages
+router.get('/api/patients/:id/messages', isAuthenticated, async (req: any, res) => {
+  try {
+    const { id: patientId } = req.params;
+    const userId = req.user.id;
+
+    const patient = await storage.getPatient(patientId);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const messages = await storage.getPatientMessages(patientId, patient.hospitalId);
+    res.json(messages);
+  } catch (error) {
+    console.error("Error fetching patient messages:", error);
+    res.status(500).json({ message: "Failed to fetch messages" });
+  }
+});
+
+// Send message to patient (SMS or Email)
+router.post('/api/patients/:id/messages', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id: patientId } = req.params;
+    const { channel, recipient, message } = req.body;
+    const userId = req.user.id;
+    const hospitalId = req.headers['x-hospital-id'] as string || req.headers['x-active-hospital-id'] as string;
+
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID required" });
+    }
+
+    if (!channel || !recipient || !message) {
+      return res.status(400).json({ message: "Channel, recipient, and message are required" });
+    }
+
+    if (channel !== 'sms' && channel !== 'email') {
+      return res.status(400).json({ message: "Invalid channel. Must be 'sms' or 'email'" });
+    }
+
+    const patient = await storage.getPatient(patientId);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    let sendResult: { success: boolean; error?: string } = { success: false };
+
+    if (channel === 'sms') {
+      if (!isSmsConfigured()) {
+        return res.status(503).json({ message: "SMS service is not configured" });
+      }
+      console.log(`[Patient Messages] Sending SMS to ${recipient} for patient ${patientId}`);
+      sendResult = await sendSms(recipient, message, hospitalId);
+      if (!sendResult.success) {
+        console.error(`[Patient Messages] SMS failed: ${sendResult.error}`);
+        return res.status(500).json({ message: `Failed to send SMS: ${sendResult.error}` });
+      }
+      console.log(`[Patient Messages] SMS sent successfully`);
+    } else if (channel === 'email') {
+      const hospital = await storage.getHospital(hospitalId);
+      console.log(`[Patient Messages] Sending email to ${recipient} for patient ${patientId}`);
+      try {
+        const { Resend } = await import('resend');
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        
+        await resend.emails.send({
+          from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
+          to: recipient,
+          subject: `Message from ${hospital?.name || 'Hospital'}`,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+              <p>${message.replace(/\n/g, '<br/>')}</p>
+              <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;" />
+              <p style="color: #999; font-size: 12px; text-align: center;">
+                This is a message from ${hospital?.name || 'the hospital'}.
+              </p>
+            </div>
+          `,
+        });
+        sendResult = { success: true };
+        console.log(`[Patient Messages] Email sent successfully`);
+      } catch (emailError) {
+        console.error(`[Patient Messages] Email failed:`, emailError);
+        return res.status(500).json({ message: `Failed to send email: ${emailError instanceof Error ? emailError.message : 'Unknown error'}` });
+      }
+    }
+
+    // Save the message to the database
+    const savedMessage = await storage.createPatientMessage({
+      hospitalId: patient.hospitalId,
+      patientId,
+      sentBy: userId,
+      channel,
+      recipient,
+      message,
+      status: sendResult.success ? 'sent' : 'failed',
+    });
+
+    res.json(savedMessage);
+  } catch (error) {
+    console.error("Error sending patient message:", error);
+    res.status(500).json({ message: "Failed to send message" });
   }
 });
 
