@@ -63,6 +63,10 @@ interface WorklogLinkInfo {
 interface PersonalData {
   firstName: string;
   lastName: string;
+  address: string;
+  city: string;
+  zip: string;
+  bankAccount: string;
 }
 
 function calculateWorkHours(timeStart: string, timeEnd: string, pauseMinutes: number): string {
@@ -92,7 +96,7 @@ export default function ExternalWorklog() {
   const { toast } = useToast();
   const [linkInfo, setLinkInfo] = useState<WorklogLinkInfo | null>(null);
   const [contracts, setContracts] = useState<WorkerContract[]>([]);
-  const [personalData, setPersonalData] = useState<PersonalData>({ firstName: "", lastName: "" });
+  const [personalData, setPersonalData] = useState<PersonalData>({ firstName: "", lastName: "", address: "", city: "", zip: "", bankAccount: "" });
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingPersonal, setIsSavingPersonal] = useState(false);
@@ -182,8 +186,20 @@ export default function ExternalWorklog() {
       const data = await res.json();
       setLinkInfo(data);
       
+      // Load saved personal data from API response
+      if (data.personalData) {
+        setPersonalData({
+          firstName: data.personalData.firstName || "",
+          lastName: data.personalData.lastName || "",
+          address: data.personalData.address || "",
+          city: data.personalData.city || "",
+          zip: data.personalData.zip || "",
+          bankAccount: data.personalData.bankAccount || "",
+        });
+      }
+      
       if (data.email) {
-        fetchContracts(data.email, data.hospitalId);
+        fetchContracts(data.email, data.hospitalId, data.personalData);
       }
     } catch (err) {
       setError(t("externalWorklog.connectionError"));
@@ -192,19 +208,21 @@ export default function ExternalWorklog() {
     }
   };
 
-  const fetchContracts = async (email: string, hospitalId: string) => {
+  const fetchContracts = async (email: string, hospitalId: string, savedPersonalData?: PersonalData) => {
     try {
       const res = await fetch(`/api/worklog/${token}/contracts`);
       if (res.ok) {
         const data = await res.json();
         setContracts(data);
         
-        if (data.length > 0) {
+        // Only prefill from contract if no saved personal data exists
+        if (data.length > 0 && !savedPersonalData?.firstName && !savedPersonalData?.lastName) {
           const activeContract = data.find((c: WorkerContract) => c.status === "active") || data[0];
-          setPersonalData({
-            firstName: activeContract.firstName || "",
-            lastName: activeContract.lastName || "",
-          });
+          setPersonalData(prev => ({
+            ...prev,
+            firstName: activeContract.firstName || prev.firstName || "",
+            lastName: activeContract.lastName || prev.lastName || "",
+          }));
         }
       }
     } catch (err) {
@@ -305,7 +323,16 @@ export default function ExternalWorklog() {
   const handleSavePersonalData = async () => {
     setIsSavingPersonal(true);
     try {
-      localStorage.setItem(`worklog-personal-${token}`, JSON.stringify(personalData));
+      const res = await fetch(`/api/worklog/${token}/personal-data`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(personalData),
+      });
+      
+      if (!res.ok) {
+        throw new Error("Failed to save");
+      }
+      
       toast({
         title: t("common.saved"),
         description: t("externalWorklog.personalData.saveSuccess"),
@@ -941,6 +968,52 @@ export default function ExternalWorklog() {
                     />
                   </div>
                 </div>
+                
+                <div>
+                  <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.address")}</label>
+                  <Input
+                    value={personalData.address}
+                    onChange={(e) => setPersonalData({ ...personalData, address: e.target.value })}
+                    className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                    placeholder={t("externalWorklog.personalData.addressPlaceholder")}
+                    data-testid="input-personal-address"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.zip")}</label>
+                    <Input
+                      value={personalData.zip}
+                      onChange={(e) => setPersonalData({ ...personalData, zip: e.target.value })}
+                      className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                      placeholder="8000"
+                      data-testid="input-personal-zip"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.city")}</label>
+                    <Input
+                      value={personalData.city}
+                      onChange={(e) => setPersonalData({ ...personalData, city: e.target.value })}
+                      className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                      placeholder="Zürich"
+                      data-testid="input-personal-city"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="text-sm font-medium dark:text-gray-200">{t("externalWorklog.personalData.bankAccount")}</label>
+                  <Input
+                    value={personalData.bankAccount}
+                    onChange={(e) => setPersonalData({ ...personalData, bankAccount: e.target.value })}
+                    className="mt-1 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                    placeholder={t("externalWorklog.personalData.bankAccountPlaceholder")}
+                    data-testid="input-personal-bank"
+                  />
+                </div>
+                
                 <Button
                   onClick={handleSavePersonalData}
                   disabled={isSavingPersonal}

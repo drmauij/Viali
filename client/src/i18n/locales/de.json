@@ -4430,12 +4430,18 @@
     },
     "personalData": {
       "title": "Persönliche Daten",
-      "description": "Ihre persönlichen Informationen für Arbeitszeiteinträge.",
+      "description": "Ihre persönlichen Informationen für Arbeitszeiteinträge und Berichte.",
       "prefilled": "Vorausgefüllt aus Ihrem Vertrag.",
       "saveSuccess": "Persönliche Daten erfolgreich gespeichert.",
       "saveError": "Persönliche Daten konnten nicht gespeichert werden.",
       "save": "Speichern",
-      "saving": "Speichern..."
+      "saving": "Speichern...",
+      "address": "Strasse",
+      "addressPlaceholder": "z.B. Bahnhofstrasse 1",
+      "city": "Ort",
+      "zip": "PLZ",
+      "bankAccount": "Bankkonto (IBAN)",
+      "bankAccountPlaceholder": "z.B. CH93 0076 2011 6238 5295 7"
     },
     "deleteEntry": "Eintrag löschen",
     "confirmDeleteTitle": "Eintrag löschen",

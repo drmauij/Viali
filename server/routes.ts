@@ -3762,10 +3762,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         unitId: link.unitId,
         hospitalId: link.hospitalId,
         entries,
+        personalData: {
+          firstName: link.firstName || '',
+          lastName: link.lastName || '',
+          address: link.address || '',
+          city: link.city || '',
+          zip: link.zip || '',
+          bankAccount: link.bankAccount || '',
+        },
       });
     } catch (error) {
       console.error("Error fetching worklog link:", error);
       res.status(500).json({ message: "Failed to fetch worklog data" });
+    }
+  });
+
+  // Public route: Save personal data (no auth required, uses token)
+  app.patch('/api/worklog/:token/personal-data', async (req, res) => {
+    try {
+      const { token } = req.params;
+      const link = await storage.getExternalWorklogLinkByToken(token);
+      
+      if (!link || !link.isActive) {
+        return res.status(404).json({ message: "Invalid or expired link" });
+      }
+      
+      const { firstName, lastName, address, city, zip, bankAccount } = req.body;
+      
+      await db.update(externalWorklogLinks)
+        .set({
+          firstName: firstName || null,
+          lastName: lastName || null,
+          address: address || null,
+          city: city || null,
+          zip: zip || null,
+          bankAccount: bankAccount || null,
+          updatedAt: new Date(),
+        })
+        .where(eq(externalWorklogLinks.id, link.id));
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error saving personal data:", error);
+      res.status(500).json({ message: "Failed to save personal data" });
     }
   });
 

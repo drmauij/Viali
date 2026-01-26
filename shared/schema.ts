@@ -4301,6 +4301,13 @@ export const externalWorklogLinks = pgTable("external_worklog_links", {
   email: varchar("email").notNull(),
   token: varchar("token").notNull().unique(),
   
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  address: varchar("address"),
+  city: varchar("city"),
+  zip: varchar("zip"),
+  bankAccount: varchar("bank_account"),
+  
   isActive: boolean("is_active").default(true).notNull(),
   lastAccessedAt: timestamp("last_accessed_at"),
   

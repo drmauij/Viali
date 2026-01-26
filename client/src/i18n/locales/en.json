@@ -4391,12 +4391,18 @@
     },
     "personalData": {
       "title": "Personal Data",
-      "description": "Your personal information for work time entries.",
+      "description": "Your personal information for work time entries and reports.",
       "prefilled": "Prefilled from your contract.",
       "saveSuccess": "Personal data saved successfully.",
       "saveError": "Failed to save personal data.",
       "save": "Save",
-      "saving": "Saving..."
+      "saving": "Saving...",
+      "address": "Street Address",
+      "addressPlaceholder": "e.g., Bahnhofstrasse 1",
+      "city": "City",
+      "zip": "ZIP Code",
+      "bankAccount": "Bank Account (IBAN)",
+      "bankAccountPlaceholder": "e.g., CH93 0076 2011 6238 5295 7"
     },
     "deleteEntry": "Delete Entry",
     "confirmDeleteTitle": "Delete Entry",

@@ -701,6 +701,13 @@
       "when": 1769382900000,
       "tag": "0100_hin_articles",
       "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1769420948577,
+      "tag": "0100_amazing_scrambler",
+      "breakpoints": true
     }
   ]
 }
