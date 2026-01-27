@@ -56,11 +56,9 @@ export default function Hospital() {
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
   const [supplierForm, setSupplierForm] = useState({
     supplierName: "Galexis",
-    supplierType: "api" as "api" | "browser",
+    supplierType: "api" as "api",
     customerNumber: "",
     apiPassword: "",
-    browserLoginUrl: "https://shop.polymed.ch/de",
-    browserUsername: "",
   });
   
   // Galexis debug test state
@@ -371,8 +369,6 @@ export default function Hospital() {
         supplierType: "api", 
         customerNumber: "", 
         apiPassword: "",
-        browserLoginUrl: "https://shop.polymed.ch/de",
-        browserUsername: "",
       });
       toast({ title: t("common.success"), description: "Supplier catalog created successfully" });
     },
@@ -1890,7 +1886,7 @@ export default function Hospital() {
                 </h3>
                 <p className="text-sm text-blue-700 dark:text-blue-300">
                   Connect your supplier accounts to automatically sync current prices for your inventory items.
-                  Supports Galexis (XML API) and Polymed (browser automation) with customer-specific pricing.
+                  Supports Galexis (XML API) with customer-specific pricing.
                 </p>
               </div>
             </div>
@@ -2229,12 +2225,10 @@ export default function Hospital() {
               <Select
                 value={supplierForm.supplierName}
                 onValueChange={(value) => {
-                  const isPolymed = value === "Polymed";
                   setSupplierForm({ 
                     ...supplierForm, 
                     supplierName: value,
-                    supplierType: isPolymed ? "browser" : "api",
-                    browserLoginUrl: isPolymed ? "https://shop.polymed.ch/de" : "",
+                    supplierType: "api",
                   });
                 }}
               >
@@ -2243,81 +2237,38 @@ export default function Hospital() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Galexis">Galexis (API)</SelectItem>
-                  <SelectItem value="Polymed">Polymed (Browser)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {supplierForm.supplierType === "api" ? (
-              <>
-                <div>
-                  <Label htmlFor="customer-number">Customer Number *</Label>
-                  <Input
-                    id="customer-number"
-                    value={supplierForm.customerNumber}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, customerNumber: e.target.value })}
-                    placeholder="Your Galexis customer number"
-                    data-testid="input-customer-number"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    This is the customer number provided by Galexis for API access
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="api-password">API Password *</Label>
-                  <Input
-                    id="api-password"
-                    type="password"
-                    value={supplierForm.apiPassword}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, apiPassword: e.target.value })}
-                    placeholder="Enter Galexis API password"
-                    data-testid="input-api-password"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    <i className="fas fa-lock mr-1"></i>
-                    Stored securely with encryption. Cannot be viewed after saving.
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    <i className="fas fa-globe mr-2"></i>
-                    Polymed uses browser automation to access your account and retrieve prices. Your credentials are encrypted and stored securely.
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="browser-username">Account Email *</Label>
-                  <Input
-                    id="browser-username"
-                    type="email"
-                    value={supplierForm.browserUsername}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, browserUsername: e.target.value })}
-                    placeholder="Your Polymed account email"
-                    data-testid="input-browser-username"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    The email address you use to log into shop.polymed.ch
-                  </p>
-                </div>
-                <div>
-                  <Label htmlFor="browser-password">Account Password *</Label>
-                  <Input
-                    id="browser-password"
-                    type="password"
-                    value={supplierForm.apiPassword}
-                    onChange={(e) => setSupplierForm({ ...supplierForm, apiPassword: e.target.value })}
-                    placeholder="Enter Polymed account password"
-                    data-testid="input-browser-password"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    <i className="fas fa-lock mr-1"></i>
-                    Stored securely with encryption. Cannot be viewed after saving.
-                  </p>
-                </div>
-              </>
-            )}
+            <div>
+              <Label htmlFor="customer-number">Customer Number *</Label>
+              <Input
+                id="customer-number"
+                value={supplierForm.customerNumber}
+                onChange={(e) => setSupplierForm({ ...supplierForm, customerNumber: e.target.value })}
+                placeholder="Your Galexis customer number"
+                data-testid="input-customer-number"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                This is the customer number provided by Galexis for API access
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="api-password">API Password *</Label>
+              <Input
+                id="api-password"
+                type="password"
+                value={supplierForm.apiPassword}
+                onChange={(e) => setSupplierForm({ ...supplierForm, apiPassword: e.target.value })}
+                placeholder="Enter Galexis API password"
+                data-testid="input-api-password"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                <i className="fas fa-lock mr-1"></i>
+                Stored securely with encryption. Cannot be viewed after saving.
+              </p>
+            </div>
 
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setSupplierDialogOpen(false)}>
@@ -2325,16 +2276,9 @@ export default function Hospital() {
               </Button>
               <Button
                 onClick={() => {
-                  if (supplierForm.supplierType === "api") {
-                    if (!supplierForm.customerNumber.trim()) {
-                      toast({ title: t("common.error"), description: "Customer number is required", variant: "destructive" });
-                      return;
-                    }
-                  } else {
-                    if (!supplierForm.browserUsername.trim()) {
-                      toast({ title: t("common.error"), description: "Account email is required", variant: "destructive" });
-                      return;
-                    }
+                  if (!supplierForm.customerNumber.trim()) {
+                    toast({ title: t("common.error"), description: "Customer number is required", variant: "destructive" });
+                    return;
                   }
                   if (!supplierForm.apiPassword.trim()) {
                     toast({ title: t("common.error"), description: "Password is required", variant: "destructive" });
