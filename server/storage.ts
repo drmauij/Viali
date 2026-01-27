@@ -1371,6 +1371,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createSupplierCode(code: InsertSupplierCode): Promise<SupplierCode> {
+    // Check for existing supplier code with same itemId, supplierName, and articleCode to avoid duplicates
+    if (code.itemId && code.supplierName && code.articleCode) {
+      const existing = await db
+        .select()
+        .from(supplierCodes)
+        .where(and(
+          eq(supplierCodes.itemId, code.itemId),
+          eq(supplierCodes.supplierName, code.supplierName),
+          eq(supplierCodes.articleCode, code.articleCode)
+        ))
+        .limit(1);
+      
+      if (existing.length > 0) {
+        // Update existing record instead of creating duplicate
+        const { itemId, supplierName, articleCode, ...updateFields } = code;
+        const [updated] = await db
+          .update(supplierCodes)
+          .set({ ...updateFields, updatedAt: new Date() })
+          .where(eq(supplierCodes.id, existing[0].id))
+          .returning();
+        return updated;
+      }
+    }
+    
     const [created] = await db.insert(supplierCodes).values(code).returning();
     return created;
   }
