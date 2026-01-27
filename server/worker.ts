@@ -522,12 +522,21 @@ async function processNextPriceSyncJob() {
               })
               .where(eq(supplierCodes.id, code.id));
             
-            // Update itemCodes GTIN if we got one from Galexis
-            if (priceData.gtin) {
-              const existingItemCode = await db.select({ gtin: itemCodes.gtin }).from(itemCodes).where(eq(itemCodes.itemId, code.itemId)).limit(1);
-              if (existingItemCode.length > 0 && !existingItemCode[0].gtin) {
-                await db.update(itemCodes).set({ gtin: priceData.gtin, updatedAt: new Date() }).where(eq(itemCodes.itemId, code.itemId));
-                console.log(`[Worker] Updated itemCode GTIN for ${code.itemId}: "${priceData.gtin}"`);
+            // Update itemCodes GTIN and unitsPerPack if we got them from Galexis
+            if (priceData.gtin || priceData.packSize) {
+              const existingItemCode = await db.select({ gtin: itemCodes.gtin, unitsPerPack: itemCodes.unitsPerPack }).from(itemCodes).where(eq(itemCodes.itemId, code.itemId)).limit(1);
+              if (existingItemCode.length > 0) {
+                const updateFields: any = { updatedAt: new Date() };
+                if (priceData.gtin && !existingItemCode[0].gtin) {
+                  updateFields.gtin = priceData.gtin;
+                }
+                if (priceData.packSize && !existingItemCode[0].unitsPerPack) {
+                  updateFields.unitsPerPack = priceData.packSize;
+                }
+                if (Object.keys(updateFields).length > 1) {
+                  await db.update(itemCodes).set(updateFields).where(eq(itemCodes.itemId, code.itemId));
+                  console.log(`[Worker] Updated itemCode for ${code.itemId}: GTIN=${updateFields.gtin || 'unchanged'}, packSize=${updateFields.unitsPerPack || 'unchanged'}`);
+                }
               }
             }
             
@@ -558,12 +567,21 @@ async function processNextPriceSyncJob() {
               })
               .where(eq(supplierCodes.id, code.id));
             
-            // Update itemCodes GTIN if we got one from Galexis
-            if (priceData.gtin) {
-              const existingItemCode = await db.select({ gtin: itemCodes.gtin }).from(itemCodes).where(eq(itemCodes.itemId, code.itemId)).limit(1);
-              if (existingItemCode.length > 0 && !existingItemCode[0].gtin) {
-                await db.update(itemCodes).set({ gtin: priceData.gtin, updatedAt: new Date() }).where(eq(itemCodes.itemId, code.itemId));
-                console.log(`[Worker] Updated itemCode GTIN for ${code.itemId}: "${priceData.gtin}"`);
+            // Update itemCodes GTIN and unitsPerPack if we got them from Galexis
+            if (priceData.gtin || priceData.packSize) {
+              const existingItemCode = await db.select({ gtin: itemCodes.gtin, unitsPerPack: itemCodes.unitsPerPack }).from(itemCodes).where(eq(itemCodes.itemId, code.itemId)).limit(1);
+              if (existingItemCode.length > 0) {
+                const updateFields: any = { updatedAt: new Date() };
+                if (priceData.gtin && !existingItemCode[0].gtin) {
+                  updateFields.gtin = priceData.gtin;
+                }
+                if (priceData.packSize && !existingItemCode[0].unitsPerPack) {
+                  updateFields.unitsPerPack = priceData.packSize;
+                }
+                if (Object.keys(updateFields).length > 1) {
+                  await db.update(itemCodes).set(updateFields).where(eq(itemCodes.itemId, code.itemId));
+                  console.log(`[Worker] Updated itemCode for ${code.itemId}: GTIN=${updateFields.gtin || 'unchanged'}, packSize=${updateFields.unitsPerPack || 'unchanged'}`);
+                }
               }
             }
             
@@ -633,10 +651,22 @@ async function processNextPriceSyncJob() {
               autoMatchedCount++;
               itemsWithGalexisCode.add(item.itemId);
               
-              // Update itemCodes GTIN if we got one from Galexis (item.gtin comes from itemCodes table)
-              if (priceData.gtin && priceData.gtin !== item.gtin) {
-                await db.update(itemCodes).set({ gtin: priceData.gtin, updatedAt: new Date() }).where(eq(itemCodes.itemId, item.itemId));
-                console.log(`[Worker] Updated itemCode GTIN for ${item.itemId}: "${priceData.gtin}"`);
+              // Update itemCodes GTIN and packSize if we got them from Galexis
+              if (priceData.gtin || priceData.packSize) {
+                const existingItemCode = await db.select({ gtin: itemCodes.gtin, unitsPerPack: itemCodes.unitsPerPack }).from(itemCodes).where(eq(itemCodes.itemId, item.itemId)).limit(1);
+                if (existingItemCode.length > 0) {
+                  const updateFields: any = { updatedAt: new Date() };
+                  if (priceData.gtin && priceData.gtin !== item.gtin) {
+                    updateFields.gtin = priceData.gtin;
+                  }
+                  if (priceData.packSize && !existingItemCode[0].unitsPerPack) {
+                    updateFields.unitsPerPack = priceData.packSize;
+                  }
+                  if (Object.keys(updateFields).length > 1) {
+                    await db.update(itemCodes).set(updateFields).where(eq(itemCodes.itemId, item.itemId));
+                    console.log(`[Worker] Updated itemCode for ${item.itemId}: GTIN=${updateFields.gtin || 'unchanged'}, packSize=${updateFields.unitsPerPack || 'unchanged'}`);
+                  }
+                }
               }
             } else {
               // First, demote any other preferred suppliers for this item (especially zero-price ones)
@@ -679,10 +709,22 @@ async function processNextPriceSyncJob() {
                   updatedAt: new Date(),
                 });
                 
-                // Update itemCodes GTIN if we got one from Galexis (item.gtin comes from itemCodes table)
-                if (priceData.gtin && priceData.gtin !== item.gtin) {
-                  await db.update(itemCodes).set({ gtin: priceData.gtin, updatedAt: new Date() }).where(eq(itemCodes.itemId, item.itemId));
-                  console.log(`[Worker] Updated itemCode GTIN for ${item.itemId}: "${priceData.gtin}"`);
+                // Update itemCodes GTIN and packSize if we got them from Galexis
+                if (priceData.gtin || priceData.packSize) {
+                  const existingItemCode = await db.select({ gtin: itemCodes.gtin, unitsPerPack: itemCodes.unitsPerPack }).from(itemCodes).where(eq(itemCodes.itemId, item.itemId)).limit(1);
+                  if (existingItemCode.length > 0) {
+                    const updateFields: any = { updatedAt: new Date() };
+                    if (priceData.gtin && priceData.gtin !== item.gtin) {
+                      updateFields.gtin = priceData.gtin;
+                    }
+                    if (priceData.packSize && !existingItemCode[0].unitsPerPack) {
+                      updateFields.unitsPerPack = priceData.packSize;
+                    }
+                    if (Object.keys(updateFields).length > 1) {
+                      await db.update(itemCodes).set(updateFields).where(eq(itemCodes.itemId, item.itemId));
+                      console.log(`[Worker] Updated itemCode for ${item.itemId}: GTIN=${updateFields.gtin || 'unchanged'}, packSize=${updateFields.unitsPerPack || 'unchanged'}`);
+                    }
+                  }
                 }
                 
                 // Also update item description if we have a product name from Galexis
