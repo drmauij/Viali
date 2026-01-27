@@ -1777,13 +1777,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
       
-      // Check if any of the user's units has isLogisticModule enabled
+      // Check if any of the user's units has type === 'logistic'
       const unitIds = userUnitsForHospital.map(h => h.unitId).filter(Boolean) as string[];
       let hasLogisticAccess = false;
       
       for (const unitId of unitIds) {
         const unit = await storage.getUnit(unitId);
-        if (unit?.isLogisticModule) {
+        if (unit?.type === 'logistic') {
           hasLogisticAccess = true;
           break;
         }

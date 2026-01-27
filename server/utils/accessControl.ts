@@ -307,7 +307,7 @@ export function isGuest(role: string | null): boolean {
   return role === 'guest';
 }
 
-// Check if user's active unit is a logistics unit (has isLogisticModule: true)
+// Check if user's active unit is a logistics unit (type === 'logistic')
 // Logistics users can manage orders from any unit in the hospital
 export async function isUserInLogisticUnit(
   userId: string, 
@@ -318,10 +318,10 @@ export async function isUserInLogisticUnit(
   if (!unitId) return false;
   
   const unit = await storage.getUnit(unitId);
-  return unit?.isLogisticModule === true;
+  return unit?.type === 'logistic';
 }
 
-// Check if user has logistics access for a hospital (any of their units has isLogisticModule: true)
+// Check if user has logistics access for a hospital (any of their units has type === 'logistic')
 // This allows logistic users to manage orders from ALL units in the hospital
 export async function hasLogisticsAccess(
   userId: string, 
@@ -336,7 +336,7 @@ export async function hasLogisticsAccess(
   
   for (const unitId of unitIds) {
     const unit = await storage.getUnit(unitId);
-    if (unit?.isLogisticModule) {
+    if (unit?.type === 'logistic') {
       return true;
     }
   }

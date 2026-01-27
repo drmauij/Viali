@@ -467,7 +467,12 @@ export default function SupplierMatches() {
       const url = effectiveUnitId 
         ? `/api/supplier-matches/${activeHospital?.id}/categorized?unitId=${effectiveUnitId}`
         : `/api/supplier-matches/${activeHospital?.id}/categorized`;
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch(url, { 
+        credentials: 'include',
+        headers: {
+          'x-active-unit-id': activeHospital?.unitId || '',
+        },
+      });
       if (!res.ok) throw new Error('Failed to fetch');
       return res.json();
     },
