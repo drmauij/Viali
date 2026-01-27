@@ -708,7 +708,8 @@ router.patch('/api/items/:itemId/reduce-unit', isAuthenticated, requireWriteAcce
       const updatedItem = await storage.getItem(itemId);
       res.json(updatedItem);
     } else if (item.unit.toLowerCase() === 'single unit') {
-      const currentStock = await storage.getStockLevel(itemId, unitId);
+      // Use item.unitId to look up stock (stock is stored under the item's unit, not the user's unit)
+      const currentStock = await storage.getStockLevel(itemId, item.unitId);
       const currentQty = currentStock?.qtyOnHand || 0;
       
       if (currentQty <= 0) {
@@ -716,13 +717,14 @@ router.patch('/api/items/:itemId/reduce-unit', isAuthenticated, requireWriteAcce
       }
       
       const newQty = currentQty - 1;
-      await storage.updateStockLevel(itemId, unitId, newQty);
+      await storage.updateStockLevel(itemId, item.unitId, newQty);
       
       const updatedItem = await storage.getItem(itemId);
       res.json(updatedItem);
     } else {
       // Pack items without trackExactQuantity - reduce pack count by 1
-      const currentStock = await storage.getStockLevel(itemId, unitId);
+      // Use item.unitId to look up stock (stock is stored under the item's unit, not the user's unit)
+      const currentStock = await storage.getStockLevel(itemId, item.unitId);
       const currentQty = currentStock?.qtyOnHand || 0;
       
       if (currentQty <= 0) {
@@ -730,7 +732,7 @@ router.patch('/api/items/:itemId/reduce-unit', isAuthenticated, requireWriteAcce
       }
       
       const newQty = currentQty - 1;
-      await storage.updateStockLevel(itemId, unitId, newQty);
+      await storage.updateStockLevel(itemId, item.unitId, newQty);
       
       const updatedItem = await storage.getItem(itemId);
       res.json(updatedItem);
