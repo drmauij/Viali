@@ -57,6 +57,7 @@ import ExternalWorklog from "@/pages/ExternalWorklog";
 import WorklogManagement from "@/pages/WorklogManagement";
 import UnitWorklogs from "@/pages/UnitWorklogs";
 import EditableValuesDemo from "@/pages/EditableValuesDemo";
+import ApiPlayground from "@/pages/ApiPlayground";
 import ClinicInvoices from "@/pages/clinic/Invoices";
 import ClinicServices from "@/pages/clinic/Services";
 import ClinicQuestionnaires from "@/pages/clinic/UnassociatedQuestionnaires";
@@ -248,6 +249,7 @@ function Router() {
             <Route path="/signup" component={Signup} />
             {/* Demo/Testing Routes */}
             <Route path="/demo/editable-values" component={EditableValuesDemo} />
+            <Route path="/api-playground" component={ApiPlayground} />
           </>
         )}
         <Route component={NotFound} />

@@ -209,6 +209,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // NOTE: Anesthesia routes (/api/anesthesia/*, /api/patients/*, /api/surgery-rooms/*, /api/medication-groups/*, /api/administration-groups/*) have been moved to server/routes/anesthesia.ts
 
+  // Vitabyte API Proxy (to avoid CORS issues when testing external APIs)
+  app.post('/api/proxy-vitabyte', async (req: Request, res: Response) => {
+    try {
+      const { url, body } = req.body;
+      
+      if (!url || typeof url !== 'string') {
+        return res.status(400).json({ error: 'URL is required' });
+      }
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body || {}),
+      });
+
+      const data = await response.json();
+      res.status(response.status).json(data);
+    } catch (error: any) {
+      console.error('Vitabyte API proxy error:', error);
+      res.status(500).json({ 
+        error: 'Failed to proxy request', 
+        details: error.message 
+      });
+    }
+  });
+
   // Activity logging endpoint for tracking sensitive data access
   app.post('/api/activity/log', isAuthenticated, async (req: any, res) => {
     try {
