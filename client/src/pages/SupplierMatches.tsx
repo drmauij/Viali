@@ -87,7 +87,11 @@ function ItemCodesDisplay({ itemCode }: { itemCode: ItemCode | null }) {
   );
 }
 
-export default function SupplierMatches() {
+interface SupplierMatchesProps {
+  overrideUnitId?: string;
+}
+
+export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps = {}) {
   const { t } = useTranslation();
   const [, navigate] = useLocation();
   const activeHospital = useActiveHospital();
@@ -145,8 +149,8 @@ export default function SupplierMatches() {
   // Unit filter state (for logistics module cross-unit access)
   const [filterUnitId, setFilterUnitId] = useState<string>("current");
   
-  // Check if user has logistics module access
-  const isLogisticModule = activeHospital?.unitType === 'logistic';
+  // Check if user has logistics module access (but hide unit selector if overrideUnitId is provided)
+  const isLogisticModule = activeHospital?.unitType === 'logistic' && !overrideUnitId;
   
   // Fetch all units for this hospital (only for logistics module users)
   const { data: allUnits = [] } = useQuery<Unit[]>({
@@ -161,11 +165,15 @@ export default function SupplierMatches() {
   
   // Determine which unitId to use for API calls
   const effectiveUnitId = useMemo(() => {
+    // If overrideUnitId is provided (from LogisticMatches), use it directly
+    if (overrideUnitId) {
+      return overrideUnitId;
+    }
     if (!isLogisticModule || filterUnitId === "current") {
       return activeHospital?.unitId;
     }
     return filterUnitId;
-  }, [isLogisticModule, filterUnitId, activeHospital?.unitId]);
+  }, [overrideUnitId, isLogisticModule, filterUnitId, activeHospital?.unitId]);
   
   // Open Edit Codes dialog for an item
   const openItemCodesEditor = async (itemId: string) => {

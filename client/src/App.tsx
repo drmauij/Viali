@@ -65,6 +65,7 @@ import PatientQuestionnaire from "@/pages/PatientQuestionnaire";
 import ExternalSurgeryRequest from "@/pages/ExternalSurgeryRequest";
 import LogisticInventory from "@/pages/logistic/LogisticInventory";
 import LogisticOrders from "@/pages/logistic/LogisticOrders";
+import LogisticMatches from "@/pages/logistic/LogisticMatches";
 import "@/i18n/config";
 
 // Home redirect component that checks module preference
@@ -243,6 +244,7 @@ function Router() {
             <Route path="/logistic">{() => <ProtectedRoute requireLogistic><LogisticInventory /></ProtectedRoute>}</Route>
             <Route path="/logistic/inventory">{() => <ProtectedRoute requireLogistic><LogisticInventory /></ProtectedRoute>}</Route>
             <Route path="/logistic/orders">{() => <ProtectedRoute requireLogistic><LogisticOrders /></ProtectedRoute>}</Route>
+            <Route path="/logistic/matches">{() => <ProtectedRoute requireLogistic><LogisticMatches /></ProtectedRoute>}</Route>
             <Route path="/signup" component={Signup} />
             {/* Demo/Testing Routes */}
             <Route path="/demo/editable-values" component={EditableValuesDemo} />
