@@ -197,6 +197,7 @@ export default function BottomNav() {
       return [
         { id: "logistic-inventory", icon: "fas fa-boxes", label: t('bottomNav.logistic.inventory', 'Inventory'), path: "/logistic/inventory" },
         { id: "logistic-orders", icon: "fas fa-clipboard-list", label: t('bottomNav.logistic.orders', 'Orders'), path: "/logistic/orders" },
+        { id: "logistic-matches", icon: "fas fa-link", label: t('bottomNav.matches', 'Matches'), path: "/inventory/matches" },
       ];
     }
     
