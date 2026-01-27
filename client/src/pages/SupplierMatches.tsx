@@ -119,6 +119,11 @@ export default function SupplierMatches() {
     basispreis: ""
   });
   
+  // Galexis/HIN lookup state
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [lookupMessage, setLookupMessage] = useState<string | null>(null);
+  const lookupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   // File input refs for photo capture
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -193,6 +198,11 @@ export default function SupplierMatches() {
     setCodesImage(null);
     setEditingSupplierCode(null);
     setNewSupplierCode({ supplierName: "", articleCode: "", catalogUrl: "", basispreis: "" });
+    setIsLookingUp(false);
+    setLookupMessage(null);
+    if (lookupTimeoutRef.current) {
+      clearTimeout(lookupTimeoutRef.current);
+    }
   };
   
   // Refresh supplier codes for the current item
@@ -208,6 +218,100 @@ export default function SupplierMatches() {
       console.error('Failed to refresh suppliers:', err);
     }
   };
+  
+  // Galexis/HIN product lookup for Edit Codes dialog
+  const lookupProduct = async (gtin?: string, pharmacode?: string) => {
+    if ((!gtin && !pharmacode) || !activeHospital?.id || !editingItem) return;
+    
+    setIsLookingUp(true);
+    setLookupMessage(t('items.lookingUpGalexis', 'Looking up in Galexis/HIN...'));
+    
+    try {
+      const response = await apiRequest('POST', '/api/items/galexis-lookup', {
+        gtin: gtin || undefined,
+        pharmacode: pharmacode || undefined,
+        hospitalId: activeHospital.id,
+      });
+      const result: any = await response.json();
+      
+      if (result.found) {
+        // Handle GTIN: fill if empty
+        const returnedGtin = result.gtin;
+        const currentGtin = editingItemCodes?.gtin;
+        
+        if (returnedGtin && !currentGtin) {
+          setEditingItemCodes(prev => prev ? { ...prev, gtin: returnedGtin } : { gtin: returnedGtin });
+          toast({
+            title: t('items.gtinAutoFilled', 'GTIN Auto-filled'),
+            description: `GTIN: ${returnedGtin}`,
+          });
+        }
+        
+        // Update manufacturer if found
+        if (result.manufacturer) {
+          setEditingItemCodes(prev => prev ? { ...prev, manufacturer: result.manufacturer } : { manufacturer: result.manufacturer });
+        }
+        
+        // Auto-add supplier with Galexis/HIN data
+        const priceValue = result.yourPrice || result.basispreis;
+        const supplierData = {
+          supplierName: result.supplierName || (result.source === 'hin' ? 'HIN' : 'Galexis'),
+          articleCode: result.pharmacode || pharmacode || null,
+          catalogUrl: result.catalogUrl || null,
+          basispreis: priceValue ? String(priceValue) : null,
+          isPreferred: editingSupplierCodes.length === 0,
+        };
+        
+        try {
+          const createRes = await apiRequest("POST", `/api/items/${editingItem.id}/suppliers`, supplierData);
+          const created = await createRes.json();
+          setEditingSupplierCodes(prev => [...prev, created]);
+          
+          setLookupMessage(t('items.supplierAddedFromLookup', `${supplierData.supplierName} supplier added with price ${priceValue ? priceValue + ' CHF' : 'N/A'}`));
+          
+          // Invalidate supplier matches cache to move item out of unmatched
+          queryClient.invalidateQueries({ queryKey: ['/api/inventory/supplier-matches', activeHospital.id] });
+        } catch (addErr: any) {
+          console.error('Failed to add supplier:', addErr);
+          setLookupMessage(t('items.lookupFoundButAddFailed', 'Product found but failed to add supplier'));
+        }
+      } else {
+        setLookupMessage(t('items.productNotFound', 'Product not found in Galexis/HIN'));
+      }
+    } catch (err: any) {
+      console.error('Lookup failed:', err);
+      setLookupMessage(t('items.lookupFailed', 'Lookup failed: ') + (err.message || 'Unknown error'));
+    } finally {
+      setIsLookingUp(false);
+    }
+  };
+  
+  // Auto-trigger lookup when GTIN or Pharmacode changes in Edit Codes dialog
+  useEffect(() => {
+    if (!editCodesOpen || !editingItem) return;
+    
+    const gtin = editingItemCodes?.gtin?.trim();
+    const pharmacode = editingItemCodes?.pharmacode?.trim();
+    
+    // Only lookup if we have a code and no suppliers yet
+    if (!gtin && !pharmacode) return;
+    if (isLookingUp) return;
+    
+    // Debounce the lookup
+    if (lookupTimeoutRef.current) {
+      clearTimeout(lookupTimeoutRef.current);
+    }
+    
+    lookupTimeoutRef.current = setTimeout(() => {
+      lookupProduct(gtin, pharmacode);
+    }, 800);
+    
+    return () => {
+      if (lookupTimeoutRef.current) {
+        clearTimeout(lookupTimeoutRef.current);
+      }
+    };
+  }, [editingItemCodes?.gtin, editingItemCodes?.pharmacode, editCodesOpen, editingItem?.id]);
   
   // Handle image upload for AI Vision OCR analysis
   const handleCodesImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -894,6 +998,23 @@ export default function SupplierMatches() {
                     </div>
                   </div>
                 </div>
+
+                {/* Galexis/HIN Lookup Status */}
+                {(isLookingUp || lookupMessage) && (
+                  <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${isLookingUp ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300' : lookupMessage?.includes('not found') || lookupMessage?.includes('failed') ? 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300' : 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300'}`} data-testid="lookup-status">
+                    {isLookingUp ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>{t('items.lookingUpGalexis', 'Looking up in Galexis/HIN...')}</span>
+                      </>
+                    ) : (
+                      <>
+                        <i className={`fas ${lookupMessage?.includes('not found') || lookupMessage?.includes('failed') ? 'fa-info-circle' : 'fa-check-circle'}`}></i>
+                        <span>{lookupMessage}</span>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Supplier Pricing Section */}
                 <div className="space-y-4 pt-4 border-t">
