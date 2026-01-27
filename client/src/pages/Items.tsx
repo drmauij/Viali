@@ -4836,9 +4836,10 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       {/* Edit Item Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) handleCloseEditDialog(); else setEditDialogOpen(true); }} modal={!webcamCaptureOpen}>
         <DialogContent 
-          className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden"
+          className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden outline-none"
           onInteractOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
           onPointerDownOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           {/* Fixed Header */}
           <div className="flex-shrink-0 bg-background z-10 px-6 pt-6 pb-4 border-b">
