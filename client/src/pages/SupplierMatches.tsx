@@ -126,6 +126,7 @@ export default function SupplierMatches() {
     supplierName: string;
     currentName: string;
     itemId: string;
+    selectedName: 'current' | 'supplier';
   } | null>(null);
   
   // File input refs for photo capture
@@ -304,6 +305,7 @@ export default function SupplierMatches() {
                 supplierName: result.name,
                 currentName: editingItem.name,
                 itemId: editingItem.id,
+                selectedName: 'current',
               });
             }
           }
@@ -1181,49 +1183,86 @@ export default function SupplierMatches() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 my-4">
-            <div className="p-3 rounded-lg bg-muted">
-              <p className="text-xs text-muted-foreground mb-1">{t('items.currentName', 'Current Name')}</p>
-              <p className="font-medium">{nameConfirmDialog?.currentName}</p>
+            <div 
+              className={`p-4 rounded-lg cursor-pointer transition-all border-2 ${
+                nameConfirmDialog?.selectedName === 'current' 
+                  ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+                  : 'border-muted bg-muted/50 hover:border-muted-foreground/30'
+              }`}
+              onClick={() => nameConfirmDialog && setNameConfirmDialog({ ...nameConfirmDialog, selectedName: 'current' })}
+              data-testid="name-option-current"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  nameConfirmDialog?.selectedName === 'current' 
+                    ? 'border-primary' 
+                    : 'border-muted-foreground/40'
+                }`}>
+                  {nameConfirmDialog?.selectedName === 'current' && (
+                    <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground mb-1">{t('items.currentName', 'Current Name')}</p>
+                  <p className="font-medium">{nameConfirmDialog?.currentName}</p>
+                </div>
+              </div>
             </div>
-            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
-              <p className="text-xs text-muted-foreground mb-1">{t('items.supplierName', 'Supplier Name')}</p>
-              <p className="font-medium">{nameConfirmDialog?.supplierName}</p>
+            <div 
+              className={`p-4 rounded-lg cursor-pointer transition-all border-2 ${
+                nameConfirmDialog?.selectedName === 'supplier' 
+                  ? 'border-primary bg-primary/5 ring-2 ring-primary/20' 
+                  : 'border-muted bg-muted/50 hover:border-muted-foreground/30'
+              }`}
+              onClick={() => nameConfirmDialog && setNameConfirmDialog({ ...nameConfirmDialog, selectedName: 'supplier' })}
+              data-testid="name-option-supplier"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                  nameConfirmDialog?.selectedName === 'supplier' 
+                    ? 'border-primary' 
+                    : 'border-muted-foreground/40'
+                }`}>
+                  {nameConfirmDialog?.selectedName === 'supplier' && (
+                    <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+                  )}
+                </div>
+                <div className="flex-1">
+                  <p className="text-xs text-muted-foreground mb-1">{t('items.supplierName', 'Supplier Name')}</p>
+                  <p className="font-medium">{nameConfirmDialog?.supplierName}</p>
+                </div>
+              </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button 
-              variant="outline" 
-              onClick={() => setNameConfirmDialog(null)}
-              data-testid="name-keep-current"
-            >
-              {t('items.keepCurrent', 'Keep Current')}
-            </Button>
+          <div className="flex justify-end">
             <Button 
               onClick={async () => {
                 if (nameConfirmDialog) {
-                  try {
-                    await apiRequest("PATCH", `/api/items/${nameConfirmDialog.itemId}`, { 
-                      name: nameConfirmDialog.supplierName 
-                    });
-                    toast({
-                      title: t('items.nameUpdated', 'Name Updated'),
-                      description: nameConfirmDialog.supplierName,
-                    });
-                    // Refresh the data
-                    refetch();
-                  } catch (err: any) {
-                    toast({
-                      title: t('common.error'),
-                      description: err.message || 'Failed to update name',
-                      variant: "destructive",
-                    });
+                  if (nameConfirmDialog.selectedName === 'supplier') {
+                    try {
+                      await apiRequest("PATCH", `/api/items/${nameConfirmDialog.itemId}`, { 
+                        name: nameConfirmDialog.supplierName 
+                      });
+                      toast({
+                        title: t('items.nameUpdated', 'Name Updated'),
+                        description: nameConfirmDialog.supplierName,
+                      });
+                      // Refresh the data
+                      refetch();
+                    } catch (err: any) {
+                      toast({
+                        title: t('common.error'),
+                        description: err.message || 'Failed to update name',
+                        variant: "destructive",
+                      });
+                    }
                   }
                 }
                 setNameConfirmDialog(null);
               }}
-              data-testid="name-use-supplier"
+              data-testid="name-confirm-save"
             >
-              {t('items.useSupplierName', 'Use Supplier Name')}
+              {t('common.save', 'Save')}
             </Button>
           </div>
         </DialogContent>
