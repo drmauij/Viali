@@ -3,7 +3,7 @@ import { analyzeBulkItemImages } from './openai';
 import { sendBulkImportCompleteEmail } from './resend';
 import { createGalexisClient, type PriceData, type ProductLookupRequest, type ProductLookupResult } from './services/galexisClient';
 import { supplierCodes, itemCodes, items, supplierCatalogs, hospitals, patientQuestionnaireLinks, units, users, priceSyncJobs } from '@shared/schema';
-import { eq, and, isNull, isNotNull, sql, or } from 'drizzle-orm';
+import { eq, and, isNull, isNotNull, sql, or, inArray } from 'drizzle-orm';
 import { db } from './storage';
 import { decryptCredential } from './utils/encryption';
 import { randomUUID } from 'crypto';
@@ -904,6 +904,63 @@ async function processNextPriceSyncJob() {
       
       console.log(`[Worker] Zero-price suppliers: ${zeroPriceSuppliers.length} total, ${zeroPriceItemsResolved} resolved with Galexis, ${zeroPriceItemsStillUnmatched} still need manual pricing`);
 
+      // Deduplicate supplier codes: remove entries with same item, same supplier, same code, same price
+      let duplicatesRemoved = 0;
+      try {
+        // Find all supplier codes for this hospital's items
+        const hospitalItemIds = allHospitalItems.map(i => i.itemId);
+        const uniqueItemIds = [...new Set(hospitalItemIds)];
+        
+        if (uniqueItemIds.length > 0) {
+          // Get all supplier codes for hospital items, grouped to find duplicates
+          const allSupplierCodesForDedup = await db
+            .select({
+              id: supplierCodes.id,
+              itemId: supplierCodes.itemId,
+              supplierName: supplierCodes.supplierName,
+              articleCode: supplierCodes.articleCode,
+              basispreis: supplierCodes.basispreis,
+              createdAt: supplierCodes.createdAt,
+            })
+            .from(supplierCodes)
+            .where(inArray(supplierCodes.itemId, uniqueItemIds))
+            .orderBy(supplierCodes.createdAt);
+          
+          // Group by (itemId, supplierName, articleCode, basispreis) and find duplicates
+          const groupedCodes: Record<string, typeof allSupplierCodesForDedup> = {};
+          
+          for (const code of allSupplierCodesForDedup) {
+            // Create a key from the combination that defines a duplicate
+            const key = `${code.itemId}|${code.supplierName}|${code.articleCode || ''}|${code.basispreis || ''}`;
+            
+            if (!groupedCodes[key]) {
+              groupedCodes[key] = [];
+            }
+            groupedCodes[key].push(code);
+          }
+          
+          // Find groups with more than one entry (duplicates)
+          const duplicateIds: string[] = [];
+          for (const key of Object.keys(groupedCodes)) {
+            const codes = groupedCodes[key];
+            if (codes.length > 1) {
+              // Keep the first (oldest) one, mark the rest for deletion
+              for (let i = 1; i < codes.length; i++) {
+                duplicateIds.push(codes[i].id);
+              }
+            }
+          }
+          
+          if (duplicateIds.length > 0) {
+            await db.delete(supplierCodes).where(inArray(supplierCodes.id, duplicateIds));
+            duplicatesRemoved = duplicateIds.length;
+            console.log(`[Worker] Removed ${duplicatesRemoved} duplicate supplier codes`);
+          }
+        }
+      } catch (dedupError: any) {
+        console.error(`[Worker] Deduplication error:`, dedupError.message);
+      }
+
       const summary = {
         syncMethod: 'productAvailability',
         totalItemsLookedUp: itemsToLookup.length,
@@ -922,11 +979,12 @@ async function processNextPriceSyncJob() {
         zeroPriceSuppliersTotal: zeroPriceSuppliers.length,
         zeroPriceSuppliersResolved: zeroPriceItemsResolved,
         zeroPriceSuppliersStillUnmatched: zeroPriceItemsStillUnmatched,
+        duplicateSupplierCodesRemoved: duplicatesRemoved,
         unmatchedItems: unmatchedWithCodes.slice(0, 50),
         galexisApiDebug: galexisDebugInfo || null,
       };
 
-      console.log(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched, ${hinMatchedCount} HIN fallback, ${unmatchedWithCodes.length} items still unmatched`);
+      console.log(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched, ${hinMatchedCount} HIN fallback, ${duplicatesRemoved} duplicates removed, ${unmatchedWithCodes.length} items still unmatched`);
 
       await storage.updatePriceSyncJob(job.id, {
         status: 'completed',
@@ -948,6 +1006,9 @@ async function processNextPriceSyncJob() {
         syncMessage += ` (${parts.join(', ')})`;
       }
       syncMessage += `, updated ${updatedCount} prices`;
+      if (duplicatesRemoved > 0) {
+        syncMessage += `, removed ${duplicatesRemoved} duplicates`;
+      }
 
       await storage.updateSupplierCatalog(job.catalogId, {
         lastSyncAt: new Date(),
@@ -955,7 +1016,7 @@ async function processNextPriceSyncJob() {
         lastSyncMessage: syncMessage,
       });
 
-      console.log(`[Worker] Completed price sync job ${job.id}: matched ${totalMatched}, updated ${updatedCount}`);
+      console.log(`[Worker] Completed price sync job ${job.id}: matched ${totalMatched}, updated ${updatedCount}, duplicates removed ${duplicatesRemoved}`);
 
       return true;
     } catch (processingError: any) {
