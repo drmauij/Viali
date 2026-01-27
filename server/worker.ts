@@ -761,23 +761,101 @@ async function processNextPriceSyncJob() {
         }
       }
 
-      // HIN fallback: Try to match items that weren't found in Galexis using HIN MediUpdate
+      // RETRY: Individual Galexis lookups for items not matched in batch
+      // This ensures consistency with manual dialog lookups
+      let retryMatchedCount = 0;
+      const stillUnmatched: typeof unmatchedWithCodes = [];
+      
+      if (unmatchedWithCodes.length > 0) {
+        console.log(`[Worker] Retrying ${unmatchedWithCodes.length} unmatched items with individual Galexis lookups...`);
+        
+        for (const item of unmatchedWithCodes) {
+          try {
+            const lookupCode = item.pharmacode || item.gtin;
+            if (!lookupCode) {
+              stillUnmatched.push(item);
+              continue;
+            }
+            
+            // Do individual lookup - same as the dialog endpoint
+            const lookupRequest = item.pharmacode ? { pharmacode: item.pharmacode } : { gtin: item.gtin };
+            const { results: singleResults } = await client.lookupProducts([lookupRequest]);
+            
+            if (singleResults.length > 0 && singleResults[0].found && singleResults[0].price) {
+              const result = singleResults[0];
+              const priceData = result.price!;
+              const matchedCode = item.pharmacode || item.gtin!;
+              
+              // Create supplier code - same logic as batch success path
+              const newId = randomUUID();
+              const catalogUrl = matchedCode ? `https://dispocura.galexis.com/app#/articles/${matchedCode}` : undefined;
+              
+              // Demote other preferred suppliers
+              await db
+                .update(supplierCodes)
+                .set({ isPreferred: false, updatedAt: new Date() })
+                .where(and(eq(supplierCodes.itemId, item.itemId), eq(supplierCodes.isPreferred, true)));
+              
+              await db.insert(supplierCodes).values({
+                id: newId,
+                itemId: item.itemId,
+                supplierName: 'Galexis',
+                articleCode: matchedCode,
+                basispreis: String(priceData.basispreis),
+                publikumspreis: String(priceData.publikumspreis),
+                lastPriceUpdate: new Date(),
+                lastChecked: new Date(),
+                isPreferred: true,
+                matchStatus: 'confirmed',
+                matchedProductName: priceData.description || undefined,
+                catalogUrl: catalogUrl,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+              });
+              
+              retryMatchedCount++;
+              itemsWithGalexisCode.add(item.itemId);
+              console.log(`[Worker] RETRY SUCCESS: "${item.itemName}" matched via individual lookup, price=${priceData.basispreis}`);
+            } else {
+              stillUnmatched.push(item);
+            }
+            
+            // Small delay to avoid overwhelming the API
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } catch (retryErr: any) {
+            console.error(`[Worker] Retry lookup failed for "${item.itemName}":`, retryErr.message);
+            stillUnmatched.push(item);
+          }
+        }
+        
+        if (retryMatchedCount > 0) {
+          console.log(`[Worker] Individual retry matched ${retryMatchedCount}/${unmatchedWithCodes.length} items`);
+        }
+      }
+      
+      // HIN fallback: Try to match items that STILL weren't found in Galexis
       let hinMatchedCount = 0;
       let hinCreatedCount = 0;
       
-      if (unmatchedWithCodes.length > 0) {
-        console.log(`[Worker] Attempting HIN fallback for ${unmatchedWithCodes.length} items not found in Galexis...`);
+      if (stillUnmatched.length > 0) {
+        console.log(`[Worker] Attempting HIN fallback for ${stillUnmatched.length} items not found in Galexis...`);
         
         try {
           const { hinClient, parsePackSizeFromDescription: parseHinPackSize } = await import('./services/hinMediupdateClient');
           const hinStatus = await hinClient.getSyncStatus();
           
-          if (hinStatus.lastSyncAt) {
+          // Check if HIN database has any articles (more reliable than checking lastSyncAt)
+          const hinHasData = hinStatus.articlesCount > 0;
+          if (!hinHasData) {
+            console.log(`[Worker] HIN database has no articles (count: ${hinStatus.articlesCount}, lastSync: ${hinStatus.lastSyncAt || 'never'}). Skipping HIN fallback.`);
+          }
+          
+          if (hinHasData) {
             await storage.updatePriceSyncJob(job.id, {
               progressPercent: 70,
             });
             
-            for (const item of unmatchedWithCodes) {
+            for (const item of stillUnmatched) {
               try {
                 // lookupByCode only takes one code - try pharmacode first, then GTIN
                 const lookupCode = item.pharmacode || item.gtin;
@@ -966,42 +1044,44 @@ async function processNextPriceSyncJob() {
         totalItemsLookedUp: itemsToLookup.length,
         totalPricesFound: priceMap.size,
         totalItemsInHospital: allHospitalItems.length,
-        itemsWithSupplierCode: existingSupplierCodes.length + autoCreatedCount + hinCreatedCount,
-        matchedItems: matchedCount + autoMatchedCount + hinMatchedCount,
+        itemsWithSupplierCode: existingSupplierCodes.length + autoCreatedCount + retryMatchedCount + hinCreatedCount,
+        matchedItems: matchedCount + autoMatchedCount + retryMatchedCount + hinMatchedCount,
         updatedItems: updatedCount,
         autoMatchedByPharmacode: autoMatchedCount,
         autoCreatedSupplierCodes: autoCreatedCount,
+        retryMatchedIndividual: retryMatchedCount,
         hinFallbackMatched: hinMatchedCount,
         hinFallbackCreated: hinCreatedCount,
         unmatchedSupplierCodes: existingSupplierCodes.length - matchedCount,
-        itemsWithoutSupplierCode: allHospitalItems.length - existingSupplierCodes.length - autoCreatedCount - hinCreatedCount,
-        itemsWithGtinNoSupplierCode: unmatchedWithCodes.length,
+        itemsWithoutSupplierCode: allHospitalItems.length - existingSupplierCodes.length - autoCreatedCount - retryMatchedCount - hinCreatedCount,
+        itemsWithGtinNoSupplierCode: stillUnmatched.length,
         zeroPriceSuppliersTotal: zeroPriceSuppliers.length,
         zeroPriceSuppliersResolved: zeroPriceItemsResolved,
         zeroPriceSuppliersStillUnmatched: zeroPriceItemsStillUnmatched,
         duplicateSupplierCodesRemoved: duplicatesRemoved,
-        unmatchedItems: unmatchedWithCodes.slice(0, 50),
+        unmatchedItems: stillUnmatched.slice(0, 50),
         galexisApiDebug: galexisDebugInfo || null,
       };
 
-      console.log(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched, ${hinMatchedCount} HIN fallback, ${duplicatesRemoved} duplicates removed, ${unmatchedWithCodes.length} items still unmatched`);
+      console.log(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched, ${retryMatchedCount} retry-matched, ${hinMatchedCount} HIN fallback, ${duplicatesRemoved} duplicates removed, ${stillUnmatched.length} items still unmatched`);
 
       await storage.updatePriceSyncJob(job.id, {
         status: 'completed',
         completedAt: new Date(),
         totalItems: itemsToLookup.length,
         processedItems: itemsToLookup.length,
-        matchedItems: matchedCount + autoMatchedCount + hinMatchedCount,
+        matchedItems: matchedCount + autoMatchedCount + retryMatchedCount + hinMatchedCount,
         updatedItems: updatedCount,
         progressPercent: 100,
         summary: JSON.stringify(summary),
       });
 
-      const totalMatched = matchedCount + autoMatchedCount + hinMatchedCount;
+      const totalMatched = matchedCount + autoMatchedCount + retryMatchedCount + hinMatchedCount;
       let syncMessage = `Matched ${totalMatched} items`;
-      if (autoMatchedCount > 0 || hinMatchedCount > 0) {
+      if (autoMatchedCount > 0 || retryMatchedCount > 0 || hinMatchedCount > 0) {
         const parts: string[] = [];
         if (autoMatchedCount > 0) parts.push(`${autoMatchedCount} auto-matched`);
+        if (retryMatchedCount > 0) parts.push(`${retryMatchedCount} retry-matched`);
         if (hinMatchedCount > 0) parts.push(`${hinMatchedCount} via HIN`);
         syncMessage += ` (${parts.join(', ')})`;
       }
