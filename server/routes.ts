@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
-import { patients, surgeries, externalSurgeryRequests } from "@shared/schema";
+import { patients, surgeries, externalSurgeryRequests, itemCodes, items } from "@shared/schema";
 import { setupAuth, isAuthenticated, getSessionMiddleware } from "./auth/google";
 import { initSocketIO, broadcastAnesthesiaUpdate, type AnesthesiaDataSection } from "./socket";
 import { 
