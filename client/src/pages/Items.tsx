@@ -1967,10 +1967,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       const response = await apiRequest('POST', '/api/items/galexis-lookup', {
         gtin,
         hospitalId: activeHospital.id,
+        unitId: effectiveUnitId,
       });
       const result: any = await response.json();
       
-      // Check if item with same code already exists
+      // Check if item with same code already exists in this unit
       if (result.existingItem) {
         setGalexisLookupResult({ 
           found: false, 
@@ -2054,10 +2055,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         gtin: gtin || undefined,
         pharmacode: pharmacode || undefined,
         hospitalId: activeHospital.id,
+        unitId: effectiveUnitId,
       });
       const result: any = await response.json();
       
-      // Check if item with same code already exists (excluding current item)
+      // Check if item with same code already exists in this unit (excluding current item)
       if (result.existingItem && result.existingItem.itemId !== selectedItem.id) {
         toast({
           title: t('items.duplicateCodeFound', 'Duplicate Code Found'),
@@ -7424,6 +7426,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               const response = await apiRequest('POST', '/api/items/galexis-lookup', {
                 gtin: codes.gtin,
                 hospitalId: activeHospital.id,
+                unitId: effectiveUnitId,
               });
               const result: any = await response.json();
               

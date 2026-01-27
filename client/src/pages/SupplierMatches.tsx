@@ -235,10 +235,11 @@ export default function SupplierMatches() {
         gtin: gtin || undefined,
         pharmacode: pharmacode || undefined,
         hospitalId: activeHospital.id,
+        unitId: activeHospital.unitId,
       });
       const result: any = await response.json();
       
-      // Check if item with same code already exists
+      // Check if item with same code already exists in this unit
       if (result.existingItem && result.existingItem.itemId !== editingItem.id) {
         toast({
           title: t('items.duplicateCodeFound', 'Duplicate Code Found'),

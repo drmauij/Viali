@@ -346,7 +346,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Galexis product lookup by GTIN - fetches full product info including name, price, pharmacode
   app.post('/api/items/galexis-lookup', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
-      const { gtin, pharmacode, hospitalId, debug, skipExistingItem } = req.body;
+      const { gtin, pharmacode, hospitalId, unitId, debug, skipExistingItem } = req.body;
       if (!gtin && !pharmacode) {
         return res.status(400).json({ message: "GTIN or Pharmacode is required" });
       }
@@ -354,9 +354,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Hospital ID is required" });
       }
 
-      // Check if item with same pharmacode/GTIN already exists in this hospital
+      // Check if item with same pharmacode/GTIN already exists in this unit (not hospital-wide)
+      // Different units can have the same item - inventories are separated by unit
       let existingItem: any = null;
-      if (!skipExistingItem) {
+      if (!skipExistingItem && unitId) {
         const existingItems = await db
           .select({
             itemId: itemCodes.itemId,
@@ -367,7 +368,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           .from(itemCodes)
           .innerJoin(items, eq(items.id, itemCodes.itemId))
           .where(and(
-            eq(items.hospitalId, hospitalId),
+            eq(items.unitId, unitId),
             or(
               pharmacode ? eq(itemCodes.pharmacode, pharmacode) : sql`false`,
               gtin ? eq(itemCodes.gtin, gtin) : sql`false`
