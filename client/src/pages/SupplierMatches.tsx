@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { 
   Check, X, ExternalLink, Package, Loader2, 
-  XCircle, DollarSign, AlertTriangle, CheckCircle2, Search, ChevronRight, AlertCircle, Trash2, Star, Edit, Plus
+  XCircle, DollarSign, CheckCircle2, Search, ChevronRight, AlertCircle, Trash2, Star, Edit, Plus
 } from "lucide-react";
 
 interface ItemCode {
@@ -46,18 +46,15 @@ interface CategorizedItem {
   description: string | null;
   itemCode: ItemCode | null;
   supplierCodes: any[];
-  pendingMatches?: SupplierCodeInfo[];
   confirmedMatch?: SupplierCodeInfo;
 }
 
 interface CategorizedData {
   unmatched: CategorizedItem[];
-  toVerify: CategorizedItem[];
   confirmedWithPrice: CategorizedItem[];
   confirmedNoPrice: CategorizedItem[];
   counts: {
     unmatched: number;
-    toVerify: number;
     confirmedWithPrice: number;
     confirmedNoPrice: number;
     total: number;
@@ -89,7 +86,6 @@ export default function SupplierMatches() {
   
   // Search states for each tab
   const [searchUnmatched, setSearchUnmatched] = useState("");
-  const [searchToVerify, setSearchToVerify] = useState("");
   const [searchWithPrice, setSearchWithPrice] = useState("");
   const [searchNoPrice, setSearchNoPrice] = useState("");
   
@@ -141,7 +137,6 @@ export default function SupplierMatches() {
     // Find the item from the categorized data
     const allItems = [
       ...(categorizedData?.unmatched || []),
-      ...(categorizedData?.toVerify || []),
       ...(categorizedData?.confirmedWithPrice || []),
       ...(categorizedData?.confirmedNoPrice || []),
     ];
@@ -508,7 +503,7 @@ export default function SupplierMatches() {
     );
   }
 
-  const counts = categorizedData?.counts || { unmatched: 0, toVerify: 0, confirmedWithPrice: 0, confirmedNoPrice: 0, total: 0 };
+  const counts = categorizedData?.counts || { unmatched: 0, confirmedWithPrice: 0, confirmedNoPrice: 0, total: 0 };
 
   return (
     <div className="p-4 space-y-4">
@@ -519,15 +514,11 @@ export default function SupplierMatches() {
         </Badge>
       </div>
 
-      <Tabs defaultValue="toVerify" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+      <Tabs defaultValue="unmatched" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="unmatched" data-testid="tab-unmatched" className="text-xs sm:text-sm">
             <XCircle className="w-3 h-3 mr-1 hidden sm:inline" />
             {t("supplierMatches.unmatched", "Unmatched")} ({counts.unmatched})
-          </TabsTrigger>
-          <TabsTrigger value="toVerify" data-testid="tab-to-verify" className="text-xs sm:text-sm">
-            <AlertTriangle className="w-3 h-3 mr-1 hidden sm:inline" />
-            {t("supplierMatches.toVerify", "To Verify")} ({counts.toVerify})
           </TabsTrigger>
           <TabsTrigger value="confirmedNoPrice" data-testid="tab-confirmed-no-price" className="text-xs sm:text-sm">
             <DollarSign className="w-3 h-3 mr-1 hidden sm:inline" />
@@ -590,140 +581,6 @@ export default function SupplierMatches() {
                       {t("supplierMatches.noMatch", "No Match")}
                     </Badge>
                     <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </TabsContent>
-
-        <TabsContent value="toVerify" className="space-y-3 mt-4">
-          <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 text-sm">
-            <p className="text-blue-700 dark:text-blue-300">
-              {t("supplierMatches.toVerifyDesc", "Items matched by product name. Verify the match is correct and confirm to save pharmacode/GTIN.")}
-            </p>
-          </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder={t("common.search", "Search")}
-              value={searchToVerify}
-              onChange={(e) => setSearchToVerify(e.target.value)}
-              className="pl-9"
-              data-testid="input-search-to-verify"
-            />
-          </div>
-          {filterItems(categorizedData?.toVerify || [], searchToVerify).length === 0 ? (
-            <div className="bg-card border border-border rounded-lg p-6 text-center">
-              {searchToVerify.trim() ? (
-                <>
-                  <Search className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-muted-foreground">{t("common.noSearchResults", "No items match your search")}</p>
-                </>
-              ) : (
-                <>
-                  <AlertCircle className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-muted-foreground">{t("supplierMatches.noPendingVerification", "No items pending verification")}</p>
-                </>
-              )}
-            </div>
-          ) : (
-            filterItems(categorizedData?.toVerify || [], searchToVerify).map((item) => (
-              <Card 
-                key={item.id} 
-                data-testid={`card-to-verify-${item.id}`}
-                className="cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => openItemCodesEditor(item.id)}
-              >
-                <CardContent className="p-4">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-foreground">{item.name}</h3>
-                        {item.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
-                        )}
-                        <ItemCodesDisplay itemCode={item.itemCode} />
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                    </div>
-
-                    {(item.pendingMatches || []).map((match) => (
-                      <div key={match.id} className="bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary">{match.supplierName}</Badge>
-                            {match.articleCode && (
-                              <span className="text-xs text-muted-foreground">Art. {match.articleCode}</span>
-                            )}
-                            {getConfidenceBadge(match.matchConfidence)}
-                          </div>
-                        </div>
-                        
-                        {match.matchedProductName && (
-                          <p className="text-sm mb-2">
-                            <span className="font-medium">{t("supplierMatches.matchedTo", "Matched to")}:</span>{" "}
-                            {match.matchedProductName}
-                          </p>
-                        )}
-                        
-                        {match.matchReason && (
-                          <p className="text-xs text-muted-foreground mb-2">
-                            {t("supplierMatches.matchReason", "Reason")}: {match.matchReason}
-                          </p>
-                        )}
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            {match.basispreis && parseFloat(match.basispreis) > 0 && (
-                              <span className="font-medium">{formatPrice(match.basispreis)}</span>
-                            )}
-                            {match.catalogUrl && (
-                              <a
-                                href={match.catalogUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-primary hover:underline text-sm flex items-center gap-1"
-                                data-testid={`link-catalog-${match.id}`}
-                              >
-                                <ExternalLink className="w-3 h-3" />
-                                {t("supplierMatches.viewCatalog", "View Catalog")}
-                              </a>
-                            )}
-                          </div>
-                          
-                          <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => { e.stopPropagation(); rejectMatchMutation.mutate(match.id); }}
-                              disabled={rejectMatchMutation.isPending}
-                              data-testid={`button-reject-${match.id}`}
-                            >
-                              {rejectMatchMutation.isPending ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <X className="w-4 h-4 mr-1" />
-                              )}
-                              {t("supplierMatches.reject", "Reject")}
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={(e) => { e.stopPropagation(); confirmMatchMutation.mutate(match.id); }}
-                              disabled={confirmMatchMutation.isPending}
-                              data-testid={`button-confirm-${match.id}`}
-                            >
-                              {confirmMatchMutation.isPending ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Check className="w-4 h-4 mr-1" />
-                              )}
-                              {t("supplierMatches.confirm", "Confirm")}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 </CardContent>
               </Card>

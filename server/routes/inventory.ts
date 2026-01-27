@@ -1532,7 +1532,6 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
     
     // Categorize items
     const unmatched: any[] = [];
-    const toVerify: any[] = [];
     const confirmedWithPrice: any[] = [];
     const confirmedNoPrice: any[] = [];
     
@@ -1540,9 +1539,8 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
       const codes = supplierCodesByItem.get(item.id) || [];
       const itemCode = itemCodesByItem.get(item.id);
       
-      // Separate codes by status
+      // Only consider confirmed codes (pending/proximity matches are no longer used)
       const confirmedCodes = codes.filter(c => c.matchStatus === 'confirmed');
-      const pendingCodes = codes.filter(c => c.matchStatus === 'pending');
       
       const itemWithCodes = {
         ...item,
@@ -1550,10 +1548,7 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
         supplierCodes: codes,
       };
       
-      if (codes.length === 0) {
-        // No supplier matches at all
-        unmatched.push(itemWithCodes);
-      } else if (confirmedCodes.length > 0) {
+      if (confirmedCodes.length > 0) {
         // Has confirmed match - prioritize preferred supplier for price check
         // First, try to find a preferred confirmed code
         const preferredCode = confirmedCodes.find(c => c.isPreferred);
@@ -1585,35 +1580,18 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
         } else {
           confirmedNoPrice.push(itemData);
         }
-      } else if (pendingCodes.length > 0) {
-        // Only pending matches (no confirmed) - need verification
-        toVerify.push({
-          ...itemWithCodes,
-          pendingMatches: pendingCodes.map(c => ({
-            id: c.id,
-            supplierName: c.supplierName,
-            articleCode: c.articleCode,
-            matchedProductName: c.matchedProductName,
-            catalogUrl: c.catalogUrl,
-            matchConfidence: c.matchConfidence,
-            matchReason: c.matchReason,
-            basispreis: c.basispreis,
-          })),
-        });
       } else {
-        // Only rejected matches - treat as unmatched
+        // No confirmed matches - treat as unmatched
         unmatched.push(itemWithCodes);
       }
     }
     
     res.json({
       unmatched,
-      toVerify,
       confirmedWithPrice,
       confirmedNoPrice,
       counts: {
         unmatched: unmatched.length,
-        toVerify: toVerify.length,
         confirmedWithPrice: confirmedWithPrice.length,
         confirmedNoPrice: confirmedNoPrice.length,
         total: allItems.length,
