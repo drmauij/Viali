@@ -761,6 +761,141 @@ async function processNextPriceSyncJob() {
         }
       }
 
+      // HIN fallback: Try to match items that weren't found in Galexis using HIN MediUpdate
+      let hinMatchedCount = 0;
+      let hinCreatedCount = 0;
+      
+      if (unmatchedWithCodes.length > 0) {
+        console.log(`[Worker] Attempting HIN fallback for ${unmatchedWithCodes.length} items not found in Galexis...`);
+        
+        try {
+          const { hinClient, parsePackSizeFromDescription: parseHinPackSize } = await import('./services/hinMediupdateClient');
+          const hinStatus = await hinClient.getSyncStatus();
+          
+          if (hinStatus.lastSyncAt) {
+            await storage.updatePriceSyncJob(job.id, {
+              progressPercent: 70,
+            });
+            
+            for (const item of unmatchedWithCodes) {
+              try {
+                // lookupByCode only takes one code - try pharmacode first, then GTIN
+                const lookupCode = item.pharmacode || item.gtin;
+                if (!lookupCode) continue;
+                
+                const hinResult = await hinClient.lookupByCode(lookupCode);
+                
+                if (hinResult && hinResult.found && hinResult.article) {
+                  const basispreis = hinResult.article.pexf;
+                  const publikumspreis = hinResult.article.ppub;
+                  
+                  if (basispreis || publikumspreis) {
+                    // Parse pack size from HIN description
+                    const hinPackSize = parseHinPackSize(hinResult.article.descriptionDe);
+                    
+                    // Check if HIN supplier code already exists
+                    const existingHinCode = await db
+                      .select({ id: supplierCodes.id })
+                      .from(supplierCodes)
+                      .where(and(
+                        eq(supplierCodes.itemId, item.itemId),
+                        eq(supplierCodes.supplierName, 'HIN')
+                      ))
+                      .limit(1);
+                    
+                    if (existingHinCode.length > 0) {
+                      // Update existing HIN supplier code
+                      await db
+                        .update(supplierCodes)
+                        .set({
+                          basispreis: basispreis ? String(basispreis) : undefined,
+                          publikumspreis: publikumspreis ? String(publikumspreis) : undefined,
+                          lastPriceUpdate: new Date(),
+                          lastChecked: new Date(),
+                          isPreferred: true,
+                          matchStatus: 'confirmed',
+                          matchedProductName: hinResult.article.descriptionDe || undefined,
+                          articleCode: hinResult.article.pharmacode || item.pharmacode || undefined,
+                          updatedAt: new Date(),
+                        })
+                        .where(eq(supplierCodes.id, existingHinCode[0].id));
+                      
+                      hinMatchedCount++;
+                      console.log(`[Worker] HIN fallback: Updated existing code for "${item.itemName}"`);
+                    } else {
+                      // Demote other preferred suppliers
+                      await db
+                        .update(supplierCodes)
+                        .set({
+                          isPreferred: false,
+                          updatedAt: new Date(),
+                        })
+                        .where(and(
+                          eq(supplierCodes.itemId, item.itemId),
+                          eq(supplierCodes.isPreferred, true)
+                        ));
+                      
+                      // Create new HIN supplier code
+                      const newId = randomUUID();
+                      await db.insert(supplierCodes).values({
+                        id: newId,
+                        itemId: item.itemId,
+                        supplierName: 'HIN',
+                        articleCode: hinResult.article.pharmacode || item.pharmacode || undefined,
+                        basispreis: basispreis ? String(basispreis) : undefined,
+                        publikumspreis: publikumspreis ? String(publikumspreis) : undefined,
+                        lastPriceUpdate: new Date(),
+                        lastChecked: new Date(),
+                        isPreferred: true,
+                        matchStatus: 'confirmed',
+                        matchedProductName: hinResult.article.descriptionDe || undefined,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                      });
+                      
+                      hinMatchedCount++;
+                      hinCreatedCount++;
+                      console.log(`[Worker] HIN fallback: Created supplier code for "${item.itemName}" - price: ${basispreis}`);
+                    }
+                    
+                    // Update itemCodes if we got GTIN or packSize from HIN
+                    if (hinResult.article.gtin || hinPackSize) {
+                      const existingItemCode = await db.select({ gtin: itemCodes.gtin, unitsPerPack: itemCodes.unitsPerPack }).from(itemCodes).where(eq(itemCodes.itemId, item.itemId)).limit(1);
+                      if (existingItemCode.length > 0) {
+                        const updateFields: any = { updatedAt: new Date() };
+                        if (hinResult.article.gtin && !existingItemCode[0].gtin) {
+                          updateFields.gtin = hinResult.article.gtin;
+                        }
+                        if (hinPackSize && !existingItemCode[0].unitsPerPack) {
+                          updateFields.unitsPerPack = hinPackSize;
+                        }
+                        if (Object.keys(updateFields).length > 1) {
+                          await db.update(itemCodes).set(updateFields).where(eq(itemCodes.itemId, item.itemId));
+                        }
+                      }
+                    }
+                    
+                    // Remove from unmatched list since we found it in HIN
+                    const unmatchedIndex = unmatchedWithCodes.findIndex(u => u.itemId === item.itemId);
+                    if (unmatchedIndex !== -1) {
+                      unmatchedWithCodes.splice(unmatchedIndex, 1);
+                    }
+                  }
+                }
+              } catch (hinItemError: any) {
+                console.error(`[Worker] HIN lookup failed for item "${item.itemName}":`, hinItemError.message);
+              }
+            }
+            
+            console.log(`[Worker] HIN fallback: matched ${hinMatchedCount} items (${hinCreatedCount} new codes created)`);
+          } else {
+            console.log(`[Worker] HIN database not synced, skipping HIN fallback`);
+          }
+        } catch (hinError: any) {
+          console.error(`[Worker] HIN fallback error:`, hinError.message);
+        }
+      }
+
       // Count how many zero-price items got resolved vs still unmatched
       const zeroPriceItemsResolved = zeroPriceSuppliers.filter(s => itemsWithGalexisCode.has(s.itemId)).length;
       const zeroPriceItemsStillUnmatched = zeroPriceSuppliers.filter(s => 
@@ -774,13 +909,15 @@ async function processNextPriceSyncJob() {
         totalItemsLookedUp: itemsToLookup.length,
         totalPricesFound: priceMap.size,
         totalItemsInHospital: allHospitalItems.length,
-        itemsWithSupplierCode: existingSupplierCodes.length + autoCreatedCount,
-        matchedItems: matchedCount + autoMatchedCount,
+        itemsWithSupplierCode: existingSupplierCodes.length + autoCreatedCount + hinCreatedCount,
+        matchedItems: matchedCount + autoMatchedCount + hinMatchedCount,
         updatedItems: updatedCount,
         autoMatchedByPharmacode: autoMatchedCount,
         autoCreatedSupplierCodes: autoCreatedCount,
+        hinFallbackMatched: hinMatchedCount,
+        hinFallbackCreated: hinCreatedCount,
         unmatchedSupplierCodes: existingSupplierCodes.length - matchedCount,
-        itemsWithoutSupplierCode: allHospitalItems.length - existingSupplierCodes.length - autoCreatedCount,
+        itemsWithoutSupplierCode: allHospitalItems.length - existingSupplierCodes.length - autoCreatedCount - hinCreatedCount,
         itemsWithGtinNoSupplierCode: unmatchedWithCodes.length,
         zeroPriceSuppliersTotal: zeroPriceSuppliers.length,
         zeroPriceSuppliersResolved: zeroPriceItemsResolved,
@@ -789,22 +926,28 @@ async function processNextPriceSyncJob() {
         galexisApiDebug: galexisDebugInfo || null,
       };
 
-      console.log(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched, ${unmatchedWithCodes.length} items still unmatched`);
+      console.log(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched, ${hinMatchedCount} HIN fallback, ${unmatchedWithCodes.length} items still unmatched`);
 
       await storage.updatePriceSyncJob(job.id, {
         status: 'completed',
         completedAt: new Date(),
         totalItems: itemsToLookup.length,
         processedItems: itemsToLookup.length,
-        matchedItems: matchedCount + autoMatchedCount,
+        matchedItems: matchedCount + autoMatchedCount + hinMatchedCount,
         updatedItems: updatedCount,
         progressPercent: 100,
         summary: JSON.stringify(summary),
       });
 
-      const syncMessage = autoMatchedCount > 0 
-        ? `Matched ${matchedCount + autoMatchedCount} items (${autoMatchedCount} auto-matched), updated ${updatedCount} prices`
-        : `Matched ${matchedCount} items, updated ${updatedCount} prices`;
+      const totalMatched = matchedCount + autoMatchedCount + hinMatchedCount;
+      let syncMessage = `Matched ${totalMatched} items`;
+      if (autoMatchedCount > 0 || hinMatchedCount > 0) {
+        const parts: string[] = [];
+        if (autoMatchedCount > 0) parts.push(`${autoMatchedCount} auto-matched`);
+        if (hinMatchedCount > 0) parts.push(`${hinMatchedCount} via HIN`);
+        syncMessage += ` (${parts.join(', ')})`;
+      }
+      syncMessage += `, updated ${updatedCount} prices`;
 
       await storage.updateSupplierCatalog(job.catalogId, {
         lastSyncAt: new Date(),
@@ -812,7 +955,7 @@ async function processNextPriceSyncJob() {
         lastSyncMessage: syncMessage,
       });
 
-      console.log(`[Worker] Completed price sync job ${job.id}: matched ${matchedCount + autoMatchedCount}, updated ${updatedCount}`);
+      console.log(`[Worker] Completed price sync job ${job.id}: matched ${totalMatched}, updated ${updatedCount}`);
 
       return true;
     } catch (processingError: any) {
