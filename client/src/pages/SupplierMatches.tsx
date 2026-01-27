@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -11,13 +11,22 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import BarcodeScanner from "@/components/BarcodeScanner";
 import { 
   Check, X, ExternalLink, Package, Loader2, 
-  XCircle, DollarSign, CheckCircle2, Search, ChevronRight, AlertCircle, Trash2, Star, Edit, Plus
+  XCircle, DollarSign, CheckCircle2, Search, ChevronRight, AlertCircle, Trash2, Star, Edit, Plus, Building2
 } from "lucide-react";
+
+interface Unit {
+  id: string;
+  name: string;
+  hospitalId: string;
+  showInventory?: boolean;
+  type?: string | null;
+}
 
 interface ItemCode {
   id: string;
@@ -132,6 +141,31 @@ export default function SupplierMatches() {
   // File input refs for photo capture
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  
+  // Unit filter state (for logistics module cross-unit access)
+  const [filterUnitId, setFilterUnitId] = useState<string>("current");
+  
+  // Check if user has logistics module access
+  const isLogisticModule = activeHospital?.unitType === 'logistic';
+  
+  // Fetch all units for this hospital (only for logistics module users)
+  const { data: allUnits = [] } = useQuery<Unit[]>({
+    queryKey: [`/api/units/${activeHospital?.id}`],
+    enabled: isLogisticModule && !!activeHospital?.id,
+  });
+  
+  // Filter to only units with inventory module enabled
+  const inventoryUnits = useMemo(() => {
+    return allUnits.filter(unit => unit.showInventory !== false);
+  }, [allUnits]);
+  
+  // Determine which unitId to use for API calls
+  const effectiveUnitId = useMemo(() => {
+    if (!isLogisticModule || filterUnitId === "current") {
+      return activeHospital?.unitId;
+    }
+    return filterUnitId;
+  }, [isLogisticModule, filterUnitId, activeHospital?.unitId]);
   
   // Open Edit Codes dialog for an item
   const openItemCodesEditor = async (itemId: string) => {
@@ -428,8 +462,16 @@ export default function SupplierMatches() {
   };
 
   const { data: categorizedData, isLoading, refetch } = useQuery<CategorizedData>({
-    queryKey: [`/api/supplier-matches/${activeHospital?.id}/categorized`],
-    enabled: !!activeHospital?.id,
+    queryKey: [`/api/supplier-matches/${activeHospital?.id}/categorized`, effectiveUnitId],
+    queryFn: async () => {
+      const url = effectiveUnitId 
+        ? `/api/supplier-matches/${activeHospital?.id}/categorized?unitId=${effectiveUnitId}`
+        : `/api/supplier-matches/${activeHospital?.id}/categorized`;
+      const res = await fetch(url, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch');
+      return res.json();
+    },
+    enabled: !!activeHospital?.id && !!effectiveUnitId,
   });
 
   const confirmMatchMutation = useMutation({
@@ -516,6 +558,33 @@ export default function SupplierMatches() {
           {counts.total} {t("supplierMatches.totalItems", "items")}
         </Badge>
       </div>
+
+      {/* Unit selector for logistics module users */}
+      {isLogisticModule && inventoryUnits.length > 0 && (
+        <div className="flex items-center gap-2 bg-muted/50 rounded-lg p-2">
+          <Building2 className="w-4 h-4 text-muted-foreground" />
+          <Select value={filterUnitId} onValueChange={setFilterUnitId}>
+            <SelectTrigger className="w-[200px] h-9" data-testid="select-unit-filter">
+              <SelectValue placeholder={t("common.selectUnit", "Select unit...")} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="current" data-testid="unit-filter-current">
+                {t("common.currentUnit", "Current Unit")} ({activeHospital?.unitName})
+              </SelectItem>
+              {inventoryUnits.map((unit) => (
+                <SelectItem key={unit.id} value={unit.id} data-testid={`unit-filter-${unit.id}`}>
+                  {unit.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {filterUnitId !== "current" && (
+            <Badge variant="secondary" className="text-xs">
+              {inventoryUnits.find(u => u.id === filterUnitId)?.name || ""}
+            </Badge>
+          )}
+        </div>
+      )}
 
       <Tabs defaultValue="unmatched" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
