@@ -1500,7 +1500,7 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
       .where(and(
         eq(items.hospitalId, hospitalId), 
         eq(items.unitId, unitId),
-        or(eq(items.isArchived, false), isNull(items.isArchived))
+        or(eq(items.status, 'active'), isNull(items.status))
       ));
     
     // Get all supplier codes for these items
