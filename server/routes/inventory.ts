@@ -1474,11 +1474,11 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
       return res.status(403).json({ message: "Access denied - no unit access" });
     }
     
-    // Allow cross-unit access if user's unit has isLogisticModule enabled
+    // Allow cross-unit access if user's unit has type 'logistic'
     let unitId = userUnitId;
     if (queryUnitId && queryUnitId !== userUnitId) {
       const userUnit = await storage.getUnit(userUnitId);
-      if (!userUnit?.isLogisticModule) {
+      if (userUnit?.type !== 'logistic') {
         return res.status(403).json({ message: "Access denied - logistics module required for cross-unit access" });
       }
       // Verify the requested unit belongs to this hospital
