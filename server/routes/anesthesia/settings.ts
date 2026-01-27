@@ -112,8 +112,9 @@ router.patch('/api/items/:itemId/anesthesia-config', isAuthenticated, requireWri
       return res.status(404).json({ message: "Item not found" });
     }
     
+    // Check user has access to the hospital (any unit in the hospital is fine for anesthesia config)
     const unitId = await getUserUnitForHospital(userId, item.hospitalId);
-    if (!unitId || unitId !== item.unitId) {
+    if (!unitId) {
       return res.status(403).json({ message: "Access denied to this item" });
     }
 
