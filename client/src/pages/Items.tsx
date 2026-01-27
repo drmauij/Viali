@@ -234,7 +234,17 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
   const [addItemStage, setAddItemStage] = useState<'step1' | 'step2' | 'manual'>('step1');
   const [isAnalyzingCodes, setIsAnalyzingCodes] = useState(false);
   const [isLookingUpGalexis, setIsLookingUpGalexis] = useState(false);
-  const [galexisLookupResult, setGalexisLookupResult] = useState<{found: boolean; message?: string; noIntegration?: boolean; source?: 'galexis' | 'hin'} | null>(null);
+  const [galexisLookupResult, setGalexisLookupResult] = useState<{
+    found: boolean; 
+    message?: string; 
+    noIntegration?: boolean; 
+    source?: 'galexis' | 'hin';
+    packSize?: number;
+    basispreis?: number;
+    publikumspreis?: number;
+    yourPrice?: number;
+    discountPercent?: number;
+  } | null>(null);
   const [codesImage, setCodesImage] = useState<string | null>(null);
   const codesFileInputRef = useRef<HTMLInputElement>(null);
   const codesGalleryInputRef = useRef<HTMLInputElement>(null);
@@ -1812,14 +1822,31 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     };
     
     // Capture codes data BEFORE mutate (mutation's onSuccess calls resetForm which clears formData)
-    const codesData = {
+    // Include unitsPerPack from galexis lookup if available
+    const codesData: any = {
       gtin: formData.gtin || null,
       pharmacode: formData.pharmacode || null,
       migel: formData.migel || null,
       atc: formData.atc || null,
       manufacturer: formData.manufacturer || null,
     };
-    const hasCodes = formData.gtin || formData.pharmacode || formData.migel || formData.atc || formData.manufacturer;
+    // Add unitsPerPack from Galexis/HIN lookup if available
+    if (galexisLookupResult?.packSize) {
+      codesData.unitsPerPack = galexisLookupResult.packSize;
+    }
+    const hasCodes = formData.gtin || formData.pharmacode || formData.migel || formData.atc || formData.manufacturer || galexisLookupResult?.packSize;
+    
+    // Capture supplier data from Galexis/HIN lookup for auto-creating supplier code
+    const galexisSupplierData = galexisLookupResult?.found && galexisLookupResult?.basispreis ? {
+      supplierName: galexisLookupResult.source === 'hin' ? 'HIN' : 'Galexis',
+      articleCode: formData.pharmacode || formData.gtin || '',
+      basispreis: String(galexisLookupResult.basispreis),
+      publikumspreis: galexisLookupResult.publikumspreis ? String(galexisLookupResult.publikumspreis) : undefined,
+      isPreferred: true,
+      catalogUrl: formData.pharmacode 
+        ? `https://dispocura.galexis.com/app#/articles/${formData.pharmacode}` 
+        : undefined,
+    } : null;
     
     const lotData = formData.lotNumber ? {
       lotNumber: formData.lotNumber,
@@ -1845,6 +1872,20 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               description: error.message || "Failed to save product codes",
               variant: "destructive",
             });
+          }
+        }
+        
+        // Auto-create supplier code with Galexis/HIN price data
+        if (galexisSupplierData) {
+          try {
+            await apiRequest("POST", `/api/items/${createdItem.id}/supplier-codes`, galexisSupplierData);
+            toast({
+              title: t('items.supplierAdded', 'Supplier added'),
+              description: `${galexisSupplierData.supplierName}: ${galexisSupplierData.basispreis} CHF`,
+            });
+          } catch (error: any) {
+            console.error('Failed to create supplier code:', error);
+            // Don't show error toast for supplier - it's auto-created
           }
         }
         
@@ -1922,15 +1963,25 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       const result: any = await response.json();
       
       if (result.found) {
-        // Auto-populate form with Galexis data
+        // Auto-populate form with Galexis data including pack size if available
         setFormData(prev => ({
           ...prev,
           name: result.name || prev.name,
           pharmacode: result.pharmacode || prev.pharmacode,
           gtin: result.gtin || prev.gtin,
+          packSize: result.packSize ? String(result.packSize) : prev.packSize,
         }));
         
-        setGalexisLookupResult({ found: true, source: result.source || 'galexis' });
+        // Store lookup result with pack size and price info for use when creating item
+        setGalexisLookupResult({ 
+          found: true, 
+          source: result.source || 'galexis',
+          packSize: result.packSize,
+          basispreis: result.basispreis,
+          publikumspreis: result.publikumspreis,
+          yourPrice: result.yourPrice,
+          discountPercent: result.discountPercent,
+        });
         // Auto-advance to manual form with populated fields
         setAddItemStage('manual');
         
@@ -7236,8 +7287,18 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   name: result.name || prev.name,
                   pharmacode: result.pharmacode || prev.pharmacode,
                   gtin: result.gtin || prev.gtin,
+                  packSize: result.packSize ? String(result.packSize) : prev.packSize,
                 }));
-                setGalexisLookupResult({ found: true, source: result.source || 'galexis' });
+                // Store lookup result with pack size and price info for use when creating item
+                setGalexisLookupResult({ 
+                  found: true, 
+                  source: result.source || 'galexis',
+                  packSize: result.packSize,
+                  basispreis: result.basispreis,
+                  publikumspreis: result.publikumspreis,
+                  yourPrice: result.yourPrice,
+                  discountPercent: result.discountPercent,
+                });
                 return { galexisFound: true, productName: result.name };
               } else {
                 // Explicitly set not found
