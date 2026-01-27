@@ -279,6 +279,13 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     currentSize: number;
     mode: 'confirm_add' | 'choose_action';
   } | null>(null);
+  
+  // Name confirmation dialog state (for when supplier name differs from current)
+  const [nameConfirmDialog, setNameConfirmDialog] = useState<{
+    open: boolean;
+    supplierName: string;
+    currentName: string;
+  } | null>(null);
 
   // Transfer items dialog state
   const [transferDialogOpen, setTransferDialogOpen] = useState(false);
@@ -2110,8 +2117,21 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           const created = await createRes.json();
           setSupplierCodes(prev => [...prev, created]);
           
-          // Update item name if it was empty or generic
-          if (result.name && (!selectedItem.name || selectedItem.name === 'New Item')) {
+          // Check if supplier name differs from current item name
+          if (result.name && selectedItem.name && selectedItem.name !== 'New Item') {
+            const supplierNameNormalized = result.name.trim().toLowerCase();
+            const currentNameNormalized = selectedItem.name.trim().toLowerCase();
+            
+            if (supplierNameNormalized !== currentNameNormalized) {
+              // Names are different - show confirmation dialog
+              setNameConfirmDialog({
+                open: true,
+                supplierName: result.name,
+                currentName: selectedItem.name,
+              });
+            }
+          } else if (result.name && (!selectedItem.name || selectedItem.name === 'New Item')) {
+            // Auto-update if name was empty or generic
             setEditFormData(prev => ({ ...prev, name: result.name }));
           }
           
@@ -6557,6 +6577,55 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 </Button>
               </>
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Name Confirmation Dialog */}
+      <Dialog 
+        open={nameConfirmDialog?.open || false} 
+        onOpenChange={(open) => !open && setNameConfirmDialog(null)}
+      >
+        <DialogContent data-testid="name-confirm-dialog">
+          <DialogHeader>
+            <DialogTitle>{t('items.nameMismatch', 'Name Mismatch')}</DialogTitle>
+            <DialogDescription>
+              {t('items.nameMismatchDesc', 'The supplier name differs from the current item name. Which name would you like to use?')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 my-4">
+            <div className="p-3 rounded-lg bg-muted">
+              <p className="text-xs text-muted-foreground mb-1">{t('items.currentName', 'Current Name')}</p>
+              <p className="font-medium">{nameConfirmDialog?.currentName}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+              <p className="text-xs text-muted-foreground mb-1">{t('items.supplierName', 'Supplier Name')}</p>
+              <p className="font-medium">{nameConfirmDialog?.supplierName}</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setNameConfirmDialog(null)}
+              data-testid="name-keep-current"
+            >
+              {t('items.keepCurrent', 'Keep Current')}
+            </Button>
+            <Button 
+              onClick={() => {
+                if (nameConfirmDialog) {
+                  setEditFormData(prev => ({ ...prev, name: nameConfirmDialog.supplierName }));
+                  toast({
+                    title: t('items.nameUpdated', 'Name Updated'),
+                    description: nameConfirmDialog.supplierName,
+                  });
+                }
+                setNameConfirmDialog(null);
+              }}
+              data-testid="name-use-supplier"
+            >
+              {t('items.useSupplierName', 'Use Supplier Name')}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

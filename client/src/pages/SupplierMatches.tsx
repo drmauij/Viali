@@ -124,6 +124,14 @@ export default function SupplierMatches() {
   const [lookupMessage, setLookupMessage] = useState<string | null>(null);
   const lookupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
+  // Name confirmation dialog state
+  const [nameConfirmDialog, setNameConfirmDialog] = useState<{
+    open: boolean;
+    supplierName: string;
+    currentName: string;
+    itemId: string;
+  } | null>(null);
+  
   // File input refs for photo capture
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -288,6 +296,22 @@ export default function SupplierMatches() {
           setEditingSupplierCodes(prev => [...prev, created]);
           
           setLookupMessage(t('items.supplierAddedFromLookup', `${supplierData.supplierName} supplier added with price ${priceValue ? priceValue + ' CHF' : 'N/A'}`));
+          
+          // Check if supplier name differs from current item name
+          if (result.name && editingItem.name) {
+            const supplierNameNormalized = result.name.trim().toLowerCase();
+            const currentNameNormalized = editingItem.name.trim().toLowerCase();
+            
+            if (supplierNameNormalized !== currentNameNormalized) {
+              // Names are different - show confirmation dialog
+              setNameConfirmDialog({
+                open: true,
+                supplierName: result.name,
+                currentName: editingItem.name,
+                itemId: editingItem.id,
+              });
+            }
+          }
           
           // Invalidate supplier matches cache to move item out of unmatched
           queryClient.invalidateQueries({ queryKey: ['/api/inventory/supplier-matches', activeHospital.id] });
@@ -1286,6 +1310,67 @@ export default function SupplierMatches() {
           setScanningCodeField(null);
         }}
       />
+
+      {/* Name Confirmation Dialog */}
+      <Dialog 
+        open={nameConfirmDialog?.open || false} 
+        onOpenChange={(open) => !open && setNameConfirmDialog(null)}
+      >
+        <DialogContent data-testid="name-confirm-dialog">
+          <DialogHeader>
+            <DialogTitle>{t('items.nameMismatch', 'Name Mismatch')}</DialogTitle>
+            <DialogDescription>
+              {t('items.nameMismatchDesc', 'The supplier name differs from the current item name. Which name would you like to use?')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 my-4">
+            <div className="p-3 rounded-lg bg-muted">
+              <p className="text-xs text-muted-foreground mb-1">{t('items.currentName', 'Current Name')}</p>
+              <p className="font-medium">{nameConfirmDialog?.currentName}</p>
+            </div>
+            <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
+              <p className="text-xs text-muted-foreground mb-1">{t('items.supplierName', 'Supplier Name')}</p>
+              <p className="font-medium">{nameConfirmDialog?.supplierName}</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setNameConfirmDialog(null)}
+              data-testid="name-keep-current"
+            >
+              {t('items.keepCurrent', 'Keep Current')}
+            </Button>
+            <Button 
+              onClick={async () => {
+                if (nameConfirmDialog) {
+                  try {
+                    await apiRequest("PATCH", `/api/items/${nameConfirmDialog.itemId}`, { 
+                      name: nameConfirmDialog.supplierName 
+                    });
+                    toast({
+                      title: t('items.nameUpdated', 'Name Updated'),
+                      description: nameConfirmDialog.supplierName,
+                    });
+                    // Refresh the data
+                    refetch();
+                  } catch (err: any) {
+                    toast({
+                      title: t('common.error'),
+                      description: err.message || 'Failed to update name',
+                      variant: "destructive",
+                    });
+                  }
+                }
+                setNameConfirmDialog(null);
+              }}
+              data-testid="name-use-supplier"
+            >
+              {t('items.useSupplierName', 'Use Supplier Name')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
