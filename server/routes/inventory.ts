@@ -14,7 +14,7 @@ import {
   anesthesiaRecords,
   surgeries
 } from "@shared/schema";
-import { eq, inArray, and, gte, sql } from "drizzle-orm";
+import { eq, inArray, and, gte, sql, or, isNull } from "drizzle-orm";
 import {
   getUserUnitForHospital,
   getActiveUnitIdFromRequest,
@@ -1500,7 +1500,7 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
       .where(and(
         eq(items.hospitalId, hospitalId), 
         eq(items.unitId, unitId),
-        eq(items.isArchived, false)
+        or(eq(items.isArchived, false), isNull(items.isArchived))
       ));
     
     // Get all supplier codes for these items
