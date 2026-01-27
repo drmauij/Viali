@@ -3865,7 +3865,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                                        (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
                                         <button
                                           onClick={(e) => handleQuickReduce(e, item)}
-                                          className="px-2 py-1 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600 transition-colors flex-shrink-0"
+                                          className="min-w-[44px] min-h-[44px] px-3 py-2 bg-orange-500 text-white rounded-lg text-sm font-bold hover:bg-orange-600 active:bg-orange-700 transition-colors flex-shrink-0 flex items-center justify-center touch-manipulation"
                                           data-testid={`item-${item.id}-quick-reduce`}
                                           title={item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? "Reduce 1 unit" : "Reduce 1 pack"}
                                         >
@@ -4136,7 +4136,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                          (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
                           <button
                             onClick={(e) => handleQuickReduce(e, item)}
-                            className="px-2 py-1 bg-orange-500 text-white rounded text-xs font-medium hover:bg-orange-600 transition-colors flex-shrink-0"
+                            className="min-w-[44px] min-h-[44px] px-3 py-2 bg-orange-500 text-white rounded-lg text-sm font-bold hover:bg-orange-600 active:bg-orange-700 transition-colors flex-shrink-0 flex items-center justify-center touch-manipulation"
                             data-testid={`item-${item.id}-quick-reduce`}
                             title={item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? "Reduce 1 unit" : "Reduce 1 pack"}
                           >
