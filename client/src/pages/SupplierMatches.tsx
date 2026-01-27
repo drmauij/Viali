@@ -234,6 +234,17 @@ export default function SupplierMatches() {
       });
       const result: any = await response.json();
       
+      // Check if item with same code already exists
+      if (result.existingItem && result.existingItem.itemId !== editingItem.id) {
+        toast({
+          title: t('items.duplicateCodeFound', 'Duplicate Code Found'),
+          description: t('items.duplicateCodeDesc', `An item "${result.existingItem.itemName}" already has this code`),
+          variant: "destructive",
+        });
+        setLookupMessage(t('items.duplicateCodeExists', `Item "${result.existingItem.itemName}" already has this code`));
+        return;
+      }
+      
       if (result.found) {
         // Handle GTIN: fill if empty
         const returnedGtin = result.gtin;
@@ -250,6 +261,15 @@ export default function SupplierMatches() {
         // Update manufacturer if found
         if (result.manufacturer) {
           setEditingItemCodes(prev => prev ? { ...prev, manufacturer: result.manufacturer } : { manufacturer: result.manufacturer });
+        }
+        
+        // Check if supplier with same code already exists for this item
+        const existingSupplier = editingSupplierCodes.find(
+          s => s.articleCode === (result.pharmacode || pharmacode)
+        );
+        if (existingSupplier) {
+          setLookupMessage(t('items.supplierAlreadyExists', `${existingSupplier.supplierName} supplier already exists with this code`));
+          return;
         }
         
         // Auto-add supplier with Galexis/HIN data

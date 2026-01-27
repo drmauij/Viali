@@ -1962,6 +1962,21 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       });
       const result: any = await response.json();
       
+      // Check if item with same code already exists
+      if (result.existingItem) {
+        setGalexisLookupResult({ 
+          found: false, 
+          message: t('items.duplicateCodeExists', `Item "${result.existingItem.itemName}" already has this code`),
+        });
+        toast({
+          title: t('items.duplicateCodeFound', 'Duplicate Code Found'),
+          description: t('items.duplicateCodeDesc', `An item "${result.existingItem.itemName}" already has this code`),
+          variant: "destructive",
+        });
+        setIsLookingUpGalexis(false);
+        return;
+      }
+      
       if (result.found) {
         // Auto-populate form with Galexis data including pack size if available
         setFormData(prev => ({
@@ -2033,6 +2048,28 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         hospitalId: activeHospital.id,
       });
       const result: any = await response.json();
+      
+      // Check if item with same code already exists (excluding current item)
+      if (result.existingItem && result.existingItem.itemId !== selectedItem.id) {
+        toast({
+          title: t('items.duplicateCodeFound', 'Duplicate Code Found'),
+          description: t('items.duplicateCodeDesc', `An item "${result.existingItem.itemName}" already has this code`),
+          variant: "destructive",
+        });
+        setGalexisEditLookupMessage(t('items.duplicateCodeExists', `Item "${result.existingItem.itemName}" already has this code`));
+        setIsLookingUpGalexisEdit(false);
+        return;
+      }
+      
+      // Check if supplier with same code already exists for this item
+      const existingSupplier = supplierCodes.find(
+        s => s.articleCode === (result.pharmacode || pharmacode)
+      );
+      if (existingSupplier) {
+        setGalexisEditLookupMessage(t('items.supplierAlreadyExists', `${existingSupplier.supplierName} supplier already exists with this code`));
+        setIsLookingUpGalexisEdit(false);
+        return;
+      }
       
       if (result.found) {
         // Handle GTIN: fill if empty, alert if different

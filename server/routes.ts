@@ -345,12 +345,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Galexis product lookup by GTIN - fetches full product info including name, price, pharmacode
   app.post('/api/items/galexis-lookup', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
-      const { gtin, pharmacode, hospitalId, debug } = req.body;
+      const { gtin, pharmacode, hospitalId, debug, skipExistingItem } = req.body;
       if (!gtin && !pharmacode) {
         return res.status(400).json({ message: "GTIN or Pharmacode is required" });
       }
       if (!hospitalId) {
         return res.status(400).json({ message: "Hospital ID is required" });
+      }
+
+      // Check if item with same pharmacode/GTIN already exists in this hospital
+      let existingItem: any = null;
+      if (!skipExistingItem) {
+        const existingItems = await db
+          .select({
+            itemId: itemCodes.itemId,
+            gtin: itemCodes.gtin,
+            pharmacode: itemCodes.pharmacode,
+            itemName: items.name,
+          })
+          .from(itemCodes)
+          .innerJoin(items, eq(items.id, itemCodes.itemId))
+          .where(and(
+            eq(items.hospitalId, hospitalId),
+            or(
+              pharmacode ? eq(itemCodes.pharmacode, pharmacode) : sql`false`,
+              gtin ? eq(itemCodes.gtin, gtin) : sql`false`
+            )
+          ))
+          .limit(1);
+        
+        if (existingItems.length > 0) {
+          existingItem = existingItems[0];
+        }
       }
 
       // Get Galexis catalog credentials for this hospital
@@ -379,13 +405,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             availabilityMessage: hinResult.article.saleCode === 'A' ? 'Available' : 'Inactive',
             packSize: hinPackSize,
             noGalexis: true,
+            existingItem: existingItem || null,
           });
         }
         
         return res.json({ 
           found: false, 
           message: "Galexis not configured and product not found in HIN database.",
-          noIntegration: true 
+          noIntegration: true,
+          existingItem: existingItem || null,
         });
       }
 
@@ -415,6 +443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           availabilityMessage: product.price?.availabilityMessage,
           packSize: product.price?.packSize,
           deliveryQuantity: product.price?.deliveryQuantity,
+          existingItem: existingItem || null,
         };
         
         // Include debug info if requested
@@ -445,6 +474,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             available: hinResult.article.saleCode === 'A',
             availabilityMessage: hinResult.article.saleCode === 'A' ? 'Available' : 'Inactive',
             packSize: hinPackSize,
+            existingItem: existingItem || null,
           };
           
           if (debug) {
@@ -458,6 +488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             message: results[0]?.error || "Product not found in Galexis or HIN database",
             gtin,
             pharmacode,
+            existingItem: existingItem || null,
           };
           
           // Include debug info if requested (important for troubleshooting)
