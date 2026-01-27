@@ -1489,7 +1489,7 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
       unitId = queryUnitId as string;
     }
     
-    // Get all items for this hospital filtered by unit
+    // Get all items for this hospital filtered by unit (exclude archived)
     const allItems = await db
       .select({
         id: items.id,
@@ -1497,7 +1497,11 @@ router.get('/api/supplier-matches/:hospitalId/categorized', isAuthenticated, asy
         description: items.description,
       })
       .from(items)
-      .where(and(eq(items.hospitalId, hospitalId), eq(items.unitId, unitId)));
+      .where(and(
+        eq(items.hospitalId, hospitalId), 
+        eq(items.unitId, unitId),
+        eq(items.isArchived, false)
+      ));
     
     // Get all supplier codes for these items
     const itemIds = allItems.map(i => i.id);
