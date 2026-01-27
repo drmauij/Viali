@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage, db } from "./storage";
-import { patients, surgeries, externalSurgeryRequests, itemCodes, items } from "@shared/schema";
+import { patients, surgeries, externalSurgeryRequests } from "@shared/schema";
 import { setupAuth, isAuthenticated, getSessionMiddleware } from "./auth/google";
 import { initSocketIO, broadcastAnesthesiaUpdate, type AnesthesiaDataSection } from "./socket";
 import { 
@@ -57,7 +57,8 @@ import {
   updateIntraOpDataSchema,
   updateCountsSterileDataSchema,
   orderLines, 
-  items, 
+  items,
+  itemCodes,
   stockLevels, 
   orders,
   orderAttachments,
@@ -84,7 +85,7 @@ import {
   workerContracts
 } from "@shared/schema";
 import { z } from "zod";
-import { eq, and, inArray, sql, asc, desc } from "drizzle-orm";
+import { eq, and, or, inArray, sql, asc, desc } from "drizzle-orm";
 import OpenAI from "openai";
 import crypto from "crypto";
 
