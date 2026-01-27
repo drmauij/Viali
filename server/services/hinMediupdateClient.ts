@@ -5,6 +5,41 @@ import { eq, or, sql } from 'drizzle-orm';
 
 const HIN_ARTICLE_XML_URL = 'https://download.hin.ch/download/oddb2xml/oddb_article.xml';
 
+/**
+ * Parse pack size from product description strings.
+ * Examples:
+ * - "Kefzol 2g 10 Durchstechflaschen" -> 10
+ * - "Propofol 1% 20 ml 5 Amp" -> 5
+ * - "NaCl 0.9% 100ml 20 Stk" -> 20
+ * - "Infusomat Leitungen 50 Stück" -> 50
+ */
+export function parsePackSizeFromDescription(description: string): number | undefined {
+  if (!description) return undefined;
+  
+  // Patterns to match pack size in Swiss/German product names
+  const patterns = [
+    // "10 Durchstechflaschen", "5 Amp", "20 Stk", "50 Stück"
+    /(\d+)\s*(Durchstechflasche[n]?|Amp\.?|Ampulle[n]?|Stk\.?|Stück|Fl\.?|Flasche[n]?|Btl\.?|Beutel|Tbl\.?|Tablette[n]?|Kps\.?|Kapsel[n]?|Supp\.?|Zäpfchen|Fertigspr\.?|Fertigspritz[e]?[n]?|Inj\.?|Injektion[en]?|Pack(?:ung)?|Dos[e]?[n]?|Einheit[en]?|Stk|pcs?|x)\b/i,
+    // "x 10", "x10"
+    /x\s*(\d+)\b/i,
+    // Common format: "50 Stk" at end
+    /(\d+)\s*(?:St|Stk|pcs?)\.?\s*$/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = description.match(pattern);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      // Sanity check: pack sizes are typically 1-1000
+      if (num > 0 && num <= 1000) {
+        return num;
+      }
+    }
+  }
+  
+  return undefined;
+}
+
 export interface HinArticleLookupResult {
   found: boolean;
   article?: {

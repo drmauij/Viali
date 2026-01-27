@@ -358,10 +358,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // If Galexis not configured, try HIN MediUpdate directly
       if (!catalog || !catalog.customerNumber || !catalog.apiPassword) {
-        const { hinClient } = await import('./services/hinMediupdateClient');
+        const { hinClient, parsePackSizeFromDescription: parseHinPackSize } = await import('./services/hinMediupdateClient');
         const hinResult = await hinClient.lookupByCode(pharmacode || gtin);
         
         if (hinResult.found && hinResult.article) {
+          // Try to parse pack size from HIN description
+          const hinPackSize = parseHinPackSize(hinResult.article.descriptionDe);
+          
           return res.json({
             found: true,
             source: 'hin',
@@ -374,6 +377,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             discountPercent: 0,
             available: hinResult.article.saleCode === 'A',
             availabilityMessage: hinResult.article.saleCode === 'A' ? 'Available' : 'Inactive',
+            packSize: hinPackSize,
             noGalexis: true,
           });
         }
@@ -399,6 +403,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const product = results[0];
         const response: any = {
           found: true,
+          source: 'galexis',
           gtin: product.gtin || gtin,
           pharmacode: product.pharmacode || pharmacode,
           name: product.price?.description || '',
@@ -408,6 +413,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           discountPercent: product.price?.discountPercent,
           available: product.price?.available,
           availabilityMessage: product.price?.availabilityMessage,
+          packSize: product.price?.packSize,
+          deliveryQuantity: product.price?.deliveryQuantity,
         };
         
         // Include debug info if requested
@@ -418,10 +425,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json(response);
       } else {
         // Galexis not found - try HIN MediUpdate as fallback
-        const { hinClient } = await import('./services/hinMediupdateClient');
+        const { hinClient, parsePackSizeFromDescription: parseHinPackSize } = await import('./services/hinMediupdateClient');
         const hinResult = await hinClient.lookupByCode(pharmacode || gtin);
         
         if (hinResult.found && hinResult.article) {
+          // Try to parse pack size from HIN description
+          const hinPackSize = parseHinPackSize(hinResult.article.descriptionDe);
+          
           const response: any = {
             found: true,
             source: 'hin',
@@ -434,6 +444,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             discountPercent: 0,
             available: hinResult.article.saleCode === 'A',
             availabilityMessage: hinResult.article.saleCode === 'A' ? 'Available' : 'Inactive',
+            packSize: hinPackSize,
           };
           
           if (debug) {
@@ -472,10 +483,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "GTIN or Pharmacode is required" });
       }
 
-      const { hinClient } = await import('./services/hinMediupdateClient');
+      const { hinClient, parsePackSizeFromDescription: parseHinPackSize } = await import('./services/hinMediupdateClient');
       const result = await hinClient.lookupByCode(pharmacode || gtin);
       
       if (result.found && result.article) {
+        // Try to parse pack size from HIN description
+        const hinPackSize = parseHinPackSize(result.article.descriptionDe);
+        
         res.json({
           found: true,
           source: 'hin',
@@ -489,6 +503,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           smcat: result.article.smcat,
           saleCode: result.article.saleCode,
           available: result.article.saleCode === 'A',
+          packSize: hinPackSize,
         });
       } else {
         res.json({

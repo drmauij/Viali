@@ -1,5 +1,40 @@
 import { XMLParser, XMLBuilder } from 'fast-xml-parser';
 
+/**
+ * Parse pack size from product description strings.
+ * Examples:
+ * - "Kefzol 2g 10 Durchstechflaschen" -> 10
+ * - "Propofol 1% 20 ml 5 Amp" -> 5
+ * - "NaCl 0.9% 100ml 20 Stk" -> 20
+ * - "Infusomat Leitungen 50 Stück" -> 50
+ */
+export function parsePackSizeFromDescription(description: string): number | undefined {
+  if (!description) return undefined;
+  
+  // Patterns to match pack size in Swiss/German product names
+  const patterns = [
+    // "10 Durchstechflaschen", "5 Amp", "20 Stk", "50 Stück"
+    /(\d+)\s*(Durchstechflasche[n]?|Amp\.?|Ampulle[n]?|Stk\.?|Stück|Fl\.?|Flasche[n]?|Btl\.?|Beutel|Tbl\.?|Tablette[n]?|Kps\.?|Kapsel[n]?|Supp\.?|Zäpfchen|Fertigspr\.?|Fertigspritz[e]?[n]?|Inj\.?|Injektion[en]?|Pack(?:ung)?|Dos[e]?[n]?|Einheit[en]?|Stk|pcs?|x)\b/i,
+    // "x 10", "x10"
+    /x\s*(\d+)\b/i,
+    // Common format: "50 Stk" at end
+    /(\d+)\s*(?:St|Stk|pcs?)\.?\s*$/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = description.match(pattern);
+    if (match) {
+      const num = parseInt(match[1], 10);
+      // Sanity check: pack sizes are typically 1-1000
+      if (num > 0 && num <= 1000) {
+        return num;
+      }
+    }
+  }
+  
+  return undefined;
+}
+
 interface GalexisCredentials {
   customerNumber: string;
   password: string;
@@ -62,6 +97,8 @@ export interface PriceData {
   description?: string;
   available?: boolean;
   availabilityMessage?: string;
+  deliveryQuantity?: number;
+  packSize?: number;
 }
 
 export interface ProductLookupResult {
@@ -450,7 +487,15 @@ ${productLines}
 
         const resultGtin = productResponse.EAN?.id?.toString() || requestedGtin;
 
-        console.log(`[Galexis] Found product: ${productResponse.description}, pharmacode=${productResponse.wholesalerProductCode}, price=${basePiecePrice}`);
+        // Extract deliveryQuantity from condition if available
+        const deliveryQuantity = parseInt(priceLevel.deliveryQuantity, 10) || undefined;
+        
+        // Try to get pack size: first from deliveryQuantity, then parse from description
+        const descriptionText = productResponse.description || '';
+        const parsedPackSize = parsePackSizeFromDescription(descriptionText);
+        const packSize = deliveryQuantity || parsedPackSize;
+
+        console.log(`[Galexis] Found product: ${descriptionText}, pharmacode=${productResponse.wholesalerProductCode}, price=${basePiecePrice}, deliveryQty=${deliveryQuantity}, parsedPack=${parsedPackSize}`);
 
         return {
           pharmacode: productResponse.wholesalerProductCode?.toString() || requestedPharmacode,
@@ -464,11 +509,13 @@ ${productLines}
             discountPercent,
             logisticCost,
             gtin: resultGtin,
-            description: productResponse.description || '',
+            description: descriptionText,
             available: availability?.status === 'yes',
             availabilityMessage: availability?.message || '',
             validFrom: bestCondition?.validFrom ? new Date(bestCondition.validFrom) : undefined,
             conditionType: conditionType.type || undefined,
+            deliveryQuantity,
+            packSize,
           },
         };
       });
