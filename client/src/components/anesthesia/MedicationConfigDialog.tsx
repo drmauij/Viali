@@ -358,7 +358,7 @@ export function MedicationConfigDialog({
                   aria-expanded={comboboxOpen}
                   className="justify-between"
                   data-testid="button-select-item"
-                  disabled={!!editingItem} // Disable changing item in edit mode
+                  disabled={!!editingItem && !!selectedItem} // Disable changing item in edit mode, but allow if item is archived/missing
                 >
                   {selectedItem ? selectedItem.name : t("anesthesia.timeline.selectAnItem")}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
