@@ -161,6 +161,9 @@ export class HinMediupdateClient {
     articlesCount: number;
     status: string;
     errorMessage?: string;
+    processedItems?: number;
+    totalItems?: number;
+    syncDurationMs?: number;
   }> {
     try {
       const status = await db
@@ -182,6 +185,9 @@ export class HinMediupdateClient {
         articlesCount: status[0].articlesCount || 0,
         status: status[0].status || 'idle',
         errorMessage: status[0].errorMessage || undefined,
+        processedItems: status[0].processedItems || 0,
+        totalItems: status[0].totalItems || 0,
+        syncDurationMs: status[0].syncDurationMs || undefined,
       };
     } catch (error) {
       console.error('[HIN] Error getting sync status:', error);
@@ -230,6 +236,15 @@ export class HinMediupdateClient {
       await db.delete(hinArticles);
       console.log('[HIN] Cleared existing articles');
 
+      // Store total items count for progress tracking
+      await db
+        .update(hinSyncStatus)
+        .set({
+          totalItems: articleArray.length,
+          processedItems: 0,
+        })
+        .where(eq(hinSyncStatus.id, statusId));
+
       const batchSize = 1000;
       let processedCount = 0;
 
@@ -252,6 +267,14 @@ export class HinMediupdateClient {
         
         if (onProgress) {
           onProgress(processedCount, articleArray.length);
+        }
+
+        // Update progress in database every 5000 items
+        if (processedCount % 5000 === 0 || processedCount === articleArray.length) {
+          await db
+            .update(hinSyncStatus)
+            .set({ processedItems: processedCount })
+            .where(eq(hinSyncStatus.id, statusId));
         }
 
         if (processedCount % 10000 === 0) {

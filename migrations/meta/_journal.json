@@ -715,6 +715,13 @@
       "when": 1769456915365,
       "tag": "0101_aberrant_exodus",
       "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1769631047133,
+      "tag": "0102_good_mandarin",
+      "breakpoints": true
     }
   ]
 }

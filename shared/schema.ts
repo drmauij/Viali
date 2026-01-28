@@ -4809,6 +4809,8 @@ export const hinSyncStatus = pgTable("hin_sync_status", {
   syncDurationMs: integer("sync_duration_ms"),
   status: varchar("status", { enum: ["idle", "syncing", "success", "error"] }).default("idle"),
   errorMessage: text("error_message"),
+  processedItems: integer("processed_items").default(0),
+  totalItems: integer("total_items").default(0),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

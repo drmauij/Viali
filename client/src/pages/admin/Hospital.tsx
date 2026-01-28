@@ -61,19 +61,30 @@ export default function Hospital() {
     apiPassword: "",
   });
 
-  // HIN Database sync state
+  // HIN Database sync state - track if syncing for faster polling
+  const [hinIsSyncing, setHinIsSyncing] = useState(false);
   const { data: hinStatus, isLoading: hinStatusLoading, refetch: refetchHinStatus } = useQuery<{
     articlesCount: number;
     lastSyncAt: string | null;
     status: string;
     errorMessage?: string;
     syncDurationMs?: number;
-    createdAt?: string;
+    processedItems?: number;
+    totalItems?: number;
   }>({
     queryKey: ['/api/hin/status'],
     enabled: activeTab === 'suppliers',
-    refetchInterval: 30000,
+    refetchInterval: hinIsSyncing ? 3000 : 30000, // Poll faster during sync
   });
+  
+  // Update syncing state when status changes
+  useEffect(() => {
+    if (hinStatus?.status === 'syncing') {
+      setHinIsSyncing(true);
+    } else if (hinIsSyncing && hinStatus?.status !== 'syncing') {
+      setHinIsSyncing(false);
+    }
+  }, [hinStatus?.status, hinIsSyncing]);
 
   const hinSyncMutation = useMutation({
     mutationFn: async () => {
@@ -2345,10 +2356,27 @@ export default function Hospital() {
                       </div>
                     )}
                     {hinStatus.status === 'syncing' && (
-                      <div className="text-muted-foreground mt-1 text-xs">
+                      <div className="text-muted-foreground mt-2 text-xs space-y-2">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
+                            <div 
+                              className="bg-blue-500 h-full transition-all duration-300"
+                              style={{ 
+                                width: `${hinStatus.totalItems && hinStatus.totalItems > 0 
+                                  ? Math.round((hinStatus.processedItems || 0) / hinStatus.totalItems * 100) 
+                                  : 0}%` 
+                              }}
+                            />
+                          </div>
+                          <span className="text-muted-foreground whitespace-nowrap min-w-[120px] text-right">
+                            {hinStatus.processedItems?.toLocaleString() || 0} / {hinStatus.totalItems?.toLocaleString() || '?'} articles
+                          </span>
+                        </div>
                         <p className="text-yellow-600 dark:text-yellow-400">
                           <i className="fas fa-spinner fa-spin mr-1"></i>
-                          Sync in progress...
+                          {hinStatus.totalItems && hinStatus.totalItems > 0 
+                            ? `${Math.round((hinStatus.processedItems || 0) / hinStatus.totalItems * 100)}% complete`
+                            : 'Downloading...'}
                         </p>
                       </div>
                     )}
