@@ -478,6 +478,7 @@
     "draggingItem": "Artikel wird verschoben...",
     "quickOrder": "Schnellbestellung",
     "quickOrdered": "Bestellt {{count}}",
+    "takeOut": "Entnehmen",
     "expiresInDays": "Läuft ab in {{days}} Tagen",
     "runwayDays": "{{days}} Tage Bestand verbleibend",
     "outOfStock": "Nicht auf Lager",
