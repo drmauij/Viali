@@ -6,6 +6,31 @@ import { eq, or, sql } from 'drizzle-orm';
 const HIN_ARTICLE_XML_URL = 'https://download.hin.ch/download/oddb2xml/oddb_article.xml';
 
 /**
+ * Convert European date format (DD.MM.YYYY) to ISO format (YYYY-MM-DD) for PostgreSQL.
+ * Returns undefined if the date is invalid or unparseable.
+ */
+function convertEuropeanDateToISO(dateStr: string | undefined): string | undefined {
+  if (!dateStr) return undefined;
+  
+  // Match DD.MM.YYYY format
+  const match = dateStr.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!match) return undefined;
+  
+  const [, day, month, year] = match;
+  const paddedDay = day.padStart(2, '0');
+  const paddedMonth = month.padStart(2, '0');
+  
+  // Basic validation
+  const monthNum = parseInt(month, 10);
+  const dayNum = parseInt(day, 10);
+  if (monthNum < 1 || monthNum > 12 || dayNum < 1 || dayNum > 31) {
+    return undefined;
+  }
+  
+  return `${year}-${paddedMonth}-${paddedDay}`;
+}
+
+/**
  * Parse pack size from product description strings.
  * Examples:
  * - "Kefzol 2g 10 Durchstechflaschen" -> 10
@@ -323,7 +348,7 @@ export class HinMediupdateClient {
         descriptionFr: art.DSCRF || undefined,
         pexf,
         ppub,
-        priceValidFrom: priceValidFrom || undefined,
+        priceValidFrom: convertEuropeanDateToISO(priceValidFrom),
         smcat: art.SMCAT || undefined,
         saleCode: art.SALECD || undefined,
         vat: art.VAT ? String(art.VAT) : undefined,
