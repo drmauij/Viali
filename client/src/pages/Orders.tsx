@@ -113,8 +113,11 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
   // Expand/collapse state for order preview
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   
-  // Multi-select state for merging sent orders
-  const [selectedSentOrders, setSelectedSentOrders] = useState<Set<string>>(new Set());
+  // Multi-select state for merging orders (works across draft, ready_to_send, sent)
+  const [selectedOrdersForMerge, setSelectedOrdersForMerge] = useState<Set<string>>(new Set());
+  
+  // State for split functionality - selected line IDs in the edit dialog
+  const [selectedLinesForSplit, setSelectedLinesForSplit] = useState<Set<string>>(new Set());
   
   const toggleOrderExpanded = (orderId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -129,14 +132,41 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
     });
   };
   
-  const toggleSentOrderSelection = (orderId: string, e: React.MouseEvent) => {
+  const toggleOrderSelectionForMerge = (orderId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedSentOrders(prev => {
+    setSelectedOrdersForMerge(prev => {
       const newSet = new Set(prev);
       if (newSet.has(orderId)) {
         newSet.delete(orderId);
       } else {
+        // Enforce same-status selection: only allow selecting orders with matching status
+        const orderToAdd = orders.find(o => o.id === orderId);
+        if (orderToAdd && newSet.size > 0) {
+          const firstSelectedId = Array.from(newSet)[0];
+          const firstSelectedOrder = orders.find(o => o.id === firstSelectedId);
+          if (firstSelectedOrder && firstSelectedOrder.status !== orderToAdd.status) {
+            // Different status - show toast and don't add
+            toast({
+              title: t('orders.mergeError'),
+              description: t('orders.sameStatusRequired'),
+              variant: 'destructive',
+            });
+            return prev; // Return unchanged
+          }
+        }
         newSet.add(orderId);
+      }
+      return newSet;
+    });
+  };
+  
+  const toggleLineForSplit = (lineId: string) => {
+    setSelectedLinesForSplit(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(lineId)) {
+        newSet.delete(lineId);
+      } else {
+        newSet.add(lineId);
       }
       return newSet;
     });
@@ -515,7 +545,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
             ...order,
             orderLines: order.orderLines.map(line => 
               line.id === data.lineId 
-                ? { ...line, received: true, receivedAt: new Date().toISOString() }
+                ? { ...line, received: true, receivedAt: new Date() }
                 : line
             ),
           }));
@@ -699,7 +729,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
         title: t('common.success'),
         description: t('orders.ordersMerged'),
       });
-      setSelectedSentOrders(new Set());
+      setSelectedOrdersForMerge(new Set());
       invalidateOrderCaches();
     },
     onError: () => {
@@ -711,8 +741,50 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
     },
   });
 
+  const splitOrderMutation = useMutation({
+    mutationFn: async ({ orderId, lineIds }: { orderId: string; lineIds: string[] }) => {
+      const response = await apiRequest("POST", `/api/orders/${orderId}/split`, { lineIds });
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: t('common.success'),
+        description: t('orders.orderSplit'),
+      });
+      setSelectedLinesForSplit(new Set());
+      setEditOrderDialogOpen(false);
+      invalidateOrderCaches();
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('orders.splitFailed'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSplitOrder = () => {
+    if (!selectedOrder || selectedLinesForSplit.size === 0) return;
+    
+    // Don't split all items - at least one must remain
+    if (selectedLinesForSplit.size >= selectedOrder.orderLines.length) {
+      toast({
+        title: t('common.error'),
+        description: t('orders.cannotSplitAllItems'),
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    splitOrderMutation.mutate({
+      orderId: selectedOrder.id,
+      lineIds: Array.from(selectedLinesForSplit),
+    });
+  };
+
   const handleMergeOrders = () => {
-    if (selectedSentOrders.size < 2) {
+    if (selectedOrdersForMerge.size < 2) {
       toast({
         title: t('common.error'),
         description: t('orders.selectAtLeastTwo'),
@@ -720,7 +792,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
       });
       return;
     }
-    mergeOrdersMutation.mutate(Array.from(selectedSentOrders));
+    mergeOrdersMutation.mutate(Array.from(selectedOrdersForMerge));
   };
 
   const ordersByStatus = useMemo(() => {
@@ -849,7 +921,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
     
     // Sort by createdAt to find the oldest (main) draft
     const sortedDrafts = [...draftOrdersForUnit].sort((a, b) => 
-      new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
     );
     
     // Main order is the oldest draft
@@ -890,6 +962,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
   const handleEditOrder = (order: OrderWithDetails) => {
     setSelectedOrder(order);
     setOrderDialogTab("details");
+    setSelectedLinesForSplit(new Set()); // Clear split selection when opening a different order
     setEditOrderDialogOpen(true);
   };
 
@@ -1028,9 +1101,24 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
           <div className="kanban-column">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-foreground">{t('orders.draft')}</h3>
-              <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs flex items-center justify-center font-semibold">
-                {ordersByStatus.draft.length}
-              </span>
+              <div className="flex items-center gap-2">
+                {selectedOrdersForMerge.size >= 2 && ordersByStatus.draft.some(o => selectedOrdersForMerge.has(o.id)) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleMergeOrders}
+                    disabled={mergeOrdersMutation.isPending}
+                    className="h-6 text-xs"
+                    data-testid="merge-draft-orders-button"
+                  >
+                    <Merge className="w-3 h-3 mr-1" />
+                    {t('orders.merge')} ({selectedOrdersForMerge.size})
+                  </Button>
+                )}
+                <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs flex items-center justify-center font-semibold">
+                  {ordersByStatus.draft.length}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -1042,14 +1130,20 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                 ordersByStatus.draft.map((order) => (
                   <div 
                     key={order.id} 
-                    className={`kanban-card cursor-pointer ${!canEditOrder(order) ? 'opacity-60 border-muted' : ''}`}
+                    className={`kanban-card cursor-pointer ${selectedOrdersForMerge.has(order.id) ? 'ring-2 ring-primary' : ''} ${!canEditOrder(order) ? 'opacity-60 border-muted' : ''}`}
                     onClick={() => handleEditOrder(order)}
                     data-testid={`draft-order-${order.id}`}
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={selectedOrdersForMerge.has(order.id)}
+                          onClick={(e) => toggleOrderSelectionForMerge(order.id, e)}
+                          data-testid={`select-draft-order-${order.id}`}
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
                           {logisticMode && (
                             <Badge variant="outline" className="text-xs">
                               <i className="fas fa-building mr-1"></i>
@@ -1057,11 +1151,12 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                             </Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          <i className="fas fa-map-marker-alt mr-1"></i>
-                          {getOrderLocation(order)}
-                          {!canEditOrder(order) && <span className="ml-2 text-warning">(Other Unit)</span>}
-                        </p>
+                          <p className="text-xs text-muted-foreground">
+                            <i className="fas fa-map-marker-alt mr-1"></i>
+                            {getOrderLocation(order)}
+                            {!canEditOrder(order) && <span className="ml-2 text-warning">(Other Unit)</span>}
+                          </p>
+                        </div>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
                         {t('orders.draft')}
@@ -1136,9 +1231,24 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
           <div className="kanban-column">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-foreground">{t('orders.readyToSend')}</h3>
-              <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs flex items-center justify-center font-semibold">
-                {ordersByStatus.ready_to_send.length}
-              </span>
+              <div className="flex items-center gap-2">
+                {selectedOrdersForMerge.size >= 2 && ordersByStatus.ready_to_send.some(o => selectedOrdersForMerge.has(o.id)) && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleMergeOrders}
+                    disabled={mergeOrdersMutation.isPending}
+                    className="h-6 text-xs"
+                    data-testid="merge-ready-orders-button"
+                  >
+                    <Merge className="w-3 h-3 mr-1" />
+                    {t('orders.merge')} ({selectedOrdersForMerge.size})
+                  </Button>
+                )}
+                <span className="w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs flex items-center justify-center font-semibold">
+                  {ordersByStatus.ready_to_send.length}
+                </span>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -1150,26 +1260,33 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                 ordersByStatus.ready_to_send.map((order) => (
                   <div 
                     key={order.id} 
-                    className={`kanban-card cursor-pointer ${!canEditOrder(order) ? 'opacity-60 border-muted' : ''}`}
+                    className={`kanban-card cursor-pointer ${selectedOrdersForMerge.has(order.id) ? 'ring-2 ring-primary' : ''} ${!canEditOrder(order) ? 'opacity-60 border-muted' : ''}`}
                     onClick={() => handleEditOrder(order)}
                     data-testid={`ready-to-send-order-${order.id}`}
                   >
                     <div className="flex items-start justify-between mb-2">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
-                          {logisticMode && (
-                            <Badge variant="outline" className="text-xs">
-                              <i className="fas fa-building mr-1"></i>
-                              {getUnitName(order.unitId) || 'Unknown Unit'}
-                            </Badge>
-                          )}
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={selectedOrdersForMerge.has(order.id)}
+                          onClick={(e) => toggleOrderSelectionForMerge(order.id, e)}
+                          data-testid={`select-ready-order-${order.id}`}
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
+                            {logisticMode && (
+                              <Badge variant="outline" className="text-xs">
+                                <i className="fas fa-building mr-1"></i>
+                                {getUnitName(order.unitId) || 'Unknown Unit'}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            <i className="fas fa-map-marker-alt mr-1"></i>
+                            {getOrderLocation(order)}
+                            {!canEditOrder(order) && <span className="ml-2 text-warning">(Other Unit)</span>}
+                          </p>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          <i className="fas fa-map-marker-alt mr-1"></i>
-                          {getOrderLocation(order)}
-                          {!canEditOrder(order) && <span className="ml-2 text-warning">(Other Unit)</span>}
-                        </p>
                       </div>
                       <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
                         {t('orders.readyToSend')}
@@ -1245,7 +1362,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-foreground">{t('orders.sent')}</h3>
               <div className="flex items-center gap-2">
-                {selectedSentOrders.size >= 2 && (
+                {selectedOrdersForMerge.size >= 2 && (
                   <Button
                     size="sm"
                     variant="outline"
@@ -1255,7 +1372,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                     data-testid="merge-orders-button"
                   >
                     <Merge className="w-3 h-3 mr-1" />
-                    {t('orders.merge')} ({selectedSentOrders.size})
+                    {t('orders.merge')} ({selectedOrdersForMerge.size})
                   </Button>
                 )}
                 <span className="w-6 h-6 rounded-full bg-muted text-foreground text-xs flex items-center justify-center font-semibold">
@@ -1273,15 +1390,15 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                 ordersByStatus.sent.map((order) => (
                   <div 
                     key={order.id} 
-                    className={`kanban-card cursor-pointer ${selectedSentOrders.has(order.id) ? 'ring-2 ring-primary' : ''}`}
+                    className={`kanban-card cursor-pointer ${selectedOrdersForMerge.has(order.id) ? 'ring-2 ring-primary' : ''}`}
                     onClick={() => handleEditOrder(order)}
                     data-testid={`sent-order-${order.id}`}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Checkbox
-                          checked={selectedSentOrders.has(order.id)}
-                          onClick={(e) => toggleSentOrderSelection(order.id, e)}
+                          checked={selectedOrdersForMerge.has(order.id)}
+                          onClick={(e) => toggleOrderSelectionForMerge(order.id, e)}
                           data-testid={`select-order-${order.id}`}
                         />
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
@@ -1629,7 +1746,25 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                   )}
 
                   <div>
-                <h3 className="font-semibold mb-2">{t('orders.orderItems', { count: selectedOrder.orderLines.length })}</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold">{t('orders.orderItems', { count: selectedOrder.orderLines.length })}</h3>
+                  {canWrite && canEditOrder(selectedOrder) && selectedOrder.status !== 'received' && (
+                    <div className="flex items-center gap-2">
+                      {selectedLinesForSplit.size > 0 && selectedLinesForSplit.size < selectedOrder.orderLines.length && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={handleSplitOrder}
+                          disabled={splitOrderMutation.isPending}
+                          data-testid="split-order-button"
+                        >
+                          <i className="fas fa-scissors mr-1"></i>
+                          {t('orders.splitSelected')} ({selectedLinesForSplit.size})
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="space-y-2">
                   {selectedOrder.orderLines.map(line => {
                     const stockStatus = getStockStatus(line.item);
@@ -1641,9 +1776,22 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                     
                     const canToggleOffline = canWrite && (selectedOrder.status === 'draft' || selectedOrder.status === 'ready_to_send' || selectedOrder.status === 'sent') && canEditOrder(selectedOrder) && !line.received;
                     
+                    const canSplit = canWrite && canEditOrder(selectedOrder) && selectedOrder.status !== 'received' && selectedOrder.orderLines.length > 1;
+                    
                     return (
-                    <div key={line.id} className={`flex flex-col gap-2 p-3 border border-border rounded-lg transition-colors ${canToggleOffline ? (line.offlineWorked ? 'bg-green-50 dark:bg-green-950/20' : '') : ''}`} data-testid={`order-line-${line.id}`}>
+                    <div key={line.id} className={`flex flex-col gap-2 p-3 border border-border rounded-lg transition-colors ${selectedLinesForSplit.has(line.id) ? 'ring-2 ring-primary bg-primary/5' : ''} ${canToggleOffline ? (line.offlineWorked ? 'bg-green-50 dark:bg-green-950/20' : '') : ''}`} data-testid={`order-line-${line.id}`}>
                       <div className="flex items-center gap-3">
+                        {/* Split checkbox - only show when can split */}
+                        {canSplit && (
+                          <Checkbox
+                            checked={selectedLinesForSplit.has(line.id)}
+                            onCheckedChange={() => toggleLineForSplit(line.id)}
+                            onClick={(e) => e.stopPropagation()}
+                            data-testid={`split-line-${line.id}`}
+                            className="mt-1"
+                            title={t('orders.split')}
+                          />
+                        )}
                         <div 
                           className={`flex-1 flex items-center gap-3 ${canToggleOffline ? 'cursor-pointer' : ''}`}
                           onClick={() => {

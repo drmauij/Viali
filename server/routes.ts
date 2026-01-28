@@ -1985,14 +1985,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
-      // Validate all orders exist, are sent status, and from the same unit
+      // Validate all orders exist, have same status (except received), and from the same unit
       const firstOrderUnitId = ordersToMerge[0]?.unitId;
+      const firstOrderStatus = ordersToMerge[0]?.status;
       for (const order of ordersToMerge) {
         if (!order) {
           return res.status(404).json({ message: "One or more orders not found" });
         }
-        if (order.status !== 'sent') {
-          return res.status(400).json({ message: "Only sent orders can be merged" });
+        // Allow merge for draft, ready_to_send, and sent orders (not received)
+        if (order.status === 'received') {
+          return res.status(400).json({ message: "Received orders cannot be merged" });
+        }
+        // All orders must have the same status to merge
+        if (order.status !== firstOrderStatus) {
+          return res.status(400).json({ message: "All orders must have the same status to merge" });
         }
         if (order.hospitalId !== hospitalId) {
           return res.status(400).json({ message: "All orders must be from the same hospital" });
@@ -2059,8 +2065,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Order not found" });
       }
       
-      if (sourceOrder.status !== 'draft') {
-        return res.status(400).json({ message: "Only draft orders can be split" });
+      // Allow split for draft, ready_to_send, and sent orders (not received)
+      if (sourceOrder.status === 'received') {
+        return res.status(400).json({ message: "Received orders cannot be split" });
       }
       
       // Verify user has access to this hospital
