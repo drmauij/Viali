@@ -1985,7 +1985,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
       );
       
-      // Validate all orders exist, are sent status, and belong to user's unit
+      // Validate all orders exist, are sent status, and from the same unit
+      const firstOrderUnitId = ordersToMerge[0]?.unitId;
       for (const order of ordersToMerge) {
         if (!order) {
           return res.status(404).json({ message: "One or more orders not found" });
@@ -1996,8 +1997,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (order.hospitalId !== hospitalId) {
           return res.status(400).json({ message: "All orders must be from the same hospital" });
         }
-        // Security: Verify user has access to this order's unit
-        if (order.unitId !== unitId) {
+        // All orders must be from the same unit for data integrity
+        if (order.unitId !== firstOrderUnitId) {
+          return res.status(400).json({ message: "All orders must be from the same unit to merge" });
+        }
+      }
+      
+      // Security: Verify user has access to the orders' unit
+      if (firstOrderUnitId !== unitId) {
+        // Allow logistics users to merge orders from any unit
+        const userHasLogisticsAccess = await hasLogisticsAccess(userId, hospitalId);
+        if (!userHasLogisticsAccess) {
           return res.status(403).json({ message: "Access denied: you can only merge orders from your unit" });
         }
       }
@@ -2028,6 +2038,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error merging orders:", error);
       console.error("Error stack:", error?.stack);
       res.status(500).json({ message: "Failed to merge orders", error: error?.message || String(error) });
+    }
+  });
+
+  // Split order - move selected items from a draft order to a new order
+  // The new order inherits the same unit as the source order
+  app.post('/api/orders/:orderId/split', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const { lineIds } = req.body; // Array of order line IDs to move to new order
+      const userId = req.user.id;
+      
+      if (!lineIds || !Array.isArray(lineIds) || lineIds.length === 0) {
+        return res.status(400).json({ message: "At least one line ID is required to split" });
+      }
+      
+      // Get the source order
+      const [sourceOrder] = await db.select().from(orders).where(eq(orders.id, orderId));
+      if (!sourceOrder) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      if (sourceOrder.status !== 'draft') {
+        return res.status(400).json({ message: "Only draft orders can be split" });
+      }
+      
+      // Verify user has access to this hospital
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, sourceOrder.hospitalId, activeUnitId);
+      if (!unitId) {
+        return res.status(403).json({ message: "Access denied to this hospital" });
+      }
+      
+      // Security: Verify user has access to this order's unit
+      if (sourceOrder.unitId !== unitId) {
+        // Allow logistics users to split orders from any unit
+        const userHasLogisticsAccess = await hasLogisticsAccess(userId, sourceOrder.hospitalId);
+        if (!userHasLogisticsAccess) {
+          return res.status(403).json({ message: "Access denied: you can only split orders from your unit" });
+        }
+      }
+      
+      // Verify all lines belong to the source order
+      const linesToMove = await db.select().from(orderLines).where(
+        and(
+          eq(orderLines.orderId, orderId),
+          inArray(orderLines.id, lineIds)
+        )
+      );
+      
+      if (linesToMove.length !== lineIds.length) {
+        return res.status(400).json({ message: "Some line IDs do not belong to this order" });
+      }
+      
+      // Create new order with SAME unitId as source order (inherits unit)
+      const newOrder = await storage.createOrder({
+        hospitalId: sourceOrder.hospitalId,
+        unitId: sourceOrder.unitId, // CRITICAL: inherit unit from source order
+        vendorId: sourceOrder.vendorId,
+        status: 'draft',
+        createdBy: userId,
+      });
+      
+      // Move the selected lines to the new order
+      await db.update(orderLines)
+        .set({ orderId: newOrder.id })
+        .where(inArray(orderLines.id, lineIds));
+      
+      res.json({ 
+        success: true, 
+        newOrderId: newOrder.id,
+        movedCount: linesToMove.length
+      });
+    } catch (error: any) {
+      console.error("Error splitting order:", error);
+      console.error("Error stack:", error?.stack);
+      res.status(500).json({ message: "Failed to split order", error: error?.message || String(error) });
     }
   });
 
