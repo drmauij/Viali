@@ -66,6 +66,9 @@ export default function Hospital() {
     articlesCount: number;
     lastSyncAt: string | null;
     status: string;
+    errorMessage?: string;
+    syncDurationMs?: number;
+    createdAt?: string;
   }>({
     queryKey: ['/api/hin/status'],
     enabled: activeTab === 'suppliers',
@@ -2306,10 +2309,66 @@ export default function Hospital() {
           )}
 
           {/* Recent Sync Jobs */}
-          {priceSyncJobs.length > 0 && (
+          {(priceSyncJobs.length > 0 || (hinStatus && hinStatus.status !== 'never_synced')) && (
             <div className="mt-6">
               <h3 className="text-md font-semibold text-foreground mb-3">Recent Sync Jobs</h3>
               <div className="space-y-2">
+                {/* HIN Database Sync Status */}
+                {hinStatus && hinStatus.status !== 'never_synced' && (
+                  <div className="bg-muted/50 rounded-lg p-3 text-sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2 h-2 rounded-full ${
+                          hinStatus.status === 'success' ? 'bg-green-500' :
+                          hinStatus.status === 'error' ? 'bg-red-500' :
+                          hinStatus.status === 'syncing' ? 'bg-yellow-500 animate-pulse' :
+                          'bg-gray-400'
+                        }`} />
+                        <span className="font-medium">
+                          <i className="fas fa-database mr-1 text-blue-500"></i>
+                          HIN Database
+                        </span>
+                        <span className="capitalize text-muted-foreground">
+                          ({hinStatus.status === 'success' ? 'completed' : hinStatus.status})
+                        </span>
+                      </div>
+                      <span className="text-muted-foreground">
+                        {hinStatus.lastSyncAt ? new Date(hinStatus.lastSyncAt).toLocaleString() : 'Never'}
+                      </span>
+                    </div>
+                    {hinStatus.status === 'success' && (
+                      <div className="text-muted-foreground mt-1 text-xs">
+                        <p className="text-green-600 dark:text-green-400 font-medium">
+                          Synced {hinStatus.articlesCount?.toLocaleString() || 0} articles
+                          {hinStatus.syncDurationMs && ` in ${(hinStatus.syncDurationMs / 1000).toFixed(1)}s`}
+                        </p>
+                      </div>
+                    )}
+                    {hinStatus.status === 'syncing' && (
+                      <div className="text-muted-foreground mt-1 text-xs">
+                        <p className="text-yellow-600 dark:text-yellow-400">
+                          <i className="fas fa-spinner fa-spin mr-1"></i>
+                          Sync in progress...
+                        </p>
+                      </div>
+                    )}
+                    {hinStatus.status === 'error' && hinStatus.errorMessage && (
+                      <div className="mt-2">
+                        <p className="text-red-500 text-sm">{hinStatus.errorMessage}</p>
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline text-xs">
+                            Show Error Details
+                          </summary>
+                          <pre className="mt-2 p-2 bg-red-950/20 border border-red-500/30 rounded text-xs overflow-auto max-h-64 whitespace-pre-wrap text-red-400">
+                            {hinStatus.errorMessage}
+                          </pre>
+                        </details>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Galexis/Supplier Sync Jobs */}
                 {priceSyncJobs.slice(0, 5).map((job: any) => (
                   <div key={job.id} className="bg-muted/50 rounded-lg p-3 text-sm">
                     <div className="flex items-center justify-between">
@@ -2320,7 +2379,11 @@ export default function Hospital() {
                           job.status === 'processing' ? 'bg-yellow-500 animate-pulse' :
                           'bg-gray-400'
                         }`} />
-                        <span className="font-medium capitalize">{job.status}</span>
+                        <span className="font-medium">
+                          <i className="fas fa-pills mr-1 text-purple-500"></i>
+                          Galexis
+                        </span>
+                        <span className="capitalize text-muted-foreground">({job.status})</span>
                       </div>
                       <span className="text-muted-foreground">
                         {new Date(job.createdAt).toLocaleString()}
@@ -2373,7 +2436,17 @@ export default function Hospital() {
                       </div>
                     )}
                     {job.status === 'failed' && job.error && (
-                      <p className="text-red-500 mt-1">{job.error}</p>
+                      <div className="mt-2">
+                        <p className="text-red-500 text-sm">{job.error}</p>
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline text-xs">
+                            Show Error Details
+                          </summary>
+                          <pre className="mt-2 p-2 bg-red-950/20 border border-red-500/30 rounded text-xs overflow-auto max-h-64 whitespace-pre-wrap text-red-400">
+                            {job.error}
+                          </pre>
+                        </details>
+                      </div>
                     )}
                   </div>
                 ))}
