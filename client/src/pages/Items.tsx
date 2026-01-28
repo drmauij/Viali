@@ -4327,7 +4327,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                 <Button
                   type="button"
                   className="h-14"
-                  onClick={() => codesFileInputRef.current?.click()}
+                  onClick={() => handleTakePhoto('codes')}
                   disabled={isAnalyzingCodes || isLookingUpGalexis}
                   data-testid="button-scan-barcode"
                 >
