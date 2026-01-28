@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { requireWriteAccess, requireHospitalAccess, getUserUnitForHospital } from "../utils";
+import { requireWriteAccess, requireHospitalAccess, getUserUnitForHospital, getActiveUnitIdFromRequest } from "../utils";
 import { insertChatConversationSchema, insertChatMessageSchema, insertChatMentionSchema, insertChatAttachmentSchema } from "@shared/schema";
 import { z } from "zod";
 import { broadcastChatMessage, broadcastChatMessageDeleted, broadcastChatMessageEdited, notifyUserOfNewMessage } from "../socket";
@@ -92,7 +92,8 @@ router.get('/api/chat/:hospitalId/conversations', isAuthenticated, async (req: a
     const { hospitalId } = req.params;
     const userId = req.user.id;
     
-    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
@@ -110,7 +111,8 @@ router.get('/api/chat/:hospitalId/conversations/self', isAuthenticated, async (r
     const { hospitalId } = req.params;
     const userId = req.user.id;
     
-    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
@@ -136,7 +138,8 @@ router.post('/api/chat/:hospitalId/conversations', isAuthenticated, requireWrite
     
     const { scopeType, title, unitId: targetUnitId, patientId, participantIds } = validated.data;
     
-    const userUnitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const userUnitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!userUnitId) {
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
@@ -560,7 +563,8 @@ router.get('/api/chat/:hospitalId/notifications', isAuthenticated, async (req: a
     const userId = req.user.id;
     const { hospitalId } = req.params;
     
-    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
@@ -590,7 +594,8 @@ router.post('/api/chat/:hospitalId/notifications/mark-all-read', isAuthenticated
     const userId = req.user.id;
     const { hospitalId } = req.params;
     
-    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
@@ -613,7 +618,8 @@ router.get('/api/chat/:hospitalId/mentions', isAuthenticated, async (req: any, r
     const { hospitalId } = req.params;
     const unreadOnly = req.query.unread === 'true';
     
-    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied to this hospital" });
     }

@@ -20,6 +20,7 @@ import {
   getUserRole,
   requireWriteAccess,
   requireResourceAccess,
+  getActiveUnitIdFromRequest,
 } from "../../utils";
 
 const router = Router();
@@ -29,7 +30,8 @@ router.get('/api/anesthesia/items/:hospitalId', isAuthenticated, async (req: any
     const { hospitalId } = req.params;
     const userId = req.user.id;
     
-    const userUnitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const userUnitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!userUnitId) {
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
@@ -728,7 +730,8 @@ router.get('/api/anesthesia/medication-sets/:hospitalId', isAuthenticated, async
     const { hospitalId } = req.params;
     const userId = req.user.id;
     
-    const userUnitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const userUnitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!userUnitId) {
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
@@ -760,7 +763,8 @@ router.get('/api/anesthesia/medication-sets/:hospitalId/:setId', isAuthenticated
     const { hospitalId, setId } = req.params;
     const userId = req.user.id;
     
-    const userUnitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const userUnitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!userUnitId) {
       return res.status(403).json({ message: "Access denied to this hospital" });
     }

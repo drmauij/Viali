@@ -3101,7 +3101,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify user has access to this hospital/unit
-      const userUnitId = await getUserUnitForHospital(userId, item.hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const userUnitId = await getUserUnitForHospital(userId, item.hospitalId, activeUnitId || undefined);
       if (!userUnitId || userUnitId !== item.unitId) {
         return res.status(403).json({ message: "Access denied to this activity" });
       }

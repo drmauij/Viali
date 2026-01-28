@@ -2,7 +2,7 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { requireWriteAccess, getUserUnitForHospital } from "../utils";
+import { requireWriteAccess, getUserUnitForHospital, getActiveUnitIdFromRequest } from "../utils";
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -246,7 +246,8 @@ router.get('/api/hospitals/:hospitalId/external-surgery-requests', isAuthenticat
     const { status } = req.query;
     const userId = req.user.id;
     
-    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -272,7 +273,8 @@ router.get('/api/hospitals/:hospitalId/external-surgery-requests/count', isAuthe
     const { hospitalId } = req.params;
     const userId = req.user.id;
     
-    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -557,7 +559,8 @@ router.get('/api/hospitals/:hospitalId/external-surgery-token', isAuthenticated,
     const { hospitalId } = req.params;
     const userId = req.user.id;
     
-    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -579,7 +582,8 @@ router.post('/api/hospitals/:hospitalId/external-surgery-token', isAuthenticated
     const { hospitalId } = req.params;
     const userId = req.user.id;
     
-    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied" });
     }
@@ -602,7 +606,8 @@ router.delete('/api/hospitals/:hospitalId/external-surgery-token', isAuthenticat
     const { hospitalId } = req.params;
     const userId = req.user.id;
     
-    const unitId = await getUserUnitForHospital(userId, hospitalId);
+    const activeUnitId = getActiveUnitIdFromRequest(req);
+    const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
     if (!unitId) {
       return res.status(403).json({ message: "Access denied" });
     }

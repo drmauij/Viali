@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
-import { getUserUnitForHospital, canWrite } from "../utils";
+import { getUserUnitForHospital, canWrite, getActiveUnitIdFromRequest } from "../utils";
 
 export interface AuthenticatedRequest extends Request {
   user: {
@@ -134,7 +134,8 @@ export async function getEffectiveUnitId(
   userId: string,
   hospitalId: string,
   moduleType?: string,
-  directUnitId?: string
+  directUnitId?: string,
+  activeUnitId?: string
 ): Promise<string | undefined> {
   if (moduleType) {
     const units = await storage.getUnits(hospitalId);
@@ -149,6 +150,6 @@ export async function getEffectiveUnitId(
 
   if (directUnitId) return directUnitId;
 
-  const unitId = await getUserUnitForHospital(userId, hospitalId);
+  const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId);
   return unitId || undefined;
 }
