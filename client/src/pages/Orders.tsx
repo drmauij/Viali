@@ -1566,65 +1566,63 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
 
       {/* New Order Dialog */}
       <Dialog open={newOrderDialogOpen} onOpenChange={setNewOrderDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col overflow-hidden">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>{t('orders.createNewOrder')}</DialogTitle>
             <DialogDescription>{t('orders.createDraftOrderDesc')}</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold mb-2">{t('orders.itemsToOrder', { count: itemsNeedingOrder.length })}</h3>
-              <p className="text-sm text-muted-foreground mb-3">
-                {t('orders.itemsBelowMaxThreshold')}
-              </p>
-              
-              <div className="space-y-2 max-h-96 overflow-y-auto">
-                {itemsNeedingOrder.map(item => (
-                  <div key={item.id} className="flex items-center justify-between p-3 border border-border rounded-lg bg-muted/30" data-testid={`order-item-${item.id}`}>
-                    <div className="flex-1">
-                      <p className="font-medium text-foreground">{item.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {t('orders.current')}: {item.stockLevel?.qtyOnHand || 0} / {t('orders.max')}: {item.maxThreshold || 10}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-semibold text-primary">
-                        {item.qtyToOrder} {item.unit}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{t('orders.toOrder')}</p>
-                    </div>
+          <div className="flex-1 overflow-y-auto min-h-0">
+            <h3 className="font-semibold mb-2">{t('orders.itemsToOrder', { count: itemsNeedingOrder.length })}</h3>
+            <p className="text-sm text-muted-foreground mb-3">
+              {t('orders.itemsBelowMaxThreshold')}
+            </p>
+            
+            <div className="space-y-2">
+              {itemsNeedingOrder.map(item => (
+                <div key={item.id} className="flex items-center justify-between p-3 border border-border rounded-lg bg-muted/30" data-testid={`order-item-${item.id}`}>
+                  <div className="flex-1">
+                    <p className="font-medium text-foreground">{item.name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t('orders.current')}: {item.stockLevel?.qtyOnHand || 0} / {t('orders.max')}: {item.maxThreshold || 10}
+                    </p>
                   </div>
-                ))}
-              </div>
+                  <div className="text-right">
+                    <p className="text-lg font-semibold text-primary">
+                      {item.qtyToOrder} {item.unit}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{t('orders.toOrder')}</p>
+                  </div>
+                </div>
+              ))}
             </div>
+          </div>
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => setNewOrderDialogOpen(false)}
-                data-testid="cancel-order-button"
-              >
-                {t('common.cancel')}
-              </Button>
-              <Button
-                onClick={handleCreateOrder}
-                disabled={createOrderMutation.isPending}
-                data-testid="confirm-order-button"
-              >
-                {createOrderMutation.isPending ? (
-                  <>
-                    <i className="fas fa-spinner fa-spin mr-2"></i>
-                    {t('orders.creating')}
-                  </>
-                ) : (
-                  <>
-                    <i className="fas fa-check mr-2"></i>
-                    {t('orders.createDraftOrder')}
-                  </>
-                )}
-              </Button>
-            </div>
+          <div className="flex justify-end gap-2 pt-4 border-t border-border flex-shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setNewOrderDialogOpen(false)}
+              data-testid="cancel-order-button"
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleCreateOrder}
+              disabled={createOrderMutation.isPending}
+              data-testid="confirm-order-button"
+            >
+              {createOrderMutation.isPending ? (
+                <>
+                  <i className="fas fa-spinner fa-spin mr-2"></i>
+                  {t('orders.creating')}
+                </>
+              ) : (
+                <>
+                  <i className="fas fa-check mr-2"></i>
+                  {t('orders.createDraftOrder')}
+                </>
+              )}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
