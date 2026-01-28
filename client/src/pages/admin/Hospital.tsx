@@ -2207,6 +2207,97 @@ export default function Hospital() {
                         </div>
                       </div>
                     )}
+
+                    {/* Galexis API Test Lookup - only show for Galexis */}
+                    {isGalexis && (
+                      <div className="mt-4 pt-4 border-t border-border">
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Test lookup (pharmacode or GTIN)..."
+                            value={galexisDebugQuery}
+                            onChange={(e) => setGalexisDebugQuery(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && galexisDebugQuery.trim()) {
+                                (async () => {
+                                  setGalexisDebugLoading(true);
+                                  setGalexisDebugResult(null);
+                                  try {
+                                    const query = galexisDebugQuery.trim();
+                                    const isGtin = query.length >= 13;
+                                    const response = await apiRequest('POST', '/api/items/galexis-lookup', {
+                                      hospitalId: activeHospital?.id,
+                                      [isGtin ? 'gtin' : 'pharmacode']: query,
+                                      debug: true,
+                                    });
+                                    const result = await response.json();
+                                    setGalexisDebugResult(result);
+                                  } catch (error: any) {
+                                    setGalexisDebugResult({ error: error.message });
+                                  } finally {
+                                    setGalexisDebugLoading(false);
+                                  }
+                                })();
+                              }
+                            }}
+                            className="flex-1"
+                            data-testid="input-galexis-lookup"
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              if (!galexisDebugQuery.trim()) return;
+                              setGalexisDebugLoading(true);
+                              setGalexisDebugResult(null);
+                              try {
+                                const query = galexisDebugQuery.trim();
+                                const isGtin = query.length >= 13;
+                                const response = await apiRequest('POST', '/api/items/galexis-lookup', {
+                                  hospitalId: activeHospital?.id,
+                                  [isGtin ? 'gtin' : 'pharmacode']: query,
+                                  debug: true,
+                                });
+                                const result = await response.json();
+                                setGalexisDebugResult(result);
+                              } catch (error: any) {
+                                setGalexisDebugResult({ error: error.message });
+                              } finally {
+                                setGalexisDebugLoading(false);
+                              }
+                            }}
+                            disabled={galexisDebugLoading || !galexisDebugQuery.trim()}
+                            data-testid="button-galexis-lookup"
+                          >
+                            {galexisDebugLoading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-search"></i>}
+                          </Button>
+                        </div>
+                        {galexisDebugResult && (
+                          <div className="mt-3 p-3 rounded-lg bg-muted/50 text-xs">
+                            {galexisDebugResult.error ? (
+                              <p className="text-destructive">{galexisDebugResult.error}</p>
+                            ) : galexisDebugResult.found ? (
+                              <div className="space-y-1">
+                                <p className="font-medium text-foreground">{galexisDebugResult.name}</p>
+                                <p className="text-muted-foreground">
+                                  Pharmacode: {galexisDebugResult.pharmacode || 'N/A'} | 
+                                  GTIN: {galexisDebugResult.gtin || 'N/A'}
+                                </p>
+                                <p className="text-muted-foreground">
+                                  Your Price: CHF {galexisDebugResult.yourPrice?.toFixed(2) || 'N/A'} | 
+                                  Discount: {galexisDebugResult.discountPercent?.toFixed(1) || 0}%
+                                </p>
+                                {galexisDebugResult.packSize && (
+                                  <p className="text-muted-foreground">Pack Size: {galexisDebugResult.packSize}</p>
+                                )}
+                                <p className="text-muted-foreground">Source: {galexisDebugResult.source}</p>
+                              </div>
+                            ) : (
+                              <p className="text-muted-foreground">{galexisDebugResult.message || 'Not found'}</p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   </Fragment>
                 );
@@ -2290,99 +2381,6 @@ export default function Hospital() {
             </div>
           )}
 
-          {/* Galexis Debug Test Section */}
-          {supplierCatalogs.some((c: any) => c.supplierName === 'Galexis') && (
-            <div className="mt-6 border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-4">
-              <h3 className="text-md font-semibold text-foreground mb-3 flex items-center gap-2">
-                <i className="fas fa-bug text-amber-600"></i>
-                Galexis API Debug Test
-              </h3>
-              <p className="text-sm text-muted-foreground mb-3">
-                Test a specific pharmacode or GTIN lookup to see the raw Galexis API response.
-              </p>
-              <div className="flex gap-2 mb-3">
-                <Input
-                  placeholder="Enter pharmacode (e.g., 2246260) or GTIN"
-                  value={galexisDebugQuery}
-                  onChange={(e) => setGalexisDebugQuery(e.target.value)}
-                  className="flex-1"
-                  data-testid="input-galexis-debug-query"
-                />
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    if (!galexisDebugQuery.trim()) return;
-                    setGalexisDebugLoading(true);
-                    setGalexisDebugResult(null);
-                    try {
-                      const query = galexisDebugQuery.trim();
-                      const isGtin = query.length >= 13;
-                      const response = await apiRequest('POST', '/api/items/galexis-lookup', {
-                        hospitalId: activeHospital?.id,
-                        [isGtin ? 'gtin' : 'pharmacode']: query,
-                        debug: true,
-                      });
-                      const result = await response.json();
-                      setGalexisDebugResult(result);
-                    } catch (error: any) {
-                      setGalexisDebugResult({ error: error.message });
-                    } finally {
-                      setGalexisDebugLoading(false);
-                    }
-                  }}
-                  disabled={galexisDebugLoading || !galexisDebugQuery.trim()}
-                  data-testid="button-galexis-debug-test"
-                >
-                  {galexisDebugLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <>
-                      <i className="fas fa-search mr-2"></i>
-                      Test Lookup
-                    </>
-                  )}
-                </Button>
-              </div>
-              {galexisDebugResult && (
-                <div className="mt-3">
-                  <div className={`px-3 py-2 rounded text-sm mb-2 ${
-                    galexisDebugResult.found 
-                      ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200'
-                      : 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200'
-                  }`}>
-                    {galexisDebugResult.found ? (
-                      <>
-                        <i className="fas fa-check-circle mr-2"></i>
-                        <strong>Found:</strong> {galexisDebugResult.name || 'Unknown'} - 
-                        CHF {galexisDebugResult.yourPrice?.toFixed(2) || galexisDebugResult.basispreis?.toFixed(2) || 'N/A'}
-                        {galexisDebugResult.pharmacode && ` (Pharmacode: ${galexisDebugResult.pharmacode})`}
-                        {galexisDebugResult.gtin && ` (GTIN: ${galexisDebugResult.gtin})`}
-                      </>
-                    ) : galexisDebugResult.error ? (
-                      <>
-                        <i className="fas fa-times-circle mr-2"></i>
-                        <strong>Error:</strong> {galexisDebugResult.error}
-                      </>
-                    ) : (
-                      <>
-                        <i className="fas fa-times-circle mr-2"></i>
-                        <strong>Not Found:</strong> {galexisDebugResult.message}
-                      </>
-                    )}
-                  </div>
-                  <details open>
-                    <summary className="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline text-sm">
-                      Raw API Response (Debug Info)
-                    </summary>
-                    <pre className="mt-2 p-3 bg-gray-900 text-gray-100 rounded text-xs overflow-auto max-h-96 whitespace-pre-wrap">
-                      {JSON.stringify(galexisDebugResult, null, 2)}
-                    </pre>
-                  </details>
-                </div>
-              )}
-
-            </div>
-          )}
         </div>
       )}
 
