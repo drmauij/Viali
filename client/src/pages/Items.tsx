@@ -3930,8 +3930,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                                           data-testid={`item-${item.id}-quick-reduce`}
                                           title={item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? "Reduce 1 unit" : "Reduce 1 pack"}
                                         >
-                                          <i className="fas fa-minus mr-1.5"></i>
-                                          {t('items.reduce', 'Reduce')}
+                                          <i className="fas fa-arrow-right-from-bracket mr-1.5"></i>
+                                          {t('items.takeOut', 'Take Out')}
                                         </button>
                                       )}
                                       {canWrite && currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
@@ -4202,8 +4202,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                             data-testid={`item-${item.id}-quick-reduce`}
                             title={item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? "Reduce 1 unit" : "Reduce 1 pack"}
                           >
-                            <i className="fas fa-minus mr-1.5"></i>
-                            {t('items.reduce', 'Reduce')}
+                            <i className="fas fa-arrow-right-from-bracket mr-1.5"></i>
+                            {t('items.takeOut', 'Take Out')}
                           </button>
                         )}
                         {canWrite && currentQty <= (item.minThreshold || 0) && currentQty < (item.maxThreshold || Infinity) && (
