@@ -64,6 +64,16 @@ const getStockStatus = (item: Item & { stockLevel?: StockLevel }) => {
   return { color: "text-success", status: "Good" };
 };
 
+// Helper to convert order status to translation key
+const getStatusTranslationKey = (status: string): string => {
+  switch (status) {
+    case 'ready_to_send':
+      return 'readyToSend';
+    default:
+      return status;
+  }
+};
+
 interface OrdersProps {
   logisticMode?: boolean;
 }
@@ -489,17 +499,48 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
       });
       return response.json();
     },
+    // Optimistic update for instant UI feedback
+    onMutate: async (data) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ordersQueryKey });
+      
+      // Snapshot the previous value
+      const previousOrders = queryClient.getQueryData<OrderWithDetails[]>(ordersQueryKey);
+      
+      // Optimistically update to the new value
+      if (previousOrders) {
+        queryClient.setQueryData<OrderWithDetails[]>(ordersQueryKey, (old) => {
+          if (!old) return old;
+          return old.map(order => ({
+            ...order,
+            orderLines: order.orderLines.map(line => 
+              line.id === data.lineId 
+                ? { ...line, received: true, receivedAt: new Date().toISOString() }
+                : line
+            ),
+          }));
+        });
+      }
+      
+      // Return context with the snapshotted value
+      return { previousOrders };
+    },
     onSuccess: () => {
       invalidateOrderCaches();
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${activeHospital?.unitId}`, activeHospital?.unitId] });
       toast({
-        title: "Item Received",
-        description: "Item has been marked as received and stock updated.",
+        title: t('orders.itemReceived'),
+        description: t('orders.itemReceivedSuccess'),
       });
       setShowReceiveDialog(false);
       resetReceiveForm();
     },
-    onError: (error) => {
+    onError: (error, _variables, context) => {
+      // Rollback on error
+      if (context?.previousOrders) {
+        queryClient.setQueryData(ordersQueryKey, context.previousOrders);
+      }
+      
       if (isUnauthorizedError(error)) {
         toast({
           title: t('orders.unauthorized'),
@@ -513,8 +554,8 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
       }
       
       toast({
-        title: "Receive Failed",
-        description: "Failed to receive item.",
+        title: t('orders.receiveFailed'),
+        description: t('orders.receiveFailedMessage'),
         variant: "destructive",
       });
     },
@@ -1492,7 +1533,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                 <div>
                   <p className="text-sm text-muted-foreground">{t('orders.status')}</p>
                   <span className={`status-chip ${getStatusChip(selectedOrder.status)} text-xs`}>
-                    {t(`orders.${selectedOrder.status}`)}
+                    {t(`orders.${getStatusTranslationKey(selectedOrder.status)}`)}
                   </span>
                 </div>
               </div>
@@ -1573,8 +1614,15 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           </div>
                         </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                          {selectedOrder.notes || "No notes"}
+                        <p 
+                          className="text-sm text-muted-foreground whitespace-pre-wrap cursor-pointer hover:bg-muted/30 rounded p-1 -m-1 transition-colors"
+                          onClick={() => {
+                            setEditingOrderNotes(true);
+                            setOrderNotes(selectedOrder.notes || "");
+                          }}
+                          data-testid="order-notes-text"
+                        >
+                          {selectedOrder.notes || t('orders.noNotes')}
                         </p>
                       )}
                     </div>
@@ -1828,25 +1876,21 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                               </div>
                             </div>
                           ) : (
-                            <div className="flex items-start justify-between">
+                            <div 
+                              className="flex items-start justify-between cursor-pointer hover:bg-muted/30 rounded p-1 -m-1 transition-colors"
+                              onClick={() => {
+                                setEditingLineNotes(line.id);
+                                setLineNotes(line.notes || "");
+                              }}
+                              data-testid={`line-notes-text-${line.id}`}
+                            >
                               <div className="flex-1">
                                 <p className="text-xs text-muted-foreground">
                                   <i className="fas fa-sticky-note mr-1"></i>
-                                  {line.notes ? <span className="text-foreground">{line.notes}</span> : "No notes"}
+                                  {line.notes ? <span className="text-foreground">{line.notes}</span> : t('orders.noNotes')}
                                 </p>
                               </div>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 px-2"
-                                onClick={() => {
-                                  setEditingLineNotes(line.id);
-                                  setLineNotes(line.notes || "");
-                                }}
-                                data-testid={`edit-line-notes-${line.id}`}
-                              >
-                                <i className="fas fa-edit text-xs"></i>
-                              </Button>
+                              <i className="fas fa-edit text-xs text-muted-foreground ml-2"></i>
                             </div>
                           )}
                         </div>
