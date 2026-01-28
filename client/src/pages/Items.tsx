@@ -3897,7 +3897,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                                     </div>
                                   )
                                 ) : (
-                                  <div className="flex items-center w-full">
+                                  <div className="flex flex-col sm:flex-row sm:items-center w-full gap-2">
                                     <div className="flex items-center gap-2">
                                       <div className="flex items-center gap-1.5">
                                         {/* Show units directly for trackExactQuantity or single unit items, otherwise show pack qty */}
@@ -3921,16 +3921,16 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                                         <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
                                       )}
                                     </div>
-                                    <div className="ml-auto flex flex-wrap gap-2 items-center justify-end">
+                                    <div className="sm:ml-auto flex gap-2 items-center justify-end">
                                       {canWrite && !item.controlled && 
                                        (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
                                         <button
                                           onClick={(e) => handleQuickReduce(e, item)}
-                                          className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 active:bg-orange-700 transition-colors flex items-center justify-center touch-manipulation"
+                                          className="px-2 py-1.5 sm:px-4 sm:py-2 bg-orange-500 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-orange-600 active:bg-orange-700 transition-colors flex items-center justify-center touch-manipulation"
                                           data-testid={`item-${item.id}-quick-reduce`}
                                           title={item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? "Reduce 1 unit" : "Reduce 1 pack"}
                                         >
-                                          <i className="fas fa-arrow-right-from-bracket mr-1.5"></i>
+                                          <i className="fas fa-arrow-right-from-bracket mr-1 sm:mr-1.5"></i>
                                           {t('items.takeOut', 'Take Out')}
                                         </button>
                                       )}
@@ -3938,19 +3938,19 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                                         openOrderItems[item.id] ? (
                                           <button
                                             disabled
-                                            className="px-4 py-2 bg-muted text-muted-foreground rounded-lg text-sm font-medium flex-shrink-0 cursor-not-allowed"
+                                            className="px-2 py-1.5 sm:px-4 sm:py-2 bg-muted text-muted-foreground rounded-lg text-xs sm:text-sm font-medium cursor-not-allowed"
                                             data-testid={`item-${item.id}-quick-ordered`}
                                           >
-                                            <i className="fas fa-check mr-1.5"></i>
+                                            <i className="fas fa-check mr-1 sm:mr-1.5"></i>
                                             {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
                                           </button>
                                         ) : (
                                           <button
                                             onClick={(e) => handleQuickOrder(e, item)}
-                                            className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
+                                            className="px-2 py-1.5 sm:px-4 sm:py-2 bg-primary text-primary-foreground rounded-lg text-xs sm:text-sm font-medium hover:bg-primary/90 transition-colors"
                                             data-testid={`item-${item.id}-quick-order`}
                                           >
-                                            <i className="fas fa-bolt mr-1.5"></i>
+                                            <i className="fas fa-bolt mr-1 sm:mr-1.5"></i>
                                             {t('items.quickOrder')}
                                           </button>
                                         )
@@ -4169,7 +4169,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                       </div>
                     )
                   ) : (
-                    <div className="flex items-center w-full">
+                    <div className="flex flex-col sm:flex-row sm:items-center w-full gap-2">
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1.5">
                           {/* Show units directly for trackExactQuantity or single unit items, otherwise show pack qty */}
@@ -4193,16 +4193,16 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                           <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
                         )}
                       </div>
-                      <div className="ml-auto flex flex-wrap gap-2 items-center justify-end">
+                      <div className="sm:ml-auto flex gap-2 items-center justify-end">
                         {canWrite && !item.controlled && 
                          (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
                           <button
                             onClick={(e) => handleQuickReduce(e, item)}
-                            className="px-4 py-2 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 active:bg-orange-700 transition-colors flex items-center justify-center touch-manipulation"
+                            className="px-2 py-1.5 sm:px-4 sm:py-2 bg-orange-500 text-white rounded-lg text-xs sm:text-sm font-medium hover:bg-orange-600 active:bg-orange-700 transition-colors flex items-center justify-center touch-manipulation"
                             data-testid={`item-${item.id}-quick-reduce`}
                             title={item.trackExactQuantity || item.unit.toLowerCase() === 'single unit' ? "Reduce 1 unit" : "Reduce 1 pack"}
                           >
-                            <i className="fas fa-arrow-right-from-bracket mr-1.5"></i>
+                            <i className="fas fa-arrow-right-from-bracket mr-1 sm:mr-1.5"></i>
                             {t('items.takeOut', 'Take Out')}
                           </button>
                         )}
@@ -4210,19 +4210,19 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                           openOrderItems[item.id] ? (
                             <button
                               disabled
-                              className="px-4 py-2 bg-muted text-muted-foreground rounded-lg text-sm font-medium flex-shrink-0 cursor-not-allowed"
+                              className="px-2 py-1.5 sm:px-4 sm:py-2 bg-muted text-muted-foreground rounded-lg text-xs sm:text-sm font-medium cursor-not-allowed"
                               data-testid={`item-${item.id}-quick-ordered`}
                             >
-                              <i className="fas fa-check mr-1.5"></i>
+                              <i className="fas fa-check mr-1 sm:mr-1.5"></i>
                               {t('items.quickOrdered', { count: openOrderItems[item.id].totalQty })}
                             </button>
                           ) : (
                             <button
                               onClick={(e) => handleQuickOrder(e, item)}
-                              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors flex-shrink-0"
+                              className="px-2 py-1.5 sm:px-4 sm:py-2 bg-primary text-primary-foreground rounded-lg text-xs sm:text-sm font-medium hover:bg-primary/90 transition-colors"
                               data-testid={`item-${item.id}-quick-order`}
                             >
-                              <i className="fas fa-bolt mr-1.5"></i>
+                              <i className="fas fa-bolt mr-1 sm:mr-1.5"></i>
                               {t('items.quickOrder')}
                             </button>
                           )
