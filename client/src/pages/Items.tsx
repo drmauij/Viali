@@ -3921,7 +3921,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                                         <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
                                       )}
                                     </div>
-                                    <div className="ml-auto flex flex-col gap-1.5 items-end">
+                                    <div className="ml-auto flex gap-2 items-center">
                                       {canWrite && !item.controlled && 
                                        (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
                                         <button
@@ -4193,7 +4193,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                           <span className="px-1.5 py-0.5 bg-gray-500 text-white rounded text-xs">{t('items.archivedBadge')}</span>
                         )}
                       </div>
-                      <div className="ml-auto flex flex-col gap-1.5 items-end">
+                      <div className="ml-auto flex gap-2 items-center">
                         {canWrite && !item.controlled && 
                          (item.trackExactQuantity ? (item.currentUnits || 0) > 0 : currentQty > 0) && (
                           <button
