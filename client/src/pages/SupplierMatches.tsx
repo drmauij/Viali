@@ -1404,6 +1404,8 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
         isOpen={webcamCaptureOpen}
         onClose={() => setWebcamCaptureOpen(false)}
         onCapture={handleWebcamCapture}
+        fullFrame={true}
+        hint={t('items.cameraHintGtin', 'Position barcode/product label in view')}
       />
 
     </div>
