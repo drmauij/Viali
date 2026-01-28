@@ -132,6 +132,7 @@ export class GalexisClient {
       ignoreAttributes: false,
       attributeNamePrefix: '',
       parseAttributeValue: true,
+      removeNSPrefix: true, // Strip namespace prefixes like ns2: to handle <ns2:productAvailabilityResponse>
     });
     
     this.builder = new XMLBuilder({
@@ -431,8 +432,10 @@ ${productLines}
 
       const availabilityResponse = parsed.productAvailabilityResponse;
       if (!availabilityResponse) {
-        console.log('[Galexis] ProductAvailability Full parsed response:', JSON.stringify(parsed, null, 2).substring(0, 2000));
-        throw new Error('Invalid productAvailability response format from Galexis');
+        const parsedKeys = parsed ? Object.keys(parsed) : [];
+        console.log('[Galexis] ProductAvailability Full parsed response:', JSON.stringify(parsed, null, 2).substring(0, 3000));
+        console.error(`[Galexis] Expected 'productAvailabilityResponse' but got keys: [${parsedKeys.join(', ')}]`);
+        throw new Error(`Invalid productAvailability response format from Galexis. Got keys: [${parsedKeys.join(', ')}]`);
       }
 
       if (availabilityResponse.clientErrorResponse) {
