@@ -1472,7 +1472,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Verify user has access to this hospital
-      const unitId = await getUserUnitForHospital(userId, hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -1669,7 +1670,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const userId = req.user.id;
-      const unitId = await getUserUnitForHospital(userId, hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -1880,7 +1882,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       
       // Verify user has access to this hospital
-      const unitId = await getUserUnitForHospital(userId, hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -1924,7 +1927,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Verify user has access to this hospital
-      const unitId = await getUserUnitForHospital(userId, hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2917,7 +2921,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { hospitalId } = req.params;
       const userId = req.user.id;
       
-      const unitId = await getUserUnitForHospital(userId, hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -2993,7 +2998,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing required fields" });
       }
       
-      const userUnitId = await getUserUnitForHospital(userId, hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const userUnitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
       if (!userUnitId || userUnitId !== unitId) {
         return res.status(403).json({ message: "Access denied to this unit" });
       }
@@ -3022,7 +3028,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { hospitalId } = req.params;
       const userId = req.user.id;
       
-      const unitId = await getUserUnitForHospital(userId, hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -3196,7 +3203,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { hospitalId } = req.params;
       const userId = req.user.id;
       
-      const unitId = await getUserUnitForHospital(userId, hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
       if (!unitId) {
         return res.status(403).json({ message: "Access denied to this hospital" });
       }
@@ -3453,7 +3461,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { scope } = req.query; // 'personal', 'unit', or 'hospital'
       
       // Get user's unit for this hospital
-      const unitId = await getUserUnitForHospital(userId, hospitalId);
+      const activeUnitId = getActiveUnitIdFromRequest(req);
+      const unitId = await getUserUnitForHospital(userId, hospitalId, activeUnitId || undefined);
       if (!unitId) {
         return res.status(403).json({ message: "No access to this hospital" });
       }
