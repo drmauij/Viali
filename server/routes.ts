@@ -1856,7 +1856,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Verify user has access to the requested unit
         const hasAccessToUnit = userUnitsForHospital.some(h => h.unitId === filterUnitId);
         if (!hasAccessToUnit) {
-          return res.status(403).json({ message: "Access denied to this unit" });
+          // Allow logistics users to access orders from any unit in their hospital
+          const userHasLogisticsAccess = await hasLogisticsAccess(userId, hospitalId);
+          if (!userHasLogisticsAccess) {
+            return res.status(403).json({ message: "Access denied to this unit" });
+          }
         }
         const orders = await storage.getOrders(hospitalId, status as string, filterUnitId);
         return res.json(orders);

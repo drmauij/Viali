@@ -119,7 +119,11 @@ router.post('/api/folders', isAuthenticated, requireWriteAccess, async (req: any
     // Pass the requested unitId to verify the user has access to this specific unit
     const unitId = await getUserUnitForHospital(userId, folderData.hospitalId, folderData.unitId);
     if (!unitId) {
-      return res.status(403).json({ message: "Access denied to this hospital/unit" });
+      // Allow logistics users to create folders in any unit of their hospital
+      const userHasLogisticsAccess = await hasLogisticsAccess(userId, folderData.hospitalId);
+      if (!userHasLogisticsAccess) {
+        return res.status(403).json({ message: "Access denied to this hospital/unit" });
+      }
     }
     
     const folder = await storage.createFolder(folderData);
@@ -152,7 +156,11 @@ router.patch('/api/folders/bulk-sort', isAuthenticated, requireWriteAccess, asyn
 
       const unitId = await getUserUnitForHospital(userId, folder.hospitalId);
       if (!unitId || unitId !== folder.unitId) {
-        continue;
+        // Allow logistics users to sort folders in any unit of their hospital
+        const userHasLogisticsAccess = await hasLogisticsAccess(userId, folder.hospitalId);
+        if (!userHasLogisticsAccess) {
+          continue;
+        }
       }
 
       await storage.updateFolder(folderUpdate.id, { sortOrder: folderUpdate.sortOrder });
@@ -179,7 +187,11 @@ router.patch('/api/folders/:folderId', isAuthenticated, requireWriteAccess, asyn
     
     const unitId = await getUserUnitForHospital(userId, folder.hospitalId);
     if (!unitId || unitId !== folder.unitId) {
-      return res.status(403).json({ message: "Access denied to this folder" });
+      // Allow logistics users to update folders in any unit of their hospital
+      const userHasLogisticsAccess = await hasLogisticsAccess(userId, folder.hospitalId);
+      if (!userHasLogisticsAccess) {
+        return res.status(403).json({ message: "Access denied to this folder" });
+      }
     }
     
     const updated = await storage.updateFolder(folderId, updates);
@@ -202,7 +214,11 @@ router.delete('/api/folders/:folderId', isAuthenticated, requireWriteAccess, asy
     
     const unitId = await getUserUnitForHospital(userId, folder.hospitalId);
     if (!unitId || unitId !== folder.unitId) {
-      return res.status(403).json({ message: "Access denied to this folder" });
+      // Allow logistics users to delete folders in any unit of their hospital
+      const userHasLogisticsAccess = await hasLogisticsAccess(userId, folder.hospitalId);
+      if (!userHasLogisticsAccess) {
+        return res.status(403).json({ message: "Access denied to this folder" });
+      }
     }
     
     await storage.deleteFolder(folderId);
@@ -318,7 +334,11 @@ router.get('/api/items/detail/:itemId', isAuthenticated, async (req: any, res) =
     
     const unitId = await getUserUnitForHospital(userId, item.hospitalId);
     if (!unitId || unitId !== item.unitId) {
-      return res.status(403).json({ message: "Access denied to this item" });
+      // Allow logistics users to access items from any unit in their hospital
+      const userHasLogisticsAccess = await hasLogisticsAccess(userId, item.hospitalId);
+      if (!userHasLogisticsAccess) {
+        return res.status(403).json({ message: "Access denied to this item" });
+      }
     }
     
     const lots = await storage.getLots(itemId);
@@ -435,7 +455,11 @@ router.patch('/api/items/bulk-update', isAuthenticated, requireWriteAccess, asyn
       
       const unitId = await getUserUnitForHospital(userId, item.hospitalId);
       if (!unitId || unitId !== item.unitId) {
-        continue;
+        // Allow logistics users to update items from any unit in their hospital
+        const userHasLogisticsAccess = await hasLogisticsAccess(userId, item.hospitalId);
+        if (!userHasLogisticsAccess) {
+          continue;
+        }
       }
 
       const updates: any = {};
@@ -505,7 +529,11 @@ router.patch('/api/items/bulk-sort', isAuthenticated, requireWriteAccess, async 
 
       const unitId = await getUserUnitForHospital(userId, item.hospitalId);
       if (!unitId || unitId !== item.unitId) {
-        continue;
+        // Allow logistics users to sort items from any unit in their hospital
+        const userHasLogisticsAccess = await hasLogisticsAccess(userId, item.hospitalId);
+        if (!userHasLogisticsAccess) {
+          continue;
+        }
       }
 
       await storage.updateItem(itemUpdate.id, { sortOrder: itemUpdate.sortOrder });
