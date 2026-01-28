@@ -142,7 +142,7 @@ export function OnDemandMedicationDialog({
               {filteredMedications.map((med) => (
                 <div
                   key={med.id}
-                  className={`flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors ${
+                  className={`flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors ${
                     med.isImported ? 'bg-muted/30' : ''
                   }`}
                   data-testid={`medication-item-${med.id}`}
@@ -161,7 +161,7 @@ export function OnDemandMedicationDialog({
                       )}
                     </div>
                   </div>
-                  <div className="ml-2">
+                  <div className="flex-shrink-0">
                     {med.isImported ? (
                       <Button
                         variant="ghost"
