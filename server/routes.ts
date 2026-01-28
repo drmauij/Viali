@@ -82,7 +82,8 @@ import {
   insertPersonalTodoSchema,
   externalWorklogLinks,
   externalWorklogEntries,
-  workerContracts
+  workerContracts,
+  hinSyncStatus
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, or, inArray, sql, asc, desc } from "drizzle-orm";
@@ -627,6 +628,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error triggering HIN sync:", error);
       res.status(500).json({ message: error.message || "Failed to trigger HIN sync" });
+    }
+  });
+
+  // Reset stuck HIN sync status (admin only)
+  app.post('/api/hin/reset-status', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+
+      const hospitals = await storage.getUserHospitals(userId);
+      const hasAdminRole = hospitals.some(h => h.role === 'admin');
+      
+      if (!hasAdminRole) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      // Reset any stuck "syncing" status to "idle"
+      await db
+        .update(hinSyncStatus)
+        .set({ status: 'idle', errorMessage: 'Reset by admin' })
+        .where(eq(hinSyncStatus.status, 'syncing'));
+      
+      console.log('[HIN] Sync status reset by admin');
+      res.json({ message: "HIN sync status reset successfully" });
+    } catch (error: any) {
+      console.error("Error resetting HIN sync status:", error);
+      res.status(500).json({ message: error.message || "Failed to reset HIN sync status" });
+    }
+  });
+
+  // HIN test lookup endpoint - test a specific code
+  app.post('/api/hin/lookup', isAuthenticated, async (req: any, res) => {
+    try {
+      const { code } = req.body;
+      if (!code) {
+        return res.status(400).json({ message: "Code (pharmacode or GTIN) is required" });
+      }
+
+      const { hinClient, parsePackSizeFromDescription } = await import('./services/hinMediupdateClient');
+      
+      // First check sync status
+      const status = await hinClient.getSyncStatus();
+      
+      const result = await hinClient.lookupByCode(code);
+      
+      if (result.found && result.article) {
+        const packSize = parsePackSizeFromDescription(result.article.descriptionDe);
+        res.json({
+          found: true,
+          syncStatus: status,
+          article: {
+            ...result.article,
+            packSize,
+          },
+        });
+      } else {
+        res.json({
+          found: false,
+          syncStatus: status,
+          message: status.articlesCount === 0 
+            ? "HIN database is empty - please sync first" 
+            : "Product not found in HIN database",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error looking up HIN product:", error);
+      res.status(500).json({ message: error.message || "Failed to lookup HIN product" });
     }
   });
 

@@ -91,6 +91,40 @@ export default function Hospital() {
   const [galexisDebugResult, setGalexisDebugResult] = useState<any>(null);
   const [galexisDebugLoading, setGalexisDebugLoading] = useState(false);
 
+  // HIN debug test state
+  const [hinDebugQuery, setHinDebugQuery] = useState("");
+  const [hinDebugResult, setHinDebugResult] = useState<any>(null);
+  const [hinDebugLoading, setHinDebugLoading] = useState(false);
+
+  const hinResetMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/hin/reset-status");
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: t("common.success"), description: "HIN sync status reset" });
+      refetchHinStatus();
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleHinLookup = async () => {
+    if (!hinDebugQuery.trim()) return;
+    setHinDebugLoading(true);
+    setHinDebugResult(null);
+    try {
+      const response = await apiRequest("POST", "/api/hin/lookup", { code: hinDebugQuery.trim() });
+      const result = await response.json();
+      setHinDebugResult(result);
+    } catch (error: any) {
+      setHinDebugResult({ error: error.message });
+    } finally {
+      setHinDebugLoading(false);
+    }
+  };
+
   // Hospital company data states
   const [hospitalDialogOpen, setHospitalDialogOpen] = useState(false);
   const [hospitalForm, setHospitalForm] = useState({
@@ -1981,7 +2015,69 @@ export default function Hospital() {
                     </>
                   )}
                 </Button>
+                {hinStatus?.status === 'syncing' && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => hinResetMutation.mutate()}
+                    disabled={hinResetMutation.isPending}
+                    title="Reset stuck sync status"
+                    data-testid="button-hin-reset"
+                  >
+                    <i className="fas fa-undo"></i>
+                  </Button>
+                )}
               </div>
+            </div>
+            
+            {/* HIN Test Lookup */}
+            <div className="mt-4 pt-4 border-t border-border">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Test lookup (pharmacode or GTIN)..."
+                  value={hinDebugQuery}
+                  onChange={(e) => setHinDebugQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleHinLookup()}
+                  className="flex-1"
+                  data-testid="input-hin-lookup"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleHinLookup}
+                  disabled={hinDebugLoading || !hinDebugQuery.trim()}
+                  data-testid="button-hin-lookup"
+                >
+                  {hinDebugLoading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-search"></i>}
+                </Button>
+              </div>
+              {hinDebugResult && (
+                <div className="mt-3 p-3 rounded-lg bg-muted/50 text-xs">
+                  {hinDebugResult.error ? (
+                    <p className="text-destructive">{hinDebugResult.error}</p>
+                  ) : hinDebugResult.found ? (
+                    <div className="space-y-1">
+                      <p className="font-medium text-foreground">{hinDebugResult.article.descriptionDe}</p>
+                      <p className="text-muted-foreground">
+                        Pharmacode: {hinDebugResult.article.pharmacode || 'N/A'} | 
+                        GTIN: {hinDebugResult.article.gtin || 'N/A'}
+                      </p>
+                      <p className="text-muted-foreground">
+                        PEXF: {hinDebugResult.article.pexf?.toFixed(2) || 'N/A'} | 
+                        PPUB: {hinDebugResult.article.ppub?.toFixed(2) || 'N/A'}
+                      </p>
+                      {hinDebugResult.article.packSize && (
+                        <p className="text-muted-foreground">Pack Size: {hinDebugResult.article.packSize}</p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">{hinDebugResult.message}</p>
+                  )}
+                  <p className="text-muted-foreground/70 mt-2">
+                    DB Status: {hinDebugResult.syncStatus?.articlesCount?.toLocaleString() || 0} articles
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
