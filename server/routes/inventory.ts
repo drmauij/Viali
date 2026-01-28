@@ -1222,8 +1222,8 @@ router.post('/api/supplier-catalogs', isAuthenticated, async (req: any, res) => 
     } = req.body;
     
     const userHospitals = await storage.getUserHospitals(userId);
-    const hospital = userHospitals.find(h => h.id === hospitalId);
-    if (!hospital || hospital.role !== 'admin') {
+    const hasAdminAccess = userHospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminAccess) {
       return res.status(403).json({ message: "Admin access required" });
     }
     
@@ -1264,8 +1264,8 @@ router.patch('/api/supplier-catalogs/:catalogId', isAuthenticated, async (req: a
     }
     
     const userHospitals = await storage.getUserHospitals(userId);
-    const hospital = userHospitals.find(h => h.id === catalog.hospitalId);
-    if (!hospital || hospital.role !== 'admin') {
+    const hasAdminAccess = userHospitals.some(h => h.id === catalog.hospitalId && h.role === 'admin');
+    if (!hasAdminAccess) {
       return res.status(403).json({ message: "Admin access required" });
     }
     
@@ -1288,8 +1288,8 @@ router.delete('/api/supplier-catalogs/:catalogId', isAuthenticated, async (req: 
     }
     
     const userHospitals = await storage.getUserHospitals(userId);
-    const hospital = userHospitals.find(h => h.id === catalog.hospitalId);
-    if (!hospital || hospital.role !== 'admin') {
+    const hasAdminAccess = userHospitals.some(h => h.id === catalog.hospitalId && h.role === 'admin');
+    if (!hasAdminAccess) {
       return res.status(403).json({ message: "Admin access required" });
     }
     
@@ -1331,8 +1331,8 @@ router.post('/api/price-sync/trigger', isAuthenticated, async (req: any, res) =>
     }
     
     const userHospitals = await storage.getUserHospitals(userId);
-    const hospital = userHospitals.find(h => h.id === catalog.hospitalId);
-    if (!hospital || hospital.role !== 'admin') {
+    const hasAdminAccess = userHospitals.some(h => h.id === catalog.hospitalId && h.role === 'admin');
+    if (!hasAdminAccess) {
       return res.status(403).json({ message: "Admin access required" });
     }
     
