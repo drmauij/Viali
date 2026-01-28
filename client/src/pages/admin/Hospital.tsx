@@ -56,9 +56,34 @@ export default function Hospital() {
   const [supplierDialogOpen, setSupplierDialogOpen] = useState(false);
   const [supplierForm, setSupplierForm] = useState({
     supplierName: "Galexis",
-    supplierType: "api" as "api",
+    supplierType: "api" as "api" | "database",
     customerNumber: "",
     apiPassword: "",
+  });
+
+  // HIN Database sync state
+  const { data: hinStatus, isLoading: hinStatusLoading, refetch: refetchHinStatus } = useQuery<{
+    articlesCount: number;
+    lastSyncAt: string | null;
+    status: string;
+  }>({
+    queryKey: ['/api/hin/status'],
+    enabled: activeTab === 'suppliers',
+    refetchInterval: 30000,
+  });
+
+  const hinSyncMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/hin/sync");
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: t("common.success"), description: "HIN sync started in background" });
+      setTimeout(() => refetchHinStatus(), 3000);
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || "Failed to start HIN sync", variant: "destructive" });
+    },
   });
   
   // Galexis debug test state
@@ -1888,6 +1913,74 @@ export default function Hospital() {
                   Connect your supplier accounts to automatically sync current prices for your inventory items.
                   Supports Galexis (XML API) with customer-specific pricing.
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* HIN Database Card */}
+          <div className="bg-card border border-border rounded-lg p-4" data-testid="card-hin-database">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-semibold text-foreground">HIN Database</h3>
+                  <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
+                    Database
+                  </span>
+                  {hinStatus && hinStatus.articlesCount > 0 ? (
+                    <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                      <i className="fas fa-check mr-1"></i>Synced
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+                      <i className="fas fa-exclamation-triangle mr-1"></i>Not Synced
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  <i className="fas fa-database mr-1"></i>
+                  Swiss medication database from HIN (oddb2xml)
+                </p>
+                {hinStatusLoading ? (
+                  <p className="text-sm text-muted-foreground">
+                    <i className="fas fa-spinner fa-spin mr-1"></i>Loading status...
+                  </p>
+                ) : hinStatus ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Articles: <span className="font-medium">{hinStatus.articlesCount?.toLocaleString() || 0}</span>
+                    </p>
+                    {hinStatus.lastSyncAt && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Last sync: {new Date(hinStatus.lastSyncAt).toLocaleString()}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Database not initialized
+                  </p>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => hinSyncMutation.mutate()}
+                  disabled={hinSyncMutation.isPending || hinStatus?.status === 'syncing'}
+                  data-testid="button-hin-sync"
+                >
+                  {hinSyncMutation.isPending || hinStatus?.status === 'syncing' ? (
+                    <>
+                      <i className="fas fa-spinner fa-spin mr-2"></i>
+                      Syncing...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-sync mr-2"></i>
+                      {hinStatus && hinStatus.articlesCount > 0 ? 'Resync' : 'Initialize'}
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </div>
