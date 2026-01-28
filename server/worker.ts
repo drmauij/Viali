@@ -2596,6 +2596,8 @@ async function performHinPriceSyncForHospital(hospitalId: string, hospitalName: 
     let updatedCount = 0;
     let createdCount = 0;
     
+    const { parsePackSizeFromDescription: parseHinPackSize } = await import('./services/hinMediupdateClient');
+    
     for (const item of hospitalItems) {
       // Skip if item was updated recently (within 24 hours)
       const existingCode = hinCodesByItem.get(item.itemId);
@@ -2606,25 +2608,31 @@ async function performHinPriceSyncForHospital(hospitalId: string, hospitalName: 
         }
       }
       
-      // Look up in HIN database
+      // Look up in HIN database - try pharmacode first, then GTIN
       const pharmacode = item.pharmacode || undefined;
       const gtin = item.gtin || undefined;
+      const lookupCode = pharmacode || gtin;
       
-      const hinResult = await hinClient.lookupByCode(pharmacode, gtin);
+      if (!lookupCode) continue;
       
-      if (hinResult && hinResult.prices) {
-        const basispreis = hinResult.prices.exFactoryPrice || hinResult.prices.publicPrice;
-        const publikumspreis = hinResult.prices.publicPrice;
+      const hinResult = await hinClient.lookupByCode(lookupCode);
+      
+      if (hinResult && hinResult.found && hinResult.article) {
+        const basispreis = hinResult.article.pexf;
+        const publikumspreis = hinResult.article.ppub;
         
-        if (basispreis) {
+        if (basispreis || publikumspreis) {
+          // Parse pack size from HIN description
+          const hinPackSize = parseHinPackSize(hinResult.article.descriptionDe);
+          
           if (existingCode) {
             // Update existing HIN supplier code
             await db.update(supplierCodes).set({
-              basispreis: String(basispreis),
+              basispreis: basispreis ? String(basispreis) : undefined,
               publikumspreis: publikumspreis ? String(publikumspreis) : null,
               lastPriceUpdate: new Date(),
               lastChecked: new Date(),
-              matchedProductName: hinResult.name,
+              matchedProductName: hinResult.article.descriptionDe,
               updatedAt: new Date(),
             }).where(eq(supplierCodes.id, existingCode.id));
             updatedCount++;
@@ -2634,25 +2642,25 @@ async function performHinPriceSyncForHospital(hospitalId: string, hospitalName: 
               id: randomUUID(),
               itemId: item.itemId,
               supplierName: 'HIN',
-              articleCode: pharmacode || gtin || '',
-              basispreis: String(basispreis),
+              articleCode: hinResult.article.pharmacode || pharmacode || gtin || '',
+              basispreis: basispreis ? String(basispreis) : undefined,
               publikumspreis: publikumspreis ? String(publikumspreis) : null,
               lastPriceUpdate: new Date(),
               lastChecked: new Date(),
               isPreferred: true,
               matchStatus: 'confirmed',
-              matchedProductName: hinResult.name,
+              matchedProductName: hinResult.article.descriptionDe,
               createdAt: new Date(),
               updatedAt: new Date(),
             });
             createdCount++;
           }
           
-          // Also update itemCodes with pack size if available
-          if (hinResult.packSize) {
+          // Also update itemCodes with pack size if available and not already set
+          if (hinPackSize) {
             const existingItemCode = await db.select({ unitsPerPack: itemCodes.unitsPerPack }).from(itemCodes).where(eq(itemCodes.itemId, item.itemId)).limit(1);
             if (existingItemCode.length > 0 && !existingItemCode[0].unitsPerPack) {
-              await db.update(itemCodes).set({ unitsPerPack: hinResult.packSize, updatedAt: new Date() }).where(eq(itemCodes.itemId, item.itemId));
+              await db.update(itemCodes).set({ unitsPerPack: hinPackSize, updatedAt: new Date() }).where(eq(itemCodes.itemId, item.itemId));
             }
           }
         }
