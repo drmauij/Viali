@@ -15,6 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import BarcodeScanner from "@/components/BarcodeScanner";
+import { CameraCapture } from "@/components/CameraCapture";
+import { isTouchDevice } from "@/pages/items/helpers";
 import { 
   Check, X, ExternalLink, Package, Loader2, 
   XCircle, DollarSign, CheckCircle2, Search, ChevronRight, AlertCircle, Trash2, Star, Edit, Plus, Building2
@@ -145,6 +147,9 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
   // File input refs for photo capture
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  
+  // Webcam capture state for desktop
+  const [webcamCaptureOpen, setWebcamCaptureOpen] = useState(false);
   
   // Unit filter state (for logistics module cross-unit access)
   const [filterUnitId, setFilterUnitId] = useState<string>("current");
@@ -439,6 +444,49 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
     
     // Reset file input
     event.target.value = "";
+  };
+  
+  // Handle webcam photo capture (for desktop)
+  const handleWebcamCapture = async (photo: string) => {
+    setWebcamCaptureOpen(false);
+    setIsAnalyzingPhoto(true);
+    setCodesImage(photo);
+    
+    try {
+      const response = await apiRequest("POST", "/api/items/analyze-codes", { image: photo });
+      const result = await response.json();
+      
+      if (result.codes) {
+        setEditingItemCodes(prev => {
+          const current = prev ?? { gtin: "", pharmacode: "", migel: "", atc: "", manufacturer: "" };
+          return {
+            ...current,
+            gtin: result.codes.gtin || current.gtin || "",
+            pharmacode: result.codes.pharmacode || current.pharmacode || "",
+            migel: result.codes.migel || current.migel || "",
+            atc: result.codes.atc || current.atc || "",
+            manufacturer: result.codes.manufacturer || current.manufacturer || "",
+          };
+        });
+        toast({ title: t("common.success"), description: t("items.codesExtracted", "Codes extracted from image") });
+      }
+    } catch (err: any) {
+      console.error("Failed to analyze webcam image:", err);
+      toast({ title: t("common.error"), description: err.message || "Failed to analyze image", variant: "destructive" });
+    } finally {
+      setIsAnalyzingPhoto(false);
+    }
+  };
+  
+  // Open webcam or file input based on device type
+  const handleTakePhoto = () => {
+    if (isTouchDevice()) {
+      // Mobile/tablet: use native file input with camera capture
+      cameraInputRef.current?.click();
+    } else {
+      // Desktop: use webcam capture component
+      setWebcamCaptureOpen(true);
+    }
   };
   
   // Handle barcode scan result
@@ -857,7 +905,7 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => cameraInputRef.current?.click()}
+                        onClick={handleTakePhoto}
                         disabled={isAnalyzingPhoto}
                         data-testid="button-edit-camera-codes"
                       >
@@ -1350,6 +1398,13 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Webcam Capture for Desktop */}
+      <CameraCapture
+        isOpen={webcamCaptureOpen}
+        onClose={() => setWebcamCaptureOpen(false)}
+        onCapture={handleWebcamCapture}
+      />
 
     </div>
   );
