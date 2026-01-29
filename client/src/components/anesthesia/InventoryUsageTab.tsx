@@ -386,6 +386,18 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
       // Also invalidate the hook's query keys (uses array-based keys)
       queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId] });
       queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId, 'commits'] });
+      
+      // CRITICAL: Invalidate items queries to update stock in Items page
+      // Use predicate to match any items query for this hospital
+      if (activeHospital?.id) {
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            const key = query.queryKey[0];
+            return typeof key === 'string' && key.startsWith(`/api/items/${activeHospital.id}`);
+          },
+        });
+      }
+      
       // Trigger recalculation to get fresh data
       await apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/calculate`);
       refetchInventory();
@@ -421,6 +433,18 @@ export function InventoryUsageTab({ anesthesiaRecordId, activeModule }: Inventor
       // Also invalidate the hook's query keys (uses array-based keys)
       queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId] });
       queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecordId, 'commits'] });
+      
+      // CRITICAL: Invalidate items queries to update stock in Items page
+      // Use predicate to match any items query for this hospital
+      if (activeHospital?.id) {
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            const key = query.queryKey[0];
+            return typeof key === 'string' && key.startsWith(`/api/items/${activeHospital.id}`);
+          },
+        });
+      }
+      
       // Trigger recalculation to get fresh data
       await apiRequest('POST', `/api/anesthesia/inventory/${anesthesiaRecordId}/calculate`);
       refetchInventory();
