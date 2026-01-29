@@ -1011,8 +1011,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       return await response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}`, effectiveUnitId] });
+      // Invalidate orders query with the correct key format (matching Orders page)
+      queryClient.invalidateQueries({ queryKey: [`/api/orders/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
       queryClient.invalidateQueries({ queryKey: [`/api/orders/open-items/${activeHospital?.id}`, effectiveUnitId] });
+      // Also invalidate logistic orders if applicable
+      queryClient.invalidateQueries({ queryKey: [`/api/logistic/orders/${activeHospital?.id}`] });
       toast({
         title: t('items.addedToOrder'),
         description: t('items.addedToDraftOrder'),
