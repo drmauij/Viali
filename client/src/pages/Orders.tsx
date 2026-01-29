@@ -160,6 +160,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
   
   // State for split functionality - selected line IDs in the edit dialog
   const [selectedLinesForSplit, setSelectedLinesForSplit] = useState<Set<string>>(new Set());
+  const [splitMode, setSplitMode] = useState(false);
   
   const toggleOrderExpanded = (orderId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1662,7 +1663,13 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
       </Dialog>
 
       {/* Edit Order Dialog */}
-      <Dialog open={editOrderDialogOpen} onOpenChange={setEditOrderDialogOpen}>
+      <Dialog open={editOrderDialogOpen} onOpenChange={(open) => {
+        setEditOrderDialogOpen(open);
+        if (!open) {
+          setSplitMode(false);
+          setSelectedLinesForSplit(new Set());
+        }
+      }}>
         <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
           <DialogHeader>
             <DialogTitle>{t('orders.editOrderTitle', { number: selectedOrder?.id.slice(-4) })}</DialogTitle>
@@ -1780,18 +1787,43 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                   <div>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-semibold">{t('orders.orderItems', { count: selectedOrder.orderLines.length })}</h3>
-                  {canWrite && canEditOrder(selectedOrder) && selectedOrder.status !== 'received' && (
+                  {canWrite && canEditOrder(selectedOrder) && selectedOrder.status !== 'received' && selectedOrder.orderLines.length > 1 && (
                     <div className="flex items-center gap-2">
-                      {selectedLinesForSplit.size > 0 && selectedLinesForSplit.size < selectedOrder.orderLines.length && (
+                      {splitMode ? (
+                        <>
+                          {selectedLinesForSplit.size > 0 && selectedLinesForSplit.size < selectedOrder.orderLines.length && (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={handleSplitOrder}
+                              disabled={splitOrderMutation.isPending}
+                              data-testid="split-order-button"
+                            >
+                              <i className="fas fa-scissors mr-1"></i>
+                              {t('orders.splitSelected')} ({selectedLinesForSplit.size})
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSplitMode(false);
+                              setSelectedLinesForSplit(new Set());
+                            }}
+                            data-testid="cancel-split-mode"
+                          >
+                            {t('common.cancel')}
+                          </Button>
+                        </>
+                      ) : (
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={handleSplitOrder}
-                          disabled={splitOrderMutation.isPending}
-                          data-testid="split-order-button"
+                          onClick={() => setSplitMode(true)}
+                          data-testid="enter-split-mode"
                         >
                           <i className="fas fa-scissors mr-1"></i>
-                          {t('orders.splitSelected')} ({selectedLinesForSplit.size})
+                          {t('orders.split')}
                         </Button>
                       )}
                     </div>
@@ -1813,8 +1845,8 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                     return (
                     <div key={line.id} className={`flex flex-col gap-2 p-3 border border-border rounded-lg transition-colors ${selectedLinesForSplit.has(line.id) ? 'ring-2 ring-primary bg-primary/5' : ''} ${canToggleOffline ? (line.offlineWorked ? 'bg-green-50 dark:bg-green-950/20' : '') : ''}`} data-testid={`order-line-${line.id}`}>
                       <div className="flex items-center gap-3">
-                        {/* Split checkbox - only show when can split */}
-                        {canSplit && (
+                        {/* Split checkbox - only show when in split mode */}
+                        {splitMode && canSplit && (
                           <Checkbox
                             checked={selectedLinesForSplit.has(line.id)}
                             onCheckedChange={() => toggleLineForSplit(line.id)}
