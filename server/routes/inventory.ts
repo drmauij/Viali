@@ -322,6 +322,62 @@ router.get('/api/item-codes/:hospitalId', isAuthenticated, async (req: any, res)
   }
 });
 
+// Get preferred supplier codes for all items in a hospital/unit (for PDF export)
+router.get('/api/preferred-supplier-codes/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { unitId } = req.query;
+    const userId = req.user.id;
+    
+    // Validate hospital and unit access
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some(h => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    
+    const effectiveUnitId = unitId as string | undefined;
+    
+    if (effectiveUnitId) {
+      // Check if user has a role in this unit or in a logistics unit
+      const hasUnitAccess = userHospitals.some(
+        h => h.id === hospitalId && (h.unitId === effectiveUnitId || h.isLogisticModule)
+      );
+      if (!hasUnitAccess) {
+        return res.status(403).json({ message: "Access denied to this unit" });
+      }
+    } else {
+      // Without unitId, require logistics access
+      const hasLogisticsAccess = userHospitals.some(h => h.id === hospitalId && h.isLogisticModule);
+      if (!hasLogisticsAccess) {
+        return res.status(403).json({ message: "Unit ID required" });
+      }
+    }
+    
+    // Get all preferred supplier codes for items in this hospital/unit
+    const codes = await db
+      .select({
+        itemId: supplierCodes.itemId,
+        supplierName: supplierCodes.supplierName,
+        articleCode: supplierCodes.articleCode,
+        basispreis: supplierCodes.basispreis,
+      })
+      .from(supplierCodes)
+      .innerJoin(items, eq(items.id, supplierCodes.itemId))
+      .where(and(
+        effectiveUnitId 
+          ? and(eq(items.hospitalId, hospitalId), eq(items.unitId, effectiveUnitId))
+          : eq(items.hospitalId, hospitalId),
+        eq(supplierCodes.isPreferred, true)
+      ));
+    
+    res.json(codes);
+  } catch (error) {
+    console.error("Error fetching preferred supplier codes:", error);
+    res.status(500).json({ message: "Failed to fetch preferred supplier codes" });
+  }
+});
+
 router.get('/api/items/detail/:itemId', isAuthenticated, async (req: any, res) => {
   try {
     const { itemId } = req.params;
