@@ -1538,18 +1538,16 @@ export class DatabaseStorage implements IStorage {
           .leftJoin(stockLevels, and(eq(stockLevels.itemId, items.id), eq(stockLevels.unitId, items.unitId)))
           .where(eq(orderLines.orderId, order.id));
 
-        // Fetch preferred supplier codes and item codes for all items in this order
+        // Fetch ALL supplier codes and item codes for all items in this order
+        // We'll prefer the one marked as isPreferred, otherwise use the first one
         const itemIds = lines.map(l => l.item.id);
         
-        const [preferredSupplierCodesResult, itemCodesResult] = await Promise.all([
+        const [allSupplierCodesResult, itemCodesResult] = await Promise.all([
           itemIds.length > 0 
             ? db
                 .select()
                 .from(supplierCodes)
-                .where(and(
-                  inArray(supplierCodes.itemId, itemIds),
-                  eq(supplierCodes.isPreferred, true)
-                ))
+                .where(inArray(supplierCodes.itemId, itemIds))
             : Promise.resolve([]),
           itemIds.length > 0
             ? db
@@ -1559,9 +1557,25 @@ export class DatabaseStorage implements IStorage {
             : Promise.resolve([])
         ]);
         
-        const supplierCodesByItemId = new Map(
-          preferredSupplierCodesResult.map(sc => [sc.itemId, sc])
-        );
+        // Group suppliers by itemId: prefer isPreferred, otherwise use the most recently created one
+        const supplierCodesByItemId = new Map<string, typeof allSupplierCodesResult[0]>();
+        for (const sc of allSupplierCodesResult) {
+          const existing = supplierCodesByItemId.get(sc.itemId);
+          if (!existing) {
+            // First supplier for this item
+            supplierCodesByItemId.set(sc.itemId, sc);
+          } else if (sc.isPreferred && !existing.isPreferred) {
+            // This one is preferred, existing is not
+            supplierCodesByItemId.set(sc.itemId, sc);
+          } else if (!existing.isPreferred && !sc.isPreferred) {
+            // Neither is preferred - use the more recently created one
+            const scCreated = sc.createdAt ? new Date(sc.createdAt).getTime() : 0;
+            const existingCreated = existing.createdAt ? new Date(existing.createdAt).getTime() : 0;
+            if (scCreated > existingCreated) {
+              supplierCodesByItemId.set(sc.itemId, sc);
+            }
+          }
+        }
         
         const itemCodesByItemId = new Map(
           itemCodesResult.map(ic => [ic.itemId, ic])
