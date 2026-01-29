@@ -2659,7 +2659,7 @@ export default function Op() {
                           </div>
                         ))}
                       </div>
-                      <Label className="mt-3 block">{t('surgery.intraop.bodySide')}</Label>
+                      <Label className="mt-4 pt-2 block">{t('surgery.intraop.bodySide')}</Label>
                       <div className="flex gap-4">
                         {["left", "right"].map((side) => (
                           <div key={side} className="flex items-center space-x-2">
