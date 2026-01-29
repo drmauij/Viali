@@ -2824,7 +2824,8 @@ export function generateAnesthesiaRecordPDF(data: ExportData) {
           yPos += 4.5;
         }
         if (equip.neutralElectrodeLocation) {
-          doc.text(`• ${i18next.t("anesthesia.pdf.nurseDoc.neutralElectrode", "Neutral electrode")}: ${equip.neutralElectrodeLocation}`, 30, yPos);
+          const sideText = equip.neutralElectrodeSide ? ` (${i18next.t(`surgery.intraop.${equip.neutralElectrodeSide}`, equip.neutralElectrodeSide)})` : '';
+          doc.text(`• ${i18next.t("anesthesia.pdf.nurseDoc.neutralElectrode", "Neutral electrode")}: ${i18next.t(`surgery.intraop.${equip.neutralElectrodeLocation}`, equip.neutralElectrodeLocation)}${sideText}`, 30, yPos);
           yPos += 4.5;
         }
         if (equip.pathology?.histology || equip.pathology?.microbiology) {

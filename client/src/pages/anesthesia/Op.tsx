@@ -2618,7 +2618,7 @@ export default function Op() {
                     <div className="space-y-2">
                       <Label>{t('surgery.intraop.neutralElectrode')}</Label>
                       <div className="grid grid-cols-2 gap-2">
-                        {["shoulder", "abdomen", "thigh", "back"].map((loc) => (
+                        {["shoulder", "abdomen", "thigh", "back", "forearm"].map((loc) => (
                           <div key={loc} className="flex items-center space-x-2">
                             <Checkbox 
                               id={`electrode-${loc}`} 
@@ -2637,6 +2637,30 @@ export default function Op() {
                               }}
                             />
                             <Label htmlFor={`electrode-${loc}`}>{t(`surgery.intraop.${loc}`)}</Label>
+                          </div>
+                        ))}
+                      </div>
+                      <Label className="mt-3 block">{t('surgery.intraop.bodySide')}</Label>
+                      <div className="flex gap-4">
+                        {["left", "right"].map((side) => (
+                          <div key={side} className="flex items-center space-x-2">
+                            <Checkbox 
+                              id={`electrode-side-${side}`} 
+                              data-testid={`checkbox-electrode-side-${side}`}
+                              checked={intraOpData.equipment?.neutralElectrodeSide === side}
+                              onCheckedChange={(checked) => {
+                                const updated = {
+                                  ...intraOpData,
+                                  equipment: {
+                                    ...intraOpData.equipment,
+                                    neutralElectrodeSide: checked ? side : undefined
+                                  }
+                                };
+                                setIntraOpData(updated);
+                                intraOpAutoSave.mutate(updated);
+                              }}
+                            />
+                            <Label htmlFor={`electrode-side-${side}`}>{t(`surgery.intraop.${side}`)}</Label>
                           </div>
                         ))}
                       </div>
