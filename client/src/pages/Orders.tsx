@@ -79,6 +79,15 @@ const getItemSupplierInfo = (
   const supplierCode = line.item?.preferredSupplierCode;
   const codes = line.item?.itemCodes;
   
+  // Debug logging
+  console.log('[getItemSupplierInfo]', {
+    itemName: line.item?.name,
+    hasPreferredSupplierCode: !!supplierCode,
+    supplierCode,
+    hasItemCodes: !!codes,
+    codes,
+  });
+  
   const parts: string[] = [];
   
   // Supplier name (prefer preferred supplier, fallback to vendor)
