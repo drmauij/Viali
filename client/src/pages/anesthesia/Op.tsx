@@ -2593,55 +2593,64 @@ export default function Op() {
                   <CardHeader>
                     <CardTitle>{t('surgery.intraop.equipment')}</CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="space-y-3">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="koag-mono" 
-                          data-testid="checkbox-koag-mono"
-                          checked={intraOpData.equipment?.monopolar ?? false}
-                          onCheckedChange={(checked) => {
-                            const updated = {
-                              ...intraOpData,
-                              equipment: {
-                                ...intraOpData.equipment,
-                                monopolar: checked === true
-                              }
-                            };
-                            setIntraOpData(updated);
-                            intraOpAutoSave.mutate(updated);
-                          }}
-                        />
-                        <Label htmlFor="koag-mono">Monopolar</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="koag-bi" 
-                          data-testid="checkbox-koag-bi"
-                          checked={intraOpData.equipment?.bipolar ?? false}
-                          onCheckedChange={(checked) => {
-                            const updated = {
-                              ...intraOpData,
-                              equipment: {
-                                ...intraOpData.equipment,
-                                bipolar: checked === true
-                              }
-                            };
-                            setIntraOpData(updated);
-                            intraOpAutoSave.mutate(updated);
-                          }}
-                        />
-                        <Label htmlFor="koag-bi">Bipolar</Label>
+                  <CardContent className="space-y-6">
+                    {/* Coagulation Subsection */}
+                    <div className="rounded-lg bg-muted/30 p-4 space-y-3">
+                      <Label className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.koagulation')}</Label>
+                      <div className="flex flex-wrap gap-4">
+                        <div className="flex items-center space-x-2 min-h-[44px]">
+                          <Checkbox 
+                            id="koag-mono" 
+                            data-testid="checkbox-koag-mono"
+                            className="h-5 w-5"
+                            checked={intraOpData.equipment?.monopolar ?? false}
+                            onCheckedChange={(checked) => {
+                              const updated = {
+                                ...intraOpData,
+                                equipment: {
+                                  ...intraOpData.equipment,
+                                  monopolar: checked === true
+                                }
+                              };
+                              setIntraOpData(updated);
+                              intraOpAutoSave.mutate(updated);
+                            }}
+                          />
+                          <Label htmlFor="koag-mono" className="text-base">Monopolar</Label>
+                        </div>
+                        <div className="flex items-center space-x-2 min-h-[44px]">
+                          <Checkbox 
+                            id="koag-bi" 
+                            data-testid="checkbox-koag-bi"
+                            className="h-5 w-5"
+                            checked={intraOpData.equipment?.bipolar ?? false}
+                            onCheckedChange={(checked) => {
+                              const updated = {
+                                ...intraOpData,
+                                equipment: {
+                                  ...intraOpData.equipment,
+                                  bipolar: checked === true
+                                }
+                              };
+                              setIntraOpData(updated);
+                              intraOpAutoSave.mutate(updated);
+                            }}
+                          />
+                          <Label htmlFor="koag-bi" className="text-base">Bipolar</Label>
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>{t('surgery.intraop.neutralElectrode')}</Label>
-                      <div className="grid grid-cols-2 gap-2">
+
+                    {/* Neutral Electrode Subsection */}
+                    <div className="rounded-lg bg-muted/30 p-4 space-y-4">
+                      <Label className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.neutralElectrode')}</Label>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         {["shoulder", "abdomen", "thigh", "back", "forearm"].map((loc) => (
-                          <div key={loc} className="flex items-center space-x-2">
+                          <div key={loc} className="flex items-center space-x-2 min-h-[44px]">
                             <Checkbox 
                               id={`electrode-${loc}`} 
                               data-testid={`checkbox-electrode-${loc}`}
+                              className="h-5 w-5"
                               checked={intraOpData.equipment?.neutralElectrodeLocation === loc}
                               onCheckedChange={(checked) => {
                                 const updated = {
@@ -2655,42 +2664,48 @@ export default function Op() {
                                 intraOpAutoSave.mutate(updated);
                               }}
                             />
-                            <Label htmlFor={`electrode-${loc}`}>{t(`surgery.intraop.${loc}`)}</Label>
+                            <Label htmlFor={`electrode-${loc}`} className="text-base">{t(`surgery.intraop.${loc}`)}</Label>
                           </div>
                         ))}
                       </div>
-                      <Label className="mt-4 pt-2 block">{t('surgery.intraop.bodySide')}</Label>
-                      <div className="flex gap-4">
-                        {["left", "right"].map((side) => (
-                          <div key={side} className="flex items-center space-x-2">
-                            <Checkbox 
-                              id={`electrode-side-${side}`} 
-                              data-testid={`checkbox-electrode-side-${side}`}
-                              checked={intraOpData.equipment?.neutralElectrodeSide === side}
-                              onCheckedChange={(checked) => {
-                                const updated = {
-                                  ...intraOpData,
-                                  equipment: {
-                                    ...intraOpData.equipment,
-                                    neutralElectrodeSide: checked ? side : undefined
-                                  }
-                                };
-                                setIntraOpData(updated);
-                                intraOpAutoSave.mutate(updated);
-                              }}
-                            />
-                            <Label htmlFor={`electrode-side-${side}`}>{t(`surgery.intraop.${side}`)}</Label>
-                          </div>
-                        ))}
+                      <div className="border-t border-border/50 pt-3 mt-3">
+                        <Label className="text-sm font-medium mb-2 block">{t('surgery.intraop.bodySide')}</Label>
+                        <div className="flex gap-6">
+                          {["left", "right"].map((side) => (
+                            <div key={side} className="flex items-center space-x-2 min-h-[44px]">
+                              <Checkbox 
+                                id={`electrode-side-${side}`} 
+                                data-testid={`checkbox-electrode-side-${side}`}
+                                className="h-5 w-5"
+                                checked={intraOpData.equipment?.neutralElectrodeSide === side}
+                                onCheckedChange={(checked) => {
+                                  const updated = {
+                                    ...intraOpData,
+                                    equipment: {
+                                      ...intraOpData.equipment,
+                                      neutralElectrodeSide: checked ? side : undefined
+                                    }
+                                  };
+                                  setIntraOpData(updated);
+                                  intraOpAutoSave.mutate(updated);
+                                }}
+                              />
+                              <Label htmlFor={`electrode-side-${side}`} className="text-base">{t(`surgery.intraop.${side}`)}</Label>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>{t('surgery.intraop.pathology')}</Label>
-                      <div className="flex gap-4">
-                        <div className="flex items-center space-x-2">
+
+                    {/* Pathology Subsection */}
+                    <div className="rounded-lg bg-muted/30 p-4 space-y-3">
+                      <Label className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.pathology')}</Label>
+                      <div className="flex flex-wrap gap-4">
+                        <div className="flex items-center space-x-2 min-h-[44px]">
                           <Checkbox 
                             id="path-histo" 
                             data-testid="checkbox-path-histo"
+                            className="h-5 w-5"
                             checked={intraOpData.equipment?.pathology?.histology ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
@@ -2707,12 +2722,13 @@ export default function Op() {
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor="path-histo">{t('surgery.intraop.histologie')}</Label>
+                          <Label htmlFor="path-histo" className="text-base">{t('surgery.intraop.histologie')}</Label>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2 min-h-[44px]">
                           <Checkbox 
                             id="path-mikro" 
                             data-testid="checkbox-path-mikro"
+                            className="h-5 w-5"
                             checked={intraOpData.equipment?.pathology?.microbiology ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
@@ -2729,15 +2745,18 @@ export default function Op() {
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor="path-mikro">{t('surgery.intraop.mikrobio')}</Label>
+                          <Label htmlFor="path-mikro" className="text-base">{t('surgery.intraop.mikrobio')}</Label>
                         </div>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label>{t('surgery.intraop.devices')}</Label>
+
+                    {/* Devices Subsection */}
+                    <div className="rounded-lg bg-muted/30 p-4 space-y-3">
+                      <Label className="text-sm font-semibold text-muted-foreground">{t('surgery.intraop.devices')}</Label>
                       <Input
                         id="equipment-devices"
                         data-testid="input-equipment-devices"
+                        className="h-12 text-base"
                         placeholder={t('surgery.intraop.devicesPlaceholder')}
                         value={intraOpData.equipment?.devices ?? ''}
                         onChange={(e) => {
@@ -2762,11 +2781,12 @@ export default function Op() {
                     <CardTitle>{t('surgery.intraop.irrigation')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center space-x-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="flex items-center space-x-2 min-h-[44px]">
                         <Checkbox 
                           id="irrigation-nacl" 
                           data-testid="checkbox-irrigation-nacl"
+                          className="h-5 w-5"
                           checked={intraOpData.irrigation?.nacl ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
@@ -2780,12 +2800,13 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="irrigation-nacl">{t('surgery.intraop.irrigationOptions.nacl')}</Label>
+                        <Label htmlFor="irrigation-nacl" className="text-base">{t('surgery.intraop.irrigationOptions.nacl')}</Label>
                       </div>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-2 min-h-[44px]">
                         <Checkbox 
                           id="irrigation-ringer" 
                           data-testid="checkbox-irrigation-ringer"
+                          className="h-5 w-5"
                           checked={intraOpData.irrigation?.ringerSolution ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
@@ -2799,28 +2820,27 @@ export default function Op() {
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="irrigation-ringer">{t('surgery.intraop.irrigationOptions.ringerSolution')}</Label>
+                        <Label htmlFor="irrigation-ringer" className="text-base">{t('surgery.intraop.irrigationOptions.ringerSolution')}</Label>
                       </div>
                     </div>
-                    <div className="space-y-2">
-                      <Input
-                        id="irrigation-other"
-                        data-testid="input-irrigation-other"
-                        placeholder={t('surgery.intraop.irrigationOther')}
-                        value={intraOpData.irrigation?.other ?? ''}
-                        onChange={(e) => {
-                          const updated = {
-                            ...intraOpData,
-                            irrigation: {
-                              ...intraOpData.irrigation,
-                              other: e.target.value
-                            }
-                          };
-                          setIntraOpData(updated);
-                        }}
-                        onBlur={() => intraOpAutoSave.mutate(intraOpData)}
-                      />
-                    </div>
+                    <Input
+                      id="irrigation-other"
+                      data-testid="input-irrigation-other"
+                      className="h-12 text-base"
+                      placeholder={t('surgery.intraop.irrigationOther')}
+                      value={intraOpData.irrigation?.other ?? ''}
+                      onChange={(e) => {
+                        const updated = {
+                          ...intraOpData,
+                          irrigation: {
+                            ...intraOpData.irrigation,
+                            other: e.target.value
+                          }
+                        };
+                        setIntraOpData(updated);
+                      }}
+                      onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                    />
                   </CardContent>
                 </Card>
 
@@ -2877,12 +2897,13 @@ export default function Op() {
                     <CardTitle>{t('surgery.intraop.medications')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {["rapidocain1", "ropivacainEpinephrine", "ropivacain05", "ropivacain075", "ropivacain1", "bupivacain", "vancomycinImplant", "contrast", "ointments"].map((med) => (
-                        <div key={med} className="flex items-center space-x-2">
+                        <div key={med} className="flex items-center space-x-2 min-h-[44px] py-1">
                           <Checkbox 
                             id={`meds-${med}`} 
                             data-testid={`checkbox-meds-${med}`}
+                            className="h-5 w-5"
                             checked={(intraOpData.medications as Record<string, boolean>)?.[med] ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
@@ -2896,29 +2917,28 @@ export default function Op() {
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor={`meds-${med}`}>{t(`surgery.intraop.medicationOptions.${med}`)}</Label>
+                          <Label htmlFor={`meds-${med}`} className="text-base">{t(`surgery.intraop.medicationOptions.${med}`)}</Label>
                         </div>
                       ))}
                     </div>
-                    <div className="space-y-2">
-                      <Input
-                        id="medications-other"
-                        data-testid="input-medications-other"
-                        placeholder={t('surgery.intraop.medicationsOther')}
-                        value={intraOpData.medications?.other ?? ''}
-                        onChange={(e) => {
-                          const updated = {
-                            ...intraOpData,
-                            medications: {
-                              ...intraOpData.medications,
-                              other: e.target.value
-                            }
-                          };
-                          setIntraOpData(updated);
-                        }}
-                        onBlur={() => intraOpAutoSave.mutate(intraOpData)}
-                      />
-                    </div>
+                    <Input
+                      id="medications-other"
+                      data-testid="input-medications-other"
+                      className="h-12 text-base"
+                      placeholder={t('surgery.intraop.medicationsOther')}
+                      value={intraOpData.medications?.other ?? ''}
+                      onChange={(e) => {
+                        const updated = {
+                          ...intraOpData,
+                          medications: {
+                            ...intraOpData.medications,
+                            other: e.target.value
+                          }
+                        };
+                        setIntraOpData(updated);
+                      }}
+                      onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                    />
                   </CardContent>
                 </Card>
 
@@ -2928,7 +2948,7 @@ export default function Op() {
                     <CardTitle>{t('surgery.intraop.dressing')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                       {[
                         { id: 'elasticBandage', key: 'elasticBandage' },
                         { id: 'abdominalBelt', key: 'abdominalBelt' },
@@ -2940,10 +2960,11 @@ export default function Op() {
                         { id: 'compresses', key: 'compresses' },
                         { id: 'mefix', key: 'mefix' }
                       ].map((item) => (
-                        <div key={item.id} className="flex items-center space-x-2">
+                        <div key={item.id} className="flex items-center space-x-2 min-h-[44px]">
                           <Checkbox 
                             id={`dressing-${item.id}`} 
                             data-testid={`checkbox-dressing-${item.id}`}
+                            className="h-5 w-5"
                             checked={intraOpData.dressing?.[item.key as keyof typeof intraOpData.dressing] ?? false}
                             onCheckedChange={(checked) => {
                               const updated = {
@@ -2957,29 +2978,28 @@ export default function Op() {
                               intraOpAutoSave.mutate(updated);
                             }}
                           />
-                          <Label htmlFor={`dressing-${item.id}`}>{t(`surgery.intraop.dressingOptions.${item.key}`)}</Label>
+                          <Label htmlFor={`dressing-${item.id}`} className="text-base">{t(`surgery.intraop.dressingOptions.${item.key}`)}</Label>
                         </div>
                       ))}
                     </div>
-                    <div className="space-y-2">
-                      <Input
-                        id="dressing-other"
-                        data-testid="input-dressing-other"
-                        placeholder={t('surgery.intraop.dressingOther')}
-                        value={intraOpData.dressing?.other ?? ''}
-                        onChange={(e) => {
-                          const updated = {
-                            ...intraOpData,
-                            dressing: {
-                              ...intraOpData.dressing,
-                              other: e.target.value
-                            }
-                          };
-                          setIntraOpData(updated);
-                        }}
-                        onBlur={() => intraOpAutoSave.mutate(intraOpData)}
-                      />
-                    </div>
+                    <Input
+                      id="dressing-other"
+                      data-testid="input-dressing-other"
+                      className="h-12 text-base"
+                      placeholder={t('surgery.intraop.dressingOther')}
+                      value={intraOpData.dressing?.other ?? ''}
+                      onChange={(e) => {
+                        const updated = {
+                          ...intraOpData,
+                          dressing: {
+                            ...intraOpData.dressing,
+                            other: e.target.value
+                          }
+                        };
+                        setIntraOpData(updated);
+                      }}
+                      onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                    />
                   </CardContent>
                 </Card>
 
