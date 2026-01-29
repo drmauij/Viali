@@ -64,6 +64,48 @@ const getStockStatus = (item: Item & { stockLevel?: StockLevel }) => {
   return { color: "text-success", status: "Good" };
 };
 
+// Helper to check if a code value is valid (not a placeholder like "Not visible")
+const isValidCode = (value: string | null | undefined): boolean => {
+  if (!value) return false;
+  const placeholders = ['not visible', 'not clearly visible', 'nicht sichtbar', 'n/a', 'na', '-'];
+  return !placeholders.includes(value.toLowerCase().trim());
+};
+
+// Helper to get supplier/code info for display in order items
+const getItemSupplierInfo = (
+  line: { item: any },
+  vendorName?: string | null
+): string | null => {
+  const supplierCode = line.item?.preferredSupplierCode;
+  const codes = line.item?.itemCodes;
+  
+  const parts: string[] = [];
+  
+  // Supplier name (prefer preferred supplier, fallback to vendor)
+  if (supplierCode?.supplierName) {
+    parts.push(supplierCode.supplierName);
+  } else if (vendorName) {
+    parts.push(vendorName);
+  }
+  
+  // Article code from preferred supplier
+  if (supplierCode?.articleCode && isValidCode(supplierCode.articleCode)) {
+    parts.push(`Art: ${supplierCode.articleCode}`);
+  }
+  
+  // Pharmacode (only if valid)
+  if (codes?.pharmacode && isValidCode(codes.pharmacode)) {
+    parts.push(`PC: ${codes.pharmacode}`);
+  }
+  
+  // GTIN (only if valid)
+  if (codes?.gtin && isValidCode(codes.gtin)) {
+    parts.push(`GTIN: ${codes.gtin}`);
+  }
+  
+  return parts.length > 0 ? parts.join(' · ') : null;
+};
+
 // Helper to convert order status to translation key
 const getStatusTranslationKey = (status: string): string => {
   switch (status) {
@@ -1177,16 +1219,14 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           <div key={line.id} className="flex justify-between text-muted-foreground">
                             <div className="flex-1 mr-2 min-w-0">
                               <span className="truncate block">{line.item?.name || 'Unknown Item'}</span>
-                              {(order.vendor?.name || (line.item as any)?.preferredSupplierCode?.articleCode || (line.item as any)?.itemCodes?.pharmacode || (line.item as any)?.itemCodes?.gtin) && (
-                                <span className="text-[10px] text-muted-foreground/70 block truncate">
-                                  {[
-                                    (line.item as any)?.preferredSupplierCode?.supplierName || order.vendor?.name,
-                                    (line.item as any)?.preferredSupplierCode?.articleCode && `Art: ${(line.item as any).preferredSupplierCode.articleCode}`,
-                                    (line.item as any)?.itemCodes?.pharmacode && `PC: ${(line.item as any).itemCodes.pharmacode}`,
-                                    (line.item as any)?.itemCodes?.gtin && `GTIN: ${(line.item as any).itemCodes.gtin}`
-                                  ].filter(Boolean).join(' · ')}
-                                </span>
-                              )}
+                              {(() => {
+                                const supplierInfo = getItemSupplierInfo(line, order.vendor?.name);
+                                return supplierInfo && (
+                                  <span className="text-[10px] text-muted-foreground/70 block truncate">
+                                    {supplierInfo}
+                                  </span>
+                                );
+                              })()}
                             </div>
                             <span className="font-medium text-foreground shrink-0">{line.qty}x</span>
                           </div>
@@ -1307,16 +1347,14 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           <div key={line.id} className="flex justify-between text-muted-foreground">
                             <div className="flex-1 mr-2 min-w-0">
                               <span className="truncate block">{line.item?.name || 'Unknown Item'}</span>
-                              {(order.vendor?.name || (line.item as any)?.preferredSupplierCode?.articleCode || (line.item as any)?.itemCodes?.pharmacode || (line.item as any)?.itemCodes?.gtin) && (
-                                <span className="text-[10px] text-muted-foreground/70 block truncate">
-                                  {[
-                                    (line.item as any)?.preferredSupplierCode?.supplierName || order.vendor?.name,
-                                    (line.item as any)?.preferredSupplierCode?.articleCode && `Art: ${(line.item as any).preferredSupplierCode.articleCode}`,
-                                    (line.item as any)?.itemCodes?.pharmacode && `PC: ${(line.item as any).itemCodes.pharmacode}`,
-                                    (line.item as any)?.itemCodes?.gtin && `GTIN: ${(line.item as any).itemCodes.gtin}`
-                                  ].filter(Boolean).join(' · ')}
-                                </span>
-                              )}
+                              {(() => {
+                                const supplierInfo = getItemSupplierInfo(line, order.vendor?.name);
+                                return supplierInfo && (
+                                  <span className="text-[10px] text-muted-foreground/70 block truncate">
+                                    {supplierInfo}
+                                  </span>
+                                );
+                              })()}
                             </div>
                             <span className="font-medium text-foreground shrink-0">{line.qty}x</span>
                           </div>
@@ -1428,16 +1466,14 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           <div key={line.id} className="flex justify-between text-muted-foreground">
                             <div className="flex-1 mr-2 min-w-0">
                               <span className="truncate block">{line.item?.name || 'Unknown Item'}</span>
-                              {(order.vendor?.name || (line.item as any)?.preferredSupplierCode?.articleCode || (line.item as any)?.itemCodes?.pharmacode || (line.item as any)?.itemCodes?.gtin) && (
-                                <span className="text-[10px] text-muted-foreground/70 block truncate">
-                                  {[
-                                    (line.item as any)?.preferredSupplierCode?.supplierName || order.vendor?.name,
-                                    (line.item as any)?.preferredSupplierCode?.articleCode && `Art: ${(line.item as any).preferredSupplierCode.articleCode}`,
-                                    (line.item as any)?.itemCodes?.pharmacode && `PC: ${(line.item as any).itemCodes.pharmacode}`,
-                                    (line.item as any)?.itemCodes?.gtin && `GTIN: ${(line.item as any).itemCodes.gtin}`
-                                  ].filter(Boolean).join(' · ')}
-                                </span>
-                              )}
+                              {(() => {
+                                const supplierInfo = getItemSupplierInfo(line, order.vendor?.name);
+                                return supplierInfo && (
+                                  <span className="text-[10px] text-muted-foreground/70 block truncate">
+                                    {supplierInfo}
+                                  </span>
+                                );
+                              })()}
                             </div>
                             <span className="font-medium text-foreground shrink-0">{line.qty}x</span>
                           </div>
@@ -1520,16 +1556,14 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           <div key={line.id} className="flex justify-between text-muted-foreground">
                             <div className="flex-1 mr-2 min-w-0">
                               <span className="truncate block">{line.item?.name || 'Unknown Item'}</span>
-                              {(order.vendor?.name || (line.item as any)?.preferredSupplierCode?.articleCode || (line.item as any)?.itemCodes?.pharmacode || (line.item as any)?.itemCodes?.gtin) && (
-                                <span className="text-[10px] text-muted-foreground/70 block truncate">
-                                  {[
-                                    (line.item as any)?.preferredSupplierCode?.supplierName || order.vendor?.name,
-                                    (line.item as any)?.preferredSupplierCode?.articleCode && `Art: ${(line.item as any).preferredSupplierCode.articleCode}`,
-                                    (line.item as any)?.itemCodes?.pharmacode && `PC: ${(line.item as any).itemCodes.pharmacode}`,
-                                    (line.item as any)?.itemCodes?.gtin && `GTIN: ${(line.item as any).itemCodes.gtin}`
-                                  ].filter(Boolean).join(' · ')}
-                                </span>
-                              )}
+                              {(() => {
+                                const supplierInfo = getItemSupplierInfo(line, order.vendor?.name);
+                                return supplierInfo && (
+                                  <span className="text-[10px] text-muted-foreground/70 block truncate">
+                                    {supplierInfo}
+                                  </span>
+                                );
+                              })()}
                             </div>
                             <span className="font-medium text-foreground shrink-0">{line.qty}x</span>
                           </div>
@@ -1818,16 +1852,14 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           )}
                           <div className="flex-1">
                             <p className="font-medium text-foreground">{line.item.name}</p>
-                            {(selectedOrder.vendor?.name || (line.item as any).preferredSupplierCode?.articleCode || (line.item as any).itemCodes?.pharmacode || (line.item as any).itemCodes?.gtin) && (
-                              <p className="text-xs text-muted-foreground/70 truncate">
-                                {[
-                                  (line.item as any).preferredSupplierCode?.supplierName || selectedOrder.vendor?.name,
-                                  (line.item as any).preferredSupplierCode?.articleCode && `Art: ${(line.item as any).preferredSupplierCode.articleCode}`,
-                                  (line.item as any).itemCodes?.pharmacode && `PC: ${(line.item as any).itemCodes.pharmacode}`,
-                                  (line.item as any).itemCodes?.gtin && `GTIN: ${(line.item as any).itemCodes.gtin}`
-                                ].filter(Boolean).join(' · ')}
-                              </p>
-                            )}
+                            {(() => {
+                              const supplierInfo = getItemSupplierInfo(line, selectedOrder.vendor?.name);
+                              return supplierInfo && (
+                                <p className="text-xs text-muted-foreground/70 truncate">
+                                  {supplierInfo}
+                                </p>
+                              );
+                            })()}
                             <div className="flex items-center gap-1.5 mt-1">
                               <span className={`text-base font-semibold ${stockStatus.color}`}>
                                 {currentQty}
