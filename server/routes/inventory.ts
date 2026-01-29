@@ -730,6 +730,7 @@ router.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (r
       patientPrice: req.body.patientPrice,
       dailyUsageEstimate: req.body.dailyUsageEstimate,
       status: req.body.status,
+      isInvoiceable: req.body.isInvoiceable,
     };
     
     if (req.body.folderId !== undefined) {
