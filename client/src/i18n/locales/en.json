@@ -3273,8 +3273,13 @@
       "infiltrationOther": "Other infiltration...",
       "medications": "Medications",
       "medicationOptions": {
-        "ropivacain": "Ropivacain",
+        "rapidocain1": "Rapidocain 1%",
+        "ropivacainEpinephrine": "Ropivacain 1% + Epinephrine",
+        "ropivacain05": "Ropivacain 0.5%",
+        "ropivacain075": "Ropivacain 0.75%",
+        "ropivacain1": "Ropivacain 1%",
         "bupivacain": "Bupivacain",
+        "vancomycinImplant": "Vancomycin 500 mg for Implant Irrigation",
         "contrast": "Contrast Medium",
         "ointments": "Ointments"
       },

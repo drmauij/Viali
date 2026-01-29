@@ -2878,82 +2878,27 @@ export default function Op() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="meds-ropivacain" 
-                          data-testid="checkbox-meds-ropivacain"
-                          checked={intraOpData.medications?.ropivacain ?? false}
-                          onCheckedChange={(checked) => {
-                            const updated = {
-                              ...intraOpData,
-                              medications: {
-                                ...intraOpData.medications,
-                                ropivacain: checked === true
-                              }
-                            };
-                            setIntraOpData(updated);
-                            intraOpAutoSave.mutate(updated);
-                          }}
-                        />
-                        <Label htmlFor="meds-ropivacain">{t('surgery.intraop.medicationOptions.ropivacain')}</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="meds-bupivacain" 
-                          data-testid="checkbox-meds-bupivacain"
-                          checked={intraOpData.medications?.bupivacain ?? false}
-                          onCheckedChange={(checked) => {
-                            const updated = {
-                              ...intraOpData,
-                              medications: {
-                                ...intraOpData.medications,
-                                bupivacain: checked === true
-                              }
-                            };
-                            setIntraOpData(updated);
-                            intraOpAutoSave.mutate(updated);
-                          }}
-                        />
-                        <Label htmlFor="meds-bupivacain">{t('surgery.intraop.medicationOptions.bupivacain')}</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="meds-contrast" 
-                          data-testid="checkbox-meds-contrast"
-                          checked={intraOpData.medications?.contrast ?? false}
-                          onCheckedChange={(checked) => {
-                            const updated = {
-                              ...intraOpData,
-                              medications: {
-                                ...intraOpData.medications,
-                                contrast: checked === true
-                              }
-                            };
-                            setIntraOpData(updated);
-                            intraOpAutoSave.mutate(updated);
-                          }}
-                        />
-                        <Label htmlFor="meds-contrast">{t('surgery.intraop.medicationOptions.contrast')}</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="meds-ointments" 
-                          data-testid="checkbox-meds-ointments"
-                          checked={intraOpData.medications?.ointments ?? false}
-                          onCheckedChange={(checked) => {
-                            const updated = {
-                              ...intraOpData,
-                              medications: {
-                                ...intraOpData.medications,
-                                ointments: checked === true
-                              }
-                            };
-                            setIntraOpData(updated);
-                            intraOpAutoSave.mutate(updated);
-                          }}
-                        />
-                        <Label htmlFor="meds-ointments">{t('surgery.intraop.medicationOptions.ointments')}</Label>
-                      </div>
+                      {["rapidocain1", "ropivacainEpinephrine", "ropivacain05", "ropivacain075", "ropivacain1", "bupivacain", "vancomycinImplant", "contrast", "ointments"].map((med) => (
+                        <div key={med} className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`meds-${med}`} 
+                            data-testid={`checkbox-meds-${med}`}
+                            checked={(intraOpData.medications as Record<string, boolean>)?.[med] ?? false}
+                            onCheckedChange={(checked) => {
+                              const updated = {
+                                ...intraOpData,
+                                medications: {
+                                  ...intraOpData.medications,
+                                  [med]: checked === true
+                                }
+                              };
+                              setIntraOpData(updated);
+                              intraOpAutoSave.mutate(updated);
+                            }}
+                          />
+                          <Label htmlFor={`meds-${med}`}>{t(`surgery.intraop.medicationOptions.${med}`)}</Label>
+                        </div>
+                      ))}
                     </div>
                     <div className="space-y-2">
                       <Input
