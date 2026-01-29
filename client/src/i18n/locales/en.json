@@ -3239,6 +3239,7 @@
       "kodanColored": "Kodan (colored)",
       "kodanColorless": "Kodan (colorless)",
       "octanisept": "Octanisept",
+      "betadine": "Betadine",
       "performedBy": "Performed by",
       "performedByPlaceholder": "Enter name...",
       "equipment": "Equipment",
@@ -3262,8 +3263,7 @@
       "irrigation": "Irrigation",
       "irrigationOptions": {
         "nacl": "NaCl",
-        "betadine": "Betadine",
-        "hydrogenPeroxide": "Hydrogen Peroxide"
+        "ringerSolution": "Ringer's Solution"
       },
       "irrigationOther": "Other irrigation...",
       "infiltration": "Infiltration",

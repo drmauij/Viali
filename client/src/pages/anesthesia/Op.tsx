@@ -2413,6 +2413,25 @@ export default function Op() {
                         />
                         <Label htmlFor="octanisept">{t('surgery.intraop.octanisept')}</Label>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox 
+                          id="disinfection-betadine" 
+                          data-testid="checkbox-disinfection-betadine"
+                          checked={intraOpData.disinfection?.betadine ?? false}
+                          onCheckedChange={(checked) => {
+                            const updated = {
+                              ...intraOpData,
+                              disinfection: {
+                                ...intraOpData.disinfection,
+                                betadine: checked === true
+                              }
+                            };
+                            setIntraOpData(updated);
+                            intraOpAutoSave.mutate(updated);
+                          }}
+                        />
+                        <Label htmlFor="disinfection-betadine">{t('surgery.intraop.betadine')}</Label>
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label>{t('surgery.intraop.performedBy')}</Label>
@@ -2743,7 +2762,7 @@ export default function Op() {
                     <CardTitle>{t('surgery.intraop.irrigation')}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-2 gap-4">
                       <div className="flex items-center space-x-2">
                         <Checkbox 
                           id="irrigation-nacl" 
@@ -2765,41 +2784,22 @@ export default function Op() {
                       </div>
                       <div className="flex items-center space-x-2">
                         <Checkbox 
-                          id="irrigation-betadine" 
-                          data-testid="checkbox-irrigation-betadine"
-                          checked={intraOpData.irrigation?.betadine ?? false}
+                          id="irrigation-ringer" 
+                          data-testid="checkbox-irrigation-ringer"
+                          checked={intraOpData.irrigation?.ringerSolution ?? false}
                           onCheckedChange={(checked) => {
                             const updated = {
                               ...intraOpData,
                               irrigation: {
                                 ...intraOpData.irrigation,
-                                betadine: checked === true
+                                ringerSolution: checked === true
                               }
                             };
                             setIntraOpData(updated);
                             intraOpAutoSave.mutate(updated);
                           }}
                         />
-                        <Label htmlFor="irrigation-betadine">{t('surgery.intraop.irrigationOptions.betadine')}</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox 
-                          id="irrigation-h2o2" 
-                          data-testid="checkbox-irrigation-h2o2"
-                          checked={intraOpData.irrigation?.hydrogenPeroxide ?? false}
-                          onCheckedChange={(checked) => {
-                            const updated = {
-                              ...intraOpData,
-                              irrigation: {
-                                ...intraOpData.irrigation,
-                                hydrogenPeroxide: checked === true
-                              }
-                            };
-                            setIntraOpData(updated);
-                            intraOpAutoSave.mutate(updated);
-                          }}
-                        />
-                        <Label htmlFor="irrigation-h2o2">{t('surgery.intraop.irrigationOptions.hydrogenPeroxide')}</Label>
+                        <Label htmlFor="irrigation-ringer">{t('surgery.intraop.irrigationOptions.ringerSolution')}</Label>
                       </div>
                     </div>
                     <div className="space-y-2">
