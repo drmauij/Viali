@@ -51,6 +51,8 @@ export function PatientCommunicationContent({
   const [sendSuccess, setSendSuccess] = useState(false);
   const [messageLang, setMessageLang] = useState<'de' | 'en'>(i18n.language?.startsWith('de') ? 'de' : 'en');
 
+  const [copiedLinks, setCopiedLinks] = useState<Record<string, boolean>>({});
+
   const getQuestionnaireMessageTemplate = (lang: 'de' | 'en', url: string) => {
     const clinicName = activeHospital?.name || 'Klinik';
     if (lang === 'de') {
@@ -60,13 +62,43 @@ export function PatientCommunicationContent({
     }
   };
 
+  const getInfoflyerMessageTemplate = (lang: 'de' | 'en', flyers: Array<{ unitName: string; downloadUrl: string }>) => {
+    const clinicName = activeHospital?.name || 'Klinik';
+    const flyerLinks = flyers.map(f => `• ${f.unitName}: ${f.downloadUrl}`).join('\n');
+    if (lang === 'de') {
+      return `${clinicName}: Wichtige Dokumente für Ihre Vorbereitung:\n${flyerLinks}`;
+    } else {
+      return `${clinicName}: Important documents for your preparation:\n${flyerLinks}`;
+    }
+  };
+
+  const handleCopyIndividualLink = async (linkId: string, url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedLinks(prev => ({ ...prev, [linkId]: true }));
+      setTimeout(() => {
+        setCopiedLinks(prev => ({ ...prev, [linkId]: false }));
+      }, 2000);
+      toast({
+        title: t('common.copied', 'Copied'),
+        description: t('common.linkCopied', 'Link copied to clipboard'),
+      });
+    } catch (err) {
+      toast({
+        title: t('common.error', 'Error'),
+        description: t('common.copyFailed', 'Failed to copy link'),
+        variant: "destructive",
+      });
+    }
+  };
+
   const translateMessage = (msg: string, fromLang: 'de' | 'en', toLang: 'de' | 'en'): string => {
     if (!msg.trim()) return msg;
-    const clinicName = activeHospital?.name || 'Klinik';
     
     if (fromLang === 'de' && toLang === 'en') {
       return msg
         .replace(/Bitte füllen Sie Ihren präoperativen Fragebogen aus:/g, 'Please complete your pre-operative questionnaire:')
+        .replace(/Wichtige Dokumente für Ihre Vorbereitung:/g, 'Important documents for your preparation:')
         .replace(/Wichtige Dokumente:/g, 'Important documents:')
         .replace(/Bitte beachten Sie die folgenden Informationen:/g, 'Please review the following information:')
         .replace(/Liebe(r)? Patient(in)?/g, 'Dear Patient')
@@ -74,6 +106,7 @@ export function PatientCommunicationContent({
     } else if (fromLang === 'en' && toLang === 'de') {
       return msg
         .replace(/Please complete your pre-operative questionnaire:/g, 'Bitte füllen Sie Ihren präoperativen Fragebogen aus:')
+        .replace(/Important documents for your preparation:/g, 'Wichtige Dokumente für Ihre Vorbereitung:')
         .replace(/Important documents:/g, 'Wichtige Dokumente:')
         .replace(/Please review the following information:/g, 'Bitte beachten Sie die folgenden Informationen:')
         .replace(/Dear Patient/g, 'Liebe(r) Patient(in)')
@@ -557,7 +590,7 @@ export function PatientCommunicationContent({
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden" data-testid="patient-communication-content">
-      <ScrollArea className="flex-1 min-h-0 px-4" ref={scrollRef}>
+      <ScrollArea className={`${isComposing ? 'max-h-[200px] shrink-0' : 'flex-1'} min-h-0 px-4`} ref={scrollRef}>
         <div className="py-4 space-y-3">
           {communicationHistory.length > 0 ? (
             communicationHistory.map((item) => (
@@ -618,7 +651,7 @@ export function PatientCommunicationContent({
         </div>
       </ScrollArea>
 
-      <div className="border-t bg-muted/30 shrink-0">
+      <div className={`border-t bg-muted/30 ${isComposing ? 'flex-1 flex flex-col min-h-0' : 'shrink-0'}`}>
         {!isComposing ? (
           <div className="p-3">
             <Button 
@@ -631,106 +664,126 @@ export function PatientCommunicationContent({
             </Button>
           </div>
         ) : (
-          <div className="p-3 space-y-3">
-            <div className="flex items-center justify-between">
+          <div className="p-3 space-y-3 flex flex-col flex-1 min-h-0">
+            <div className="flex items-center justify-between shrink-0">
               <Label className="text-sm font-medium">{t('messages.compose.newMessage', 'New Message')}</Label>
               <Button variant="ghost" size="icon" onClick={() => setIsComposing(false)} className="h-6 w-6">
                 <X className="h-4 w-4" />
               </Button>
             </div>
 
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex-1 min-h-0">
               <Textarea
                 placeholder={t('messages.messagePlaceholder', 'Write your message here...')}
                 value={customMessage}
                 onChange={(e) => setCustomMessage(e.target.value)}
-                rows={3}
-                className="text-sm resize-none flex-1"
+                className="text-sm resize-none w-full h-full min-h-[180px]"
                 data-testid="input-custom-message"
               />
             </div>
 
-            <div className="flex gap-1.5 flex-wrap">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={async () => {
-                  let link = generatedLink;
-                  if (!link) {
-                    const result = await generateLinkMutation.mutateAsync();
-                    link = { token: result.link.token, linkId: result.link.id };
-                    setGeneratedLink(link);
-                  }
-                  if (link) {
-                    const url = `${window.location.origin}/questionnaire/${link.token}`;
-                    const templateText = getQuestionnaireMessageTemplate(messageLang, url);
-                    setCustomMessage(prev => {
-                      if (!prev.trim()) return templateText;
-                      return prev + '\n' + templateText;
-                    });
-                  }
-                }}
-                disabled={isGenerating}
-                data-testid="button-append-questionnaire"
-              >
-                {isGenerating ? (
-                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                ) : (
-                  <FileText className="h-3 w-3 mr-1" />
+            <div className="space-y-2 shrink-0">
+              <div className="flex gap-1.5 flex-wrap items-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={async () => {
+                    let link = generatedLink;
+                    if (!link) {
+                      const result = await generateLinkMutation.mutateAsync();
+                      link = { token: result.link.token, linkId: result.link.id };
+                      setGeneratedLink(link);
+                    }
+                    if (link) {
+                      const url = `${window.location.origin}/questionnaire/${link.token}`;
+                      const templateText = getQuestionnaireMessageTemplate(messageLang, url);
+                      setCustomMessage(prev => {
+                        if (!prev.trim()) return templateText;
+                        return prev + '\n\n' + templateText;
+                      });
+                    }
+                  }}
+                  disabled={isGenerating}
+                  data-testid="button-append-questionnaire"
+                >
+                  {isGenerating ? (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  ) : (
+                    <FileText className="h-3 w-3 mr-1" />
+                  )}
+                  {t('messages.compose.addQuestionnaire', '+ Questionnaire')}
+                </Button>
+                {(patientFlyers?.flyers?.length || 0) > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      if (patientFlyers?.flyers) {
+                        const templateText = getInfoflyerMessageTemplate(messageLang, patientFlyers.flyers);
+                        setCustomMessage(prev => {
+                          if (!prev.trim()) return templateText;
+                          return prev + '\n\n' + templateText;
+                        });
+                      }
+                    }}
+                    data-testid="button-append-infoflyer"
+                  >
+                    <Info className="h-3 w-3 mr-1" />
+                    {t('messages.compose.addInfoflyer', '+ Infoflyer')}
+                  </Button>
                 )}
-                {t('messages.compose.addQuestionnaire', '+ Questionnaire')}
-              </Button>
-              {(patientFlyers?.flyers?.length || 0) > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => {
-                    const flyerLinks = patientFlyers?.flyers?.map(f => 
-                      `${f.unitName}: ${f.downloadUrl}`
-                    ).join('\n') || '';
-                    const templateText = `${t('messages.templates.infoflyer', 'Important documents:')}\n${flyerLinks}`;
-                    setCustomMessage(prev => {
-                      if (!prev.trim()) return templateText;
-                      return prev + '\n' + templateText;
-                    });
-                  }}
-                  data-testid="button-append-infoflyer"
-                >
-                  <Info className="h-3 w-3 mr-1" />
-                  {t('messages.compose.addInfoflyer', '+ Infoflyer')}
-                </Button>
-              )}
-              {generatedLink && (
-                <Button
-                  variant={copied ? "default" : "ghost"}
-                  size="sm"
-                  onClick={handleCopyLink}
-                  className="h-7 text-xs"
-                  data-testid="button-copy-questionnaire-link"
-                >
-                  {copied ? <CheckCircle className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
-                  {t('common.copyLink', 'Copy Link')}
-                </Button>
-              )}
-              {customMessage.trim() && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs ml-auto"
-                  onClick={() => {
-                    const newLang = messageLang === 'de' ? 'en' : 'de';
-                    const translated = translateMessage(customMessage, messageLang, newLang);
-                    setCustomMessage(translated);
-                    setMessageLang(newLang);
-                  }}
-                  data-testid="button-translate-message"
-                  title={messageLang === 'de' ? 'Translate to English' : 'Auf Deutsch übersetzen'}
-                >
-                  <Languages className="h-3 w-3 mr-1" />
-                  {messageLang === 'de' ? 'DE → EN' : 'EN → DE'}
-                </Button>
+                
+                {customMessage.trim() && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs ml-auto"
+                    onClick={() => {
+                      const newLang = messageLang === 'de' ? 'en' : 'de';
+                      const translated = translateMessage(customMessage, messageLang, newLang);
+                      setCustomMessage(translated);
+                      setMessageLang(newLang);
+                    }}
+                    data-testid="button-translate-message"
+                    title={messageLang === 'de' ? 'Translate to English' : 'Auf Deutsch übersetzen'}
+                  >
+                    <Languages className="h-3 w-3 mr-1" />
+                    {messageLang === 'de' ? 'DE → EN' : 'EN → DE'}
+                  </Button>
+                )}
+              </div>
+
+              {(generatedLink || (patientFlyers?.flyers?.length || 0) > 0) && (
+                <div className="flex gap-1.5 flex-wrap items-center p-2 bg-muted/50 rounded-md">
+                  <span className="text-xs text-muted-foreground mr-1">{t('messages.compose.copyLinks', 'Copy links:')}</span>
+                  {generatedLink && (
+                    <Button
+                      variant={copiedLinks['questionnaire'] ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => handleCopyIndividualLink('questionnaire', `${window.location.origin}/questionnaire/${generatedLink.token}`)}
+                      className="h-6 text-xs px-2"
+                      data-testid="button-copy-questionnaire-link"
+                    >
+                      {copiedLinks['questionnaire'] ? <CheckCircle className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                      {t('messages.compose.questionnaire', 'Questionnaire')}
+                    </Button>
+                  )}
+                  {patientFlyers?.flyers?.map((flyer, index) => (
+                    <Button
+                      key={flyer.downloadUrl}
+                      variant={copiedLinks[`flyer-${index}`] ? "default" : "ghost"}
+                      size="sm"
+                      onClick={() => handleCopyIndividualLink(`flyer-${index}`, flyer.downloadUrl)}
+                      className="h-6 text-xs px-2"
+                      data-testid={`button-copy-flyer-${index}`}
+                    >
+                      {copiedLinks[`flyer-${index}`] ? <CheckCircle className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
+                      {flyer.unitName}
+                    </Button>
+                  ))}
+                </div>
               )}
             </div>
 
