@@ -3480,8 +3480,8 @@
   },
   "business": {
     "dashboard": {
-      "title": "Business Dashboard",
-      "subtitle": "Executive overview of surgical operations and costs",
+      "title": "Surgery Administration",
+      "subtitle": "Manage administrative details for surgeries such as billing, contracts, and documentation",
       "selectPeriod": "Select period"
     },
     "periods": {

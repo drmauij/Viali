@@ -3496,8 +3496,8 @@
   },
   "business": {
     "dashboard": {
-      "title": "Geschäfts-Dashboard",
-      "subtitle": "Übersicht über OP-Betrieb und Kosten für die Geschäftsführung",
+      "title": "OP-Administration",
+      "subtitle": "Verwaltung von administrativen Details wie Abrechnung, Verträge und Dokumentation",
       "selectPeriod": "Zeitraum wählen"
     },
     "periods": {
