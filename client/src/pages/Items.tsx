@@ -2370,7 +2370,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       console.error("Error fetching supplier codes for PDF:", error);
     }
     
-    const doc = new jsPDF({ orientation: "landscape", format: "a4" });
+    const doc = new jsPDF({ orientation: "portrait", format: "a4" });
     
     const folderMap = new Map<string, Folder>();
     folders.forEach(folder => folderMap.set(folder.id, folder));
@@ -2391,14 +2391,14 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       return (a.sortOrder || 0) - (b.sortOrder || 0);
     });
 
-    // Header
+    // Header (portrait A4: 210mm width, center at 105mm)
     doc.setFontSize(18);
-    doc.text("INVENTORY LIST", 148, 15, { align: "center" });
+    doc.text("INVENTORY LIST", 105, 15, { align: "center" });
     
     doc.setFontSize(10);
     const hospitalName = activeHospital?.name || "Hospital";
     const exportDate = new Date().toLocaleDateString('en-GB');
-    doc.text(`Hospital: ${hospitalName}`, 20, 25);
+    doc.text(`Hospital: ${hospitalName}`, 15, 25);
     doc.text(`Date: ${exportDate}`, 150, 25);
 
     // Build table data with folder grouping
@@ -2414,7 +2414,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       if (folderName !== currentFolder) {
         currentFolder = folderName;
         tableData.push([
-          { content: folderName.toUpperCase(), colSpan: 8, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
+          { content: folderName.toUpperCase(), colSpan: 7, styles: { fillColor: [240, 240, 240], fontStyle: 'bold', textColor: [0, 0, 0] } }
         ]);
       }
       
@@ -2439,7 +2439,6 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       // Supplier info from preferred supplier
       const supplierInfo = supplierCodesMap.get(item.id);
       const supplierName = supplierInfo?.supplierName || "-";
-      const pricePerPack = supplierInfo?.basispreis ? `CHF ${Number(supplierInfo.basispreis).toFixed(2)}` : "-";
       
       const row = [
         item.name,
@@ -2449,13 +2448,12 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         String(item.minThreshold || 0),
         String(item.maxThreshold || 0),
         supplierName,
-        pricePerPack,
       ];
 
       tableData.push(row);
     });
 
-    // Create table (landscape A4 = 297mm width, with 10mm margins = 277mm usable)
+    // Create table (portrait A4 = 210mm width, with 15mm margins = 180mm usable)
     autoTable(doc, {
       startY: 30,
       head: [[
@@ -2465,35 +2463,33 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         "Current Items",
         "Min",
         "Max",
-        "Supplier",
-        "Price/Pack"
+        "Supplier"
       ]],
       body: tableData,
       theme: "grid",
       styles: { fontSize: 8, cellPadding: 2 },
       headStyles: { fillColor: [59, 130, 246], textColor: 255, fontSize: 8, fontStyle: 'bold' },
       columnStyles: {
-        0: { cellWidth: 75 },  // Item Name
-        1: { cellWidth: 28 },  // Current Stock
+        0: { cellWidth: 55 },  // Item Name
+        1: { cellWidth: 25 },  // Current Stock
         2: { cellWidth: 18, halign: "center" },  // Pack Size
-        3: { cellWidth: 22, halign: "center" },  // Current Items
-        4: { cellWidth: 15, halign: "center" },  // Min
-        5: { cellWidth: 15, halign: "center" },  // Max
-        6: { cellWidth: 50 },  // Supplier
-        7: { cellWidth: 28, halign: "right" },  // Price/Pack
+        3: { cellWidth: 20, halign: "center" },  // Current Items
+        4: { cellWidth: 12, halign: "center" },  // Min
+        5: { cellWidth: 12, halign: "center" },  // Max
+        6: { cellWidth: 38 },  // Supplier
       },
-      margin: { left: 10, right: 10 },
+      margin: { left: 15, right: 15 },
     });
 
-    // Footer (landscape A4: 297x210mm, footer at 200mm from top, center at 148.5mm)
+    // Footer (portrait A4: 210x297mm, footer at 287mm from top, center at 105mm)
     const pageCount = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(8);
       doc.text(
         `Page ${i} of ${pageCount}`,
-        148.5,
-        200,
+        105,
+        287,
         { align: "center" }
       );
     }
