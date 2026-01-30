@@ -329,11 +329,15 @@ export function PatientCommunicationContent({
         const isAutomatic = msgAny.isAutomatic === true;
         const messageType = msgAny.messageType || 'manual';
         
+        // Skip auto_questionnaire messages - they're already shown via existingLinks
+        // This prevents duplicate display of the same questionnaire send
+        if (messageType === 'auto_questionnaire') {
+          return;
+        }
+        
         let type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder' = 'message';
         if (msgAny.type === 'infoflyer') {
           type = 'infoflyer';
-        } else if (messageType === 'auto_questionnaire') {
-          type = 'auto_questionnaire';
         } else if (messageType === 'auto_reminder') {
           type = 'auto_reminder';
         }
