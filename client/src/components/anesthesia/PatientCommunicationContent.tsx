@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import i18n from "i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Copy, Mail, Loader2, CheckCircle, MessageSquare, Clock, FileText, Send, Smartphone, Info, Plus, X } from "lucide-react";
+import { Copy, Mail, Loader2, CheckCircle, MessageSquare, Clock, FileText, Send, Smartphone, Info, Plus, X, Languages } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -48,6 +49,38 @@ export function PatientCommunicationContent({
   const [phoneNumber, setPhoneNumber] = useState(patientPhone || "");
   const [customMessage, setCustomMessage] = useState("");
   const [sendSuccess, setSendSuccess] = useState(false);
+  const [messageLang, setMessageLang] = useState<'de' | 'en'>(i18n.language?.startsWith('de') ? 'de' : 'en');
+
+  const getQuestionnaireMessageTemplate = (lang: 'de' | 'en', url: string) => {
+    const clinicName = activeHospital?.name || 'Klinik';
+    if (lang === 'de') {
+      return `${clinicName}: Bitte füllen Sie Ihren präoperativen Fragebogen aus:\n${url}`;
+    } else {
+      return `${clinicName}: Please complete your pre-operative questionnaire:\n${url}`;
+    }
+  };
+
+  const translateMessage = (msg: string, fromLang: 'de' | 'en', toLang: 'de' | 'en'): string => {
+    if (!msg.trim()) return msg;
+    const clinicName = activeHospital?.name || 'Klinik';
+    
+    if (fromLang === 'de' && toLang === 'en') {
+      return msg
+        .replace(/Bitte füllen Sie Ihren präoperativen Fragebogen aus:/g, 'Please complete your pre-operative questionnaire:')
+        .replace(/Wichtige Dokumente:/g, 'Important documents:')
+        .replace(/Bitte beachten Sie die folgenden Informationen:/g, 'Please review the following information:')
+        .replace(/Liebe(r)? Patient(in)?/g, 'Dear Patient')
+        .replace(/Mit freundlichen Grüßen/g, 'Kind regards');
+    } else if (fromLang === 'en' && toLang === 'de') {
+      return msg
+        .replace(/Please complete your pre-operative questionnaire:/g, 'Bitte füllen Sie Ihren präoperativen Fragebogen aus:')
+        .replace(/Important documents:/g, 'Wichtige Dokumente:')
+        .replace(/Please review the following information:/g, 'Bitte beachten Sie die folgenden Informationen:')
+        .replace(/Dear Patient/g, 'Liebe(r) Patient(in)')
+        .replace(/Kind regards/g, 'Mit freundlichen Grüßen');
+    }
+    return msg;
+  };
 
   useEffect(() => {
     if (isEnabled) {
@@ -606,14 +639,16 @@ export function PatientCommunicationContent({
               </Button>
             </div>
 
-            <Textarea
-              placeholder={t('messages.messagePlaceholder', 'Write your message here...')}
-              value={customMessage}
-              onChange={(e) => setCustomMessage(e.target.value)}
-              rows={3}
-              className="text-sm resize-none"
-              data-testid="input-custom-message"
-            />
+            <div className="flex items-center gap-2 mb-1">
+              <Textarea
+                placeholder={t('messages.messagePlaceholder', 'Write your message here...')}
+                value={customMessage}
+                onChange={(e) => setCustomMessage(e.target.value)}
+                rows={3}
+                className="text-sm resize-none flex-1"
+                data-testid="input-custom-message"
+              />
+            </div>
 
             <div className="flex gap-1.5 flex-wrap">
               <Button
@@ -629,7 +664,7 @@ export function PatientCommunicationContent({
                   }
                   if (link) {
                     const url = `${window.location.origin}/questionnaire/${link.token}`;
-                    const templateText = `${t('messages.templates.questionnaire', 'Please complete your pre-operative questionnaire:')} ${url}`;
+                    const templateText = getQuestionnaireMessageTemplate(messageLang, url);
                     setCustomMessage(prev => {
                       if (!prev.trim()) return templateText;
                       return prev + '\n' + templateText;
@@ -672,11 +707,29 @@ export function PatientCommunicationContent({
                   variant={copied ? "default" : "ghost"}
                   size="sm"
                   onClick={handleCopyLink}
-                  className="h-7 text-xs ml-auto"
+                  className="h-7 text-xs"
                   data-testid="button-copy-questionnaire-link"
                 >
                   {copied ? <CheckCircle className="h-3 w-3 mr-1" /> : <Copy className="h-3 w-3 mr-1" />}
                   {t('common.copyLink', 'Copy Link')}
+                </Button>
+              )}
+              {customMessage.trim() && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs ml-auto"
+                  onClick={() => {
+                    const newLang = messageLang === 'de' ? 'en' : 'de';
+                    const translated = translateMessage(customMessage, messageLang, newLang);
+                    setCustomMessage(translated);
+                    setMessageLang(newLang);
+                  }}
+                  data-testid="button-translate-message"
+                  title={messageLang === 'de' ? 'Translate to English' : 'Auf Deutsch übersetzen'}
+                >
+                  <Languages className="h-3 w-3 mr-1" />
+                  {messageLang === 'de' ? 'DE → EN' : 'EN → DE'}
                 </Button>
               )}
             </div>
