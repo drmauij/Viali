@@ -332,6 +332,25 @@ export default function CostAnalytics() {
 
   const totalCosts = mockCostByCategory.reduce((sum, cat) => sum + cat.value, 0);
 
+  // Fetch surgeries with cost calculations
+  const { data: surgeriesData, isLoading: surgeriesLoading, isError: surgeriesError } = useQuery<{
+    id: string;
+    date: string;
+    surgeryName: string;
+    patientName: string;
+    patientId: string | null;
+    anesthesiaRecordId: string | null;
+    surgeryDurationMinutes: number;
+    staffCost: number;
+    anesthesiaCost: number;
+    surgeryCost: number;
+    totalCost: number;
+    status: string;
+  }[]>({
+    queryKey: [`/api/business/${activeHospital?.id}/surgeries`],
+    enabled: !!activeHospital?.id && activeSubTab === 'surgeries',
+  });
+
   // Fetch aggregated inventory data from all clinics for business module
   const { data: inventoryOverview, isLoading: inventoryLoading } = useQuery<{
     units: any[];
@@ -494,14 +513,24 @@ export default function CostAnalytics() {
   };
 
   // Filter surgeries based on search
-  const filteredSurgeries = mockSurgeryList.filter(surgery => {
+  const filteredSurgeries = useMemo(() => {
+    if (!surgeriesData) return [];
     const searchLower = surgerySearch.toLowerCase();
-    return (
-      surgery.surgeryName.toLowerCase().includes(searchLower) ||
-      surgery.patientFirstName.toLowerCase().includes(searchLower) ||
-      surgery.patientLastName.toLowerCase().includes(searchLower)
+    return surgeriesData.filter(surgery => 
+      (surgery.surgeryName || '').toLowerCase().includes(searchLower) ||
+      (surgery.patientName || '').toLowerCase().includes(searchLower)
     );
-  });
+  }, [surgeriesData, surgerySearch]);
+
+  // Format duration for display (e.g., "2h 15min")
+  const formatDuration = (minutes: number | null | undefined) => {
+    if (!minutes || minutes <= 0) return '-';
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours === 0) return `${mins}min`;
+    if (mins === 0) return `${hours}h`;
+    return `${hours}h ${mins}min`;
+  };
 
   // Format date for display
   const formatDate = (dateStr: string) => {
@@ -883,76 +912,99 @@ export default function CostAnalytics() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('business.costs.surgeryDate')}</TableHead>
-                      <TableHead>{t('business.costs.surgeryMade')}</TableHead>
-                      <TableHead>{t('business.costs.patientData')}</TableHead>
-                      <TableHead className="text-right">{t('business.costs.staffCostsCol')}</TableHead>
-                      <TableHead className="text-right">{t('business.costs.materialDrugsCosts')}</TableHead>
-                      <TableHead className="text-right">{t('business.costs.totalCostCol')}</TableHead>
-                      <TableHead className="text-right">{t('business.costs.amountPaid')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredSurgeries.length === 0 ? (
+              {surgeriesLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : surgeriesError ? (
+                <div className="text-center text-red-500 py-12">
+                  {t('common.errorLoadingData')}
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                          {t('business.costs.noSurgeriesFound')}
-                        </TableCell>
+                        <TableHead>{t('business.costs.surgeryDate')}</TableHead>
+                        <TableHead>{t('business.costs.surgeryMade')}</TableHead>
+                        <TableHead>{t('business.costs.patientData')}</TableHead>
+                        <TableHead className="text-center">
+                          <Tooltip>
+                            <TooltipTrigger className="flex items-center gap-1 mx-auto">
+                              {t('business.costs.surgeryTime')}
+                              <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{t('business.costs.surgeryTimeTooltip')}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TableHead>
+                        <TableHead className="text-right">{t('business.costs.staffCostsCol')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.anesthesiaCostsCol')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.surgeryCostsCol')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.totalCostCol')}</TableHead>
                       </TableRow>
-                    ) : (
-                      filteredSurgeries.map((surgery) => (
-                        <TableRow key={surgery.id} data-testid={`row-surgery-${surgery.id}`}>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-medium">{formatDate(surgery.date)}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-medium">{surgery.surgeryName}</span>
-                          </TableCell>
-                          <TableCell>
-                            <div>
-                              <span className="font-medium">{surgery.patientLastName}, {surgery.patientFirstName}</span>
-                              <div className="text-xs text-muted-foreground">
-                                {t('business.costs.born')}: {formatBirthday(surgery.patientBirthday)}
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className="text-purple-600 dark:text-purple-400">€{surgery.staffCost.toLocaleString()}</span>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <span className="text-blue-600 dark:text-blue-400">€{surgery.materialDrugsCost.toLocaleString()}</span>
-                          </TableCell>
-                          <TableCell className="text-right font-semibold">
-                            €{surgery.totalCost.toLocaleString()}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex flex-col items-end">
-                              <span className={surgery.amountPaid >= surgery.totalCost ? "text-green-600 dark:text-green-400" : "text-orange-600 dark:text-orange-400"}>
-                                €{surgery.amountPaid.toLocaleString()}
-                              </span>
-                              {surgery.amountPaid < surgery.totalCost && (
-                                <span className="text-xs text-muted-foreground">
-                                  ({t('business.costs.open')}: €{(surgery.totalCost - surgery.amountPaid).toLocaleString()})
-                                </span>
-                              )}
-                            </div>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredSurgeries.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                            {t('business.costs.noSurgeriesFound')}
                           </TableCell>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+                      ) : (
+                        filteredSurgeries.map((surgery) => (
+                          <TableRow key={surgery.id} data-testid={`row-surgery-${surgery.id}`}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">{formatDate(surgery.date)}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium">{surgery.surgeryName || '-'}</span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="font-medium">{surgery.patientName || '-'}</span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <span className="font-medium">{formatDuration(surgery.surgeryDurationMinutes)}</span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{surgery.surgeryDurationMinutes ?? 0} {t('common.minutes')}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="text-purple-600 dark:text-purple-400">
+                                CHF {(surgery.staffCost ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="text-green-600 dark:text-green-400">
+                                CHF {(surgery.anesthesiaCost ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <span className="text-blue-600 dark:text-blue-400">
+                                CHF {(surgery.surgeryCost ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">
+                              CHF {(surgery.totalCost ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
               
               {/* Summary row */}
-              {filteredSurgeries.length > 0 && (
+              {filteredSurgeries.length > 0 && !surgeriesLoading && (
                 <div className="mt-4 pt-4 border-t">
                   <div className="flex flex-wrap gap-4 justify-end text-sm">
                     <div className="flex items-center gap-2">
@@ -962,25 +1014,25 @@ export default function CostAnalytics() {
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground">{t('business.costs.totalStaffCosts')}:</span>
                       <span className="text-purple-600 dark:text-purple-400 font-medium">
-                        €{filteredSurgeries.reduce((sum, s) => sum + s.staffCost, 0).toLocaleString()}
+                        CHF {filteredSurgeries.reduce((sum, s) => sum + (s.staffCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{t('business.costs.totalMaterialDrugs')}:</span>
+                      <span className="text-muted-foreground">{t('business.costs.totalAnesthesiaCosts')}:</span>
+                      <span className="text-green-600 dark:text-green-400 font-medium">
+                        CHF {filteredSurgeries.reduce((sum, s) => sum + (s.anesthesiaCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{t('business.costs.totalSurgeryCosts')}:</span>
                       <span className="text-blue-600 dark:text-blue-400 font-medium">
-                        €{filteredSurgeries.reduce((sum, s) => sum + s.materialDrugsCost, 0).toLocaleString()}
+                        CHF {filteredSurgeries.reduce((sum, s) => sum + (s.surgeryCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-muted-foreground">{t('business.costs.grandTotal')}:</span>
                       <span className="font-bold">
-                        €{filteredSurgeries.reduce((sum, s) => sum + s.totalCost, 0).toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{t('business.costs.totalPaid')}:</span>
-                      <span className="text-green-600 dark:text-green-400 font-medium">
-                        €{filteredSurgeries.reduce((sum, s) => sum + s.amountPaid, 0).toLocaleString()}
+                        CHF {filteredSurgeries.reduce((sum, s) => sum + (s.totalCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </div>
                   </div>
