@@ -1015,7 +1015,7 @@ export default function Users() {
 
       {/* Create User Dialog */}
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("admin.createNewUser")}</DialogTitle>
           </DialogHeader>
