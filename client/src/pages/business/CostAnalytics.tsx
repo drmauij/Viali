@@ -1002,63 +1002,6 @@ export default function CostAnalytics() {
 
         {/* Inventories Tab Content */}
         <TabsContent value="inventories" className="space-y-6 mt-6">
-          {/* Historical Inventory Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                {t('business.costs.inventoryHistory')}
-              </CardTitle>
-              <CardDescription>{t('business.costs.inventoryHistoryDesc')}</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {snapshotsLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              ) : chartData.length === 0 ? (
-                <div className="text-center text-muted-foreground py-12">
-                  <p>{t('business.costs.noHistoricalData')}</p>
-                  <p className="text-sm mt-2">{t('business.costs.dataCollectionStarted')}</p>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorInventory" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis dataKey="date" className="text-muted-foreground" fontSize={12} />
-                    <YAxis 
-                      className="text-muted-foreground" 
-                      fontSize={12}
-                      tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
-                    />
-                    <RechartsTooltip
-                      contentStyle={{ 
-                        backgroundColor: 'hsl(var(--background))', 
-                        border: '1px solid hsl(var(--border))',
-                        borderRadius: '8px'
-                      }}
-                      formatter={(value: number) => [`CHF ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, t('business.costs.totalValue')]}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="totalValue"
-                      stroke="#22c55e"
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill="url(#colorInventory)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Current Inventory Values */}
           <Card>
             <CardHeader>
@@ -1179,6 +1122,63 @@ export default function CostAnalytics() {
                     </div>
                   ))}
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Historical Inventory Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                {t('business.costs.inventoryHistory')}
+              </CardTitle>
+              <CardDescription>{t('business.costs.inventoryHistoryDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {snapshotsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : chartData.length === 0 ? (
+                <div className="text-center text-muted-foreground py-12">
+                  <p>{t('business.costs.noHistoricalData')}</p>
+                  <p className="text-sm mt-2">{t('business.costs.dataCollectionStarted')}</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorInventory" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" className="text-muted-foreground" fontSize={12} />
+                    <YAxis 
+                      className="text-muted-foreground" 
+                      fontSize={12}
+                      tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                    />
+                    <RechartsTooltip
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                      formatter={(value: number) => [`CHF ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, t('business.costs.totalValue')]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="totalValue"
+                      stroke="#22c55e"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#colorInventory)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               )}
             </CardContent>
           </Card>
