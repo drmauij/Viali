@@ -5048,8 +5048,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               </div>
             )}
 
-            {/* Pack Size and Current Units - Only shown when Track Exact Quantity is checked */}
-            {selectedUnit === "Pack" && editFormData.trackExactQuantity && (
+            {/* Pack Size and Current Units - Only shown when Track Exact Quantity is checked and not a service item */}
+            {!editFormData.isService && selectedUnit === "Pack" && editFormData.trackExactQuantity && (
               <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border-2 border-blue-200 dark:border-blue-900/50 space-y-4">
                 <div>
                   <Label htmlFor="edit-packSize">{t('items.packSize')} *</Label>
@@ -5113,59 +5113,64 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               />
             </div> */}
 
-            <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg border-2 border-primary/30">
-              <Label htmlFor="edit-actualStock" className="text-base font-semibold">
-                {t('items.actualStock')}
-                {editFormData.trackExactQuantity && (
-                  <span className="ml-2 text-xs text-muted-foreground font-normal">(Auto-calculated)</span>
-                )}
-              </Label>
-              <Input 
-                ref={editActualStockInputRef}
-                id="edit-actualStock" 
-                name="actualStock" 
-                type="number" 
-                min="0"
-                value={editFormData.actualStock}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, actualStock: e.target.value }))}
-                onFocus={handleNumberInputFocus}
-                data-testid="input-edit-actual-stock"
-                className="mt-2 text-lg font-medium"
-                disabled={!canWrite || editFormData.trackExactQuantity}
-                readOnly={!canWrite || editFormData.trackExactQuantity}
-              />
-            </div>
+            {/* Stock section - Hidden for service items */}
+            {!editFormData.isService && (
+              <>
+                <div className="p-4 bg-primary/10 dark:bg-primary/20 rounded-lg border-2 border-primary/30">
+                  <Label htmlFor="edit-actualStock" className="text-base font-semibold">
+                    {t('items.actualStock')}
+                    {editFormData.trackExactQuantity && (
+                      <span className="ml-2 text-xs text-muted-foreground font-normal">(Auto-calculated)</span>
+                    )}
+                  </Label>
+                  <Input 
+                    ref={editActualStockInputRef}
+                    id="edit-actualStock" 
+                    name="actualStock" 
+                    type="number" 
+                    min="0"
+                    value={editFormData.actualStock}
+                    onChange={(e) => setEditFormData(prev => ({ ...prev, actualStock: e.target.value }))}
+                    onFocus={handleNumberInputFocus}
+                    data-testid="input-edit-actual-stock"
+                    className="mt-2 text-lg font-medium"
+                    disabled={!canWrite || editFormData.trackExactQuantity}
+                    readOnly={!canWrite || editFormData.trackExactQuantity}
+                  />
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="edit-minThreshold">{t('items.minThreshold')}</Label>
-                <Input 
-                  id="edit-minThreshold" 
-                  name="minThreshold" 
-                  type="number" 
-                  min="0"
-                  value={editFormData.minThreshold}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, minThreshold: e.target.value }))}
-                  onFocus={handleNumberInputFocus}
-                  disabled={!canWrite}
-                  data-testid="input-edit-min" 
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-maxThreshold">{t('items.maxThreshold')}</Label>
-                <Input 
-                  id="edit-maxThreshold" 
-                  name="maxThreshold" 
-                  type="number" 
-                  min="0"
-                  value={editFormData.maxThreshold}
-                  onChange={(e) => setEditFormData(prev => ({ ...prev, maxThreshold: e.target.value }))}
-                  onFocus={handleNumberInputFocus}
-                  disabled={!canWrite}
-                  data-testid="input-edit-max" 
-                />
-              </div>
-            </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="edit-minThreshold">{t('items.minThreshold')}</Label>
+                    <Input 
+                      id="edit-minThreshold" 
+                      name="minThreshold" 
+                      type="number" 
+                      min="0"
+                      value={editFormData.minThreshold}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, minThreshold: e.target.value }))}
+                      onFocus={handleNumberInputFocus}
+                      disabled={!canWrite}
+                      data-testid="input-edit-min" 
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-maxThreshold">{t('items.maxThreshold')}</Label>
+                    <Input 
+                      id="edit-maxThreshold" 
+                      name="maxThreshold" 
+                      type="number" 
+                      min="0"
+                      value={editFormData.maxThreshold}
+                      onChange={(e) => setEditFormData(prev => ({ ...prev, maxThreshold: e.target.value }))}
+                      onFocus={handleNumberInputFocus}
+                      disabled={!canWrite}
+                      data-testid="input-edit-max" 
+                    />
+                  </div>
+                </div>
+              </>
+            )}
 
             <div>
               <Label htmlFor="edit-dailyUsageEstimate">{t('items.dailyUsageEstimate', 'Est. Daily Usage')}</Label>
