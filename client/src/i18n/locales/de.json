@@ -218,6 +218,21 @@
     "matchedTo": "Zugeordnet zu",
     "matchReason": "Grund"
   },
+  "hinMatches": {
+    "toVerify": "Zu überprüfen",
+    "toVerifyDesc": "Artikel, die nach Namensähnlichkeit mit der HIN-Datenbank zugeordnet wurden. Überprüfen Sie jede Zuordnung und genehmigen oder ablehnen.",
+    "syncWithHin": "Mit HIN synchronisieren",
+    "syncing": "Synchronisiere...",
+    "syncComplete": "HIN-Synchronisierung abgeschlossen",
+    "syncResults": "Zugeordnet: {{matched}}, Zu überprüfen: {{toVerify}}, Nicht zugeordnet: {{unmatched}}",
+    "syncFailed": "HIN-Synchronisierung fehlgeschlagen",
+    "yourItem": "Ihr Artikel",
+    "hinMatch": "HIN-Zuordnung",
+    "noCodes": "Keine Codes",
+    "matchApproved": "Zuordnung genehmigt und Codes aktualisiert",
+    "matchRejected": "Zuordnung abgelehnt",
+    "noItemsToVerify": "Keine Artikel zur Überprüfung. Klicken Sie auf 'Mit HIN synchronisieren', um Zuordnungen zu finden."
+  },
   "modules": {
     "title": "Modul auswählen",
     "active": "Aktiv",

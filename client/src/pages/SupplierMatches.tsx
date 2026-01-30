@@ -563,14 +563,105 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
     },
   });
 
+  // HIN matches query for the "To Verify" tab
+  interface HinMatchData {
+    matched: any[];
+    toVerify: any[];
+    unmatched: any[];
+    rejected: any[];
+    counts: {
+      matched: number;
+      toVerify: number;
+      unmatched: number;
+      rejected: number;
+      total: number;
+    };
+  }
+  
+  const { data: hinMatchData, refetch: refetchHinMatches, isLoading: isLoadingHin } = useQuery<HinMatchData>({
+    queryKey: [`/api/hin-matches/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+
+  const [isSyncingHin, setIsSyncingHin] = useState(false);
+  const [searchToVerify, setSearchToVerify] = useState("");
+  
+  // Trigger HIN batch sync
+  const syncWithHin = async () => {
+    if (!activeHospital?.id) return;
+    setIsSyncingHin(true);
+    try {
+      const response = await apiRequest("POST", `/api/hin-matches/${activeHospital.id}/sync`);
+      const result = await response.json();
+      toast({
+        title: t("hinMatches.syncComplete", "HIN Sync Complete"),
+        description: t("hinMatches.syncResults", `Matched: ${result.matched}, To Verify: ${result.toVerify}, Unmatched: ${result.unmatched}`),
+      });
+      refetchHinMatches();
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: t("common.error"),
+        description: error.message || t("hinMatches.syncFailed", "Failed to sync with HIN"),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSyncingHin(false);
+    }
+  };
+
+  // Approve HIN fuzzy match
+  const approveHinMatch = useMutation({
+    mutationFn: async (matchId: string) => {
+      const response = await apiRequest("POST", `/api/hin-matches/${matchId}/approve`);
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchHinMatches();
+      refetch();
+      toast({ title: t("common.success"), description: t("hinMatches.matchApproved", "Match approved and codes updated") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Reject HIN fuzzy match
+  const rejectHinMatch = useMutation({
+    mutationFn: async (matchId: string) => {
+      const response = await apiRequest("POST", `/api/hin-matches/${matchId}/reject`);
+      return response.json();
+    },
+    onSuccess: () => {
+      refetchHinMatches();
+      toast({ title: t("common.success"), description: t("hinMatches.matchRejected", "Match rejected") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
+    },
+  });
+  
+  // Filter HIN matches by search
+  const filterHinMatches = (matches: any[], search: string) => {
+    if (!search.trim()) return matches;
+    const lower = search.toLowerCase();
+    return matches.filter(m => 
+      m.itemName?.toLowerCase().includes(lower) ||
+      m.hinDescriptionDe?.toLowerCase().includes(lower) ||
+      m.originalPharmacode?.includes(search) ||
+      m.hinPharmacode?.includes(search)
+    );
+  };
+
   const formatPrice = (price: string | null) => {
     if (!price) return "-";
     return `CHF ${parseFloat(price).toFixed(2)}`;
   };
 
-  const getConfidenceBadge = (confidence: string | null) => {
-    if (!confidence) return null;
-    const conf = parseFloat(confidence);
+  const getConfidenceBadge = (confidence: string | number | null | undefined) => {
+    if (confidence == null) return null;
+    const conf = typeof confidence === 'number' ? confidence : parseFloat(String(confidence));
+    if (isNaN(conf)) return null;
     if (conf >= 0.9) {
       return <Badge variant="default" className="bg-green-600 text-xs">{Math.round(conf * 100)}%</Badge>;
     } else if (conf >= 0.7) {
@@ -648,10 +739,14 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
       )}
 
       <Tabs defaultValue="unmatched" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="unmatched" data-testid="tab-unmatched" className="text-xs sm:text-sm">
             <XCircle className="w-3 h-3 mr-1 hidden sm:inline" />
             {t("supplierMatches.unmatched", "Unmatched")} ({counts.unmatched})
+          </TabsTrigger>
+          <TabsTrigger value="toVerify" data-testid="tab-to-verify" className="text-xs sm:text-sm">
+            <AlertCircle className="w-3 h-3 mr-1 hidden sm:inline" />
+            {t("hinMatches.toVerify", "To Verify")} ({hinMatchData?.counts?.toVerify || 0})
           </TabsTrigger>
           <TabsTrigger value="confirmedNoPrice" data-testid="tab-confirmed-no-price" className="text-xs sm:text-sm">
             <DollarSign className="w-3 h-3 mr-1 hidden sm:inline" />
@@ -714,6 +809,144 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
                       {t("supplierMatches.noMatch", "No Match")}
                     </Badge>
                     <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </TabsContent>
+
+        {/* To Verify Tab - HIN fuzzy matches requiring manual confirmation */}
+        <TabsContent value="toVerify" className="space-y-3 mt-4">
+          <div className="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg p-3 text-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-purple-700 dark:text-purple-300">
+                {t("hinMatches.toVerifyDesc", "Items matched by name similarity to HIN database. Review each match and approve or reject.")}
+              </p>
+              <Button 
+                size="sm"
+                variant="outline"
+                onClick={syncWithHin}
+                disabled={isSyncingHin}
+                data-testid="button-sync-hin"
+              >
+                {isSyncingHin ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t("hinMatches.syncing", "Syncing...")}</>
+                ) : (
+                  <>{t("hinMatches.syncWithHin", "Sync with HIN")}</>
+                )}
+              </Button>
+            </div>
+          </div>
+          
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={t("common.search", "Search")}
+              value={searchToVerify}
+              onChange={(e) => setSearchToVerify(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-to-verify"
+            />
+          </div>
+          
+          {isLoadingHin ? (
+            <div className="space-y-3">
+              <Skeleton className="h-24 w-full" />
+              <Skeleton className="h-24 w-full" />
+            </div>
+          ) : filterHinMatches(hinMatchData?.toVerify || [], searchToVerify).length === 0 ? (
+            <div className="bg-card border border-border rounded-lg p-6 text-center">
+              {searchToVerify.trim() ? (
+                <>
+                  <Search className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+                  <p className="text-muted-foreground">{t("common.noSearchResults", "No items match your search")}</p>
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="w-8 h-8 mx-auto text-green-500 mb-2" />
+                  <p className="text-muted-foreground">{t("hinMatches.noItemsToVerify", "No items need verification. Click 'Sync with HIN' to find matches.")}</p>
+                </>
+              )}
+            </div>
+          ) : (
+            filterHinMatches(hinMatchData?.toVerify || [], searchToVerify).map((match) => (
+              <Card 
+                key={match.id} 
+                data-testid={`card-to-verify-${match.id}`}
+                className="border-purple-200 dark:border-purple-800"
+              >
+                <CardContent className="p-4">
+                  <div className="space-y-3">
+                    {/* Your Item */}
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="text-xs">{t("hinMatches.yourItem", "Your Item")}</Badge>
+                          {getConfidenceBadge(match.matchConfidence)}
+                        </div>
+                        <h3 className="font-semibold text-foreground">{match.itemName}</h3>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {match.originalPharmacode && <span>Pharmacode: {match.originalPharmacode}</span>}
+                          {match.originalGtin && <span>GTIN: {match.originalGtin}</span>}
+                          {!match.originalPharmacode && !match.originalGtin && <span className="italic">{t("hinMatches.noCodes", "No codes")}</span>}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Arrow */}
+                    <div className="flex items-center justify-center">
+                      <ChevronRight className="w-5 h-5 text-muted-foreground rotate-90" />
+                    </div>
+                    
+                    {/* HIN Match */}
+                    <div className="flex items-start gap-3 bg-muted/50 rounded-lg p-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">{t("hinMatches.hinMatch", "HIN Match")}</Badge>
+                        </div>
+                        <h3 className="font-medium text-foreground">{match.hinDescriptionDe}</h3>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                          {match.hinPharmacode && <span>Pharmacode: {match.hinPharmacode}</span>}
+                          {match.hinGtin && <span>GTIN: {match.hinGtin}</span>}
+                          {match.hinSmcat && <span className="text-blue-600">Cat. {match.hinSmcat}</span>}
+                        </div>
+                        {(match.hinPexf || match.hinPpub) && (
+                          <div className="flex items-center gap-3 text-sm mt-2">
+                            {match.hinPexf && <span className="font-medium text-green-600">PEXF: CHF {parseFloat(String(match.hinPexf)).toFixed(2)}</span>}
+                            {match.hinPpub && <span className="text-muted-foreground">PPUB: CHF {parseFloat(String(match.hinPpub)).toFixed(2)}</span>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    
+                    {/* Match reason */}
+                    {match.matchReason && (
+                      <p className="text-xs text-muted-foreground italic">{match.matchReason}</p>
+                    )}
+                    
+                    {/* Action buttons */}
+                    <div className="flex items-center justify-end gap-2 pt-2 border-t">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => rejectHinMatch.mutate(match.id)}
+                        disabled={rejectHinMatch.isPending}
+                        data-testid={`button-reject-${match.id}`}
+                      >
+                        <X className="w-4 h-4 mr-1" />
+                        {t("common.reject", "Reject")}
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => approveHinMatch.mutate(match.id)}
+                        disabled={approveHinMatch.isPending}
+                        data-testid={`button-approve-${match.id}`}
+                      >
+                        <Check className="w-4 h-4 mr-1" />
+                        {t("common.approve", "Approve")}
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

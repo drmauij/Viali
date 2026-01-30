@@ -211,6 +211,21 @@
     "matchedTo": "Matched to",
     "matchReason": "Reason"
   },
+  "hinMatches": {
+    "toVerify": "To Verify",
+    "toVerifyDesc": "Items matched by name similarity to HIN database. Review each match and approve or reject.",
+    "syncWithHin": "Sync with HIN",
+    "syncing": "Syncing...",
+    "syncComplete": "HIN Sync Complete",
+    "syncResults": "Matched: {{matched}}, To Verify: {{toVerify}}, Unmatched: {{unmatched}}",
+    "syncFailed": "Failed to sync with HIN",
+    "yourItem": "Your Item",
+    "hinMatch": "HIN Match",
+    "noCodes": "No codes",
+    "matchApproved": "Match approved and codes updated",
+    "matchRejected": "Match rejected",
+    "noItemsToVerify": "No items need verification. Click 'Sync with HIN' to find matches."
+  },
   "modules": {
     "title": "Select Module",
     "active": "Active",
