@@ -1207,4 +1207,72 @@ router.get('/objects/:objectPath(*)', isAuthenticated, async (req: any, res) => 
   }
 });
 
+// Admin endpoint to fix stock levels for items with track_exact_quantity enabled
+// This recalculates qty_on_hand = CEIL(current_units / pack_size) for all affected items
+// ONLY affects items where: unit = 'Pack' AND track_exact_quantity = true
+router.post('/api/admin/:hospitalId/fix-stock-levels', isAuthenticated, isAdmin, async (req, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { items: itemsTable, stockLevels } = await import('@shared/schema');
+    const { eq, and } = await import('drizzle-orm');
+    
+    // Get all items with trackExactQuantity=true and unit='Pack' (case insensitive)
+    const affectedItems = await db
+      .select()
+      .from(itemsTable)
+      .where(and(
+        eq(itemsTable.hospitalId, hospitalId),
+        eq(itemsTable.trackExactQuantity, true)
+      ));
+    
+    // Filter to only Pack items (case insensitive)
+    const packItems = affectedItems.filter(item => 
+      item.unit?.toLowerCase() === 'pack'
+    );
+    
+    const updates: { id: string; name: string; currentUnits: number; packSize: number; oldStock: number; newStock: number }[] = [];
+    
+    for (const item of packItems) {
+      const currentUnits = item.currentUnits || 0;
+      const packSize = item.packSize || 1;
+      const newStock = Math.ceil(currentUnits / packSize);
+      
+      // Get current stock level
+      const [currentStockLevel] = await db
+        .select()
+        .from(stockLevels)
+        .where(and(
+          eq(stockLevels.itemId, item.id),
+          eq(stockLevels.unitId, item.unitId)
+        ));
+      
+      const oldStock = currentStockLevel?.qtyOnHand || 0;
+      
+      // Only update if different
+      if (oldStock !== newStock) {
+        await storage.updateStockLevel(item.id, item.unitId, newStock);
+        updates.push({
+          id: item.id,
+          name: item.name,
+          currentUnits,
+          packSize,
+          oldStock,
+          newStock
+        });
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Fixed stock levels for ${updates.length} items`,
+      totalItemsChecked: packItems.length,
+      itemsUpdated: updates.length,
+      updates
+    });
+  } catch (error: any) {
+    console.error("Error fixing stock levels:", error);
+    res.status(500).json({ message: "Failed to fix stock levels", error: error.message });
+  }
+});
+
 export default router;
