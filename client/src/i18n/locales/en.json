@@ -143,6 +143,7 @@
     },
     "business": {
       "dashboard": "Dashboard",
+      "administration": "Administration",
       "costs": "Costs",
       "time": "Time",
       "staff": "Staff"

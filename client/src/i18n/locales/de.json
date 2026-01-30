@@ -150,6 +150,7 @@
     },
     "business": {
       "dashboard": "Dashboard",
+      "administration": "Administration",
       "costs": "Kosten",
       "time": "Zeit",
       "staff": "Personal"

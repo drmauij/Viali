@@ -325,9 +325,9 @@ export default function CostAnalytics() {
 
   const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
 
-  // Redirect staff users to dashboard - they can only access Dashboard tab
+  // Redirect staff users to Administration - they cannot access Dashboard (costs/analytics)
   if (!isManager) {
-    return <Redirect to="/business" />;
+    return <Redirect to="/business/administration" />;
   }
 
   const totalCosts = mockCostByCategory.reduce((sum, cat) => sum + cat.value, 0);

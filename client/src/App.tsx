@@ -225,7 +225,9 @@ function Router() {
             <Route path="/admin/cameras">{() => <ProtectedRoute requireAdmin><AdminCameraDevices /></ProtectedRoute>}</Route>
             <Route path="/admin/billing">{() => <ProtectedRoute requireAdmin><AdminBilling /></ProtectedRoute>}</Route>
             {/* Business Module - requires business unit access */}
-            <Route path="/business">{() => <ProtectedRoute requireBusiness><SimplifiedDashboard /></ProtectedRoute>}</Route>
+            {/* /business shows Dashboard (CostAnalytics) for managers, Administration (SimplifiedDashboard) for staff */}
+            <Route path="/business">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>
+            <Route path="/business/administration">{() => <ProtectedRoute requireBusiness><SimplifiedDashboard /></ProtectedRoute>}</Route>
             <Route path="/business/staff">{() => <ProtectedRoute requireBusiness><SimplifiedStaff /></ProtectedRoute>}</Route>
             <Route path="/business/contracts">{() => <ProtectedRoute requireBusiness><BusinessContracts /></ProtectedRoute>}</Route>
             <Route path="/business/costs">{() => <ProtectedRoute requireBusiness><CostAnalytics /></ProtectedRoute>}</Route>

@@ -165,16 +165,18 @@ export default function BottomNav() {
     }
     
     if (activeModule === "business") {
-      const businessItems: NavItem[] = [
-        { id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" },
-      ];
-      // Only show Costs, Staff, Contracts, and Worklogs tabs for admin and manager roles (not for staff role)
-      // Staff role users can only access Dashboard tab
+      const businessItems: NavItem[] = [];
+      
+      // Manager/admin users: Dashboard (costs/analytics) first, then Administration, Staff, etc.
       if (activeHospital?.role === 'admin' || activeHospital?.role === 'manager') {
-        businessItems.push({ id: "business-costs", icon: "fas fa-dollar-sign", label: t('bottomNav.business.costs', 'Costs'), path: "/business/costs" });
+        businessItems.push({ id: "business-dashboard", icon: "fas fa-chart-pie", label: t('bottomNav.business.dashboard'), path: "/business" });
+        businessItems.push({ id: "business-administration", icon: "fas fa-table", label: t('bottomNav.business.administration', 'Administration'), path: "/business/administration" });
         businessItems.push({ id: "business-staff", icon: "fas fa-users", label: t('bottomNav.business.staff'), path: "/business/staff" });
         businessItems.push({ id: "business-contracts", icon: "fas fa-file-signature", label: t('bottomNav.business.contracts', 'Contracts'), path: "/business/contracts" });
         businessItems.push({ id: "business-worklogs", icon: "fas fa-clock", label: t('bottomNav.business.worklogs', 'Worklogs'), path: "/business/worklogs" });
+      } else {
+        // Staff role users: Administration (surgery planning) only
+        businessItems.push({ id: "business-administration", icon: "fas fa-table", label: t('bottomNav.business.administration', 'Administration'), path: "/business" });
       }
       return businessItems;
     }
