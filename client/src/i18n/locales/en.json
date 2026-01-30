@@ -3654,7 +3654,12 @@
       "unitValue": "Value",
       "stockLevel": "Stock",
       "supplierPrice": "Supplier Price",
-      "itemValue": "Total Value"
+      "itemValue": "Total Value",
+      "inventoryHistory": "Inventory Value History",
+      "inventoryHistoryDesc": "Track how your total inventory value changes over time",
+      "noHistoricalData": "No historical data available yet",
+      "dataCollectionStarted": "Data collection has started - check back tomorrow for your first data point",
+      "totalValue": "Total Value"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopedic",

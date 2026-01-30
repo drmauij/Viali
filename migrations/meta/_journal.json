@@ -722,6 +722,13 @@
       "when": 1769631047133,
       "tag": "0102_good_mandarin",
       "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1769800000000,
+      "tag": "0103_inventory_snapshots",
+      "breakpoints": true
     }
   ]
 }

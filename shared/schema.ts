@@ -4822,3 +4822,25 @@ export const insertHinArticleSchema = createInsertSchema(hinArticles).omit({
 export type HinArticle = typeof hinArticles.$inferSelect;
 export type InsertHinArticle = z.infer<typeof insertHinArticleSchema>;
 export type HinSyncStatus = typeof hinSyncStatus.$inferSelect;
+
+// Inventory snapshots for historical tracking
+export const inventorySnapshots = pgTable("inventory_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  unitId: varchar("unit_id").notNull().references(() => units.id),
+  snapshotDate: date("snapshot_date").notNull(),
+  totalValue: decimal("total_value", { precision: 14, scale: 2 }).notNull(),
+  itemCount: integer("item_count").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_inventory_snapshots_hospital_date").on(table.hospitalId, table.snapshotDate),
+  index("idx_inventory_snapshots_unit_date").on(table.unitId, table.snapshotDate),
+]);
+
+export const insertInventorySnapshotSchema = createInsertSchema(inventorySnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InventorySnapshot = typeof inventorySnapshots.$inferSelect;
+export type InsertInventorySnapshot = z.infer<typeof insertInventorySnapshotSchema>;

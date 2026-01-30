@@ -3685,7 +3685,12 @@
       "unitValue": "Wert",
       "stockLevel": "Bestand",
       "supplierPrice": "Lieferantenpreis",
-      "itemValue": "Gesamtwert"
+      "itemValue": "Gesamtwert",
+      "inventoryHistory": "Inventarwert-Verlauf",
+      "inventoryHistoryDesc": "Verfolgen Sie, wie sich Ihr Gesamtinventarwert im Laufe der Zeit verändert",
+      "noHistoricalData": "Noch keine historischen Daten verfügbar",
+      "dataCollectionStarted": "Die Datenerfassung hat begonnen - schauen Sie morgen wieder vorbei für Ihren ersten Datenpunkt",
+      "totalValue": "Gesamtwert"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopädie",

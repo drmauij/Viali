@@ -350,6 +350,12 @@ export default function CostAnalytics() {
     enabled: !!activeHospital?.id && activeSubTab === 'inventories',
   });
 
+  // Fetch inventory snapshots for historical chart
+  const { data: snapshotsData, isLoading: snapshotsLoading } = useQuery<any[]>({
+    queryKey: [`/api/inventory-snapshots/${activeHospital?.id}?days=30`],
+    enabled: !!activeHospital?.id && activeSubTab === 'inventories',
+  });
+
   // Calculate inventory values per unit
   interface ItemWithValue {
     id: string;
@@ -442,6 +448,37 @@ export default function CostAnalytics() {
       return inventorySortOrder === 'desc' ? bValue - aValue : aValue - bValue;
     });
   };
+
+  // Process snapshots data for chart
+  const chartData = useMemo(() => {
+    if (!snapshotsData || snapshotsData.length === 0) return [];
+    
+    // Group snapshots by date and aggregate total value
+    const dateMap = new Map<string, { date: string; totalValue: number; unitBreakdown: Record<string, number> }>();
+    
+    snapshotsData.forEach((snapshot: any) => {
+      const date = snapshot.snapshotDate;
+      const value = parseFloat(snapshot.totalValue) || 0;
+      const unitName = snapshot.unitName || 'Unknown';
+      
+      if (!dateMap.has(date)) {
+        dateMap.set(date, { date, totalValue: 0, unitBreakdown: {} });
+      }
+      
+      const entry = dateMap.get(date)!;
+      entry.totalValue += value;
+      entry.unitBreakdown[unitName] = (entry.unitBreakdown[unitName] || 0) + value;
+    });
+    
+    // Sort by date ascending and format
+    return Array.from(dateMap.values())
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map(entry => ({
+        date: new Date(entry.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        totalValue: entry.totalValue,
+        ...entry.unitBreakdown,
+      }));
+  }, [snapshotsData]);
 
   // Toggle sort order
   const toggleSort = (sortBy: 'price' | 'stock') => {
@@ -965,6 +1002,64 @@ export default function CostAnalytics() {
 
         {/* Inventories Tab Content */}
         <TabsContent value="inventories" className="space-y-6 mt-6">
+          {/* Historical Inventory Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                {t('business.costs.inventoryHistory')}
+              </CardTitle>
+              <CardDescription>{t('business.costs.inventoryHistoryDesc')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {snapshotsLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : chartData.length === 0 ? (
+                <div className="text-center text-muted-foreground py-12">
+                  <p>{t('business.costs.noHistoricalData')}</p>
+                  <p className="text-sm mt-2">{t('business.costs.dataCollectionStarted')}</p>
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorInventory" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis dataKey="date" className="text-muted-foreground" fontSize={12} />
+                    <YAxis 
+                      className="text-muted-foreground" 
+                      fontSize={12}
+                      tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                    />
+                    <RechartsTooltip
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))', 
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '8px'
+                      }}
+                      formatter={(value: number) => [`CHF ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, t('business.costs.totalValue')]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="totalValue"
+                      stroke="#22c55e"
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#colorInventory)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Current Inventory Values */}
           <Card>
             <CardHeader>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

@@ -2217,4 +2217,68 @@ router.get('/api/items/:hospitalId/export-catalog', isAuthenticated, async (req:
   }
 });
 
+// Get inventory snapshots for historical analysis
+router.get('/api/inventory-snapshots/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { unitId, days = 30 } = req.query;
+    const userId = req.user.id;
+    
+    // Validate hospital access
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hospitalAccess = userHospitals.find(h => h.id === hospitalId);
+    if (!hospitalAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+    
+    // Require manager or admin role for business analytics
+    if (hospitalAccess.role !== 'manager' && hospitalAccess.role !== 'admin') {
+      return res.status(403).json({ message: "Manager or admin role required" });
+    }
+    
+    const daysBack = parseInt(days as string) || 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - daysBack);
+    const startDateStr = startDate.toISOString().split('T')[0];
+    
+    const { inventorySnapshots, units } = await import('@shared/schema');
+    const { and, eq, gte, desc } = await import('drizzle-orm');
+    const { db } = await import('../storage');
+    
+    let snapshots;
+    if (unitId) {
+      snapshots = await db.select()
+        .from(inventorySnapshots)
+        .where(and(
+          eq(inventorySnapshots.hospitalId, hospitalId),
+          eq(inventorySnapshots.unitId, unitId as string),
+          gte(inventorySnapshots.snapshotDate, startDateStr)
+        ))
+        .orderBy(desc(inventorySnapshots.snapshotDate));
+    } else {
+      snapshots = await db.select({
+        id: inventorySnapshots.id,
+        hospitalId: inventorySnapshots.hospitalId,
+        unitId: inventorySnapshots.unitId,
+        snapshotDate: inventorySnapshots.snapshotDate,
+        totalValue: inventorySnapshots.totalValue,
+        itemCount: inventorySnapshots.itemCount,
+        unitName: units.name,
+      })
+        .from(inventorySnapshots)
+        .leftJoin(units, eq(inventorySnapshots.unitId, units.id))
+        .where(and(
+          eq(inventorySnapshots.hospitalId, hospitalId),
+          gte(inventorySnapshots.snapshotDate, startDateStr)
+        ))
+        .orderBy(desc(inventorySnapshots.snapshotDate));
+    }
+    
+    res.json(snapshots);
+  } catch (error) {
+    console.error("Error fetching inventory snapshots:", error);
+    res.status(500).json({ message: "Failed to fetch inventory snapshots" });
+  }
+});
+
 export default router;

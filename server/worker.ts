@@ -2,8 +2,8 @@ import { storage } from './storage';
 import { analyzeBulkItemImages } from './openai';
 import { sendBulkImportCompleteEmail } from './resend';
 import { createGalexisClient, type PriceData, type ProductLookupRequest, type ProductLookupResult } from './services/galexisClient';
-import { supplierCodes, itemCodes, items, supplierCatalogs, hospitals, patientQuestionnaireLinks, units, users, priceSyncJobs } from '@shared/schema';
-import { eq, and, isNull, isNotNull, sql, or, inArray } from 'drizzle-orm';
+import { supplierCodes, itemCodes, items, supplierCatalogs, hospitals, patientQuestionnaireLinks, units, users, priceSyncJobs, inventorySnapshots, stockLevels } from '@shared/schema';
+import { eq, and, isNull, isNotNull, sql, or, inArray, desc } from 'drizzle-orm';
 import { db } from './storage';
 import { decryptCredential } from './utils/encryption';
 import { randomUUID } from 'crypto';
@@ -19,6 +19,7 @@ const HIN_SYNC_CHECK_INTERVAL_MS = 3600000; // Check HIN sync status every hour
 const HIN_SYNC_MAX_AGE_HOURS = 24; // Re-sync HIN database if older than 24 hours
 const PRICE_SYNC_CHECK_INTERVAL_MS = 3600000; // Check price sync status every hour
 const PRICE_SYNC_MAX_AGE_HOURS = 24; // Auto-sync prices if last sync > 24 hours ago
+const INVENTORY_SNAPSHOT_CHECK_INTERVAL_MS = 3600000; // Check for inventory snapshots every hour
 
 interface InfoFlyerData {
   unitName: string;
@@ -2717,6 +2718,90 @@ async function checkAndSyncHinDatabase(): Promise<void> {
   }
 }
 
+/**
+ * Capture daily inventory snapshots for all hospitals/units.
+ * This runs once per day (checks if today's snapshot exists).
+ */
+async function captureInventorySnapshots() {
+  try {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    // Get all hospitals
+    const allHospitals = await db.select().from(hospitals);
+    
+    for (const hospital of allHospitals) {
+      // Get all units for this hospital (excluding special modules)
+      const hospitalUnits = await db.select().from(units).where(eq(units.hospitalId, hospital.id));
+      const inventoryUnits = hospitalUnits.filter(u => 
+        !u.isBusinessModule && !u.isLogisticModule && u.showInventory !== false
+      );
+      
+      for (const unit of inventoryUnits) {
+        // Check if snapshot already exists for today
+        const existingSnapshot = await db.select()
+          .from(inventorySnapshots)
+          .where(and(
+            eq(inventorySnapshots.unitId, unit.id),
+            eq(inventorySnapshots.snapshotDate, today)
+          ))
+          .limit(1);
+        
+        if (existingSnapshot.length > 0) {
+          continue; // Already captured today
+        }
+        
+        // Get all items for this unit
+        const unitItems = await db.select().from(items).where(eq(items.unitId, unit.id));
+        
+        let totalValue = 0;
+        let itemCount = 0;
+        
+        // Only query stock/prices if there are items
+        if (unitItems.length > 0) {
+          const itemIds = unitItems.map(i => i.id);
+          const stockData = await db.select()
+            .from(stockLevels)
+            .where(inArray(stockLevels.itemId, itemIds));
+          
+          const stockByItemId = new Map(stockData.map(s => [s.itemId, s]));
+          
+          // Get preferred supplier codes for pricing
+          const priceData = await db.select()
+            .from(supplierCodes)
+            .where(and(
+              inArray(supplierCodes.itemId, itemIds),
+              eq(supplierCodes.isPreferred, true)
+            ));
+          
+          const priceByItemId = new Map(priceData.map(p => [p.itemId, p.basispreis ? parseFloat(p.basispreis) : 0]));
+          
+          // Calculate total value
+          for (const item of unitItems) {
+            const stock = stockByItemId.get(item.id);
+            const qtyOnHand = stock?.qtyOnHand || 0;
+            const price = priceByItemId.get(item.id) || 0;
+            totalValue += qtyOnHand * price;
+            if (qtyOnHand > 0) itemCount++;
+          }
+        }
+        
+        // Insert snapshot
+        await db.insert(inventorySnapshots).values({
+          hospitalId: hospital.id,
+          unitId: unit.id,
+          snapshotDate: today,
+          totalValue: totalValue.toFixed(2),
+          itemCount,
+        });
+        
+        console.log(`[Worker] Captured inventory snapshot for unit "${unit.name}": ${itemCount} items, ${totalValue.toFixed(2)} value`);
+      }
+    }
+  } catch (error: any) {
+    console.error('[Worker] Error capturing inventory snapshots:', error.message);
+  }
+}
+
 async function workerLoop() {
   console.log('[Worker] Starting background worker...');
   console.log(`[Worker] Poll interval: ${POLL_INTERVAL_MS}ms, Stuck job check: ${STUCK_JOB_CHECK_INTERVAL_MS}ms`);
@@ -2725,6 +2810,7 @@ async function workerLoop() {
   let lastScheduledJobCheck = Date.now();
   let lastHinSyncCheck = 0; // Check immediately on startup
   let lastPriceSyncCheck = 0; // Check immediately on startup
+  let lastInventorySnapshotCheck = 0; // Check immediately on startup
   
   while (true) {
     try {
@@ -2754,6 +2840,12 @@ async function workerLoop() {
       if (Date.now() - lastPriceSyncCheck >= PRICE_SYNC_CHECK_INTERVAL_MS) {
         await scheduleAutoPriceSyncJobs();
         lastPriceSyncCheck = Date.now();
+      }
+      
+      // Capture daily inventory snapshots (every hour, only creates if missing for today)
+      if (Date.now() - lastInventorySnapshotCheck >= INVENTORY_SNAPSHOT_CHECK_INTERVAL_MS) {
+        await captureInventorySnapshots();
+        lastInventorySnapshotCheck = Date.now();
       }
       
       // Process import jobs
