@@ -590,7 +590,7 @@ export function PatientCommunicationContent({
 
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden" data-testid="patient-communication-content">
-      <ScrollArea className={`${isComposing ? 'max-h-[200px] shrink-0' : 'flex-1'} min-h-0 px-4`} ref={scrollRef}>
+      <ScrollArea className="flex-1 min-h-0 px-4" ref={scrollRef}>
         <div className="py-4 space-y-3">
           {communicationHistory.length > 0 ? (
             communicationHistory.map((item) => (
@@ -651,7 +651,7 @@ export function PatientCommunicationContent({
         </div>
       </ScrollArea>
 
-      <div className={`border-t bg-muted/30 ${isComposing ? 'flex-1 flex flex-col min-h-0' : 'shrink-0'}`}>
+      <div className={`border-t bg-muted/30 shrink-0 ${isComposing ? 'max-h-[350px] overflow-auto' : ''}`}>
         {!isComposing ? (
           <div className="p-3">
             <Button 
@@ -664,7 +664,7 @@ export function PatientCommunicationContent({
             </Button>
           </div>
         ) : (
-          <div className="p-3 space-y-3 flex flex-col flex-1 min-h-0">
+          <div className="p-3 space-y-3">
             <div className="flex items-center justify-between shrink-0">
               <Label className="text-sm font-medium">{t('messages.compose.newMessage', 'New Message')}</Label>
               <Button variant="ghost" size="icon" onClick={() => setIsComposing(false)} className="h-6 w-6">
@@ -672,15 +672,14 @@ export function PatientCommunicationContent({
               </Button>
             </div>
 
-            <div className="flex-1 min-h-0">
-              <Textarea
-                placeholder={t('messages.messagePlaceholder', 'Write your message here...')}
-                value={customMessage}
-                onChange={(e) => setCustomMessage(e.target.value)}
-                className="text-sm resize-none w-full h-full min-h-[180px]"
-                data-testid="input-custom-message"
-              />
-            </div>
+            <Textarea
+              placeholder={t('messages.messagePlaceholder', 'Write your message here...')}
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              rows={5}
+              className="text-sm resize-none w-full"
+              data-testid="input-custom-message"
+            />
 
             <div className="space-y-2 shrink-0">
               <div className="flex gap-1.5 flex-wrap items-center">
