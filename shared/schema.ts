@@ -4845,3 +4845,54 @@ export const insertInventorySnapshotSchema = createInsertSchema(inventorySnapsho
 
 export type InventorySnapshot = typeof inventorySnapshots.$inferSelect;
 export type InsertInventorySnapshot = z.infer<typeof insertInventorySnapshotSchema>;
+
+// Item HIN Matches - Track HIN database matching attempts for inventory items
+export const itemHinMatches = pgTable("item_hin_matches", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  itemId: varchar("item_id").notNull().references(() => items.id, { onDelete: 'cascade' }),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  
+  // Match status: pending (never tried), matched (exact match), to_verify (fuzzy match needs confirmation), unmatched (no match found), rejected (user rejected fuzzy match)
+  matchStatus: varchar("match_status", { enum: ["pending", "matched", "to_verify", "unmatched", "rejected"] }).default("pending"),
+  
+  // How the match was made
+  matchMethod: varchar("match_method"), // pharmacode, gtin, pharmacode_as_gtin, gtin_as_pharmacode, fuzzy_name
+  matchConfidence: decimal("match_confidence", { precision: 3, scale: 2 }), // 0.00-1.00 for fuzzy matches
+  matchReason: text("match_reason"), // Human-readable explanation
+  
+  // Matched HIN article data (stored to allow review before applying)
+  hinArticleId: varchar("hin_article_id"),
+  hinPharmacode: varchar("hin_pharmacode"),
+  hinGtin: varchar("hin_gtin"),
+  hinDescriptionDe: text("hin_description_de"),
+  hinPexf: decimal("hin_pexf", { precision: 10, scale: 2 }), // Ex-factory price
+  hinPpub: decimal("hin_ppub", { precision: 10, scale: 2 }), // Public price
+  hinSmcat: varchar("hin_smcat"), // Swissmedic category
+  hinSwissmedicNo: varchar("hin_swissmedic_no"),
+  
+  // Original item data (for reference)
+  originalPharmacode: varchar("original_pharmacode"),
+  originalGtin: varchar("original_gtin"),
+  itemName: varchar("item_name"), // Snapshot of item name at match time
+  
+  // Tracking
+  lastMatchAttempt: timestamp("last_match_attempt").defaultNow(),
+  verifiedAt: timestamp("verified_at"), // When user approved/rejected
+  verifiedBy: varchar("verified_by").references(() => users.id),
+  appliedAt: timestamp("applied_at"), // When HIN data was applied to item
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_item_hin_matches_item").on(table.itemId),
+  index("idx_item_hin_matches_hospital").on(table.hospitalId),
+  index("idx_item_hin_matches_status").on(table.matchStatus),
+]);
+
+export const insertItemHinMatchSchema = createInsertSchema(itemHinMatches).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type ItemHinMatch = typeof itemHinMatches.$inferSelect;
+export type InsertItemHinMatch = z.infer<typeof insertItemHinMatchSchema>;
