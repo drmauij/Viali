@@ -270,7 +270,7 @@ import {
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
-import { eq, and, desc, asc, sql, inArray, lte, gte, lt, or, ilike, isNull } from "drizzle-orm";
+import { eq, and, desc, asc, sql, inArray, lte, gte, lt, or, ilike, isNull, isNotNull } from "drizzle-orm";
 import { calculateInventoryForMedication, calculateRateControlledAmpules, calculateRateControlledVolume, volumeToAmpules } from "./services/inventoryCalculations";
 import { encryptCredential, decryptCredential } from "./utils/encryption";
 
@@ -8595,7 +8595,8 @@ export class DatabaseStorage implements IStorage {
         sql`${surgeries.plannedDate} >= ${startOfDay}`,
         sql`${surgeries.plannedDate} <= ${endOfDay}`,
         sql`${surgeries.status} IN ('planned', 'scheduled', 'confirmed')`,
-        isNull(surgeries.archivedAt)
+        isNull(surgeries.archivedAt),
+        isNotNull(surgeries.anesthesiaType)
       ));
 
     return results;
@@ -8641,7 +8642,8 @@ export class DatabaseStorage implements IStorage {
         sql`${surgeries.plannedDate} <= ${windowEnd}`,
         eq(surgeries.reminderSent, false),
         sql`${surgeries.status} IN ('planned', 'scheduled', 'confirmed')`,
-        isNull(surgeries.archivedAt)
+        isNull(surgeries.archivedAt),
+        isNotNull(surgeries.anesthesiaType)
       ));
 
     return results.map(r => ({
