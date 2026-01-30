@@ -296,10 +296,33 @@ export function PatientCommunicationContent({
       status?: string;
       message?: string;
       isAutomatic?: boolean;
+      linkToken?: string;
     }> = [];
 
+    // First, collect all auto_questionnaire messages to know which questionnaire links are covered
+    const coveredLinkTokens = new Set<string>();
+    if (patientMessages) {
+      patientMessages.forEach(msg => {
+        const msgAny = msg as any;
+        const messageType = msgAny.messageType || 'manual';
+        if (messageType === 'auto_questionnaire' && msg.message) {
+          // Extract token from message content
+          const tokenMatch = msg.message.match(/\/questionnaire\/([a-zA-Z0-9_-]+)/);
+          if (tokenMatch) {
+            coveredLinkTokens.add(tokenMatch[1]);
+          }
+        }
+      });
+    }
+
+    // Add questionnaire links that DON'T have a corresponding auto_questionnaire message
     if (existingLinks) {
       existingLinks.forEach(link => {
+        // Skip if this link is covered by an auto_questionnaire message
+        if (coveredLinkTokens.has(link.token)) {
+          return;
+        }
+        
         if (link.emailSent && link.emailSentAt) {
           history.push({
             id: `q-email-${link.id}`,
@@ -308,6 +331,7 @@ export function PatientCommunicationContent({
             recipient: link.emailSentTo || '',
             date: new Date(link.emailSentAt),
             status: link.status,
+            linkToken: link.token,
           });
         }
         if (link.smsSent && link.smsSentAt) {
@@ -318,6 +342,7 @@ export function PatientCommunicationContent({
             recipient: link.smsSentTo || '',
             date: new Date(link.smsSentAt),
             status: link.status,
+            linkToken: link.token,
           });
         }
       });
@@ -329,17 +354,25 @@ export function PatientCommunicationContent({
         const isAutomatic = msgAny.isAutomatic === true;
         const messageType = msgAny.messageType || 'manual';
         
-        // Skip auto_questionnaire messages - they're already shown via existingLinks
-        // This prevents duplicate display of the same questionnaire send
-        if (messageType === 'auto_questionnaire') {
-          return;
-        }
-        
         let type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder' = 'message';
         if (msgAny.type === 'infoflyer') {
           type = 'infoflyer';
+        } else if (messageType === 'auto_questionnaire') {
+          type = 'auto_questionnaire';
         } else if (messageType === 'auto_reminder') {
           type = 'auto_reminder';
+        }
+        
+        // Find link status for auto_questionnaire messages
+        let status: string | undefined;
+        if (messageType === 'auto_questionnaire' && msg.message) {
+          const tokenMatch = msg.message.match(/\/questionnaire\/([a-zA-Z0-9_-]+)/);
+          if (tokenMatch && existingLinks) {
+            const matchedLink = existingLinks.find((l: any) => l.token === tokenMatch[1]);
+            if (matchedLink) {
+              status = matchedLink.status;
+            }
+          }
         }
         
         history.push({
@@ -350,6 +383,7 @@ export function PatientCommunicationContent({
           date: new Date(msg.createdAt!),
           message: msg.message,
           isAutomatic,
+          status,
         });
       });
     }
