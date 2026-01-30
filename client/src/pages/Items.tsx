@@ -4962,7 +4962,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                     id="edit-controlled" 
                     name="controlled"
                     checked={editFormData.controlled}
-                    onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, controlled: checked === true }))}
+                    onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, controlled: checked === true, isService: checked ? false : prev.isService }))}
                     disabled={!canWrite}
                     data-testid="checkbox-edit-controlled" 
                   />
@@ -4978,7 +4978,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                     id="edit-isService" 
                     name="isService"
                     checked={editFormData.isService}
-                    onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, isService: checked === true }))}
+                    onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, isService: checked === true, controlled: checked ? false : prev.controlled }))}
                     disabled={!canWrite}
                     data-testid="checkbox-edit-service" 
                   />
