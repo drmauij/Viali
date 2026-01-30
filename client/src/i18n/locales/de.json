@@ -3675,7 +3675,7 @@
       "anesthesiaCostsCol": "Anästhesie",
       "surgeryCostsCol": "OP-Material",
       "materialDrugsCosts": "Material & Medikamente",
-      "totalCostCol": "Gesamt",
+      "totalCostCol": "Gesamtkosten",
       "surgeryTime": "Dauer",
       "surgeryTimeTooltip": "Dauer von Narkosebeginn (X1) bis Narkosepräsenz Ende (A2)",
       "amountPaid": "Bezahlt",

@@ -3644,7 +3644,7 @@
       "anesthesiaCostsCol": "Anesthesia",
       "surgeryCostsCol": "Surgery",
       "materialDrugsCosts": "Material & Drugs",
-      "totalCostCol": "Total",
+      "totalCostCol": "Total Costs",
       "surgeryTime": "Duration",
       "surgeryTimeTooltip": "Duration from anesthesia start (X1) to anesthesia presence end (A2)",
       "amountPaid": "Paid",
