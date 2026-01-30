@@ -591,7 +591,10 @@ export function PatientCommunicationContent({
   return (
     <div className="flex flex-col h-full min-h-0 overflow-hidden" data-testid="patient-communication-content">
       <ScrollArea className="flex-1 min-h-0 px-4" ref={scrollRef}>
-        <div className="py-4 space-y-3">
+        <div 
+          className="py-4 space-y-3"
+          onClick={() => isComposing && setIsComposing(false)}
+        >
           {communicationHistory.length > 0 ? (
             communicationHistory.map((item) => (
               <div
