@@ -543,7 +543,8 @@ router.patch('/api/items/bulk-update', isAuthenticated, requireWriteAccess, asyn
       }
       
       if (item.trackExactQuantity && bulkItem.currentUnits !== undefined) {
-        const packSize = item.packSize || 1;
+        // IMPORTANT: Use finalPackSize (the updated value), not item.packSize (old value)
+        const packSize = finalPackSize || 1;
         const newStock = Math.ceil(bulkItem.currentUnits / packSize);
         
         await db
@@ -551,6 +552,12 @@ router.patch('/api/items/bulk-update', isAuthenticated, requireWriteAccess, asyn
           .set({ currentUnits: bulkItem.currentUnits })
           .where(eq(items.id, bulkItem.id));
         
+        await storage.updateStockLevel(bulkItem.id, item.unitId, newStock);
+      } else if (item.trackExactQuantity && bulkItem.packSize !== undefined) {
+        // If pack size changed but currentUnits wasn't provided, recalculate stock with existing currentUnits
+        const currentUnits = item.currentUnits || 0;
+        const packSize = finalPackSize || 1;
+        const newStock = Math.ceil(currentUnits / packSize);
         await storage.updateStockLevel(bulkItem.id, item.unitId, newStock);
       } else if (bulkItem.actualStock !== undefined) {
         await storage.updateStockLevel(bulkItem.id, item.unitId, bulkItem.actualStock);
