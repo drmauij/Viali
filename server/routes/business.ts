@@ -2,8 +2,8 @@ import { Router } from "express";
 import type { Response } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes } from "@shared/schema";
-import { eq, and, inArray, ne, desc } from "drizzle-orm";
+import { users, userHospitalRoles, units, hospitals, workerContracts, insertWorkerContractSchema, supplierCodes, surgeries, anesthesiaRecords, surgeryStaffEntries, inventoryCommits, items } from "@shared/schema";
+import { eq, and, inArray, ne, desc, gte, lte, isNull } from "drizzle-orm";
 import bcrypt from "bcrypt";
 import { nanoid } from "nanoid";
 import crypto from "crypto";
@@ -1095,6 +1095,413 @@ router.get('/api/business/:hospitalId/inventory-snapshots', isAuthenticated, isB
   } catch (error) {
     console.error("Error fetching inventory snapshots:", error);
     res.status(500).json({ message: "Failed to fetch inventory snapshots" });
+  }
+});
+
+// Get surgeries with cost calculations for business dashboard
+router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { startDate, endDate } = req.query;
+    
+    // Build date filters using raw SQL for proper date comparison
+    const { sql } = await import('drizzle-orm');
+    const dateFilters: any[] = [];
+    if (startDate) {
+      dateFilters.push(sql`${surgeries.plannedDate} >= ${startDate}::date`);
+    }
+    if (endDate) {
+      dateFilters.push(sql`${surgeries.plannedDate} <= ${endDate}::date`);
+    }
+    
+    // Get all surgeries for this hospital with their anesthesia records
+    const surgeriesData = await db
+      .select({
+        surgery: surgeries,
+        anesthesiaRecord: anesthesiaRecords,
+      })
+      .from(surgeries)
+      .leftJoin(anesthesiaRecords, eq(anesthesiaRecords.surgeryId, surgeries.id))
+      .where(and(
+        eq(surgeries.hospitalId, hospitalId),
+        eq(surgeries.isArchived, false),
+        ...dateFilters
+      ))
+      .orderBy(desc(surgeries.plannedDate));
+    
+    // Get all users with hourly rates for cost calculation
+    const allUsers = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      hourlyRate: users.hourlyRate,
+    }).from(users);
+    const userMap = new Map(allUsers.map(u => [u.id, u]));
+    
+    // Get all supplier prices for items (use preferred supplier or first available)
+    const supplierPrices = await db.select({
+      itemId: supplierCodes.itemId,
+      basispreis: supplierCodes.basispreis,
+      isPreferred: supplierCodes.isPreferred,
+    }).from(supplierCodes);
+    
+    // Build map of itemId -> best price (prefer preferred supplier)
+    const itemPriceMap = new Map<string, number>();
+    for (const sp of supplierPrices) {
+      const price = parseFloat(String(sp.basispreis || 0));
+      const existing = itemPriceMap.get(sp.itemId);
+      if (!existing || sp.isPreferred) {
+        itemPriceMap.set(sp.itemId, price);
+      }
+    }
+    
+    // Process each surgery to calculate costs
+    const results = await Promise.all(surgeriesData.map(async ({ surgery, anesthesiaRecord }) => {
+      let surgeryDurationMinutes = 0;
+      let staffCost = 0;
+      let anesthesiaCost = 0;
+      let surgeryCost = 0;
+      
+      // Calculate surgery duration from time markers (X1 to A2)
+      if (anesthesiaRecord?.timeMarkers) {
+        const markers = anesthesiaRecord.timeMarkers as Array<{ code: string; time: number | null }>;
+        const x1Marker = markers.find(m => m.code === 'X1');
+        const a2Marker = markers.find(m => m.code === 'A2');
+        
+        if (x1Marker?.time && a2Marker?.time) {
+          surgeryDurationMinutes = Math.round((a2Marker.time - x1Marker.time) / 60000); // Convert ms to minutes
+        }
+      }
+      
+      // Calculate staff cost
+      if (anesthesiaRecord) {
+        const staffEntries = await db
+          .select()
+          .from(surgeryStaffEntries)
+          .where(eq(surgeryStaffEntries.anesthesiaRecordId, anesthesiaRecord.id));
+        
+        const durationHours = surgeryDurationMinutes / 60;
+        
+        for (const staff of staffEntries) {
+          if (staff.userId) {
+            const user = userMap.get(staff.userId);
+            if (user?.hourlyRate) {
+              staffCost += durationHours * parseFloat(String(user.hourlyRate));
+            }
+          }
+        }
+      }
+      
+      // Calculate inventory costs from commits
+      if (anesthesiaRecord) {
+        const commits = await db
+          .select()
+          .from(inventoryCommits)
+          .where(and(
+            eq(inventoryCommits.anesthesiaRecordId, anesthesiaRecord.id),
+            isNull(inventoryCommits.rolledBackAt)
+          ));
+        
+        // Get all item IDs from commits
+        const allItemIds = new Set<string>();
+        for (const commit of commits) {
+          const commitItems = commit.items as Array<{ itemId: string; quantity: number }>;
+          commitItems.forEach(item => allItemIds.add(item.itemId));
+        }
+        
+        // Fetch item details for pack size
+        const itemIdsArray = Array.from(allItemIds);
+        const itemsData = itemIdsArray.length > 0 
+          ? await db.select().from(items).where(inArray(items.id, itemIdsArray))
+          : [];
+        const itemMap = new Map(itemsData.map(i => [i.id, i]));
+        
+        // Calculate costs per commit (by unit type)
+        for (const commit of commits) {
+          const commitItems = commit.items as Array<{ itemId: string; quantity: number }>;
+          
+          for (const commitItem of commitItems) {
+            const item = itemMap.get(commitItem.itemId);
+            if (item) {
+              const supplierPrice = itemPriceMap.get(commitItem.itemId) || 0;
+              const packSize = item.packSize || 1;
+              const unitPrice = supplierPrice / packSize;
+              const cost = unitPrice * commitItem.quantity;
+              
+              // Check if commit is from anesthesia unit or surgery unit
+              if (commit.unitId) {
+                const unit = await storage.getUnit(commit.unitId);
+                if (unit?.type === 'anesthesia') {
+                  anesthesiaCost += cost;
+                } else {
+                  surgeryCost += cost;
+                }
+              } else {
+                // Legacy commits without unitId - assume anesthesia
+                anesthesiaCost += cost;
+              }
+            }
+          }
+        }
+      }
+      
+      // Get patient info
+      const patient = surgery.patientId ? await storage.getPatient(surgery.patientId) : null;
+      
+      return {
+        id: surgery.id,
+        date: surgery.plannedDate,
+        surgeryName: surgery.plannedSurgery || 'Unknown',
+        patientName: patient ? `${patient.firstName || ''} ${patient.surname || ''}`.trim() : 'Unknown',
+        patientId: surgery.patientId,
+        anesthesiaRecordId: anesthesiaRecord?.id || null,
+        surgeryDurationMinutes,
+        staffCost: Math.round(staffCost * 100) / 100,
+        anesthesiaCost: Math.round(anesthesiaCost * 100) / 100,
+        surgeryCost: Math.round(surgeryCost * 100) / 100,
+        totalCost: Math.round((staffCost + anesthesiaCost + surgeryCost) * 100) / 100,
+        status: surgery.status,
+      };
+    }));
+    
+    res.json(results);
+  } catch (error) {
+    console.error("Error fetching business surgeries:", error);
+    res.status(500).json({ message: "Failed to fetch surgeries" });
+  }
+});
+
+// Get detailed cost breakdown for a specific surgery
+router.get('/api/business/:hospitalId/surgeries/:surgeryId/costs', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId, surgeryId } = req.params;
+    
+    // Get surgery with anesthesia record
+    const [surgeryData] = await db
+      .select({
+        surgery: surgeries,
+        anesthesiaRecord: anesthesiaRecords,
+      })
+      .from(surgeries)
+      .leftJoin(anesthesiaRecords, eq(anesthesiaRecords.surgeryId, surgeries.id))
+      .where(and(
+        eq(surgeries.id, surgeryId),
+        eq(surgeries.hospitalId, hospitalId)
+      ));
+    
+    if (!surgeryData) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+    
+    const { surgery, anesthesiaRecord } = surgeryData;
+    
+    // Calculate surgery duration
+    let surgeryDurationMinutes = 0;
+    let x1Time: number | null = null;
+    let a2Time: number | null = null;
+    
+    if (anesthesiaRecord?.timeMarkers) {
+      const markers = anesthesiaRecord.timeMarkers as Array<{ code: string; time: number | null }>;
+      const x1Marker = markers.find(m => m.code === 'X1');
+      const a2Marker = markers.find(m => m.code === 'A2');
+      
+      x1Time = x1Marker?.time || null;
+      a2Time = a2Marker?.time || null;
+      
+      if (x1Time && a2Time) {
+        surgeryDurationMinutes = Math.round((a2Time - x1Time) / 60000);
+      }
+    }
+    
+    // Get all users with hourly rates
+    const allUsers = await db.select({
+      id: users.id,
+      firstName: users.firstName,
+      lastName: users.lastName,
+      hourlyRate: users.hourlyRate,
+    }).from(users);
+    const userMap = new Map(allUsers.map(u => [u.id, u]));
+    
+    // Get staff breakdown
+    const staffBreakdown: Array<{
+      name: string;
+      role: string;
+      durationHours: number;
+      hourlyRate: number;
+      cost: number;
+    }> = [];
+    
+    if (anesthesiaRecord) {
+      const staffEntries = await db
+        .select()
+        .from(surgeryStaffEntries)
+        .where(eq(surgeryStaffEntries.anesthesiaRecordId, anesthesiaRecord.id));
+      
+      const durationHours = surgeryDurationMinutes / 60;
+      
+      for (const staff of staffEntries) {
+        const user = staff.userId ? userMap.get(staff.userId) : null;
+        const hourlyRate = user?.hourlyRate ? parseFloat(String(user.hourlyRate)) : 0;
+        const cost = durationHours * hourlyRate;
+        
+        staffBreakdown.push({
+          name: staff.name,
+          role: staff.role,
+          durationHours: Math.round(durationHours * 100) / 100,
+          hourlyRate,
+          cost: Math.round(cost * 100) / 100,
+        });
+      }
+    }
+    
+    // Get inventory breakdown
+    const anesthesiaItems: Array<{
+      itemId: string;
+      itemName: string;
+      quantity: number;
+      unitPrice: number;
+      cost: number;
+    }> = [];
+    const surgeryItems: Array<{
+      itemId: string;
+      itemName: string;
+      quantity: number;
+      unitPrice: number;
+      cost: number;
+    }> = [];
+    
+    if (anesthesiaRecord) {
+      const commits = await db
+        .select()
+        .from(inventoryCommits)
+        .where(and(
+          eq(inventoryCommits.anesthesiaRecordId, anesthesiaRecord.id),
+          isNull(inventoryCommits.rolledBackAt)
+        ));
+      
+      // Get all item IDs
+      const allItemIds = new Set<string>();
+      for (const commit of commits) {
+        const commitItems = commit.items as Array<{ itemId: string; itemName: string; quantity: number }>;
+        commitItems.forEach(item => allItemIds.add(item.itemId));
+      }
+      
+      // Fetch item details
+      const itemIdsArray = Array.from(allItemIds);
+      const itemsData = itemIdsArray.length > 0 
+        ? await db.select().from(items).where(inArray(items.id, itemIdsArray))
+        : [];
+      const itemMap = new Map(itemsData.map(i => [i.id, i]));
+      
+      // Get supplier prices for these items
+      const supplierPricesData = itemIdsArray.length > 0
+        ? await db.select({
+            itemId: supplierCodes.itemId,
+            basispreis: supplierCodes.basispreis,
+            isPreferred: supplierCodes.isPreferred,
+          }).from(supplierCodes).where(inArray(supplierCodes.itemId, itemIdsArray))
+        : [];
+      
+      // Build itemId -> price map
+      const itemPriceMap = new Map<string, number>();
+      for (const sp of supplierPricesData) {
+        const price = parseFloat(String(sp.basispreis || 0));
+        const existing = itemPriceMap.get(sp.itemId);
+        if (!existing || sp.isPreferred) {
+          itemPriceMap.set(sp.itemId, price);
+        }
+      }
+      
+      // Aggregate items by itemId and unit type
+      const anesthesiaItemsMap = new Map<string, { name: string; quantity: number; unitPrice: number }>();
+      const surgeryItemsMap = new Map<string, { name: string; quantity: number; unitPrice: number }>();
+      
+      for (const commit of commits) {
+        const commitItems = commit.items as Array<{ itemId: string; itemName: string; quantity: number }>;
+        
+        // Determine if this is anesthesia or surgery commit
+        let isAnesthesiaCommit = true;
+        if (commit.unitId) {
+          const unit = await storage.getUnit(commit.unitId);
+          isAnesthesiaCommit = unit?.type === 'anesthesia';
+        }
+        
+        const targetMap = isAnesthesiaCommit ? anesthesiaItemsMap : surgeryItemsMap;
+        
+        for (const commitItem of commitItems) {
+          const item = itemMap.get(commitItem.itemId);
+          const supplierPrice = itemPriceMap.get(commitItem.itemId) || 0;
+          const packSize = item?.packSize || 1;
+          const unitPrice = supplierPrice / packSize;
+          
+          const existing = targetMap.get(commitItem.itemId);
+          if (existing) {
+            existing.quantity += commitItem.quantity;
+          } else {
+            targetMap.set(commitItem.itemId, {
+              name: commitItem.itemName || item?.name || 'Unknown',
+              quantity: commitItem.quantity,
+              unitPrice,
+            });
+          }
+        }
+      }
+      
+      // Convert maps to arrays
+      Array.from(anesthesiaItemsMap.entries()).forEach(([itemId, data]) => {
+        anesthesiaItems.push({
+          itemId,
+          itemName: data.name,
+          quantity: data.quantity,
+          unitPrice: Math.round(data.unitPrice * 100) / 100,
+          cost: Math.round(data.quantity * data.unitPrice * 100) / 100,
+        });
+      });
+      
+      Array.from(surgeryItemsMap.entries()).forEach(([itemId, data]) => {
+        surgeryItems.push({
+          itemId,
+          itemName: data.name,
+          quantity: data.quantity,
+          unitPrice: Math.round(data.unitPrice * 100) / 100,
+          cost: Math.round(data.quantity * data.unitPrice * 100) / 100,
+        });
+      });
+    }
+    
+    // Calculate totals
+    const staffTotal = staffBreakdown.reduce((sum, s) => sum + s.cost, 0);
+    const anesthesiaTotal = anesthesiaItems.reduce((sum, i) => sum + i.cost, 0);
+    const surgeryTotal = surgeryItems.reduce((sum, i) => sum + i.cost, 0);
+    
+    // Get patient info
+    const patient = surgery.patientId ? await storage.getPatient(surgery.patientId) : null;
+    
+    res.json({
+      surgery: {
+        id: surgery.id,
+        date: surgery.plannedDate,
+        surgeryName: surgery.plannedSurgery || 'Unknown',
+        patientName: patient ? `${patient.firstName || ''} ${patient.surname || ''}`.trim() : 'Unknown',
+        status: surgery.status,
+      },
+      duration: {
+        minutes: surgeryDurationMinutes,
+        hours: Math.round((surgeryDurationMinutes / 60) * 100) / 100,
+        x1Time,
+        a2Time,
+      },
+      staffBreakdown,
+      staffTotal: Math.round(staffTotal * 100) / 100,
+      anesthesiaItems,
+      anesthesiaTotal: Math.round(anesthesiaTotal * 100) / 100,
+      surgeryItems,
+      surgeryTotal: Math.round(surgeryTotal * 100) / 100,
+      grandTotal: Math.round((staffTotal + anesthesiaTotal + surgeryTotal) * 100) / 100,
+    });
+  } catch (error) {
+    console.error("Error fetching surgery cost breakdown:", error);
+    res.status(500).json({ message: "Failed to fetch cost breakdown" });
   }
 });
 
