@@ -117,6 +117,9 @@ export class HinMediupdateClient {
       return { found: false, source: 'hin' };
     }
 
+    // Normalize GTIN: remove leading zeros for comparison (GTINs are stored as 13 digits without leading zeros)
+    const normalizedGtin = cleanCode.replace(/^0+/, '');
+
     try {
       const results = await db
         .select()
@@ -125,7 +128,8 @@ export class HinMediupdateClient {
           or(
             eq(hinArticles.pharmacode, cleanCode),
             eq(hinArticles.gtin, cleanCode),
-            eq(hinArticles.gtin, cleanCode.padStart(13, '0'))
+            eq(hinArticles.gtin, cleanCode.padStart(13, '0')),
+            eq(hinArticles.gtin, normalizedGtin)
           )
         )
         .limit(1);
