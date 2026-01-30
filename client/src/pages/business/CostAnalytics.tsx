@@ -315,13 +315,13 @@ function ChartCard({ title, description, helpText, children }: ChartCardProps) {
 export default function CostAnalytics() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
-  const [period, setPeriod] = useState("month");
   const [surgeryTypeFilter, setSurgeryTypeFilter] = useState("all");
   const [activeSubTab, setActiveSubTab] = useState("surgeries");
   const [surgerySearch, setSurgerySearch] = useState("");
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
   const [inventorySortBy, setInventorySortBy] = useState<'price' | 'stock'>('price');
   const [inventorySortOrder, setInventorySortOrder] = useState<'asc' | 'desc'>('desc');
+  const [chartUnitFilter, setChartUnitFilter] = useState<string>("all");
 
   const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
 
@@ -522,19 +522,6 @@ export default function CostAnalytics() {
           <p className="text-muted-foreground mt-1">
             {t('business.costs.subtitle')}
           </p>
-        </div>
-        <div className="flex gap-2">
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[140px]" data-testid="select-period">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="week">{t('business.periods.week')}</SelectItem>
-              <SelectItem value="month">{t('business.periods.month')}</SelectItem>
-              <SelectItem value="quarter">{t('business.periods.quarter')}</SelectItem>
-              <SelectItem value="year">{t('business.periods.year')}</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
@@ -1129,11 +1116,26 @@ export default function CostAnalytics() {
           {/* Historical Inventory Chart */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                {t('business.costs.inventoryHistory')}
-              </CardTitle>
-              <CardDescription>{t('business.costs.inventoryHistoryDesc')}</CardDescription>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    {t('business.costs.inventoryHistory')}
+                  </CardTitle>
+                  <CardDescription>{t('business.costs.inventoryHistoryDesc')}</CardDescription>
+                </div>
+                <Select value={chartUnitFilter} onValueChange={setChartUnitFilter}>
+                  <SelectTrigger className="w-[200px]" data-testid="select-chart-unit-filter">
+                    <SelectValue placeholder={t('business.costs.allUnits')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t('business.costs.allUnits')}</SelectItem>
+                    {unitInventories.map((unit) => (
+                      <SelectItem key={unit.id} value={unit.name}>{unit.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </CardHeader>
             <CardContent>
               {snapshotsLoading ? (
@@ -1167,11 +1169,14 @@ export default function CostAnalytics() {
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '8px'
                       }}
-                      formatter={(value: number) => [`CHF ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, t('business.costs.totalValue')]}
+                      formatter={(value: number, name: string) => [
+                        `CHF ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 
+                        chartUnitFilter === 'all' ? t('business.costs.totalValue') : chartUnitFilter
+                      ]}
                     />
                     <Area
                       type="monotone"
-                      dataKey="totalValue"
+                      dataKey={chartUnitFilter === 'all' ? 'totalValue' : chartUnitFilter}
                       stroke="#22c55e"
                       strokeWidth={2}
                       fillOpacity={1}

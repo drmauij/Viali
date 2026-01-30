@@ -3690,7 +3690,8 @@
       "inventoryHistoryDesc": "Verfolgen Sie, wie sich Ihr Gesamtinventarwert im Laufe der Zeit verändert",
       "noHistoricalData": "Noch keine historischen Daten verfügbar",
       "dataCollectionStarted": "Die Datenerfassung hat begonnen - schauen Sie morgen wieder vorbei für Ihren ersten Datenpunkt",
-      "totalValue": "Gesamtwert"
+      "totalValue": "Gesamtwert",
+      "allUnits": "Alle Standorte"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopädie",
