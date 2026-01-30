@@ -321,7 +321,7 @@ export default function CostAnalytics() {
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
   const [inventorySortBy, setInventorySortBy] = useState<'price' | 'stock'>('price');
   const [inventorySortOrder, setInventorySortOrder] = useState<'asc' | 'desc'>('desc');
-  const [chartUnitFilter, setChartUnitFilter] = useState<string>("all");
+  // Chart unit filter removed - now showing all units as separate lines
 
   const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
 
@@ -1115,26 +1115,11 @@ export default function CostAnalytics() {
           {/* Historical Inventory Chart */}
           <Card>
             <CardHeader>
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5" />
-                    {t('business.costs.inventoryHistory')}
-                  </CardTitle>
-                  <CardDescription>{t('business.costs.inventoryHistoryDesc')}</CardDescription>
-                </div>
-                <Select value={chartUnitFilter} onValueChange={setChartUnitFilter}>
-                  <SelectTrigger className="w-[200px]" data-testid="select-chart-unit-filter">
-                    <SelectValue placeholder={t('business.costs.allUnits')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">{t('business.costs.allUnits')}</SelectItem>
-                    {unitInventories.map((unit) => (
-                      <SelectItem key={unit.id} value={unit.name}>{unit.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                {t('business.costs.inventoryHistory')}
+              </CardTitle>
+              <CardDescription>{t('business.costs.inventoryHistoryDesc')}</CardDescription>
             </CardHeader>
             <CardContent>
               {snapshotsLoading ? (
@@ -1148,13 +1133,7 @@ export default function CostAnalytics() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height={300}>
-                  <AreaChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorInventory" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#22c55e" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#22c55e" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
+                  <LineChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="date" className="text-muted-foreground" fontSize={12} />
                     <YAxis 
@@ -1168,20 +1147,34 @@ export default function CostAnalytics() {
                         border: '1px solid hsl(var(--border))',
                         borderRadius: '8px'
                       }}
-                      formatter={(value: number, name: string) => [
-                        `CHF ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 
-                        chartUnitFilter === 'all' ? t('business.costs.totalValue') : chartUnitFilter
+                      formatter={(value: number) => [
+                        `CHF ${value.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
                       ]}
                     />
-                    <Area
+                    <Legend />
+                    <Line
                       type="monotone"
-                      dataKey={chartUnitFilter === 'all' ? 'totalValue' : chartUnitFilter}
-                      stroke="#22c55e"
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill="url(#colorInventory)"
+                      dataKey="totalValue"
+                      name={t('business.costs.totalValue')}
+                      stroke="#111827"
+                      strokeWidth={3}
+                      dot={false}
                     />
-                  </AreaChart>
+                    {unitInventories.map((unit, index) => {
+                      const colors = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+                      return (
+                        <Line
+                          key={unit.id}
+                          type="monotone"
+                          dataKey={unit.name}
+                          name={unit.name}
+                          stroke={colors[index % colors.length]}
+                          strokeWidth={2}
+                          dot={false}
+                        />
+                      );
+                    })}
+                  </LineChart>
                 </ResponsiveContainer>
               )}
             </CardContent>

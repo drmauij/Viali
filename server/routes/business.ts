@@ -1015,26 +1015,21 @@ router.post('/api/business/:hospitalId/contracts/:contractId/send-email', isAuth
 router.get('/api/business/:hospitalId/inventory-overview', isAuthenticated, isBusinessManager, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    console.log('[Business Inventory] Fetching inventory overview for hospitalId:', hospitalId);
     
     // Get all units within this hospital
     const hospitalUnits = await storage.getUnits(hospitalId);
-    console.log('[Business Inventory] Found units:', hospitalUnits.map(u => ({ id: u.id, name: u.name, type: u.type })));
     
     // Filter to only inventory-capable units (exclude business/logistic type units)
     const inventoryUnits = hospitalUnits.filter(u => 
       u.type !== 'business' && u.type !== 'logistic' && u.showInventory !== false
     );
-    console.log('[Business Inventory] Inventory units after filter:', inventoryUnits.map(u => ({ id: u.id, name: u.name, type: u.type })));
     
     // Aggregate items from all units within this hospital
     const allItems: any[] = [];
     for (const unit of inventoryUnits) {
       const items = await storage.getItems(hospitalId, unit.id);
-      console.log(`[Business Inventory] Unit ${unit.name} has ${items.length} items`);
       allItems.push(...items);
     }
-    console.log('[Business Inventory] Total items found:', allItems.length);
     
     // Get supplier codes for all items in this hospital
     const allItemIds = allItems.map(item => item.id);
