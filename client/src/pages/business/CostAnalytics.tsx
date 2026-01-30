@@ -332,27 +332,26 @@ export default function CostAnalytics() {
 
   const totalCosts = mockCostByCategory.reduce((sum, cat) => sum + cat.value, 0);
 
-  // Fetch units for inventories tab
-  const { data: unitsData, isLoading: unitsLoading } = useQuery<any[]>({
-    queryKey: [`/api/units/${activeHospital?.id}`],
+  // Fetch aggregated inventory data from all clinics for business module
+  const { data: inventoryOverview, isLoading: inventoryLoading } = useQuery<{
+    units: any[];
+    items: any[];
+    supplierCodes: any[];
+  }>({
+    queryKey: [`/api/business/${activeHospital?.id}/inventory-overview`],
     enabled: !!activeHospital?.id && activeSubTab === 'inventories',
   });
 
-  // Fetch all items with stock and prices for inventory valuation
-  const { data: itemsData, isLoading: itemsLoading } = useQuery<any[]>({
-    queryKey: [`/api/items/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id && activeSubTab === 'inventories',
-  });
+  // Extract data from the aggregated response
+  const unitsData = inventoryOverview?.units;
+  const itemsData = inventoryOverview?.items;
+  const supplierCodesData = inventoryOverview?.supplierCodes;
+  const unitsLoading = inventoryLoading;
+  const itemsLoading = inventoryLoading;
 
-  // Fetch preferred supplier codes for price information
-  const { data: supplierCodesData } = useQuery<any[]>({
-    queryKey: [`/api/preferred-supplier-codes/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id && activeSubTab === 'inventories',
-  });
-
-  // Fetch inventory snapshots for historical chart
+  // Fetch aggregated inventory snapshots from all clinics for historical chart
   const { data: snapshotsData, isLoading: snapshotsLoading } = useQuery<any[]>({
-    queryKey: [`/api/inventory-snapshots/${activeHospital?.id}?days=30`],
+    queryKey: [`/api/business/${activeHospital?.id}/inventory-snapshots?days=30`],
     enabled: !!activeHospital?.id && activeSubTab === 'inventories',
   });
 

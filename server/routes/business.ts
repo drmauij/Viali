@@ -1011,4 +1011,132 @@ router.post('/api/business/:hospitalId/contracts/:contractId/send-email', isAuth
   }
 });
 
+// Get aggregated inventory data across all clinics for business module
+router.get('/api/business/:hospitalId/inventory-overview', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+    
+    // Get all hospitals the user has access to
+    const userHospitals = await storage.getUserHospitals(userId);
+    
+    // Filter to only non-business-module hospitals (actual clinics)
+    const clinicHospitals = userHospitals.filter(h => 
+      !h.isBusinessModule && !h.isLogisticModule && h.unitType !== 'business' && h.unitType !== 'logistic'
+    );
+    
+    // Get unique hospital IDs
+    const clinicHospitalIds = Array.from(new Set(clinicHospitals.map(h => h.id)));
+    
+    if (clinicHospitalIds.length === 0) {
+      return res.json({ units: [], items: [], supplierCodes: [] });
+    }
+    
+    // Aggregate units from all clinics
+    const allUnits = [];
+    const allItems = [];
+    const allSupplierCodes = [];
+    
+    for (const clinicId of clinicHospitalIds) {
+      const units = await storage.getUnits(clinicId);
+      // Filter to only inventory-capable units
+      const inventoryUnits = units.filter(u => 
+        u.type !== 'business' && u.type !== 'logistic' && u.showInventory !== false
+      );
+      allUnits.push(...inventoryUnits);
+      
+      // Get items for each unit
+      for (const unit of inventoryUnits) {
+        const items = await storage.getItems(clinicId, unit.id);
+        allItems.push(...items);
+      }
+      
+      // Get supplier codes for this hospital
+      const supplierCodes = await db
+        .select()
+        .from(require('@shared/schema').preferredSupplierCodes)
+        .where(eq(require('@shared/schema').preferredSupplierCodes.hospitalId, clinicId));
+      allSupplierCodes.push(...supplierCodes);
+    }
+    
+    res.json({ 
+      units: allUnits, 
+      items: allItems, 
+      supplierCodes: allSupplierCodes 
+    });
+  } catch (error) {
+    console.error("Error fetching inventory overview:", error);
+    res.status(500).json({ message: "Failed to fetch inventory overview" });
+  }
+});
+
+// Get aggregated inventory snapshots across all clinics for business module
+router.get('/api/business/:hospitalId/inventory-snapshots', isAuthenticated, isBusinessManager, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { days = 30 } = req.query;
+    const userId = req.user.id;
+    
+    // Get all hospitals the user has access to
+    const userHospitals = await storage.getUserHospitals(userId);
+    
+    // Filter to only non-business-module hospitals (actual clinics)
+    const clinicHospitals = userHospitals.filter(h => 
+      !h.isBusinessModule && !h.isLogisticModule && h.unitType !== 'business' && h.unitType !== 'logistic'
+    );
+    
+    // Get unique hospital IDs
+    const clinicHospitalIds = Array.from(new Set(clinicHospitals.map(h => h.id)));
+    
+    if (clinicHospitalIds.length === 0) {
+      return res.json([]);
+    }
+    
+    const daysBack = parseInt(days as string) || 30;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - daysBack);
+    const startDateStr = startDate.toISOString().split('T')[0];
+    
+    const { inventorySnapshots } = await import('@shared/schema');
+    const { and, gte, desc } = await import('drizzle-orm');
+    
+    // Aggregate snapshots from all clinics
+    const allSnapshots = [];
+    
+    for (const clinicId of clinicHospitalIds) {
+      const snapshots = await db.select({
+        id: inventorySnapshots.id,
+        hospitalId: inventorySnapshots.hospitalId,
+        unitId: inventorySnapshots.unitId,
+        snapshotDate: inventorySnapshots.snapshotDate,
+        totalValue: inventorySnapshots.totalValue,
+        itemCount: inventorySnapshots.itemCount,
+      })
+        .from(inventorySnapshots)
+        .leftJoin(units, eq(inventorySnapshots.unitId, units.id))
+        .where(and(
+          eq(inventorySnapshots.hospitalId, clinicId),
+          gte(inventorySnapshots.snapshotDate, startDateStr)
+        ))
+        .orderBy(desc(inventorySnapshots.snapshotDate));
+      
+      // Add unit name from units table
+      const unitsForClinic = await storage.getUnits(clinicId);
+      const unitMap = new Map(unitsForClinic.map(u => [u.id, u.name]));
+      
+      const snapshotsWithUnitName = snapshots.map(s => ({
+        ...s,
+        unitName: unitMap.get(s.unitId) || 'Unknown'
+      }));
+      
+      allSnapshots.push(...snapshotsWithUnitName);
+    }
+    
+    res.json(allSnapshots);
+  } catch (error) {
+    console.error("Error fetching inventory snapshots:", error);
+    res.status(500).json({ message: "Failed to fetch inventory snapshots" });
+  }
+});
+
 export default router;

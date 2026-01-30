@@ -3691,7 +3691,7 @@
       "noHistoricalData": "Noch keine historischen Daten verfügbar",
       "dataCollectionStarted": "Die Datenerfassung hat begonnen - schauen Sie morgen wieder vorbei für Ihren ersten Datenpunkt",
       "totalValue": "Gesamtwert",
-      "allUnits": "Alle Standorte"
+      "allUnits": "Alle Abteilungen"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopädie",
@@ -4383,12 +4383,12 @@
   "logistic": {
     "inventory": "Inventar",
     "orders": "Bestellungen",
-    "selectUnit": "Standort auswählen",
-    "selectUnitPlaceholder": "Standort auswählen...",
+    "selectUnit": "Abteilung auswählen",
+    "selectUnitPlaceholder": "Abteilung auswählen...",
     "viewingInventory": "Inventar wird angezeigt für",
-    "noUnitsAvailable": "Keine Standorte mit Inventar verfügbar.",
-    "filterByUnit": "Nach Standort filtern",
-    "allUnits": "Alle Standorte"
+    "noUnitsAvailable": "Keine Abteilungen mit Inventar verfügbar.",
+    "filterByUnit": "Nach Abteilung filtern",
+    "allUnits": "Alle Abteilungen"
   },
   "chat": {
     "editingMessage": "Nachricht bearbeiten",
