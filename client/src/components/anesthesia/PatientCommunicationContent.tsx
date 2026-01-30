@@ -672,15 +672,6 @@ export function PatientCommunicationContent({
               </Button>
             </div>
 
-            <Textarea
-              placeholder={t('messages.messagePlaceholder', 'Write your message here...')}
-              value={customMessage}
-              onChange={(e) => setCustomMessage(e.target.value)}
-              rows={5}
-              className="text-sm resize-none w-full"
-              data-testid="input-custom-message"
-            />
-
             <div className="space-y-2 shrink-0">
               <div className="flex gap-1.5 flex-wrap items-center">
                 <Button
@@ -734,24 +725,22 @@ export function PatientCommunicationContent({
                   </Button>
                 )}
                 
-                {customMessage.trim() && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs ml-auto"
-                    onClick={() => {
-                      const newLang = messageLang === 'de' ? 'en' : 'de';
-                      const translated = translateMessage(customMessage, messageLang, newLang);
-                      setCustomMessage(translated);
-                      setMessageLang(newLang);
-                    }}
-                    data-testid="button-translate-message"
-                    title={messageLang === 'de' ? 'Translate to English' : 'Auf Deutsch übersetzen'}
-                  >
-                    <Languages className="h-3 w-3 mr-1" />
-                    {messageLang === 'de' ? 'DE → EN' : 'EN → DE'}
-                  </Button>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs ml-auto"
+                  onClick={() => {
+                    const newLang = messageLang === 'de' ? 'en' : 'de';
+                    const translated = translateMessage(customMessage, messageLang, newLang);
+                    setCustomMessage(translated);
+                    setMessageLang(newLang);
+                  }}
+                  data-testid="button-translate-message"
+                  title={messageLang === 'de' ? 'Translate to English' : 'Auf Deutsch übersetzen'}
+                >
+                  <Languages className="h-3 w-3 mr-1" />
+                  {messageLang === 'de' ? 'DE → EN' : 'EN → DE'}
+                </Button>
               </div>
 
               {(generatedLink || (patientFlyers?.flyers?.length || 0) > 0) && (
@@ -785,6 +774,15 @@ export function PatientCommunicationContent({
                 </div>
               )}
             </div>
+
+            <Textarea
+              placeholder={t('messages.messagePlaceholder', 'Write your message here...')}
+              value={customMessage}
+              onChange={(e) => setCustomMessage(e.target.value)}
+              rows={5}
+              className="text-sm resize-none w-full"
+              data-testid="input-custom-message"
+            />
 
             <div className="flex gap-2 items-end">
               <div className="flex gap-1">
