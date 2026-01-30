@@ -1,6 +1,6 @@
 {
-  "id": "02cc86dd-5c44-4e87-ad0b-3c0cce44f951",
-  "prevId": "965cbc5a-040b-460f-a1bd-f2a3ea69c54b",
+  "id": "f58a1683-b036-46d2-ad14-1a82ba996aaa",
+  "prevId": "02cc86dd-5c44-4e87-ad0b-3c0cce44f951",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -9930,6 +9930,13 @@
         },
         "is_invoiceable": {
           "name": "is_invoiceable",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "is_service": {
+          "name": "is_service",
           "type": "boolean",
           "primaryKey": false,
           "notNull": false,

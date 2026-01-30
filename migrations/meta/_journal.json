@@ -729,6 +729,13 @@
       "when": 1769763544101,
       "tag": "0103_burly_golden_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1769804184029,
+      "tag": "0104_married_rogue",
+      "breakpoints": true
     }
   ]
 }

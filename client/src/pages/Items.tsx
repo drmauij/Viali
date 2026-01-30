@@ -78,6 +78,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     dailyUsageEstimate: "",
     status: "active" as "active" | "archived",
     isInvoiceable: false,
+    isService: false,
   });
   const [formData, setFormData] = useState({
     name: "",
@@ -92,6 +93,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     critical: false,
     controlled: false,
     trackExactQuantity: false,
+    isService: false,
     imageUrl: "",
     gtin: "",
     pharmacode: "",
@@ -866,6 +868,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           dailyUsageEstimate: item.dailyUsageEstimate || "",
           status: (item.status as "active" | "archived") || "active",
           isInvoiceable: item.isInvoiceable || false,
+          isService: item.isService || false,
         });
         setSelectedUnit(normalizeUnit(item.unit));
         setEditDialogTab(tab === 'codes' ? 'codes' : 'details');
@@ -949,6 +952,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       dailyUsageEstimate: item.dailyUsageEstimate || "",
       status: (item.status as "active" | "archived") || "active",
       isInvoiceable: item.isInvoiceable || false,
+      isService: item.isService || false,
     });
     setSelectedUnit(normalizeUnit(item.unit));
     setEditDialogTab("details");
@@ -1508,6 +1512,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       trackExactQuantity: editFormData.trackExactQuantity,
       critical: editFormData.critical,
       controlled: editFormData.controlled,
+      isService: editFormData.isService,
       imageUrl: editFormData.imageUrl || null,
       patientPrice: editFormData.patientPrice ? editFormData.patientPrice : null,
       dailyUsageEstimate: editFormData.dailyUsageEstimate ? editFormData.dailyUsageEstimate : null,
@@ -1828,6 +1833,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       trackExactQuantity: formData.trackExactQuantity,
       critical: formData.critical,
       controlled: formData.controlled,
+      isService: formData.isService,
       initialStock: parseInt(formData.initialStock) || 0,
       imageUrl: formData.imageUrl || undefined,
     };
@@ -1939,6 +1945,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       critical: false,
       controlled: false,
       trackExactQuantity: false,
+      isService: false,
       imageUrl: "",
       gtin: "",
       pharmacode: "",
@@ -3802,6 +3809,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                                           <i className="fas fa-shield-halved"></i>
                                         </span>
                                       )}
+                                      {item.isService && (
+                                        <span className="status-chip bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs flex-shrink-0" data-testid={`item-${item.id}-service`}>
+                                          <i className="fas fa-concierge-bell mr-1"></i>{t('items.serviceBadge')}
+                                        </span>
+                                      )}
                                     </div>
                                   </div>
                                 )}
@@ -4070,6 +4082,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                         {item.controlled && (
                           <span className="status-chip chip-controlled text-xs flex-shrink-0" data-testid={`item-${item.id}-controlled`}>
                             <i className="fas fa-shield-halved"></i>
+                          </span>
+                        )}
+                        {item.isService && (
+                          <span className="status-chip bg-purple-500/20 text-purple-600 dark:text-purple-400 text-xs flex-shrink-0" data-testid={`item-${item.id}-service`}>
+                            <i className="fas fa-concierge-bell mr-1"></i>{t('items.serviceBadge')}
                           </span>
                         )}
                       </div>
@@ -4585,8 +4602,8 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               />
             </div>
 
-            {/* Item Qualities - Controlled */}
-            <div className="flex gap-4">
+            {/* Item Qualities - Controlled and Service */}
+            <div className="flex gap-4 flex-wrap">
               <div className="flex items-center space-x-2">
                 <Checkbox 
                   id="controlled" 
@@ -4596,6 +4613,16 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                   data-testid="checkbox-item-controlled" 
                 />
                 <Label htmlFor="controlled" className="cursor-pointer">{t('items.controlled')}</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox 
+                  id="isService" 
+                  name="isService"
+                  checked={formData.isService}
+                  onCheckedChange={(checked) => setFormData(prev => ({ ...prev, isService: checked === true }))}
+                  data-testid="checkbox-item-service" 
+                />
+                <Label htmlFor="isService" className="cursor-pointer">{t('items.serviceItem', 'Service Item')}</Label>
               </div>
             </div>
 
@@ -4942,14 +4969,14 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox 
-                  id="edit-archived" 
-                  name="archived"
-                  checked={editFormData.status === 'archived'}
-                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, status: checked ? 'archived' : 'active' }))}
+                  id="edit-isService" 
+                  name="isService"
+                  checked={editFormData.isService}
+                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, isService: checked === true }))}
                   disabled={!canWrite}
-                  data-testid="checkbox-edit-archived" 
+                  data-testid="checkbox-edit-service" 
                 />
-                <Label htmlFor="edit-archived" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.archiveItem')}</Label>
+                <Label htmlFor="edit-isService" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.serviceItem', 'Service Item')}</Label>
               </div>
             </div>
 
@@ -5910,16 +5937,24 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               {canWrite ? (
                 <Button 
                   type="button" 
-                  variant="destructive" 
+                  variant={editFormData.status === 'archived' ? "outline" : "secondary"}
                   onClick={() => {
-                    if (selectedItem && window.confirm(t('items.deleteConfirm'))) {
-                      deleteItemMutation.mutate(selectedItem.id);
+                    if (selectedItem) {
+                      const newStatus = editFormData.status === 'archived' ? 'active' : 'archived';
+                      setEditFormData(prev => ({ ...prev, status: newStatus }));
+                      updateItemMutation.mutate({
+                        id: selectedItem.id,
+                        status: newStatus,
+                      });
                     }
                   }}
-                  disabled={deleteItemMutation.isPending}
-                  data-testid="button-delete-item"
+                  disabled={updateItemMutation.isPending}
+                  data-testid="button-archive-item"
                 >
-                  {deleteItemMutation.isPending ? t('common.loading') : t('common.delete')}
+                  {editFormData.status === 'archived' 
+                    ? <><i className="fas fa-box-open mr-2"></i>{t('items.unarchive', 'Restore')}</>
+                    : <><i className="fas fa-archive mr-2"></i>{t('items.archive', 'Archive')}</>
+                  }
                 </Button>
               ) : (
                 <div></div>

@@ -250,6 +250,7 @@ export const items = pgTable("items", {
   patientPrice: decimal("patient_price", { precision: 10, scale: 2 }), // Final patient dispensing price for ambulatory invoices
   dailyUsageEstimate: decimal("daily_usage_estimate", { precision: 10, scale: 2 }), // Manual fallback for runway calculation when no consumption history
   isInvoiceable: boolean("is_invoiceable").default(false), // Whether item appears in invoice item picker across all units
+  isService: boolean("is_service").default(false), // Service items (e.g., sterilization fees) excluded from inventory value calculations
   status: varchar("status").default("active").notNull(), // 'active' | 'archived' - archived items hidden from lists but searchable
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

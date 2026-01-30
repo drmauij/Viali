@@ -396,7 +396,8 @@ export default function CostAnalytics() {
     );
 
     return inventoryUnits.map((unit: any) => {
-      const unitItems = itemsData.filter((item: any) => item.unitId === unit.id);
+      // Filter out service items from inventory value calculations
+      const unitItems = itemsData.filter((item: any) => item.unitId === unit.id && !item.isService);
       
       const itemsWithValues: ItemWithValue[] = unitItems.map((item: any) => {
         // IMPORTANT: Always use stockLevel.qtyOnHand (actual stock/packs), NOT currentUnits
