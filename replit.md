@@ -1,5 +1,18 @@
 # Viali - Hospital Inventory Management System
 
+## ⚠️ CRITICAL: Database Migration Rules for AI Agent
+
+**NEVER create migration files manually.** Always follow this workflow:
+
+1. Update `shared/schema.ts` with schema changes
+2. Run `npm run db:generate` to create migration AND update Drizzle journal
+3. Convert generated SQL to idempotent (IF NOT EXISTS patterns)
+4. Run `npm run db:migrate` or restart server
+
+Failing to use `db:generate` causes duplicate migrations when syncing the journal.
+
+---
+
 ## Overview
 Viali is a mobile-first web application designed to optimize hospital operations. Its core purpose is to provide a robust Inventory Management module to prevent stockouts, minimize waste, and automate reordering, including controlled substances, across multiple hospital facilities. It also features an Anesthesia Records module that streamlines patient case management with AI-assisted data extraction. The system aims to enhance healthcare efficiency and patient safety through consistent UI/UX, multi-hospital support, and granular user role management. Future plans include an Ambulatory Invoice Module to manage outpatient billing and integrate with existing patient and inventory data.
 

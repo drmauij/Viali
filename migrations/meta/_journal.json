@@ -726,13 +726,6 @@
     {
       "idx": 103,
       "version": "7",
-      "when": 1769800000000,
-      "tag": "0103_inventory_snapshots",
-      "breakpoints": true
-    },
-    {
-      "idx": 104,
-      "version": "7",
       "when": 1769763544101,
       "tag": "0104_burly_golden_guardian",
       "breakpoints": true
