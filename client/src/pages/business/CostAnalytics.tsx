@@ -399,7 +399,10 @@ export default function CostAnalytics() {
       const unitItems = itemsData.filter((item: any) => item.unitId === unit.id);
       
       const itemsWithValues: ItemWithValue[] = unitItems.map((item: any) => {
-        const stockLevel = item.stockLevel?.qtyOnHand || item.currentUnits || 0;
+        // IMPORTANT: Always use stockLevel.qtyOnHand (actual stock/packs), NOT currentUnits
+        // currentUnits is the total individual units across all packs, not the pack count
+        // supplierPrice is price per pack, so we multiply by pack count (stockLevel)
+        const stockLevel = item.stockLevel?.qtyOnHand || 0;
         const packSize = item.packSize || 1;
         const supplierPrice = itemPrices[item.id] || 0;
         const totalValue = stockLevel * supplierPrice;
