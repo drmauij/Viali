@@ -4956,27 +4956,37 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
 
             {/* Item Qualities - Controlled and Archived */}
             <div className="flex gap-4 flex-wrap">
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="edit-controlled" 
-                  name="controlled"
-                  checked={editFormData.controlled}
-                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, controlled: checked === true }))}
-                  disabled={!canWrite}
-                  data-testid="checkbox-edit-controlled" 
-                />
-                <Label htmlFor="edit-controlled" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.controlled')}</Label>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="edit-controlled" 
+                    name="controlled"
+                    checked={editFormData.controlled}
+                    onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, controlled: checked === true }))}
+                    disabled={!canWrite}
+                    data-testid="checkbox-edit-controlled" 
+                  />
+                  <Label htmlFor="edit-controlled" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.controlled')}</Label>
+                </div>
+                {editFormData.controlled && (
+                  <p className="text-xs text-muted-foreground mt-1 ml-6">{t('items.controlledHelp', 'Requires verification and signature for each use')}</p>
+                )}
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="edit-isService" 
-                  name="isService"
-                  checked={editFormData.isService}
-                  onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, isService: checked === true }))}
-                  disabled={!canWrite}
-                  data-testid="checkbox-edit-service" 
-                />
-                <Label htmlFor="edit-isService" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.serviceItem', 'Service Item')}</Label>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="edit-isService" 
+                    name="isService"
+                    checked={editFormData.isService}
+                    onCheckedChange={(checked) => setEditFormData(prev => ({ ...prev, isService: checked === true }))}
+                    disabled={!canWrite}
+                    data-testid="checkbox-edit-service" 
+                  />
+                  <Label htmlFor="edit-isService" className={!canWrite ? "cursor-not-allowed text-muted-foreground" : "cursor-pointer"}>{t('items.serviceItem', 'Service Item')}</Label>
+                </div>
+                {editFormData.isService && (
+                  <p className="text-xs text-muted-foreground mt-1 ml-6">{t('items.serviceItemHelp', 'Tracks costs without affecting inventory value')}</p>
+                )}
               </div>
             </div>
 
