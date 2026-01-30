@@ -5937,7 +5937,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               {canWrite ? (
                 <Button 
                   type="button" 
-                  variant={editFormData.status === 'archived' ? "outline" : "secondary"}
+                  variant="secondary"
                   onClick={() => {
                     if (selectedItem) {
                       const newStatus = editFormData.status === 'archived' ? 'active' : 'archived';
