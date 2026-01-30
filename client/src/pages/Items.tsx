@@ -4990,43 +4990,45 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               </div>
             </div>
 
-            {/* Order Unit Selector */}
-            <div>
-              <Label>{t('items.placeOrdersBy')} *</Label>
-              <div className="grid grid-cols-2 gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() => canWrite && setSelectedUnit("Pack")}
-                  disabled={!canWrite}
-                  className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
-                    selectedUnit === "Pack" 
-                      ? "border-primary bg-primary/10" 
-                      : "border-border bg-background"
-                  } ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
-                  data-testid="edit-unit-pack"
-                >
-                  <i className="fas fa-box text-xl mb-1"></i>
-                  <div className="text-xs font-medium">{t('items.pack')}</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => canWrite && setSelectedUnit("Single unit")}
-                  disabled={!canWrite}
-                  className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
-                    selectedUnit === "Single unit" 
-                      ? "border-primary bg-primary/10" 
-                      : "border-border bg-background"
-                  } ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
-                  data-testid="edit-unit-single"
-                >
-                  <i className="fas fa-vial text-xl mb-1"></i>
-                  <div className="text-xs font-medium">{t('items.singleUnit')}</div>
-                </button>
+            {/* Order Unit Selector - Hidden for service items */}
+            {!editFormData.isService && (
+              <div>
+                <Label>{t('items.placeOrdersBy')} *</Label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => canWrite && setSelectedUnit("Pack")}
+                    disabled={!canWrite}
+                    className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
+                      selectedUnit === "Pack" 
+                        ? "border-primary bg-primary/10" 
+                        : "border-border bg-background"
+                    } ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
+                    data-testid="edit-unit-pack"
+                  >
+                    <i className="fas fa-box text-xl mb-1"></i>
+                    <div className="text-xs font-medium">{t('items.pack')}</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => canWrite && setSelectedUnit("Single unit")}
+                    disabled={!canWrite}
+                    className={`flex flex-col items-center py-3 px-2 rounded-lg border-2 transition-all ${
+                      selectedUnit === "Single unit" 
+                        ? "border-primary bg-primary/10" 
+                        : "border-border bg-background"
+                    } ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
+                    data-testid="edit-unit-single"
+                  >
+                    <i className="fas fa-vial text-xl mb-1"></i>
+                    <div className="text-xs font-medium">{t('items.singleUnit')}</div>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Track Exact Quantity - Only for Pack orders */}
-            {selectedUnit === "Pack" && (
+            {/* Track Exact Quantity - Only for Pack orders, hidden for service items */}
+            {!editFormData.isService && selectedUnit === "Pack" && (
               <div className="space-y-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
@@ -5172,25 +5174,28 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
               </>
             )}
 
-            <div>
-              <Label htmlFor="edit-dailyUsageEstimate">{t('items.dailyUsageEstimate', 'Est. Daily Usage')}</Label>
-              <Input 
-                id="edit-dailyUsageEstimate" 
-                name="dailyUsageEstimate" 
-                type="number"
-                step="0.01"
-                min="0"
-                value={editFormData.dailyUsageEstimate}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, dailyUsageEstimate: e.target.value }))}
-                onFocus={handleNumberInputFocus}
-                disabled={!canWrite}
-                placeholder="0.00"
-                data-testid="input-edit-daily-usage-estimate" 
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {t('items.dailyUsageEstimateHint', 'Manual fallback for runway calculation when no consumption history exists')}
-              </p>
-            </div>
+            {/* Est. Daily Usage - Hidden for service items */}
+            {!editFormData.isService && (
+              <div>
+                <Label htmlFor="edit-dailyUsageEstimate">{t('items.dailyUsageEstimate', 'Est. Daily Usage')}</Label>
+                <Input 
+                  id="edit-dailyUsageEstimate" 
+                  name="dailyUsageEstimate" 
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={editFormData.dailyUsageEstimate}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, dailyUsageEstimate: e.target.value }))}
+                  onFocus={handleNumberInputFocus}
+                  disabled={!canWrite}
+                  placeholder="0.00"
+                  data-testid="input-edit-daily-usage-estimate" 
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t('items.dailyUsageEstimateHint', 'Manual fallback for runway calculation when no consumption history exists')}
+                </p>
+              </div>
+            )}
               </TabsContent>
 
               <TabsContent value="invoicing" className="space-y-4 mt-0">
