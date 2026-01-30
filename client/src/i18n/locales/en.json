@@ -3686,7 +3686,12 @@
       "surgeryCosts": "Surgery Costs",
       "date": "Date",
       "patient": "Patient",
-      "duration": "Duration"
+      "duration": "Duration",
+      "anesthesiaConsumables": "Anesthesia Consumables",
+      "surgeryConsumables": "Surgery Consumables",
+      "paidCol": "Paid",
+      "differenceCol": "Difference",
+      "totalDifference": "Difference"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopedic",

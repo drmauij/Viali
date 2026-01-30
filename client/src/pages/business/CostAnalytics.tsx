@@ -350,6 +350,8 @@ export default function CostAnalytics() {
     anesthesiaCost: number;
     surgeryCost: number;
     totalCost: number;
+    paidAmount: number;
+    difference: number;
     status: string;
   }[]>({
     queryKey: [`/api/business/${activeHospital?.id}/surgeries`],
@@ -990,15 +992,17 @@ export default function CostAnalytics() {
                           </Tooltip>
                         </TableHead>
                         <TableHead className="text-right">{t('business.costs.staffCostsCol')}</TableHead>
-                        <TableHead className="text-right">{t('business.costs.anesthesiaCostsCol')}</TableHead>
-                        <TableHead className="text-right">{t('business.costs.surgeryCostsCol')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.anesthesiaConsumables')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.surgeryConsumables')}</TableHead>
                         <TableHead className="text-right">{t('business.costs.totalCostCol')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.paidCol')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.differenceCol')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredSurgeries.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                          <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
                             {t('business.costs.noSurgeriesFound')}
                           </TableCell>
                         </TableRow>
@@ -1050,6 +1054,16 @@ export default function CostAnalytics() {
                             <TableCell className="text-right font-semibold">
                               CHF {(surgery.totalCost ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
+                            <TableCell className="text-right">
+                              <span className="text-orange-600 dark:text-orange-400">
+                                CHF {(surgery.paidAmount ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">
+                              <span className={(surgery.difference ?? 0) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}>
+                                CHF {(surgery.difference ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                            </TableCell>
                           </TableRow>
                         ))
                       )}
@@ -1089,6 +1103,23 @@ export default function CostAnalytics() {
                       <span className="font-bold">
                         CHF {filteredSurgeries.reduce((sum, s) => sum + (s.totalCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{t('business.costs.totalPaid')}:</span>
+                      <span className="text-orange-600 dark:text-orange-400 font-medium">
+                        CHF {filteredSurgeries.reduce((sum, s) => sum + (s.paidAmount ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{t('business.costs.totalDifference')}:</span>
+                      {(() => {
+                        const totalDiff = filteredSurgeries.reduce((sum, s) => sum + (s.difference ?? 0), 0);
+                        return (
+                          <span className={`font-bold ${totalDiff >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            CHF {totalDiff.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

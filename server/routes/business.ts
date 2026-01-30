@@ -1248,6 +1248,9 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
       // Get patient info
       const patient = surgery.patientId ? await storage.getPatient(surgery.patientId) : null;
       
+      const totalCost = Math.round((staffCost + anesthesiaCost + surgeryCost) * 100) / 100;
+      const paidAmount = surgery.price ? parseFloat(String(surgery.price)) : 0;
+      
       return {
         id: surgery.id,
         date: surgery.plannedDate,
@@ -1259,7 +1262,9 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
         staffCost: Math.round(staffCost * 100) / 100,
         anesthesiaCost: Math.round(anesthesiaCost * 100) / 100,
         surgeryCost: Math.round(surgeryCost * 100) / 100,
-        totalCost: Math.round((staffCost + anesthesiaCost + surgeryCost) * 100) / 100,
+        totalCost,
+        paidAmount: Math.round(paidAmount * 100) / 100,
+        difference: Math.round((paidAmount - totalCost) * 100) / 100,
         status: surgery.status,
       };
     }));
