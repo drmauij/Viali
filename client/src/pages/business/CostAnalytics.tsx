@@ -6,7 +6,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { Redirect } from "wouter";
 import { 
@@ -23,7 +24,12 @@ import {
   Calendar,
   FileText,
   BarChart3,
-  List
+  List,
+  ChevronRight,
+  ChevronDown,
+  ArrowUpDown,
+  Building2,
+  Loader2
 } from "lucide-react";
 import {
   LineChart,
@@ -311,8 +317,11 @@ export default function CostAnalytics() {
   const activeHospital = useActiveHospital();
   const [period, setPeriod] = useState("month");
   const [surgeryTypeFilter, setSurgeryTypeFilter] = useState("all");
-  const [activeSubTab, setActiveSubTab] = useState("overview");
+  const [activeSubTab, setActiveSubTab] = useState("surgeries");
   const [surgerySearch, setSurgerySearch] = useState("");
+  const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
+  const [inventorySortBy, setInventorySortBy] = useState<'price' | 'stock'>('price');
+  const [inventorySortOrder, setInventorySortOrder] = useState<'asc' | 'desc'>('desc');
 
   const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
 
@@ -322,6 +331,127 @@ export default function CostAnalytics() {
   }
 
   const totalCosts = mockCostByCategory.reduce((sum, cat) => sum + cat.value, 0);
+
+  // Fetch units for inventories tab
+  const { data: unitsData, isLoading: unitsLoading } = useQuery<any[]>({
+    queryKey: [`/api/units/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id && activeSubTab === 'inventories',
+  });
+
+  // Fetch all items with stock and prices for inventory valuation
+  const { data: itemsData, isLoading: itemsLoading } = useQuery<any[]>({
+    queryKey: [`/api/items/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id && activeSubTab === 'inventories',
+  });
+
+  // Fetch preferred supplier codes for price information
+  const { data: supplierCodesData } = useQuery<any[]>({
+    queryKey: [`/api/preferred-supplier-codes/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id && activeSubTab === 'inventories',
+  });
+
+  // Calculate inventory values per unit
+  interface ItemWithValue {
+    id: string;
+    name: string;
+    unitId: string;
+    stockLevel: number;
+    packSize: number;
+    supplierPrice: number;
+    totalValue: number;
+  }
+
+  interface UnitInventory {
+    id: string;
+    name: string;
+    type: string;
+    totalValue: number;
+    itemCount: number;
+    items: ItemWithValue[];
+  }
+
+  const unitInventories = useMemo<UnitInventory[]>(() => {
+    if (!unitsData || !itemsData) return [];
+
+    // Create a map of item prices from supplier codes
+    const itemPrices: Record<string, number> = {};
+    if (supplierCodesData) {
+      supplierCodesData.forEach((sc: any) => {
+        if (sc.isPreferred && sc.basispreis) {
+          itemPrices[sc.itemId] = parseFloat(sc.basispreis);
+        } else if (!itemPrices[sc.itemId] && sc.basispreis) {
+          itemPrices[sc.itemId] = parseFloat(sc.basispreis);
+        }
+      });
+    }
+
+    // Filter to only units that can have inventory (not special modules)
+    const inventoryUnits = unitsData.filter((u: any) => 
+      !u.isBusinessModule && !u.isLogisticModule && u.showInventory !== false
+    );
+
+    return inventoryUnits.map((unit: any) => {
+      const unitItems = itemsData.filter((item: any) => item.unitId === unit.id);
+      
+      const itemsWithValues: ItemWithValue[] = unitItems.map((item: any) => {
+        const stockLevel = item.stockLevel?.qtyOnHand || item.currentUnits || 0;
+        const packSize = item.packSize || 1;
+        const supplierPrice = itemPrices[item.id] || 0;
+        const totalValue = stockLevel * supplierPrice;
+
+        return {
+          id: item.id,
+          name: item.name,
+          unitId: unit.id,
+          stockLevel,
+          packSize,
+          supplierPrice,
+          totalValue,
+        };
+      });
+
+      const totalValue = itemsWithValues.reduce((sum, item) => sum + item.totalValue, 0);
+
+      return {
+        id: unit.id,
+        name: unit.name,
+        type: unit.type || 'storage',
+        totalValue,
+        itemCount: itemsWithValues.length,
+        items: itemsWithValues,
+      };
+    }).filter((u: UnitInventory) => u.itemCount > 0);
+  }, [unitsData, itemsData, supplierCodesData]);
+
+  // Toggle unit expansion
+  const toggleUnitExpansion = (unitId: string) => {
+    const newExpanded = new Set(expandedUnits);
+    if (newExpanded.has(unitId)) {
+      newExpanded.delete(unitId);
+    } else {
+      newExpanded.add(unitId);
+    }
+    setExpandedUnits(newExpanded);
+  };
+
+  // Sort items within expanded units
+  const getSortedItems = (items: ItemWithValue[]) => {
+    return [...items].sort((a, b) => {
+      const aValue = inventorySortBy === 'price' ? a.totalValue : a.stockLevel;
+      const bValue = inventorySortBy === 'price' ? b.totalValue : b.stockLevel;
+      return inventorySortOrder === 'desc' ? bValue - aValue : aValue - bValue;
+    });
+  };
+
+  // Toggle sort order
+  const toggleSort = (sortBy: 'price' | 'stock') => {
+    if (inventorySortBy === sortBy) {
+      setInventorySortOrder(inventorySortOrder === 'desc' ? 'asc' : 'desc');
+    } else {
+      setInventorySortBy(sortBy);
+      setInventorySortOrder('desc');
+    }
+  };
 
   // Filter surgeries based on search
   const filteredSurgeries = mockSurgeryList.filter(surgery => {
@@ -371,16 +501,16 @@ export default function CostAnalytics() {
         </div>
       </div>
 
-      {/* Subtabs for Overview and Surgery List */}
+      {/* Subtabs for Surgeries and Inventories */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
         <TabsList className="grid w-full max-w-md grid-cols-2">
-          <TabsTrigger value="overview" className="flex items-center gap-2" data-testid="tab-costs-overview">
-            <BarChart3 className="h-4 w-4" />
-            {t('business.costs.overview')}
-          </TabsTrigger>
           <TabsTrigger value="surgeries" className="flex items-center gap-2" data-testid="tab-costs-surgeries">
             <List className="h-4 w-4" />
-            {t('business.costs.surgeryList')}
+            {t('business.costs.surgeries')}
+          </TabsTrigger>
+          <TabsTrigger value="inventories" className="flex items-center gap-2" data-testid="tab-costs-inventories">
+            <Package className="h-4 w-4" />
+            {t('business.costs.inventories')}
           </TabsTrigger>
         </TabsList>
 
@@ -827,6 +957,132 @@ export default function CostAnalytics() {
                       </span>
                     </div>
                   </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Inventories Tab Content */}
+        <TabsContent value="inventories" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Building2 className="h-5 w-5" />
+                    {t('business.costs.inventoriesTitle')}
+                  </CardTitle>
+                  <CardDescription>{t('business.costs.inventoriesDesc')}</CardDescription>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">{t('business.costs.totalInventoryValue')}</p>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    CHF {unitInventories.reduce((sum, u) => sum + u.totalValue, 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {(unitsLoading || itemsLoading) ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : unitInventories.length === 0 ? (
+                <div className="text-center text-muted-foreground py-12">
+                  {t('business.costs.noInventoryData')}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {unitInventories.map((unit) => (
+                    <div key={unit.id} className="border rounded-lg overflow-hidden">
+                      {/* Unit Header Row */}
+                      <div 
+                        className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => toggleUnitExpansion(unit.id)}
+                        data-testid={`row-unit-inventory-${unit.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {expandedUnits.has(unit.id) ? (
+                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          )}
+                          <Building2 className="h-5 w-5 text-primary" />
+                          <div>
+                            <span className="font-medium">{unit.name}</span>
+                            <Badge variant="outline" className="ml-2 capitalize">
+                              {unit.type}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <div className="text-right">
+                            <p className="text-xs text-muted-foreground">{t('business.costs.itemsCount')}</p>
+                            <p className="font-medium">{unit.itemCount}</p>
+                          </div>
+                          <div className="text-right min-w-[120px]">
+                            <p className="text-xs text-muted-foreground">{t('business.costs.unitValue')}</p>
+                            <p className="font-semibold text-green-600 dark:text-green-400">
+                              CHF {unit.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Expanded Items List */}
+                      {expandedUnits.has(unit.id) && (
+                        <div className="border-t bg-muted/20">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>{t('business.costs.itemName')}</TableHead>
+                                <TableHead 
+                                  className="text-right cursor-pointer hover:bg-muted/50"
+                                  onClick={(e) => { e.stopPropagation(); toggleSort('stock'); }}
+                                >
+                                  <div className="flex items-center justify-end gap-1">
+                                    {t('business.costs.stockLevel')}
+                                    <ArrowUpDown className={`h-4 w-4 ${inventorySortBy === 'stock' ? 'text-primary' : 'text-muted-foreground'}`} />
+                                  </div>
+                                </TableHead>
+                                <TableHead className="text-right">{t('business.costs.supplierPrice')}</TableHead>
+                                <TableHead 
+                                  className="text-right cursor-pointer hover:bg-muted/50"
+                                  onClick={(e) => { e.stopPropagation(); toggleSort('price'); }}
+                                >
+                                  <div className="flex items-center justify-end gap-1">
+                                    {t('business.costs.itemValue')}
+                                    <ArrowUpDown className={`h-4 w-4 ${inventorySortBy === 'price' ? 'text-primary' : 'text-muted-foreground'}`} />
+                                  </div>
+                                </TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {getSortedItems(unit.items).map((item) => (
+                                <TableRow key={item.id} data-testid={`row-inventory-item-${item.id}`}>
+                                  <TableCell className="font-medium">{item.name}</TableCell>
+                                  <TableCell className="text-right">
+                                    {item.stockLevel}
+                                  </TableCell>
+                                  <TableCell className="text-right text-muted-foreground">
+                                    {item.supplierPrice > 0 
+                                      ? `CHF ${item.supplierPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                      : '-'}
+                                  </TableCell>
+                                  <TableCell className="text-right font-medium">
+                                    {item.totalValue > 0 
+                                      ? <span className="text-green-600 dark:text-green-400">CHF {item.totalValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                      : '-'}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>

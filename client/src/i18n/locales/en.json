@@ -3643,7 +3643,18 @@
       "totalStaffCosts": "Staff",
       "totalMaterialDrugs": "Materials",
       "grandTotal": "Total",
-      "totalPaid": "Paid"
+      "totalPaid": "Paid",
+      "surgeries": "Surgeries",
+      "inventories": "Inventories",
+      "inventoriesTitle": "Unit Inventory Values",
+      "inventoriesDesc": "Current inventory value per clinic unit based on stock levels and supplier prices",
+      "totalInventoryValue": "Total Inventory Value",
+      "noInventoryData": "No inventory data available for your units",
+      "itemsCount": "Items",
+      "unitValue": "Value",
+      "stockLevel": "Stock",
+      "supplierPrice": "Supplier Price",
+      "itemValue": "Total Value"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopedic",

@@ -3674,7 +3674,18 @@
       "totalStaffCosts": "Personal",
       "totalMaterialDrugs": "Material",
       "grandTotal": "Gesamt",
-      "totalPaid": "Bezahlt"
+      "totalPaid": "Bezahlt",
+      "surgeries": "Operationen",
+      "inventories": "Inventar",
+      "inventoriesTitle": "Inventarwerte pro Einheit",
+      "inventoriesDesc": "Aktueller Inventarwert pro Klinikeinheit basierend auf Lagerbestand und Lieferantenpreisen",
+      "totalInventoryValue": "Gesamtinventarwert",
+      "noInventoryData": "Keine Inventardaten für Ihre Einheiten verfügbar",
+      "itemsCount": "Artikel",
+      "unitValue": "Wert",
+      "stockLevel": "Bestand",
+      "supplierPrice": "Lieferantenpreis",
+      "itemValue": "Gesamtwert"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopädie",
