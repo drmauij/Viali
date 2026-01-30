@@ -745,7 +745,18 @@ router.patch('/api/items/:itemId', isAuthenticated, requireWriteAccess, async (r
     }
     
     const updatedItem = await storage.updateItem(itemId, updates);
-    res.json(updatedItem);
+    
+    // Recalculate stock level when trackExactQuantity is enabled and currentUnits or packSize changes
+    if (finalTrackExactQuantity) {
+      const finalCurrentUnits = req.body.currentUnits !== undefined ? req.body.currentUnits : item.currentUnits || 0;
+      const packSize = finalPackSize || 1;
+      const newStock = Math.ceil(finalCurrentUnits / packSize);
+      await storage.updateStockLevel(itemId, item.unitId, newStock);
+    }
+    
+    // Re-fetch the item to include updated stock level
+    const refreshedItem = await storage.getItem(itemId);
+    res.json(refreshedItem);
   } catch (error) {
     console.error("Error updating item:", error);
     res.status(500).json({ message: "Failed to update item" });
