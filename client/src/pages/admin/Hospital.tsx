@@ -735,6 +735,26 @@ export default function Hospital() {
     },
   });
 
+  const fixStockLevelsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", `/api/admin/${activeHospital?.id}/fix-all-stock-levels`, {});
+      return await response.json();
+    },
+    onSuccess: (data: { message: string; totalFixed: number; hospitalId: string }) => {
+      toast({
+        title: t("admin.stockLevelsFixSuccess", "Stock Levels Fixed"),
+        description: t("admin.stockLevelsFixResult", "{{total}} stock levels were recalculated", { total: data.totalFixed }),
+      });
+    },
+    onError: () => {
+      toast({
+        title: t("admin.stockLevelsFixError", "Error"),
+        description: t("admin.stockLevelsFixErrorMessage", "Failed to fix stock levels"),
+        variant: "destructive",
+      });
+    },
+  });
+
   const resetUnitForm = () => {
     setUnitForm({ 
       name: "", 
@@ -1668,6 +1688,44 @@ export default function Hospital() {
                   <>
                     <i className="fas fa-phone mr-2"></i>
                     {t("admin.normalizePhones", "Normalize Phone Numbers")}
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Fix Stock Levels Section */}
+          <div className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-foreground text-lg">
+                  <i className="fas fa-boxes mr-2 text-primary"></i>
+                  {t("admin.fixStockLevels", "Fix Stock Levels")}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {t("admin.fixStockLevelsDescription", "Recalculate qty_on_hand for all pack-based items with exact quantity tracking")}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  <i className="fas fa-info-circle mr-1"></i>
+                  {t("admin.fixStockLevelsNote", "Formula: qty_on_hand = CEIL(currentUnits / packSize)")}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => fixStockLevelsMutation.mutate()}
+                disabled={fixStockLevelsMutation.isPending}
+                data-testid="button-fix-stock-levels"
+              >
+                {fixStockLevelsMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    {t("admin.fixing", "Fixing...")}
+                  </>
+                ) : (
+                  <>
+                    <i className="fas fa-wrench mr-2"></i>
+                    {t("admin.fixStockLevels", "Fix Stock Levels")}
                   </>
                 )}
               </Button>

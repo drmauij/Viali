@@ -1207,30 +1207,26 @@ router.get('/objects/:objectPath(*)', isAuthenticated, async (req: any, res) => 
   }
 });
 
-// Admin endpoint to fix stock levels for items with track_exact_quantity enabled
+// Admin endpoint to fix stock levels for ALL hospitals/clinics at once
 // This recalculates qty_on_hand = CEIL(current_units / pack_size) for all affected items
 // ONLY affects items where: unit = 'Pack' AND track_exact_quantity = true
-router.post('/api/admin/:hospitalId/fix-stock-levels', isAuthenticated, isAdmin, async (req, res) => {
+router.post('/api/admin/:hospitalId/fix-all-stock-levels', isAuthenticated, isAdmin, async (req, res) => {
   try {
-    const { hospitalId } = req.params;
     const { items: itemsTable, stockLevels } = await import('@shared/schema');
     const { eq, and } = await import('drizzle-orm');
     
-    // Get all items with trackExactQuantity=true and unit='Pack' (case insensitive)
+    // Get ALL items with trackExactQuantity=true across ALL hospitals
     const affectedItems = await db
       .select()
       .from(itemsTable)
-      .where(and(
-        eq(itemsTable.hospitalId, hospitalId),
-        eq(itemsTable.trackExactQuantity, true)
-      ));
+      .where(eq(itemsTable.trackExactQuantity, true));
     
     // Filter to only Pack items (case insensitive)
     const packItems = affectedItems.filter(item => 
       item.unit?.toLowerCase() === 'pack'
     );
     
-    const updates: { id: string; name: string; currentUnits: number; packSize: number; oldStock: number; newStock: number }[] = [];
+    const updates: { id: string; name: string; hospitalId: string; currentUnits: number; packSize: number; oldStock: number; newStock: number }[] = [];
     
     for (const item of packItems) {
       const currentUnits = item.currentUnits || 0;
@@ -1254,6 +1250,7 @@ router.post('/api/admin/:hospitalId/fix-stock-levels', isAuthenticated, isAdmin,
         updates.push({
           id: item.id,
           name: item.name,
+          hospitalId: item.hospitalId,
           currentUnits,
           packSize,
           oldStock,
@@ -1264,7 +1261,7 @@ router.post('/api/admin/:hospitalId/fix-stock-levels', isAuthenticated, isAdmin,
     
     res.json({
       success: true,
-      message: `Fixed stock levels for ${updates.length} items`,
+      message: `Fixed stock levels for ${updates.length} items across all clinics`,
       totalItemsChecked: packItems.length,
       itemsUpdated: updates.length,
       updates
