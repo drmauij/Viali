@@ -3705,7 +3705,19 @@
       "noHistoricalData": "Noch keine historischen Daten verfügbar",
       "dataCollectionStarted": "Die Datenerfassung hat begonnen - schauen Sie morgen wieder vorbei für Ihren ersten Datenpunkt",
       "totalValue": "Gesamtwert",
-      "allUnits": "Alle Abteilungen"
+      "allUnits": "Alle Abteilungen",
+      "costBreakdown": "Kostenaufschlüsselung",
+      "hours": "Stunden",
+      "unitPrice": "Stückpreis",
+      "cost": "Kosten",
+      "noStaffData": "Keine Personalkostendaten verfügbar",
+      "noAnesthesiaItems": "Keine Anästhesieartikel erfasst",
+      "noSurgeryItems": "Keine OP-Materialien erfasst",
+      "anesthesiaCosts": "Anästhesiekosten",
+      "surgeryCosts": "OP-Kosten",
+      "date": "Datum",
+      "patient": "Patient",
+      "duration": "Dauer"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopädie",

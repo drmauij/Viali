@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -29,7 +30,10 @@ import {
   ChevronDown,
   ArrowUpDown,
   Building2,
-  Loader2
+  Loader2,
+  X,
+  Clock,
+  User
 } from "lucide-react";
 import {
   LineChart,
@@ -321,6 +325,7 @@ export default function CostAnalytics() {
   const [expandedUnits, setExpandedUnits] = useState<Set<string>>(new Set());
   const [inventorySortBy, setInventorySortBy] = useState<'price' | 'stock'>('price');
   const [inventorySortOrder, setInventorySortOrder] = useState<'asc' | 'desc'>('desc');
+  const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
   // Chart unit filter removed - now showing all units as separate lines
 
   const isManager = activeHospital?.role === 'admin' || activeHospital?.role === 'manager';
@@ -349,6 +354,51 @@ export default function CostAnalytics() {
   }[]>({
     queryKey: [`/api/business/${activeHospital?.id}/surgeries`],
     enabled: !!activeHospital?.id && activeSubTab === 'surgeries',
+  });
+
+  // Fetch detailed cost breakdown for selected surgery
+  const { data: surgeryDetails, isLoading: surgeryDetailsLoading, isError: surgeryDetailsError } = useQuery<{
+    surgery: {
+      id: string;
+      date: string;
+      surgeryName: string;
+      patientName: string;
+      status: string;
+    };
+    duration: {
+      minutes: number;
+      hours: number;
+      x1Time: number | null;
+      a2Time: number | null;
+    };
+    staffBreakdown: Array<{
+      name: string;
+      role: string;
+      durationHours: number;
+      hourlyRate: number;
+      cost: number;
+    }>;
+    staffTotal: number;
+    anesthesiaItems: Array<{
+      itemId: string;
+      itemName: string;
+      quantity: number;
+      unitPrice: number;
+      cost: number;
+    }>;
+    anesthesiaTotal: number;
+    surgeryItems: Array<{
+      itemId: string;
+      itemName: string;
+      quantity: number;
+      unitPrice: number;
+      cost: number;
+    }>;
+    surgeryTotal: number;
+    grandTotal: number;
+  }>({
+    queryKey: [`/api/business/${activeHospital?.id}/surgeries/${selectedSurgeryId}/costs`],
+    enabled: !!activeHospital?.id && !!selectedSurgeryId,
   });
 
   // Fetch aggregated inventory data from all clinics for business module
@@ -954,7 +1004,12 @@ export default function CostAnalytics() {
                         </TableRow>
                       ) : (
                         filteredSurgeries.map((surgery) => (
-                          <TableRow key={surgery.id} data-testid={`row-surgery-${surgery.id}`}>
+                          <TableRow 
+                            key={surgery.id} 
+                            data-testid={`row-surgery-${surgery.id}`}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => setSelectedSurgeryId(surgery.id)}
+                          >
                             <TableCell>
                               <div className="flex items-center gap-2">
                                 <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -1237,6 +1292,179 @@ export default function CostAnalytics() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Surgery Cost Detail Dialog */}
+      <Dialog open={!!selectedSurgeryId} onOpenChange={(open) => !open && setSelectedSurgeryId(null)}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" data-testid="dialog-surgery-cost-breakdown">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2" data-testid="dialog-title-cost-breakdown">
+              <FileText className="h-5 w-5" />
+              {t('business.costs.costBreakdown')}
+            </DialogTitle>
+            <DialogDescription data-testid="dialog-desc-surgery-name">
+              {surgeryDetails?.surgery?.surgeryName || t('common.loading')}
+            </DialogDescription>
+          </DialogHeader>
+
+          {surgeryDetailsLoading ? (
+            <div className="flex items-center justify-center py-12" data-testid="loading-surgery-details">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : surgeryDetailsError ? (
+            <div className="text-center text-red-500 py-8" data-testid="error-surgery-details">
+              {t('common.errorLoadingData')}
+            </div>
+          ) : surgeryDetails ? (
+            <div className="space-y-6">
+              {/* Surgery Info */}
+              <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{t('business.costs.date')}:</span>
+                  <span className="font-medium">{formatDate(surgeryDetails.surgery.date)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{t('business.costs.patient')}:</span>
+                  <span className="font-medium">{surgeryDetails.surgery.patientName || '-'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{t('business.costs.duration')}:</span>
+                  <span className="font-medium">{formatDuration(surgeryDetails.duration.minutes)}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Activity className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">{t('common.status')}:</span>
+                  <Badge variant="secondary">{surgeryDetails.surgery.status || '-'}</Badge>
+                </div>
+              </div>
+
+              {/* Staff Costs Section */}
+              <div data-testid="section-staff-costs">
+                <h4 className="flex items-center gap-2 font-semibold mb-3">
+                  <Users className="h-4 w-4 text-purple-600" />
+                  {t('business.costs.staffCosts')}
+                </h4>
+                {surgeryDetails.staffBreakdown.length > 0 ? (
+                  <Table data-testid="table-staff-breakdown">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('common.name')}</TableHead>
+                        <TableHead>{t('common.role')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.hours')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.hourlyRate')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.cost')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {surgeryDetails.staffBreakdown.map((staff, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell>{staff.name}</TableCell>
+                          <TableCell>{staff.role}</TableCell>
+                          <TableCell className="text-right">{staff.durationHours.toFixed(2)}</TableCell>
+                          <TableCell className="text-right">CHF {staff.hourlyRate.toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-purple-600">CHF {staff.cost.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="font-semibold bg-muted/50">
+                        <TableCell colSpan={4}>{t('business.costs.totalStaffCosts')}</TableCell>
+                        <TableCell className="text-right text-purple-600">CHF {surgeryDetails.staffTotal.toFixed(2)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t('business.costs.noStaffData')}</p>
+                )}
+              </div>
+
+              {/* Anesthesia Items Section */}
+              <div data-testid="section-anesthesia-costs">
+                <h4 className="flex items-center gap-2 font-semibold mb-3">
+                  <Pill className="h-4 w-4 text-green-600" />
+                  {t('business.costs.anesthesiaCosts')}
+                </h4>
+                {surgeryDetails.anesthesiaItems.length > 0 ? (
+                  <Table data-testid="table-anesthesia-items">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('common.item')}</TableHead>
+                        <TableHead className="text-right">{t('common.quantity')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.unitPrice')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.cost')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {surgeryDetails.anesthesiaItems.map((item) => (
+                        <TableRow key={item.itemId}>
+                          <TableCell>{item.itemName}</TableCell>
+                          <TableCell className="text-right">{item.quantity}</TableCell>
+                          <TableCell className="text-right">CHF {item.unitPrice.toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-green-600">CHF {item.cost.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="font-semibold bg-muted/50">
+                        <TableCell colSpan={3}>{t('business.costs.totalAnesthesiaCosts')}</TableCell>
+                        <TableCell className="text-right text-green-600">CHF {surgeryDetails.anesthesiaTotal.toFixed(2)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t('business.costs.noAnesthesiaItems')}</p>
+                )}
+              </div>
+
+              {/* Surgery Items Section */}
+              <div data-testid="section-surgery-costs">
+                <h4 className="flex items-center gap-2 font-semibold mb-3">
+                  <Scissors className="h-4 w-4 text-blue-600" />
+                  {t('business.costs.surgeryCosts')}
+                </h4>
+                {surgeryDetails.surgeryItems.length > 0 ? (
+                  <Table data-testid="table-surgery-items">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('common.item')}</TableHead>
+                        <TableHead className="text-right">{t('common.quantity')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.unitPrice')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.cost')}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {surgeryDetails.surgeryItems.map((item) => (
+                        <TableRow key={item.itemId}>
+                          <TableCell>{item.itemName}</TableCell>
+                          <TableCell className="text-right">{item.quantity}</TableCell>
+                          <TableCell className="text-right">CHF {item.unitPrice.toFixed(2)}</TableCell>
+                          <TableCell className="text-right text-blue-600">CHF {item.cost.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                      <TableRow className="font-semibold bg-muted/50">
+                        <TableCell colSpan={3}>{t('business.costs.totalSurgeryCosts')}</TableCell>
+                        <TableCell className="text-right text-blue-600">CHF {surgeryDetails.surgeryTotal.toFixed(2)}</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <p className="text-sm text-muted-foreground">{t('business.costs.noSurgeryItems')}</p>
+                )}
+              </div>
+
+              {/* Grand Total */}
+              <div className="p-4 bg-primary/10 rounded-lg" data-testid="section-grand-total">
+                <div className="flex items-center justify-between">
+                  <span className="text-lg font-semibold">{t('business.costs.grandTotal')}</span>
+                  <span className="text-2xl font-bold" data-testid="text-grand-total">CHF {surgeryDetails.grandTotal.toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="text-center text-muted-foreground py-8" data-testid="no-surgery-details">
+              {t('business.costs.noSurgeriesFound')}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

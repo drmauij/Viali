@@ -3674,7 +3674,19 @@
       "noHistoricalData": "No historical data available yet",
       "dataCollectionStarted": "Data collection has started - check back tomorrow for your first data point",
       "totalValue": "Total Value",
-      "allUnits": "All Units"
+      "allUnits": "All Units",
+      "costBreakdown": "Cost Breakdown",
+      "hours": "Hours",
+      "unitPrice": "Unit Price",
+      "cost": "Cost",
+      "noStaffData": "No staff cost data available",
+      "noAnesthesiaItems": "No anesthesia items recorded",
+      "noSurgeryItems": "No surgery materials recorded",
+      "anesthesiaCosts": "Anesthesia Costs",
+      "surgeryCosts": "Surgery Costs",
+      "date": "Date",
+      "patient": "Patient",
+      "duration": "Duration"
     },
     "surgeryTypes": {
       "orthopedic": "Orthopedic",
