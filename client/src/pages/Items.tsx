@@ -4903,29 +4903,29 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
       {/* Edit Item Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) handleCloseEditDialog(); else setEditDialogOpen(true); }} modal={!webcamCaptureOpen}>
         <DialogContent 
-          className="max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden outline-none"
+          className="max-w-[95vw] sm:max-w-md max-h-[90vh] flex flex-col p-0 overflow-hidden outline-none"
           onInteractOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
           onPointerDownOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           {/* Fixed Header */}
-          <div className="flex-shrink-0 bg-background z-10 px-6 pt-6 pb-4 border-b">
+          <div className="flex-shrink-0 bg-background z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
             <DialogHeader>
-              <DialogTitle>{t('items.editItem')}</DialogTitle>
-              <DialogDescription>{editFormData.name || t('items.updateItemDetails')}</DialogDescription>
+              <DialogTitle className="text-base sm:text-lg">{t('items.editItem')}</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm truncate">{editFormData.name || t('items.updateItemDetails')}</DialogDescription>
             </DialogHeader>
-            <Tabs value={editDialogTab} onValueChange={setEditDialogTab} className="w-full mt-4">
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="details" data-testid="tab-item-details">{t('items.itemDetails')}</TabsTrigger>
-                <TabsTrigger value="codes" data-testid="tab-item-codes">Codes</TabsTrigger>
-                <TabsTrigger value="invoicing" data-testid="tab-item-invoicing">{t('items.invoicing', 'Invoicing')}</TabsTrigger>
-                <TabsTrigger value="photo" data-testid="tab-item-photo">{t('items.itemPhoto')}</TabsTrigger>
+            <Tabs value={editDialogTab} onValueChange={setEditDialogTab} className="w-full mt-3 sm:mt-4">
+              <TabsList className="grid w-full grid-cols-4 h-auto">
+                <TabsTrigger value="details" className="text-xs sm:text-sm px-1 sm:px-3 py-1.5" data-testid="tab-item-details">{t('items.itemDetails')}</TabsTrigger>
+                <TabsTrigger value="codes" className="text-xs sm:text-sm px-1 sm:px-3 py-1.5" data-testid="tab-item-codes">Codes</TabsTrigger>
+                <TabsTrigger value="invoicing" className="text-xs sm:text-sm px-1 sm:px-3 py-1.5" data-testid="tab-item-invoicing">{t('items.invoicing', 'Invoicing')}</TabsTrigger>
+                <TabsTrigger value="photo" className="text-xs sm:text-sm px-1 sm:px-3 py-1.5" data-testid="tab-item-photo">{t('items.itemPhoto')}</TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
           
           {/* Scrollable Content */}
-          <form onSubmit={handleUpdateItem} className="flex-1 overflow-y-auto px-6 pt-2 pb-4 min-h-0 outline-none focus:outline-none">
+          <form onSubmit={handleUpdateItem} className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 pt-2 pb-4 min-h-0 outline-none focus:outline-none">
             <Tabs value={editDialogTab} className="w-full">
               <TabsContent value="details" className="space-y-4 mt-0">
                 {!canWrite && (
@@ -5274,10 +5274,10 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                     
                     {/* Universal Product Codes Section */}
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <i className="fas fa-barcode text-primary"></i>
-                          <h3 className="font-semibold">{t('items.universalCodes')}</h3>
+                          <h3 className="font-semibold text-sm sm:text-base">{t('items.universalCodes')}</h3>
                         </div>
                         {canWrite && (
                           <div className="flex gap-2">
@@ -5287,10 +5287,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                               size="sm"
                               onClick={() => handleTakePhoto('editCodes')}
                               disabled={isAnalyzingEditCodes}
+                              className="text-xs px-2 sm:px-3"
                               data-testid="button-edit-camera-codes"
                             >
-                              <i className={`fas ${isAnalyzingEditCodes ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
-                              {isAnalyzingEditCodes ? t('items.analyzing') : t('controlled.takePhoto')}
+                              <i className={`fas ${isAnalyzingEditCodes ? 'fa-spinner fa-spin' : 'fa-camera'} sm:mr-1`}></i>
+                              <span className="hidden sm:inline">{isAnalyzingEditCodes ? t('items.analyzing') : t('controlled.takePhoto')}</span>
                             </Button>
                             <Button
                               type="button"
@@ -5298,10 +5299,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                               size="sm"
                               onClick={() => editCodesGalleryInputRef.current?.click()}
                               disabled={isAnalyzingEditCodes}
+                              className="text-xs px-2 sm:px-3"
                               data-testid="button-edit-gallery-codes"
                             >
-                              <i className="fas fa-images mr-2"></i>
-                              {t('items.uploadFromGallery')}
+                              <i className="fas fa-images sm:mr-1"></i>
+                              <span className="hidden sm:inline">{t('items.uploadFromGallery')}</span>
                             </Button>
                           </div>
                         )}
