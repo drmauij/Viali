@@ -8598,7 +8598,7 @@ export class DatabaseStorage implements IStorage {
         sql`${surgeries.plannedDate} <= ${endOfDay}`,
         sql`${surgeries.status} IN ('planned', 'scheduled', 'confirmed')`,
         isNull(surgeries.archivedAt),
-        isNotNull(surgeries.anesthesiaType)
+        sql`${surgeries.anesthesiaType} IS NOT NULL`
       ));
 
     return results;
@@ -8645,7 +8645,7 @@ export class DatabaseStorage implements IStorage {
         eq(surgeries.reminderSent, false),
         sql`${surgeries.status} IN ('planned', 'scheduled', 'confirmed')`,
         isNull(surgeries.archivedAt),
-        isNotNull(surgeries.anesthesiaType)
+        sql`${surgeries.anesthesiaType} IS NOT NULL`
       ));
 
     return results.map(r => ({
