@@ -320,13 +320,34 @@ export function DirectItemCamera({
             )}
 
             {/* Bottom controls - positioned higher to account for mobile browser chrome */}
-            <div className="absolute bottom-0 left-0 right-0 pt-6 px-4 pb-24 bg-gradient-to-t from-black via-black/70 to-transparent">
-              <div className="flex gap-3 max-w-md mx-auto">
+            <div className="absolute bottom-0 left-0 right-0 pt-6 px-3 pb-24 bg-gradient-to-t from-black via-black/70 to-transparent">
+              {/* Large Capture button on top */}
+              <div className="mb-3 px-2">
+                <Button
+                  size="lg"
+                  onClick={captureAndProcess}
+                  disabled={isProcessing || !isVideoReady}
+                  className="w-full h-14 bg-primary text-primary-foreground text-lg font-semibold"
+                  data-testid="button-camera-capture"
+                >
+                  {isProcessing ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : !isVideoReady ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <>
+                      <Camera className="w-6 h-6 mr-2" />
+                      {t('items.capture', 'Capture')}
+                    </>
+                  )}
+                </Button>
+              </div>
+              {/* Secondary buttons below */}
+              <div className="flex gap-2 px-2">
                 <Button
                   variant="outline"
-                  size="lg"
+                  size="default"
                   onClick={() => {
-                    // Open manual entry dialog
                     if (stream) {
                       stream.getTracks().forEach(track => track.stop());
                       setStream(null);
@@ -335,45 +356,26 @@ export function DirectItemCamera({
                     onComplete();
                   }}
                   disabled={isProcessing}
-                  className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+                  className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20 text-sm"
                   data-testid="button-camera-manual-entry"
                 >
-                  <X className="w-5 h-5 mr-2" />
+                  <X className="w-4 h-4 mr-1" />
                   {t('items.manualEntry', 'Manual Entry')}
                 </Button>
 
                 {mode === "codes" && (
                   <Button
                     variant="outline"
-                    size="lg"
+                    size="default"
                     onClick={handleNoCodes}
                     disabled={isProcessing}
-                    className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20"
+                    className="flex-1 bg-white/10 border-white/30 text-white hover:bg-white/20 text-sm"
                     data-testid="button-no-codes"
                   >
-                    <ArrowRight className="w-5 h-5 mr-2" />
+                    <ArrowRight className="w-4 h-4 mr-1" />
                     {t('items.noCodes', 'No Codes')}
                   </Button>
                 )}
-
-                <Button
-                  size="lg"
-                  onClick={captureAndProcess}
-                  disabled={isProcessing || !isVideoReady}
-                  className="flex-1 bg-primary text-primary-foreground"
-                  data-testid="button-camera-capture"
-                >
-                  {isProcessing ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : !isVideoReady ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Camera className="w-5 h-5 mr-2" />
-                      {t('items.capture', 'Capture')}
-                    </>
-                  )}
-                </Button>
               </div>
             </div>
 
