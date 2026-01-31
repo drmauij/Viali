@@ -412,6 +412,18 @@ export default function ExternalWorklog() {
     doc.text(`${entry.pauseMinutes} ${isGerman ? "Minuten" : "minutes"}`, rightCol, y);
     
     y += 10;
+    doc.text(isGerman ? "Tätigkeit:" : "Activity:", leftCol, y);
+    const activityLabels: Record<string, { de: string; en: string }> = {
+      anesthesia_nurse: { de: "Anästhesie-Pflege", en: "Anesthesia Nurse" },
+      op_nurse: { de: "OP-Pflege", en: "OR Nurse" },
+      springer_nurse: { de: "Springer-Pflege", en: "Springer Nurse" },
+      anesthesia_doctor: { de: "Anästhesie-Arzt", en: "Anesthesia Doctor" },
+      other: { de: "Andere", en: "Other" },
+    };
+    const activityLabel = entry.activityType ? (isGerman ? activityLabels[entry.activityType]?.de : activityLabels[entry.activityType]?.en) || entry.activityType : "-";
+    doc.text(activityLabel, rightCol, y);
+    
+    y += 10;
     doc.text(isGerman ? "Arbeitszeit netto:" : "Net Work Time:", leftCol, y);
     doc.text(calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes), rightCol, y);
     
@@ -564,29 +576,40 @@ export default function ExternalWorklog() {
       
       const selectedEntriesList = sortedEntries.filter(e => selectedEntryIds.includes(e.id));
       
-      doc.setFontSize(9);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "bold");
       doc.text(isGerman ? "Datum" : "Date", leftMargin, y);
-      doc.text(isGerman ? "Zeit" : "Time", leftMargin + 35, y);
-      doc.text(isGerman ? "Pause" : "Break", leftMargin + 70, y);
-      doc.text(isGerman ? "Netto" : "Net", leftMargin + 95, y);
-      doc.text(isGerman ? "Status" : "Status", leftMargin + 120, y);
+      doc.text(isGerman ? "Zeit" : "Time", leftMargin + 28, y);
+      doc.text(isGerman ? "Pause" : "Break", leftMargin + 58, y);
+      doc.text(isGerman ? "Netto" : "Net", leftMargin + 78, y);
+      doc.text(isGerman ? "Tätigkeit" : "Activity", leftMargin + 98, y);
+      doc.text(isGerman ? "Status" : "Status", leftMargin + 138, y);
       doc.setFont("helvetica", "normal");
       
       y += 5;
       doc.line(leftMargin, y, rightMargin, y);
       y += 5;
       
+      const activityLabelsConsolidated: Record<string, { de: string; en: string }> = {
+        anesthesia_nurse: { de: "Anäst.-Pfl.", en: "Anesth. Nurse" },
+        op_nurse: { de: "OP-Pfl.", en: "OR Nurse" },
+        springer_nurse: { de: "Springer", en: "Springer" },
+        anesthesia_doctor: { de: "Anäst.-Arzt", en: "Anesth. Dr." },
+        other: { de: "Andere", en: "Other" },
+      };
+      
       selectedEntriesList.forEach((entry) => {
         if (y > pageHeight - 60) {
           doc.addPage();
           y = 25;
         }
-        doc.text(format(new Date(entry.workDate), "dd.MM.yyyy"), leftMargin, y);
-        doc.text(`${entry.timeStart} - ${entry.timeEnd}`, leftMargin + 35, y);
-        doc.text(`${entry.pauseMinutes} min`, leftMargin + 70, y);
-        doc.text(calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes), leftMargin + 95, y);
-        doc.text(isGerman ? "Gegengezeichnet" : "Countersigned", leftMargin + 120, y);
+        doc.text(format(new Date(entry.workDate), "dd.MM.yy"), leftMargin, y);
+        doc.text(`${entry.timeStart}-${entry.timeEnd}`, leftMargin + 28, y);
+        doc.text(`${entry.pauseMinutes}m`, leftMargin + 58, y);
+        doc.text(calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes), leftMargin + 78, y);
+        const actLabel = entry.activityType ? (isGerman ? activityLabelsConsolidated[entry.activityType]?.de : activityLabelsConsolidated[entry.activityType]?.en) || "-" : "-";
+        doc.text(actLabel, leftMargin + 98, y);
+        doc.text(isGerman ? "OK" : "OK", leftMargin + 138, y);
         y += 6;
       });
       

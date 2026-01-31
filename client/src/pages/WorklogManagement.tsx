@@ -24,6 +24,7 @@ interface WorklogEntry {
   timeStart: string;
   timeEnd: string;
   pauseMinutes: number;
+  activityType?: "anesthesia_nurse" | "op_nurse" | "springer_nurse" | "anesthesia_doctor" | "other";
   workerSignature: string;
   status: "pending" | "countersigned" | "rejected";
   countersignature?: string;
@@ -100,6 +101,17 @@ function generateWorklogPDF(entry: WorklogEntry, hospitalName: string, t: TFunct
   y += 10;
   doc.text(t('worklogs.pdf.break') + ":", leftCol, y);
   doc.text(`${entry.pauseMinutes} ${t('worklogs.minutes')}`, rightCol, y);
+  
+  y += 10;
+  doc.text(t('worklogs.pdf.activity') + ":", leftCol, y);
+  const activityLabels: Record<string, string> = {
+    anesthesia_nurse: t('externalWorklog.activityTypes.anesthesia_nurse'),
+    op_nurse: t('externalWorklog.activityTypes.op_nurse'),
+    springer_nurse: t('externalWorklog.activityTypes.springer_nurse'),
+    anesthesia_doctor: t('externalWorklog.activityTypes.anesthesia_doctor'),
+    other: t('externalWorklog.activityTypes.other'),
+  };
+  doc.text(entry.activityType ? activityLabels[entry.activityType] || entry.activityType : "-", rightCol, y);
   
   y += 10;
   doc.text(t('worklogs.pdf.netWorkTime') + ":", leftCol, y);
@@ -210,6 +222,12 @@ export default function WorklogManagement() {
           <div>
             <span className="text-gray-500">{t('worklogs.netTime')}:</span>
             <div className="font-medium">{calculateWorkHours(entry.timeStart, entry.timeEnd, entry.pauseMinutes)}</div>
+          </div>
+          <div>
+            <span className="text-gray-500">{t('worklogs.activity')}:</span>
+            <div className="font-medium">
+              {entry.activityType ? t(`externalWorklog.activityTypes.${entry.activityType}`) : "-"}
+            </div>
           </div>
         </div>
         
