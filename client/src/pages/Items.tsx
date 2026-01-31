@@ -1800,14 +1800,19 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
 
   // Open webcam or file input based on device type
   const handleTakePhoto = (target: 'product' | 'codes' | 'editCodes') => {
+    // For editCodes, always use webcam capture component to directly open camera
+    if (target === 'editCodes') {
+      setWebcamCaptureTarget(target);
+      setWebcamCaptureOpen(true);
+      return;
+    }
+    
     if (isTouchDevice()) {
       // Mobile/tablet: use native file input with camera capture
       if (target === 'product') {
         fileInputRef.current?.click();
       } else if (target === 'codes') {
         codesFileInputRef.current?.click();
-      } else if (target === 'editCodes') {
-        editCodesFileInputRef.current?.click();
       }
     } else {
       // Desktop: use webcam capture component
