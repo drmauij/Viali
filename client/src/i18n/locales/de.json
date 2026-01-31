@@ -4461,7 +4461,16 @@
     "workDate": "Arbeitsdatum",
     "from": "Von",
     "to": "Bis",
-    "breakMinutes": "Pause (Minuten)",
+    "breakMinutes": "Pause (Min)",
+    "activityType": "Tätigkeit",
+    "activityTypeRequired": "Bitte wählen Sie eine Tätigkeit",
+    "activityTypes": {
+      "anesthesia_nurse": "Anästhesie-Pflege",
+      "op_nurse": "OP-Pflege",
+      "springer_nurse": "Springer-Pflege",
+      "anesthesia_doctor": "Anästhesie-Arzt",
+      "other": "Andere (in Notizen angeben)"
+    },
     "netWorkTime": "Nettoarbeitszeit",
     "notesOptional": "Bemerkungen (optional)",
     "notesPlaceholder": "z.B. Tätigkeit, besondere Umstände...",

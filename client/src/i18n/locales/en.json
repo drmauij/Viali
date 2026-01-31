@@ -4421,7 +4421,16 @@
     "workDate": "Work Date",
     "from": "From",
     "to": "To",
-    "breakMinutes": "Break (Minutes)",
+    "breakMinutes": "Break (Min)",
+    "activityType": "Activity Type",
+    "activityTypeRequired": "Please select an activity type",
+    "activityTypes": {
+      "anesthesia_nurse": "Anesthesia Nurse",
+      "op_nurse": "OR Nurse",
+      "springer_nurse": "Springer Nurse",
+      "anesthesia_doctor": "Anesthesia Doctor",
+      "other": "Other (specify in notes)"
+    },
     "netWorkTime": "Net Work Time",
     "notesOptional": "Notes (optional)",
     "notesPlaceholder": "e.g., Activity, special circumstances...",

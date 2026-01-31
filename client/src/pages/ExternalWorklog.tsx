@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import SignaturePad from "@/components/SignaturePad";
 import { Loader2, CheckCircle, AlertCircle, Clock, Building2, FileText, PenLine, Download, Plus, History, Trash2, Globe, Sun, Moon, FileSignature, User, FileBarChart, ChevronRight, ChevronLeft, Check } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
 import jsPDF from "jspdf";
@@ -29,6 +30,7 @@ interface WorklogEntry {
   timeStart: string;
   timeEnd: string;
   pauseMinutes: number;
+  activityType: "anesthesia_nurse" | "op_nurse" | "springer_nurse" | "anesthesia_doctor" | "other";
   workerSignature: string;
   status: "pending" | "countersigned" | "rejected";
   countersignature?: string;
@@ -123,6 +125,9 @@ export default function ExternalWorklog() {
     timeStart: z.string().min(1, t("externalWorklog.from") + " " + t("common.error")),
     timeEnd: z.string().min(1, t("externalWorklog.to") + " " + t("common.error")),
     pauseMinutes: z.coerce.number().min(0).default(0),
+    activityType: z.enum(["anesthesia_nurse", "op_nurse", "springer_nurse", "anesthesia_doctor", "other"], {
+      required_error: t("externalWorklog.activityTypeRequired"),
+    }),
     notes: z.string().optional(),
     workerSignature: z.string().min(1, t("externalWorklog.signature") + " " + t("common.error")),
   }), [t]);
@@ -138,6 +143,7 @@ export default function ExternalWorklog() {
       timeStart: "08:00",
       timeEnd: "17:00",
       pauseMinutes: 30,
+      activityType: undefined as unknown as "anesthesia_nurse" | "op_nurse" | "springer_nurse" | "anesthesia_doctor" | "other",
       notes: "",
       workerSignature: "",
     },
@@ -277,6 +283,7 @@ export default function ExternalWorklog() {
         timeStart: "08:00",
         timeEnd: "17:00",
         pauseMinutes: 30,
+        activityType: undefined as unknown as "anesthesia_nurse" | "op_nurse" | "springer_nurse" | "anesthesia_doctor" | "other",
         notes: "",
         workerSignature: "",
       });
@@ -908,7 +915,7 @@ export default function ExternalWorklog() {
                         )}
                       />
 
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                         <FormField
                           control={form.control}
                           name="timeStart"
@@ -935,17 +942,41 @@ export default function ExternalWorklog() {
                             </FormItem>
                           )}
                         />
+                        <FormField
+                          control={form.control}
+                          name="pauseMinutes"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="dark:text-gray-200">{t("externalWorklog.breakMinutes")}</FormLabel>
+                              <FormControl>
+                                <Input type="number" min={0} {...field} className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" data-testid="input-pause" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
                       </div>
 
                       <FormField
                         control={form.control}
-                        name="pauseMinutes"
+                        name="activityType"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel className="dark:text-gray-200">{t("externalWorklog.breakMinutes")}</FormLabel>
-                            <FormControl>
-                              <Input type="number" min={0} {...field} className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" data-testid="input-pause" />
-                            </FormControl>
+                            <FormLabel className="dark:text-gray-200">{t("externalWorklog.activityType")} *</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100" data-testid="select-activity-type">
+                                  <SelectValue placeholder={t("externalWorklog.activityTypeRequired")} />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="anesthesia_nurse">{t("externalWorklog.activityTypes.anesthesia_nurse")}</SelectItem>
+                                <SelectItem value="op_nurse">{t("externalWorklog.activityTypes.op_nurse")}</SelectItem>
+                                <SelectItem value="springer_nurse">{t("externalWorklog.activityTypes.springer_nurse")}</SelectItem>
+                                <SelectItem value="anesthesia_doctor">{t("externalWorklog.activityTypes.anesthesia_doctor")}</SelectItem>
+                                <SelectItem value="other">{t("externalWorklog.activityTypes.other")}</SelectItem>
+                              </SelectContent>
+                            </Select>
                             <FormMessage />
                           </FormItem>
                         )}

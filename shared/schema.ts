@@ -4347,6 +4347,9 @@ export const externalWorklogEntries = pgTable("external_worklog_entries", {
   timeStart: varchar("time_start").notNull(),
   timeEnd: varchar("time_end").notNull(),
   pauseMinutes: integer("pause_minutes").default(0).notNull(),
+  activityType: varchar("activity_type", {
+    enum: ["anesthesia_nurse", "op_nurse", "springer_nurse", "anesthesia_doctor", "other"]
+  }).notNull(),
   
   workerSignature: text("worker_signature").notNull(),
   workerSignedAt: timestamp("worker_signed_at").defaultNow(),

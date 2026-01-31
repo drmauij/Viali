@@ -743,6 +743,13 @@
       "when": 1769810176023,
       "tag": "0105_swift_serpent_society",
       "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1769861848158,
+      "tag": "0106_puzzling_spirit",
+      "breakpoints": true
     }
   ]
 }
