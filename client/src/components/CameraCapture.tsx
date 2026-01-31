@@ -155,9 +155,10 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false, h
   // Use portal to render outside the Dialog DOM tree to prevent event interference
   return createPortal(
     <div 
-      className="fixed inset-0 z-[9999] bg-black"
+      className="fixed inset-0 z-[9999] bg-black touch-manipulation"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
     >
       <div className="relative w-full h-full">
         {error ? (
@@ -233,11 +234,12 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false, h
             )}
 
             {/* Controls - Cancel left, Capture right for easy thumb access */}
-            <div className="absolute bottom-0 left-0 right-0 pb-6 pt-6 px-4 flex justify-between z-10 bg-gradient-to-t from-black via-black/70 to-transparent">
+            <div className="absolute bottom-0 left-0 right-0 pb-6 pt-6 px-4 flex justify-between z-10 bg-gradient-to-t from-black via-black/70 to-transparent pointer-events-auto">
               <Button
                 variant="outline"
                 onClick={handleClose}
-                className="bg-white/20 text-white border-white hover:bg-white/30 px-4 sm:px-6 h-14 rounded-full backdrop-blur-sm"
+                onTouchEnd={(e) => { e.preventDefault(); handleClose(); }}
+                className="bg-white/20 text-white border-white hover:bg-white/30 active:bg-white/40 px-4 sm:px-6 h-14 rounded-full backdrop-blur-sm touch-manipulation"
                 data-testid="close-camera"
               >
                 <i className="fas fa-times mr-2"></i>
@@ -245,8 +247,9 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false, h
               </Button>
               <Button
                 onClick={capturePhoto}
+                onTouchEnd={(e) => { e.preventDefault(); if (isVideoReady) capturePhoto(); }}
                 disabled={!isVideoReady}
-                className="bg-accent hover:bg-accent/90 px-4 sm:px-6 h-14 rounded-full shadow-2xl disabled:opacity-50"
+                className="bg-accent hover:bg-accent/90 active:bg-accent/80 px-4 sm:px-6 h-14 rounded-full shadow-2xl disabled:opacity-50 touch-manipulation"
                 data-testid="capture-photo"
               >
                 <i className={`fas ${isVideoReady ? 'fa-camera' : 'fa-spinner fa-spin'} mr-2 text-xl`}></i>

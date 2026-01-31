@@ -8645,7 +8645,7 @@ export class DatabaseStorage implements IStorage {
         eq(surgeries.reminderSent, false),
         sql`${surgeries.status} IN ('planned', 'scheduled', 'confirmed')`,
         isNull(surgeries.archivedAt),
-        sql`${surgeries.anesthesiaType} IS NOT NULL`
+        isNotNull(surgeries.anesthesiaType)
       ));
 
     return results.map(r => ({
