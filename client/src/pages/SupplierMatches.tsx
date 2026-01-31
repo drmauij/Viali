@@ -739,22 +739,38 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
       )}
 
       <Tabs defaultValue="unmatched" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="unmatched" data-testid="tab-unmatched" className="text-xs sm:text-sm">
-            <XCircle className="w-3 h-3 mr-1 hidden sm:inline" />
-            {t("supplierMatches.unmatched", "Unmatched")} ({counts.unmatched})
+        <TabsList className="grid w-full grid-cols-4 h-auto gap-0.5">
+          <TabsTrigger value="unmatched" data-testid="tab-unmatched" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 flex-col sm:flex-row gap-0.5 sm:gap-1">
+            <XCircle className="w-3.5 h-3.5 shrink-0" />
+            <span className="leading-tight">
+              <span className="hidden sm:inline">{t("supplierMatches.unmatched", "Unmatched")}</span>
+              <span className="sm:hidden">None</span>
+              <span className="block sm:inline text-[9px] sm:text-xs opacity-80"> ({counts.unmatched})</span>
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="toVerify" data-testid="tab-to-verify" className="text-xs sm:text-sm">
-            <AlertCircle className="w-3 h-3 mr-1 hidden sm:inline" />
-            {t("hinMatches.toVerify", "To Verify")} ({hinMatchData?.counts?.toVerify || 0})
+          <TabsTrigger value="toVerify" data-testid="tab-to-verify" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 flex-col sm:flex-row gap-0.5 sm:gap-1">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span className="leading-tight">
+              <span className="hidden sm:inline">{t("hinMatches.toVerify", "To Verify")}</span>
+              <span className="sm:hidden">Check</span>
+              <span className="block sm:inline text-[9px] sm:text-xs opacity-80"> ({hinMatchData?.counts?.toVerify || 0})</span>
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="confirmedNoPrice" data-testid="tab-confirmed-no-price" className="text-xs sm:text-sm">
-            <DollarSign className="w-3 h-3 mr-1 hidden sm:inline" />
-            {t("supplierMatches.confirmedNoPrice", "No Price")} ({counts.confirmedNoPrice})
+          <TabsTrigger value="confirmedNoPrice" data-testid="tab-confirmed-no-price" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 flex-col sm:flex-row gap-0.5 sm:gap-1">
+            <DollarSign className="w-3.5 h-3.5 shrink-0" />
+            <span className="leading-tight">
+              <span className="hidden sm:inline">{t("supplierMatches.confirmedNoPrice", "No Price")}</span>
+              <span className="sm:hidden">No $</span>
+              <span className="block sm:inline text-[9px] sm:text-xs opacity-80"> ({counts.confirmedNoPrice})</span>
+            </span>
           </TabsTrigger>
-          <TabsTrigger value="confirmedWithPrice" data-testid="tab-confirmed-price" className="text-xs sm:text-sm">
-            <CheckCircle2 className="w-3 h-3 mr-1 hidden sm:inline" />
-            {t("supplierMatches.confirmedWithPrice", "With Price")} ({counts.confirmedWithPrice})
+          <TabsTrigger value="confirmedWithPrice" data-testid="tab-confirmed-price" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 flex-col sm:flex-row gap-0.5 sm:gap-1">
+            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+            <span className="leading-tight">
+              <span className="hidden sm:inline">{t("supplierMatches.confirmedWithPrice", "With Price")}</span>
+              <span className="sm:hidden">OK $</span>
+              <span className="block sm:inline text-[9px] sm:text-xs opacity-80"> ({counts.confirmedWithPrice})</span>
+            </span>
           </TabsTrigger>
         </TabsList>
 
