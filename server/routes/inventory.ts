@@ -2312,8 +2312,9 @@ router.get('/api/hin-matches/:hospitalId', isAuthenticated, async (req: any, res
     const { hospitalId } = req.params;
     const { status } = req.query;
     
-    const user = req.user;
-    const hasAccess = user.hospitalRoles?.some((r: any) => r.hospitalId === hospitalId);
+    const userId = req.user.id;
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some((h: any) => h.id === hospitalId);
     if (!hasAccess) {
       return res.status(403).json({ message: "Not authorized for this hospital" });
     }
@@ -2388,8 +2389,9 @@ router.post('/api/hin-matches/:hospitalId/sync', isAuthenticated, requireWriteAc
   try {
     const { hospitalId } = req.params;
     
-    const user = req.user;
-    const hasAccess = user.hospitalRoles?.some((r: any) => r.hospitalId === hospitalId);
+    const userId = req.user.id;
+    const userHospitals = await storage.getUserHospitals(userId);
+    const hasAccess = userHospitals.some((h: any) => h.id === hospitalId);
     if (!hasAccess) {
       return res.status(403).json({ message: "Not authorized for this hospital" });
     }
