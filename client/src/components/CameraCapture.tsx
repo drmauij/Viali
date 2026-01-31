@@ -219,11 +219,12 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false, h
             )}
 
             {/* Controls - Cancel left, Capture right for easy thumb access */}
-            <div className="absolute bottom-0 left-0 right-0 p-6 flex justify-between z-10">
+            {/* Use safe-area-inset-bottom for mobile devices with navigation bars */}
+            <div className="absolute bottom-0 left-0 right-0 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 px-4 flex justify-between z-10 bg-gradient-to-t from-black/60 to-transparent">
               <Button
                 variant="outline"
                 onClick={handleClose}
-                className="bg-white/10 text-white border-white hover:bg-white/20 px-6"
+                className="bg-white/10 text-white border-white hover:bg-white/20 px-4 sm:px-6"
                 data-testid="close-camera"
               >
                 <i className="fas fa-times mr-2"></i>
@@ -232,7 +233,7 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false, h
               <Button
                 onClick={capturePhoto}
                 disabled={!isVideoReady}
-                className="bg-accent hover:bg-accent/90 px-6 disabled:opacity-50"
+                className="bg-accent hover:bg-accent/90 px-4 sm:px-6 disabled:opacity-50"
                 data-testid="capture-photo"
               >
                 <i className={`fas ${isVideoReady ? 'fa-camera' : 'fa-spinner fa-spin'} mr-2`}></i>

@@ -1015,7 +1015,7 @@ export default function Users() {
 
       {/* Create User Dialog */}
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
-        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("admin.createNewUser")}</DialogTitle>
           </DialogHeader>
@@ -1290,7 +1290,7 @@ export default function Users() {
 
       {/* Edit User Dialog */}
       <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden p-0">
+        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] flex flex-col overflow-hidden p-0">
           <DialogHeader className="shrink-0 px-6 pt-6 pb-2">
             <DialogTitle>{t("admin.editUser")}</DialogTitle>
             <DialogDescription>
