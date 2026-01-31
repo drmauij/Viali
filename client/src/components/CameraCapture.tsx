@@ -34,8 +34,8 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false, h
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: { 
             facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 }
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
           },
         });
         
@@ -44,12 +44,26 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false, h
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
           // Wait for video to be ready before enabling capture
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play();
+          videoRef.current.onloadedmetadata = async () => {
+            try {
+              await videoRef.current?.play();
+            } catch (playErr) {
+              console.error("Error playing video:", playErr);
+              // Video might still be playable, continue anyway
+            }
           };
           videoRef.current.onplaying = () => {
             setIsVideoReady(true);
           };
+          // Fallback: if onplaying doesn't fire within 2 seconds, force ready
+          setTimeout(() => {
+            if (videoRef.current && !isVideoReady) {
+              const video = videoRef.current;
+              if (video.readyState >= 2) {
+                setIsVideoReady(true);
+              }
+            }
+          }, 2000);
         }
       } catch (err) {
         console.error("Error accessing camera:", err);
