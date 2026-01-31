@@ -107,7 +107,8 @@ export function ManageAvailabilityDialog({
 
   useEffect(() => {
     if (availability.length > 0) {
-      setEditAvailability(availability.map(a => ({
+      setEditAvailability(availability.map((a, idx) => ({
+        id: a.id || `legacy-${a.dayOfWeek}-${idx}-${a.startTime}`,
         dayOfWeek: a.dayOfWeek,
         startTime: a.startTime,
         endTime: a.endTime,
@@ -115,7 +116,8 @@ export function ManageAvailabilityDialog({
         isActive: a.isActive,
       })));
     } else if (selectedProviderId) {
-      setEditAvailability(DAYS_OF_WEEK.slice(0, 5).map(d => ({
+      setEditAvailability(DAYS_OF_WEEK.slice(0, 5).map((d, idx) => ({
+        id: `new-${idx}`,
         dayOfWeek: d.value,
         startTime: "08:00",
         endTime: "17:00",
@@ -201,26 +203,50 @@ export function ManageAvailabilityDialog({
     },
   });
 
-  const updateAvailabilityDay = (dayOfWeek: number, field: string, value: any) => {
-    setEditAvailability(prev => {
-      const existing = prev.find(a => a.dayOfWeek === dayOfWeek);
-      if (existing) {
-        return prev.map(a => a.dayOfWeek === dayOfWeek ? { ...a, [field]: value } : a);
-      } else {
-        return [...prev, { dayOfWeek, [field]: value, startTime: "08:00", endTime: "17:00", slotDurationMinutes: 30, isActive: true }];
-      }
-    });
+  const updateAvailabilitySlot = (slotId: string, field: string, value: any) => {
+    setEditAvailability(prev => 
+      prev.map(a => (a.id === slotId ? { ...a, [field]: value } : a))
+    );
   };
 
   const toggleDay = (dayOfWeek: number) => {
     setEditAvailability(prev => {
-      const existing = prev.find(a => a.dayOfWeek === dayOfWeek);
-      if (existing) {
-        return prev.map(a => a.dayOfWeek === dayOfWeek ? { ...a, isActive: !a.isActive } : a);
+      const daySlots = prev.filter(a => a.dayOfWeek === dayOfWeek);
+      if (daySlots.length > 0) {
+        const currentActive = daySlots.some(a => a.isActive);
+        return prev.map(a => a.dayOfWeek === dayOfWeek ? { ...a, isActive: !currentActive } : a);
       } else {
-        return [...prev, { dayOfWeek, startTime: "08:00", endTime: "17:00", slotDurationMinutes: 30, isActive: true }];
+        return [...prev, { id: `new-${Date.now()}`, dayOfWeek, startTime: "08:00", endTime: "17:00", slotDurationMinutes: 30, isActive: true }];
       }
     });
+  };
+
+  const addTimeSlot = (dayOfWeek: number) => {
+    const newSlot = {
+      id: `new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      dayOfWeek,
+      startTime: "09:00",
+      endTime: "12:00",
+      slotDurationMinutes: 30,
+      isActive: true,
+    };
+    setEditAvailability(prev => [...prev, newSlot]);
+  };
+
+  const removeTimeSlot = (slotId: string, dayOfWeek: number) => {
+    setEditAvailability(prev => {
+      const daySlots = prev.filter(a => a.dayOfWeek === dayOfWeek && a.isActive);
+      if (daySlots.length <= 1) {
+        return prev.map(a => a.id === slotId ? { ...a, isActive: false } : a);
+      }
+      return prev.filter(a => a.id !== slotId);
+    });
+  };
+
+  const getSlotsForDay = (dayOfWeek: number) => {
+    return editAvailability
+      .filter(a => a.dayOfWeek === dayOfWeek)
+      .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""));
   };
 
   return (
@@ -334,43 +360,74 @@ export function ManageAvailabilityDialog({
                   ) : (
                     <>
                       {DAYS_OF_WEEK.map((day) => {
-                        const dayAvail = editAvailability.find(a => a.dayOfWeek === day.value);
-                        const isActive = dayAvail?.isActive ?? false;
+                        const daySlots = getSlotsForDay(day.value);
+                        const isActive = daySlots.length > 0 && daySlots.some(s => s.isActive);
 
                         return (
                           <div
                             key={day.value}
-                            className={`flex flex-wrap items-center gap-2 p-2 rounded-lg border ${isActive ? 'bg-background' : 'bg-muted/50'}`}
+                            className={`p-3 rounded-lg border ${isActive ? 'bg-background' : 'bg-muted/50'}`}
                             data-testid={`day-dialog-${day.value}`}
                           >
-                            <div className="flex items-center min-w-[100px]">
-                              <Switch
-                                checked={isActive}
-                                onCheckedChange={() => toggleDay(day.value)}
-                                data-testid={`switch-day-dialog-${day.value}`}
-                              />
-                              <span className={`ml-2 text-sm ${isActive ? 'font-medium' : 'text-muted-foreground'}`}>
-                                {t(`availability.days.${day.label.toLowerCase()}`, day.label)}
-                              </span>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center">
+                                <Switch
+                                  checked={isActive}
+                                  onCheckedChange={() => toggleDay(day.value)}
+                                  data-testid={`switch-day-dialog-${day.value}`}
+                                />
+                                <span className={`ml-2 text-sm ${isActive ? 'font-medium' : 'text-muted-foreground'}`}>
+                                  {t(`availability.days.${day.label.toLowerCase()}`, day.label)}
+                                </span>
+                              </div>
+                              {isActive && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => addTimeSlot(day.value)}
+                                  className="h-7 px-2 text-xs"
+                                  data-testid={`button-add-slot-${day.value}`}
+                                >
+                                  <Plus className="h-3 w-3 mr-1" />
+                                  {t('availability.addSlot', 'Add Slot')}
+                                </Button>
+                              )}
                             </div>
 
-                            {isActive && (
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Input
-                                  type="time"
-                                  value={dayAvail?.startTime || "08:00"}
-                                  onChange={(e) => updateAvailabilityDay(day.value, 'startTime', e.target.value)}
-                                  className="w-24"
-                                  data-testid={`input-start-dialog-${day.value}`}
-                                />
-                                <span className="text-muted-foreground">-</span>
-                                <Input
-                                  type="time"
-                                  value={dayAvail?.endTime || "17:00"}
-                                  onChange={(e) => updateAvailabilityDay(day.value, 'endTime', e.target.value)}
-                                  className="w-24"
-                                  data-testid={`input-end-dialog-${day.value}`}
-                                />
+                            {isActive && daySlots.length > 0 && (
+                              <div className="space-y-2 ml-8">
+                                {daySlots.filter(s => s.isActive).map((slot, idx) => (
+                                  <div key={slot.id} className="flex items-center gap-2">
+                                    <Input
+                                      type="time"
+                                      value={slot.startTime || "08:00"}
+                                      onChange={(e) => updateAvailabilitySlot(slot.id!, 'startTime', e.target.value)}
+                                      className="w-28"
+                                      data-testid={`input-start-dialog-${day.value}-${idx}`}
+                                    />
+                                    <span className="text-muted-foreground">-</span>
+                                    <Input
+                                      type="time"
+                                      value={slot.endTime || "17:00"}
+                                      onChange={(e) => updateAvailabilitySlot(slot.id!, 'endTime', e.target.value)}
+                                      className="w-28"
+                                      data-testid={`input-end-dialog-${day.value}-${idx}`}
+                                    />
+                                    {daySlots.filter(s => s.isActive).length > 1 && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => removeTimeSlot(slot.id!, day.value)}
+                                        className="h-8 w-8 text-destructive hover:text-destructive"
+                                        data-testid={`button-remove-slot-${day.value}-${idx}`}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                ))}
                               </div>
                             )}
                           </div>

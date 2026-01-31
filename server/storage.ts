@@ -8262,8 +8262,8 @@ export class DatabaseStorage implements IStorage {
     const dateObj = new Date(date);
     const dayOfWeek = dateObj.getDay(); // 0-6, Sunday = 0
     
-    // 1. Get provider availability for this day
-    const [availability] = await db
+    // 1. Get ALL provider availability entries for this day (supports multiple time slots per day)
+    const availabilityList = await db
       .select()
       .from(providerAvailability)
       .where(and(
@@ -8271,9 +8271,10 @@ export class DatabaseStorage implements IStorage {
         eq(providerAvailability.unitId, unitId),
         eq(providerAvailability.dayOfWeek, dayOfWeek),
         eq(providerAvailability.isActive, true)
-      ));
+      ))
+      .orderBy(providerAvailability.startTime);
     
-    if (!availability) {
+    if (availabilityList.length === 0) {
       return []; // Provider doesn't work this day
     }
     
@@ -8317,11 +8318,6 @@ export class DatabaseStorage implements IStorage {
         sql`${clinicAppointments.status} NOT IN ('cancelled', 'no_show')`
       ));
     
-    // Generate available slots
-    const slots: { startTime: string; endTime: string }[] = [];
-    const startMinutes = this.timeToMinutes(availability.startTime);
-    const endMinutes = this.timeToMinutes(availability.endTime);
-    
     // Check if provider has full-day time off
     const hasFullDayOff = timeOffList.some(t => !t.startTime && !t.endTime);
     const hasAbsence = absenceList.length > 0;
@@ -8330,35 +8326,51 @@ export class DatabaseStorage implements IStorage {
       return []; // Provider is off this day
     }
     
-    // Generate slots based on availability
-    for (let mins = startMinutes; mins + durationMinutes <= endMinutes; mins += availability.slotDurationMinutes) {
-      const slotStart = this.minutesToTime(mins);
-      const slotEnd = this.minutesToTime(mins + durationMinutes);
+    // Generate available slots from all availability entries
+    const slots: { startTime: string; endTime: string }[] = [];
+    
+    for (const availability of availabilityList) {
+      const startMinutes = this.timeToMinutes(availability.startTime);
+      const endMinutes = this.timeToMinutes(availability.endTime);
+      const slotDuration = availability.slotDurationMinutes || 30;
       
-      // Check if slot conflicts with time off
-      const conflictsWithTimeOff = timeOffList.some(t => {
-        if (!t.startTime || !t.endTime) return false;
-        const offStart = this.timeToMinutes(t.startTime);
-        const offEnd = this.timeToMinutes(t.endTime);
-        return mins < offEnd && mins + durationMinutes > offStart;
-      });
-      
-      // Check if slot conflicts with existing appointments
-      const conflictsWithAppointment = existingAppointments.some(a => {
-        const apptStart = this.timeToMinutes(a.startTime);
-        const apptEnd = this.timeToMinutes(a.endTime);
-        return mins < apptEnd && mins + durationMinutes > apptStart;
-      });
-      
-      // Check if slot conflicts with surgeries (assume surgeries block all day for simplicity)
-      const conflictsWithSurgery = surgeryList.length > 0;
-      
-      if (!conflictsWithTimeOff && !conflictsWithAppointment && !conflictsWithSurgery) {
-        slots.push({ startTime: slotStart, endTime: slotEnd });
+      // Generate slots based on this availability window
+      for (let mins = startMinutes; mins + durationMinutes <= endMinutes; mins += slotDuration) {
+        const slotStart = this.minutesToTime(mins);
+        const slotEnd = this.minutesToTime(mins + durationMinutes);
+        
+        // Check if slot conflicts with time off
+        const conflictsWithTimeOff = timeOffList.some(t => {
+          if (!t.startTime || !t.endTime) return false;
+          const offStart = this.timeToMinutes(t.startTime);
+          const offEnd = this.timeToMinutes(t.endTime);
+          return mins < offEnd && mins + durationMinutes > offStart;
+        });
+        
+        // Check if slot conflicts with existing appointments
+        const conflictsWithAppointment = existingAppointments.some(a => {
+          const apptStart = this.timeToMinutes(a.startTime);
+          const apptEnd = this.timeToMinutes(a.endTime);
+          return mins < apptEnd && mins + durationMinutes > apptStart;
+        });
+        
+        // Check if slot conflicts with surgeries (assume surgeries block all day for simplicity)
+        const conflictsWithSurgery = surgeryList.length > 0;
+        
+        if (!conflictsWithTimeOff && !conflictsWithAppointment && !conflictsWithSurgery) {
+          slots.push({ startTime: slotStart, endTime: slotEnd });
+        }
       }
     }
     
-    return slots;
+    // Sort slots by start time and remove duplicates (in case of overlapping windows)
+    const uniqueSlots = slots
+      .sort((a, b) => a.startTime.localeCompare(b.startTime))
+      .filter((slot, index, arr) => 
+        index === 0 || slot.startTime !== arr[index - 1].startTime
+      );
+    
+    return uniqueSlots;
   }
 
   private timeToMinutes(time: string): number {

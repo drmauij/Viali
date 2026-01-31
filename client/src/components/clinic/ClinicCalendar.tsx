@@ -431,20 +431,28 @@ export default function ClinicCalendar({
     staleTime: 60000,
   });
 
-  // Convert weekly schedules to lookup format: providerId -> dayOfWeek -> { start, end }
+  // Convert weekly schedules to lookup format: providerId -> dayOfWeek -> array of { start, end } slots
+  // Supports multiple time slots per day (e.g., 07:00-13:00 and 15:00-17:00)
   const providerSchedules = useMemo(() => {
-    const schedules: Record<string, Record<number, { start: string; end: string }>> = {};
+    const schedules: Record<string, Record<number, { start: string; end: string }[]>> = {};
     
     Object.entries(weeklySchedulesData).forEach(([providerId, availability]) => {
       if (Array.isArray(availability)) {
         schedules[providerId] = {};
         availability.forEach((entry) => {
           if (entry.isActive !== false) {
-            schedules[providerId][entry.dayOfWeek] = {
+            if (!schedules[providerId][entry.dayOfWeek]) {
+              schedules[providerId][entry.dayOfWeek] = [];
+            }
+            schedules[providerId][entry.dayOfWeek].push({
               start: entry.startTime,
               end: entry.endTime,
-            };
+            });
           }
+        });
+        // Sort slots by start time for each day
+        Object.keys(schedules[providerId]).forEach(day => {
+          schedules[providerId][parseInt(day)].sort((a, b) => a.start.localeCompare(b.start));
         });
       }
     });
@@ -554,21 +562,27 @@ export default function ClinicCalendar({
       if (!inWindow) return true;
     } else {
       // Check weekly schedule for always_available providers
+      // Now supports multiple time slots per day
       const schedule = providerSchedules[providerId];
       if (schedule) {
         const dayOfWeek = date.getDay();
-        const daySchedule = schedule[dayOfWeek];
-        if (!daySchedule) return true; // Day not in schedule = unavailable
+        const dayScheduleSlots = schedule[dayOfWeek];
+        if (!dayScheduleSlots || dayScheduleSlots.length === 0) return true; // Day not in schedule = unavailable
         
-        const [schedStartH, schedStartM] = daySchedule.start.split(':').map(Number);
-        const [schedEndH, schedEndM] = daySchedule.end.split(':').map(Number);
-        const schedStart = new Date(date);
-        schedStart.setHours(schedStartH, schedStartM, 0, 0);
-        const schedEnd = new Date(date);
-        schedEnd.setHours(schedEndH, schedEndM, 0, 0);
+        // Check if the slot falls within ANY of the available time windows
+        const isWithinAnyWindow = dayScheduleSlots.some(slot => {
+          const [schedStartH, schedStartM] = slot.start.split(':').map(Number);
+          const [schedEndH, schedEndM] = slot.end.split(':').map(Number);
+          const schedStart = new Date(date);
+          schedStart.setHours(schedStartH, schedStartM, 0, 0);
+          const schedEnd = new Date(date);
+          schedEnd.setHours(schedEndH, schedEndM, 0, 0);
+          
+          return slotStart >= schedStart.getTime() && slotEnd <= schedEnd.getTime();
+        });
         
-        if (slotStart < schedStart.getTime() || slotEnd > schedEnd.getTime()) {
-          return true;
+        if (!isWithinAnyWindow) {
+          return true; // Slot is outside all available windows
         }
       }
     }
