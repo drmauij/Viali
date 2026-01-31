@@ -1106,12 +1106,12 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
 
       {/* Edit Codes Dialog */}
       <Dialog open={editCodesOpen} onOpenChange={(open) => { if (!open) handleCloseEditCodes(); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden">
+        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden">
           {/* Fixed Header */}
-          <div className="flex-shrink-0 bg-background z-10 px-6 pt-6 pb-4 border-b">
+          <div className="flex-shrink-0 bg-background z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
             <DialogHeader>
-              <DialogTitle>{t('items.editCodes', 'Edit Codes')}</DialogTitle>
-              <DialogDescription>
+              <DialogTitle className="text-base sm:text-lg">{t('items.editCodes', 'Edit Codes')}</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm truncate">
                 {editingItem?.name}
               </DialogDescription>
             </DialogHeader>
@@ -1135,7 +1135,7 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
           />
           
           {/* Scrollable Content */}
-          <div className="flex-1 overflow-y-auto px-6 pt-2 pb-4 min-h-0 space-y-6">
+          <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 sm:px-6 pt-2 pb-4 min-h-0 space-y-6">
             {isLoadingCodes ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -1144,10 +1144,10 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
               <>
                 {/* Universal Product Codes Section */}
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <i className="fas fa-barcode text-primary"></i>
-                      <h3 className="font-semibold">{t('items.universalCodes', 'Universal Codes')}</h3>
+                      <h3 className="font-semibold text-sm sm:text-base">{t('items.universalCodes', 'Universal Codes')}</h3>
                     </div>
                     <div className="flex gap-2">
                       <Button
@@ -1156,10 +1156,11 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
                         size="sm"
                         onClick={handleTakePhoto}
                         disabled={isAnalyzingPhoto}
+                        className="text-xs px-2 sm:px-3"
                         data-testid="button-edit-camera-codes"
                       >
-                        <i className={`fas ${isAnalyzingPhoto ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`}></i>
-                        {isAnalyzingPhoto ? t('items.analyzing', 'Analyzing...') : t('controlled.takePhoto', 'Take Photo')}
+                        <i className={`fas ${isAnalyzingPhoto ? 'fa-spinner fa-spin' : 'fa-camera'} sm:mr-1`}></i>
+                        <span className="hidden sm:inline">{isAnalyzingPhoto ? t('items.analyzing', 'Analyzing...') : t('controlled.takePhoto', 'Take Photo')}</span>
                       </Button>
                       <Button
                         type="button"
@@ -1167,10 +1168,11 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
                         size="sm"
                         onClick={() => galleryInputRef.current?.click()}
                         disabled={isAnalyzingPhoto}
+                        className="text-xs px-2 sm:px-3"
                         data-testid="button-edit-gallery-codes"
                       >
-                        <i className="fas fa-images mr-2"></i>
-                        {t('items.uploadFromGallery', 'Gallery')}
+                        <i className="fas fa-images sm:mr-1"></i>
+                        <span className="hidden sm:inline">{t('items.uploadFromGallery', 'Gallery')}</span>
                       </Button>
                     </div>
                   </div>
