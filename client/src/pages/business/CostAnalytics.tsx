@@ -977,24 +977,28 @@ export default function CostAnalytics() {
                   {/* Dashboard Summary Stats */}
                   {filteredSurgeries.length > 0 && (
                     <div className="mb-6">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                      {(() => {
+                        // Filter out surgeries with zero costs for statistics
+                        const surgeriesWithCosts = filteredSurgeries.filter(s => (s.totalCost ?? 0) > 0);
+                        return (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
                         {/* Total Surgeries */}
                         <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border">
                           <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
                             <FileText className="h-3.5 w-3.5" />
                             {t('business.costs.totalSurgeries')}
                           </div>
-                          <div className="text-xl font-bold">{filteredSurgeries.length}</div>
+                          <div className="text-xl font-bold">{surgeriesWithCosts.length}</div>
                         </div>
                         
-                        {/* Total Cost */}
+                        {/* Total Costs */}
                         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
                           <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
                             <DollarSign className="h-3.5 w-3.5" />
-                            {t('business.costs.grandTotal')}
+                            {t('business.costs.totalCosts', 'Total Costs')}
                           </div>
                           <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                            CHF {filteredSurgeries.reduce((sum, s) => sum + (s.totalCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            CHF {surgeriesWithCosts.reduce((sum, s) => sum + (s.totalCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </div>
                         </div>
                         
@@ -1005,13 +1009,13 @@ export default function CostAnalytics() {
                             {t('business.costs.totalPaid')}
                           </div>
                           <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
-                            CHF {filteredSurgeries.reduce((sum, s) => sum + (s.paidAmount ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                            CHF {surgeriesWithCosts.reduce((sum, s) => sum + (s.paidAmount ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </div>
                         </div>
                         
                         {/* Total Difference */}
                         {(() => {
-                          const totalDiff = filteredSurgeries.reduce((sum, s) => sum + (s.difference ?? 0), 0);
+                          const totalDiff = surgeriesWithCosts.reduce((sum, s) => sum + (s.difference ?? 0), 0);
                           const isPositive = totalDiff >= 0;
                           return (
                             <div className={`rounded-lg p-3 border ${isPositive ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'}`}>
@@ -1028,7 +1032,7 @@ export default function CostAnalytics() {
                         
                         {/* Average Duration */}
                         {(() => {
-                          const validDurations = filteredSurgeries.filter(s => (s.surgeryDurationMinutes ?? 0) > 0);
+                          const validDurations = surgeriesWithCosts.filter(s => (s.surgeryDurationMinutes ?? 0) > 0);
                           const avgDuration = validDurations.length > 0 
                             ? validDurations.reduce((sum, s) => sum + (s.surgeryDurationMinutes ?? 0), 0) / validDurations.length 
                             : 0;
@@ -1047,7 +1051,7 @@ export default function CostAnalytics() {
                         
                         {/* Average Cost/Hour */}
                         {(() => {
-                          const costsPerHour = filteredSurgeries
+                          const costsPerHour = surgeriesWithCosts
                             .map(s => {
                               const hours = (s.surgeryDurationMinutes ?? 0) / 60;
                               return hours > 0 ? (s.totalCost ?? 0) / hours : null;
@@ -1068,7 +1072,33 @@ export default function CostAnalytics() {
                             </div>
                           );
                         })()}
+                        
+                        {/* Average Paid/Hour */}
+                        {(() => {
+                          const paidPerHour = surgeriesWithCosts
+                            .map(s => {
+                              const hours = (s.surgeryDurationMinutes ?? 0) / 60;
+                              return hours > 0 ? (s.paidAmount ?? 0) / hours : null;
+                            })
+                            .filter((c): c is number => c !== null && c > 0);
+                          const avgPaidPerHour = paidPerHour.length > 0 
+                            ? paidPerHour.reduce((sum, c) => sum + c, 0) / paidPerHour.length 
+                            : 0;
+                          return (
+                            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 border border-amber-200 dark:border-amber-800">
+                              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                                <TrendingUp className="h-3.5 w-3.5" />
+                                {t('business.costs.avgPaidPerHour', 'Avg Paid/Hour')}
+                              </div>
+                              <div className="text-xl font-bold text-amber-600 dark:text-amber-400">
+                                CHF {avgPaidPerHour.toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
+                        );
+                      })()}
                     </div>
                   )}
                   
