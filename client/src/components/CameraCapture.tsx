@@ -219,8 +219,8 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false, h
             )}
 
             {/* Controls - Cancel left, Capture right for easy thumb access */}
-            {/* Use safe-area-inset-bottom for mobile devices with navigation bars and add extra bottom padding */}
-            <div className="absolute bottom-0 left-0 right-0 pb-[max(3.5rem,calc(env(safe-area-inset-bottom)+2.5rem))] pt-4 px-4 flex justify-between z-10 bg-gradient-to-t from-black/90 via-black/40 to-transparent">
+            {/* Use large fixed padding to clear mobile browser chrome */}
+            <div className="absolute bottom-0 left-0 right-0 pb-24 pt-6 px-4 flex justify-between z-10 bg-gradient-to-t from-black via-black/70 to-transparent">
               <Button
                 variant="outline"
                 onClick={handleClose}

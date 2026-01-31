@@ -319,8 +319,8 @@ export function DirectItemCamera({
               </div>
             )}
 
-            {/* Bottom controls */}
-            <div className="absolute bottom-0 left-0 right-0 pt-4 px-4 pb-[max(4rem,calc(env(safe-area-inset-bottom)+3rem))] bg-gradient-to-t from-black/90 via-black/60 to-transparent">
+            {/* Bottom controls - positioned higher to account for mobile browser chrome */}
+            <div className="absolute bottom-0 left-0 right-0 pt-6 px-4 pb-24 bg-gradient-to-t from-black via-black/70 to-transparent">
               <div className="flex gap-3 max-w-md mx-auto">
                 <Button
                   variant="outline"
