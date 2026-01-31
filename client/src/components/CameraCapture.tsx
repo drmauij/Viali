@@ -219,8 +219,7 @@ export function CameraCapture({ isOpen, onClose, onCapture, fullFrame = false, h
             )}
 
             {/* Controls - Cancel left, Capture right for easy thumb access */}
-            {/* Use large fixed padding to clear mobile browser chrome */}
-            <div className="absolute bottom-0 left-0 right-0 pb-24 pt-6 px-4 flex justify-between z-10 bg-gradient-to-t from-black via-black/70 to-transparent">
+            <div className="absolute bottom-0 left-0 right-0 pb-6 pt-6 px-4 flex justify-between z-10 bg-gradient-to-t from-black via-black/70 to-transparent">
               <Button
                 variant="outline"
                 onClick={handleClose}

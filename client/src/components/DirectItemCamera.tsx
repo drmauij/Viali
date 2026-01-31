@@ -320,7 +320,7 @@ export function DirectItemCamera({
             )}
 
             {/* Bottom controls - positioned higher to account for mobile browser chrome */}
-            <div className="absolute bottom-0 left-0 right-0 pt-6 px-3 pb-24 bg-gradient-to-t from-black via-black/70 to-transparent">
+            <div className="absolute bottom-0 left-0 right-0 pt-6 px-3 pb-6 bg-gradient-to-t from-black via-black/70 to-transparent">
               {/* Large Capture button on top */}
               <div className="mb-3 px-2">
                 <Button
