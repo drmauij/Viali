@@ -1015,11 +1015,11 @@ export default function Users() {
 
       {/* Create User Dialog */}
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-md max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-[92vw] sm:max-w-md max-h-[85dvh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-2 shrink-0">
             <DialogTitle>{t("admin.createNewUser")}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
             <div>
               <Label htmlFor="user-email">{t("admin.email")} *</Label>
               <div className="relative">
@@ -1290,14 +1290,14 @@ export default function Users() {
 
       {/* Edit User Dialog */}
       <Dialog open={editUserDialogOpen} onOpenChange={setEditUserDialogOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] sm:max-w-2xl max-h-[85vh] flex flex-col overflow-hidden p-0">
-          <DialogHeader className="shrink-0 px-6 pt-6 pb-2">
+        <DialogContent className="max-w-[92vw] sm:max-w-2xl max-h-[90dvh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="p-6 pb-2 shrink-0">
             <DialogTitle>{t("admin.editUser")}</DialogTitle>
             <DialogDescription>
               {t("admin.editUserDescription")}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto px-6 pb-2" style={{ maxHeight: 'calc(85vh - 160px)' }}>
+          <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-4">
             <div className="space-y-4 py-1">
               {/* Email field */}
               <div>
