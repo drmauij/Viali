@@ -1107,6 +1107,11 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
     // Build date filters using raw SQL for proper date comparison
     const { sql } = await import('drizzle-orm');
     const dateFilters: any[] = [];
+    
+    // Always filter out future surgeries - they have no data yet
+    const today = new Date().toISOString().split('T')[0];
+    dateFilters.push(sql`${surgeries.plannedDate} <= ${today}::date`);
+    
     if (startDate) {
       dateFilters.push(sql`${surgeries.plannedDate} >= ${startDate}::date`);
     }
