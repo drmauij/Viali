@@ -973,6 +973,105 @@ export default function CostAnalytics() {
                   {t('common.errorLoadingData')}
                 </div>
               ) : (
+                <>
+                  {/* Dashboard Summary Stats */}
+                  {filteredSurgeries.length > 0 && (
+                    <div className="mb-6">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                        {/* Total Surgeries */}
+                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 border">
+                          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                            <FileText className="h-3.5 w-3.5" />
+                            {t('business.costs.totalSurgeries')}
+                          </div>
+                          <div className="text-xl font-bold">{filteredSurgeries.length}</div>
+                        </div>
+                        
+                        {/* Total Cost */}
+                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-800">
+                          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                            <DollarSign className="h-3.5 w-3.5" />
+                            {t('business.costs.grandTotal')}
+                          </div>
+                          <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                            CHF {filteredSurgeries.reduce((sum, s) => sum + (s.totalCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </div>
+                        </div>
+                        
+                        {/* Total Paid */}
+                        <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3 border border-orange-200 dark:border-orange-800">
+                          <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                            <DollarSign className="h-3.5 w-3.5" />
+                            {t('business.costs.totalPaid')}
+                          </div>
+                          <div className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                            CHF {filteredSurgeries.reduce((sum, s) => sum + (s.paidAmount ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                          </div>
+                        </div>
+                        
+                        {/* Total Difference */}
+                        {(() => {
+                          const totalDiff = filteredSurgeries.reduce((sum, s) => sum + (s.difference ?? 0), 0);
+                          const isPositive = totalDiff >= 0;
+                          return (
+                            <div className={`rounded-lg p-3 border ${isPositive ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'}`}>
+                              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                                {isPositive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                                {t('business.costs.totalDifference')}
+                              </div>
+                              <div className={`text-xl font-bold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                CHF {totalDiff.toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        
+                        {/* Average Duration */}
+                        {(() => {
+                          const validDurations = filteredSurgeries.filter(s => (s.surgeryDurationMinutes ?? 0) > 0);
+                          const avgDuration = validDurations.length > 0 
+                            ? validDurations.reduce((sum, s) => sum + (s.surgeryDurationMinutes ?? 0), 0) / validDurations.length 
+                            : 0;
+                          return (
+                            <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
+                              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                                <Clock className="h-3.5 w-3.5" />
+                                {t('business.costs.avgDuration', 'Avg Duration')}
+                              </div>
+                              <div className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                                {formatDuration(Math.round(avgDuration))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                        
+                        {/* Average Cost/Hour */}
+                        {(() => {
+                          const costsPerHour = filteredSurgeries
+                            .map(s => {
+                              const hours = (s.surgeryDurationMinutes ?? 0) / 60;
+                              return hours > 0 ? (s.totalCost ?? 0) / hours : null;
+                            })
+                            .filter((c): c is number => c !== null && c > 0);
+                          const avgCostPerHour = costsPerHour.length > 0 
+                            ? costsPerHour.reduce((sum, c) => sum + c, 0) / costsPerHour.length 
+                            : 0;
+                          return (
+                            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-3 border border-indigo-200 dark:border-indigo-800">
+                              <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
+                                <TrendingUp className="h-3.5 w-3.5" />
+                                {t('business.costs.avgCostPerHour', 'Avg Cost/Hour')}
+                              </div>
+                              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                                CHF {avgCostPerHour.toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
+                  
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
@@ -1082,93 +1181,7 @@ export default function CostAnalytics() {
                     </TableBody>
                   </Table>
                 </div>
-              )}
-              
-              {/* Summary row */}
-              {filteredSurgeries.length > 0 && !surgeriesLoading && (
-                <div className="mt-4 pt-4 border-t">
-                  <div className="flex flex-wrap gap-4 justify-end text-sm">
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{t('business.costs.totalSurgeries')}:</span>
-                      <Badge variant="secondary">{filteredSurgeries.length}</Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{t('business.costs.totalStaffCosts')}:</span>
-                      <span className="text-purple-600 dark:text-purple-400 font-medium">
-                        CHF {filteredSurgeries.reduce((sum, s) => sum + (s.staffCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{t('business.costs.totalAnesthesiaCosts')}:</span>
-                      <span className="text-green-600 dark:text-green-400 font-medium">
-                        CHF {filteredSurgeries.reduce((sum, s) => sum + (s.anesthesiaCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{t('business.costs.totalSurgeryCosts')}:</span>
-                      <span className="text-blue-600 dark:text-blue-400 font-medium">
-                        CHF {filteredSurgeries.reduce((sum, s) => sum + (s.surgeryCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{t('business.costs.grandTotal')}:</span>
-                      <span className="font-bold">
-                        CHF {filteredSurgeries.reduce((sum, s) => sum + (s.totalCost ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{t('business.costs.totalPaid')}:</span>
-                      <span className="text-orange-600 dark:text-orange-400 font-medium">
-                        CHF {filteredSurgeries.reduce((sum, s) => sum + (s.paidAmount ?? 0), 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-muted-foreground">{t('business.costs.totalDifference')}:</span>
-                      {(() => {
-                        const totalDiff = filteredSurgeries.reduce((sum, s) => sum + (s.difference ?? 0), 0);
-                        return (
-                          <span className={`font-bold ${totalDiff >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                            CHF {totalDiff.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                    {/* Cost per hour statistics */}
-                    {(() => {
-                      const costsPerHour = filteredSurgeries
-                        .map(s => {
-                          const hours = (s.surgeryDurationMinutes ?? 0) / 60;
-                          return hours > 0 ? (s.totalCost ?? 0) / hours : null;
-                        })
-                        .filter((c): c is number => c !== null && c > 0);
-                      
-                      if (costsPerHour.length === 0) return null;
-                      
-                      const avgCostPerHour = costsPerHour.reduce((sum, c) => sum + c, 0) / costsPerHour.length;
-                      const sortedCosts = [...costsPerHour].sort((a, b) => a - b);
-                      const medianCostPerHour = sortedCosts.length % 2 === 0
-                        ? (sortedCosts[sortedCosts.length / 2 - 1] + sortedCosts[sortedCosts.length / 2]) / 2
-                        : sortedCosts[Math.floor(sortedCosts.length / 2)];
-                      
-                      return (
-                        <>
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">{t('business.costs.avgCostPerHour', 'Avg Cost/Hour')}:</span>
-                            <span className="text-indigo-600 dark:text-indigo-400 font-medium">
-                              CHF {avgCostPerHour.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">{t('business.costs.medianCostPerHour', 'Median Cost/Hour')}:</span>
-                            <span className="text-indigo-600 dark:text-indigo-400 font-medium">
-                              CHF {medianCostPerHour.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </span>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
+                </>
               )}
             </CardContent>
           </Card>
