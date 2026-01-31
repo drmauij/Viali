@@ -4071,9 +4071,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Invalid or expired link" });
       }
       
-      const { firstName, lastName, workDate, timeStart, timeEnd, pauseMinutes, workerSignature, notes } = req.body;
+      const { firstName, lastName, workDate, timeStart, timeEnd, pauseMinutes, activityType, workerSignature, notes } = req.body;
       
-      if (!firstName || !lastName || !workDate || !timeStart || !timeEnd || !workerSignature) {
+      if (!firstName || !lastName || !workDate || !timeStart || !timeEnd || !activityType || !workerSignature) {
         return res.status(400).json({ message: "Missing required fields" });
       }
       
@@ -4088,6 +4088,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timeStart,
         timeEnd,
         pauseMinutes: pauseMinutes || 0,
+        activityType,
         workerSignature,
         notes: notes || null,
       });
