@@ -478,15 +478,9 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
     }
   };
   
-  // Open webcam or file input based on device type
+  // Always use webcam capture component to directly open camera
   const handleTakePhoto = () => {
-    if (isTouchDevice()) {
-      // Mobile/tablet: use native file input with camera capture
-      cameraInputRef.current?.click();
-    } else {
-      // Desktop: use webcam capture component
-      setWebcamCaptureOpen(true);
-    }
+    setWebcamCaptureOpen(true);
   };
   
   // Handle barcode scan result
