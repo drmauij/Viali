@@ -2119,11 +2119,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
           }
         }
         
-        // Auto-add supplier with Galexis data
+        // Auto-add supplier with Galexis/HIN data
         // Use basispreis (base price) or yourPrice (customer-specific price) from Galexis response
         const priceValue = result.yourPrice || result.basispreis;
         const supplierData = {
-          supplierName: result.supplierName || 'Galexis',
+          supplierName: result.supplierName || (result.source === 'hin' ? 'HIN' : 'Galexis'),
           articleCode: result.pharmacode || pharmacode || null,
           catalogUrl: result.catalogUrl || null,
           basispreis: priceValue ? String(priceValue) : null,
