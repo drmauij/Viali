@@ -1099,8 +1099,12 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
       </Tabs>
 
       {/* Edit Codes Dialog */}
-      <Dialog open={editCodesOpen} onOpenChange={(open) => { if (!open) handleCloseEditCodes(); }}>
-        <DialogContent className="max-w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden">
+      <Dialog open={editCodesOpen} onOpenChange={(open) => { if (!open) handleCloseEditCodes(); }} modal={!webcamCaptureOpen}>
+        <DialogContent 
+          className="max-w-[95vw] sm:max-w-lg max-h-[90vh] flex flex-col p-0 overflow-hidden"
+          onInteractOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
+          onPointerDownOutside={(e) => { if (webcamCaptureOpen) e.preventDefault(); }}
+        >
           {/* Fixed Header */}
           <div className="flex-shrink-0 bg-background z-10 px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b">
             <DialogHeader>
