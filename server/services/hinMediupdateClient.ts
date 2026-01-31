@@ -1,6 +1,7 @@
 import { XMLParser } from 'fast-xml-parser';
 import { db } from '../db';
-import { hinArticles, hinSyncStatus, items, itemCodes, itemHinMatches, type HinArticle, type InsertHinArticle, type InsertItemHinMatch } from '../../shared/schema';
+import { hinArticles, hinSyncStatus, items, itemCodes, itemHinMatches, supplierCodes, type HinArticle, type InsertHinArticle, type InsertItemHinMatch } from '../../shared/schema';
+import { randomUUID } from 'crypto';
 import { eq, or, sql, and, isNull, ne, ilike } from 'drizzle-orm';
 
 const HIN_ARTICLE_XML_URL = 'https://download.hin.ch/download/oddb2xml/oddb_article.xml';
@@ -781,6 +782,38 @@ export async function applyHinMatchToItem(
         swissmedicNr: matchRecord.hinSwissmedicNo,
         abgabekategorie: matchRecord.hinSmcat,
       });
+    }
+
+    // If HIN has pricing and item has no suppliers, create HIN as supplier
+    const hasPricing = matchRecord.hinPexf || matchRecord.hinPpub;
+    if (hasPricing) {
+      // Check if item already has any supplier codes
+      const existingSuppliers = await db
+        .select({ id: supplierCodes.id })
+        .from(supplierCodes)
+        .where(eq(supplierCodes.itemId, matchRecord.itemId))
+        .limit(1);
+      
+      if (existingSuppliers.length === 0) {
+        // No suppliers exist - create HIN as the preferred supplier
+        const newSupplierId = randomUUID();
+        await db.insert(supplierCodes).values({
+          id: newSupplierId,
+          itemId: matchRecord.itemId,
+          supplierName: 'HIN',
+          articleCode: matchRecord.hinPharmacode || matchRecord.hinGtin || undefined,
+          basispreis: matchRecord.hinPexf ? String(matchRecord.hinPexf) : undefined,
+          publikumspreis: matchRecord.hinPpub ? String(matchRecord.hinPpub) : undefined,
+          lastPriceUpdate: new Date(),
+          lastChecked: new Date(),
+          isPreferred: true,
+          matchStatus: 'confirmed',
+          matchedProductName: matchRecord.hinDescriptionDe || undefined,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        console.log(`[HIN] Created HIN supplier for item ${matchRecord.itemId} with pexf=${matchRecord.hinPexf}, ppub=${matchRecord.hinPpub}`);
+      }
     }
 
     // Update the match record as applied
