@@ -995,6 +995,7 @@ export default function CostAnalytics() {
                         <TableHead className="text-right">{t('business.costs.anesthesiaConsumables')}</TableHead>
                         <TableHead className="text-right">{t('business.costs.surgeryConsumables')}</TableHead>
                         <TableHead className="text-right">{t('business.costs.totalCostCol')}</TableHead>
+                        <TableHead className="text-right">{t('business.costs.costPerHour', 'Cost/Hour')}</TableHead>
                         <TableHead className="text-right">{t('business.costs.paidCol')}</TableHead>
                         <TableHead className="text-right">{t('business.costs.differenceCol')}</TableHead>
                       </TableRow>
@@ -1002,7 +1003,7 @@ export default function CostAnalytics() {
                     <TableBody>
                       {filteredSurgeries.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                          <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                             {t('business.costs.noSurgeriesFound')}
                           </TableCell>
                         </TableRow>
@@ -1053,6 +1054,17 @@ export default function CostAnalytics() {
                             </TableCell>
                             <TableCell className="text-right font-semibold">
                               CHF {(surgery.totalCost ?? 0).toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {(() => {
+                                const hours = (surgery.surgeryDurationMinutes ?? 0) / 60;
+                                const costPerHour = hours > 0 ? (surgery.totalCost ?? 0) / hours : 0;
+                                return (
+                                  <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+                                    CHF {costPerHour.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </span>
+                                );
+                              })()}
                             </TableCell>
                             <TableCell className="text-right">
                               <span className="text-orange-600 dark:text-orange-400">
@@ -1121,6 +1133,40 @@ export default function CostAnalytics() {
                         );
                       })()}
                     </div>
+                    {/* Cost per hour statistics */}
+                    {(() => {
+                      const costsPerHour = filteredSurgeries
+                        .map(s => {
+                          const hours = (s.surgeryDurationMinutes ?? 0) / 60;
+                          return hours > 0 ? (s.totalCost ?? 0) / hours : null;
+                        })
+                        .filter((c): c is number => c !== null && c > 0);
+                      
+                      if (costsPerHour.length === 0) return null;
+                      
+                      const avgCostPerHour = costsPerHour.reduce((sum, c) => sum + c, 0) / costsPerHour.length;
+                      const sortedCosts = [...costsPerHour].sort((a, b) => a - b);
+                      const medianCostPerHour = sortedCosts.length % 2 === 0
+                        ? (sortedCosts[sortedCosts.length / 2 - 1] + sortedCosts[sortedCosts.length / 2]) / 2
+                        : sortedCosts[Math.floor(sortedCosts.length / 2)];
+                      
+                      return (
+                        <>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">{t('business.costs.avgCostPerHour', 'Avg Cost/Hour')}:</span>
+                            <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+                              CHF {avgCostPerHour.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">{t('business.costs.medianCostPerHour', 'Median Cost/Hour')}:</span>
+                            <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+                              CHF {medianCostPerHour.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -1368,6 +1414,19 @@ export default function CostAnalytics() {
                   <Activity className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm text-muted-foreground">{t('common.status')}:</span>
                   <Badge variant="secondary">{surgeryDetails.surgery.status || '-'}</Badge>
+                </div>
+                <div className="flex items-center gap-2 col-span-2">
+                  <TrendingUp className="h-4 w-4 text-indigo-600" />
+                  <span className="text-sm text-muted-foreground">{t('business.costs.costPerHour', 'Cost/Hour')}:</span>
+                  {(() => {
+                    const hours = (surgeryDetails.duration.minutes ?? 0) / 60;
+                    const costPerHour = hours > 0 ? surgeryDetails.grandTotal / hours : 0;
+                    return (
+                      <span className="font-semibold text-indigo-600 dark:text-indigo-400">
+                        CHF {costPerHour.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
 
