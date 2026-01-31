@@ -4073,8 +4073,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { firstName, lastName, workDate, timeStart, timeEnd, pauseMinutes, activityType, workerSignature, notes } = req.body;
       
+      const validActivityTypes = ["anesthesia_nurse", "op_nurse", "springer_nurse", "anesthesia_doctor", "other"];
       if (!firstName || !lastName || !workDate || !timeStart || !timeEnd || !activityType || !workerSignature) {
         return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      if (!validActivityTypes.includes(activityType)) {
+        return res.status(400).json({ message: "Invalid activity type" });
       }
       
       const entry = await storage.createExternalWorklogEntry({
