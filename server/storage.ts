@@ -8598,7 +8598,7 @@ export class DatabaseStorage implements IStorage {
         sql`${surgeries.plannedDate} <= ${endOfDay}`,
         sql`${surgeries.status} IN ('planned', 'scheduled', 'confirmed')`,
         isNull(surgeries.archivedAt),
-        sql`${surgeries.anesthesiaType} IS NOT NULL`
+        isNotNull(surgeries.anesthesiaType)
       ));
 
     return results;
