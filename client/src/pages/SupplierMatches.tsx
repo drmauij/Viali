@@ -1650,7 +1650,7 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
         onClose={() => setWebcamCaptureOpen(false)}
         onCapture={handleWebcamCapture}
         fullFrame={true}
-        hint={t('items.cameraHintGtin', 'Position barcode/product label in view')}
+        hint={t('items.pointAtGtinEan', 'Point at GTIN/EAN codes')}
       />
 
     </div>

@@ -7487,7 +7487,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
         }}
         onCapture={handleWebcamCapture}
         fullFrame={webcamCaptureTarget !== 'codes'}
-        hint={webcamCaptureTarget === 'codes' ? t('items.cameraHintGtin') : undefined}
+        hint={(webcamCaptureTarget === 'codes' || webcamCaptureTarget === 'editCodes') ? t('items.pointAtGtinEan', 'Point at GTIN/EAN codes') : undefined}
       />
 
       {/* Direct Camera for streamlined Add Item workflow */}
