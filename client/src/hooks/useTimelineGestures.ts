@@ -15,6 +15,8 @@ interface TouchState {
   startDistance: number;
   isPinching: boolean;
   isPanning: boolean;
+  isDirectionLocked: boolean;
+  isHorizontal: boolean;
 }
 
 export function useTimelineGestures(
@@ -31,6 +33,8 @@ export function useTimelineGestures(
     startDistance: 0,
     isPinching: false,
     isPanning: false,
+    isDirectionLocked: false,
+    isHorizontal: false,
   });
   
   const lastPinchDistanceRef = useRef<number>(0);
@@ -62,8 +66,10 @@ export function useTimelineGestures(
       state.startY = e.touches[0].clientY;
       state.lastX = e.touches[0].clientX;
       state.lastY = e.touches[0].clientY;
-      state.isPanning = true;
+      state.isPanning = false;
       state.isPinching = false;
+      state.isDirectionLocked = false;
+      state.isHorizontal = false;
       lastPanXRef.current = e.touches[0].clientX;
       accumulatedPanRef.current = 0;
     }
@@ -89,21 +95,43 @@ export function useTimelineGestures(
         callbacks.onZoomOut();
         accumulatedPinchRef.current = 1;
       }
-    } else if (e.touches.length === 1 && state.isPanning && !state.isPinching) {
+    } else if (e.touches.length === 1 && !state.isPinching) {
       const currentX = e.touches[0].clientX;
-      const deltaX = currentX - lastPanXRef.current;
+      const currentY = e.touches[0].clientY;
       
-      accumulatedPanRef.current += deltaX;
-      lastPanXRef.current = currentX;
+      if (!state.isDirectionLocked) {
+        const deltaX = Math.abs(currentX - state.startX);
+        const deltaY = Math.abs(currentY - state.startY);
+        const directionThreshold = 10;
+        
+        if (deltaX > directionThreshold || deltaY > directionThreshold) {
+          state.isDirectionLocked = true;
+          state.isHorizontal = deltaX > deltaY;
+          
+          if (state.isHorizontal) {
+            state.isPanning = true;
+            lastPanXRef.current = currentX;
+            accumulatedPanRef.current = 0;
+          }
+        }
+      }
       
-      const panThreshold = 40;
-      
-      if (accumulatedPanRef.current > panThreshold) {
-        callbacks.onPanLeft();
-        accumulatedPanRef.current = 0;
-      } else if (accumulatedPanRef.current < -panThreshold) {
-        callbacks.onPanRight();
-        accumulatedPanRef.current = 0;
+      if (state.isPanning && state.isHorizontal) {
+        e.preventDefault();
+        
+        const deltaX = currentX - lastPanXRef.current;
+        accumulatedPanRef.current += deltaX;
+        lastPanXRef.current = currentX;
+        
+        const panThreshold = 40;
+        
+        if (accumulatedPanRef.current > panThreshold) {
+          callbacks.onPanLeft();
+          accumulatedPanRef.current = 0;
+        } else if (accumulatedPanRef.current < -panThreshold) {
+          callbacks.onPanRight();
+          accumulatedPanRef.current = 0;
+        }
       }
     }
   }, [enabled, getDistance, callbacks]);
@@ -120,6 +148,8 @@ export function useTimelineGestures(
     
     if (e.touches.length === 0) {
       state.isPanning = false;
+      state.isDirectionLocked = false;
+      state.isHorizontal = false;
       accumulatedPanRef.current = 0;
     } else if (e.touches.length === 1) {
       state.lastX = e.touches[0].clientX;
@@ -133,11 +163,6 @@ export function useTimelineGestures(
     if (!container || !enabled) return;
     
     const touchMoveHandler = (e: TouchEvent) => {
-      if (touchStateRef.current.isPinching || touchStateRef.current.isPanning) {
-        if (e.cancelable) {
-          e.preventDefault();
-        }
-      }
       handleTouchMove(e);
     };
     
