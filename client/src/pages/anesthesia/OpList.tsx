@@ -18,6 +18,7 @@ import type { Surgery } from "@shared/schema";
 
 const SURGERY_CONTEXT_KEY = "oplist_surgery_context";
 const VIEW_MODE_KEY = "oplist_view_mode";
+const TABLE_TAB_KEY = "oplist_table_tab";
 
 interface TimeMarker {
   id: string;
@@ -66,12 +67,20 @@ export default function OpList() {
     const saved = sessionStorage.getItem(VIEW_MODE_KEY);
     return (saved === "calendar" || saved === "table") ? saved : "calendar";
   });
-  const [tableTab, setTableTab] = useState<TableTab>("current");
+  const [tableTab, setTableTab] = useState<TableTab>(() => {
+    const saved = sessionStorage.getItem(TABLE_TAB_KEY);
+    return (saved === "current" || saved === "past") ? saved : "current";
+  });
   
   // Persist viewMode changes to sessionStorage
   useEffect(() => {
     sessionStorage.setItem(VIEW_MODE_KEY, viewMode);
   }, [viewMode]);
+
+  // Persist tableTab changes to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem(TABLE_TAB_KEY, tableTab);
+  }, [tableTab]);
 
   
   const [selectedSurgeryId, setSelectedSurgeryId] = useState<string | null>(null);
