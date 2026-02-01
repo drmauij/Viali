@@ -20,6 +20,7 @@ interface StickyTimelineHeaderProps {
   onVoiceCommand?: (audioBlob: Blob, timestamp: number) => void;
   onOpenSets?: () => void;
   showSetsButton?: boolean;
+  isTouchDevice?: boolean;
 }
 
 export function StickyTimelineHeader({
@@ -38,6 +39,7 @@ export function StickyTimelineHeader({
   onVoiceCommand,
   onOpenSets,
   showSetsButton = false,
+  isTouchDevice = false,
 }: StickyTimelineHeaderProps) {
   const chartRef = useRef<any>(null);
   const dragRef = useRef<{ isDragging: boolean; startX: number; startY: number }>({
@@ -508,7 +510,9 @@ export function StickyTimelineHeader({
       </div>
 
       {/* Touch-Friendly Draggable Controls with Glass Effect - Fixed positioning for unrestricted dragging */}
+      {/* Hidden on touch devices since gestures handle pan/zoom */}
       {/* Disable pointer events in edit mode to allow clicking on vital points */}
+      {!isTouchDevice && (
       <div 
         onMouseDown={handleDragStart}
         onTouchStart={handleDragStart}
@@ -578,6 +582,7 @@ export function StickyTimelineHeader({
           Reset
         </button>
       </div>
+      )}
 
       {/* Separate Draggable Media Controls Container - Stacked Vertically */}
       {/* Disable pointer events in edit mode to allow clicking on vital points */}
