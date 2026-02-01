@@ -783,64 +783,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 </Label>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex flex-col sm:flex-row gap-2 pt-4">
-                {canWrite ? (
-                  <>
-                    <Button
-                      onClick={handleUpdate}
-                      disabled={updateMutation.isPending || archiveMutation.isPending}
-                      data-testid="button-update-surgery"
-                      className="w-full sm:flex-1"
-                    >
-                      {updateMutation.isPending ? (
-                        <>{t('anesthesia.editSurgery.updating')}</>
-                      ) : (
-                        <>
-                          <Save className="mr-2 h-4 w-4" />
-                          {t('anesthesia.editSurgery.update')}
-                        </>
-                      )}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={onClose}
-                      disabled={archiveMutation.isPending || updateMutation.isPending}
-                      data-testid="button-cancel-surgery"
-                      className="w-full sm:flex-1"
-                    >
-                      <X className="mr-2 h-4 w-4" />
-                      {t('common.cancel')}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={handleArchive}
-                      disabled={archiveMutation.isPending || updateMutation.isPending}
-                      data-testid="button-archive-surgery"
-                      className="w-full sm:flex-1"
-                    >
-                      {archiveMutation.isPending ? (
-                        <>{t('anesthesia.editSurgery.archiving', 'Archiving...')}</>
-                      ) : (
-                        <>
-                          <Archive className="mr-2 h-4 w-4" />
-                          {t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
-                        </>
-                      )}
-                    </Button>
-                  </>
-                ) : (
-                  <Button
-                    variant="outline"
-                    onClick={onClose}
-                    data-testid="button-close-surgery"
-                    className="w-full"
-                  >
-                    <X className="mr-2 h-4 w-4" />
-                    {t('common.close')}
-                  </Button>
-                )}
-              </div>
               </TabsContent>
 
               <TabsContent value="checklist" className="px-6 py-4 overflow-y-auto flex-1 min-h-0 mt-0">
@@ -1017,6 +959,67 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 </div>
               </TabsContent>
             </Tabs>
+          )}
+
+          {/* Sticky Action Buttons Footer */}
+          {!isLoading && (
+            <div className="sticky bottom-0 bg-background border-t p-4 shrink-0 flex flex-col sm:flex-row gap-2">
+              {canWrite ? (
+                <>
+                  <Button
+                    onClick={handleUpdate}
+                    disabled={updateMutation.isPending || archiveMutation.isPending}
+                    data-testid="button-update-surgery"
+                    className="w-full sm:flex-1"
+                  >
+                    {updateMutation.isPending ? (
+                      <>{t('anesthesia.editSurgery.updating')}</>
+                    ) : (
+                      <>
+                        <Save className="mr-2 h-4 w-4" />
+                        {t('anesthesia.editSurgery.update')}
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={onClose}
+                    disabled={archiveMutation.isPending || updateMutation.isPending}
+                    data-testid="button-cancel-surgery"
+                    className="w-full sm:flex-1"
+                  >
+                    <X className="mr-2 h-4 w-4" />
+                    {t('common.cancel')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleArchive}
+                    disabled={archiveMutation.isPending || updateMutation.isPending}
+                    data-testid="button-archive-surgery"
+                    className="w-full sm:flex-1"
+                  >
+                    {archiveMutation.isPending ? (
+                      <>{t('anesthesia.editSurgery.archiving', 'Archiving...')}</>
+                    ) : (
+                      <>
+                        <Archive className="mr-2 h-4 w-4" />
+                        {t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
+                      </>
+                    )}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={onClose}
+                  data-testid="button-close-surgery"
+                  className="w-full"
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  {t('common.close')}
+                </Button>
+              )}
+            </div>
           )}
         </DialogContent>
       </Dialog>
