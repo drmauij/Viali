@@ -489,8 +489,13 @@ export function StaffTab({
                     <Badge
                       key={entry.id}
                       variant="secondary"
-                      className={`${config.colorClass} flex items-center gap-1 px-2 py-1 text-sm`}
+                      className={`${entry.userId ? config.colorClass : 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200 border-2 border-amber-500 border-dashed'} flex items-center gap-1 px-2 py-1 text-sm`}
                     >
+                      {!entry.userId && (
+                        <span title={t('surgery.staff.textOnlyWarning', 'Text only - no hourly rate for cost calculation')}>
+                          <FileText className="h-3 w-3 text-amber-600" />
+                        </span>
+                      )}
                       <span>{entry.name}</span>
                       {entry.userId && (
                         <span title={t('surgery.staff.linkedUser')}>
