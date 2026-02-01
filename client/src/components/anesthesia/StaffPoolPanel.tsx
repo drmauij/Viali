@@ -333,9 +333,27 @@ export default function StaffPoolPanel({ selectedDate, hospitalId }: StaffPoolPa
   const handleAddStaff = async (name: string, userId?: string | null) => {
     if (!name.trim()) return;
     
+    // If no userId is provided (custom name not in system), automatically create as Staff User
+    // This ensures all staff entries can have hourly rates for cost calculations
     if (!userId && isAdmin) {
-      setCreateStaffChoice({ name: name.trim(), role: selectedRole });
       setAddPopoverOpen(false);
+      try {
+        const result = await createQuickStaffUser.mutateAsync({
+          name: name.trim(),
+          staffRole: selectedRole,
+        });
+        await addToPoolMutation.mutateAsync({
+          name: name.trim(),
+          role: selectedRole,
+          userId: result.id,
+        });
+      } catch (error) {
+        toast({
+          title: t('common.error'),
+          description: t('surgery.staff.createUserError'),
+          variant: 'destructive',
+        });
+      }
       return;
     }
     

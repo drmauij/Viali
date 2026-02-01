@@ -204,9 +204,27 @@ export function StaffTab({
   const handleAddStaff = async (role: StaffRole, name: string, userId?: string | null) => {
     if (!anesthesiaRecordId || !name.trim()) return;
 
-    if (!userId && isAdmin) {
-      setCreateStaffChoice({ name: name.trim(), role });
+    // If no userId is provided (custom name not in system), automatically create as Staff User
+    // This ensures all staff entries can have hourly rates for cost calculations
+    if (!userId && isAdmin && hospitalId) {
       setOpenPopover(null);
+      try {
+        const result = await createQuickStaffUser.mutateAsync({
+          name: name.trim(),
+          staffRole: role,
+        });
+        await addStaffEntry(role, name.trim(), result.id);
+        toast({
+          title: t('common.success'),
+          description: t('surgery.staff.createdAsUser'),
+        });
+      } catch (error) {
+        toast({
+          title: t('common.error'),
+          description: t('surgery.staff.createUserError'),
+          variant: 'destructive',
+        });
+      }
       return;
     }
 
