@@ -87,6 +87,7 @@ import { useEventState } from "@/hooks/useEventState";
 import { useOutputState } from "@/hooks/useOutputState";
 import { useInventoryCommitState } from "@/hooks/useInventoryCommitState";
 import { useCanWrite } from "@/hooks/useCanWrite";
+import { useTimelineGestures } from "@/hooks/useTimelineGestures";
 import { 
   useClinicalSnapshot, 
   useAddVitalPoint, 
@@ -186,6 +187,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   isPacuMode = false, // PACU mode: show VAS and Scores instead of TOF
 }, ref) {
   const chartRef = useRef<any>(null);
+  const gestureContainerRef = useRef<HTMLDivElement>(null); // Container for touch gesture handling
   const activeSwimlaneRef = useRef<SwimlaneConfig[]>([]); // Stores latest swimlanes for PDF export
   const isMountedRef = useRef(true); // Track if component is mounted to prevent accessing disposed chart
   const [isDark, setIsDark] = useState(() => document.documentElement.getAttribute("data-theme") === "dark");
@@ -4209,6 +4211,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     }
   };
 
+  // Touch gesture support for timeline navigation (swipe to pan, pinch to zoom)
+  // Only enabled on touch devices, works alongside button controls
+  useTimelineGestures(gestureContainerRef, {
+    onPanLeft: handlePanLeft,
+    onPanRight: handlePanRight,
+    onZoomIn: handleZoomIn,
+    onZoomOut: handleZoomOut,
+  }, { enabled: isTouchDevice && isChartReady });
+
   // Handle camera capture with AI-based detection
   const handleCameraCapture = async (imageBase64: string, timestamp: number) => {
     setIsProcessingImage(true);
@@ -6311,7 +6322,12 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       data={data}
       swimlanes={activeSwimlanes}
     >
-      <div className="w-full relative" style={{ height: componentHeight }}>
+      <div 
+        ref={gestureContainerRef}
+        className="w-full relative touch-pan-y"
+        style={{ height: componentHeight }}
+        data-testid="timeline-gesture-container"
+      >
       {/* Sticky Timeline Header */}
       <StickyTimelineHeader
         startTime={data.startTime}
