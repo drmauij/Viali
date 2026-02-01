@@ -8628,12 +8628,17 @@ export class DatabaseStorage implements IStorage {
     surgeryRoomId: string | null;
     reminderSent: boolean;
   }>> {
-    // Calculate the time window: surgeries planned in approximately hoursAhead hours
-    // We use a 1-hour window around the target time
+    // Get surgeries scheduled for tomorrow (next calendar day)
+    // This is called at 6pm to send reminders for all surgeries the following day
     const now = new Date();
-    const targetTime = new Date(now.getTime() + hoursAhead * 60 * 60 * 1000);
-    const windowStart = new Date(targetTime.getTime() - 30 * 60 * 1000); // 30 min before
-    const windowEnd = new Date(targetTime.getTime() + 30 * 60 * 1000); // 30 min after
+    
+    // Calculate tomorrow's date range (00:00 to 23:59:59)
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    const dayAfterTomorrow = new Date(tomorrow);
+    dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
 
     const results = await db
       .select({
@@ -8652,8 +8657,8 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(patients, eq(patients.id, surgeries.patientId))
       .where(and(
         eq(surgeries.hospitalId, hospitalId),
-        sql`${surgeries.plannedDate} >= ${windowStart}`,
-        sql`${surgeries.plannedDate} <= ${windowEnd}`,
+        sql`${surgeries.plannedDate} >= ${tomorrow}`,
+        sql`${surgeries.plannedDate} < ${dayAfterTomorrow}`,
         eq(surgeries.reminderSent, false),
         sql`${surgeries.status} IN ('planned', 'scheduled', 'confirmed')`,
         isNull(surgeries.archivedAt),

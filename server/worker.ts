@@ -1859,13 +1859,27 @@ async function schedulePreSurgeryReminderJobs() {
 
 /**
  * Process pre-surgery reminder job
- * Sends SMS/email reminders to patients with surgery in ~24 hours
+ * Sends SMS/email reminders to patients with surgery scheduled for tomorrow
+ * Only runs at 6pm (between 5:30pm and 6:30pm) the evening before surgery
  * Includes fasting instructions and info flyer links
  */
 async function processPreSurgeryReminder(job: any): Promise<void> {
   const hospitalId = job.hospitalId;
   
   console.log(`[Worker] Pre-surgery reminder for hospital ${hospitalId}`);
+  
+  // Only send reminders around 6pm (between 5:30pm and 6:30pm local time)
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const timeInMinutes = currentHour * 60 + currentMinute;
+  const reminderWindowStart = 17 * 60 + 30; // 5:30pm = 17:30
+  const reminderWindowEnd = 18 * 60 + 30;   // 6:30pm = 18:30
+  
+  if (timeInMinutes < reminderWindowStart || timeInMinutes > reminderWindowEnd) {
+    console.log(`[Worker] Skipping pre-surgery reminder - current time ${currentHour}:${currentMinute.toString().padStart(2, '0')} is outside 6pm window (17:30-18:30)`);
+    return;
+  }
   
   // Check if pre-surgery reminder is manually disabled
   const hospitalData = await db.select().from(hospitals).where(eq(hospitals.id, hospitalId)).limit(1);
@@ -1874,13 +1888,13 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
     return;
   }
   
-  // Get surgeries scheduled for approximately 24 hours from now (22-26 hours window)
+  // Get surgeries scheduled for tomorrow (the next calendar day)
   const eligibleSurgeries = await storage.getSurgeriesForPreSurgeryReminder(
     hospitalId, 
     PRE_SURGERY_REMINDER_HOURS_AHEAD
   );
   
-  console.log(`[Worker] Found ${eligibleSurgeries.length} surgeries scheduled for ~24 hours from now`);
+  console.log(`[Worker] Found ${eligibleSurgeries.length} surgeries scheduled for tomorrow`);
   
   let processedCount = 0;
   let successCount = 0;
