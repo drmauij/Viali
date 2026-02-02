@@ -38,6 +38,8 @@ import {
   Trash2,
   Globe,
   Camera,
+  ArrowLeft,
+  Home,
   FileCheck,
   Calendar,
   Shield
@@ -329,6 +331,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.success.title": "Thank You!",
     "questionnaire.success.message": "Your questionnaire has been submitted successfully. Your medical team will review your information before your procedure.",
     "questionnaire.success.close": "You can close this page now.",
+    "questionnaire.success.returnToPortal": "Return to Patient Portal",
+    "questionnaire.returnToPortal": "Back to Portal",
     "questionnaire.review.title": "Review Your Information",
     "questionnaire.review.edit": "Edit",
   },
@@ -470,6 +474,8 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.success.title": "Vielen Dank!",
     "questionnaire.success.message": "Ihr Fragebogen wurde erfolgreich übermittelt. Ihr medizinisches Team wird Ihre Informationen vor Ihrem Eingriff überprüfen.",
     "questionnaire.success.close": "Sie können diese Seite jetzt schließen.",
+    "questionnaire.success.returnToPortal": "Zurück zum Patientenportal",
+    "questionnaire.returnToPortal": "Zurück zum Portal",
     "questionnaire.review.title": "Überprüfen Sie Ihre Angaben",
     "questionnaire.review.edit": "Bearbeiten",
   },
@@ -886,6 +892,19 @@ export default function PatientQuestionnaire() {
             <p className="text-sm text-gray-500 mt-4">
               {t("questionnaire.success.close")}
             </p>
+            
+            {/* Return to Patient Portal button - only for direct questionnaire links (not hospital tokens) */}
+            {!isHospitalToken && token && (
+              <Button
+                variant="default"
+                className="mt-6 w-full"
+                onClick={() => window.location.href = `/patient/${token}`}
+                data-testid="button-return-to-portal"
+              >
+                <Home className="h-4 w-4 mr-2" />
+                {t("questionnaire.success.returnToPortal")}
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -936,6 +955,20 @@ export default function PatientQuestionnaire() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-2xl mx-auto p-4 pb-24">
+        {/* Back to Portal Button - always accessible during questionnaire */}
+        {!isHospitalToken && token && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mb-3 text-muted-foreground hover:text-foreground"
+            onClick={() => window.location.href = `/patient/${token}`}
+            data-testid="button-back-to-portal"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            {t("questionnaire.returnToPortal")}
+          </Button>
+        )}
+        
         <Card className="mb-4">
           <CardHeader className="pb-2">
             <div className="flex justify-between items-start">
