@@ -1305,53 +1305,47 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                     onClick={() => handleEditOrder(order)}
                     data-testid={`draft-order-${order.id}`}
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          checked={selectedOrdersForMerge.has(order.id)}
-                          onClick={(e) => toggleOrderSelectionForMerge(order.id, e)}
-                          data-testid={`select-draft-order-${order.id}`}
-                        />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
-                            {order.highPriority && (
-                              <Flame className="w-4 h-4 text-red-500" />
-                            )}
-                          {logisticMode && (
-                            <Badge variant="outline" className="text-xs">
-                              <i className="fas fa-building mr-1"></i>
-                              {getUnitName(order.unitId) || 'Unknown Unit'}
-                            </Badge>
+                    <div className="flex flex-col gap-1 mb-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Checkbox
+                            checked={selectedOrdersForMerge.has(order.id)}
+                            onClick={(e) => toggleOrderSelectionForMerge(order.id, e)}
+                            data-testid={`select-draft-order-${order.id}`}
+                            className="shrink-0"
+                          />
+                          <h4 className="font-semibold text-foreground whitespace-nowrap">PO-{order.id.slice(-4)}</h4>
+                          {order.highPriority && (
+                            <Flame className="w-4 h-4 text-red-500 shrink-0" />
+                          )}
+                          {canEditOrder(order) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`p-1 h-auto shrink-0 ${order.highPriority ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleHighPriorityMutation.mutate({ orderId: order.id, highPriority: !order.highPriority });
+                              }}
+                              title={order.highPriority ? 'Remove high priority' : 'Mark as high priority'}
+                              data-testid={`toggle-priority-${order.id}`}
+                            >
+                              <Flame className="w-4 h-4" />
+                            </Button>
                           )}
                         </div>
-                          <p className="text-xs text-muted-foreground">
-                            <i className="fas fa-map-marker-alt mr-1"></i>
-                            {getOrderLocation(order)}
-                            {!canEditOrder(order) && <span className="ml-2 text-warning">(Other Unit)</span>}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {canEditOrder(order) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`p-1 h-auto ${order.highPriority ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleHighPriorityMutation.mutate({ orderId: order.id, highPriority: !order.highPriority });
-                            }}
-                            title={order.highPriority ? 'Remove high priority' : 'Mark as high priority'}
-                            data-testid={`toggle-priority-${order.id}`}
-                          >
-                            <Flame className="w-4 h-4" />
-                          </Button>
+                        {logisticMode && (
+                          <Badge variant="outline" className="text-xs shrink-0 truncate max-w-[120px]">
+                            <i className="fas fa-building mr-1"></i>
+                            {getUnitName(order.unitId) || 'Unknown'}
+                          </Badge>
                         )}
-                        <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
-                          {t('orders.draft')}
-                        </span>
                       </div>
+                      <p className="text-xs text-muted-foreground truncate pl-6">
+                        <i className="fas fa-map-marker-alt mr-1"></i>
+                        {getOrderLocation(order)}
+                        {!canEditOrder(order) && <span className="ml-1 text-warning">(Other)</span>}
+                      </p>
                     </div>
                     <button 
                       className="flex items-center gap-1 text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
@@ -1454,53 +1448,47 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                     onClick={() => handleEditOrder(order)}
                     data-testid={`ready-to-send-order-${order.id}`}
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          checked={selectedOrdersForMerge.has(order.id)}
-                          onClick={(e) => toggleOrderSelectionForMerge(order.id, e)}
-                          data-testid={`select-ready-order-${order.id}`}
-                        />
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
-                            {order.highPriority && (
-                              <Flame className="w-4 h-4 text-red-500" />
-                            )}
-                            {logisticMode && (
-                              <Badge variant="outline" className="text-xs">
-                                <i className="fas fa-building mr-1"></i>
-                                {getUnitName(order.unitId) || 'Unknown Unit'}
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            <i className="fas fa-map-marker-alt mr-1"></i>
-                            {getOrderLocation(order)}
-                            {!canEditOrder(order) && <span className="ml-2 text-warning">(Other Unit)</span>}
-                          </p>
+                    <div className="flex flex-col gap-1 mb-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Checkbox
+                            checked={selectedOrdersForMerge.has(order.id)}
+                            onClick={(e) => toggleOrderSelectionForMerge(order.id, e)}
+                            data-testid={`select-ready-order-${order.id}`}
+                            className="shrink-0"
+                          />
+                          <h4 className="font-semibold text-foreground whitespace-nowrap">PO-{order.id.slice(-4)}</h4>
+                          {order.highPriority && (
+                            <Flame className="w-4 h-4 text-red-500 shrink-0" />
+                          )}
+                          {canEditOrder(order) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`p-1 h-auto shrink-0 ${order.highPriority ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleHighPriorityMutation.mutate({ orderId: order.id, highPriority: !order.highPriority });
+                              }}
+                              title={order.highPriority ? 'Remove high priority' : 'Mark as high priority'}
+                              data-testid={`toggle-priority-ready-${order.id}`}
+                            >
+                              <Flame className="w-4 h-4" />
+                            </Button>
+                          )}
                         </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {canEditOrder(order) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`p-1 h-auto ${order.highPriority ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleHighPriorityMutation.mutate({ orderId: order.id, highPriority: !order.highPriority });
-                            }}
-                            title={order.highPriority ? 'Remove high priority' : 'Mark as high priority'}
-                            data-testid={`toggle-priority-ready-${order.id}`}
-                          >
-                            <Flame className="w-4 h-4" />
-                          </Button>
+                        {logisticMode && (
+                          <Badge variant="outline" className="text-xs shrink-0 truncate max-w-[120px]">
+                            <i className="fas fa-building mr-1"></i>
+                            {getUnitName(order.unitId) || 'Unknown'}
+                          </Badge>
                         )}
-                        <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
-                          {t('orders.readyToSend')}
-                        </span>
                       </div>
+                      <p className="text-xs text-muted-foreground truncate pl-6">
+                        <i className="fas fa-map-marker-alt mr-1"></i>
+                        {getOrderLocation(order)}
+                        {!canEditOrder(order) && <span className="ml-1 text-warning">(Other)</span>}
+                      </p>
                     </div>
                     <button 
                       className="flex items-center gap-1 text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
@@ -1603,43 +1591,41 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                     onClick={() => handleEditOrder(order)}
                     data-testid={`sent-order-${order.id}`}
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          checked={selectedOrdersForMerge.has(order.id)}
-                          onClick={(e) => toggleOrderSelectionForMerge(order.id, e)}
-                          data-testid={`select-order-${order.id}`}
-                        />
-                        <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
-                        {order.highPriority && (
-                          <Flame className="w-4 h-4 text-red-500" />
-                        )}
+                    <div className="flex flex-col gap-1 mb-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Checkbox
+                            checked={selectedOrdersForMerge.has(order.id)}
+                            onClick={(e) => toggleOrderSelectionForMerge(order.id, e)}
+                            data-testid={`select-order-${order.id}`}
+                            className="shrink-0"
+                          />
+                          <h4 className="font-semibold text-foreground whitespace-nowrap">PO-{order.id.slice(-4)}</h4>
+                          {order.highPriority && (
+                            <Flame className="w-4 h-4 text-red-500 shrink-0" />
+                          )}
+                          {canEditOrder(order) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className={`p-1 h-auto shrink-0 ${order.highPriority ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleHighPriorityMutation.mutate({ orderId: order.id, highPriority: !order.highPriority });
+                              }}
+                              title={order.highPriority ? 'Remove high priority' : 'Mark as high priority'}
+                              data-testid={`toggle-priority-sent-${order.id}`}
+                            >
+                              <Flame className="w-4 h-4" />
+                            </Button>
+                          )}
+                        </div>
                         {logisticMode && (
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-xs shrink-0 truncate max-w-[120px]">
                             <i className="fas fa-building mr-1"></i>
-                            {getUnitName(order.unitId) || 'Unknown Unit'}
+                            {getUnitName(order.unitId) || 'Unknown'}
                           </Badge>
                         )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {canEditOrder(order) && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className={`p-1 h-auto ${order.highPriority ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleHighPriorityMutation.mutate({ orderId: order.id, highPriority: !order.highPriority });
-                            }}
-                            title={order.highPriority ? 'Remove high priority' : 'Mark as high priority'}
-                            data-testid={`toggle-priority-sent-${order.id}`}
-                          >
-                            <Flame className="w-4 h-4" />
-                          </Button>
-                        )}
-                        <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
-                          {t('orders.sent')}
-                        </span>
                       </div>
                     </div>
                     <button 
