@@ -519,14 +519,15 @@ export function PatientCommunicationContent({
   };
 
   const renderMessageContent = (text: string, links: any[]) => {
-    // Pattern to match questionnaire URLs like /questionnaire/TOKEN or full URLs
-    const questionnairePattern = /(?:https?:\/\/[^\s]+)?\/questionnaire\/([a-zA-Z0-9_-]+)/g;
+    // Pattern to match patient portal or questionnaire URLs
+    // Matches: /patient/TOKEN or /questionnaire/TOKEN (with optional full URL prefix)
+    const linkPattern = /(?:https?:\/\/[^\s]+)?\/(?:patient|questionnaire)\/([a-zA-Z0-9_-]+)/g;
     
-    const parts: Array<{ type: 'text' | 'questionnaire'; content: string; token?: string; link?: any }> = [];
+    const parts: Array<{ type: 'text' | 'link'; content: string; token?: string; link?: any }> = [];
     let lastIndex = 0;
     let match;
     
-    while ((match = questionnairePattern.exec(text)) !== null) {
+    while ((match = linkPattern.exec(text)) !== null) {
       // Add text before match
       if (match.index > lastIndex) {
         parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
@@ -536,7 +537,7 @@ export function PatientCommunicationContent({
       const matchedLink = links.find(l => l.token === token);
       
       parts.push({ 
-        type: 'questionnaire', 
+        type: 'link', 
         content: match[0], 
         token,
         link: matchedLink 
@@ -551,17 +552,17 @@ export function PatientCommunicationContent({
     }
     
     if (parts.length === 0) {
-      return <span>{text}</span>;
+      return <span className="whitespace-pre-wrap break-words">{text}</span>;
     }
     
     return (
-      <span className="whitespace-pre-wrap">
+      <span className="whitespace-pre-wrap break-words">
         {parts.map((part, idx) => {
           if (part.type === 'text') {
             return <span key={idx}>{part.content}</span>;
           }
           
-          // Render questionnaire link as inline object
+          // Render link as clickable badge
           const link = part.link;
           const status = link?.status || 'pending';
           
@@ -623,7 +624,7 @@ export function PatientCommunicationContent({
                   {t('messages.sentTo', 'To')}: {item.recipient}
                 </p>
                 {item.message && (
-                  <div className="text-sm text-foreground/80 mb-1">
+                  <div className="text-sm text-foreground/80 mb-1 overflow-hidden">
                     {renderMessageContent(item.message, existingLinks || [])}
                   </div>
                 )}
