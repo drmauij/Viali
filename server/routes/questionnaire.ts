@@ -1851,16 +1851,23 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
         // Get surgery room info
         let roomName = null;
         if (surgery.surgeryRoomId) {
-          const room = await storage.getSurgeryRoom(surgery.surgeryRoomId);
+          const room = await storage.getSurgeryRoomById(surgery.surgeryRoomId);
           roomName = room?.name || null;
+        }
+        
+        // Get anesthesia type from pre-op assessment if available
+        let anesthesiaType = null;
+        const preOp = await storage.getPreOpAssessmentBySurgeryId(link.surgeryId);
+        if (preOp?.anesthesiaType) {
+          anesthesiaType = preOp.anesthesiaType;
         }
         
         surgeryInfo = {
           plannedDate: surgery.plannedDate,
           admissionTime: surgery.admissionTime,
-          procedure: surgery.procedure,
+          procedure: surgery.plannedSurgery,
           roomName,
-          anesthesiaType: surgery.anesthesiaType,
+          anesthesiaType,
         };
         
         // Check if surgery is completed (has an anesthesia record)
@@ -1876,14 +1883,16 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
     if (surgeryInfo && link.surgeryId) {
       const surgery = await storage.getSurgery(link.surgeryId);
       if (surgery?.surgeryRoomId) {
-        const room = await storage.getSurgeryRoom(surgery.surgeryRoomId);
-        if (room?.unitId) {
-          const unit = await storage.getUnit(room.unitId);
-          if (unit?.infoFlyerUrl) {
+        const room = await storage.getSurgeryRoomById(surgery.surgeryRoomId);
+        if (room) {
+          // Surgery rooms are linked to hospital, try to get anesthesia unit info flyer
+          const hospitalUnitsForRoom = await storage.getUnits(room.hospitalId);
+          const anesthesiaUnitForRoom = hospitalUnitsForRoom.find(u => u.type === 'anesthesia' && u.infoFlyerUrl);
+          if (anesthesiaUnitForRoom) {
             flyers.push({
-              unitName: unit.name,
-              unitType: unit.type,
-              flyerUrl: unit.infoFlyerUrl,
+              unitName: anesthesiaUnitForRoom.name,
+              unitType: anesthesiaUnitForRoom.type,
+              flyerUrl: anesthesiaUnitForRoom.infoFlyerUrl!,
             });
           }
         }
