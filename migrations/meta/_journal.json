@@ -750,6 +750,13 @@
       "when": 1769861848158,
       "tag": "0106_puzzling_spirit",
       "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1770043880665,
+      "tag": "0107_closed_firestar",
+      "breakpoints": true
     }
   ]
 }

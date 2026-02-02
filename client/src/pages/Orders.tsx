@@ -30,7 +30,7 @@ import SignaturePad from "@/components/SignaturePad";
 import type { Order, Vendor, OrderLine, Item, StockLevel, Unit } from "@shared/schema";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Check, ChevronDown, ChevronUp, Merge, Paperclip, Upload, Camera, Trash2, Download, FileIcon, GripVertical } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Merge, Paperclip, Upload, Camera, Trash2, Download, FileIcon, GripVertical, Flame } from "lucide-react";
 import type { OrderAttachment } from "@shared/schema";
 import { DndContext, DragEndEvent, useDraggable, useDroppable, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 
@@ -425,6 +425,23 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
       toast({
         title: t('orders.updateFailed'),
         description: t('orders.failedToUpdateStatus'),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const toggleHighPriorityMutation = useMutation({
+    mutationFn: async ({ orderId, highPriority }: { orderId: string; highPriority: boolean }) => {
+      const response = await apiRequest("PATCH", `/api/orders/${orderId}`, { highPriority });
+      return response.json();
+    },
+    onSuccess: () => {
+      invalidateOrderCaches();
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('orders.failedToUpdatePriority') || 'Failed to update priority',
         variant: "destructive",
       });
     },
@@ -1298,6 +1315,9 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                         <div>
                           <div className="flex items-center gap-2">
                             <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
+                            {order.highPriority && (
+                              <Flame className="w-4 h-4 text-red-500" />
+                            )}
                           {logisticMode && (
                             <Badge variant="outline" className="text-xs">
                               <i className="fas fa-building mr-1"></i>
@@ -1312,9 +1332,26 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           </p>
                         </div>
                       </div>
-                      <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
-                        {t('orders.draft')}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {canEditOrder(order) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`p-1 h-auto ${order.highPriority ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleHighPriorityMutation.mutate({ orderId: order.id, highPriority: !order.highPriority });
+                            }}
+                            title={order.highPriority ? 'Remove high priority' : 'Mark as high priority'}
+                            data-testid={`toggle-priority-${order.id}`}
+                          >
+                            <Flame className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
+                          {t('orders.draft')}
+                        </span>
+                      </div>
                     </div>
                     <button 
                       className="flex items-center gap-1 text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
@@ -1427,6 +1464,9 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                         <div>
                           <div className="flex items-center gap-2">
                             <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
+                            {order.highPriority && (
+                              <Flame className="w-4 h-4 text-red-500" />
+                            )}
                             {logisticMode && (
                               <Badge variant="outline" className="text-xs">
                                 <i className="fas fa-building mr-1"></i>
@@ -1441,9 +1481,26 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           </p>
                         </div>
                       </div>
-                      <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
-                        {t('orders.readyToSend')}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {canEditOrder(order) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`p-1 h-auto ${order.highPriority ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleHighPriorityMutation.mutate({ orderId: order.id, highPriority: !order.highPriority });
+                            }}
+                            title={order.highPriority ? 'Remove high priority' : 'Mark as high priority'}
+                            data-testid={`toggle-priority-ready-${order.id}`}
+                          >
+                            <Flame className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
+                          {t('orders.readyToSend')}
+                        </span>
+                      </div>
                     </div>
                     <button 
                       className="flex items-center gap-1 text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
@@ -1554,6 +1611,9 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           data-testid={`select-order-${order.id}`}
                         />
                         <h4 className="font-semibold text-foreground">PO-{order.id.slice(-4)}</h4>
+                        {order.highPriority && (
+                          <Flame className="w-4 h-4 text-red-500" />
+                        )}
                         {logisticMode && (
                           <Badge variant="outline" className="text-xs">
                             <i className="fas fa-building mr-1"></i>
@@ -1561,9 +1621,26 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           </Badge>
                         )}
                       </div>
-                      <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
-                        {t('orders.sent')}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {canEditOrder(order) && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`p-1 h-auto ${order.highPriority ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleHighPriorityMutation.mutate({ orderId: order.id, highPriority: !order.highPriority });
+                            }}
+                            title={order.highPriority ? 'Remove high priority' : 'Mark as high priority'}
+                            data-testid={`toggle-priority-sent-${order.id}`}
+                          >
+                            <Flame className="w-4 h-4" />
+                          </Button>
+                        )}
+                        <span className={`status-chip ${getStatusChip(order.status)} text-xs`}>
+                          {t('orders.sent')}
+                        </span>
+                      </div>
                     </div>
                     <button 
                       className="flex items-center gap-1 text-sm text-muted-foreground mb-1 hover:text-foreground transition-colors"
