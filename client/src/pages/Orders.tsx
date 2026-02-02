@@ -1334,20 +1334,18 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                             </Button>
                           )}
                         </div>
-                        {logisticMode && (
+                        {!logisticMode && (
                           <Badge variant="outline" className="text-xs shrink-0 truncate max-w-[120px]">
                             <i className="fas fa-building mr-1"></i>
                             {getUnitName(order.unitId) || 'Unknown'}
                           </Badge>
                         )}
                       </div>
-                      {!logisticMode && (
-                        <p className="text-xs text-muted-foreground truncate pl-6">
-                          <i className="fas fa-map-marker-alt mr-1"></i>
-                          {getOrderLocation(order)}
-                          {!canEditOrder(order) && <span className="ml-1 text-warning">(Other)</span>}
-                        </p>
-                      )}
+                      <p className="text-xs text-muted-foreground truncate pl-6">
+                        <i className="fas fa-map-marker-alt mr-1"></i>
+                        {getOrderLocation(order)}
+                        {!canEditOrder(order) && <span className="ml-1 text-warning">(Other)</span>}
+                      </p>
                     </div>
                     <button 
                       className="flex items-center gap-1 text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
@@ -1479,20 +1477,18 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                             </Button>
                           )}
                         </div>
-                        {logisticMode && (
+                        {!logisticMode && (
                           <Badge variant="outline" className="text-xs shrink-0 truncate max-w-[120px]">
                             <i className="fas fa-building mr-1"></i>
                             {getUnitName(order.unitId) || 'Unknown'}
                           </Badge>
                         )}
                       </div>
-                      {!logisticMode && (
-                        <p className="text-xs text-muted-foreground truncate pl-6">
-                          <i className="fas fa-map-marker-alt mr-1"></i>
-                          {getOrderLocation(order)}
-                          {!canEditOrder(order) && <span className="ml-1 text-warning">(Other)</span>}
-                        </p>
-                      )}
+                      <p className="text-xs text-muted-foreground truncate pl-6">
+                        <i className="fas fa-map-marker-alt mr-1"></i>
+                        {getOrderLocation(order)}
+                        {!canEditOrder(order) && <span className="ml-1 text-warning">(Other)</span>}
+                      </p>
                     </div>
                     <button 
                       className="flex items-center gap-1 text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
@@ -1624,13 +1620,17 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                             </Button>
                           )}
                         </div>
-                        {logisticMode && (
+                        {!logisticMode && (
                           <Badge variant="outline" className="text-xs shrink-0 truncate max-w-[120px]">
                             <i className="fas fa-building mr-1"></i>
                             {getUnitName(order.unitId) || 'Unknown'}
                           </Badge>
                         )}
                       </div>
+                      <p className="text-xs text-muted-foreground truncate pl-6">
+                        <i className="fas fa-map-marker-alt mr-1"></i>
+                        {getOrderLocation(order)}
+                      </p>
                     </div>
                     <button 
                       className="flex items-center gap-1 text-sm text-muted-foreground mb-1 hover:text-foreground transition-colors"
