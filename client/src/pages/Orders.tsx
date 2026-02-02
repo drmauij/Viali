@@ -1354,12 +1354,6 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                             <Flame className="w-4 h-4 text-red-500 fill-current shrink-0" />
                           )}
                         </div>
-                        {!logisticMode && (
-                          <Badge variant="outline" className="text-xs shrink-0 truncate max-w-[120px]">
-                            <i className="fas fa-building mr-1"></i>
-                            {getUnitName(order.unitId) || 'Unknown'}
-                          </Badge>
-                        )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate pl-6">
                         <i className="fas fa-map-marker-alt mr-1"></i>
@@ -1496,12 +1490,6 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                             <Flame className="w-4 h-4 text-red-500 fill-current shrink-0" />
                           )}
                         </div>
-                        {!logisticMode && (
-                          <Badge variant="outline" className="text-xs shrink-0 truncate max-w-[120px]">
-                            <i className="fas fa-building mr-1"></i>
-                            {getUnitName(order.unitId) || 'Unknown'}
-                          </Badge>
-                        )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate pl-6">
                         <i className="fas fa-map-marker-alt mr-1"></i>
@@ -1638,12 +1626,6 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                             <Flame className="w-4 h-4 text-red-500 fill-current shrink-0" />
                           )}
                         </div>
-                        {!logisticMode && (
-                          <Badge variant="outline" className="text-xs shrink-0 truncate max-w-[120px]">
-                            <i className="fas fa-building mr-1"></i>
-                            {getUnitName(order.unitId) || 'Unknown'}
-                          </Badge>
-                        )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate pl-6">
                         <i className="fas fa-map-marker-alt mr-1"></i>
