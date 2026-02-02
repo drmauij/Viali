@@ -1315,10 +1315,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                             className="shrink-0"
                           />
                           <h4 className="font-semibold text-foreground whitespace-nowrap">PO-{order.id.slice(-4)}</h4>
-                          {order.highPriority && (
-                            <Flame className="w-4 h-4 text-red-500 shrink-0" />
-                          )}
-                          {canEditOrder(order) && (
+                          {canEditOrder(order) ? (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1330,8 +1327,10 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                               title={order.highPriority ? 'Remove high priority' : 'Mark as high priority'}
                               data-testid={`toggle-priority-${order.id}`}
                             >
-                              <Flame className="w-4 h-4" />
+                              <Flame className={`w-4 h-4 ${order.highPriority ? 'fill-current' : ''}`} />
                             </Button>
+                          ) : order.highPriority && (
+                            <Flame className="w-4 h-4 text-red-500 fill-current shrink-0" />
                           )}
                         </div>
                         {!logisticMode && (
@@ -1458,10 +1457,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                             className="shrink-0"
                           />
                           <h4 className="font-semibold text-foreground whitespace-nowrap">PO-{order.id.slice(-4)}</h4>
-                          {order.highPriority && (
-                            <Flame className="w-4 h-4 text-red-500 shrink-0" />
-                          )}
-                          {canEditOrder(order) && (
+                          {canEditOrder(order) ? (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1473,8 +1469,10 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                               title={order.highPriority ? 'Remove high priority' : 'Mark as high priority'}
                               data-testid={`toggle-priority-ready-${order.id}`}
                             >
-                              <Flame className="w-4 h-4" />
+                              <Flame className={`w-4 h-4 ${order.highPriority ? 'fill-current' : ''}`} />
                             </Button>
+                          ) : order.highPriority && (
+                            <Flame className="w-4 h-4 text-red-500 fill-current shrink-0" />
                           )}
                         </div>
                         {!logisticMode && (
@@ -1601,10 +1599,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                             className="shrink-0"
                           />
                           <h4 className="font-semibold text-foreground whitespace-nowrap">PO-{order.id.slice(-4)}</h4>
-                          {order.highPriority && (
-                            <Flame className="w-4 h-4 text-red-500 shrink-0" />
-                          )}
-                          {canEditOrder(order) && (
+                          {canEditOrder(order) ? (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1616,8 +1611,10 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                               title={order.highPriority ? 'Remove high priority' : 'Mark as high priority'}
                               data-testid={`toggle-priority-sent-${order.id}`}
                             >
-                              <Flame className="w-4 h-4" />
+                              <Flame className={`w-4 h-4 ${order.highPriority ? 'fill-current' : ''}`} />
                             </Button>
+                          ) : order.highPriority && (
+                            <Flame className="w-4 h-4 text-red-500 fill-current shrink-0" />
                           )}
                         </div>
                         {!logisticMode && (
