@@ -2250,6 +2250,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update order properties (highPriority, notes, etc.)
+  app.patch('/api/orders/:orderId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { orderId } = req.params;
+      const { highPriority, notes } = req.body;
+      const userId = req.user.id;
+      
+      // Get order to verify access
+      const [order] = await db.select().from(orders).where(eq(orders.id, orderId));
+      if (!order) {
+        return res.status(404).json({ message: "Order not found" });
+      }
+      
+      // Verify user can access this order (direct unit access or logistics access)
+      const canAccess = await canAccessOrder(userId, order.hospitalId, order.unitId);
+      if (!canAccess) {
+        return res.status(403).json({ message: "Access denied: you can only modify orders from your unit" });
+      }
+      
+      // Build update object with only provided fields
+      const updateData: any = { updatedAt: new Date() };
+      if (typeof highPriority === 'boolean') {
+        updateData.highPriority = highPriority;
+      }
+      if (typeof notes === 'string') {
+        updateData.notes = notes;
+      }
+      
+      // Update order
+      await db.update(orders).set(updateData).where(eq(orders.id, orderId));
+      
+      // Return updated order
+      const [updatedOrder] = await db.select().from(orders).where(eq(orders.id, orderId));
+      res.json(updatedOrder);
+    } catch (error) {
+      console.error("Error updating order:", error);
+      res.status(500).json({ message: "Failed to update order" });
+    }
+  });
+
   app.patch('/api/orders/:orderId/notes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       const { orderId } = req.params;
