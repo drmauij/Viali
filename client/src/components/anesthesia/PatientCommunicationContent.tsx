@@ -598,17 +598,37 @@ export function PatientCommunicationContent({
             );
           }
           
-          // Generic URL (infoflyer, etc.)
+          // Generic URL (infoflyer, etc.) - show nicer label for known URL patterns
+          const isInfoFlyer = part.url && (
+            part.url.includes('/info-flyers/') || 
+            part.url.includes('/unit-info-flyers/') ||
+            part.url.includes('/infoflyer') ||
+            (part.url.includes('.pdf') && part.url.includes('flyer'))
+          );
+          
+          const displayLabel = isInfoFlyer 
+            ? t('messages.infoflyerLink', '📄 Infoflyer (PDF)')
+            : part.url && part.url.length > 50 
+              ? `${part.url.substring(0, 40)}...` 
+              : part.url;
+          
           return (
-            <a 
+            <span 
               key={idx}
-              href={part.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+              className="inline-flex items-center gap-1 mx-0.5"
             >
-              {part.url}
-            </a>
+              <a 
+                href={part.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={isInfoFlyer 
+                  ? "inline-flex items-center gap-1 px-2 py-0.5 bg-purple-50 dark:bg-purple-900/40 border border-purple-200 dark:border-purple-700 rounded-md text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/60 text-xs font-medium"
+                  : "text-blue-600 dark:text-blue-400 hover:underline break-all"
+                }
+              >
+                {displayLabel}
+              </a>
+            </span>
           );
         })}
       </span>
