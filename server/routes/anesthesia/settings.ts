@@ -214,8 +214,9 @@ router.post('/api/anesthesia/items/reorder', isAuthenticated, requireWriteAccess
         return res.status(404).json({ message: `Item ${itemId} not found` });
       }
 
+      // Check user has access to the hospital (any unit in the hospital is fine for medication reorder)
       const unitId = await getUserUnitForHospital(userId, item.hospitalId);
-      if (!unitId || unitId !== item.unitId) {
+      if (!unitId) {
         return res.status(403).json({ message: "Access denied" });
       }
     }

@@ -174,7 +174,7 @@ router.get('/api/anesthesia/all-staff-options/:hospitalId', isAuthenticated, asy
   }
 });
 
-router.post('/api/anesthesia/staff-user/:hospitalId', isAuthenticated, requireAdminRole, async (req: any, res) => {
+router.post('/api/anesthesia/staff-user/:hospitalId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
     const { name, staffRole } = req.body;
