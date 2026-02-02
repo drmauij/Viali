@@ -175,7 +175,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
   };
 
   const handleCopyLink = (token: string) => {
-    const link = `${window.location.origin}/questionnaire/${token}`;
+    const link = `${window.location.origin}/patient/${token}`;
     navigator.clipboard.writeText(link);
     toast({
       title: t('questionnaire.links.copied'),
@@ -314,7 +314,7 @@ export function QuestionnaireLinksCard({ patientId, patientEmail, patientName }:
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => window.open(`/questionnaire/${link.token}`, '_blank')}
+                          onClick={() => window.open(`/patient/${link.token}`, '_blank')}
                           title={t('questionnaire.links.openLink')}
                           data-testid={`button-open-link-${link.id}`}
                         >

@@ -315,7 +315,7 @@ export function PatientCommunicationContent({
 
   const handleCopyLink = () => {
     if (!generatedLink) return;
-    const link = `${window.location.origin}/questionnaire/${generatedLink.token}`;
+    const link = `${window.location.origin}/patient/${generatedLink.token}`;
     navigator.clipboard.writeText(link);
     setCopied(true);
     toast({
@@ -573,7 +573,7 @@ export function PatientCommunicationContent({
             >
               <FileText className="h-3 w-3 text-blue-600 dark:text-blue-400 shrink-0" />
               <a 
-                href={`/questionnaire/${part.token}`}
+                href={`/patient/${part.token}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-blue-600 dark:text-blue-400 hover:underline text-xs font-medium"
@@ -688,7 +688,7 @@ export function PatientCommunicationContent({
                     setGeneratedLink(link);
                   }
                   if (link) {
-                    const url = `${window.location.origin}/questionnaire/${link.token}`;
+                    const url = `${window.location.origin}/patient/${link.token}`;
                     const templateText = getQuestionnaireMessageTemplate(messageLang, url);
                     setCustomMessage(prev => {
                       if (!prev.trim()) return templateText;
@@ -758,11 +758,11 @@ export function PatientCommunicationContent({
               const detectedLinks: Array<{ label: string; url: string; id: string }> = [];
               
               if (generatedLink) {
-                const questionnaireUrl = `${window.location.origin}/questionnaire/${generatedLink.token}`;
-                if (customMessage.includes(questionnaireUrl)) {
+                const portalUrl = `${window.location.origin}/patient/${generatedLink.token}`;
+                if (customMessage.includes(portalUrl)) {
                   detectedLinks.push({ 
                     label: t('messages.compose.questionnaire', 'Questionnaire'), 
-                    url: questionnaireUrl, 
+                    url: portalUrl, 
                     id: 'questionnaire' 
                   });
                 }
