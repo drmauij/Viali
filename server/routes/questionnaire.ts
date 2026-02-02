@@ -214,10 +214,10 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
     if (activeLink) {
       // Return existing active link instead of creating new one
       const baseUrl = process.env.PRODUCTION_URL || `https://${req.headers.host}`;
-      const questionnaireUrl = `${baseUrl}/questionnaire/${activeLink.token}`;
+      const portalUrl = `${baseUrl}/patient/${activeLink.token}`;
       return res.json({ 
         link: activeLink, 
-        url: questionnaireUrl,
+        url: portalUrl,
         expiresAt: activeLink.expiresAt,
         reused: true,
       });
@@ -239,13 +239,13 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
       language,
     });
 
-    // Generate full URL
+    // Generate full URL - link to patient portal instead of questionnaire directly
     const baseUrl = process.env.PRODUCTION_URL || `https://${req.headers.host}`;
-    const questionnaireUrl = `${baseUrl}/questionnaire/${token}`;
+    const portalUrl = `${baseUrl}/patient/${token}`;
 
     res.json({ 
       link, 
-      url: questionnaireUrl,
+      url: portalUrl,
       expiresAt,
       reused: false,
     });
@@ -637,7 +637,7 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
     }
 
     const baseUrl = process.env.PRODUCTION_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
-    const questionnaireUrl = `${baseUrl}/questionnaire/${link.token}`;
+    const portalUrl = `${baseUrl}/patient/${link.token}`;
     const expiryDate = link.expiresAt ? new Date(link.expiresAt).toLocaleDateString('de-DE') : '';
     
     // Build help contact section based on available phone
@@ -665,12 +665,12 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
             <p>You have been invited to complete a pre-operative questionnaire for your upcoming procedure at ${hospital?.name || 'our facility'}.</p>
             <p>Please click the button below to access and complete the questionnaire:</p>
             <p style="margin: 25px 0; text-align: center;">
-              <a href="${questionnaireUrl}" style="background-color: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              <a href="${portalUrl}" style="background-color: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                 Complete Questionnaire
               </a>
             </p>
             <p style="font-size: 13px; color: #666;">Or copy and paste this link into your browser:</p>
-            <p style="color: #0066cc; word-break: break-all; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">${questionnaireUrl}</p>
+            <p style="color: #0066cc; word-break: break-all; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">${portalUrl}</p>
             ${expiryDate ? `<p style="color: #666; font-size: 14px;">⏰ This link will expire on <strong>${expiryDate}</strong>.</p>` : ''}
             <p style="color: #666; font-size: 14px;">${helpContactEN}</p>
           </div>
@@ -684,12 +684,12 @@ router.post('/api/questionnaire/links/:linkId/send-email', isAuthenticated, requ
             <p>Sie wurden eingeladen, einen präoperativen Fragebogen für Ihren bevorstehenden Eingriff bei ${hospital?.name || 'unserer Einrichtung'} auszufüllen.</p>
             <p>Bitte klicken Sie auf die Schaltfläche unten, um den Fragebogen aufzurufen und auszufüllen:</p>
             <p style="margin: 25px 0; text-align: center;">
-              <a href="${questionnaireUrl}" style="background-color: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              <a href="${portalUrl}" style="background-color: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                 Fragebogen ausfüllen
               </a>
             </p>
             <p style="font-size: 13px; color: #666;">Oder kopieren Sie diesen Link in Ihren Browser:</p>
-            <p style="color: #0066cc; word-break: break-all; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">${questionnaireUrl}</p>
+            <p style="color: #0066cc; word-break: break-all; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">${portalUrl}</p>
             ${expiryDate ? `<p style="color: #666; font-size: 14px;">⏰ Dieser Link ist gültig bis <strong>${expiryDate}</strong>.</p>` : ''}
             <p style="color: #666; font-size: 14px;">${helpContactDE}</p>
           </div>
@@ -754,10 +754,10 @@ router.post('/api/questionnaire/links/:linkId/send-sms', isAuthenticated, requir
     const helpPhone = unit?.questionnairePhone || hospital?.companyPhone || null;
     
     const baseUrl = process.env.PRODUCTION_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
-    const questionnaireUrl = `${baseUrl}/questionnaire/${link.token}`;
+    const portalUrl = `${baseUrl}/patient/${link.token}`;
     
     // Build a short bilingual SMS message
-    let message = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${questionnaireUrl}`;
+    let message = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${portalUrl}`;
     
     if (helpPhone) {
       message += `\n\nBei Fragen / Questions: ${helpPhone}`;
@@ -1788,6 +1788,158 @@ router.get('/api/public/questionnaire/:token/info-flyers', async (req: Request, 
   } catch (error) {
     console.error("Error fetching info flyers:", error);
     res.status(500).json({ message: "Failed to fetch info flyers" });
+  }
+});
+
+// ========== PATIENT PORTAL (PUBLIC) ==========
+// Get patient portal data by questionnaire token
+// Returns limited surgery info for patient-facing portal
+const patientPortalLimiter = createRateLimiter({
+  windowMs: 60 * 1000, // 1 minute window
+  maxRequests: 30,     // 30 requests per minute
+  keyPrefix: 'portal'
+});
+
+router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+    
+    if (!token || token.length < 10) {
+      return res.status(400).json({ message: "Invalid token" });
+    }
+    
+    // Get the questionnaire link
+    const link = await storage.getQuestionnaireLinkByToken(token);
+    if (!link) {
+      return res.status(404).json({ message: "Link not found or expired" });
+    }
+    
+    // Check if expired or invalidated
+    if (link.expiresAt && new Date(link.expiresAt) < new Date()) {
+      return res.status(410).json({ message: "Link has expired" });
+    }
+    
+    // Check if link status is expired or invalidated
+    if (link.status === 'expired' || link.status === 'invalidated') {
+      return res.status(410).json({ message: "Link has expired" });
+    }
+    
+    // Get hospital info
+    const hospital = await storage.getHospital(link.hospitalId);
+    if (!hospital) {
+      return res.status(404).json({ message: "Hospital not found" });
+    }
+    
+    // Get patient info (limited fields only)
+    let patientInfo = null;
+    if (link.patientId) {
+      const patient = await storage.getPatient(link.patientId);
+      if (patient) {
+        patientInfo = {
+          firstName: patient.firstName,
+          surname: patient.surname,
+        };
+      }
+    }
+    
+    // Get surgery info if linked
+    let surgeryInfo = null;
+    if (link.surgeryId) {
+      const surgery = await storage.getSurgery(link.surgeryId);
+      if (surgery) {
+        // Get surgery room info
+        let roomName = null;
+        if (surgery.surgeryRoomId) {
+          const room = await storage.getSurgeryRoom(surgery.surgeryRoomId);
+          roomName = room?.name || null;
+        }
+        
+        surgeryInfo = {
+          plannedDate: surgery.plannedDate,
+          admissionTime: surgery.admissionTime,
+          procedure: surgery.procedure,
+          roomName,
+          anesthesiaType: surgery.anesthesiaType,
+        };
+      }
+    }
+    
+    // Get info flyers
+    const flyers: Array<{ unitName: string; unitType: string | null; flyerUrl: string; downloadUrl?: string }> = [];
+    
+    // Get unit info flyers based on surgery room
+    if (surgeryInfo && link.surgeryId) {
+      const surgery = await storage.getSurgery(link.surgeryId);
+      if (surgery?.surgeryRoomId) {
+        const room = await storage.getSurgeryRoom(surgery.surgeryRoomId);
+        if (room?.unitId) {
+          const unit = await storage.getUnit(room.unitId);
+          if (unit?.infoFlyerUrl) {
+            flyers.push({
+              unitName: unit.name,
+              unitType: unit.type,
+              flyerUrl: unit.infoFlyerUrl,
+            });
+          }
+        }
+      }
+    }
+    
+    // Also get the anesthesia module's info flyer
+    const hospitalUnits = await storage.getUnits(link.hospitalId);
+    const anesthesiaUnit = hospitalUnits.find(u => u.type === 'anesthesia' && u.infoFlyerUrl);
+    if (anesthesiaUnit && !flyers.some(f => f.flyerUrl === anesthesiaUnit.infoFlyerUrl)) {
+      flyers.push({
+        unitName: anesthesiaUnit.name,
+        unitType: anesthesiaUnit.type,
+        flyerUrl: anesthesiaUnit.infoFlyerUrl!,
+      });
+    }
+    
+    // Generate download URLs
+    const { ObjectStorageService } = await import('../objectStorage');
+    const objectStorageService = new ObjectStorageService();
+    
+    const flyersWithUrls = await Promise.all(
+      flyers.map(async (flyer) => {
+        try {
+          if (objectStorageService.isConfigured() && flyer.flyerUrl.startsWith('/objects/')) {
+            const downloadUrl = await objectStorageService.getObjectDownloadURL(flyer.flyerUrl, 3600);
+            return { ...flyer, downloadUrl };
+          }
+          return { ...flyer, downloadUrl: flyer.flyerUrl };
+        } catch (error) {
+          console.error(`Error getting download URL for ${flyer.flyerUrl}:`, error);
+          return { ...flyer, downloadUrl: flyer.flyerUrl };
+        }
+      })
+    );
+    
+    // Get questionnaire status
+    const response = await storage.getQuestionnaireResponseByLinkId(link.id);
+    const questionnaireStatus = link.status === 'submitted' 
+      ? 'completed' 
+      : response 
+        ? 'in_progress' 
+        : 'not_started';
+    
+    res.json({
+      token,
+      language: link.language || 'de',
+      hospital: {
+        name: hospital.name,
+        address: hospital.address,
+        phone: hospital.companyPhone,
+      },
+      patient: patientInfo,
+      surgery: surgeryInfo,
+      flyers: flyersWithUrls,
+      questionnaireStatus,
+      questionnaireUrl: `/questionnaire/${token}`,
+    });
+  } catch (error) {
+    console.error("Error fetching patient portal data:", error);
+    res.status(500).json({ message: "Failed to fetch portal data" });
   }
 });
 

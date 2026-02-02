@@ -1122,7 +1122,7 @@ async function sendQuestionnaireEmail(
     }
 
     const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
-    const questionnaireUrl = `${baseUrl}/questionnaire/${linkToken}`;
+    const portalUrl = `${baseUrl}/patient/${linkToken}`;
     
     // Build help contact section based on available phone
     const helpContactEN = helpPhone 
@@ -1176,12 +1176,12 @@ async function sendQuestionnaireEmail(
             <p>You have been invited to complete a pre-operative questionnaire for your upcoming procedure at ${hospital?.name || 'our facility'}.</p>
             <p>Please click the button below to access and complete the questionnaire:</p>
             <p style="margin: 25px 0; text-align: center;">
-              <a href="${questionnaireUrl}" style="background-color: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              <a href="${portalUrl}" style="background-color: #0066cc; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                 Complete Questionnaire
               </a>
             </p>
             <p style="font-size: 13px; color: #666;">Or copy and paste this link into your browser:</p>
-            <p style="color: #0066cc; word-break: break-all; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">${questionnaireUrl}</p>
+            <p style="color: #0066cc; word-break: break-all; font-size: 12px; background: #f5f5f5; padding: 10px; border-radius: 4px;">${portalUrl}</p>
             ${flyerSectionEN}
             <p>${helpContactEN}</p>
           </div>
@@ -1193,7 +1193,7 @@ async function sendQuestionnaireEmail(
             <p>Sie wurden eingeladen, einen präoperativen Fragebogen für Ihren bevorstehenden Eingriff bei ${hospital?.name || 'unserer Einrichtung'} auszufüllen.</p>
             <p>Bitte klicken Sie auf die Schaltfläche unten, um den Fragebogen aufzurufen und auszufüllen:</p>
             <p style="margin: 25px 0; text-align: center;">
-              <a href="${questionnaireUrl}" style="background-color: #cc0000; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+              <a href="${portalUrl}" style="background-color: #cc0000; color: white; padding: 14px 28px; text-decoration: none; border-radius: 6px; font-weight: bold;">
                 Fragebogen ausfüllen
               </a>
             </p>
@@ -1246,11 +1246,11 @@ async function sendQuestionnaireSms(
     }
 
     const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
-    const questionnaireUrl = `${baseUrl}/questionnaire/${linkToken}`;
+    const portalUrl = `${baseUrl}/patient/${linkToken}`;
     
     // Build a short bilingual SMS message (SMS has character limits)
     // Standard SMS = 160 chars, concatenated can be longer but charged per segment
-    let message = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${questionnaireUrl}`;
+    let message = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${portalUrl}`;
     
     // Add info flyer links if available
     if (infoFlyers.length > 0) {
@@ -1450,14 +1450,14 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
       if (sendSuccess) {
         // Save the automatic message to patient communication history
         const baseUrl = process.env.PUBLIC_URL || 'http://localhost:5000';
-        const questionnaireUrl = `${baseUrl}/questionnaire/${linkToken}`;
+        const portalUrl = `${baseUrl}/patient/${linkToken}`;
         const hospital = await storage.getHospital(hospitalId);
         
         let messageText: string;
         if (usedMethod === 'email') {
-          messageText = `[Automatisch / Automatic] Präoperativer Fragebogen / Pre-operative Questionnaire\n\nLiebe(r) ${patientName},\n\nSie wurden eingeladen, einen präoperativen Fragebogen auszufüllen.\n\nDear ${patientName},\n\nYou have been invited to complete a pre-operative questionnaire.\n\n📋 ${questionnaireUrl}`;
+          messageText = `[Automatisch / Automatic] Präoperativer Fragebogen / Pre-operative Questionnaire\n\nLiebe(r) ${patientName},\n\nSie wurden eingeladen, einen präoperativen Fragebogen auszufüllen.\n\nDear ${patientName},\n\nYou have been invited to complete a pre-operative questionnaire.\n\n📋 ${portalUrl}`;
         } else {
-          messageText = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${questionnaireUrl}`;
+          messageText = `${hospital?.name || 'Hospital'}: Bitte füllen Sie Ihren präoperativen Fragebogen aus / Please complete your pre-op questionnaire:\n${portalUrl}`;
         }
         
         try {
