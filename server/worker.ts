@@ -1957,10 +1957,10 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       if (hasPhone && isSmsConfigured()) {
         // Build SMS message - only include time if admissionTime is provided
         const surgeryInfoDe = surgery.admissionTime 
-          ? `Erinnerung an Ihre OP morgen. Bitte kommen Sie um ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })} in die Klinik.`
+          ? `Erinnerung an Ihre OP morgen. Bitte kommen Sie um ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' })} in die Klinik.`
           : `Erinnerung an Ihre OP morgen.`;
         const surgeryInfoEn = surgery.admissionTime
-          ? `Reminder: Your surgery tomorrow. Please arrive at the clinic by ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })}.`
+          ? `Reminder: Your surgery tomorrow. Please arrive at the clinic by ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' })}.`
           : `Reminder: Your surgery tomorrow.`;
         
         let smsMessage = `${hospitalName}: ${surgeryInfoDe}\n\n${fastingInstructionsDe}`;
@@ -2000,9 +2000,9 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
           sendSuccess = true;
           usedMethod = 'email';
           // Build email summary text for patient communication history
-          const dateStr = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long' });
+          const dateStr = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Zurich' });
           const admissionTimeStr = surgery.admissionTime 
-            ? new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' })
+            ? new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' })
             : '';
           sentMessageText = `[Automatisch / Automatic] OP-Erinnerung / Surgery Reminder\n\n${dateStr}${admissionTimeStr ? ` um ${admissionTimeStr}` : ''}\n\n${fastingInstructionsDe}\n\n---\n\n${fastingInstructionsEn}`;
           console.log(`[Worker] Pre-surgery reminder email sent to ${patientName}`);
@@ -2088,8 +2088,8 @@ async function sendPreSurgeryReminderEmail(
     const resend = new Resend(process.env.RESEND_API_KEY);
     
     const fromEmail = process.env.RESEND_FROM_EMAIL || 'noreply@viali.ch';
-    const dateStrDe = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-    const dateStrEn = surgeryDate.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const dateStrDe = surgeryDate.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Zurich' });
+    const dateStrEn = surgeryDate.toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Zurich' });
     
     // ONLY show time/admission info if admissionTime is specifically provided
     // Do NOT use planned surgery time as fallback - it may be incorrect
@@ -2098,7 +2098,7 @@ async function sendPreSurgeryReminderEmail(
     let admissionInfoDe = '';
     let admissionInfoEn = '';
     if (admissionTime) {
-      const admissionTimeStr = admissionTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+      const admissionTimeStr = admissionTime.toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' });
       timeInfoDe = ` um ${admissionTimeStr}`;
       timeInfoEn = ` at ${admissionTimeStr}`;
       admissionInfoDe = `<p style="color: #059669; font-weight: bold;">Bitte kommen Sie um ${admissionTimeStr} in die Klinik.</p>`;
