@@ -30,8 +30,9 @@ import SignaturePad from "@/components/SignaturePad";
 import type { Order, Vendor, OrderLine, Item, StockLevel, Unit } from "@shared/schema";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Check, ChevronDown, ChevronUp, Merge, Paperclip, Upload, Camera, Trash2, Download, FileIcon } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Merge, Paperclip, Upload, Camera, Trash2, Download, FileIcon, GripVertical } from "lucide-react";
 import type { OrderAttachment } from "@shared/schema";
+import { DndContext, DragEndEvent, useDraggable, useDroppable, DragOverlay, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 
 interface OrderWithDetails extends Order {
   vendor: Vendor | null;
@@ -116,6 +117,66 @@ const getStatusTranslationKey = (status: string): string => {
   }
 };
 
+// Draggable order card wrapper
+function DraggableOrderCard({ 
+  orderId, 
+  children, 
+  disabled 
+}: { 
+  orderId: string; 
+  children: React.ReactNode; 
+  disabled?: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: orderId,
+    disabled,
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : undefined,
+  } : undefined;
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative">
+      {!disabled && (
+        <div 
+          {...listeners} 
+          {...attributes}
+          className="absolute left-1 top-3 cursor-grab active:cursor-grabbing z-10 bg-muted/80 rounded p-1 touch-none"
+          data-testid={`drag-handle-order-${orderId}`}
+        >
+          <GripVertical className="w-4 h-4 text-muted-foreground" />
+        </div>
+      )}
+      <div className={!disabled ? "pl-6" : ""}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Droppable column wrapper
+function DroppableColumn({ 
+  id, 
+  children 
+}: { 
+  id: string; 
+  children: React.ReactNode;
+}) {
+  const { setNodeRef, isOver } = useDroppable({ id });
+
+  return (
+    <div 
+      ref={setNodeRef} 
+      className={`kanban-column transition-all ${isOver ? "ring-2 ring-primary bg-primary/5" : ""}`}
+    >
+      {children}
+    </div>
+  );
+}
+
 interface OrdersProps {
   logisticMode?: boolean;
 }
@@ -161,6 +222,16 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
   // State for split functionality - selected line IDs in the edit dialog
   const [selectedLinesForSplit, setSelectedLinesForSplit] = useState<Set<string>>(new Set());
   const [splitMode, setSplitMode] = useState(false);
+  
+  // Drag-and-drop state for order status changes
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    })
+  );
   
   const toggleOrderExpanded = (orderId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -975,6 +1046,41 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
     updateOrderStatusMutation.mutate({ orderId, status: newStatus });
   };
 
+  // Handle drag-and-drop for order status changes
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveDragId(null);
+    
+    if (!over) return;
+    
+    const orderId = active.id as string;
+    const targetStatus = over.id as string;
+    
+    // Only allow transitions between draft, ready_to_send, and sent
+    const allowedStatuses = ['draft', 'ready_to_send', 'sent'];
+    if (!allowedStatuses.includes(targetStatus)) return;
+    
+    // Find the order being dragged
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+    
+    // Don't update if dropping in the same column
+    if (order.status === targetStatus) return;
+    
+    // Check if user can edit this order
+    if (!canEditOrder(order)) {
+      toast({
+        title: t('orders.accessDenied'),
+        description: t('orders.cannotEditOtherUnitOrder'),
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Update the status
+    handleStatusUpdate(orderId, targetStatus);
+  };
+
   const handleNewOrder = () => {
     if (itemsNeedingOrder.length === 0) {
       toast({
@@ -1139,9 +1245,14 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
           <p className="text-muted-foreground">{t('orders.loadingOrders')}</p>
         </div>
       ) : (
+        <DndContext 
+          sensors={sensors} 
+          onDragStart={(event) => setActiveDragId(event.active.id as string)}
+          onDragEnd={handleDragEnd}
+        >
         <div className="flex gap-4 overflow-x-auto pb-4">
           {/* Draft Column */}
-          <div className="kanban-column">
+          <DroppableColumn id="draft">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-foreground">{t('orders.draft')}</h3>
               <div className="flex items-center gap-2">
@@ -1171,8 +1282,8 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                 </div>
               ) : (
                 ordersByStatus.draft.map((order) => (
+                  <DraggableOrderCard key={order.id} orderId={order.id} disabled={!canWrite || !canEditOrder(order)}>
                   <div 
-                    key={order.id} 
                     className={`kanban-card cursor-pointer ${selectedOrdersForMerge.has(order.id) ? 'ring-2 ring-primary' : ''} ${!canEditOrder(order) ? 'opacity-60 border-muted' : ''}`}
                     onClick={() => handleEditOrder(order)}
                     data-testid={`draft-order-${order.id}`}
@@ -1263,13 +1374,14 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                       )}
                     </div>
                   </div>
+                  </DraggableOrderCard>
                 ))
               )}
             </div>
-          </div>
+          </DroppableColumn>
 
           {/* Ready to Send Column */}
-          <div className="kanban-column">
+          <DroppableColumn id="ready_to_send">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-foreground">{t('orders.readyToSend')}</h3>
               <div className="flex items-center gap-2">
@@ -1299,8 +1411,8 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                 </div>
               ) : (
                 ordersByStatus.ready_to_send.map((order) => (
+                  <DraggableOrderCard key={order.id} orderId={order.id} disabled={!canWrite || !canEditOrder(order)}>
                   <div 
-                    key={order.id} 
                     className={`kanban-card cursor-pointer ${selectedOrdersForMerge.has(order.id) ? 'ring-2 ring-primary' : ''} ${!canEditOrder(order) ? 'opacity-60 border-muted' : ''}`}
                     onClick={() => handleEditOrder(order)}
                     data-testid={`ready-to-send-order-${order.id}`}
@@ -1391,13 +1503,14 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                       )}
                     </div>
                   </div>
+                  </DraggableOrderCard>
                 ))
               )}
             </div>
-          </div>
+          </DroppableColumn>
 
           {/* Sent Column */}
-          <div className="kanban-column">
+          <DroppableColumn id="sent">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-foreground">{t('orders.sent')}</h3>
               <div className="flex items-center gap-2">
@@ -1427,8 +1540,8 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                 </div>
               ) : (
                 ordersByStatus.sent.map((order) => (
+                  <DraggableOrderCard key={order.id} orderId={order.id} disabled={!canWrite || !canEditOrder(order)}>
                   <div 
-                    key={order.id} 
                     className={`kanban-card cursor-pointer ${selectedOrdersForMerge.has(order.id) ? 'ring-2 ring-primary' : ''}`}
                     onClick={() => handleEditOrder(order)}
                     data-testid={`sent-order-${order.id}`}
@@ -1499,10 +1612,11 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                       {t('orders.pdf')}
                     </Button>
                   </div>
+                  </DraggableOrderCard>
                 ))
               )}
             </div>
-          </div>
+          </DroppableColumn>
 
           {/* Received Column */}
           <div className="kanban-column">
@@ -1597,6 +1711,7 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
             </div>
           </div>
         </div>
+        </DndContext>
       )}
 
       {/* New Order Dialog */}
