@@ -18,7 +18,9 @@ import {
   CheckCircle2,
   Circle,
   Phone,
-  Building2
+  Building2,
+  Sun,
+  Moon
 } from "lucide-react";
 
 interface PortalData {
@@ -137,7 +139,26 @@ export default function PatientPortal() {
   const { token } = useParams<{ token: string }>();
   const [, navigate] = useLocation();
   const [lang, setLang] = useState<Lang>('de');
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('patient-portal-theme');
+      if (saved) return saved === 'dark';
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+    return false;
+  });
   const t = translations[lang];
+
+  useEffect(() => {
+    if (isDark) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    localStorage.setItem('patient-portal-theme', isDark ? 'dark' : 'light');
+  }, [isDark]);
+
+  const toggleTheme = () => setIsDark(prev => !prev);
 
   const { data, isLoading, error } = useQuery<PortalData>({
     queryKey: ['/api/patient-portal', token],
@@ -189,11 +210,11 @@ export default function PatientPortal() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-blue-600 mb-4" />
-            <p className="text-muted-foreground">{t.loading}</p>
+            <Loader2 className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400 mb-4" />
+            <p className="text-muted-foreground dark:text-gray-400">{t.loading}</p>
           </CardContent>
         </Card>
       </div>
@@ -206,11 +227,11 @@ export default function PatientPortal() {
     const isNotFound = errorMessage.includes('not found');
     
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <AlertTriangle className="h-12 w-12 text-amber-500 mb-4" />
-            <p className="text-lg font-medium text-center">
+            <AlertTriangle className="h-12 w-12 text-amber-500 dark:text-amber-400 mb-4" />
+            <p className="text-lg font-medium text-center text-gray-900 dark:text-gray-100">
               {isExpired ? t.linkExpired : isNotFound ? t.linkNotFound : t.error}
             </p>
           </CardContent>
@@ -226,30 +247,41 @@ export default function PatientPortal() {
     : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950">
       <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">{t.title}</h1>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">{t.title}</h1>
             {patientName && (
-              <p className="text-muted-foreground">{t.welcomePrefix}, {patientName}</p>
+              <p className="text-muted-foreground dark:text-gray-400">{t.welcomePrefix}, {patientName}</p>
             )}
           </div>
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={toggleLanguage}
-            className="flex items-center gap-1.5"
-            data-testid="button-toggle-language"
-          >
-            <Globe className="h-4 w-4" />
-            {lang === 'de' ? 'EN' : 'DE'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={toggleTheme}
+              className="border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+              data-testid="button-toggle-theme"
+            >
+              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={toggleLanguage}
+              className="flex items-center gap-1.5 border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700"
+              data-testid="button-toggle-language"
+            >
+              <Globe className="h-4 w-4" />
+              {lang === 'de' ? 'EN' : 'DE'}
+            </Button>
+          </div>
         </div>
 
-        <Card className="border-blue-200 shadow-md">
-          <CardHeader className="pb-3 bg-blue-50 rounded-t-lg">
-            <CardTitle className="flex items-center gap-2 text-blue-800">
+        <Card className="border-blue-200 dark:border-blue-800 shadow-md bg-white dark:bg-gray-800">
+          <CardHeader className="pb-3 bg-blue-50 dark:bg-blue-900/30 rounded-t-lg">
+            <CardTitle className="flex items-center gap-2 text-blue-800 dark:text-blue-300">
               <Building2 className="h-5 w-5" />
               {data.hospital.name}
             </CardTitle>
@@ -257,58 +289,58 @@ export default function PatientPortal() {
         </Card>
 
         {data.surgery && (
-          <Card className="shadow-md" data-testid="card-surgery-info">
+          <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700" data-testid="card-surgery-info">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Calendar className="h-5 w-5 text-blue-600" />
+              <CardTitle className="flex items-center gap-2 text-lg text-gray-900 dark:text-gray-100">
+                <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 {t.yourSurgery}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground mt-0.5" />
+                <Calendar className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
                 <div>
-                  <p className="text-sm text-muted-foreground">{t.date}</p>
-                  <p className="font-medium">{formatDate(data.surgery.plannedDate)}</p>
+                  <p className="text-sm text-muted-foreground dark:text-gray-400">{t.date}</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">{formatDate(data.surgery.plannedDate)}</p>
                 </div>
               </div>
               
               {data.surgery.admissionTime && (
                 <div className="flex items-start gap-3">
-                  <Clock className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <Clock className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
                   <div>
-                    <p className="text-sm text-muted-foreground">{t.arrivalTime}</p>
-                    <p className="font-medium">{formatTime(data.surgery.admissionTime)}</p>
+                    <p className="text-sm text-muted-foreground dark:text-gray-400">{t.arrivalTime}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{formatTime(data.surgery.admissionTime)}</p>
                   </div>
                 </div>
               )}
               
               {data.surgery.roomName && (
                 <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <MapPin className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
                   <div>
-                    <p className="text-sm text-muted-foreground">{t.location}</p>
-                    <p className="font-medium">{data.surgery.roomName}</p>
+                    <p className="text-sm text-muted-foreground dark:text-gray-400">{t.location}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{data.surgery.roomName}</p>
                   </div>
                 </div>
               )}
               
               {data.surgery.procedure && (
                 <div className="flex items-start gap-3">
-                  <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <FileText className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
                   <div>
-                    <p className="text-sm text-muted-foreground">{t.procedure}</p>
-                    <p className="font-medium">{data.surgery.procedure}</p>
+                    <p className="text-sm text-muted-foreground dark:text-gray-400">{t.procedure}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{data.surgery.procedure}</p>
                   </div>
                 </div>
               )}
               
               {data.surgery.anesthesiaType && (
                 <div className="flex items-start gap-3">
-                  <FileText className="h-5 w-5 text-muted-foreground mt-0.5" />
+                  <FileText className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
                   <div>
-                    <p className="text-sm text-muted-foreground">{t.anesthesiaType}</p>
-                    <p className="font-medium">{getAnesthesiaTypeLabel(data.surgery.anesthesiaType)}</p>
+                    <p className="text-sm text-muted-foreground dark:text-gray-400">{t.anesthesiaType}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{getAnesthesiaTypeLabel(data.surgery.anesthesiaType)}</p>
                   </div>
                 </div>
               )}
@@ -316,9 +348,9 @@ export default function PatientPortal() {
           </Card>
         )}
 
-        <Card className="shadow-md border-amber-200" data-testid="card-fasting-rules">
-          <CardHeader className="pb-2 bg-amber-50 rounded-t-lg">
-            <CardTitle className="flex items-center gap-2 text-lg text-amber-800">
+        <Card className="shadow-md border-amber-200 dark:border-amber-700 bg-white dark:bg-gray-800" data-testid="card-fasting-rules">
+          <CardHeader className="pb-2 bg-amber-50 dark:bg-amber-900/30 rounded-t-lg">
+            <CardTitle className="flex items-center gap-2 text-lg text-amber-800 dark:text-amber-300">
               <AlertTriangle className="h-5 w-5" />
               {t.fastingTitle}
             </CardTitle>
@@ -326,38 +358,38 @@ export default function PatientPortal() {
           <CardContent className="pt-4">
             <ul className="space-y-2">
               <li className="flex items-start gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
-                <span>{t.fastingNoFood}</span>
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 mt-2" />
+                <span className="text-gray-900 dark:text-gray-100">{t.fastingNoFood}</span>
               </li>
               <li className="flex items-start gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
-                <span>{t.fastingLiquids}</span>
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 mt-2" />
+                <span className="text-gray-900 dark:text-gray-100">{t.fastingLiquids}</span>
               </li>
               <li className="flex items-start gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-2" />
-                <span>{t.fastingNoAlcohol}</span>
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400 mt-2" />
+                <span className="text-gray-900 dark:text-gray-100">{t.fastingNoAlcohol}</span>
               </li>
             </ul>
           </CardContent>
         </Card>
 
-        <Card className="shadow-md" data-testid="card-questionnaire">
+        <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700" data-testid="card-questionnaire">
           <CardHeader className="pb-2">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <ClipboardList className="h-5 w-5 text-blue-600" />
+            <CardTitle className="flex items-center gap-2 text-lg text-gray-900 dark:text-gray-100">
+              <ClipboardList className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               {t.preOpQuestionnaire}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2">
               {data.questionnaireStatus === 'completed' ? (
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <CheckCircle2 className="h-5 w-5 text-green-500 dark:text-green-400" />
               ) : data.questionnaireStatus === 'in_progress' ? (
-                <Circle className="h-5 w-5 text-amber-500 fill-amber-100" />
+                <Circle className="h-5 w-5 text-amber-500 dark:text-amber-400 fill-amber-100 dark:fill-amber-900" />
               ) : (
-                <Circle className="h-5 w-5 text-muted-foreground" />
+                <Circle className="h-5 w-5 text-muted-foreground dark:text-gray-400" />
               )}
-              <span className={data.questionnaireStatus === 'completed' ? 'text-green-700' : 'text-muted-foreground'}>
+              <span className={data.questionnaireStatus === 'completed' ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground dark:text-gray-400'}>
                 {data.questionnaireStatus === 'completed' 
                   ? t.questionnaireCompleted 
                   : data.questionnaireStatus === 'in_progress'
@@ -383,10 +415,10 @@ export default function PatientPortal() {
         </Card>
 
         {data.flyers.length > 0 && (
-          <Card className="shadow-md" data-testid="card-info-flyers">
+          <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700" data-testid="card-info-flyers">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <FileText className="h-5 w-5 text-blue-600" />
+              <CardTitle className="flex items-center gap-2 text-lg text-gray-900 dark:text-gray-100">
+                <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 {t.infoDocuments}
               </CardTitle>
             </CardHeader>
@@ -397,14 +429,14 @@ export default function PatientPortal() {
                   href={flyer.downloadUrl || flyer.flyerUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+                  className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-muted/50 dark:hover:bg-gray-700/50 transition-colors"
                   data-testid={`link-flyer-${index}`}
                 >
                   <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-muted-foreground" />
-                    <span>{flyer.unitName}</span>
+                    <FileText className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
+                    <span className="text-gray-900 dark:text-gray-100">{flyer.unitName}</span>
                   </div>
-                  <Download className="h-4 w-4 text-muted-foreground" />
+                  <Download className="h-4 w-4 text-muted-foreground dark:text-gray-400" />
                 </a>
               ))}
             </CardContent>
@@ -412,18 +444,18 @@ export default function PatientPortal() {
         )}
 
         {data.hospital.phone && (
-          <Card className="shadow-md" data-testid="card-contact">
+          <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700" data-testid="card-contact">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Phone className="h-5 w-5 text-blue-600" />
+              <CardTitle className="flex items-center gap-2 text-lg text-gray-900 dark:text-gray-100">
+                <Phone className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                 {t.contactUs}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground mb-2">{t.questions}</p>
+              <p className="text-muted-foreground dark:text-gray-400 mb-2">{t.questions}</p>
               <a 
                 href={`tel:${data.hospital.phone}`}
-                className="flex items-center gap-2 text-blue-600 font-medium hover:underline"
+                className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium hover:underline"
                 data-testid="link-phone"
               >
                 <Phone className="h-4 w-4" />
@@ -433,7 +465,7 @@ export default function PatientPortal() {
           </Card>
         )}
 
-        <div className="text-center text-sm text-muted-foreground pt-4 pb-8">
+        <div className="text-center text-sm text-muted-foreground dark:text-gray-500 pt-4 pb-8">
           &copy; {new Date().getFullYear()} {data.hospital.name}
         </div>
       </div>
