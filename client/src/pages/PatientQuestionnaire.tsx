@@ -76,6 +76,8 @@ interface QuestionnaireConfig {
   patientFirstName?: string;
   patientSurname?: string;
   patientBirthday?: string;
+  patientPhone?: string;
+  patientEmail?: string;
   hospitalId: string;
   surgeryId?: string;
   existingResponse?: {
@@ -574,8 +576,8 @@ export default function PatientQuestionnaire() {
         patientFirstName: existing?.patientFirstName || config.patientFirstName || "",
         patientLastName: existing?.patientLastName || config.patientSurname || "",
         patientBirthday: existing?.patientBirthday || config.patientBirthday || "",
-        patientEmail: existing?.patientEmail || "",
-        patientPhone: existing?.patientPhone || "",
+        patientEmail: existing?.patientEmail || config.patientEmail || "",
+        patientPhone: existing?.patientPhone || config.patientPhone || "",
         height: existing?.height || "",
         weight: existing?.weight || "",
         allergies: existing?.allergies || [],

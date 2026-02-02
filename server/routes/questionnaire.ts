@@ -1012,6 +1012,8 @@ router.get('/api/public/questionnaire/:token', questionnaireFetchLimiter, async 
       patientFirstName: patient?.firstName || existingResponse?.patientFirstName,
       patientSurname: patient?.surname || existingResponse?.patientLastName,
       patientBirthday: patient?.birthday || existingResponse?.patientBirthday,
+      patientPhone: patient?.phone || existingResponse?.patientPhone,
+      patientEmail: patient?.email || existingResponse?.patientEmail,
       hospitalId: link.hospitalId,
       surgeryId: link.surgeryId,
       existingResponse: existingResponse ? {
