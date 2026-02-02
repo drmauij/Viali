@@ -1341,11 +1341,13 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate pl-6">
-                        <i className="fas fa-map-marker-alt mr-1"></i>
-                        {getOrderLocation(order)}
-                        {!canEditOrder(order) && <span className="ml-1 text-warning">(Other)</span>}
-                      </p>
+                      {!logisticMode && (
+                        <p className="text-xs text-muted-foreground truncate pl-6">
+                          <i className="fas fa-map-marker-alt mr-1"></i>
+                          {getOrderLocation(order)}
+                          {!canEditOrder(order) && <span className="ml-1 text-warning">(Other)</span>}
+                        </p>
+                      )}
                     </div>
                     <button 
                       className="flex items-center gap-1 text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
@@ -1484,11 +1486,13 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-muted-foreground truncate pl-6">
-                        <i className="fas fa-map-marker-alt mr-1"></i>
-                        {getOrderLocation(order)}
-                        {!canEditOrder(order) && <span className="ml-1 text-warning">(Other)</span>}
-                      </p>
+                      {!logisticMode && (
+                        <p className="text-xs text-muted-foreground truncate pl-6">
+                          <i className="fas fa-map-marker-alt mr-1"></i>
+                          {getOrderLocation(order)}
+                          {!canEditOrder(order) && <span className="ml-1 text-warning">(Other)</span>}
+                        </p>
+                      )}
                     </div>
                     <button 
                       className="flex items-center gap-1 text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
