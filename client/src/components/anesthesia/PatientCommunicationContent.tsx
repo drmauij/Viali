@@ -519,29 +519,40 @@ export function PatientCommunicationContent({
   };
 
   const renderMessageContent = (text: string, links: any[]) => {
-    // Pattern to match patient portal or questionnaire URLs
-    // Matches: /patient/TOKEN or /questionnaire/TOKEN (with optional full URL prefix)
-    const linkPattern = /(?:https?:\/\/[^\s]+)?\/(?:patient|questionnaire)\/([a-zA-Z0-9_-]+)/g;
+    // Pattern to match any URL (https://...)
+    const urlPattern = /(https?:\/\/[^\s]+)/g;
     
-    const parts: Array<{ type: 'text' | 'link'; content: string; token?: string; link?: any }> = [];
+    const parts: Array<{ type: 'text' | 'questionnaire' | 'url'; content: string; token?: string; link?: any; url?: string }> = [];
     let lastIndex = 0;
     let match;
     
-    while ((match = linkPattern.exec(text)) !== null) {
+    while ((match = urlPattern.exec(text)) !== null) {
       // Add text before match
       if (match.index > lastIndex) {
         parts.push({ type: 'text', content: text.slice(lastIndex, match.index) });
       }
       
-      const token = match[1];
-      const matchedLink = links.find(l => l.token === token);
+      const url = match[1];
       
-      parts.push({ 
-        type: 'link', 
-        content: match[0], 
-        token,
-        link: matchedLink 
-      });
+      // Check if it's a patient portal or questionnaire link
+      const portalMatch = url.match(/\/(?:patient|questionnaire)\/([a-zA-Z0-9_-]+)/);
+      if (portalMatch) {
+        const token = portalMatch[1];
+        const matchedLink = links.find(l => l.token === token);
+        parts.push({ 
+          type: 'questionnaire', 
+          content: url, 
+          token,
+          link: matchedLink 
+        });
+      } else {
+        // Generic URL (e.g., infoflyer)
+        parts.push({ 
+          type: 'url', 
+          content: url,
+          url
+        });
+      }
       
       lastIndex = match.index + match[0].length;
     }
@@ -562,27 +573,42 @@ export function PatientCommunicationContent({
             return <span key={idx}>{part.content}</span>;
           }
           
-          // Render link as clickable badge
-          const link = part.link;
-          const status = link?.status || 'pending';
-          
-          return (
-            <span 
-              key={idx} 
-              className="inline-flex items-center gap-1.5 mx-0.5 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-700 rounded-md"
-              data-testid={`questionnaire-link-${part.token}`}
-            >
-              <FileText className="h-3 w-3 text-blue-600 dark:text-blue-400 shrink-0" />
-              <a 
-                href={`/patient/${part.token}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-600 dark:text-blue-400 hover:underline text-xs font-medium"
+          if (part.type === 'questionnaire') {
+            // Render questionnaire link as clickable badge
+            const link = part.link;
+            const status = link?.status || 'pending';
+            
+            return (
+              <span 
+                key={idx} 
+                className="inline-flex items-center gap-1.5 mx-0.5 px-2 py-0.5 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-700 rounded-md"
+                data-testid={`questionnaire-link-${part.token}`}
               >
-                {t('messages.questionnaireLink', 'Questionnaire')}
-              </a>
-              {getQuestionnaireStatusBadge(status)}
-            </span>
+                <FileText className="h-3 w-3 text-blue-600 dark:text-blue-400 shrink-0" />
+                <a 
+                  href={`/patient/${part.token}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 dark:text-blue-400 hover:underline text-xs font-medium"
+                >
+                  {t('messages.questionnaireLink', 'Questionnaire')}
+                </a>
+                {getQuestionnaireStatusBadge(status)}
+              </span>
+            );
+          }
+          
+          // Generic URL (infoflyer, etc.)
+          return (
+            <a 
+              key={idx}
+              href={part.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+            >
+              {part.url}
+            </a>
           );
         })}
       </span>
