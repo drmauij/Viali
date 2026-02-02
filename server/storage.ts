@@ -8640,6 +8640,8 @@ export class DatabaseStorage implements IStorage {
     const dayAfterTomorrow = new Date(tomorrow);
     dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
 
+    // Note: We send reminders to all surgeries that require pre-op assessment (noPreOpRequired = false)
+    // Previously this incorrectly referenced surgeries.anesthesiaType which doesn't exist
     const results = await db
       .select({
         surgeryId: surgeries.id,
@@ -8660,9 +8662,9 @@ export class DatabaseStorage implements IStorage {
         sql`${surgeries.plannedDate} >= ${tomorrow}`,
         sql`${surgeries.plannedDate} < ${dayAfterTomorrow}`,
         eq(surgeries.reminderSent, false),
-        sql`${surgeries.status} IN ('planned', 'scheduled', 'confirmed')`,
-        isNull(surgeries.archivedAt),
-        isNotNull(surgeries.anesthesiaType)
+        sql`${surgeries.status} IN ('planned', 'in-progress')`,
+        eq(surgeries.isArchived, false),
+        eq(surgeries.noPreOpRequired, false) // Only send to surgeries that require anesthesia pre-op
       ));
 
     return results.map(r => ({
