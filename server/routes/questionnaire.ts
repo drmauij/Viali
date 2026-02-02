@@ -1844,6 +1844,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
     
     // Get surgery info if linked
     let surgeryInfo = null;
+    let surgeryCompleted = false;
     if (link.surgeryId) {
       const surgery = await storage.getSurgery(link.surgeryId);
       if (surgery) {
@@ -1861,6 +1862,10 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
           roomName,
           anesthesiaType: surgery.anesthesiaType,
         };
+        
+        // Check if surgery is completed (has an anesthesia record)
+        const anesthesiaRecord = await storage.getAnesthesiaRecord(link.surgeryId);
+        surgeryCompleted = !!anesthesiaRecord;
       }
     }
     
@@ -1933,6 +1938,7 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
       },
       patient: patientInfo,
       surgery: surgeryInfo,
+      surgeryCompleted,
       flyers: flyersWithUrls,
       questionnaireStatus,
       questionnaireUrl: `/questionnaire/${token}`,
