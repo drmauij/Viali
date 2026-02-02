@@ -435,15 +435,36 @@ export default function Orders({ logisticMode = false }: OrdersProps) {
       const response = await apiRequest("PATCH", `/api/orders/${orderId}`, { highPriority });
       return response.json();
     },
-    onSuccess: () => {
-      invalidateOrderCaches();
+    onMutate: async ({ orderId, highPriority }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['/api/orders'] });
+      
+      // Snapshot previous value
+      const previousOrders = queryClient.getQueryData(['/api/orders']);
+      
+      // Optimistically update
+      queryClient.setQueryData(['/api/orders'], (old: any) => {
+        if (!old) return old;
+        return old.map((order: any) => 
+          order.id === orderId ? { ...order, highPriority } : order
+        );
+      });
+      
+      return { previousOrders };
     },
-    onError: () => {
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousOrders) {
+        queryClient.setQueryData(['/api/orders'], context.previousOrders);
+      }
       toast({
         title: t('common.error'),
         description: t('orders.failedToUpdatePriority') || 'Failed to update priority',
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      invalidateOrderCaches();
     },
   });
 
