@@ -483,7 +483,7 @@ export default function QuickCreateSurgeryDialog({
                           {patients.map((patient) => (
                             <CommandItem
                               key={patient.id}
-                              value={`${patient.surname} ${patient.firstName}`}
+                              value={`${patient.surname} ${patient.firstName} ${patient.birthday || ''}`}
                               onSelect={() => {
                                 setSelectedPatientId(patient.id);
                                 setPatientSearchOpen(false);
