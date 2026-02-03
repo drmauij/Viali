@@ -10,8 +10,11 @@ import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, Fi
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState, useEffect, useRef } from "react";
@@ -737,6 +740,7 @@ export default function PatientDetail() {
 
   const [newCase, setNewCase] = useState({
     plannedSurgery: "",
+    chopCode: "",
     surgeon: "",
     surgeonId: "",
     plannedDate: "",
@@ -745,6 +749,29 @@ export default function PatientDetail() {
     notes: "",
     noPreOpRequired: false,
   });
+  const [chopSearchTerm, setChopSearchTerm] = useState("");
+  const [chopSearchOpen, setChopSearchOpen] = useState(false);
+  
+  // CHOP procedure search query
+  const { data: chopProcedures = [], isLoading: isLoadingChop } = useQuery<Array<{
+    id: string;
+    code: string;
+    descriptionDe: string;
+    chapter: string | null;
+    indentLevel: number | null;
+    laterality: string | null;
+  }>>({
+    queryKey: ['/api/chop-procedures', chopSearchTerm],
+    queryFn: async () => {
+      if (chopSearchTerm.length < 2) return [];
+      const response = await fetch(`/api/chop-procedures?search=${encodeURIComponent(chopSearchTerm)}&limit=30`);
+      if (!response.ok) throw new Error('Failed to search procedures');
+      return response.json();
+    },
+    enabled: chopSearchTerm.length >= 2,
+    staleTime: 60000,
+  });
+  
   const [editingCaseId, setEditingCaseId] = useState<string | null>(null);
   const [archiveDialogSurgeryId, setArchiveDialogSurgeryId] = useState<string | null>(null);
   const [consentData, setConsentData] = useState({
@@ -917,7 +944,7 @@ export default function PatientDetail() {
         description: t('anesthesia.patientDetail.successSurgeryCreatedDesc'),
       });
       setIsCreateCaseOpen(false);
-      setNewCase({ plannedSurgery: "", surgeon: "", surgeonId: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
+      setNewCase({ plannedSurgery: "", chopCode: "", surgeon: "", surgeonId: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
     },
     onError: (error: any) => {
       toast({
@@ -2742,14 +2769,120 @@ export default function PatientDetail() {
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2">
-                      <Label htmlFor="surgery">{t('anesthesia.patientDetail.plannedSurgery')}</Label>
-                      <Input
-                        id="surgery"
-                        placeholder={t('anesthesia.patientDetail.plannedSurgeryPlaceholder')}
-                        value={newCase.plannedSurgery}
-                        onChange={(e) => setNewCase({ ...newCase, plannedSurgery: e.target.value })}
-                        data-testid="input-planned-surgery"
-                      />
+                      <Label>{t('anesthesia.patientDetail.plannedSurgery')}</Label>
+                      <Popover open={chopSearchOpen} onOpenChange={setChopSearchOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={chopSearchOpen}
+                            className="w-full justify-between h-auto min-h-10 text-left font-normal"
+                            data-testid="select-planned-surgery"
+                          >
+                            {newCase.plannedSurgery ? (
+                              <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
+                                <span className="text-sm whitespace-normal text-left">{newCase.plannedSurgery}</span>
+                                {newCase.chopCode && (
+                                  <span className="text-xs text-muted-foreground">CHOP: {newCase.chopCode}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">
+                                {t('anesthesia.patientDetail.plannedSurgeryPlaceholder')}
+                              </span>
+                            )}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[450px] p-0" align="start">
+                          <Command shouldFilter={false}>
+                            <CommandInput 
+                              placeholder={t('anesthesia.editSurgery.searchChop', 'Search CHOP procedures...')}
+                              value={chopSearchTerm}
+                              onValueChange={setChopSearchTerm}
+                              data-testid="input-chop-search-patient"
+                            />
+                            <CommandList className="max-h-[300px] overflow-y-auto">
+                              {chopSearchTerm.length < 2 ? (
+                                <CommandEmpty className="py-4 px-2 text-center text-sm text-muted-foreground">
+                                  {t('anesthesia.editSurgery.minCharsRequired', 'Type at least 2 characters')}
+                                </CommandEmpty>
+                              ) : isLoadingChop ? (
+                                <div className="flex items-center justify-center py-4">
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                </div>
+                              ) : chopProcedures.length === 0 ? (
+                                <CommandEmpty>
+                                  <div className="py-2 px-2 space-y-2">
+                                    <p className="text-sm">{t('anesthesia.editSurgery.noChopFound', 'No CHOP procedures found')}</p>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      className="w-full"
+                                      onClick={() => {
+                                        setNewCase({ ...newCase, plannedSurgery: chopSearchTerm, chopCode: '' });
+                                        setChopSearchOpen(false);
+                                      }}
+                                      data-testid="button-use-custom-surgery-patient"
+                                    >
+                                      {t('anesthesia.editSurgery.useCustom', `Use "${chopSearchTerm}"`).replace('{term}', chopSearchTerm)}
+                                    </Button>
+                                  </div>
+                                </CommandEmpty>
+                              ) : (
+                                <CommandGroup>
+                                  {chopProcedures.map((proc) => (
+                                    <CommandItem
+                                      key={proc.id}
+                                      value={proc.code}
+                                      onSelect={() => {
+                                        setNewCase({ ...newCase, plannedSurgery: proc.descriptionDe, chopCode: proc.code });
+                                        setChopSearchOpen(false);
+                                      }}
+                                      className="flex flex-col items-start gap-0.5 cursor-pointer"
+                                      data-testid={`chop-option-patient-${proc.code}`}
+                                    >
+                                      <div className="flex items-center gap-2 w-full">
+                                        <Check
+                                          className={cn(
+                                            "h-4 w-4 shrink-0",
+                                            newCase.chopCode === proc.code ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{proc.code}</span>
+                                            {proc.laterality && (
+                                              <span className="text-xs text-muted-foreground">({proc.laterality})</span>
+                                            )}
+                                          </div>
+                                          <p className="text-sm whitespace-normal break-words">{proc.descriptionDe}</p>
+                                        </div>
+                                      </div>
+                                    </CommandItem>
+                                  ))}
+                                  {chopSearchTerm.length >= 2 && (
+                                    <CommandItem
+                                      value="__custom__"
+                                      onSelect={() => {
+                                        setNewCase({ ...newCase, plannedSurgery: chopSearchTerm, chopCode: '' });
+                                        setChopSearchOpen(false);
+                                      }}
+                                      className="border-t mt-1 pt-2"
+                                      data-testid="chop-option-patient-custom"
+                                    >
+                                      <Check className="h-4 w-4 shrink-0 opacity-0" />
+                                      <span className="text-sm text-muted-foreground">
+                                        {t('anesthesia.editSurgery.useAsCustom', `Use as custom: "${chopSearchTerm}"`).replace('{term}', chopSearchTerm)}
+                                      </span>
+                                    </CommandItem>
+                                  )}
+                                </CommandGroup>
+                              )}
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="surgeon">{t('anesthesia.patientDetail.surgeon')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
