@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -75,9 +75,13 @@ export default function ChecklistMatrix() {
   const [editingSurgeryId, setEditingSurgeryId] = useState<string | null>(null);
   
   // Track pending mutation counts per cell to prevent race conditions when clicking quickly
-  // Using counters instead of boolean to handle multiple rapid clicks on the same cell
-  const [pendingMutations, setPendingMutations] = useState<Map<string, number>>(new Map());
-  const [pastPendingMutations, setPastPendingMutations] = useState<Map<string, number>>(new Map());
+  // Using refs (not state) for SYNCHRONOUS updates - critical for preventing blink on checkbox click
+  // Refs update immediately, while state updates are async and can cause race conditions
+  const pendingMutationsRef = useRef<Map<string, number>>(new Map());
+  const pastPendingMutationsRef = useRef<Map<string, number>>(new Map());
+  
+  // Force re-render trigger for when we need to update UI after pending count changes
+  const [, forceUpdate] = useState({});
   
   const { data: templatesData, isLoading: templatesLoading } = useQuery<SurgeonChecklistTemplate[]>({
     queryKey: ['/api/surgeon-checklists/templates', hospitalId],
@@ -168,10 +172,11 @@ export default function ChecklistMatrix() {
     if (pastMatrixData?.entries) {
       setPastCellStates(prev => {
         const newStates: Record<string, MatrixCellState> = {};
+        const pendingMap = pastPendingMutationsRef.current;
         pastMatrixData.entries.forEach(entry => {
           const key = `${entry.surgeryId}-${entry.itemId}`;
           // Preserve optimistic state for pending mutations to prevent race conditions
-          const pendingCount = pastPendingMutations.get(key) || 0;
+          const pendingCount = pendingMap.get(key) || 0;
           if (pendingCount > 0 && prev[key]) {
             newStates[key] = prev[key];
           } else {
@@ -183,7 +188,7 @@ export default function ChecklistMatrix() {
           }
         });
         // Also preserve any cells with pending mutations that might not be in server response yet
-        pastPendingMutations.forEach((count, key) => {
+        pendingMap.forEach((count, key) => {
           if (count > 0 && prev[key] && !newStates[key]) {
             newStates[key] = prev[key];
           }
@@ -191,7 +196,7 @@ export default function ChecklistMatrix() {
         return newStates;
       });
     }
-  }, [pastMatrixData, pastPendingMutations]);
+  }, [pastMatrixData]);
 
   const getPastCellState = (surgeryId: string, itemId: string): MatrixCellState => {
     const key = `${surgeryId}-${itemId}`;
@@ -230,10 +235,11 @@ export default function ChecklistMatrix() {
     if (matrixData?.entries) {
       setCellStates(prev => {
         const newStates: Record<string, MatrixCellState> = {};
+        const pendingMap = pendingMutationsRef.current;
         matrixData.entries.forEach(entry => {
           const key = `${entry.surgeryId}-${entry.itemId}`;
           // Preserve optimistic state for pending mutations to prevent race conditions
-          const pendingCount = pendingMutations.get(key) || 0;
+          const pendingCount = pendingMap.get(key) || 0;
           if (pendingCount > 0 && prev[key]) {
             newStates[key] = prev[key];
           } else {
@@ -245,7 +251,7 @@ export default function ChecklistMatrix() {
           }
         });
         // Also preserve any cells with pending mutations that might not be in server response yet
-        pendingMutations.forEach((count, key) => {
+        pendingMap.forEach((count, key) => {
           if (count > 0 && prev[key] && !newStates[key]) {
             newStates[key] = prev[key];
           }
@@ -253,7 +259,7 @@ export default function ChecklistMatrix() {
         return newStates;
       });
     }
-  }, [matrixData, pendingMutations]);
+  }, [matrixData]);
 
   const getCellState = (surgeryId: string, itemId: string): MatrixCellState => {
     const key = `${surgeryId}-${itemId}`;
@@ -285,25 +291,18 @@ export default function ChecklistMatrix() {
     },
     onSettled: (_, __, variables) => {
       const key = `${variables.surgeryId}-${variables.itemId}`;
-      // Decrement pending count for this cell and refetch only when all mutations complete
-      setPendingMutations(prev => {
-        const next = new Map(prev);
-        const count = next.get(key) || 0;
-        if (count <= 1) {
-          next.delete(key);
-        } else {
-          next.set(key, count - 1);
-        }
-        // Only refetch after all pending mutations are complete to avoid race conditions
-        // The state update happens first, then the refetch
-        if (next.size === 0) {
-          // Use queueMicrotask to ensure state update is committed before refetch
-          queueMicrotask(() => {
-            queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/matrix', selectedTemplateId, hospitalId] });
-          });
-        }
-        return next;
-      });
+      // Decrement pending count for this cell (synchronously via ref)
+      const pendingMap = pendingMutationsRef.current;
+      const count = pendingMap.get(key) || 0;
+      if (count <= 1) {
+        pendingMap.delete(key);
+      } else {
+        pendingMap.set(key, count - 1);
+      }
+      // Only refetch after all pending mutations are complete
+      if (pendingMap.size === 0) {
+        queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/matrix', selectedTemplateId, hospitalId] });
+      }
     },
     onSuccess: (_, variables) => {
       const key = `${variables.surgeryId}-${variables.itemId}`;
@@ -359,12 +358,11 @@ export default function ChecklistMatrix() {
     const current = getCellState(surgeryId, itemId);
     const newChecked = !current.checked;
     
-    // Increment pending count BEFORE triggering the mutation
-    setPendingMutations(prev => {
-      const next = new Map(prev);
-      next.set(cellKey, (next.get(cellKey) || 0) + 1);
-      return next;
-    });
+    // Increment pending count SYNCHRONOUSLY via ref BEFORE triggering the mutation
+    // This is critical - refs update immediately, state updates are async
+    const pendingMap = pendingMutationsRef.current;
+    pendingMap.set(cellKey, (pendingMap.get(cellKey) || 0) + 1);
+    
     updateCellState(surgeryId, itemId, { checked: newChecked });
     
     saveCellMutation.mutate({
@@ -379,12 +377,9 @@ export default function ChecklistMatrix() {
     const cellKey = `${surgeryId}-${itemId}`;
     const current = getCellState(surgeryId, itemId);
     
-    // Increment pending count BEFORE triggering the mutation
-    setPendingMutations(prev => {
-      const next = new Map(prev);
-      next.set(cellKey, (next.get(cellKey) || 0) + 1);
-      return next;
-    });
+    // Increment pending count SYNCHRONOUSLY via ref
+    const pendingMap = pendingMutationsRef.current;
+    pendingMap.set(cellKey, (pendingMap.get(cellKey) || 0) + 1);
     
     saveCellMutation.mutate({
       surgeryId,
@@ -417,25 +412,18 @@ export default function ChecklistMatrix() {
     },
     onSettled: (_, __, variables) => {
       const key = `${variables.surgeryId}-${variables.itemId}`;
-      // Decrement pending count for this cell and refetch only when all mutations complete
-      setPastPendingMutations(prev => {
-        const next = new Map(prev);
-        const count = next.get(key) || 0;
-        if (count <= 1) {
-          next.delete(key);
-        } else {
-          next.set(key, count - 1);
-        }
-        // Only refetch after all pending mutations are complete to avoid race conditions
-        // The state update happens first, then the refetch
-        if (next.size === 0) {
-          // Use queueMicrotask to ensure state update is committed before refetch
-          queueMicrotask(() => {
-            queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/matrix/past', selectedTemplateId, hospitalId] });
-          });
-        }
-        return next;
-      });
+      // Decrement pending count for this cell (synchronously via ref)
+      const pendingMap = pastPendingMutationsRef.current;
+      const count = pendingMap.get(key) || 0;
+      if (count <= 1) {
+        pendingMap.delete(key);
+      } else {
+        pendingMap.set(key, count - 1);
+      }
+      // Only refetch after all pending mutations are complete
+      if (pendingMap.size === 0) {
+        queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/matrix/past', selectedTemplateId, hospitalId] });
+      }
     },
     onSuccess: (_, variables) => {
       const key = `${variables.surgeryId}-${variables.itemId}`;
@@ -457,12 +445,10 @@ export default function ChecklistMatrix() {
     const current = getPastCellState(surgeryId, itemId);
     const newChecked = !current.checked;
     
-    // Increment pending count BEFORE triggering the mutation
-    setPastPendingMutations(prev => {
-      const next = new Map(prev);
-      next.set(cellKey, (next.get(cellKey) || 0) + 1);
-      return next;
-    });
+    // Increment pending count SYNCHRONOUSLY via ref
+    const pendingMap = pastPendingMutationsRef.current;
+    pendingMap.set(cellKey, (pendingMap.get(cellKey) || 0) + 1);
+    
     updatePastCellState(surgeryId, itemId, { checked: newChecked });
     
     savePastCellMutation.mutate({
@@ -477,12 +463,9 @@ export default function ChecklistMatrix() {
     const cellKey = `${surgeryId}-${itemId}`;
     const current = getPastCellState(surgeryId, itemId);
     
-    // Increment pending count BEFORE triggering the mutation
-    setPastPendingMutations(prev => {
-      const next = new Map(prev);
-      next.set(cellKey, (next.get(cellKey) || 0) + 1);
-      return next;
-    });
+    // Increment pending count SYNCHRONOUSLY via ref
+    const pendingMap = pastPendingMutationsRef.current;
+    pendingMap.set(cellKey, (pendingMap.get(cellKey) || 0) + 1);
     
     savePastCellMutation.mutate({
       surgeryId,
