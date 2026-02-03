@@ -53,6 +53,11 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [planningStatus, setPlanningStatus] = useState<"pre-registered" | "confirmed">("pre-registered");
   const [noPreOpRequired, setNoPreOpRequired] = useState(false);
   
+  // CHOP procedure selector state
+  const [selectedChopCode, setSelectedChopCode] = useState("");
+  const [chopSearchTerm, setChopSearchTerm] = useState("");
+  const [chopSearchOpen, setChopSearchOpen] = useState(false);
+
   // New surgeon form state
   const [showNewSurgeonForm, setShowNewSurgeonForm] = useState(false);
   const [surgeonSearchOpen, setSurgeonSearchOpen] = useState(false);
@@ -107,6 +112,26 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   }, [surgeons]);
 
   const selectedSurgeon = sortedSurgeons.find(s => s.id === surgeonId);
+
+  // Debounced CHOP search - only search when user has typed 2+ characters
+  const { data: chopProcedures = [], isLoading: isLoadingChop } = useQuery<Array<{
+    id: string;
+    code: string;
+    descriptionDe: string;
+    chapter: string | null;
+    indentLevel: number | null;
+    laterality: string | null;
+  }>>({
+    queryKey: ['/api/chop-procedures', chopSearchTerm],
+    queryFn: async () => {
+      if (chopSearchTerm.length < 2) return [];
+      const response = await fetch(`/api/chop-procedures?search=${encodeURIComponent(chopSearchTerm)}&limit=30`);
+      if (!response.ok) throw new Error('Failed to search procedures');
+      return response.json();
+    },
+    enabled: chopSearchTerm.length >= 2,
+    staleTime: 60000,
+  });
 
   // Fetch units to find the surgery unit for creating new surgeons
   const { data: units = [] } = useQuery<Array<{id: string; name: string; type: string | null}>>({
@@ -264,6 +289,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       }
 
       setPlannedSurgery(surgery.plannedSurgery || "");
+      setSelectedChopCode(surgery.chopCode || "");
+      setChopSearchTerm("");
       setSurgeryRoomId(surgery.surgeryRoomId || "");
       setSurgeonId(surgery.surgeonId || "");
       setNotes(surgery.notes || "");
@@ -306,6 +333,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         plannedDate: startDate.toISOString(),
         actualEndTime: endDate.toISOString(),
         plannedSurgery,
+        chopCode: selectedChopCode || null,
         surgeryRoomId,
         surgeon: matchedSurgeon?.name || null,
         surgeonId: surgeonId || null,
@@ -570,17 +598,126 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 </div>
               </div>
 
-              {/* Planned Surgery */}
+              {/* Planned Surgery - CHOP Procedure Selector */}
               <div className="space-y-2">
-                <Label htmlFor="edit-planned-surgery">{t('anesthesia.editSurgery.plannedSurgery')} *</Label>
-                <Input
-                  id="edit-planned-surgery"
-                  placeholder="e.g., Laparoscopic cholecystectomy"
-                  value={plannedSurgery}
-                  onChange={(e) => setPlannedSurgery(e.target.value)}
-                  disabled={!canWrite}
-                  data-testid="input-edit-planned-surgery"
-                />
+                <Label>{t('anesthesia.editSurgery.plannedSurgery')} *</Label>
+                <Popover open={chopSearchOpen} onOpenChange={(open) => canWrite && setChopSearchOpen(open)}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={chopSearchOpen}
+                      className="w-full justify-between h-auto min-h-10 text-left font-normal"
+                      disabled={!canWrite}
+                      data-testid="select-edit-chop-procedure"
+                    >
+                      {plannedSurgery ? (
+                        <div className="flex flex-col items-start gap-0.5">
+                          <span className="text-sm truncate max-w-[280px]">{plannedSurgery}</span>
+                          {selectedChopCode && (
+                            <span className="text-xs text-muted-foreground">CHOP: {selectedChopCode}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">{t('anesthesia.quickSchedule.plannedSurgeryPlaceholder', 'Search or enter procedure...')}</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[350px] p-0" align="start">
+                    <Command shouldFilter={false}>
+                      <CommandInput 
+                        placeholder={t('anesthesia.quickSchedule.searchChopProcedure', 'Search CHOP procedures...')}
+                        value={chopSearchTerm}
+                        onValueChange={(value) => {
+                          setChopSearchTerm(value);
+                        }}
+                        data-testid="input-edit-chop-search"
+                      />
+                      <CommandList>
+                        {chopSearchTerm.length < 2 ? (
+                          <CommandEmpty className="py-4 px-2 text-center text-sm text-muted-foreground">
+                            {t('anesthesia.quickSchedule.chopSearchHint', 'Type at least 2 characters to search CHOP procedures')}
+                          </CommandEmpty>
+                        ) : isLoadingChop ? (
+                          <div className="flex items-center justify-center py-4">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          </div>
+                        ) : chopProcedures.length === 0 ? (
+                          <CommandEmpty>
+                            <div className="py-2 px-2 space-y-2">
+                              <p className="text-sm">{t('anesthesia.quickSchedule.noChopResults', 'No CHOP procedures found')}</p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full"
+                                onClick={() => {
+                                  setPlannedSurgery(chopSearchTerm);
+                                  setSelectedChopCode("");
+                                  setChopSearchOpen(false);
+                                }}
+                                data-testid="button-edit-use-custom-surgery"
+                              >
+                                {t('anesthesia.quickSchedule.useCustomName', 'Use custom name: "{name}"').replace('{name}', chopSearchTerm)}
+                              </Button>
+                            </div>
+                          </CommandEmpty>
+                        ) : (
+                          <CommandGroup>
+                            {chopProcedures.map((proc) => (
+                              <CommandItem
+                                key={proc.id}
+                                value={proc.code}
+                                onSelect={() => {
+                                  setPlannedSurgery(proc.descriptionDe);
+                                  setSelectedChopCode(proc.code);
+                                  setChopSearchOpen(false);
+                                }}
+                                className="flex flex-col items-start gap-0.5 cursor-pointer"
+                                data-testid={`edit-chop-option-${proc.code}`}
+                              >
+                                <div className="flex items-center gap-2 w-full">
+                                  <Check
+                                    className={cn(
+                                      "h-4 w-4 shrink-0",
+                                      selectedChopCode === proc.code ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{proc.code}</span>
+                                      {proc.laterality && (
+                                        <span className="text-xs text-muted-foreground">({proc.laterality})</span>
+                                      )}
+                                    </div>
+                                    <p className="text-sm truncate">{proc.descriptionDe}</p>
+                                  </div>
+                                </div>
+                              </CommandItem>
+                            ))}
+                            {chopSearchTerm.length >= 2 && (
+                              <CommandItem
+                                value="__custom__"
+                                onSelect={() => {
+                                  setPlannedSurgery(chopSearchTerm);
+                                  setSelectedChopCode("");
+                                  setChopSearchOpen(false);
+                                }}
+                                className="border-t mt-1 pt-2"
+                                data-testid="edit-chop-option-custom"
+                              >
+                                <Check className="h-4 w-4 shrink-0 opacity-0" />
+                                <span className="text-sm text-muted-foreground">
+                                  {t('anesthesia.quickSchedule.useAsCustom', 'Use as custom entry: "{name}"').replace('{name}', chopSearchTerm)}
+                                </span>
+                              </CommandItem>
+                            )}
+                          </CommandGroup>
+                        )}
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               {/* Surgeon */}
