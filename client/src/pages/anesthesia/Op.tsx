@@ -26,6 +26,7 @@ import { useOpData } from "@/hooks/useOpData";
 import { useChecklistState } from "@/hooks/useChecklistState";
 import { usePacuDataFiltering } from "@/hooks/usePacuDataFiltering";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
+import { saveEvent } from "@/services/timelinePersistence";
 import { useInventoryTracking } from "@/hooks/useInventoryTracking";
 import { useTimelineData } from "@/hooks/useTimelineData";
 import { Button } from "@/components/ui/button";
@@ -582,6 +583,21 @@ export default function Op() {
     anesthesiaRecordId: anesthesiaRecord?.id,
     surgeryId: surgeryId || '',
     initialData: anesthesiaRecord?.timeOutData,
+    onSignatureAdded: async () => {
+      if (anesthesiaRecord?.id) {
+        try {
+          await saveEvent({
+            anesthesiaRecordId: anesthesiaRecord.id,
+            timestamp: new Date().toISOString(),
+            eventType: 'team_timeout',
+            description: 'Team Time Out',
+          });
+          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+        } catch (error) {
+          console.error('[TIME_OUT] Failed to save Team Timeout event:', error);
+        }
+      }
+    },
   });
 
   const signOutState = useChecklistState({

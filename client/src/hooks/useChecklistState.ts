@@ -15,6 +15,7 @@ interface UseChecklistStateProps {
   anesthesiaRecordId?: string;
   surgeryId: string;
   initialData?: ChecklistData;
+  onSignatureAdded?: (signature: string) => void;
 }
 
 interface ChecklistState {
@@ -34,6 +35,7 @@ export function useChecklistState({
   anesthesiaRecordId,
   surgeryId,
   initialData,
+  onSignatureAdded,
 }: UseChecklistStateProps): ChecklistState {
   const [checklist, setChecklist] = useState<Record<string, boolean>>({});
   const [notes, setNotes] = useState("");
@@ -99,6 +101,7 @@ export function useChecklistState({
 
   // Signature changes - save everything at once
   const handleSignatureChange = (newSignature: string) => {
+    const hadNoSignature = !signature;
     setSignature(newSignature);
     // Save everything together when signature is added or cleared
     if (anesthesiaRecordId) {
@@ -107,6 +110,10 @@ export function useChecklistState({
         notes,
         signature: newSignature,
       });
+    }
+    // Call callback when signature is newly added (not cleared or updated)
+    if (hadNoSignature && newSignature && onSignatureAdded) {
+      onSignatureAdded(newSignature);
     }
   };
 
