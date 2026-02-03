@@ -75,6 +75,11 @@ export default function ChecklistMatrix() {
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
   const [editingSurgeryId, setEditingSurgeryId] = useState<string | null>(null);
   
+  // Track pending mutation counts per cell to prevent race conditions when clicking quickly
+  // Using counters instead of boolean to handle multiple rapid clicks on the same cell
+  const [pendingMutations, setPendingMutations] = useState<Map<string, number>>(new Map());
+  const [pastPendingMutations, setPastPendingMutations] = useState<Map<string, number>>(new Map());
+  
   const { data: templatesData, isLoading: templatesLoading } = useQuery<SurgeonChecklistTemplate[]>({
     queryKey: ['/api/surgeon-checklists/templates', hospitalId],
     queryFn: async () => {
@@ -162,18 +167,32 @@ export default function ChecklistMatrix() {
 
   useEffect(() => {
     if (pastMatrixData?.entries) {
-      const newStates: Record<string, MatrixCellState> = {};
-      pastMatrixData.entries.forEach(entry => {
-        const key = `${entry.surgeryId}-${entry.itemId}`;
-        newStates[key] = {
-          checked: entry.checked,
-          note: entry.note || "",
-          isDirty: false,
-        };
+      setPastCellStates(prev => {
+        const newStates: Record<string, MatrixCellState> = {};
+        pastMatrixData.entries.forEach(entry => {
+          const key = `${entry.surgeryId}-${entry.itemId}`;
+          // Preserve optimistic state for pending mutations to prevent race conditions
+          const pendingCount = pastPendingMutations.get(key) || 0;
+          if (pendingCount > 0 && prev[key]) {
+            newStates[key] = prev[key];
+          } else {
+            newStates[key] = {
+              checked: entry.checked,
+              note: entry.note || "",
+              isDirty: false,
+            };
+          }
+        });
+        // Also preserve any cells with pending mutations that might not be in server response yet
+        pastPendingMutations.forEach((count, key) => {
+          if (count > 0 && prev[key] && !newStates[key]) {
+            newStates[key] = prev[key];
+          }
+        });
+        return newStates;
       });
-      setPastCellStates(newStates);
     }
-  }, [pastMatrixData]);
+  }, [pastMatrixData, pastPendingMutations]);
 
   const getPastCellState = (surgeryId: string, itemId: string): MatrixCellState => {
     const key = `${surgeryId}-${itemId}`;
@@ -210,18 +229,32 @@ export default function ChecklistMatrix() {
 
   useEffect(() => {
     if (matrixData?.entries) {
-      const newStates: Record<string, MatrixCellState> = {};
-      matrixData.entries.forEach(entry => {
-        const key = `${entry.surgeryId}-${entry.itemId}`;
-        newStates[key] = {
-          checked: entry.checked,
-          note: entry.note || "",
-          isDirty: false,
-        };
+      setCellStates(prev => {
+        const newStates: Record<string, MatrixCellState> = {};
+        matrixData.entries.forEach(entry => {
+          const key = `${entry.surgeryId}-${entry.itemId}`;
+          // Preserve optimistic state for pending mutations to prevent race conditions
+          const pendingCount = pendingMutations.get(key) || 0;
+          if (pendingCount > 0 && prev[key]) {
+            newStates[key] = prev[key];
+          } else {
+            newStates[key] = {
+              checked: entry.checked,
+              note: entry.note || "",
+              isDirty: false,
+            };
+          }
+        });
+        // Also preserve any cells with pending mutations that might not be in server response yet
+        pendingMutations.forEach((count, key) => {
+          if (count > 0 && prev[key] && !newStates[key]) {
+            newStates[key] = prev[key];
+          }
+        });
+        return newStates;
       });
-      setCellStates(newStates);
     }
-  }, [matrixData]);
+  }, [matrixData, pendingMutations]);
 
   const getCellState = (surgeryId: string, itemId: string): MatrixCellState => {
     const key = `${surgeryId}-${itemId}`;
@@ -251,6 +284,29 @@ export default function ChecklistMatrix() {
       });
       return res.json();
     },
+    onSettled: (_, __, variables) => {
+      const key = `${variables.surgeryId}-${variables.itemId}`;
+      // Decrement pending count for this cell and refetch only when all mutations complete
+      setPendingMutations(prev => {
+        const next = new Map(prev);
+        const count = next.get(key) || 0;
+        if (count <= 1) {
+          next.delete(key);
+        } else {
+          next.set(key, count - 1);
+        }
+        // Only refetch after all pending mutations are complete to avoid race conditions
+        // The state update happens first, then the refetch
+        if (next.size === 0) {
+          // Use queueMicrotask to ensure state update is committed before refetch
+          queueMicrotask(() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/matrix', selectedTemplateId, hospitalId] });
+          });
+        }
+        return next;
+      });
+      setSavingCell(null);
+    },
     onSuccess: (_, variables) => {
       const key = `${variables.surgeryId}-${variables.itemId}`;
       setCellStates(prev => ({
@@ -260,11 +316,8 @@ export default function ChecklistMatrix() {
           isDirty: false,
         },
       }));
-      setSavingCell(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/matrix', selectedTemplateId, hospitalId] });
     },
     onError: () => {
-      setSavingCell(null);
       toast({ title: t('checklistMatrix.saveFailed', 'Failed to save'), variant: "destructive" });
     },
   });
@@ -307,8 +360,16 @@ export default function ChecklistMatrix() {
     const cellKey = `${surgeryId}-${itemId}`;
     const current = getCellState(surgeryId, itemId);
     const newChecked = !current.checked;
+    
+    // Increment pending count BEFORE triggering the mutation
+    setPendingMutations(prev => {
+      const next = new Map(prev);
+      next.set(cellKey, (next.get(cellKey) || 0) + 1);
+      return next;
+    });
     setSavingCell(cellKey);
     updateCellState(surgeryId, itemId, { checked: newChecked });
+    
     saveCellMutation.mutate({
       surgeryId,
       itemId,
@@ -318,7 +379,16 @@ export default function ChecklistMatrix() {
   };
 
   const handleNoteSubmit = (surgeryId: string, itemId: string) => {
+    const cellKey = `${surgeryId}-${itemId}`;
     const current = getCellState(surgeryId, itemId);
+    
+    // Increment pending count BEFORE triggering the mutation
+    setPendingMutations(prev => {
+      const next = new Map(prev);
+      next.set(cellKey, (next.get(cellKey) || 0) + 1);
+      return next;
+    });
+    
     saveCellMutation.mutate({
       surgeryId,
       itemId,
@@ -348,6 +418,29 @@ export default function ChecklistMatrix() {
       });
       return res.json();
     },
+    onSettled: (_, __, variables) => {
+      const key = `${variables.surgeryId}-${variables.itemId}`;
+      // Decrement pending count for this cell and refetch only when all mutations complete
+      setPastPendingMutations(prev => {
+        const next = new Map(prev);
+        const count = next.get(key) || 0;
+        if (count <= 1) {
+          next.delete(key);
+        } else {
+          next.set(key, count - 1);
+        }
+        // Only refetch after all pending mutations are complete to avoid race conditions
+        // The state update happens first, then the refetch
+        if (next.size === 0) {
+          // Use queueMicrotask to ensure state update is committed before refetch
+          queueMicrotask(() => {
+            queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/matrix/past', selectedTemplateId, hospitalId] });
+          });
+        }
+        return next;
+      });
+      setSavingCell(null);
+    },
     onSuccess: (_, variables) => {
       const key = `${variables.surgeryId}-${variables.itemId}`;
       setPastCellStates(prev => ({
@@ -357,11 +450,8 @@ export default function ChecklistMatrix() {
           isDirty: false,
         },
       }));
-      setSavingCell(null);
-      queryClient.invalidateQueries({ queryKey: ['/api/surgeon-checklists/matrix/past', selectedTemplateId, hospitalId] });
     },
     onError: () => {
-      setSavingCell(null);
       toast({ title: t('checklistMatrix.saveFailed', 'Failed to save'), variant: "destructive" });
     },
   });
@@ -370,8 +460,16 @@ export default function ChecklistMatrix() {
     const cellKey = `${surgeryId}-${itemId}`;
     const current = getPastCellState(surgeryId, itemId);
     const newChecked = !current.checked;
+    
+    // Increment pending count BEFORE triggering the mutation
+    setPastPendingMutations(prev => {
+      const next = new Map(prev);
+      next.set(cellKey, (next.get(cellKey) || 0) + 1);
+      return next;
+    });
     setSavingCell(cellKey);
     updatePastCellState(surgeryId, itemId, { checked: newChecked });
+    
     savePastCellMutation.mutate({
       surgeryId,
       itemId,
@@ -381,7 +479,16 @@ export default function ChecklistMatrix() {
   };
 
   const handlePastNoteSubmit = (surgeryId: string, itemId: string) => {
+    const cellKey = `${surgeryId}-${itemId}`;
     const current = getPastCellState(surgeryId, itemId);
+    
+    // Increment pending count BEFORE triggering the mutation
+    setPastPendingMutations(prev => {
+      const next = new Map(prev);
+      next.set(cellKey, (next.get(cellKey) || 0) + 1);
+      return next;
+    });
+    
     savePastCellMutation.mutate({
       surgeryId,
       itemId,
