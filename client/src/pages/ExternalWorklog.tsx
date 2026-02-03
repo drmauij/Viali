@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import SignaturePad from "@/components/SignaturePad";
 import { Loader2, CheckCircle, AlertCircle, Clock, Building2, FileText, PenLine, Download, Plus, History, Trash2, Globe, Sun, Moon, FileSignature, User, FileBarChart, ChevronRight, ChevronLeft, Check, Camera, Upload, CreditCard, Baby, Car, Image } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { de, enUS } from "date-fns/locale";
@@ -142,6 +143,7 @@ export default function ExternalWorklog() {
   const [selectedEntryIds, setSelectedEntryIds] = useState<string[]>([]);
   const [selectedContractId, setSelectedContractId] = useState<string | null>(null);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [includePersonalData, setIncludePersonalData] = useState(true);
   const [showCameraCapture, setShowCameraCapture] = useState<'front' | 'back' | null>(null);
   const [uploadingPermitImage, setUploadingPermitImage] = useState<'front' | 'back' | null>(null);
   const [permitImageUrls, setPermitImageUrls] = useState<{ front: string | null; back: string | null }>({ front: null, back: null });
@@ -672,13 +674,14 @@ export default function ExternalWorklog() {
       doc.setLineWidth(0.5);
       doc.line(leftMargin, y, rightMargin, y);
       
-      y += 12;
-      doc.setFontSize(14);
-      doc.text(isGerman ? "Persönliche Daten" : "Personal Information", leftMargin, y);
-      y += 8;
-      doc.setFontSize(10);
-      doc.text(`${isGerman ? "Name" : "Name"}: ${personalData.firstName} ${personalData.lastName}`, leftMargin, y);
-      if (personalData.dateOfBirth) {
+      if (includePersonalData) {
+        y += 12;
+        doc.setFontSize(14);
+        doc.text(isGerman ? "Persönliche Daten" : "Personal Information", leftMargin, y);
+        y += 8;
+        doc.setFontSize(10);
+        doc.text(`${isGerman ? "Name" : "Name"}: ${personalData.firstName} ${personalData.lastName}`, leftMargin, y);
+        if (personalData.dateOfBirth) {
         y += 6;
         doc.text(`${isGerman ? "Geburtsdatum" : "Date of Birth"}: ${personalData.dateOfBirth}`, leftMargin, y);
       }
@@ -799,6 +802,7 @@ export default function ExternalWorklog() {
       if (personalData.hasOwnVehicle) {
         y += 6;
         doc.text(`${isGerman ? "Eigenes Fahrzeug" : "Own Vehicle"}: ${isGerman ? "Ja" : "Yes"}`, leftMargin, y);
+      }
       }
       
       const selectedContract = contracts.find(c => c.id === selectedContractId);
@@ -2136,22 +2140,47 @@ export default function ExternalWorklog() {
                             </div>
                           )}
                           <Separator className="my-2" />
-                          <div className="text-sm">
-                            <span className="text-gray-500 dark:text-gray-400">{t("externalWorklog.reports.personalInfo")}:</span>
-                            <div className="mt-1 font-medium dark:text-gray-100">
-                              {personalData.firstName} {personalData.lastName}
+                          
+                          <div 
+                            className="flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            onClick={() => setIncludePersonalData(!includePersonalData)}
+                            data-testid="toggle-include-personal-data"
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium text-sm dark:text-gray-100">
+                                {currentLang === "de" ? "Persönliche Daten einschliessen" : "Include Personal Data"}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {currentLang === "de" 
+                                  ? "Name, Adresse, Bankverbindung und weitere persönliche Angaben im Bericht anzeigen" 
+                                  : "Show name, address, bank details and other personal information in the report"}
+                              </div>
                             </div>
-                            {personalData.address && (
-                              <div className="text-gray-600 dark:text-gray-400">{personalData.address}</div>
-                            )}
-                            {(personalData.zip || personalData.city) && (
-                              <div className="text-gray-600 dark:text-gray-400">{personalData.zip} {personalData.city}</div>
-                            )}
-                            {personalData.bankAccount && (
-                              <div className="mt-1 text-gray-600 dark:text-gray-400">IBAN: {personalData.bankAccount}</div>
-                            )}
+                            <Switch
+                              checked={includePersonalData}
+                              onCheckedChange={setIncludePersonalData}
+                              className="pointer-events-none"
+                            />
                           </div>
-                          {(!personalData.firstName || !personalData.bankAccount) && (
+                          
+                          {includePersonalData && (
+                            <div className="text-sm">
+                              <span className="text-gray-500 dark:text-gray-400">{t("externalWorklog.reports.personalInfo")}:</span>
+                              <div className="mt-1 font-medium dark:text-gray-100">
+                                {personalData.firstName} {personalData.lastName}
+                              </div>
+                              {personalData.address && (
+                                <div className="text-gray-600 dark:text-gray-400">{personalData.address}</div>
+                              )}
+                              {(personalData.zip || personalData.city) && (
+                                <div className="text-gray-600 dark:text-gray-400">{personalData.zip} {personalData.city}</div>
+                              )}
+                              {personalData.bankAccount && (
+                                <div className="mt-1 text-gray-600 dark:text-gray-400">IBAN: {personalData.bankAccount}</div>
+                              )}
+                            </div>
+                          )}
+                          {includePersonalData && (!personalData.firstName || !personalData.bankAccount) && (
                             <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded text-sm text-yellow-700 dark:text-yellow-400">
                               {t("externalWorklog.reports.incompletePersonalData")}
                             </div>
