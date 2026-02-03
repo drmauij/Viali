@@ -58,9 +58,18 @@ const CommandList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.List
     ref={ref}
-    className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden overscroll-contain", className)}
+    className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden overscroll-contain touch-pan-y", className)}
+    style={{ WebkitOverflowScrolling: 'touch' }}
     onWheel={(e) => {
       // Ensure wheel events scroll the list instead of being captured by cmdk
+      e.stopPropagation();
+    }}
+    onTouchStart={(e) => {
+      // Allow touch scrolling by stopping cmdk from capturing touch events
+      e.stopPropagation();
+    }}
+    onTouchMove={(e) => {
+      // Allow touch scrolling
       e.stopPropagation();
     }}
     {...props}
