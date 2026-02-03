@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
 import { useTimelineContext } from '../TimelineContext';
 import type { EventComment, AnesthesiaTimeMarker } from '@/hooks/useEventState';
 import { getEventIcon } from '@/constants/commonEvents';
@@ -75,6 +76,7 @@ export function EventsSwimlane({
 
   const { eventComments, timeMarkers } = eventState;
   const { toast } = useToast();
+  const { t } = useTranslation();
 
   // Destructure inventory commit state from context (shared with UnifiedTimeline quick-add button)
   const {
@@ -293,19 +295,19 @@ export function EventsSwimlane({
           {zeitenHoverInfo.existingMarker ? (
             <>
               <div className="text-sm font-semibold text-primary">
-                {zeitenHoverInfo.existingMarker.code} - {zeitenHoverInfo.existingMarker.label}
+                {zeitenHoverInfo.existingMarker.code} - {t(`anesthesia.timeline.timeMarkerLabels.${zeitenHoverInfo.existingMarker.code}`, zeitenHoverInfo.existingMarker.label)}
               </div>
               <div className="text-xs text-muted-foreground">
                 {formatTime(zeitenHoverInfo.existingMarker.time)}
               </div>
               <div className="text-xs text-muted-foreground italic mt-1">
-                Click to edit
+                {t('anesthesia.timeline.zeitenTooltip.clickToEdit', 'Click to edit')}
               </div>
             </>
           ) : zeitenHoverInfo.nextMarker ? (
             <>
               <div className="text-sm font-semibold text-primary">
-                Place: {zeitenHoverInfo.nextMarker}
+                {t('anesthesia.timeline.zeitenTooltip.place', 'Place')}: {t(`anesthesia.timeline.timeMarkerLabels.${zeitenHoverInfo.nextMarker}`, zeitenHoverInfo.nextMarker)}
               </div>
               <div className="text-xs text-muted-foreground">
                 {formatTime(zeitenHoverInfo.time)}
@@ -313,7 +315,7 @@ export function EventsSwimlane({
             </>
           ) : (
             <div className="text-sm text-muted-foreground">
-              All markers placed
+              {t('anesthesia.timeline.zeitenTooltip.allMarkersPlaced', 'All markers placed')}
             </div>
           )}
         </div>

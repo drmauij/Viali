@@ -2824,6 +2824,11 @@
         "A2": "Anesthesia Presence End",
         "P": "PACU End"
       },
+      "zeitenTooltip": {
+        "clickToEdit": "Click to edit",
+        "place": "Place",
+        "allMarkersPlaced": "All markers placed"
+      },
       "editTimeMarker": {
         "title": "Edit Time Marker",
         "description": "Adjust the time for this anesthesia milestone or remove it from the timeline.",

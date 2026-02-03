@@ -2839,6 +2839,11 @@
         "A2": "Anästhesie Präsenz Ende",
         "P": "AWR Ende"
       },
+      "zeitenTooltip": {
+        "clickToEdit": "Klicken zum Bearbeiten",
+        "place": "Setzen",
+        "allMarkersPlaced": "Alle Marker gesetzt"
+      },
       "editTimeMarker": {
         "title": "Zeitmarker bearbeiten",
         "description": "Zeit für diesen Anästhesie-Meilenstein anpassen oder aus der Zeitleiste entfernen.",
