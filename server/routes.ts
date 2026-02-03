@@ -83,7 +83,8 @@ import {
   externalWorklogLinks,
   externalWorklogEntries,
   workerContracts,
-  hinSyncStatus
+  hinSyncStatus,
+  chopProcedures
 } from "@shared/schema";
 import { z } from "zod";
 import { eq, and, or, inArray, sql, asc, desc } from "drizzle-orm";
@@ -265,6 +266,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error logging activity:", error);
       // Don't fail the request for logging errors
       res.json({ success: true, warning: "Activity may not have been logged" });
+    }
+  });
+
+  // CHOP Procedures - Swiss surgical procedure catalog search
+  // This is a public endpoint (no auth required) since it's reference data
+  app.get('/api/chop-procedures', async (req: Request, res: Response) => {
+    try {
+      const search = (req.query.search as string || '').trim();
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      
+      if (!search || search.length < 2) {
+        return res.json([]);
+      }
+      
+      // Search by code prefix or German description using full-text search
+      const results = await db
+        .select({
+          id: chopProcedures.id,
+          code: chopProcedures.code,
+          descriptionDe: chopProcedures.descriptionDe,
+          chapter: chopProcedures.chapter,
+          indentLevel: chopProcedures.indentLevel,
+          laterality: chopProcedures.laterality,
+        })
+        .from(chopProcedures)
+        .where(
+          or(
+            sql`${chopProcedures.code} ILIKE ${search + '%'}`,
+            sql`${chopProcedures.descriptionDe} ILIKE ${'%' + search + '%'}`,
+            sql`to_tsvector('german', ${chopProcedures.descriptionDe}) @@ plainto_tsquery('german', ${search})`
+          )
+        )
+        .orderBy(
+          sql`CASE 
+            WHEN ${chopProcedures.code} ILIKE ${search + '%'} THEN 0 
+            WHEN ${chopProcedures.descriptionDe} ILIKE ${search + '%'} THEN 1 
+            ELSE 2 
+          END`,
+          asc(chopProcedures.code)
+        )
+        .limit(limit);
+      
+      res.json(results);
+    } catch (error: any) {
+      console.error("Error searching CHOP procedures:", error);
+      res.status(500).json({ message: "Failed to search procedures" });
     }
   });
 
