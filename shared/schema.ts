@@ -832,6 +832,7 @@ export const surgeries = pgTable("surgeries", {
   // Planning
   plannedDate: timestamp("planned_date").notNull(),
   plannedSurgery: varchar("planned_surgery").notNull(),
+  chopCode: varchar("chop_code"), // Optional CHOP procedure code for structured surgery naming
   surgeon: varchar("surgeon"), // Display name / fallback for unmatched surgeons
   surgeonId: varchar("surgeon_id").references(() => users.id), // Foreign key to users table for proper linking
   notes: text("notes"),
@@ -4937,3 +4938,29 @@ export const insertItemHinMatchSchema = createInsertSchema(itemHinMatches).omit(
 
 export type ItemHinMatch = typeof itemHinMatches.$inferSelect;
 export type InsertItemHinMatch = z.infer<typeof insertItemHinMatchSchema>;
+
+// CHOP Procedures - Swiss Classification of Surgical Interventions (Schweizerische Operationsklassifikation)
+// Reference: https://www.bfs.admin.ch - CHOP 2026
+export const chopProcedures = pgTable("chop_procedures", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: varchar("code").notNull().unique(), // CHOP code e.g., "Z00.66.21"
+  descriptionDe: text("description_de").notNull(), // German description
+  descriptionFr: text("description_fr"), // French description (optional, for future)
+  chapter: varchar("chapter"), // Main chapter/category
+  indentLevel: integer("indent_level"), // Hierarchy level (3-6 typically)
+  isCodeable: boolean("is_codeable").default(true).notNull(), // Whether this is a billable procedure
+  laterality: varchar("laterality"), // "Lateral" if applies to left/right
+  version: varchar("version").default("2026").notNull(), // CHOP version
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_chop_procedures_code").on(table.code),
+  index("idx_chop_procedures_description").using("gin", sql`to_tsvector('german', ${table.descriptionDe})`),
+]);
+
+export const insertChopProcedureSchema = createInsertSchema(chopProcedures).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type ChopProcedure = typeof chopProcedures.$inferSelect;
+export type InsertChopProcedure = z.infer<typeof insertChopProcedureSchema>;
