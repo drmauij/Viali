@@ -4058,10 +4058,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         personalData: {
           firstName: link.firstName || '',
           lastName: link.lastName || '',
+          profession: link.profession || '',
           address: link.address || '',
           city: link.city || '',
           zip: link.zip || '',
+          dateOfBirth: link.dateOfBirth || '',
+          maritalStatus: link.maritalStatus || '',
+          nationality: link.nationality || '',
+          religion: link.religion || '',
+          mobile: link.mobile || '',
+          ahvNumber: link.ahvNumber || '',
+          hasChildBenefits: link.hasChildBenefits || false,
+          numberOfChildren: link.numberOfChildren || 0,
+          childBenefitsRecipient: link.childBenefitsRecipient || '',
+          childBenefitsRegistration: link.childBenefitsRegistration || '',
+          hasResidencePermit: link.hasResidencePermit || false,
+          residencePermitType: link.residencePermitType || '',
+          residencePermitValidUntil: link.residencePermitValidUntil || '',
+          residencePermitFrontImage: link.residencePermitFrontImage || '',
+          residencePermitBackImage: link.residencePermitBackImage || '',
+          bankName: link.bankName || '',
+          bankAddress: link.bankAddress || '',
           bankAccount: link.bankAccount || '',
+          hasOwnVehicle: link.hasOwnVehicle || false,
         },
       });
     } catch (error) {
@@ -4080,16 +4099,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Invalid or expired link" });
       }
       
-      const { firstName, lastName, address, city, zip, bankAccount } = req.body;
+      const { 
+        firstName, lastName, profession, address, city, zip, dateOfBirth,
+        maritalStatus, nationality, religion, mobile, ahvNumber,
+        hasChildBenefits, numberOfChildren, childBenefitsRecipient, childBenefitsRegistration,
+        hasResidencePermit, residencePermitType, residencePermitValidUntil,
+        residencePermitFrontImage, residencePermitBackImage,
+        bankName, bankAddress, bankAccount, hasOwnVehicle
+      } = req.body;
       
       await db.update(externalWorklogLinks)
         .set({
           firstName: firstName || null,
           lastName: lastName || null,
+          profession: profession || null,
           address: address || null,
           city: city || null,
           zip: zip || null,
+          dateOfBirth: dateOfBirth || null,
+          maritalStatus: maritalStatus || null,
+          nationality: nationality || null,
+          religion: religion || null,
+          mobile: mobile || null,
+          ahvNumber: ahvNumber || null,
+          hasChildBenefits: hasChildBenefits ?? null,
+          numberOfChildren: numberOfChildren ?? null,
+          childBenefitsRecipient: childBenefitsRecipient || null,
+          childBenefitsRegistration: childBenefitsRegistration || null,
+          hasResidencePermit: hasResidencePermit ?? null,
+          residencePermitType: residencePermitType || null,
+          residencePermitValidUntil: residencePermitValidUntil || null,
+          residencePermitFrontImage: residencePermitFrontImage || null,
+          residencePermitBackImage: residencePermitBackImage || null,
+          bankName: bankName || null,
+          bankAddress: bankAddress || null,
           bankAccount: bankAccount || null,
+          hasOwnVehicle: hasOwnVehicle ?? null,
           updatedAt: new Date(),
         })
         .where(eq(externalWorklogLinks.id, link.id));
@@ -4098,6 +4143,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error saving personal data:", error);
       res.status(500).json({ message: "Failed to save personal data" });
+    }
+  });
+
+  // Public route: Get upload URL for residence permit image (no auth required, uses token)
+  app.post('/api/worklog/:token/permit-image-upload', async (req, res) => {
+    try {
+      const { token } = req.params;
+      const link = await storage.getExternalWorklogLinkByToken(token);
+      
+      if (!link || !link.isActive) {
+        return res.status(404).json({ message: "Invalid or expired link" });
+      }
+      
+      const { side, filename } = req.body;
+      
+      if (!side || !['front', 'back'].includes(side)) {
+        return res.status(400).json({ message: "Invalid side specified. Must be 'front' or 'back'." });
+      }
+      
+      const objectStorageService = new ObjectStorageService();
+      if (!objectStorageService.isConfigured()) {
+        return res.status(500).json({ message: "Object storage not configured" });
+      }
+      
+      const folder = `worklog-permits/${link.id}`;
+      const { uploadURL, storageKey } = await objectStorageService.getUploadURLForFolder(folder, filename || `permit-${side}.jpg`);
+      
+      res.json({ uploadURL, storageKey });
+    } catch (error) {
+      console.error("Error getting permit image upload URL:", error);
+      res.status(500).json({ message: "Failed to get upload URL" });
+    }
+  });
+
+  // Public route: Get download URL for residence permit image (no auth required, uses token)
+  app.get('/api/worklog/:token/permit-image/:side', async (req, res) => {
+    try {
+      const { token, side } = req.params;
+      const link = await storage.getExternalWorklogLinkByToken(token);
+      
+      if (!link || !link.isActive) {
+        return res.status(404).json({ message: "Invalid or expired link" });
+      }
+      
+      if (!['front', 'back'].includes(side)) {
+        return res.status(400).json({ message: "Invalid side specified. Must be 'front' or 'back'." });
+      }
+      
+      const storageKey = side === 'front' ? link.residencePermitFrontImage : link.residencePermitBackImage;
+      
+      if (!storageKey) {
+        return res.status(404).json({ message: "Image not found" });
+      }
+      
+      const objectStorageService = new ObjectStorageService();
+      if (!objectStorageService.isConfigured()) {
+        return res.status(500).json({ message: "Object storage not configured" });
+      }
+      
+      const downloadURL = await objectStorageService.getObjectDownloadURL(storageKey, 3600);
+      res.json({ downloadURL });
+    } catch (error) {
+      console.error("Error getting permit image download URL:", error);
+      res.status(500).json({ message: "Failed to get download URL" });
     }
   });
 

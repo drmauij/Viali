@@ -1,0 +1,19 @@
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "profession" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "date_of_birth" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "marital_status" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "nationality" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "religion" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "mobile" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "ahv_number" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "has_child_benefits" boolean;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "number_of_children" integer;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "child_benefits_recipient" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "child_benefits_registration" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "has_residence_permit" boolean;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "residence_permit_type" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "residence_permit_valid_until" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "residence_permit_front_image" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "residence_permit_back_image" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "bank_name" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "bank_address" varchar;--> statement-breakpoint
+ALTER TABLE "external_worklog_links" ADD COLUMN IF NOT EXISTS "has_own_vehicle" boolean;

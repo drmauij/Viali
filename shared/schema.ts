@@ -4303,12 +4303,46 @@ export const externalWorklogLinks = pgTable("external_worklog_links", {
   email: varchar("email").notNull(),
   token: varchar("token").notNull().unique(),
   
+  // Personalien (Personal Information)
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
+  profession: varchar("profession"),
   address: varchar("address"),
   city: varchar("city"),
   zip: varchar("zip"),
+  dateOfBirth: varchar("date_of_birth"),
+  maritalStatus: varchar("marital_status", {
+    enum: ["single", "married", "divorced", "widowed", "separated", "registered_partnership"]
+  }),
+  nationality: varchar("nationality"),
+  religion: varchar("religion", {
+    enum: ["none", "roman_catholic", "protestant", "other"]
+  }),
+  mobile: varchar("mobile"),
+  ahvNumber: varchar("ahv_number"),
+  
+  // Kinderzulagen (Child Benefits)
+  hasChildBenefits: boolean("has_child_benefits"),
+  numberOfChildren: integer("number_of_children"),
+  childBenefitsRecipient: varchar("child_benefits_recipient"),
+  childBenefitsRegistration: varchar("child_benefits_registration"),
+  
+  // Aufenthaltsbewilligung (Residence Permit)
+  hasResidencePermit: boolean("has_residence_permit"),
+  residencePermitType: varchar("residence_permit_type", {
+    enum: ["L", "B", "C", "G"]
+  }),
+  residencePermitValidUntil: varchar("residence_permit_valid_until"),
+  residencePermitFrontImage: varchar("residence_permit_front_image"),
+  residencePermitBackImage: varchar("residence_permit_back_image"),
+  
+  // Bankangaben (Bank Details) - excluding clearing number per user request
+  bankName: varchar("bank_name"),
+  bankAddress: varchar("bank_address"),
   bankAccount: varchar("bank_account"),
+  
+  // Mobilität (Mobility)
+  hasOwnVehicle: boolean("has_own_vehicle"),
   
   isActive: boolean("is_active").default(true).notNull(),
   lastAccessedAt: timestamp("last_accessed_at"),
