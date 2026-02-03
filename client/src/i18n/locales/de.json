@@ -2807,6 +2807,29 @@
         "save": "Speichern",
         "add": "Hinzufügen"
       },
+      "bulkEditTimes": {
+        "title": "Anästhesiezeiten bearbeiten",
+        "description": "Zeitstempel für wichtige Anästhesie-Meilensteine anpassen.",
+        "calculatedDurations": "Berechnete Zeiten",
+        "surgeryTime": "OP-Zeit (O1 → O2):",
+        "anesthesiaTime": "Anästhesiezeit (X1 → X2):",
+        "invalidDuration": "Ungültig (Ende vor Start)",
+        "notSetClickToPlace": "Nicht gesetzt - auf Zeiten-Zeile klicken",
+        "now": "Jetzt",
+        "clear": "Löschen",
+        "close": "Schliessen",
+        "save": "Speichern",
+        "saving": "Speichern...",
+        "timesSaved": "Zeiten gespeichert",
+        "timesUpdated": "Anästhesiezeiten wurden aktualisiert",
+        "errorSaving": "Fehler beim Speichern der Zeiten"
+      },
+      "editTimeMarker": {
+        "title": "Zeitmarker bearbeiten",
+        "description": "Zeit für diesen Anästhesie-Meilenstein anpassen oder aus der Zeitleiste entfernen.",
+        "notSet": "Nicht gesetzt",
+        "done": "Fertig"
+      },
       "positionDialog": {
         "title": "Patientenlagerung",
         "selectDescription": "Lagerung des Patienten auswählen",

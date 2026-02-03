@@ -2792,6 +2792,29 @@
         "save": "Save",
         "add": "Add"
       },
+      "bulkEditTimes": {
+        "title": "Edit Anesthesia Times",
+        "description": "Adjust the timestamps for key anesthesia milestones.",
+        "calculatedDurations": "Calculated Durations",
+        "surgeryTime": "Surgery time (O1 → O2):",
+        "anesthesiaTime": "Anesthesia time (X1 → X2):",
+        "invalidDuration": "Invalid (end before start)",
+        "notSetClickToPlace": "Not set - click on Times lane to place",
+        "now": "Now",
+        "clear": "Clear",
+        "close": "Close",
+        "save": "Save",
+        "saving": "Saving...",
+        "timesSaved": "Times saved",
+        "timesUpdated": "Anesthesia times have been updated",
+        "errorSaving": "Error saving times"
+      },
+      "editTimeMarker": {
+        "title": "Edit Time Marker",
+        "description": "Adjust the time for this anesthesia milestone or remove it from the timeline.",
+        "notSet": "Not set",
+        "done": "Done"
+      },
       "positionDialog": {
         "title": "Patient Position",
         "selectDescription": "Select a patient position",

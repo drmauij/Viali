@@ -8924,9 +8924,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       <Dialog open={bulkEditDialogOpen} onOpenChange={setBulkEditDialogOpen}>
         <DialogContent className="sm:max-w-[600px]" data-testid="dialog-bulk-edit-times">
           <DialogHeader>
-            <DialogTitle>Edit Anesthesia Times</DialogTitle>
+            <DialogTitle>{t('anesthesia.timeline.bulkEditTimes.title')}</DialogTitle>
             <DialogDescription>
-              Adjust the timestamps for key anesthesia milestones.
+              {t('anesthesia.timeline.bulkEditTimes.description')}
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
@@ -8939,7 +8939,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               
               const formatDuration = (startTime: number, endTime: number): string => {
                 const durationMs = endTime - startTime;
-                if (durationMs < 0) return 'Invalid (end before start)';
+                if (durationMs < 0) return t('anesthesia.timeline.bulkEditTimes.invalidDuration');
                 
                 const hours = Math.floor(durationMs / (1000 * 60 * 60));
                 const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
@@ -8963,11 +8963,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               
               return (
                 <div className="bg-muted/50 rounded-lg p-4 mb-4">
-                  <div className="text-sm font-medium mb-2 text-foreground/70">Calculated Durations</div>
+                  <div className="text-sm font-medium mb-2 text-foreground/70">{t('anesthesia.timeline.bulkEditTimes.calculatedDurations')}</div>
                   <div className="grid gap-2">
                     {surgeryDuration && (
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-foreground/70">Surgery time (O1 → O2):</span>
+                        <span className="text-sm text-foreground/70">{t('anesthesia.timeline.bulkEditTimes.surgeryTime')}</span>
                         <Badge variant="secondary" className="font-mono" data-testid="calculated-surgery-time">
                           {surgeryDuration}
                         </Badge>
@@ -8975,7 +8975,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                     )}
                     {anesthesiaDuration && (
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-foreground/70">Anesthesia time (X1 → X2):</span>
+                        <span className="text-sm text-foreground/70">{t('anesthesia.timeline.bulkEditTimes.anesthesiaTime')}</span>
                         <Badge variant="secondary" className="font-mono" data-testid="calculated-anesthesia-time">
                           {anesthesiaDuration}
                         </Badge>
@@ -9020,7 +9020,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                     />
                   ) : (
                     <div className="text-sm text-muted-foreground italic py-2">
-                      Not set - click on Times lane to place
+                      {t('anesthesia.timeline.bulkEditTimes.notSetClickToPlace')}
                     </div>
                   )}
                 </div>
@@ -9036,7 +9036,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                     }}
                     data-testid={`button-now-${marker.code}`}
                   >
-                    Now
+                    {t('anesthesia.timeline.bulkEditTimes.now')}
                   </Button>
                 ) : (
                   <Button
@@ -9050,7 +9050,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                     }}
                     data-testid={`button-clear-${marker.code}`}
                   >
-                    Clear
+                    {t('anesthesia.timeline.bulkEditTimes.clear')}
                   </Button>
                 )}
               </div>
@@ -9062,7 +9062,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               onClick={() => setBulkEditDialogOpen(false)}
               data-testid="button-close-bulk-edit"
             >
-              Close
+              {t('anesthesia.timeline.bulkEditTimes.close')}
             </Button>
             <Button
               onClick={() => {
@@ -9083,15 +9083,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                       console.log('[TIME_MARKERS] Save successful, closing dialog');
                       setBulkEditDialogOpen(false);
                       toast({
-                        title: "Times saved",
-                        description: "Anesthesia times have been updated",
+                        title: t('anesthesia.timeline.bulkEditTimes.timesSaved'),
+                        description: t('anesthesia.timeline.bulkEditTimes.timesUpdated'),
                         duration: 2000,
                       });
                     },
                     onError: (error) => {
                       console.error('[TIME_MARKERS] Save failed', error);
                       toast({
-                        title: "Error saving times",
+                        title: t('anesthesia.timeline.bulkEditTimes.errorSaving'),
                         description: error instanceof Error ? error.message : "Failed to save times",
                         variant: "destructive",
                       });
@@ -9104,7 +9104,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               data-testid="button-save-bulk-edit"
               disabled={saveTimeMarkersMutation.isPending}
             >
-              {saveTimeMarkersMutation.isPending ? 'Saving...' : 'Save'}
+              {saveTimeMarkersMutation.isPending ? t('anesthesia.timeline.bulkEditTimes.saving') : t('anesthesia.timeline.bulkEditTimes.save')}
             </Button>
           </div>
         </DialogContent>
@@ -9121,9 +9121,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       }}>
         <DialogContent className="sm:max-w-[425px]" data-testid="dialog-edit-time-marker">
           <DialogHeader>
-            <DialogTitle>Edit Time Marker</DialogTitle>
+            <DialogTitle>{t('anesthesia.timeline.editTimeMarker.title')}</DialogTitle>
             <DialogDescription>
-              Adjust the time for this anesthesia milestone or remove it from the timeline.
+              {t('anesthesia.timeline.editTimeMarker.description')}
             </DialogDescription>
           </DialogHeader>
           {editingTimeMarker && (
@@ -9144,7 +9144,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                     <span>
                       {editingTimeMarker.marker.time 
                         ? formatTime(editingTimeMarker.marker.time)
-                        : 'Not set'}
+                        : t('anesthesia.timeline.editTimeMarker.notSet')}
                     </span>
                     {editingTimeMarker.marker.time && (
                       <Badge variant="secondary" className="text-xs font-normal" data-testid="elapsed-time-single">
@@ -9169,7 +9169,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
               setTimeMarkerEditDialogOpen(false);
               setEditingTimeMarker(null);
             }}
-            saveLabel="Done"
+            saveLabel={t('anesthesia.timeline.editTimeMarker.done')}
           />
           {editingTimeMarker && (
             <div style={{ display: 'none' }}>
