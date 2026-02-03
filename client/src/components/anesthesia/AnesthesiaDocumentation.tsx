@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, X, Download, Printer, Loader2, Trash2, Check, Pencil, MessageCircle, User, Mail, Stethoscope } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAutoSaveMutation } from "@/hooks/useAutoSaveMutation";
@@ -59,14 +59,21 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
   
   // Maintain local state for each installation to avoid stale data
   const [localState, setLocalState] = useState<Record<string, any>>({});
+  // Track which installations have pending saves (use ref for synchronous access)
+  const pendingSavesRef = useRef<Set<string>>(new Set());
 
-  // Sync local state from server data
+  // Sync local state from server data, but preserve installations with pending saves
   useEffect(() => {
-    const newState: Record<string, any> = {};
-    installations.forEach(inst => {
-      newState[inst.id] = inst;
+    setLocalState(prev => {
+      const newState: Record<string, any> = { ...prev };
+      installations.forEach(inst => {
+        // Only update from server if there's no pending save for this installation
+        if (!pendingSavesRef.current.has(inst.id)) {
+          newState[inst.id] = inst;
+        }
+      });
+      return newState;
     });
-    setLocalState(newState);
   }, [installations]);
 
   // Get current state (local or from server)
@@ -117,11 +124,20 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
     // Compute fresh merged state
     const nextState = { ...current, ...mergedUpdates };
     
+    // Mark this installation as having a pending save (synchronously via ref)
+    pendingSavesRef.current.add(id);
+    
     // Update local state immediately for optimistic UI
     setLocalState(prev => ({ ...prev, [id]: nextState }));
     
     // Trigger auto-save with the merged updates
     installationAutoSave.mutate({ id, data: mergedUpdates });
+    
+    // Clear pending flag after a delay to allow server sync
+    // This ensures the flag is cleared even if the mutation takes a while
+    setTimeout(() => {
+      pendingSavesRef.current.delete(id);
+    }, 3000);
   };
 
   const handleDelete = (id: string) => {
