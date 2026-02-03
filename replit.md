@@ -181,3 +181,33 @@ Core design decisions include:
 **AI Services:**
 - OpenAI Vision API
 - OpenAI GPT-4
+
+---
+
+## TARDOC Invoicing Integration Roadmap
+
+### Phase 1: CHOP Catalog Integration (Current)
+- Import Swiss CHOP 2026 procedure catalog (13,600+ codable procedures)
+- Add `chop_procedures` table for procedure lookup
+- Update surgery scheduling to use structured CHOP codes instead of free-text
+- Searchable procedure selector in QuickCreateSurgeryDialog and EditSurgeryDialog
+
+### Phase 2: Kodia API Integration (Future)
+- Integrate Kodia.ch API for AI-assisted TARDOC code suggestions
+- Send surgery description + anesthesia times to get billable TARDOC codes
+- Validate cumulation rules and provider qualifications (valeurs intrinsèques)
+
+### Phase 3: Invoice Data Model (Future)
+- Create invoice schema: drafts, line items, patient insurance info, provider GLN
+- Link completed surgeries to invoice records
+- Track invoice status: draft → submitted → paid/rejected
+
+### Phase 4: XML 5.0 Invoice Generation (Future)
+- Generate Swiss healthcare standard XML 5.0 invoices
+- Support Tiers Garant and Tiers Payant billing models
+- PDF invoice output for manual submission
+
+### Phase 5: Insurance Company Configuration (Future)
+- Admin interface for insurer details and GLN numbers
+- Invoice submission preferences per insurer
+- Invoice management dashboard with status tracking
