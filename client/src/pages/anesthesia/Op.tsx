@@ -1632,7 +1632,7 @@ export default function Op() {
                         )}
                       </div>
                     </AccordionTrigger>
-                    <AccordionContent>
+                    <AccordionContent forceMount className="data-[state=closed]:hidden">
                       <InstallationsSection anesthesiaRecordId={anesthesiaRecord?.id || ''} />
                     </AccordionContent>
                   </Card>
