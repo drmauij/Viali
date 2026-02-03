@@ -833,6 +833,8 @@ export const surgeries = pgTable("surgeries", {
   plannedDate: timestamp("planned_date").notNull(),
   plannedSurgery: varchar("planned_surgery").notNull(),
   chopCode: varchar("chop_code"), // Optional CHOP procedure code for structured surgery naming
+  surgerySide: varchar("surgery_side", { enum: ["left", "right", "both"] }), // Surgery laterality
+  antibioseProphylaxe: boolean("antibiose_prophylaxe").default(false), // Antibiotic prophylaxis required
   surgeon: varchar("surgeon"), // Display name / fallback for unmatched surgeons
   surgeonId: varchar("surgeon_id").references(() => users.id), // Foreign key to users table for proper linking
   notes: text("notes"),
