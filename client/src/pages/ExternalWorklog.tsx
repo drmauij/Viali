@@ -678,6 +678,10 @@ export default function ExternalWorklog() {
       y += 8;
       doc.setFontSize(10);
       doc.text(`${isGerman ? "Name" : "Name"}: ${personalData.firstName} ${personalData.lastName}`, leftMargin, y);
+      if (personalData.dateOfBirth) {
+        y += 6;
+        doc.text(`${isGerman ? "Geburtsdatum" : "Date of Birth"}: ${personalData.dateOfBirth}`, leftMargin, y);
+      }
       if (personalData.address) {
         y += 6;
         doc.text(`${isGerman ? "Adresse" : "Address"}: ${personalData.address}`, leftMargin, y);
@@ -686,9 +690,115 @@ export default function ExternalWorklog() {
         y += 6;
         doc.text(`${personalData.zip} ${personalData.city}`, leftMargin, y);
       }
-      if (personalData.bankAccount) {
+      if (personalData.mobile) {
         y += 6;
-        doc.text(`IBAN: ${personalData.bankAccount}`, leftMargin, y);
+        doc.text(`${isGerman ? "Mobile" : "Mobile"}: ${personalData.mobile}`, leftMargin, y);
+      }
+      if (personalData.maritalStatus) {
+        y += 6;
+        const maritalStatusLabels: Record<string, { de: string; en: string }> = {
+          single: { de: "Ledig", en: "Single" },
+          married: { de: "Verheiratet", en: "Married" },
+          widowed: { de: "Verwitwet", en: "Widowed" },
+          divorced: { de: "Geschieden", en: "Divorced" },
+          separated: { de: "Getrennt", en: "Separated" },
+          registered_partnership: { de: "Eingetragene Partnerschaft", en: "Registered Partnership" },
+        };
+        const statusLabel = maritalStatusLabels[personalData.maritalStatus] 
+          ? (isGerman ? maritalStatusLabels[personalData.maritalStatus].de : maritalStatusLabels[personalData.maritalStatus].en)
+          : personalData.maritalStatus;
+        doc.text(`${isGerman ? "Zivilstand" : "Marital Status"}: ${statusLabel}`, leftMargin, y);
+      }
+      if (personalData.nationality) {
+        y += 6;
+        doc.text(`${isGerman ? "Nationalität" : "Nationality"}: ${personalData.nationality}`, leftMargin, y);
+      }
+      if (personalData.religion) {
+        y += 6;
+        const religionLabels: Record<string, { de: string; en: string }> = {
+          none: { de: "Konfessionslos", en: "None" },
+          roman_catholic: { de: "Römisch-katholisch", en: "Roman Catholic" },
+          protestant: { de: "Evangelisch-reformiert", en: "Protestant" },
+          christian_catholic: { de: "Christkatholisch", en: "Christian Catholic" },
+          jewish: { de: "Jüdisch", en: "Jewish" },
+          other: { de: "Andere", en: "Other" },
+        };
+        const religionLabel = religionLabels[personalData.religion]
+          ? (isGerman ? religionLabels[personalData.religion].de : religionLabels[personalData.religion].en)
+          : personalData.religion;
+        doc.text(`${isGerman ? "Konfession" : "Religion"}: ${religionLabel}`, leftMargin, y);
+      }
+      if (personalData.ahvNumber) {
+        y += 6;
+        doc.text(`${isGerman ? "AHV-Nummer" : "AHV Number"}: ${personalData.ahvNumber}`, leftMargin, y);
+      }
+      
+      if (personalData.hasChildBenefits) {
+        y += 8;
+        doc.setFontSize(11);
+        doc.text(isGerman ? "Kinderzulagen" : "Child Benefits", leftMargin, y);
+        doc.setFontSize(10);
+        y += 6;
+        doc.text(`${isGerman ? "Anzahl Kinder" : "Number of Children"}: ${personalData.numberOfChildren || 0}`, leftMargin, y);
+        if (personalData.childBenefitsRecipient) {
+          y += 6;
+          doc.text(`${isGerman ? "Bezüger" : "Recipient"}: ${personalData.childBenefitsRecipient}`, leftMargin, y);
+        }
+        if (personalData.childBenefitsRegistration) {
+          y += 6;
+          doc.text(`${isGerman ? "Anmeldung bei" : "Registered at"}: ${personalData.childBenefitsRegistration}`, leftMargin, y);
+        }
+      }
+      
+      if (personalData.hasResidencePermit) {
+        y += 8;
+        doc.setFontSize(11);
+        doc.text(isGerman ? "Aufenthaltsbewilligung" : "Residence Permit", leftMargin, y);
+        doc.setFontSize(10);
+        if (personalData.residencePermitType) {
+          y += 6;
+          const permitLabels: Record<string, { de: string; en: string }> = {
+            B: { de: "B - Aufenthaltsbewilligung", en: "B - Residence Permit" },
+            C: { de: "C - Niederlassungsbewilligung", en: "C - Settlement Permit" },
+            G: { de: "G - Grenzgängerbewilligung", en: "G - Cross-Border Permit" },
+            L: { de: "L - Kurzaufenthaltsbewilligung", en: "L - Short-Stay Permit" },
+            F: { de: "F - Vorläufig Aufgenommene", en: "F - Provisionally Admitted" },
+            N: { de: "N - Asylsuchende", en: "N - Asylum Seeker" },
+            S: { de: "S - Schutzbedürftige", en: "S - Protection Seeker" },
+          };
+          const permitLabel = permitLabels[personalData.residencePermitType]
+            ? (isGerman ? permitLabels[personalData.residencePermitType].de : permitLabels[personalData.residencePermitType].en)
+            : personalData.residencePermitType;
+          doc.text(`${isGerman ? "Typ" : "Type"}: ${permitLabel}`, leftMargin, y);
+        }
+        if (personalData.residencePermitValidUntil) {
+          y += 6;
+          doc.text(`${isGerman ? "Gültig bis" : "Valid Until"}: ${personalData.residencePermitValidUntil}`, leftMargin, y);
+        }
+      }
+      
+      if (personalData.bankName || personalData.bankAccount) {
+        y += 8;
+        doc.setFontSize(11);
+        doc.text(isGerman ? "Bankverbindung" : "Bank Details", leftMargin, y);
+        doc.setFontSize(10);
+        if (personalData.bankName) {
+          y += 6;
+          doc.text(`${isGerman ? "Bank" : "Bank"}: ${personalData.bankName}`, leftMargin, y);
+        }
+        if (personalData.bankAddress) {
+          y += 6;
+          doc.text(`${isGerman ? "Bankadresse" : "Bank Address"}: ${personalData.bankAddress}`, leftMargin, y);
+        }
+        if (personalData.bankAccount) {
+          y += 6;
+          doc.text(`IBAN: ${personalData.bankAccount}`, leftMargin, y);
+        }
+      }
+      
+      if (personalData.hasOwnVehicle) {
+        y += 6;
+        doc.text(`${isGerman ? "Eigenes Fahrzeug" : "Own Vehicle"}: ${isGerman ? "Ja" : "Yes"}`, leftMargin, y);
       }
       
       const selectedContract = contracts.find(c => c.id === selectedContractId);
