@@ -6714,7 +6714,9 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                     data-testid="button-next-timepoint"
                     title={(() => {
                       const nextMarker = timeMarkers.find(m => m.time === null);
-                      return nextMarker ? `Next: ${nextMarker.label}` : 'All times set';
+                      return nextMarker 
+                        ? `${t('anesthesia.timeline.zeitenTooltip.next', 'Next')}: ${t(`anesthesia.timeline.timeMarkerLabels.${nextMarker.code}`, nextMarker.label)}` 
+                        : t('anesthesia.timeline.zeitenTooltip.allMarkersPlaced', 'All times set');
                     })()}
                   >
                     {(() => {
@@ -6723,11 +6725,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                         return (
                           <>
                             <ChevronRight className="w-4 h-4 shrink-0" />
-                            <span className="truncate text-[11px]">{nextMarker.label}</span>
+                            <span className="truncate text-[11px]">{t(`anesthesia.timeline.timeMarkerLabels.${nextMarker.code}`, nextMarker.label)}</span>
                           </>
                         );
                       } else {
-                        return <span className="text-[11px]">All times set</span>;
+                        return <span className="text-[11px]">{t('anesthesia.timeline.zeitenTooltip.allMarkersPlaced', 'All times set')}</span>;
                       }
                     })()}
                   </button>
@@ -6735,7 +6737,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                     onClick={() => setBulkEditDialogOpen(true)}
                     className="hover:bg-background/10 transition-colors rounded p-0.5 pointer-events-auto"
                     data-testid="button-edit-anesthesia-times"
-                    title="Edit Anesthesia Times"
+                    title={t('anesthesia.timeline.bulkEditTimes.title', 'Edit Anesthesia Times')}
                   >
                     <Clock className="w-4 h-4 text-foreground/70 group-hover:text-foreground shrink-0" />
                   </button>

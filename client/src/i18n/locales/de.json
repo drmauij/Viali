@@ -2842,6 +2842,7 @@
       "zeitenTooltip": {
         "clickToEdit": "Klicken zum Bearbeiten",
         "place": "Setzen",
+        "next": "Nächster",
         "allMarkersPlaced": "Alle Marker gesetzt"
       },
       "editTimeMarker": {
