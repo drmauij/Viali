@@ -53,9 +53,14 @@ export function InstallationsSection({ anesthesiaRecordId }: SectionProps) {
   }
 
   const { toast } = useToast();
-  const { data: installations = [], isLoading } = useInstallations(anesthesiaRecordId);
+  const { data: installations = [], isLoading, refetch } = useInstallations(anesthesiaRecordId);
   const createMutation = useCreateInstallation(anesthesiaRecordId);
   const deleteMutation = useDeleteInstallation(anesthesiaRecordId);
+  
+  // Force refetch on mount to get fresh data when accordion reopens
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
   
   // Maintain local state for each installation to avoid stale data
   const [localState, setLocalState] = useState<Record<string, any>>({});
