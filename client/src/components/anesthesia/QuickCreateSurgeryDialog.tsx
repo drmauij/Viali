@@ -87,6 +87,8 @@ export default function QuickCreateSurgeryDialog({
   const [notes, setNotes] = useState("");
   const [implantDetails, setImplantDetails] = useState("");
   const [noPreOpRequired, setNoPreOpRequired] = useState(false);
+  const [surgerySide, setSurgerySide] = useState<"left" | "right" | "both" | "">("");
+  const [antibioseProphylaxe, setAntibioseProphylaxe] = useState(false);
   
   // New patient form state
   const [newPatientFirstName, setNewPatientFirstName] = useState("");
@@ -363,6 +365,8 @@ export default function QuickCreateSurgeryDialog({
     setNotes("");
     setImplantDetails("");
     setNoPreOpRequired(false);
+    setSurgerySide("");
+    setAntibioseProphylaxe(false);
     setShowNewPatientForm(false);
     setNewPatientFirstName("");
     setNewPatientSurname("");
@@ -466,6 +470,8 @@ export default function QuickCreateSurgeryDialog({
       admissionTime: admissionTimeISO,
       implantDetails: implantDetails.trim() || undefined,
       noPreOpRequired: noPreOpRequired,
+      surgerySide: surgerySide || undefined,
+      antibioseProphylaxe: antibioseProphylaxe,
       status: "planned",
     });
   };
@@ -823,6 +829,73 @@ export default function QuickCreateSurgeryDialog({
                 </Command>
               </PopoverContent>
             </Popover>
+          </div>
+
+          {/* Surgery Side */}
+          <div className="space-y-2">
+            <Label>{t('anesthesia.quickSchedule.surgerySide', 'Surgery Side')} / {t('anesthesia.quickSchedule.surgerySideDe', 'OP-Seite')}</Label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="surgerySide"
+                  value="left"
+                  checked={surgerySide === "left"}
+                  onChange={() => setSurgerySide("left")}
+                  className="h-4 w-4"
+                  data-testid="radio-surgery-side-left"
+                />
+                <span className="text-sm">{t('anesthesia.quickSchedule.left', 'Left')} / Links</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="surgerySide"
+                  value="right"
+                  checked={surgerySide === "right"}
+                  onChange={() => setSurgerySide("right")}
+                  className="h-4 w-4"
+                  data-testid="radio-surgery-side-right"
+                />
+                <span className="text-sm">{t('anesthesia.quickSchedule.right', 'Right')} / Rechts</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="surgerySide"
+                  value="both"
+                  checked={surgerySide === "both"}
+                  onChange={() => setSurgerySide("both")}
+                  className="h-4 w-4"
+                  data-testid="radio-surgery-side-both"
+                />
+                <span className="text-sm">{t('anesthesia.quickSchedule.both', 'Both')} / Beidseitig</span>
+              </label>
+              {surgerySide && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSurgerySide("")}
+                  className="text-xs h-6 px-2"
+                >
+                  {t('common.clear', 'Clear')}
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Antibiose Prophylaxe */}
+          <div className="flex items-center gap-3">
+            <Checkbox
+              id="antibiose-prophylaxe"
+              checked={antibioseProphylaxe}
+              onCheckedChange={(checked) => setAntibioseProphylaxe(checked === true)}
+              data-testid="checkbox-antibiose-prophylaxe"
+            />
+            <Label htmlFor="antibiose-prophylaxe" className="font-normal cursor-pointer">
+              {t('anesthesia.quickSchedule.antibioseProphylaxe', 'Antibiotic Prophylaxis Required')} / Antibiose-Prophylaxe erforderlich
+            </Label>
           </div>
 
           {/* Surgeon */}

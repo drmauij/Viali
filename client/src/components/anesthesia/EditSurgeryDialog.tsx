@@ -52,6 +52,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [implantDetails, setImplantDetails] = useState("");
   const [planningStatus, setPlanningStatus] = useState<"pre-registered" | "confirmed">("pre-registered");
   const [noPreOpRequired, setNoPreOpRequired] = useState(false);
+  const [surgerySide, setSurgerySide] = useState<"left" | "right" | "both" | "">("");
+  const [antibioseProphylaxe, setAntibioseProphylaxe] = useState(false);
   
   // CHOP procedure selector state
   const [selectedChopCode, setSelectedChopCode] = useState("");
@@ -297,6 +299,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setImplantDetails(surgery.implantDetails || "");
       setPlanningStatus(surgery.planningStatus || "pre-registered");
       setNoPreOpRequired(surgery.noPreOpRequired || false);
+      setSurgerySide(surgery.surgerySide || "");
+      setAntibioseProphylaxe(surgery.antibioseProphylaxe || false);
       
       if (surgery.admissionTime) {
         const admissionDateObj = new Date(surgery.admissionTime);
@@ -342,6 +346,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         implantDetails: implantDetails || null,
         planningStatus,
         noPreOpRequired,
+        surgerySide: surgerySide || null,
+        antibioseProphylaxe,
       });
       return response.json();
     },
@@ -901,6 +907,80 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   data-testid="textarea-edit-implant-details"
                   rows={3}
                 />
+              </div>
+
+              {/* Surgery Side */}
+              <div className="space-y-2">
+                <Label>{t('anesthesia.editSurgery.surgerySide', 'Surgery Side')} / OP-Seite</Label>
+                <div className="flex gap-4 flex-wrap">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="editSurgerySide"
+                      value="left"
+                      checked={surgerySide === "left"}
+                      onChange={() => setSurgerySide("left")}
+                      disabled={!canWrite}
+                      className="h-4 w-4"
+                      data-testid="radio-edit-surgery-side-left"
+                    />
+                    <span className="text-sm">{t('anesthesia.editSurgery.left', 'Left')} / Links</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="editSurgerySide"
+                      value="right"
+                      checked={surgerySide === "right"}
+                      onChange={() => setSurgerySide("right")}
+                      disabled={!canWrite}
+                      className="h-4 w-4"
+                      data-testid="radio-edit-surgery-side-right"
+                    />
+                    <span className="text-sm">{t('anesthesia.editSurgery.right', 'Right')} / Rechts</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="editSurgerySide"
+                      value="both"
+                      checked={surgerySide === "both"}
+                      onChange={() => setSurgerySide("both")}
+                      disabled={!canWrite}
+                      className="h-4 w-4"
+                      data-testid="radio-edit-surgery-side-both"
+                    />
+                    <span className="text-sm">{t('anesthesia.editSurgery.both', 'Both')} / Beidseitig</span>
+                  </label>
+                  {surgerySide && canWrite && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSurgerySide("")}
+                      className="text-xs h-6 px-2"
+                    >
+                      {t('common.clear', 'Clear')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Antibiose Prophylaxe */}
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox
+                  id="edit-antibiose-prophylaxe"
+                  checked={antibioseProphylaxe}
+                  onCheckedChange={(checked) => setAntibioseProphylaxe(checked === true)}
+                  disabled={!canWrite}
+                  data-testid="checkbox-edit-antibiose-prophylaxe"
+                />
+                <Label 
+                  htmlFor="edit-antibiose-prophylaxe" 
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  {t('anesthesia.editSurgery.antibioseProphylaxe', 'Antibiotic Prophylaxis Required')} / Antibiose-Prophylaxe erforderlich
+                </Label>
               </div>
 
               {/* No Anesthesia Pre-Op Required */}

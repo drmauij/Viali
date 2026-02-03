@@ -741,6 +741,8 @@ export default function PatientDetail() {
   const [newCase, setNewCase] = useState({
     plannedSurgery: "",
     chopCode: "",
+    surgerySide: "" as "" | "left" | "right" | "both",
+    antibioseProphylaxe: false,
     surgeon: "",
     surgeonId: "",
     plannedDate: "",
@@ -944,7 +946,7 @@ export default function PatientDetail() {
         description: t('anesthesia.patientDetail.successSurgeryCreatedDesc'),
       });
       setIsCreateCaseOpen(false);
-      setNewCase({ plannedSurgery: "", chopCode: "", surgeon: "", surgeonId: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
+      setNewCase({ plannedSurgery: "", chopCode: "", surgerySide: "", antibioseProphylaxe: false, surgeon: "", surgeonId: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
     },
     onError: (error: any) => {
       toast({
@@ -1466,6 +1468,8 @@ export default function PatientDetail() {
       actualEndTime: endDate.toISOString(),
       notes: newCase.notes || null,
       noPreOpRequired: newCase.noPreOpRequired,
+      surgerySide: newCase.surgerySide || null,
+      antibioseProphylaxe: newCase.antibioseProphylaxe,
     };
     
     console.log("Creating surgery with data:", surgeryData);
@@ -2884,6 +2888,74 @@ export default function PatientDetail() {
                         </PopoverContent>
                       </Popover>
                     </div>
+
+                    {/* Surgery Side */}
+                    <div className="space-y-2">
+                      <Label>{t('anesthesia.patientDetail.surgerySide', 'Surgery Side')} / OP-Seite</Label>
+                      <div className="flex gap-4 flex-wrap">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="newCaseSurgerySide"
+                            value="left"
+                            checked={newCase.surgerySide === "left"}
+                            onChange={() => setNewCase({ ...newCase, surgerySide: "left" })}
+                            className="h-4 w-4"
+                            data-testid="radio-newcase-surgery-side-left"
+                          />
+                          <span className="text-sm">{t('anesthesia.patientDetail.left', 'Left')} / Links</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="newCaseSurgerySide"
+                            value="right"
+                            checked={newCase.surgerySide === "right"}
+                            onChange={() => setNewCase({ ...newCase, surgerySide: "right" })}
+                            className="h-4 w-4"
+                            data-testid="radio-newcase-surgery-side-right"
+                          />
+                          <span className="text-sm">{t('anesthesia.patientDetail.right', 'Right')} / Rechts</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="newCaseSurgerySide"
+                            value="both"
+                            checked={newCase.surgerySide === "both"}
+                            onChange={() => setNewCase({ ...newCase, surgerySide: "both" })}
+                            className="h-4 w-4"
+                            data-testid="radio-newcase-surgery-side-both"
+                          />
+                          <span className="text-sm">{t('anesthesia.patientDetail.both', 'Both')} / Beidseitig</span>
+                        </label>
+                        {newCase.surgerySide && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setNewCase({ ...newCase, surgerySide: "" })}
+                            className="text-xs h-6 px-2"
+                          >
+                            {t('common.clear', 'Clear')}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Antibiose Prophylaxe */}
+                    <div className="flex items-center gap-3">
+                      <Checkbox
+                        id="newcase-antibiose-prophylaxe"
+                        checked={newCase.antibioseProphylaxe}
+                        onCheckedChange={(checked) => setNewCase({ ...newCase, antibioseProphylaxe: checked === true })}
+                        data-testid="checkbox-newcase-antibiose-prophylaxe"
+                      />
+                      <Label htmlFor="newcase-antibiose-prophylaxe" className="font-normal cursor-pointer">
+                        {t('anesthesia.patientDetail.antibioseProphylaxe', 'Antibiotic Prophylaxis Required')} / Antibiose-Prophylaxe erforderlich
+                      </Label>
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="surgeon">{t('anesthesia.patientDetail.surgeon')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
                       <Select 

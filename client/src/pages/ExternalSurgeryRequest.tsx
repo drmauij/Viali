@@ -42,6 +42,8 @@ interface FormData {
   surgeonPhone: string;
   surgeryName: string;
   chopCode: string;
+  surgerySide: "" | "left" | "right" | "both";
+  antibioseProphylaxe: boolean;
   surgeryDurationMinutes: number;
   withAnesthesia: boolean;
   surgeryNotes: string;
@@ -87,6 +89,8 @@ export default function ExternalSurgeryRequest() {
     surgeonPhone: '',
     surgeryName: '',
     chopCode: '',
+    surgerySide: '',
+    antibioseProphylaxe: false,
     surgeryDurationMinutes: 60,
     withAnesthesia: true,
     surgeryNotes: '',
@@ -601,6 +605,75 @@ export default function ExternalSurgeryRequest() {
                   </div>
                 </div>
                 
+                {/* Surgery Side */}
+                <div className="space-y-2">
+                  <Label>
+                    {isGerman ? 'OP-Seite' : 'Surgery Side'}
+                  </Label>
+                  <div className="flex gap-4 flex-wrap">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="externalSurgerySide"
+                        value="left"
+                        checked={formData.surgerySide === "left"}
+                        onChange={() => updateField('surgerySide', 'left')}
+                        className="h-4 w-4"
+                        data-testid="radio-external-surgery-side-left"
+                      />
+                      <span className="text-sm">{isGerman ? 'Links' : 'Left'}</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="externalSurgerySide"
+                        value="right"
+                        checked={formData.surgerySide === "right"}
+                        onChange={() => updateField('surgerySide', 'right')}
+                        className="h-4 w-4"
+                        data-testid="radio-external-surgery-side-right"
+                      />
+                      <span className="text-sm">{isGerman ? 'Rechts' : 'Right'}</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="externalSurgerySide"
+                        value="both"
+                        checked={formData.surgerySide === "both"}
+                        onChange={() => updateField('surgerySide', 'both')}
+                        className="h-4 w-4"
+                        data-testid="radio-external-surgery-side-both"
+                      />
+                      <span className="text-sm">{isGerman ? 'Beidseitig' : 'Both'}</span>
+                    </label>
+                    {formData.surgerySide && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => updateField('surgerySide', '')}
+                        className="text-xs h-6 px-2"
+                      >
+                        {isGerman ? 'Löschen' : 'Clear'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Antibiose Prophylaxe */}
+                <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <Label htmlFor="antibioseProphylaxe" className="cursor-pointer">
+                    {isGerman ? 'Antibiose-Prophylaxe erforderlich' : 'Antibiotic Prophylaxis Required'}
+                  </Label>
+                  <Switch
+                    id="antibioseProphylaxe"
+                    checked={formData.antibioseProphylaxe}
+                    onCheckedChange={(checked) => updateField('antibioseProphylaxe', checked)}
+                    data-testid="switch-antibiose-prophylaxe"
+                  />
+                </div>
+
                 <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
                   <Label htmlFor="withAnesthesia" className="cursor-pointer">
                     {isGerman ? 'Mit Anästhesie' : 'With Anesthesia'}
