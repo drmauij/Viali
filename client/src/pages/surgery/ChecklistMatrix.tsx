@@ -71,7 +71,6 @@ export default function ChecklistMatrix() {
   const [cellStates, setCellStates] = useState<Record<string, MatrixCellState>>({});
   const [editingCell, setEditingCell] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState("");
-  const [savingCell, setSavingCell] = useState<string | null>(null);
   const [templateEditorOpen, setTemplateEditorOpen] = useState(false);
   const [editingSurgeryId, setEditingSurgeryId] = useState<string | null>(null);
   
@@ -305,7 +304,6 @@ export default function ChecklistMatrix() {
         }
         return next;
       });
-      setSavingCell(null);
     },
     onSuccess: (_, variables) => {
       const key = `${variables.surgeryId}-${variables.itemId}`;
@@ -367,7 +365,6 @@ export default function ChecklistMatrix() {
       next.set(cellKey, (next.get(cellKey) || 0) + 1);
       return next;
     });
-    setSavingCell(cellKey);
     updateCellState(surgeryId, itemId, { checked: newChecked });
     
     saveCellMutation.mutate({
@@ -439,7 +436,6 @@ export default function ChecklistMatrix() {
         }
         return next;
       });
-      setSavingCell(null);
     },
     onSuccess: (_, variables) => {
       const key = `${variables.surgeryId}-${variables.itemId}`;
@@ -467,7 +463,6 @@ export default function ChecklistMatrix() {
       next.set(cellKey, (next.get(cellKey) || 0) + 1);
       return next;
     });
-    setSavingCell(cellKey);
     updatePastCellState(surgeryId, itemId, { checked: newChecked });
     
     savePastCellMutation.mutate({
@@ -831,7 +826,6 @@ export default function ChecklistMatrix() {
                                 <Checkbox
                                   checked={cellState.checked}
                                   onCheckedChange={() => handlePastCellCheck(surgery.id, item.id)}
-                                  disabled={savingCell === cellKey}
                                   data-testid={`checkbox-past-${surgery.id}-${item.id}`}
                                 />
                                 <TooltipProvider>
@@ -1068,7 +1062,6 @@ export default function ChecklistMatrix() {
                                   <Checkbox
                                     checked={cellState.checked}
                                     onCheckedChange={() => handleCellCheck(surgery.id, item.id)}
-                                    disabled={savingCell === cellKey}
                                     data-testid={`checkbox-${surgery.id}-${item.id}`}
                                   />
                                   <TooltipProvider>
