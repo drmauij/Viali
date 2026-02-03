@@ -624,7 +624,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[350px] p-0" align="start">
+                  <PopoverContent className="w-[450px] p-0" align="start">
                     <Command shouldFilter={false}>
                       <CommandInput 
                         placeholder={t('anesthesia.quickSchedule.searchChopProcedure', 'Search CHOP procedures...')}
@@ -634,7 +634,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                         }}
                         data-testid="input-edit-chop-search"
                       />
-                      <CommandList>
+                      <CommandList className="max-h-[300px] overflow-y-auto">
                         {chopSearchTerm.length < 2 ? (
                           <CommandEmpty className="py-4 px-2 text-center text-sm text-muted-foreground">
                             {t('anesthesia.quickSchedule.chopSearchHint', 'Type at least 2 characters to search CHOP procedures')}
@@ -690,7 +690,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                                         <span className="text-xs text-muted-foreground">({proc.laterality})</span>
                                       )}
                                     </div>
-                                    <p className="text-sm truncate">{proc.descriptionDe}</p>
+                                    <p className="text-sm whitespace-normal break-words">{proc.descriptionDe}</p>
                                   </div>
                                 </div>
                               </CommandItem>
