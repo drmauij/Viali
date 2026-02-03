@@ -206,7 +206,7 @@ export function StaffTab({
 
     // If no userId is provided (custom name not in system), automatically create as Staff User
     // This ensures all staff entries can have hourly rates for cost calculations
-    if (!userId && isAdmin && hospitalId) {
+    if (!userId && hospitalId) {
       setOpenPopover(null);
       try {
         const result = await createQuickStaffUser.mutateAsync({
