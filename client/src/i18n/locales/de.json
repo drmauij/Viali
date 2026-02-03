@@ -2824,6 +2824,21 @@
         "timesUpdated": "Anästhesiezeiten wurden aktualisiert",
         "errorSaving": "Fehler beim Speichern der Zeiten"
       },
+      "timeMarkerLabels": {
+        "A1": "Anästhesie Präsenz Beginn",
+        "E": "OP-Saal Eintritt",
+        "X1": "Anästhesie Beginn",
+        "I": "Ende der Einleitung",
+        "L": "Patientenlagerung",
+        "B1": "Chir. Massnahmen Beginn",
+        "O1": "Schnitt",
+        "O2": "Naht",
+        "B2": "Chir. Massnahmen Ende",
+        "X2": "Anästhesie Ende",
+        "X": "OP-Saal Austritt",
+        "A2": "Anästhesie Präsenz Ende",
+        "P": "AWR Ende"
+      },
       "editTimeMarker": {
         "title": "Zeitmarker bearbeiten",
         "description": "Zeit für diesen Anästhesie-Meilenstein anpassen oder aus der Zeitleiste entfernen.",

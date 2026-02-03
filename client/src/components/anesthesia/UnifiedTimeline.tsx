@@ -9000,7 +9000,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                 <div className="grid gap-1">
                   <div className="flex items-center gap-2">
                     <Label className="text-sm font-medium">
-                      {marker.label}
+                      {t(`anesthesia.timeline.timeMarkerLabels.${marker.code}`, marker.label)}
                     </Label>
                     {marker.time !== null && (
                       <Badge variant="outline" className="text-xs font-normal text-muted-foreground" data-testid={`elapsed-time-${marker.code}`}>
@@ -9139,7 +9139,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   {editingTimeMarker.marker.code}
                 </div>
                 <div className="flex-1">
-                  <div className="font-medium">{editingTimeMarker.marker.label}</div>
+                  <div className="font-medium">{t(`anesthesia.timeline.timeMarkerLabels.${editingTimeMarker.marker.code}`, editingTimeMarker.marker.label)}</div>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>
                       {editingTimeMarker.marker.time 

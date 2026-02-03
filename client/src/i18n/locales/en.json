@@ -2809,6 +2809,21 @@
         "timesUpdated": "Anesthesia times have been updated",
         "errorSaving": "Error saving times"
       },
+      "timeMarkerLabels": {
+        "A1": "Anesthesia Presence Start",
+        "E": "OR Entrance",
+        "X1": "Anesthesia Start",
+        "I": "End of Induction",
+        "L": "Patient Positioning",
+        "B1": "Surgical Measures Start",
+        "O1": "Surgical Incision",
+        "O2": "Surgical Suture",
+        "B2": "Surgical Measures End",
+        "X2": "Anesthesia End",
+        "X": "OR Exit",
+        "A2": "Anesthesia Presence End",
+        "P": "PACU End"
+      },
       "editTimeMarker": {
         "title": "Edit Time Marker",
         "description": "Adjust the time for this anesthesia milestone or remove it from the timeline.",
