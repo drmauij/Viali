@@ -1079,12 +1079,14 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
       kodanColored?: boolean;
       kodanColorless?: boolean;
       octanisept?: boolean;       // New: Octanisept option
+      betadine?: boolean;         // Betadine disinfectant
       performedBy?: string;
     };
     equipment?: {
       monopolar?: boolean;
       bipolar?: boolean;
       neutralElectrodeLocation?: string; // shoulder, abdomen, thigh, back
+      neutralElectrodeSide?: string;     // left, right (body side for neutral electrode)
       pathology?: {
         histology?: boolean;
         microbiology?: boolean;
@@ -1095,6 +1097,7 @@ export const anesthesiaRecords = pgTable("anesthesia_records", {
     // Enhanced: Spülung (Irrigation) section with checkboxes
     irrigation?: {
       nacl?: boolean;
+      ringerSolution?: boolean;   // Ringer's solution
       betadine?: boolean;
       hydrogenPeroxide?: boolean; // Wasserstoffperoxid
       other?: string;             // Free text for custom entries
