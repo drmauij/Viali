@@ -11,6 +11,9 @@ import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 import { 
   User,
   Stethoscope,
@@ -25,7 +28,9 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
-  Building2
+  Building2,
+  Check,
+  ChevronsUpDown
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "@/hooks/use-toast";
@@ -36,6 +41,7 @@ interface FormData {
   surgeonEmail: string;
   surgeonPhone: string;
   surgeryName: string;
+  chopCode: string;
   surgeryDurationMinutes: number;
   withAnesthesia: boolean;
   surgeryNotes: string;
@@ -71,6 +77,8 @@ export default function ExternalSurgeryRequest() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [requestId, setRequestId] = useState<string | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [chopSearchTerm, setChopSearchTerm] = useState("");
+  const [chopSearchOpen, setChopSearchOpen] = useState(false);
   
   const [formData, setFormData] = useState<FormData>({
     surgeonFirstName: '',
@@ -78,6 +86,7 @@ export default function ExternalSurgeryRequest() {
     surgeonEmail: '',
     surgeonPhone: '',
     surgeryName: '',
+    chopCode: '',
     surgeryDurationMinutes: 60,
     withAnesthesia: true,
     surgeryNotes: '',
@@ -97,6 +106,26 @@ export default function ExternalSurgeryRequest() {
       return res.json();
     },
     enabled: !!token,
+  });
+
+  // CHOP procedure search query
+  const { data: chopProcedures = [], isLoading: isLoadingChop } = useQuery<Array<{
+    id: string;
+    code: string;
+    descriptionDe: string;
+    chapter: string | null;
+    indentLevel: number | null;
+    laterality: string | null;
+  }>>({
+    queryKey: ['/api/chop-procedures', chopSearchTerm],
+    queryFn: async () => {
+      if (chopSearchTerm.length < 2) return [];
+      const response = await fetch(`/api/chop-procedures?search=${encodeURIComponent(chopSearchTerm)}&limit=30`);
+      if (!response.ok) throw new Error('Failed to search procedures');
+      return response.json();
+    },
+    enabled: chopSearchTerm.length >= 2,
+    staleTime: 60000,
   });
 
   const submitMutation = useMutation({
@@ -420,16 +449,125 @@ export default function ExternalSurgeryRequest() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="surgeryName">
+                  <Label>
                     {isGerman ? 'OP Name / Eingriff' : 'Surgery Name'} *
                   </Label>
-                  <Input
-                    id="surgeryName"
-                    value={formData.surgeryName}
-                    onChange={(e) => updateField('surgeryName', e.target.value)}
-                    placeholder={isGerman ? 'z.B. Brustaugmentation' : 'e.g. Breast Augmentation'}
-                    data-testid="input-surgery-name"
-                  />
+                  <Popover open={chopSearchOpen} onOpenChange={setChopSearchOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={chopSearchOpen}
+                        className="w-full justify-between h-auto min-h-10 text-left font-normal"
+                        data-testid="select-surgery-procedure"
+                      >
+                        {formData.surgeryName ? (
+                          <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
+                            <span className="text-sm whitespace-normal text-left">{formData.surgeryName}</span>
+                            {formData.chopCode && (
+                              <span className="text-xs text-muted-foreground">CHOP: {formData.chopCode}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            {isGerman ? 'Suchen oder eingeben...' : 'Search or enter procedure...'}
+                          </span>
+                        )}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[450px] p-0" align="start">
+                      <Command shouldFilter={false}>
+                        <CommandInput 
+                          placeholder={isGerman ? 'CHOP-Eingriff suchen...' : 'Search CHOP procedures...'}
+                          value={chopSearchTerm}
+                          onValueChange={setChopSearchTerm}
+                          data-testid="input-chop-search-external"
+                        />
+                        <CommandList className="max-h-[300px] overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
+                          {chopSearchTerm.length < 2 ? (
+                            <CommandEmpty className="py-4 px-2 text-center text-sm text-muted-foreground">
+                              {isGerman ? 'Mind. 2 Zeichen eingeben' : 'Type at least 2 characters'}
+                            </CommandEmpty>
+                          ) : isLoadingChop ? (
+                            <div className="flex items-center justify-center py-4">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            </div>
+                          ) : chopProcedures.length === 0 ? (
+                            <CommandEmpty>
+                              <div className="py-2 px-2 space-y-2">
+                                <p className="text-sm">{isGerman ? 'Keine CHOP-Eingriffe gefunden' : 'No CHOP procedures found'}</p>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full"
+                                  onClick={() => {
+                                    updateField('surgeryName', chopSearchTerm);
+                                    updateField('chopCode', '');
+                                    setChopSearchOpen(false);
+                                  }}
+                                  data-testid="button-use-custom-surgery-external"
+                                >
+                                  {isGerman ? `"${chopSearchTerm}" verwenden` : `Use "${chopSearchTerm}"`}
+                                </Button>
+                              </div>
+                            </CommandEmpty>
+                          ) : (
+                            <CommandGroup>
+                              {chopProcedures.map((proc) => (
+                                <CommandItem
+                                  key={proc.id}
+                                  value={proc.code}
+                                  onSelect={() => {
+                                    updateField('surgeryName', proc.descriptionDe);
+                                    updateField('chopCode', proc.code);
+                                    setChopSearchOpen(false);
+                                  }}
+                                  className="flex flex-col items-start gap-0.5 cursor-pointer"
+                                  data-testid={`chop-option-external-${proc.code}`}
+                                >
+                                  <div className="flex items-center gap-2 w-full">
+                                    <Check
+                                      className={cn(
+                                        "h-4 w-4 shrink-0",
+                                        formData.chopCode === proc.code ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs font-mono bg-muted px-1.5 py-0.5 rounded">{proc.code}</span>
+                                        {proc.laterality && (
+                                          <span className="text-xs text-muted-foreground">({proc.laterality})</span>
+                                        )}
+                                      </div>
+                                      <p className="text-sm whitespace-normal break-words">{proc.descriptionDe}</p>
+                                    </div>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                              {chopSearchTerm.length >= 2 && (
+                                <CommandItem
+                                  value="__custom__"
+                                  onSelect={() => {
+                                    updateField('surgeryName', chopSearchTerm);
+                                    updateField('chopCode', '');
+                                    setChopSearchOpen(false);
+                                  }}
+                                  className="border-t mt-1 pt-2"
+                                  data-testid="chop-option-external-custom"
+                                >
+                                  <Check className="h-4 w-4 shrink-0 opacity-0" />
+                                  <span className="text-sm text-muted-foreground">
+                                    {isGerman ? `Als eigene Eingabe: "${chopSearchTerm}"` : `Use as custom: "${chopSearchTerm}"`}
+                                  </span>
+                                </CommandItem>
+                              )}
+                            </CommandGroup>
+                          )}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4">

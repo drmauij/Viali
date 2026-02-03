@@ -717,8 +717,8 @@ export default function QuickCreateSurgeryDialog({
                   data-testid="select-chop-procedure"
                 >
                   {plannedSurgery ? (
-                    <div className="flex flex-col items-start gap-0.5">
-                      <span className="text-sm truncate max-w-[280px]">{plannedSurgery}</span>
+                    <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0">
+                      <span className="text-sm whitespace-normal text-left">{plannedSurgery}</span>
                       {selectedChopCode && (
                         <span className="text-xs text-muted-foreground">CHOP: {selectedChopCode}</span>
                       )}
@@ -739,7 +739,7 @@ export default function QuickCreateSurgeryDialog({
                     }}
                     data-testid="input-chop-search"
                   />
-                  <CommandList className="max-h-[300px] overflow-y-auto">
+                  <CommandList className="max-h-[300px] overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
                     {chopSearchTerm.length < 2 ? (
                       <CommandEmpty className="py-4 px-2 text-center text-sm text-muted-foreground">
                         {t('anesthesia.quickSchedule.chopSearchHint', 'Type at least 2 characters to search CHOP procedures')}
