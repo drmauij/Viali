@@ -56,6 +56,11 @@ type Patient = {
   emergencyContact?: string | null;
   insuranceProvider?: string | null;
   insuranceNumber?: string | null;
+  healthInsuranceNumber?: string | null;
+  idCardFrontUrl?: string | null;
+  idCardBackUrl?: string | null;
+  insuranceCardFrontUrl?: string | null;
+  insuranceCardBackUrl?: string | null;
   allergies?: string[] | null;
   otherAllergies?: string | null;
   internalNotes?: string | null;
@@ -87,6 +92,225 @@ type PatientInvoice = {
   status: "draft" | "sent" | "paid" | "cancelled";
   createdAt: string;
 };
+
+// Component for uploading/managing patient card images (ID card, insurance card)
+function PatientCardImageUploader({ 
+  patientId, 
+  cardType, 
+  side, 
+  currentUrl, 
+  label,
+  onUpdate 
+}: { 
+  patientId: string;
+  cardType: 'id_card' | 'insurance_card';
+  side: 'front' | 'back';
+  currentUrl?: string | null;
+  label: string;
+  onUpdate: () => void;
+}) {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  const [isUploading, setIsUploading] = useState(false);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
+  const [isLoadingImage, setIsLoadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load existing image preview URL
+  useEffect(() => {
+    if (currentUrl) {
+      setIsLoadingImage(true);
+      fetch(`/api/patients/${patientId}/card-image/${cardType}/${side}`, { credentials: 'include' })
+        .then(res => res.json())
+        .then(data => {
+          if (data.downloadUrl) {
+            setImagePreviewUrl(data.downloadUrl);
+          }
+        })
+        .catch(err => console.error('Error loading card image:', err))
+        .finally(() => setIsLoadingImage(false));
+    } else {
+      setImagePreviewUrl(null);
+    }
+  }, [patientId, cardType, side, currentUrl]);
+
+  const uploadImage = async (imageData: string) => {
+    setIsUploading(true);
+    try {
+      // Convert base64 to blob
+      const response = await fetch(imageData);
+      const blob = await response.blob();
+      
+      // Get upload URL
+      const uploadUrlResponse = await fetch(`/api/patients/${patientId}/card-image/upload-url`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          cardType, 
+          side, 
+          filename: `${cardType}_${side}.jpg`,
+          contentType: 'image/jpeg'
+        }),
+      });
+      
+      if (!uploadUrlResponse.ok) throw new Error('Failed to get upload URL');
+      const { uploadUrl, storageKey } = await uploadUrlResponse.json();
+      
+      // Upload to S3
+      const s3Response = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: blob,
+        headers: { 'Content-Type': 'image/jpeg' },
+      });
+      
+      if (!s3Response.ok) throw new Error('Failed to upload image');
+      
+      // Update patient record with storage key
+      const updateResponse = await fetch(`/api/patients/${patientId}/card-image`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ cardType, side, imageUrl: storageKey }),
+      });
+      
+      if (!updateResponse.ok) throw new Error('Failed to update patient record');
+      
+      toast({ title: t('common.success'), description: t('anesthesia.patients.imageUploaded', 'Image uploaded successfully') });
+      onUpdate();
+    } catch (error) {
+      console.error('Error uploading card image:', error);
+      toast({ 
+        title: t('common.error'), 
+        description: t('anesthesia.patients.imageUploadFailed', 'Failed to upload image'),
+        variant: 'destructive'
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        uploadImage(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCameraCapture = (photoData: string) => {
+    setIsCameraOpen(false);
+    uploadImage(photoData);
+  };
+
+  const handleDelete = async () => {
+    try {
+      const response = await fetch(`/api/patients/${patientId}/card-image`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ cardType, side }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to delete image');
+      
+      setImagePreviewUrl(null);
+      toast({ title: t('common.success'), description: t('anesthesia.patients.imageDeleted', 'Image deleted') });
+      onUpdate();
+    } catch (error) {
+      console.error('Error deleting card image:', error);
+      toast({ 
+        title: t('common.error'), 
+        description: t('anesthesia.patients.imageDeleteFailed', 'Failed to delete image'),
+        variant: 'destructive'
+      });
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      
+      <div className="relative aspect-[3/2] border rounded-lg overflow-hidden bg-muted flex items-center justify-center min-h-[80px]">
+        {isLoadingImage ? (
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        ) : imagePreviewUrl ? (
+          <>
+            <img src={imagePreviewUrl} alt={label} className="w-full h-full object-cover" />
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute top-1 right-1 h-6 w-6"
+              onClick={handleDelete}
+              disabled={isUploading}
+              data-testid={`btn-delete-${cardType}-${side}`}
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-2 p-2">
+            <ImageLucide className="h-8 w-8 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground text-center">{t('anesthesia.patients.noImage', 'No image')}</span>
+          </div>
+        )}
+        
+        {isUploading && (
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        )}
+      </div>
+      
+      <div className="flex gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 h-8 text-xs"
+          onClick={() => setIsCameraOpen(true)}
+          disabled={isUploading}
+          data-testid={`btn-camera-${cardType}-${side}`}
+        >
+          <Camera className="h-3 w-3 mr-1" />
+          {t('common.camera', 'Camera')}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 h-8 text-xs"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          data-testid={`btn-upload-${cardType}-${side}`}
+        >
+          <Paperclip className="h-3 w-3 mr-1" />
+          {t('common.upload', 'Upload')}
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleFileChange}
+          data-testid={`input-file-${cardType}-${side}`}
+        />
+      </div>
+      
+      <CameraCapture
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={handleCameraCapture}
+        fullFrame
+        hint={`${cardType === 'id_card' ? t('anesthesia.patients.idCard', 'ID Card') : t('anesthesia.patients.insuranceCard', 'Insurance Card')} - ${label}`}
+      />
+    </div>
+  );
+}
 
 export default function PatientDetail() {
   const { t } = useTranslation();
@@ -151,6 +375,7 @@ export default function PatientDetail() {
     emergencyContact: "",
     insuranceProvider: "",
     insuranceNumber: "",
+    healthInsuranceNumber: "",
     allergies: [] as string[],
     otherAllergies: "",
     internalNotes: "",
@@ -722,6 +947,7 @@ export default function PatientDetail() {
         emergencyContact: patient.emergencyContact || "",
         insuranceProvider: patient.insuranceProvider || "",
         insuranceNumber: patient.insuranceNumber || "",
+        healthInsuranceNumber: patient.healthInsuranceNumber || "",
         allergies: patient.allergies || [],
         otherAllergies: patient.otherAllergies || "",
         internalNotes: patient.internalNotes || "",
@@ -2327,6 +2553,7 @@ export default function PatientDetail() {
                         emergencyContact: patient.emergencyContact || "",
                         insuranceProvider: patient.insuranceProvider || "",
                         insuranceNumber: patient.insuranceNumber || "",
+                        healthInsuranceNumber: patient.healthInsuranceNumber || "",
                         allergies: patient.allergies || [],
                         otherAllergies: patient.otherAllergies || "",
                         internalNotes: patient.internalNotes || "",
@@ -5909,6 +6136,71 @@ export default function PatientDetail() {
               <div className="pt-2 text-xs text-muted-foreground">
                 * {t('anesthesia.patients.requiredFields', 'Required fields')}
               </div>
+
+              {/* Identity & Insurance Card Documents */}
+              {patient && (
+                <Accordion type="single" collapsible className="w-full mt-4">
+                  <AccordionItem value="documents">
+                    <AccordionTrigger className="text-sm">
+                      <div className="flex items-center gap-2">
+                        <ImageLucide className="h-4 w-4" />
+                        {t('anesthesia.patients.identityDocuments', 'Identity & Insurance Cards')}
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="pt-4 space-y-6">
+                      {/* ID Card Section */}
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">{t('anesthesia.patients.idCard', 'Identity Card')}</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* ID Card Front */}
+                          <PatientCardImageUploader
+                            patientId={patient.id}
+                            cardType="id_card"
+                            side="front"
+                            currentUrl={patient.idCardFrontUrl}
+                            label={t('anesthesia.patients.front', 'Front')}
+                            onUpdate={() => queryClient.invalidateQueries({ queryKey: [`/api/patients/${patient.id}`] })}
+                          />
+                          {/* ID Card Back */}
+                          <PatientCardImageUploader
+                            patientId={patient.id}
+                            cardType="id_card"
+                            side="back"
+                            currentUrl={patient.idCardBackUrl}
+                            label={t('anesthesia.patients.back', 'Back')}
+                            onUpdate={() => queryClient.invalidateQueries({ queryKey: [`/api/patients/${patient.id}`] })}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Insurance Card Section */}
+                      <div className="space-y-3">
+                        <Label className="text-sm font-medium">{t('anesthesia.patients.insuranceCard', 'Insurance Card')}</Label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {/* Insurance Card Front */}
+                          <PatientCardImageUploader
+                            patientId={patient.id}
+                            cardType="insurance_card"
+                            side="front"
+                            currentUrl={patient.insuranceCardFrontUrl}
+                            label={t('anesthesia.patients.front', 'Front')}
+                            onUpdate={() => queryClient.invalidateQueries({ queryKey: [`/api/patients/${patient.id}`] })}
+                          />
+                          {/* Insurance Card Back */}
+                          <PatientCardImageUploader
+                            patientId={patient.id}
+                            cardType="insurance_card"
+                            side="back"
+                            currentUrl={patient.insuranceCardBackUrl}
+                            label={t('anesthesia.patients.back', 'Back')}
+                            onUpdate={() => queryClient.invalidateQueries({ queryKey: [`/api/patients/${patient.id}`] })}
+                          />
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              )}
             </TabsContent>
             
             <TabsContent value="address" className="space-y-4 pt-4">
@@ -5981,6 +6273,17 @@ export default function PatientDetail() {
                     data-testid="input-edit-insuranceNumber"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-healthInsuranceNumber">{t('anesthesia.patients.healthInsuranceNumber', 'Health Insurance Number (AHV)')}</Label>
+                <Input
+                  id="edit-healthInsuranceNumber"
+                  value={editForm.healthInsuranceNumber}
+                  onChange={(e) => setEditForm({ ...editForm, healthInsuranceNumber: e.target.value })}
+                  placeholder="756.xxxx.xxxx.xx"
+                  data-testid="input-edit-healthInsuranceNumber"
+                />
               </div>
 
               <div className="space-y-2">
