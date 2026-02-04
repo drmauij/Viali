@@ -1327,9 +1327,11 @@ router.get('/api/admin/chop-status', isAuthenticated, async (req: any, res) => {
     
     // Check if user is admin of any hospital
     const hospitals = await storage.getUserHospitals(userId);
+    console.log('[Admin] CHOP status check - userId:', userId, 'hospitals:', hospitals.map(h => ({ id: h.id, role: h.role })));
     const isAnyAdmin = hospitals.some(h => h.role === 'admin');
     
     if (!isAnyAdmin) {
+      console.log('[Admin] CHOP status - not admin, roles found:', hospitals.map(h => h.role));
       return res.status(403).json({ message: "Admin access required" });
     }
     
