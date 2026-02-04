@@ -103,9 +103,9 @@ function SystemSettingsTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-medium">{t('settings.system.title', 'System Settings')}</h3>
+        <h3 className="text-lg font-medium">{t('settings.integrations.title', 'Integrations')}</h3>
         <p className="text-sm text-muted-foreground">
-          {t('settings.system.description', 'System-wide configuration and data imports')}
+          {t('settings.integrations.description', 'External data sources and system integrations')}
         </p>
       </div>
       
@@ -882,7 +882,7 @@ export default function AnesthesiaSettings() {
             <TabsTrigger value="medications" data-testid="tab-medications" className="flex-shrink-0">{t('anesthesia.settings.medications')}</TabsTrigger>
             <TabsTrigger value="illnesses" data-testid="tab-illnesses" className="flex-shrink-0">{t('anesthesia.settings.medicalHistory')}</TabsTrigger>
             <TabsTrigger value="checklists" data-testid="tab-checklists" className="flex-shrink-0">{t('anesthesia.settings.checklists')}</TabsTrigger>
-            <TabsTrigger value="system" data-testid="tab-system" className="flex-shrink-0">{t('anesthesia.settings.system', 'System')}</TabsTrigger>
+            <TabsTrigger value="integrations" data-testid="tab-integrations" className="flex-shrink-0">{t('anesthesia.settings.integrations', 'Integrations')}</TabsTrigger>
           </TabsList>
         </div>
 
@@ -1395,7 +1395,7 @@ export default function AnesthesiaSettings() {
           </div>
         </TabsContent>
 
-        <TabsContent value="system" className="space-y-4">
+        <TabsContent value="integrations" className="space-y-4">
           <SystemSettingsTab />
         </TabsContent>
       </Tabs>
