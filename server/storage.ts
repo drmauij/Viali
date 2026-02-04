@@ -6149,9 +6149,32 @@ export class DatabaseStorage implements IStorage {
     // Skip service items as they don't have physical stock
     for (const item of itemsToCommit) {
       const itemData = itemsMap.get(item.itemId);
+      
+      // DEBUG: Log item deduction check
+      console.log('[INVENTORY-COMMIT] Checking item for deduction:', {
+        itemId: item.itemId,
+        itemName: item.itemName,
+        quantity: item.quantity,
+        hasItemData: !!itemData,
+        isService: itemData?.isService,
+        trackExactQuantity: itemData?.trackExactQuantity,
+        unit: itemData?.unit,
+        unitExactMatch: itemData?.unit === "Single unit",
+        willDeduct: itemData && !itemData.isService && (itemData.trackExactQuantity || itemData.unit === "Single unit"),
+        currentUnits: itemData?.currentUnits
+      });
+      
       if (itemData && !itemData.isService && (itemData.trackExactQuantity || itemData.unit === "Single unit")) {
         const currentUnits = parseInt(String(itemData.currentUnits || 0));
         const newUnits = Math.max(0, currentUnits - item.quantity);
+        
+        console.log('[INVENTORY-COMMIT] Deducting:', {
+          itemId: item.itemId,
+          itemName: item.itemName,
+          currentUnits,
+          quantity: item.quantity,
+          newUnits
+        });
 
         await db
           .update(items)
