@@ -521,6 +521,13 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 </div>
               )}
 
+              {/* Section Divider: Scheduling */}
+              <div className="flex items-center gap-2 pt-2">
+                <div className="h-px bg-border flex-1" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.scheduling', 'Scheduling')}</span>
+                <div className="h-px bg-border flex-1" />
+              </div>
+
               {/* Surgery Room */}
               <div className="space-y-2">
                 <Label htmlFor="edit-surgery-room">{t('anesthesia.editSurgery.surgeryRoom')} *</Label>
@@ -602,6 +609,13 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                     data-testid="input-edit-duration"
                   />
                 </div>
+              </div>
+
+              {/* Section Divider: Procedure */}
+              <div className="flex items-center gap-2 pt-2">
+                <div className="h-px bg-border flex-1" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.procedure', 'Procedure')}</span>
+                <div className="h-px bg-border flex-1" />
               </div>
 
               {/* Planned Surgery - CHOP Procedure Selector */}
@@ -801,6 +815,13 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 </div>
               </div>
 
+              {/* Section Divider: Requirements */}
+              <div className="flex items-center gap-2 pt-2">
+                <div className="h-px bg-border flex-1" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.requirements', 'Requirements')}</span>
+                <div className="h-px bg-border flex-1" />
+              </div>
+
               {/* Antibiose Prophylaxe */}
               <div className="flex items-center space-x-2 pt-2">
                 <Checkbox
@@ -833,6 +854,13 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 >
                   {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
                 </Label>
+              </div>
+
+              {/* Section Divider: Team & Notes */}
+              <div className="flex items-center gap-2 pt-2">
+                <div className="h-px bg-border flex-1" />
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.teamNotes', 'Team & Notes')}</span>
+                <div className="h-px bg-border flex-1" />
               </div>
 
               {/* Surgeon */}

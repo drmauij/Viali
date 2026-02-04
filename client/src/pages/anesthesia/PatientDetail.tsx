@@ -2961,6 +2961,13 @@ export default function PatientDetail() {
                       </div>
                     </div>
 
+                    {/* Section Divider: Requirements */}
+                    <div className="flex items-center gap-2 pt-2">
+                      <div className="h-px bg-border flex-1" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.requirements', 'Requirements')}</span>
+                      <div className="h-px bg-border flex-1" />
+                    </div>
+
                     {/* Antibiose Prophylaxe */}
                     <div className="flex items-center gap-3">
                       <Checkbox
@@ -2988,6 +2995,13 @@ export default function PatientDetail() {
                       >
                         {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
                       </Label>
+                    </div>
+
+                    {/* Section Divider: Scheduling */}
+                    <div className="flex items-center gap-2 pt-2">
+                      <div className="h-px bg-border flex-1" />
+                      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.sections.scheduling', 'Scheduling')}</span>
+                      <div className="h-px bg-border flex-1" />
                     </div>
 
                     <div className="space-y-2">
