@@ -6147,39 +6147,57 @@ export class DatabaseStorage implements IStorage {
 
     // Deduct from inventory for items with trackExactQuantity enabled or "Single unit" type
     // Skip service items as they don't have physical stock
+    // For Single unit items: use stockLevels table
+    // For Pack items with trackExactQuantity: use items.currentUnits
     for (const item of itemsToCommit) {
       const itemData = itemsMap.get(item.itemId);
       
-      // DEBUG: Log item deduction check
-      console.log('[INVENTORY-COMMIT] Checking item for deduction:', {
-        itemId: item.itemId,
-        itemName: item.itemName,
-        quantity: item.quantity,
-        hasItemData: !!itemData,
-        isService: itemData?.isService,
-        trackExactQuantity: itemData?.trackExactQuantity,
-        unit: itemData?.unit,
-        unitExactMatch: itemData?.unit === "Single unit",
-        willDeduct: itemData && !itemData.isService && (itemData.trackExactQuantity || itemData.unit === "Single unit"),
-        currentUnits: itemData?.currentUnits
-      });
-      
       if (itemData && !itemData.isService && (itemData.trackExactQuantity || itemData.unit === "Single unit")) {
-        const currentUnits = parseInt(String(itemData.currentUnits || 0));
-        const newUnits = Math.max(0, currentUnits - item.quantity);
+        let currentUnits: number;
+        let newUnits: number;
         
-        console.log('[INVENTORY-COMMIT] Deducting:', {
-          itemId: item.itemId,
-          itemName: item.itemName,
-          currentUnits,
-          quantity: item.quantity,
-          newUnits
-        });
-
-        await db
-          .update(items)
-          .set({ currentUnits: newUnits })
-          .where(eq(items.id, item.itemId));
+        if (itemData.unit === "Single unit") {
+          // For Single unit items, read from stockLevels table
+          const [stockLevel] = await db
+            .select()
+            .from(stockLevels)
+            .where(
+              and(
+                eq(stockLevels.itemId, item.itemId),
+                eq(stockLevels.unitId, itemData.unitId)
+              )
+            )
+            .limit(1);
+          
+          currentUnits = stockLevel?.qtyOnHand || 0;
+          newUnits = Math.max(0, currentUnits - item.quantity);
+          
+          // Update stockLevels table
+          if (stockLevel) {
+            await db
+              .update(stockLevels)
+              .set({ qtyOnHand: newUnits, updatedAt: new Date() })
+              .where(eq(stockLevels.id, stockLevel.id));
+          } else {
+            // Create stock level record if it doesn't exist (edge case)
+            await db
+              .insert(stockLevels)
+              .values({
+                itemId: item.itemId,
+                unitId: itemData.unitId,
+                qtyOnHand: newUnits,
+              });
+          }
+        } else {
+          // For Pack items with trackExactQuantity, use items.currentUnits
+          currentUnits = parseInt(String(itemData.currentUnits || 0));
+          newUnits = Math.max(0, currentUnits - item.quantity);
+          
+          await db
+            .update(items)
+            .set({ currentUnits: newUnits })
+            .where(eq(items.id, item.itemId));
+        }
 
         // Log controlled item administration
         if (item.isControlled) {
@@ -6188,12 +6206,12 @@ export class DatabaseStorage implements IStorage {
             hospitalId: itemData.hospitalId,
             unitId: itemData.unitId,
             action: 'use',
-            delta: -item.quantity, // CRITICAL FIX: Use 'delta' field, not 'qty'
+            delta: -item.quantity,
             movementType: 'OUT',
             userId,
             notes: `Anesthesia commit: ${anesthesiaRecordId}`,
-            controlledVerified: false, // CRITICAL FIX: Requires verification
-            signatures: signature ? [signature] : [], // CRITICAL FIX: Store signature
+            controlledVerified: false,
+            signatures: signature ? [signature] : [],
             patientId,
             metadata: { beforeQty: currentUnits, afterQty: newUnits },
           });
@@ -6279,13 +6297,49 @@ export class DatabaseStorage implements IStorage {
       const itemData = itemsData.find(i => i.id === commitItem.itemId);
       // Skip service items as they don't have physical stock
       if (itemData && !itemData.isService && (itemData.trackExactQuantity || itemData.unit === "Single unit")) {
-        const currentUnits = parseInt(String(itemData.currentUnits || 0));
-        const newUnits = currentUnits + commitItem.quantity;
-
-        await db
-          .update(items)
-          .set({ currentUnits: newUnits })
-          .where(eq(items.id, commitItem.itemId));
+        let currentUnits: number;
+        let newUnits: number;
+        
+        if (itemData.unit === "Single unit") {
+          // For Single unit items, read from and update stockLevels table
+          const [stockLevel] = await db
+            .select()
+            .from(stockLevels)
+            .where(
+              and(
+                eq(stockLevels.itemId, commitItem.itemId),
+                eq(stockLevels.unitId, itemData.unitId)
+              )
+            )
+            .limit(1);
+          
+          currentUnits = stockLevel?.qtyOnHand || 0;
+          newUnits = currentUnits + commitItem.quantity;
+          
+          if (stockLevel) {
+            await db
+              .update(stockLevels)
+              .set({ qtyOnHand: newUnits, updatedAt: new Date() })
+              .where(eq(stockLevels.id, stockLevel.id));
+          } else {
+            await db
+              .insert(stockLevels)
+              .values({
+                itemId: commitItem.itemId,
+                unitId: itemData.unitId,
+                qtyOnHand: newUnits,
+              });
+          }
+        } else {
+          // For Pack items with trackExactQuantity, use items.currentUnits
+          currentUnits = parseInt(String(itemData.currentUnits || 0));
+          newUnits = currentUnits + commitItem.quantity;
+          
+          await db
+            .update(items)
+            .set({ currentUnits: newUnits })
+            .where(eq(items.id, commitItem.itemId));
+        }
 
         // Log controlled item rollback
         if (commitItem.isControlled) {
@@ -6294,10 +6348,11 @@ export class DatabaseStorage implements IStorage {
             hospitalId: itemData.hospitalId,
             unitId: itemData.unitId,
             action: 'adjust',
-            qty: commitItem.quantity,
+            delta: commitItem.quantity,
             userId,
             notes: `Rollback commit: ${reason}`,
             controlledVerified: true,
+            metadata: { beforeQty: currentUnits, afterQty: newUnits },
           });
         }
       }
