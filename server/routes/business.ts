@@ -1165,9 +1165,15 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
     // This ensures staff costs are calculated for LA surgeries or cases without recorded times
     const DEFAULT_DURATION_MINUTES = 60;
     
+    // Define role categories for staff cost split
+    const anesthesiaStaffRoles = ['anesthesiologist', 'anesthesiaNurse', 'pacuNurse'];
+    const surgeryStaffRoles = ['surgeon', 'surgicalAssistant', 'instrumentNurse', 'circulatingNurse'];
+    
     const results = await Promise.all(surgeriesData.map(async ({ surgery, anesthesiaRecord }) => {
       let surgeryDurationMinutes = DEFAULT_DURATION_MINUTES;
       let staffCost = 0;
+      let anesthesiaStaffCost = 0;
+      let surgeryStaffCost = 0;
       let anesthesiaCost = 0;
       let surgeryCost = 0;
       
@@ -1184,7 +1190,7 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
         }
       }
       
-      // Calculate staff cost
+      // Calculate staff cost - split by role type
       if (anesthesiaRecord) {
         const staffEntries = await db
           .select()
@@ -1197,7 +1203,15 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
           if (staff.userId) {
             const user = userMap.get(staff.userId);
             if (user?.hourlyRate) {
-              staffCost += durationHours * parseFloat(String(user.hourlyRate));
+              const cost = durationHours * parseFloat(String(user.hourlyRate));
+              staffCost += cost;
+              
+              // Split by role type
+              if (anesthesiaStaffRoles.includes(staff.role)) {
+                anesthesiaStaffCost += cost;
+              } else if (surgeryStaffRoles.includes(staff.role)) {
+                surgeryStaffCost += cost;
+              }
             }
           }
         }
@@ -1262,6 +1276,10 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
       const totalCost = Math.round((staffCost + anesthesiaCost + surgeryCost) * 100) / 100;
       const paidAmount = surgery.price ? parseFloat(String(surgery.price)) : 0;
       
+      // Calculate total anesthesia cost (materials + staff) and surgery cost (materials + staff)
+      const anesthesiaTotalCost = anesthesiaCost + anesthesiaStaffCost;
+      const surgeryTotalCost = surgeryCost + surgeryStaffCost;
+      
       return {
         id: surgery.id,
         date: surgery.plannedDate,
@@ -1271,8 +1289,12 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
         anesthesiaRecordId: anesthesiaRecord?.id || null,
         surgeryDurationMinutes,
         staffCost: Math.round(staffCost * 100) / 100,
+        anesthesiaStaffCost: Math.round(anesthesiaStaffCost * 100) / 100,
+        surgeryStaffCost: Math.round(surgeryStaffCost * 100) / 100,
         anesthesiaCost: Math.round(anesthesiaCost * 100) / 100,
         surgeryCost: Math.round(surgeryCost * 100) / 100,
+        anesthesiaTotalCost: Math.round(anesthesiaTotalCost * 100) / 100,
+        surgeryTotalCost: Math.round(surgeryTotalCost * 100) / 100,
         totalCost,
         paidAmount: Math.round(paidAmount * 100) / 100,
         difference: Math.round((paidAmount - totalCost) * 100) / 100,

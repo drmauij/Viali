@@ -347,8 +347,12 @@ export default function CostAnalytics() {
     anesthesiaRecordId: string | null;
     surgeryDurationMinutes: number;
     staffCost: number;
+    anesthesiaStaffCost: number;
+    surgeryStaffCost: number;
     anesthesiaCost: number;
     surgeryCost: number;
+    anesthesiaTotalCost: number;
+    surgeryTotalCost: number;
     totalCost: number;
     paidAmount: number;
     difference: number;
@@ -1049,7 +1053,7 @@ export default function CostAnalytics() {
                           );
                         })()}
                         
-                        {/* Average Cost/Hour with Anesthesia/Surgery breakdown */}
+                        {/* Average Cost/Hour with Anesthesia/Surgery breakdown (materials + staff) */}
                         {(() => {
                           const costsPerHour = surgeriesWithCosts
                             .map(s => {
@@ -1061,20 +1065,22 @@ export default function CostAnalytics() {
                             ? costsPerHour.reduce((sum, c) => sum + c, 0) / costsPerHour.length 
                             : 0;
                           
+                          // Use anesthesiaTotalCost (materials + staff) for anesthesia breakdown
                           const anesthesiaCostsPerHour = surgeriesWithCosts
                             .map(s => {
                               const hours = (s.surgeryDurationMinutes ?? 0) / 60;
-                              return hours > 0 ? (s.anesthesiaCost ?? 0) / hours : null;
+                              return hours > 0 ? (s.anesthesiaTotalCost ?? 0) / hours : null;
                             })
                             .filter((c): c is number => c !== null && c > 0);
                           const avgAnesthesiaCostPerHour = anesthesiaCostsPerHour.length > 0 
                             ? anesthesiaCostsPerHour.reduce((sum, c) => sum + c, 0) / anesthesiaCostsPerHour.length 
                             : 0;
                           
+                          // Use surgeryTotalCost (materials + staff) for surgery breakdown
                           const surgeryCostsPerHour = surgeriesWithCosts
                             .map(s => {
                               const hours = (s.surgeryDurationMinutes ?? 0) / 60;
-                              return hours > 0 ? (s.surgeryCost ?? 0) / hours : null;
+                              return hours > 0 ? (s.surgeryTotalCost ?? 0) / hours : null;
                             })
                             .filter((c): c is number => c !== null && c > 0);
                           const avgSurgeryCostPerHour = surgeryCostsPerHour.length > 0 
