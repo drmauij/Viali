@@ -647,6 +647,13 @@ export default function ExternalSurgeryRequest() {
                     )}
                   </div>
                 </div>
+
+                {/* Section Divider: Scheduling */}
+                <div className="flex items-center gap-2 pt-2">
+                  <div className="h-px bg-border flex-1" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Terminplanung' : 'Scheduling'}</span>
+                  <div className="h-px bg-border flex-1" />
+                </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -677,6 +684,13 @@ export default function ExternalSurgeryRequest() {
                       data-testid="input-wished-date"
                     />
                   </div>
+                </div>
+
+                {/* Section Divider: Requirements */}
+                <div className="flex items-center gap-2 pt-2">
+                  <div className="h-px bg-border flex-1" />
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Anforderungen' : 'Requirements'}</span>
+                  <div className="h-px bg-border flex-1" />
                 </div>
 
                 {/* Antibiose Prophylaxe */}
