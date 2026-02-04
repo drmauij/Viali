@@ -1161,8 +1161,12 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
     }
     
     // Process each surgery to calculate costs
+    // Default to 60 minutes (1 hour) if no anesthesia record or no time markers
+    // This ensures staff costs are calculated for LA surgeries or cases without recorded times
+    const DEFAULT_DURATION_MINUTES = 60;
+    
     const results = await Promise.all(surgeriesData.map(async ({ surgery, anesthesiaRecord }) => {
-      let surgeryDurationMinutes = 0;
+      let surgeryDurationMinutes = DEFAULT_DURATION_MINUTES;
       let staffCost = 0;
       let anesthesiaCost = 0;
       let surgeryCost = 0;
@@ -1174,7 +1178,9 @@ router.get('/api/business/:hospitalId/surgeries', isAuthenticated, isBusinessMan
         const a2Marker = markers.find(m => m.code === 'A2');
         
         if (x1Marker?.time && a2Marker?.time) {
-          surgeryDurationMinutes = Math.round((a2Marker.time - x1Marker.time) / 60000); // Convert ms to minutes
+          const calculatedDuration = Math.round((a2Marker.time - x1Marker.time) / 60000); // Convert ms to minutes
+          // Use calculated duration if valid (> 0), otherwise use default
+          surgeryDurationMinutes = calculatedDuration > 0 ? calculatedDuration : DEFAULT_DURATION_MINUTES;
         }
       }
       
@@ -1306,7 +1312,10 @@ router.get('/api/business/:hospitalId/surgeries/:surgeryId/costs', isAuthenticat
     const { surgery, anesthesiaRecord } = surgeryData;
     
     // Calculate surgery duration
-    let surgeryDurationMinutes = 0;
+    // Default to 60 minutes (1 hour) if no anesthesia record or no time markers
+    // This ensures staff costs are calculated for LA surgeries or cases without recorded times
+    const DEFAULT_DURATION_MINUTES = 60;
+    let surgeryDurationMinutes = DEFAULT_DURATION_MINUTES;
     let x1Time: number | null = null;
     let a2Time: number | null = null;
     
@@ -1319,7 +1328,9 @@ router.get('/api/business/:hospitalId/surgeries/:surgeryId/costs', isAuthenticat
       a2Time = a2Marker?.time || null;
       
       if (x1Time && a2Time) {
-        surgeryDurationMinutes = Math.round((a2Time - x1Time) / 60000);
+        const calculatedDuration = Math.round((a2Time - x1Time) / 60000);
+        // Use calculated duration if valid (> 0), otherwise use default
+        surgeryDurationMinutes = calculatedDuration > 0 ? calculatedDuration : DEFAULT_DURATION_MINUTES;
       }
     }
     
