@@ -833,43 +833,61 @@ export default function QuickCreateSurgeryDialog({
 
           {/* Surgery Side */}
           <div className="space-y-2">
-            <Label>{t('anesthesia.quickSchedule.surgerySide', 'Surgery Side')} / {t('anesthesia.quickSchedule.surgerySideDe', 'OP-Seite')}</Label>
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <Label>{t('anesthesia.surgerySide.label', 'Surgery Side')}</Label>
+            <div className="flex gap-2 flex-wrap">
+              <label 
+                className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
+                  surgerySide === "left" 
+                    ? "border-primary bg-primary/10 text-primary" 
+                    : "border-input bg-background hover:bg-accent"
+                }`}
+                data-testid="radio-surgery-side-left"
+              >
                 <input
                   type="radio"
                   name="surgerySide"
                   value="left"
                   checked={surgerySide === "left"}
                   onChange={() => setSurgerySide("left")}
-                  className="h-4 w-4"
-                  data-testid="radio-surgery-side-left"
+                  className="sr-only"
                 />
-                <span className="text-sm">{t('anesthesia.quickSchedule.left', 'Left')} / Links</span>
+                <span className="text-sm font-medium">{t('anesthesia.surgerySide.left', 'Left')}</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label 
+                className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
+                  surgerySide === "right" 
+                    ? "border-primary bg-primary/10 text-primary" 
+                    : "border-input bg-background hover:bg-accent"
+                }`}
+                data-testid="radio-surgery-side-right"
+              >
                 <input
                   type="radio"
                   name="surgerySide"
                   value="right"
                   checked={surgerySide === "right"}
                   onChange={() => setSurgerySide("right")}
-                  className="h-4 w-4"
-                  data-testid="radio-surgery-side-right"
+                  className="sr-only"
                 />
-                <span className="text-sm">{t('anesthesia.quickSchedule.right', 'Right')} / Rechts</span>
+                <span className="text-sm font-medium">{t('anesthesia.surgerySide.right', 'Right')}</span>
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label 
+                className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
+                  surgerySide === "both" 
+                    ? "border-primary bg-primary/10 text-primary" 
+                    : "border-input bg-background hover:bg-accent"
+                }`}
+                data-testid="radio-surgery-side-both"
+              >
                 <input
                   type="radio"
                   name="surgerySide"
                   value="both"
                   checked={surgerySide === "both"}
                   onChange={() => setSurgerySide("both")}
-                  className="h-4 w-4"
-                  data-testid="radio-surgery-side-both"
+                  className="sr-only"
                 />
-                <span className="text-sm">{t('anesthesia.quickSchedule.both', 'Both')} / Beidseitig</span>
+                <span className="text-sm font-medium">{t('anesthesia.surgerySide.both', 'Both')}</span>
               </label>
               {surgerySide && (
                 <Button
@@ -877,7 +895,7 @@ export default function QuickCreateSurgeryDialog({
                   variant="ghost"
                   size="sm"
                   onClick={() => setSurgerySide("")}
-                  className="text-xs h-6 px-2"
+                  className="text-xs min-h-[44px] px-3"
                 >
                   {t('common.clear', 'Clear')}
                 </Button>
@@ -894,7 +912,7 @@ export default function QuickCreateSurgeryDialog({
               data-testid="checkbox-antibiose-prophylaxe"
             />
             <Label htmlFor="antibiose-prophylaxe" className="font-normal cursor-pointer">
-              {t('anesthesia.quickSchedule.antibioseProphylaxe', 'Antibiotic Prophylaxis Required')} / Antibiose-Prophylaxe erforderlich
+              {t('anesthesia.antibioseProphylaxe', 'Antibiotic Prophylaxis Required')}
             </Label>
           </div>
 

@@ -2891,43 +2891,61 @@ export default function PatientDetail() {
 
                     {/* Surgery Side */}
                     <div className="space-y-2">
-                      <Label>{t('anesthesia.patientDetail.surgerySide', 'Surgery Side')} / OP-Seite</Label>
-                      <div className="flex gap-4 flex-wrap">
-                        <label className="flex items-center gap-2 cursor-pointer">
+                      <Label>{t('anesthesia.surgerySide.label', 'Surgery Side')}</Label>
+                      <div className="flex gap-2 flex-wrap">
+                        <label 
+                          className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
+                            newCase.surgerySide === "left" 
+                              ? "border-primary bg-primary/10 text-primary" 
+                              : "border-input bg-background hover:bg-accent"
+                          }`}
+                          data-testid="radio-newcase-surgery-side-left"
+                        >
                           <input
                             type="radio"
                             name="newCaseSurgerySide"
                             value="left"
                             checked={newCase.surgerySide === "left"}
                             onChange={() => setNewCase({ ...newCase, surgerySide: "left" })}
-                            className="h-4 w-4"
-                            data-testid="radio-newcase-surgery-side-left"
+                            className="sr-only"
                           />
-                          <span className="text-sm">{t('anesthesia.patientDetail.left', 'Left')} / Links</span>
+                          <span className="text-sm font-medium">{t('anesthesia.surgerySide.left', 'Left')}</span>
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
+                        <label 
+                          className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
+                            newCase.surgerySide === "right" 
+                              ? "border-primary bg-primary/10 text-primary" 
+                              : "border-input bg-background hover:bg-accent"
+                          }`}
+                          data-testid="radio-newcase-surgery-side-right"
+                        >
                           <input
                             type="radio"
                             name="newCaseSurgerySide"
                             value="right"
                             checked={newCase.surgerySide === "right"}
                             onChange={() => setNewCase({ ...newCase, surgerySide: "right" })}
-                            className="h-4 w-4"
-                            data-testid="radio-newcase-surgery-side-right"
+                            className="sr-only"
                           />
-                          <span className="text-sm">{t('anesthesia.patientDetail.right', 'Right')} / Rechts</span>
+                          <span className="text-sm font-medium">{t('anesthesia.surgerySide.right', 'Right')}</span>
                         </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
+                        <label 
+                          className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
+                            newCase.surgerySide === "both" 
+                              ? "border-primary bg-primary/10 text-primary" 
+                              : "border-input bg-background hover:bg-accent"
+                          }`}
+                          data-testid="radio-newcase-surgery-side-both"
+                        >
                           <input
                             type="radio"
                             name="newCaseSurgerySide"
                             value="both"
                             checked={newCase.surgerySide === "both"}
                             onChange={() => setNewCase({ ...newCase, surgerySide: "both" })}
-                            className="h-4 w-4"
-                            data-testid="radio-newcase-surgery-side-both"
+                            className="sr-only"
                           />
-                          <span className="text-sm">{t('anesthesia.patientDetail.both', 'Both')} / Beidseitig</span>
+                          <span className="text-sm font-medium">{t('anesthesia.surgerySide.both', 'Both')}</span>
                         </label>
                         {newCase.surgerySide && (
                           <Button
@@ -2935,7 +2953,7 @@ export default function PatientDetail() {
                             variant="ghost"
                             size="sm"
                             onClick={() => setNewCase({ ...newCase, surgerySide: "" })}
-                            className="text-xs h-6 px-2"
+                            className="text-xs min-h-[44px] px-3"
                           >
                             {t('common.clear', 'Clear')}
                           </Button>
@@ -2952,7 +2970,7 @@ export default function PatientDetail() {
                         data-testid="checkbox-newcase-antibiose-prophylaxe"
                       />
                       <Label htmlFor="newcase-antibiose-prophylaxe" className="font-normal cursor-pointer">
-                        {t('anesthesia.patientDetail.antibioseProphylaxe', 'Antibiotic Prophylaxis Required')} / Antibiose-Prophylaxe erforderlich
+                        {t('anesthesia.antibioseProphylaxe', 'Antibiotic Prophylaxis Required')}
                       </Label>
                     </div>
 

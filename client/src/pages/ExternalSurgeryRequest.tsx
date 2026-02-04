@@ -573,6 +573,80 @@ export default function ExternalSurgeryRequest() {
                     </PopoverContent>
                   </Popover>
                 </div>
+
+                {/* Surgery Side */}
+                <div className="space-y-2">
+                  <Label>
+                    {isGerman ? 'OP-Seite' : 'Surgery Side'}
+                  </Label>
+                  <div className="flex gap-2 flex-wrap">
+                    <label 
+                      className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
+                        formData.surgerySide === "left" 
+                          ? "border-primary bg-primary/10 text-primary" 
+                          : "border-input bg-background hover:bg-accent"
+                      }`}
+                      data-testid="radio-external-surgery-side-left"
+                    >
+                      <input
+                        type="radio"
+                        name="externalSurgerySide"
+                        value="left"
+                        checked={formData.surgerySide === "left"}
+                        onChange={() => updateField('surgerySide', 'left')}
+                        className="sr-only"
+                      />
+                      <span className="text-sm font-medium">{isGerman ? 'Links' : 'Left'}</span>
+                    </label>
+                    <label 
+                      className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
+                        formData.surgerySide === "right" 
+                          ? "border-primary bg-primary/10 text-primary" 
+                          : "border-input bg-background hover:bg-accent"
+                      }`}
+                      data-testid="radio-external-surgery-side-right"
+                    >
+                      <input
+                        type="radio"
+                        name="externalSurgerySide"
+                        value="right"
+                        checked={formData.surgerySide === "right"}
+                        onChange={() => updateField('surgerySide', 'right')}
+                        className="sr-only"
+                      />
+                      <span className="text-sm font-medium">{isGerman ? 'Rechts' : 'Right'}</span>
+                    </label>
+                    <label 
+                      className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
+                        formData.surgerySide === "both" 
+                          ? "border-primary bg-primary/10 text-primary" 
+                          : "border-input bg-background hover:bg-accent"
+                      }`}
+                      data-testid="radio-external-surgery-side-both"
+                    >
+                      <input
+                        type="radio"
+                        name="externalSurgerySide"
+                        value="both"
+                        checked={formData.surgerySide === "both"}
+                        onChange={() => updateField('surgerySide', 'both')}
+                        className="sr-only"
+                      />
+                      <span className="text-sm font-medium">{isGerman ? 'Beidseitig' : 'Both'}</span>
+                    </label>
+                    {formData.surgerySide && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => updateField('surgerySide', '')}
+                        className="text-xs min-h-[44px] px-3"
+                      >
+                        {isGerman ? 'Löschen' : 'Clear'}
+                      </Button>
+                    )}
+                  </div>
+                </div>
                 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
@@ -602,62 +676,6 @@ export default function ExternalSurgeryRequest() {
                       min={new Date().toISOString().split('T')[0]}
                       data-testid="input-wished-date"
                     />
-                  </div>
-                </div>
-                
-                {/* Surgery Side */}
-                <div className="space-y-2">
-                  <Label>
-                    {isGerman ? 'OP-Seite' : 'Surgery Side'}
-                  </Label>
-                  <div className="flex gap-4 flex-wrap">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="externalSurgerySide"
-                        value="left"
-                        checked={formData.surgerySide === "left"}
-                        onChange={() => updateField('surgerySide', 'left')}
-                        className="h-4 w-4"
-                        data-testid="radio-external-surgery-side-left"
-                      />
-                      <span className="text-sm">{isGerman ? 'Links' : 'Left'}</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="externalSurgerySide"
-                        value="right"
-                        checked={formData.surgerySide === "right"}
-                        onChange={() => updateField('surgerySide', 'right')}
-                        className="h-4 w-4"
-                        data-testid="radio-external-surgery-side-right"
-                      />
-                      <span className="text-sm">{isGerman ? 'Rechts' : 'Right'}</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="externalSurgerySide"
-                        value="both"
-                        checked={formData.surgerySide === "both"}
-                        onChange={() => updateField('surgerySide', 'both')}
-                        className="h-4 w-4"
-                        data-testid="radio-external-surgery-side-both"
-                      />
-                      <span className="text-sm">{isGerman ? 'Beidseitig' : 'Both'}</span>
-                    </label>
-                    {formData.surgerySide && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => updateField('surgerySide', '')}
-                        className="text-xs h-6 px-2"
-                      >
-                        {isGerman ? 'Löschen' : 'Clear'}
-                      </Button>
-                    )}
                   </div>
                 </div>
 

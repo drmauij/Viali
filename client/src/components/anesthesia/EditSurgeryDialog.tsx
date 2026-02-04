@@ -726,6 +726,98 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 </Popover>
               </div>
 
+              {/* Surgery Side */}
+              <div className="space-y-2">
+                <Label>{t('anesthesia.surgerySide.label', 'Surgery Side')}</Label>
+                <div className="flex gap-2 flex-wrap">
+                  <label 
+                    className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
+                      surgerySide === "left" 
+                        ? "border-primary bg-primary/10 text-primary" 
+                        : "border-input bg-background hover:bg-accent"
+                    } ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
+                    data-testid="radio-edit-surgery-side-left"
+                  >
+                    <input
+                      type="radio"
+                      name="editSurgerySide"
+                      value="left"
+                      checked={surgerySide === "left"}
+                      onChange={() => setSurgerySide("left")}
+                      disabled={!canWrite}
+                      className="sr-only"
+                    />
+                    <span className="text-sm font-medium">{t('anesthesia.surgerySide.left', 'Left')}</span>
+                  </label>
+                  <label 
+                    className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
+                      surgerySide === "right" 
+                        ? "border-primary bg-primary/10 text-primary" 
+                        : "border-input bg-background hover:bg-accent"
+                    } ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
+                    data-testid="radio-edit-surgery-side-right"
+                  >
+                    <input
+                      type="radio"
+                      name="editSurgerySide"
+                      value="right"
+                      checked={surgerySide === "right"}
+                      onChange={() => setSurgerySide("right")}
+                      disabled={!canWrite}
+                      className="sr-only"
+                    />
+                    <span className="text-sm font-medium">{t('anesthesia.surgerySide.right', 'Right')}</span>
+                  </label>
+                  <label 
+                    className={`flex items-center justify-center cursor-pointer px-4 py-2.5 rounded-lg border transition-colors min-h-[44px] ${
+                      surgerySide === "both" 
+                        ? "border-primary bg-primary/10 text-primary" 
+                        : "border-input bg-background hover:bg-accent"
+                    } ${!canWrite ? "opacity-50 cursor-not-allowed" : ""}`}
+                    data-testid="radio-edit-surgery-side-both"
+                  >
+                    <input
+                      type="radio"
+                      name="editSurgerySide"
+                      value="both"
+                      checked={surgerySide === "both"}
+                      onChange={() => setSurgerySide("both")}
+                      disabled={!canWrite}
+                      className="sr-only"
+                    />
+                    <span className="text-sm font-medium">{t('anesthesia.surgerySide.both', 'Both')}</span>
+                  </label>
+                  {surgerySide && canWrite && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSurgerySide("")}
+                      className="text-xs min-h-[44px] px-3"
+                    >
+                      {t('common.clear', 'Clear')}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Antibiose Prophylaxe */}
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox
+                  id="edit-antibiose-prophylaxe"
+                  checked={antibioseProphylaxe}
+                  onCheckedChange={(checked) => setAntibioseProphylaxe(checked === true)}
+                  disabled={!canWrite}
+                  data-testid="checkbox-edit-antibiose-prophylaxe"
+                />
+                <Label 
+                  htmlFor="edit-antibiose-prophylaxe" 
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  {t('anesthesia.antibioseProphylaxe', 'Antibiotic Prophylaxis Required')}
+                </Label>
+              </div>
+
               {/* Surgeon */}
               <div className="space-y-2">
                 <Label htmlFor="edit-surgeon">{t('anesthesia.editSurgery.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.surgeonOptional')})</span></Label>
@@ -907,80 +999,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   data-testid="textarea-edit-implant-details"
                   rows={3}
                 />
-              </div>
-
-              {/* Surgery Side */}
-              <div className="space-y-2">
-                <Label>{t('anesthesia.editSurgery.surgerySide', 'Surgery Side')} / OP-Seite</Label>
-                <div className="flex gap-4 flex-wrap">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="editSurgerySide"
-                      value="left"
-                      checked={surgerySide === "left"}
-                      onChange={() => setSurgerySide("left")}
-                      disabled={!canWrite}
-                      className="h-4 w-4"
-                      data-testid="radio-edit-surgery-side-left"
-                    />
-                    <span className="text-sm">{t('anesthesia.editSurgery.left', 'Left')} / Links</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="editSurgerySide"
-                      value="right"
-                      checked={surgerySide === "right"}
-                      onChange={() => setSurgerySide("right")}
-                      disabled={!canWrite}
-                      className="h-4 w-4"
-                      data-testid="radio-edit-surgery-side-right"
-                    />
-                    <span className="text-sm">{t('anesthesia.editSurgery.right', 'Right')} / Rechts</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="radio"
-                      name="editSurgerySide"
-                      value="both"
-                      checked={surgerySide === "both"}
-                      onChange={() => setSurgerySide("both")}
-                      disabled={!canWrite}
-                      className="h-4 w-4"
-                      data-testid="radio-edit-surgery-side-both"
-                    />
-                    <span className="text-sm">{t('anesthesia.editSurgery.both', 'Both')} / Beidseitig</span>
-                  </label>
-                  {surgerySide && canWrite && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setSurgerySide("")}
-                      className="text-xs h-6 px-2"
-                    >
-                      {t('common.clear', 'Clear')}
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {/* Antibiose Prophylaxe */}
-              <div className="flex items-center space-x-2 pt-2">
-                <Checkbox
-                  id="edit-antibiose-prophylaxe"
-                  checked={antibioseProphylaxe}
-                  onCheckedChange={(checked) => setAntibioseProphylaxe(checked === true)}
-                  disabled={!canWrite}
-                  data-testid="checkbox-edit-antibiose-prophylaxe"
-                />
-                <Label 
-                  htmlFor="edit-antibiose-prophylaxe" 
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  {t('anesthesia.editSurgery.antibioseProphylaxe', 'Antibiotic Prophylaxis Required')} / Antibiose-Prophylaxe erforderlich
-                </Label>
               </div>
 
               {/* No Anesthesia Pre-Op Required */}
