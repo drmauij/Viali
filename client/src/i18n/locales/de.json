@@ -55,7 +55,9 @@
     "rate": "Rate",
     "quantity": "Menge",
     "back": "Zurück",
-    "next": "Weiter"
+    "next": "Weiter",
+    "camera": "Kamera",
+    "upload": "Hochladen"
   },
   "dialogs": {
     "editVentilationMode": "Beatmungsmodus bearbeiten",
@@ -1313,7 +1315,17 @@
       "noHospitalSelected": "Kein Krankenhaus ausgewählt",
       "selectHospitalToView": "Bitte wählen Sie ein Krankenhaus aus, um Patienten anzuzeigen",
       "noPatients": "Keine Patienten gefunden",
-      "createFirstPatient": "Erstellen Sie Ihren ersten Patienten, um zu beginnen"
+      "createFirstPatient": "Erstellen Sie Ihren ersten Patienten, um zu beginnen",
+      "identityDocuments": "Ausweise & Versicherungskarten",
+      "idCard": "Personalausweis",
+      "insuranceCard": "Versicherungskarte",
+      "front": "Vorderseite",
+      "back": "Rückseite",
+      "noImage": "Kein Bild",
+      "imageUploaded": "Bild erfolgreich hochgeladen",
+      "imageUploadFailed": "Bild konnte nicht hochgeladen werden",
+      "imageDeleted": "Bild gelöscht",
+      "imageDeleteFailed": "Bild konnte nicht gelöscht werden"
     },
     "preop": {
       "title": "Präoperative Assessments",
