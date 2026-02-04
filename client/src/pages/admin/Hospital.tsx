@@ -4213,7 +4213,7 @@ function ChopIntegrationCard() {
           
           <Button
             onClick={() => importChopMutation.mutate()}
-            disabled={importChopMutation.isPending || chopStatus?.imported || chopStatusError}
+            disabled={importChopMutation.isPending || chopStatus?.imported}
             size="sm"
             data-testid="button-import-chop"
           >
