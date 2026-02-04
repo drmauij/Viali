@@ -2589,12 +2589,14 @@ export const updateIntraOpDataSchema = z.object({
     kodanColored: z.boolean().optional(),
     kodanColorless: z.boolean().optional(),
     octanisept: z.boolean().optional(),
+    betadine: z.boolean().optional(),
     performedBy: z.string().optional().nullable(),
   }).optional(),
   equipment: z.object({
     monopolar: z.boolean().optional(),
     bipolar: z.boolean().optional(),
     neutralElectrodeLocation: z.string().optional().nullable(),
+    neutralElectrodeSide: z.string().optional().nullable(),
     pathology: z.object({
       histology: z.boolean().optional(),
       microbiology: z.boolean().optional(),
@@ -2605,6 +2607,7 @@ export const updateIntraOpDataSchema = z.object({
   // New: Spülung (Irrigation) section with checkboxes
   irrigation: z.object({
     nacl: z.boolean().optional(),
+    ringerSolution: z.boolean().optional(),
     betadine: z.boolean().optional(),
     hydrogenPeroxide: z.boolean().optional(),
     other: z.string().optional().nullable(),
