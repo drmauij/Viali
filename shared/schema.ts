@@ -759,6 +759,13 @@ export const patients = pgTable("patients", {
   // Insurance & Administrative
   insuranceProvider: varchar("insurance_provider"),
   insuranceNumber: varchar("insurance_number"),
+  healthInsuranceNumber: varchar("health_insurance_number"), // Swiss AHV/Versichertennummer
+  
+  // Identity & Insurance Card Images
+  idCardFrontUrl: varchar("id_card_front_url"),
+  idCardBackUrl: varchar("id_card_back_url"),
+  insuranceCardFrontUrl: varchar("insurance_card_front_url"),
+  insuranceCardBackUrl: varchar("insurance_card_back_url"),
   
   // Medical Information
   allergies: text("allergies").array(),
