@@ -2790,7 +2790,16 @@ export default function Op() {
                           };
                           setIntraOpData(updated);
                         }}
-                        onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                        onBlur={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            equipment: {
+                              ...intraOpData.equipment,
+                              devices: e.target.value
+                            }
+                          };
+                          intraOpAutoSave.mutate(updated);
+                        }}
                       />
                     </div>
                   </CardContent>
@@ -2860,7 +2869,16 @@ export default function Op() {
                         };
                         setIntraOpData(updated);
                       }}
-                      onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                      onBlur={(e) => {
+                        const updated = {
+                          ...intraOpData,
+                          irrigation: {
+                            ...intraOpData.irrigation,
+                            other: e.target.value
+                          }
+                        };
+                        intraOpAutoSave.mutate(updated);
+                      }}
                     />
                   </CardContent>
                 </Card>
@@ -2906,7 +2924,16 @@ export default function Op() {
                           };
                           setIntraOpData(updated);
                         }}
-                        onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                        onBlur={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            infiltration: {
+                              ...intraOpData.infiltration,
+                              other: e.target.value
+                            }
+                          };
+                          intraOpAutoSave.mutate(updated);
+                        }}
                       />
                     </div>
                   </CardContent>
@@ -2958,7 +2985,16 @@ export default function Op() {
                         };
                         setIntraOpData(updated);
                       }}
-                      onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                      onBlur={(e) => {
+                        const updated = {
+                          ...intraOpData,
+                          medications: {
+                            ...intraOpData.medications,
+                            other: e.target.value
+                          }
+                        };
+                        intraOpAutoSave.mutate(updated);
+                      }}
                     />
                   </CardContent>
                 </Card>
@@ -3019,7 +3055,16 @@ export default function Op() {
                         };
                         setIntraOpData(updated);
                       }}
-                      onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                      onBlur={(e) => {
+                        const updated = {
+                          ...intraOpData,
+                          dressing: {
+                            ...intraOpData.dressing,
+                            other: e.target.value
+                          }
+                        };
+                        intraOpAutoSave.mutate(updated);
+                      }}
                     />
                   </CardContent>
                 </Card>
@@ -3048,7 +3093,16 @@ export default function Op() {
                             };
                             setIntraOpData(updated);
                           }}
-                          onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                          onBlur={(e) => {
+                            const updated = {
+                              ...intraOpData,
+                              drainage: {
+                                ...intraOpData.drainage,
+                                redonCH: e.target.value
+                              }
+                            };
+                            intraOpAutoSave.mutate(updated);
+                          }}
                         />
                       </div>
                       <div className="space-y-2">
@@ -3071,7 +3125,17 @@ export default function Op() {
                             };
                             setIntraOpData(updated);
                           }}
-                          onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                          onBlur={(e) => {
+                            const value = e.target.value === '' ? undefined : parseInt(e.target.value, 10);
+                            const updated = {
+                              ...intraOpData,
+                              drainage: {
+                                ...intraOpData.drainage,
+                                redonCount: value
+                              }
+                            };
+                            intraOpAutoSave.mutate(updated);
+                          }}
                         />
                       </div>
                     </div>
@@ -3091,7 +3155,16 @@ export default function Op() {
                           };
                           setIntraOpData(updated);
                         }}
-                        onBlur={() => intraOpAutoSave.mutate(intraOpData)}
+                        onBlur={(e) => {
+                          const updated = {
+                            ...intraOpData,
+                            drainage: {
+                              ...intraOpData.drainage,
+                              other: e.target.value
+                            }
+                          };
+                          intraOpAutoSave.mutate(updated);
+                        }}
                       />
                     </div>
                   </CardContent>
