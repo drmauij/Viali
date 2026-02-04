@@ -26,7 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, X, ChevronUp, ChevronDown, Pencil, Trash2, Languages } from "lucide-react";
+import { Loader2, Plus, X, ChevronUp, ChevronDown, Pencil, Trash2, Languages, Database, CheckCircle2, AlertCircle } from "lucide-react";
 import { arrayMove } from "@dnd-kit/sortable";
 
 type MedicationGroup = {
@@ -63,6 +63,113 @@ type Item = {
   administrationRoute?: string;
   rateUnit?: string | null;
 };
+
+// System Settings Tab Component for CHOP import and other system-wide settings
+function SystemSettingsTab() {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  
+  // Check CHOP import status
+  const { data: chopStatus, isLoading: chopStatusLoading, isError: chopStatusError, refetch: refetchChopStatus } = useQuery<{
+    imported: boolean;
+    count: number;
+  }>({
+    queryKey: ['/api/admin/chop-status'],
+    retry: false,
+  });
+  
+  // CHOP import mutation
+  const importChopMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/admin/import-chop');
+      return response;
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: t('settings.system.chopImportSuccess', 'CHOP Import Successful'),
+        description: data.message,
+      });
+      refetchChopStatus();
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('settings.system.chopImportError', 'CHOP Import Failed'),
+        description: error.message || 'Failed to import CHOP procedures',
+        variant: 'destructive',
+      });
+    },
+  });
+  
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-medium">{t('settings.system.title', 'System Settings')}</h3>
+        <p className="text-sm text-muted-foreground">
+          {t('settings.system.description', 'System-wide configuration and data imports')}
+        </p>
+      </div>
+      
+      {/* CHOP Procedures Import Section */}
+      <div className="border rounded-lg p-4 space-y-4">
+        <div className="flex items-center gap-3">
+          <Database className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h4 className="font-medium">{t('settings.system.chopProcedures', 'CHOP 2026 Procedures')}</h4>
+            <p className="text-sm text-muted-foreground">
+              {t('settings.system.chopDescription', 'Swiss procedure codes for billing and documentation')}
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {chopStatusLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : chopStatusError ? (
+              <>
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <span className="text-sm text-red-600">
+                  {t('settings.system.accessDenied', 'Admin access required')}
+                </span>
+              </>
+            ) : chopStatus?.imported ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-green-600">
+                  {chopStatus.count.toLocaleString()} {t('settings.system.proceduresImported', 'procedures imported')}
+                </span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-4 w-4 text-yellow-600" />
+                <span className="text-sm text-yellow-600">
+                  {t('settings.system.chopNotImported', 'Not yet imported')}
+                </span>
+              </>
+            )}
+          </div>
+          
+          <Button
+            onClick={() => importChopMutation.mutate()}
+            disabled={importChopMutation.isPending || chopStatus?.imported || chopStatusError}
+            data-testid="button-import-chop"
+          >
+            {importChopMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {t('settings.system.importing', 'Importing...')}
+              </>
+            ) : chopStatus?.imported ? (
+              t('settings.system.alreadyImported', 'Already Imported')
+            ) : (
+              t('settings.system.importChop', 'Import CHOP Codes')
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AnesthesiaSettings() {
   const { t } = useTranslation();
@@ -769,12 +876,13 @@ export default function AnesthesiaSettings() {
 
       <Tabs defaultValue="groups" className="w-full">
         <div className="w-full overflow-x-auto mb-6 -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-5">
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:w-full md:grid-cols-6">
             <TabsTrigger value="groups" data-testid="tab-groups" className="flex-shrink-0">{t('anesthesia.settings.groups')}</TabsTrigger>
             <TabsTrigger value="allergies" data-testid="tab-allergies" className="flex-shrink-0">{t('anesthesia.settings.allergies')}</TabsTrigger>
             <TabsTrigger value="medications" data-testid="tab-medications" className="flex-shrink-0">{t('anesthesia.settings.medications')}</TabsTrigger>
             <TabsTrigger value="illnesses" data-testid="tab-illnesses" className="flex-shrink-0">{t('anesthesia.settings.medicalHistory')}</TabsTrigger>
             <TabsTrigger value="checklists" data-testid="tab-checklists" className="flex-shrink-0">{t('anesthesia.settings.checklists')}</TabsTrigger>
+            <TabsTrigger value="system" data-testid="tab-system" className="flex-shrink-0">{t('anesthesia.settings.system', 'System')}</TabsTrigger>
           </TabsList>
         </div>
 
@@ -1285,6 +1393,10 @@ export default function AnesthesiaSettings() {
               </div>
             ))}
           </div>
+        </TabsContent>
+
+        <TabsContent value="system" className="space-y-4">
+          <SystemSettingsTab />
         </TabsContent>
       </Tabs>
 

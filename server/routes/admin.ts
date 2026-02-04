@@ -2,7 +2,8 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { users, userHospitalRoles, activities } from "@shared/schema";
+import { users, userHospitalRoles, activities, chopProcedures } from "@shared/schema";
+import { importChopProcedures } from "../scripts/importChop";
 import { eq, and, sql } from "drizzle-orm";
 import { requireWriteAccess, requireResourceAdmin } from "../utils";
 
@@ -1269,6 +1270,79 @@ router.post('/api/admin/:hospitalId/fix-all-stock-levels', isAuthenticated, isAd
   } catch (error: any) {
     console.error("Error fixing stock levels:", error);
     res.status(500).json({ message: "Failed to fix stock levels", error: error.message });
+  }
+});
+
+// CHOP 2026 Procedures Import - system-wide operation, requires admin role on any hospital
+router.post('/api/admin/import-chop', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Check if user is admin of any hospital
+    const hospitals = await storage.getUserHospitals(userId);
+    const isAnyAdmin = hospitals.some(h => h.role === 'admin');
+    
+    if (!isAnyAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    // Check current count
+    const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(chopProcedures);
+    const existingCount = Number(countResult?.count || 0);
+    
+    if (existingCount > 0) {
+      return res.json({
+        success: true,
+        message: `CHOP procedures already imported (${existingCount} records exist)`,
+        existing: existingCount,
+        imported: 0,
+        skipped: 0
+      });
+    }
+    
+    // Run the import
+    console.log('[Admin] Starting CHOP 2026 import...');
+    const result = await importChopProcedures();
+    console.log(`[Admin] CHOP import complete: ${result.imported} imported, ${result.skipped} skipped`);
+    
+    res.json({
+      success: true,
+      message: `Successfully imported ${result.imported} CHOP procedures`,
+      imported: result.imported,
+      skipped: result.skipped
+    });
+  } catch (error: any) {
+    console.error("[Admin] CHOP import error:", error);
+    res.status(500).json({ 
+      message: "Failed to import CHOP procedures", 
+      error: error.message 
+    });
+  }
+});
+
+// Get CHOP import status
+router.get('/api/admin/chop-status', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    
+    // Check if user is admin of any hospital
+    const hospitals = await storage.getUserHospitals(userId);
+    const isAnyAdmin = hospitals.some(h => h.role === 'admin');
+    
+    if (!isAnyAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(chopProcedures);
+    const count = Number(countResult?.count || 0);
+    
+    res.json({
+      imported: count > 0,
+      count
+    });
+  } catch (error: any) {
+    console.error("[Admin] CHOP status error:", error);
+    res.status(500).json({ message: "Failed to get CHOP status", error: error.message });
   }
 });
 
