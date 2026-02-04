@@ -1,5 +1,6 @@
 import { db } from '../db';
 import { chopProcedures } from '@shared/schema';
+import { sql } from 'drizzle-orm';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -83,9 +84,18 @@ export async function importChopProcedures(): Promise<{ imported: number; skippe
     }));
     
     try {
-      await db.insert(chopProcedures).values(values).onConflictDoNothing();
+      await db.insert(chopProcedures).values(values).onConflictDoUpdate({
+        target: chopProcedures.code,
+        set: {
+          descriptionDe: sql`excluded.description_de`,
+          chapter: sql`excluded.chapter`,
+          indentLevel: sql`excluded.indent_level`,
+          laterality: sql`excluded.laterality`,
+          version: sql`excluded.version`,
+        }
+      });
       imported += values.length;
-      console.log(`Imported batch ${Math.floor(i / batchSize) + 1} (${imported} total)`);
+      console.log(`Imported/updated batch ${Math.floor(i / batchSize) + 1} (${imported} total)`);
     } catch (error) {
       console.error(`Error importing batch:`, error);
       skipped += values.length;
@@ -95,16 +105,6 @@ export async function importChopProcedures(): Promise<{ imported: number; skippe
   return { imported, skipped };
 }
 
-const isMainModule = process.argv[1] === __filename;
-
-if (isMainModule) {
-  importChopProcedures()
-    .then(result => {
-      console.log(`Import complete: ${result.imported} imported, ${result.skipped} skipped`);
-      process.exit(0);
-    })
-    .catch(error => {
-      console.error('Import failed:', error);
-      process.exit(1);
-    });
-}
+// Removed auto-execution code - use the admin API endpoint instead:
+// POST /api/admin/import-chop
+// This prevents the script from crashing when the CSV file is not present in production

@@ -1274,6 +1274,7 @@ router.post('/api/admin/:hospitalId/fix-all-stock-levels', isAuthenticated, isAd
 });
 
 // CHOP 2026 Procedures Import - system-wide operation, requires admin role on any hospital
+// Uses upsert logic: inserts new procedures and updates existing ones
 router.post('/api/admin/import-chop', isAuthenticated, async (req: any, res) => {
   try {
     const userId = req.user.id;
@@ -1286,30 +1287,31 @@ router.post('/api/admin/import-chop', isAuthenticated, async (req: any, res) => 
       return res.status(403).json({ message: "Admin access required" });
     }
     
-    // Check current count
-    const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(chopProcedures);
-    const existingCount = Number(countResult?.count || 0);
+    // Check current count before import
+    const [countBefore] = await db.select({ count: sql<number>`count(*)` }).from(chopProcedures);
+    const existingCount = Number(countBefore?.count || 0);
     
-    if (existingCount > 0) {
-      return res.json({
-        success: true,
-        message: `CHOP procedures already imported (${existingCount} records exist)`,
-        existing: existingCount,
-        imported: 0,
-        skipped: 0
-      });
-    }
-    
-    // Run the import
-    console.log('[Admin] Starting CHOP 2026 import...');
+    // Run the import (uses upsert - inserts new, updates existing)
+    console.log('[Admin] Starting CHOP 2026 import/update...');
     const result = await importChopProcedures();
-    console.log(`[Admin] CHOP import complete: ${result.imported} imported, ${result.skipped} skipped`);
+    console.log(`[Admin] CHOP import complete: ${result.imported} processed, ${result.skipped} skipped`);
+    
+    // Check count after import
+    const [countAfter] = await db.select({ count: sql<number>`count(*)` }).from(chopProcedures);
+    const finalCount = Number(countAfter?.count || 0);
+    const newRecords = finalCount - existingCount;
+    
+    const message = existingCount > 0 
+      ? `CHOP procedures updated (${newRecords} new, ${existingCount} updated)`
+      : `Successfully imported ${result.imported} CHOP procedures`;
     
     res.json({
       success: true,
-      message: `Successfully imported ${result.imported} CHOP procedures`,
+      message,
       imported: result.imported,
-      skipped: result.skipped
+      skipped: result.skipped,
+      newRecords,
+      updated: existingCount > 0 ? existingCount : 0
     });
   } catch (error: any) {
     console.error("[Admin] CHOP import error:", error);
