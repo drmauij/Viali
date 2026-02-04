@@ -173,6 +173,235 @@ router.post('/api/patients/:id/unarchive', isAuthenticated, requireWriteAccess, 
   }
 });
 
+// ========== PATIENT CARD IMAGE ROUTES ==========
+
+// Generate upload URL for patient card images (ID card, insurance card)
+router.post('/api/patients/:id/card-image/upload-url', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { cardType, side, filename, contentType } = req.body;
+    const userId = req.user.id;
+
+    // Validate cardType and side
+    if (!['id_card', 'insurance_card'].includes(cardType)) {
+      return res.status(400).json({ message: "Invalid card type. Must be 'id_card' or 'insurance_card'" });
+    }
+    if (!['front', 'back'].includes(side)) {
+      return res.status(400).json({ message: "Invalid side. Must be 'front' or 'back'" });
+    }
+
+    const patient = await storage.getPatient(id);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const endpoint = process.env.S3_ENDPOINT;
+    const accessKeyId = process.env.S3_ACCESS_KEY;
+    const secretAccessKey = process.env.S3_SECRET_KEY;
+    const bucket = process.env.S3_BUCKET;
+    const region = process.env.S3_REGION || "ch-dk-2";
+
+    if (!endpoint || !accessKeyId || !secretAccessKey || !bucket) {
+      return res.status(500).json({ message: "Object storage not configured" });
+    }
+
+    const { S3Client, PutObjectCommand } = await import("@aws-sdk/client-s3");
+    const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+    const { randomUUID } = await import("crypto");
+
+    const s3Client = new S3Client({
+      endpoint,
+      region,
+      credentials: { accessKeyId, secretAccessKey },
+      forcePathStyle: true,
+    });
+
+    const objectId = randomUUID();
+    const extension = filename ? filename.split('.').pop() : 'jpg';
+    const objectName = `${objectId}.${extension}`;
+    const key = `patient-cards/${patient.hospitalId}/${id}/${cardType}_${side}_${objectName}`;
+
+    const command = new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: contentType || 'image/jpeg',
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 900 });
+
+    res.json({
+      uploadUrl,
+      storageKey: `/objects/${key}`,
+      key,
+    });
+  } catch (error) {
+    console.error("Error generating card image upload URL:", error);
+    res.status(500).json({ message: "Failed to generate upload URL" });
+  }
+});
+
+// Update patient card image URL after upload
+router.patch('/api/patients/:id/card-image', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { cardType, side, imageUrl } = req.body;
+    const userId = req.user.id;
+
+    // Validate cardType and side
+    if (!['id_card', 'insurance_card'].includes(cardType)) {
+      return res.status(400).json({ message: "Invalid card type. Must be 'id_card' or 'insurance_card'" });
+    }
+    if (!['front', 'back'].includes(side)) {
+      return res.status(400).json({ message: "Invalid side. Must be 'front' or 'back'" });
+    }
+
+    const patient = await storage.getPatient(id);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Map cardType + side to field name
+    const fieldMap: Record<string, string> = {
+      'id_card_front': 'idCardFrontUrl',
+      'id_card_back': 'idCardBackUrl',
+      'insurance_card_front': 'insuranceCardFrontUrl',
+      'insurance_card_back': 'insuranceCardBackUrl',
+    };
+    const fieldName = fieldMap[`${cardType}_${side}`];
+
+    const updatedPatient = await storage.updatePatient(id, { [fieldName]: imageUrl });
+    res.json(updatedPatient);
+  } catch (error) {
+    console.error("Error updating patient card image:", error);
+    res.status(500).json({ message: "Failed to update card image" });
+  }
+});
+
+// Delete patient card image
+router.delete('/api/patients/:id/card-image', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const { cardType, side } = req.body;
+    const userId = req.user.id;
+
+    // Validate cardType and side
+    if (!['id_card', 'insurance_card'].includes(cardType)) {
+      return res.status(400).json({ message: "Invalid card type. Must be 'id_card' or 'insurance_card'" });
+    }
+    if (!['front', 'back'].includes(side)) {
+      return res.status(400).json({ message: "Invalid side. Must be 'front' or 'back'" });
+    }
+
+    const patient = await storage.getPatient(id);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Map cardType + side to field name
+    const fieldMap: Record<string, string> = {
+      'id_card_front': 'idCardFrontUrl',
+      'id_card_back': 'idCardBackUrl',
+      'insurance_card_front': 'insuranceCardFrontUrl',
+      'insurance_card_back': 'insuranceCardBackUrl',
+    };
+    const fieldName = fieldMap[`${cardType}_${side}`];
+    const currentUrl = (patient as any)[fieldName];
+
+    // Delete from S3 if exists
+    if (currentUrl && currentUrl.startsWith('/objects/')) {
+      try {
+        const { ObjectStorageService } = await import('../../objectStorage');
+        const objectStorageService = new ObjectStorageService();
+        if (objectStorageService.isConfigured()) {
+          await objectStorageService.deleteObject(currentUrl);
+        }
+      } catch (deleteError) {
+        console.error("Error deleting card image from storage:", deleteError);
+        // Continue anyway - clear the reference
+      }
+    }
+
+    const updatedPatient = await storage.updatePatient(id, { [fieldName]: null });
+    res.json(updatedPatient);
+  } catch (error) {
+    console.error("Error deleting patient card image:", error);
+    res.status(500).json({ message: "Failed to delete card image" });
+  }
+});
+
+// Get download URL for patient card image
+router.get('/api/patients/:id/card-image/:cardType/:side', isAuthenticated, async (req: any, res) => {
+  try {
+    const { id, cardType, side } = req.params;
+    const userId = req.user.id;
+
+    // Validate cardType and side
+    if (!['id_card', 'insurance_card'].includes(cardType)) {
+      return res.status(400).json({ message: "Invalid card type" });
+    }
+    if (!['front', 'back'].includes(side)) {
+      return res.status(400).json({ message: "Invalid side" });
+    }
+
+    const patient = await storage.getPatient(id);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === patient.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Map cardType + side to field name
+    const fieldMap: Record<string, string> = {
+      'id_card_front': 'idCardFrontUrl',
+      'id_card_back': 'idCardBackUrl',
+      'insurance_card_front': 'insuranceCardFrontUrl',
+      'insurance_card_back': 'insuranceCardBackUrl',
+    };
+    const fieldName = fieldMap[`${cardType}_${side}`];
+    const storageUrl = (patient as any)[fieldName];
+
+    if (!storageUrl) {
+      return res.status(404).json({ message: "Card image not found" });
+    }
+
+    // Generate signed download URL
+    const { ObjectStorageService } = await import('../../objectStorage');
+    const objectStorageService = new ObjectStorageService();
+    
+    if (!objectStorageService.isConfigured()) {
+      return res.status(500).json({ message: "Object storage not configured" });
+    }
+
+    const downloadUrl = await objectStorageService.getObjectDownloadURL(storageUrl, 3600);
+    res.json({ downloadUrl, storageUrl });
+  } catch (error) {
+    console.error("Error getting card image download URL:", error);
+    res.status(500).json({ message: "Failed to get download URL" });
+  }
+});
+
 // ========== PATIENT DOCUMENT ROUTES (Staff uploads) ==========
 
 router.get('/api/patients/:id/documents', isAuthenticated, async (req: any, res) => {
