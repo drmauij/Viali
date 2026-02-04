@@ -2619,8 +2619,13 @@ export const updateIntraOpDataSchema = z.object({
   }).optional(),
   // New: Medications section with checkboxes
   medications: z.object({
-    ropivacain: z.boolean().optional(),
+    rapidocain1: z.boolean().optional(),
+    ropivacainEpinephrine: z.boolean().optional(),
+    ropivacain05: z.boolean().optional(),
+    ropivacain075: z.boolean().optional(),
+    ropivacain1: z.boolean().optional(),
     bupivacain: z.boolean().optional(),
+    vancomycinImplant: z.boolean().optional(),
     contrast: z.boolean().optional(),
     ointments: z.boolean().optional(),
     other: z.string().optional().nullable(),
