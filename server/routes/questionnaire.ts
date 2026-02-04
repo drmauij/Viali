@@ -1857,11 +1857,11 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
           roomName = room?.name || null;
         }
         
-        // Get anesthesia type from pre-op assessment if available
+        // Get anesthesia type from anesthesia record if available
         let anesthesiaType = null;
-        const preOp = await storage.getPreOpAssessmentBySurgeryId(link.surgeryId);
-        if (preOp?.anesthesiaType) {
-          anesthesiaType = preOp.anesthesiaType;
+        const anesthesiaRecordForType = await storage.getAnesthesiaRecord(link.surgeryId);
+        if (anesthesiaRecordForType?.anesthesiaType) {
+          anesthesiaType = anesthesiaRecordForType.anesthesiaType;
         }
         
         surgeryInfo = {
