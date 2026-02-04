@@ -1049,7 +1049,7 @@ export default function CostAnalytics() {
                           );
                         })()}
                         
-                        {/* Average Cost/Hour */}
+                        {/* Average Cost/Hour with Anesthesia/Surgery breakdown */}
                         {(() => {
                           const costsPerHour = surgeriesWithCosts
                             .map(s => {
@@ -1060,14 +1060,49 @@ export default function CostAnalytics() {
                           const avgCostPerHour = costsPerHour.length > 0 
                             ? costsPerHour.reduce((sum, c) => sum + c, 0) / costsPerHour.length 
                             : 0;
+                          
+                          const anesthesiaCostsPerHour = surgeriesWithCosts
+                            .map(s => {
+                              const hours = (s.surgeryDurationMinutes ?? 0) / 60;
+                              return hours > 0 ? (s.anesthesiaCost ?? 0) / hours : null;
+                            })
+                            .filter((c): c is number => c !== null && c > 0);
+                          const avgAnesthesiaCostPerHour = anesthesiaCostsPerHour.length > 0 
+                            ? anesthesiaCostsPerHour.reduce((sum, c) => sum + c, 0) / anesthesiaCostsPerHour.length 
+                            : 0;
+                          
+                          const surgeryCostsPerHour = surgeriesWithCosts
+                            .map(s => {
+                              const hours = (s.surgeryDurationMinutes ?? 0) / 60;
+                              return hours > 0 ? (s.surgeryCost ?? 0) / hours : null;
+                            })
+                            .filter((c): c is number => c !== null && c > 0);
+                          const avgSurgeryCostPerHour = surgeryCostsPerHour.length > 0 
+                            ? surgeryCostsPerHour.reduce((sum, c) => sum + c, 0) / surgeryCostsPerHour.length 
+                            : 0;
+                          
                           return (
                             <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-3 border border-indigo-200 dark:border-indigo-800">
                               <div className="flex items-center gap-2 text-muted-foreground text-xs mb-1">
                                 <TrendingUp className="h-3.5 w-3.5" />
                                 {t('business.costs.avgCostPerHour', 'Avg Cost/Hour')}
                               </div>
-                              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400">
+                              <div className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mb-2">
                                 CHF {avgCostPerHour.toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-indigo-200 dark:border-indigo-700">
+                                <div className="text-center">
+                                  <div className="text-[10px] text-muted-foreground">{t('business.costs.anesthesia', 'Anesthesia')}</div>
+                                  <div className="text-xs font-semibold text-green-600 dark:text-green-400">
+                                    CHF {avgAnesthesiaCostPerHour.toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-[10px] text-muted-foreground">{t('business.costs.surgery', 'Surgery')}</div>
+                                  <div className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                                    CHF {avgSurgeryCostPerHour.toLocaleString('de-CH', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           );
