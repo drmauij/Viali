@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus, MessageSquare, FileText, Loader2 } from "lucide-react";
+import { CalendarIcon, Syringe, Stethoscope, Briefcase, Copy, Check, Link as LinkIcon, RefreshCw, Trash2, Eye, EyeOff, Settings, ExternalLink, Plus, MessageSquare, FileText, Loader2, Database, CheckCircle2, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
 import { Switch } from "@/components/ui/switch";
 import { format } from "date-fns";
@@ -2440,6 +2440,9 @@ export default function Hospital() {
 
           {/* Vonage SMS Integration Card */}
           <VonageIntegrationCard hospitalId={activeHospital?.id} />
+
+          {/* CHOP Procedures Import */}
+          <ChopIntegrationCard />
         </div>
       )}
 
@@ -4128,5 +4131,105 @@ function VonageIntegrationCard({ hospitalId }: { hospitalId?: string }) {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// CHOP Procedures Integration Card
+function ChopIntegrationCard() {
+  const { t } = useTranslation();
+  const { toast } = useToast();
+  
+  // Check CHOP import status
+  const { data: chopStatus, isLoading: chopStatusLoading, isError: chopStatusError, refetch: refetchChopStatus } = useQuery<{
+    imported: boolean;
+    count: number;
+  }>({
+    queryKey: ['/api/admin/chop-status'],
+    retry: false,
+  });
+  
+  // CHOP import mutation
+  const importChopMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/admin/import-chop');
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: t('admin.chopImportSuccess', 'CHOP Import Successful'),
+        description: data.message,
+      });
+      refetchChopStatus();
+    },
+    onError: (error: any) => {
+      toast({
+        title: t('admin.chopImportError', 'CHOP Import Failed'),
+        description: error.message || 'Failed to import CHOP procedures',
+        variant: 'destructive',
+      });
+    },
+  });
+  
+  return (
+    <div className="border rounded-lg p-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Database className="h-5 w-5 text-muted-foreground" />
+          <div>
+            <h3 className="font-medium">{t('admin.chopProcedures', 'CHOP 2026 Procedures')}</h3>
+            <p className="text-sm text-muted-foreground">
+              {t('admin.chopDescription', 'Swiss procedure codes for TARDOC billing')}
+            </p>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            {chopStatusLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : chopStatusError ? (
+              <>
+                <AlertCircle className="h-4 w-4 text-red-600" />
+                <span className="text-sm text-red-600">
+                  {t('admin.accessDenied', 'Admin access required')}
+                </span>
+              </>
+            ) : chopStatus?.imported ? (
+              <>
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <span className="text-sm text-green-600">
+                  {chopStatus.count.toLocaleString()} {t('admin.proceduresImported', 'procedures')}
+                </span>
+              </>
+            ) : (
+              <>
+                <AlertCircle className="h-4 w-4 text-yellow-600" />
+                <span className="text-sm text-yellow-600">
+                  {t('admin.chopNotImported', 'Not imported')}
+                </span>
+              </>
+            )}
+          </div>
+          
+          <Button
+            onClick={() => importChopMutation.mutate()}
+            disabled={importChopMutation.isPending || chopStatus?.imported || chopStatusError}
+            size="sm"
+            data-testid="button-import-chop"
+          >
+            {importChopMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                {t('admin.importing', 'Importing...')}
+              </>
+            ) : chopStatus?.imported ? (
+              t('admin.alreadyImported', 'Imported')
+            ) : (
+              t('admin.importChop', 'Import CHOP')
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
   );
 }
