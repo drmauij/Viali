@@ -1058,13 +1058,15 @@ export default function Op() {
   // Intraoperative Data state (Surgery module)
   const [intraOpData, setIntraOpData] = useState<{
     positioning?: { RL?: boolean; SL?: boolean; BL?: boolean; SSL?: boolean; EXT?: boolean };
-    disinfection?: { kodanColored?: boolean; kodanColorless?: boolean; performedBy?: string };
+    disinfection?: { kodanColored?: boolean; kodanColorless?: boolean; octanisept?: boolean; betadine?: boolean; performedBy?: string };
     equipment?: { 
       monopolar?: boolean; 
       bipolar?: boolean; 
       neutralElectrodeLocation?: string;
+      neutralElectrodeSide?: string;
       pathology?: { histology?: boolean; microbiology?: boolean };
       notes?: string;
+      devices?: string;
     };
     irrigationMeds?: {
       irrigation?: string;
@@ -1074,8 +1076,11 @@ export default function Op() {
       contrast?: string;
       ointments?: string;
     };
-    dressing?: { type?: string; other?: string };
-    drainage?: { type?: string; count?: number };
+    irrigation?: { nacl?: boolean; ringerSolution?: boolean; other?: string };
+    infiltration?: { tumorSolution?: boolean; other?: string };
+    medications?: { medication?: string; other?: string };
+    dressing?: { type?: string; other?: string; redon?: boolean };
+    drainage?: { type?: string; count?: number; redonCH?: string; redonCount?: number; other?: string; redon?: boolean };
     signatures?: { circulatingNurse?: string; instrumentNurse?: string };
   }>({});
 
