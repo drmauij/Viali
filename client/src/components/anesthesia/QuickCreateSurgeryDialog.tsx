@@ -916,6 +916,22 @@ export default function QuickCreateSurgeryDialog({
             </Label>
           </div>
 
+          {/* No Anesthesia Pre-Op Required */}
+          <div className="flex items-center space-x-2 pt-2">
+            <Checkbox
+              id="no-preop-required"
+              checked={noPreOpRequired}
+              onCheckedChange={(checked) => setNoPreOpRequired(checked === true)}
+              data-testid="checkbox-no-preop-required"
+            />
+            <Label 
+              htmlFor="no-preop-required" 
+              className="text-sm font-normal cursor-pointer"
+            >
+              {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
+            </Label>
+          </div>
+
           {/* Surgeon */}
           <div className="space-y-2">
             <Label htmlFor="surgeon">{t('anesthesia.quickSchedule.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.quickSchedule.surgeonOptional')})</span></Label>
@@ -1076,22 +1092,6 @@ export default function QuickCreateSurgeryDialog({
               data-testid="textarea-implant-details"
               rows={3}
             />
-          </div>
-
-          {/* No Anesthesia Pre-Op Required */}
-          <div className="flex items-center space-x-2 pt-2">
-            <Checkbox
-              id="no-preop-required"
-              checked={noPreOpRequired}
-              onCheckedChange={(checked) => setNoPreOpRequired(checked === true)}
-              data-testid="checkbox-no-preop-required"
-            />
-            <Label 
-              htmlFor="no-preop-required" 
-              className="text-sm font-normal cursor-pointer"
-            >
-              {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
-            </Label>
           </div>
         </div>
 

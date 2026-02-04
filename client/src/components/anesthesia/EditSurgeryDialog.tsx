@@ -818,6 +818,23 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                 </Label>
               </div>
 
+              {/* No Anesthesia Pre-Op Required */}
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox
+                  id="edit-no-preop-required"
+                  checked={noPreOpRequired}
+                  onCheckedChange={(checked) => setNoPreOpRequired(checked === true)}
+                  disabled={!canWrite}
+                  data-testid="checkbox-edit-no-preop-required"
+                />
+                <Label 
+                  htmlFor="edit-no-preop-required" 
+                  className="text-sm font-normal cursor-pointer"
+                >
+                  {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
+                </Label>
+              </div>
+
               {/* Surgeon */}
               <div className="space-y-2">
                 <Label htmlFor="edit-surgeon">{t('anesthesia.editSurgery.surgeon')} <span className="text-xs text-muted-foreground">({t('anesthesia.editSurgery.surgeonOptional')})</span></Label>
@@ -999,23 +1016,6 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   data-testid="textarea-edit-implant-details"
                   rows={3}
                 />
-              </div>
-
-              {/* No Anesthesia Pre-Op Required */}
-              <div className="flex items-center space-x-2 pt-2">
-                <Checkbox
-                  id="edit-no-preop-required"
-                  checked={noPreOpRequired}
-                  onCheckedChange={(checked) => setNoPreOpRequired(checked === true)}
-                  disabled={!canWrite}
-                  data-testid="checkbox-edit-no-preop-required"
-                />
-                <Label 
-                  htmlFor="edit-no-preop-required" 
-                  className="text-sm font-normal cursor-pointer"
-                >
-                  {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
-                </Label>
               </div>
 
               </TabsContent>

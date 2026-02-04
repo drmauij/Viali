@@ -2974,6 +2974,22 @@ export default function PatientDetail() {
                       </Label>
                     </div>
 
+                    {/* No Anesthesia Pre-Op Required */}
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Checkbox
+                        id="new-no-preop-required"
+                        checked={newCase.noPreOpRequired}
+                        onCheckedChange={(checked) => setNewCase({ ...newCase, noPreOpRequired: checked === true })}
+                        data-testid="checkbox-new-no-preop-required"
+                      />
+                      <Label 
+                        htmlFor="new-no-preop-required" 
+                        className="text-sm font-normal cursor-pointer"
+                      >
+                        {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
+                      </Label>
+                    </div>
+
                     <div className="space-y-2">
                       <Label htmlFor="surgeon">{t('anesthesia.patientDetail.surgeon')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
                       <Select 
@@ -3080,20 +3096,6 @@ export default function PatientDetail() {
                         data-testid="textarea-notes"
                         rows={3}
                       />
-                    </div>
-                    <div className="flex items-center space-x-2 pt-2">
-                      <Checkbox
-                        id="new-no-preop-required"
-                        checked={newCase.noPreOpRequired}
-                        onCheckedChange={(checked) => setNewCase({ ...newCase, noPreOpRequired: checked === true })}
-                        data-testid="checkbox-new-no-preop-required"
-                      />
-                      <Label 
-                        htmlFor="new-no-preop-required" 
-                        className="text-sm font-normal cursor-pointer"
-                      >
-                        {t('anesthesia.surgery.noAnesthesia', 'Without Anesthesia (local anesthesia only)')}
-                      </Label>
                     </div>
                     <Button 
                       onClick={handleCreateCase} 
