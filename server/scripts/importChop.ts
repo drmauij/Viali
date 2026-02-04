@@ -3,11 +3,10 @@ import { chopProcedures } from '@shared/schema';
 import { sql } from 'drizzle-orm';
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import * as os from 'os';
+import AdmZip from 'adm-zip';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const BFS_CHOP_2026_URL = 'https://dam-api.bfs.admin.ch/hub/api/dam/assets/36016177/master';
 
 interface ChopRow {
   nbchar: string;
@@ -22,8 +21,7 @@ interface ChopRow {
   lateralite: string;
 }
 
-function parseChopCsv(filePath: string): ChopRow[] {
-  const content = fs.readFileSync(filePath, 'utf-8');
+function parseChopCsv(content: string): ChopRow[] {
   const lines = content.split('\n');
   
   const rows: ChopRow[] = [];
@@ -52,19 +50,78 @@ function parseChopCsv(filePath: string): ChopRow[] {
   return rows;
 }
 
-export async function importChopProcedures(): Promise<{ imported: number; skipped: number }> {
-  const csvPath = path.join(__dirname, '../data/CHOP2026_Systematisches_Verzeichnis_DE_CSV_2025_07_16.csv');
+async function downloadAndExtractChopCsv(): Promise<string> {
+  console.log('[CHOP] Downloading from BFS API...');
   
-  if (!fs.existsSync(csvPath)) {
-    throw new Error(`CHOP CSV file not found at ${csvPath}`);
+  const response = await fetch(BFS_CHOP_2026_URL);
+  if (!response.ok) {
+    throw new Error(`Failed to download CHOP data: ${response.status} ${response.statusText}`);
   }
   
-  console.log('Parsing CHOP CSV file...');
-  const rows = parseChopCsv(csvPath);
-  console.log(`Found ${rows.length} total rows`);
+  // Validate content type - should be a zip file
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('zip') && !contentType.includes('octet-stream')) {
+    console.warn(`[CHOP] Unexpected content type: ${contentType}, proceeding anyway...`);
+  }
+  
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+  
+  // Basic validation: zip files start with "PK" (0x50, 0x4B)
+  if (buffer.length < 4 || buffer[0] !== 0x50 || buffer[1] !== 0x4B) {
+    throw new Error('Downloaded file is not a valid ZIP archive. The BFS API may have returned an error page.');
+  }
+  
+  console.log(`[CHOP] Downloaded ${(buffer.length / 1024 / 1024).toFixed(2)} MB`);
+  
+  // Save to temp file
+  const tempZipPath = path.join(os.tmpdir(), `chop2026_${Date.now()}.zip`);
+  
+  try {
+    fs.writeFileSync(tempZipPath, buffer);
+    
+    // Extract
+    console.log('[CHOP] Extracting zip file...');
+    const zip = new AdmZip(tempZipPath);
+    const zipEntries = zip.getEntries();
+    
+    // Find the German CSV file (contains "DE" in filename)
+    const csvEntry = zipEntries.find(entry => 
+      entry.entryName.endsWith('.csv') && 
+      (entry.entryName.includes('DE') || entry.entryName.includes('_de_'))
+    ) || zipEntries.find(entry => entry.entryName.endsWith('.csv'));
+    
+    if (!csvEntry) {
+      throw new Error('No CSV file found in the downloaded zip');
+    }
+    
+    console.log(`[CHOP] Found CSV: ${csvEntry.entryName}`);
+    
+    const csvContent = zip.readAsText(csvEntry);
+    
+    return csvContent;
+  } finally {
+    // Always clean up temp file
+    try {
+      if (fs.existsSync(tempZipPath)) {
+        fs.unlinkSync(tempZipPath);
+      }
+    } catch (cleanupError) {
+      console.warn('[CHOP] Failed to clean up temp file:', cleanupError);
+    }
+  }
+}
+
+export async function importChopProcedures(): Promise<{ imported: number; skipped: number }> {
+  // Download and extract CSV content
+  const csvContent = await downloadAndExtractChopCsv();
+  
+  console.log('[CHOP] Parsing CSV content...');
+  const rows = parseChopCsv(csvContent);
+  console.log(`[CHOP] Found ${rows.length} total rows`);
   
   const codableRows = rows.filter(r => r.codable === 'oui' && r.itemType === 'T');
-  console.log(`Found ${codableRows.length} codable procedures`);
+  console.log(`[CHOP] Found ${codableRows.length} codable procedures`);
   
   let imported = 0;
   let skipped = 0;
@@ -95,16 +152,12 @@ export async function importChopProcedures(): Promise<{ imported: number; skippe
         }
       });
       imported += values.length;
-      console.log(`Imported/updated batch ${Math.floor(i / batchSize) + 1} (${imported} total)`);
+      console.log(`[CHOP] Imported/updated batch ${Math.floor(i / batchSize) + 1} (${imported} total)`);
     } catch (error) {
-      console.error(`Error importing batch:`, error);
+      console.error(`[CHOP] Error importing batch:`, error);
       skipped += values.length;
     }
   }
   
   return { imported, skipped };
 }
-
-// Removed auto-execution code - use the admin API endpoint instead:
-// POST /api/admin/import-chop
-// This prevents the script from crashing when the CSV file is not present in production
