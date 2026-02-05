@@ -6054,11 +6054,12 @@ export default function PatientDetail() {
 
       {/* Edit Patient Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="sticky top-0 z-10 bg-background px-6 pt-6 pb-4 border-b">
             <DialogTitle>{t('anesthesia.patientDetail.editPatient')}</DialogTitle>
             <DialogDescription>{t('anesthesia.patientDetail.updatePatientInfo')}</DialogDescription>
           </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-4">
           <Tabs defaultValue="personal" className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="personal">{t('anesthesia.patients.tabPersonal', 'Personal')}</TabsTrigger>
@@ -6336,8 +6337,9 @@ export default function PatientDetail() {
               </div>
             </TabsContent>
           </Tabs>
+          </div>
 
-          <div className="flex gap-3 pt-4">
+          <div className="sticky bottom-0 z-10 bg-background px-6 py-4 border-t flex gap-3">
             <Button
               variant="outline"
               className="flex-1"

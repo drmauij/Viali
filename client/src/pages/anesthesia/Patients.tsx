@@ -278,10 +278,11 @@ export default function Patients() {
                 {t('anesthesia.patients.createPatient')}
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+            <DialogHeader className="sticky top-0 z-10 bg-background px-6 pt-6 pb-4 border-b">
               <DialogTitle>{t('anesthesia.patients.createPatient')}</DialogTitle>
             </DialogHeader>
+            <div className="flex-1 overflow-y-auto px-6 py-4">
             <Tabs defaultValue="personal" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="personal">{t('anesthesia.patients.tabPersonal', 'Personal')}</TabsTrigger>
@@ -454,8 +455,9 @@ export default function Patients() {
                 </div>
               </TabsContent>
             </Tabs>
+            </div>
 
-            <div className="pt-4">
+            <div className="sticky bottom-0 z-10 bg-background px-6 py-4 border-t">
               <Button 
                 onClick={handleCreatePatient} 
                 className="w-full" 
