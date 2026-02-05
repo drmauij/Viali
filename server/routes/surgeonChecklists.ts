@@ -262,6 +262,27 @@ router.get("/api/surgeon-checklists/matrix/past", isAuthenticated, async (req: a
       limit ? parseInt(limit as string, 10) : 100
     );
     
+    // Debug: Get template to compare item IDs
+    const template = await storage.getSurgeonChecklistTemplate(templateId as string);
+    const templateItemIds = template?.items.map(i => i.id) || [];
+    const entryItemIds = [...new Set(entries.map(e => e.itemId))];
+    
+    console.log('[Past Matrix Debug] Template ID:', templateId);
+    console.log('[Past Matrix Debug] Template item IDs:', templateItemIds);
+    console.log('[Past Matrix Debug] Entry item IDs (unique):', entryItemIds);
+    console.log('[Past Matrix Debug] Total entries:', entries.length);
+    console.log('[Past Matrix Debug] Checked entries:', entries.filter(e => e.checked).length);
+    
+    // Check for mismatched IDs
+    const unmatchedEntryIds = entryItemIds.filter(id => !templateItemIds.includes(id));
+    const unmatchedTemplateIds = templateItemIds.filter(id => !entryItemIds.includes(id));
+    if (unmatchedEntryIds.length > 0) {
+      console.log('[Past Matrix Debug] Entry itemIds NOT in template:', unmatchedEntryIds);
+    }
+    if (unmatchedTemplateIds.length > 0) {
+      console.log('[Past Matrix Debug] Template itemIds NOT in entries:', unmatchedTemplateIds);
+    }
+    
     res.json({ entries });
   } catch (error) {
     console.error("Error fetching past checklist matrix:", error);
