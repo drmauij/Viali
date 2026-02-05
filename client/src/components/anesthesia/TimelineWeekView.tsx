@@ -118,6 +118,29 @@ export default function TimelineWeekView({
     });
   };
 
+  // Calculate horizontal position for surgeries based on room to show them side-by-side
+  const getSurgeryHorizontalPosition = (surgery: any, daySurgeries: any[]) => {
+    // Get all unique rooms for surgeries on this day
+    const roomIds = Array.from(new Set(daySurgeries.map(s => s.surgeryRoomId))).sort();
+    const roomIndex = roomIds.indexOf(surgery.surgeryRoomId);
+    const totalRooms = roomIds.length;
+    
+    if (totalRooms <= 1) {
+      // Only one room, use full width
+      return { left: '4px', right: '4px', width: undefined };
+    }
+    
+    // Calculate width percentage for each room column
+    const widthPercent = 100 / totalRooms;
+    const leftPercent = roomIndex * widthPercent;
+    
+    return {
+      left: `calc(${leftPercent}% + 2px)`,
+      right: undefined,
+      width: `calc(${widthPercent}% - 4px)`
+    };
+  };
+
   // Get patient name
   const getPatientName = (patientId: string) => {
     const patient = patients.find((p: any) => p.id === patientId);
@@ -266,6 +289,7 @@ export default function TimelineWeekView({
                 {/* Surgery events */}
                 {daySurgeries.map((surgery) => {
                   const { top, height, isTruncatedStart, isTruncatedEnd, displayStart } = getSurgeryStyle(surgery);
+                  const { left, right, width } = getSurgeryHorizontalPosition(surgery, daySurgeries);
                   const roomName = getRoomName(surgery.surgeryRoomId);
                   const patientName = getPatientName(surgery.patientId);
                   const procedureName = surgery.plannedSurgery || 'Surgery';
@@ -275,13 +299,13 @@ export default function TimelineWeekView({
                     <div
                       key={surgery.id}
                       className={cn(
-                        "absolute left-1 right-1 border-l-4 px-1 py-0.5 overflow-hidden cursor-pointer transition-all hover:shadow-md hover:z-10",
+                        "absolute border-l-4 px-1 py-0.5 overflow-hidden cursor-pointer transition-all hover:shadow-md hover:z-10",
                         getStatusClass(surgery),
                         isTruncatedStart ? "rounded-b" : "rounded-t",
                         isTruncatedEnd ? "rounded-t" : "rounded-b",
                         !isTruncatedStart && !isTruncatedEnd && "rounded"
                       )}
-                      style={{ top, height: Math.max(height - 2, 28) }}
+                      style={{ top, height: Math.max(height - 2, 28), left, right, width }}
                       onClick={() => onEventClick?.(surgery.id, surgery.patientId)}
                       title={`${startTime} - ${procedureName}\n${patientName}\n${roomName}`}
                       data-testid={`surgery-event-${surgery.id}`}
