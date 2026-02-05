@@ -549,26 +549,28 @@ export default function ExternalSurgeryRequest() {
                                   </div>
                                 </CommandItem>
                               ))}
-                              {chopSearchTerm.length >= 2 && (
-                                <CommandItem
-                                  value="__custom__"
-                                  onSelect={() => {
-                                    updateField('surgeryName', chopSearchTerm);
-                                    updateField('chopCode', '');
-                                    setChopSearchOpen(false);
-                                  }}
-                                  className="border-t mt-1 pt-2"
-                                  data-testid="chop-option-external-custom"
-                                >
-                                  <Check className="h-4 w-4 shrink-0 opacity-0" />
-                                  <span className="text-sm text-muted-foreground">
-                                    {isGerman ? `Als eigene Eingabe: "${chopSearchTerm}"` : `Use as custom: "${chopSearchTerm}"`}
-                                  </span>
-                                </CommandItem>
-                              )}
                             </CommandGroup>
                           )}
                         </CommandList>
+                        {chopSearchTerm.length >= 2 && chopProcedures.length > 0 && (
+                          <div className="sticky bottom-0 border-t bg-popover p-1">
+                            <CommandItem
+                              value="__custom__"
+                              onSelect={() => {
+                                updateField('surgeryName', chopSearchTerm);
+                                updateField('chopCode', '');
+                                setChopSearchOpen(false);
+                              }}
+                              className="cursor-pointer"
+                              data-testid="chop-option-external-custom"
+                            >
+                              <Check className="h-4 w-4 shrink-0 opacity-0" />
+                              <span className="text-sm text-muted-foreground">
+                                {isGerman ? `Als eigene Eingabe: "${chopSearchTerm}"` : `Use as custom: "${chopSearchTerm}"`}
+                              </span>
+                            </CommandItem>
+                          </div>
+                        )}
                       </Command>
                     </PopoverContent>
                   </Popover>

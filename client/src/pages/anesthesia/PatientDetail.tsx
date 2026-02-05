@@ -3092,25 +3092,27 @@ export default function PatientDetail() {
                                       </div>
                                     </CommandItem>
                                   ))}
-                                  {chopSearchTerm.length >= 2 && (
-                                    <CommandItem
-                                      value="__custom__"
-                                      onSelect={() => {
-                                        setNewCase({ ...newCase, plannedSurgery: chopSearchTerm, chopCode: '' });
-                                        setChopSearchOpen(false);
-                                      }}
-                                      className="border-t mt-1 pt-2"
-                                      data-testid="chop-option-patient-custom"
-                                    >
-                                      <Check className="h-4 w-4 shrink-0 opacity-0" />
-                                      <span className="text-sm text-muted-foreground">
-                                        {t('anesthesia.editSurgery.useAsCustom', `Use as custom: "${chopSearchTerm}"`).replace('{term}', chopSearchTerm)}
-                                      </span>
-                                    </CommandItem>
-                                  )}
                                 </CommandGroup>
                               )}
                             </CommandList>
+                            {chopSearchTerm.length >= 2 && chopProcedures.length > 0 && (
+                              <div className="sticky bottom-0 border-t bg-popover p-1">
+                                <CommandItem
+                                  value="__custom__"
+                                  onSelect={() => {
+                                    setNewCase({ ...newCase, plannedSurgery: chopSearchTerm, chopCode: '' });
+                                    setChopSearchOpen(false);
+                                  }}
+                                  className="cursor-pointer"
+                                  data-testid="chop-option-patient-custom"
+                                >
+                                  <Check className="h-4 w-4 shrink-0 opacity-0" />
+                                  <span className="text-sm text-muted-foreground">
+                                    {t('anesthesia.editSurgery.useAsCustom', `Use as custom: "${chopSearchTerm}"`).replace('{term}', chopSearchTerm)}
+                                  </span>
+                                </CommandItem>
+                              </div>
+                            )}
                           </Command>
                         </PopoverContent>
                       </Popover>
