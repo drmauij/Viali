@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useRef, useCallback, useEffect } from "react";
 import moment from "moment";
 import "moment/locale/en-gb";
 import "moment/locale/de";
@@ -13,7 +13,15 @@ interface TimelineWeekViewProps {
   onEventClick?: (surgeryId: string, patientId: string) => void;
   onEventDrop?: (surgeryId: string, newStart: Date, newEnd: Date, newRoomId: string) => void;
   onCanvasClick?: (groupId: string, time: Date) => void;
+  onSlotSelect?: (roomId: string, start: Date, end: Date) => void;
   onDayClick?: (date: Date) => void;
+}
+
+interface DragState {
+  isDragging: boolean;
+  dayIdx: number;
+  startHour: number;
+  endHour: number;
 }
 
 // Business hours
@@ -28,9 +36,14 @@ export default function TimelineWeekView({
   selectedDate,
   onEventClick,
   onCanvasClick,
+  onSlotSelect,
   onDayClick,
 }: TimelineWeekViewProps) {
   const { t, i18n } = useTranslation();
+  
+  // Drag selection state
+  const [dragState, setDragState] = useState<DragState | null>(null);
+  const isDraggingRef = useRef(false);
   
   // Set moment locale based on current language
   const momentLocale = i18n.language.startsWith('de') ? 'de' : 'en-gb';
@@ -222,6 +235,75 @@ export default function TimelineWeekView({
     onCanvasClick(roomId, clickTime);
   };
 
+  // Drag selection handlers
+  const handleMouseDown = useCallback((dayIdx: number, hour: number) => {
+    isDraggingRef.current = true;
+    setDragState({
+      isDragging: true,
+      dayIdx,
+      startHour: hour,
+      endHour: hour + 1, // At least 1 hour selection
+    });
+  }, []);
+
+  const handleMouseEnter = useCallback((dayIdx: number, hour: number) => {
+    if (!isDraggingRef.current || !dragState) return;
+    // Only allow dragging within the same day
+    if (dayIdx !== dragState.dayIdx) return;
+    
+    setDragState(prev => {
+      if (!prev) return null;
+      const newEndHour = Math.max(hour + 1, prev.startHour + 1);
+      return { ...prev, endHour: newEndHour };
+    });
+  }, [dragState]);
+
+  const handleMouseUp = useCallback(() => {
+    if (!isDraggingRef.current || !dragState) {
+      isDraggingRef.current = false;
+      setDragState(null);
+      return;
+    }
+    
+    isDraggingRef.current = false;
+    
+    // Calculate time range
+    const day = weekDays[dragState.dayIdx];
+    const startTime = day.clone().hour(dragState.startHour).minute(0).toDate();
+    const endTime = day.clone().hour(dragState.endHour).minute(0).toDate();
+    const roomId = surgeryRooms[0]?.id || '';
+    
+    // Only trigger if dragged more than 1 hour (otherwise it's a click)
+    if (dragState.endHour - dragState.startHour > 1 && onSlotSelect) {
+      onSlotSelect(roomId, startTime, endTime);
+    } else if (onCanvasClick) {
+      // Single click behavior
+      onCanvasClick(roomId, startTime);
+    }
+    
+    setDragState(null);
+  }, [dragState, weekDays, surgeryRooms, onSlotSelect, onCanvasClick]);
+
+  // Check if an hour slot is within the current drag selection
+  const isHourInDragSelection = (dayIdx: number, hour: number): boolean => {
+    if (!dragState || dragState.dayIdx !== dayIdx) return false;
+    return hour >= dragState.startHour && hour < dragState.endHour;
+  };
+
+  // Global mouseup listener for drag selection
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (isDraggingRef.current) {
+        handleMouseUp();
+      }
+    };
+    
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => {
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [handleMouseUp]);
+
   return (
     <div className="vertical-week-view h-full flex flex-col" data-testid="timeline-week-view">
       {/* Day headers */}
@@ -279,9 +361,19 @@ export default function TimelineWeekView({
                 {timeSlots.map((hour) => (
                   <div
                     key={hour}
-                    className="border-b hover:bg-muted/30 cursor-pointer"
+                    className={cn(
+                      "border-b cursor-pointer select-none",
+                      isHourInDragSelection(dayIdx, hour)
+                        ? "bg-primary/30"
+                        : "hover:bg-muted/30"
+                    )}
                     style={{ height: HOUR_HEIGHT }}
-                    onClick={() => handleCanvasClick(day, hour)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      handleMouseDown(dayIdx, hour);
+                    }}
+                    onMouseEnter={() => handleMouseEnter(dayIdx, hour)}
+                    onMouseUp={handleMouseUp}
                     data-testid={`time-slot-${day.format('YYYY-MM-DD')}-${hour}`}
                   />
                 ))}

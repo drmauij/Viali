@@ -1107,6 +1107,15 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
                 });
                 setQuickCreateOpen(true);
               }}
+              onSlotSelect={(roomId, start, end) => {
+                // Drag selection - use actual selected time range
+                setQuickCreateData({
+                  date: start,
+                  endDate: end,
+                  roomId: roomId,
+                });
+                setQuickCreateOpen(true);
+              }}
               onDayClick={(date) => {
                 setSelectedDate(date);
                 setCurrentView("day");
