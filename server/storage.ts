@@ -6700,6 +6700,8 @@ export class DatabaseStorage implements IStorage {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Order by surgery date DESC to match the past surgeries table display order
+    // This ensures entries for recent surgeries are returned first
     const entries = await db
       .select({
         entry: surgeryPreOpChecklistEntries,
@@ -6712,6 +6714,7 @@ export class DatabaseStorage implements IStorage {
         lt(surgeries.plannedDate, today),
         eq(surgeries.isArchived, false)
       ))
+      .orderBy(desc(surgeries.plannedDate))
       .limit(limit);
 
     return entries.map(row => row.entry);
