@@ -159,18 +159,36 @@ export default function ChecklistMatrix() {
   const { data: pastMatrixData, isLoading: pastMatrixLoading } = useQuery<{ entries: ChecklistEntryData[] }>({
     queryKey: ['/api/surgeon-checklists/matrix/past', selectedTemplateId, hospitalId],
     queryFn: async () => {
-      const res = await fetch(`/api/surgeon-checklists/matrix/past?templateId=${selectedTemplateId}&hospitalId=${hospitalId}&limit=100`);
-      return res.json();
+      const url = `/api/surgeon-checklists/matrix/past?templateId=${selectedTemplateId}&hospitalId=${hospitalId}&limit=100`;
+      console.log('[PastMatrix] Fetching:', url);
+      const res = await fetch(url, {
+        credentials: "include",
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+      const data = await res.json();
+      console.log('[PastMatrix] API Response - entries count:', data.entries?.length);
+      if (data.entries?.length > 0) {
+        const checkedEntries = data.entries.filter((e: ChecklistEntryData) => e.checked);
+        console.log('[PastMatrix] Checked entries count:', checkedEntries.length);
+        console.log('[PastMatrix] First 3 entries:', JSON.stringify(data.entries.slice(0, 3)));
+      }
+      return data;
     },
     enabled: !!selectedTemplateId && !!hospitalId && activeTab === "past",
+    staleTime: 0, // Always refetch when mounting this query
   });
 
   // Past cell states (now editable)
   // Use useMemo to compute initial states directly from pastMatrixData to avoid race conditions
   const pastCellStatesFromData = useMemo(() => {
+    console.log('[PastMatrix] useMemo recalculating - entries:', pastMatrixData?.entries?.length);
     if (!pastMatrixData?.entries) return {};
     
     const states: Record<string, MatrixCellState> = {};
+    let checkedCount = 0;
     pastMatrixData.entries.forEach(entry => {
       const key = `${entry.surgeryId}-${entry.itemId}`;
       states[key] = {
@@ -178,7 +196,9 @@ export default function ChecklistMatrix() {
         note: entry.note || "",
         isDirty: false,
       };
+      if (entry.checked) checkedCount++;
     });
+    console.log('[PastMatrix] Computed states - total:', Object.keys(states).length, 'checked:', checkedCount);
     return states;
   }, [pastMatrixData]);
 
