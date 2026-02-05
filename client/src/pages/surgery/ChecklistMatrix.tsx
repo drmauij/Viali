@@ -155,17 +155,20 @@ export default function ChecklistMatrix() {
     return allSurgeries;
   }, [pastSurgeriesData, isSurgeonOrDoctor, userId]);
 
-  // Past matrix data query
+  // Past matrix data query - with cache busting for production
   const { data: pastMatrixData, isLoading: pastMatrixLoading } = useQuery<{ entries: ChecklistEntryData[] }>({
     queryKey: ['/api/surgeon-checklists/matrix/past', selectedTemplateId, hospitalId],
     queryFn: async () => {
-      const url = `/api/surgeon-checklists/matrix/past?templateId=${selectedTemplateId}&hospitalId=${hospitalId}&limit=100`;
+      // Add timestamp to bust any CDN/proxy cache
+      const timestamp = Date.now();
+      const url = `/api/surgeon-checklists/matrix/past?templateId=${selectedTemplateId}&hospitalId=${hospitalId}&limit=100&_t=${timestamp}`;
       console.log('[PastMatrix] Fetching:', url);
       const res = await fetch(url, {
         credentials: "include",
         headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       });
       const data = await res.json();
@@ -178,7 +181,9 @@ export default function ChecklistMatrix() {
       return data;
     },
     enabled: !!selectedTemplateId && !!hospitalId && activeTab === "past",
-    staleTime: 0, // Always refetch when mounting this query
+    staleTime: 0,
+    gcTime: 0, // Don't cache this query at all
+    refetchOnMount: 'always',
   });
 
   // Past cell states (now editable)
