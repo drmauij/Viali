@@ -262,15 +262,6 @@ router.get("/api/surgeon-checklists/matrix/past", isAuthenticated, async (req: a
       limit ? parseInt(limit as string, 10) : 100
     );
     
-    // Debug logging
-    const checkedCount = entries.filter(e => e.checked).length;
-    console.log(`[Past Matrix API] templateId=${templateId}, total=${entries.length}, checked=${checkedCount}`);
-    
-    // Disable caching for this endpoint
-    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.set('Pragma', 'no-cache');
-    res.set('Expires', '0');
-    
     res.json({ entries });
   } catch (error) {
     console.error("Error fetching past checklist matrix:", error);

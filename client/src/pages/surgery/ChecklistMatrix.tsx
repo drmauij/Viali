@@ -155,45 +155,26 @@ export default function ChecklistMatrix() {
     return allSurgeries;
   }, [pastSurgeriesData, isSurgeonOrDoctor, userId]);
 
-  // Past matrix data query - with cache busting for production
+  // Past matrix data query
   const { data: pastMatrixData, isLoading: pastMatrixLoading } = useQuery<{ entries: ChecklistEntryData[] }>({
     queryKey: ['/api/surgeon-checklists/matrix/past', selectedTemplateId, hospitalId],
     queryFn: async () => {
-      // Add timestamp to bust any CDN/proxy cache
-      const timestamp = Date.now();
-      const url = `/api/surgeon-checklists/matrix/past?templateId=${selectedTemplateId}&hospitalId=${hospitalId}&limit=100&_t=${timestamp}`;
-      console.log('[PastMatrix] Fetching:', url);
-      const res = await fetch(url, {
+      const res = await fetch(`/api/surgeon-checklists/matrix/past?templateId=${selectedTemplateId}&hospitalId=${hospitalId}&limit=100`, {
         credentials: "include",
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
       });
-      const data = await res.json();
-      console.log('[PastMatrix] API Response - entries count:', data.entries?.length);
-      if (data.entries?.length > 0) {
-        const checkedEntries = data.entries.filter((e: ChecklistEntryData) => e.checked);
-        console.log('[PastMatrix] Checked entries count:', checkedEntries.length);
-        console.log('[PastMatrix] First 3 entries:', JSON.stringify(data.entries.slice(0, 3)));
-      }
-      return data;
+      return res.json();
     },
     enabled: !!selectedTemplateId && !!hospitalId && activeTab === "past",
     staleTime: 0,
-    gcTime: 0, // Don't cache this query at all
     refetchOnMount: 'always',
   });
 
   // Past cell states (now editable)
   // Use useMemo to compute initial states directly from pastMatrixData to avoid race conditions
   const pastCellStatesFromData = useMemo(() => {
-    console.log('[PastMatrix] useMemo recalculating - entries:', pastMatrixData?.entries?.length);
     if (!pastMatrixData?.entries) return {};
     
     const states: Record<string, MatrixCellState> = {};
-    let checkedCount = 0;
     pastMatrixData.entries.forEach(entry => {
       const key = `${entry.surgeryId}-${entry.itemId}`;
       states[key] = {
@@ -201,9 +182,7 @@ export default function ChecklistMatrix() {
         note: entry.note || "",
         isDirty: false,
       };
-      if (entry.checked) checkedCount++;
     });
-    console.log('[PastMatrix] Computed states - total:', Object.keys(states).length, 'checked:', checkedCount);
     return states;
   }, [pastMatrixData]);
 
@@ -225,16 +204,6 @@ export default function ChecklistMatrix() {
     const serverState = pastCellStatesFromData[key];
     if (serverState) {
       return serverState;
-    }
-    // Debug: Log when we can't find a matching entry (only first few times)
-    const stateKeys = Object.keys(pastCellStatesFromData);
-    if (stateKeys.length > 0 && !serverState) {
-      // Check if this surgery exists in any entry
-      const matchingSurgery = stateKeys.find(k => k.startsWith(surgeryId));
-      const matchingItem = stateKeys.find(k => k.endsWith(itemId));
-      if (!matchingSurgery && !matchingItem) {
-        console.log('[PastMatrix] No match for key:', key, 'Available keys sample:', stateKeys.slice(0, 3));
-      }
     }
     return { checked: false, note: "", isDirty: false };
   };
@@ -763,25 +732,10 @@ export default function ChecklistMatrix() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pastSurgeries.map((surgery, surgeryIndex) => {
+                  {pastSurgeries.map((surgery) => {
                     const stats = getPastCompletionStats(surgery.id, selectedTemplate.items);
                     const isComplete = stats.checked === stats.total;
                     const surgeryContext = getSurgeryContext(surgery);
-                    
-                    // Debug: Log first surgery's state lookup
-                    if (surgeryIndex === 0 && selectedTemplate.items.length > 0) {
-                      const firstItem = selectedTemplate.items[0];
-                      const testKey = `${surgery.id}-${firstItem.id}`;
-                      const stateKeys = Object.keys(pastCellStatesFromData);
-                      console.log('[PastMatrix Render] First surgery ID:', surgery.id);
-                      console.log('[PastMatrix Render] First item ID:', firstItem.id);
-                      console.log('[PastMatrix Render] Lookup key:', testKey);
-                      console.log('[PastMatrix Render] State has this key:', !!pastCellStatesFromData[testKey]);
-                      console.log('[PastMatrix Render] Total state keys:', stateKeys.length);
-                      if (stateKeys.length > 0) {
-                        console.log('[PastMatrix Render] Sample state key:', stateKeys[0]);
-                      }
-                    }
                     
                     return (
                       <tr key={surgery.id} className="border-b hover:bg-muted/30 group">
