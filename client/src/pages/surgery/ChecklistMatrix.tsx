@@ -166,49 +166,51 @@ export default function ChecklistMatrix() {
   });
 
   // Past cell states (now editable)
-  const [pastCellStates, setPastCellStates] = useState<Record<string, MatrixCellState>>({});
-
-  useEffect(() => {
-    if (pastMatrixData?.entries) {
-      setPastCellStates(prev => {
-        const newStates: Record<string, MatrixCellState> = {};
-        const pendingMap = pastPendingMutationsRef.current;
-        pastMatrixData.entries.forEach(entry => {
-          const key = `${entry.surgeryId}-${entry.itemId}`;
-          // Preserve optimistic state for pending mutations to prevent race conditions
-          const pendingCount = pendingMap.get(key) || 0;
-          if (pendingCount > 0 && prev[key]) {
-            newStates[key] = prev[key];
-          } else {
-            newStates[key] = {
-              checked: entry.checked,
-              note: entry.note || "",
-              isDirty: false,
-            };
-          }
-        });
-        // Also preserve any cells with pending mutations that might not be in server response yet
-        pendingMap.forEach((count, key) => {
-          if (count > 0 && prev[key] && !newStates[key]) {
-            newStates[key] = prev[key];
-          }
-        });
-        return newStates;
-      });
-    }
+  // Use useMemo to compute initial states directly from pastMatrixData to avoid race conditions
+  const pastCellStatesFromData = useMemo(() => {
+    if (!pastMatrixData?.entries) return {};
+    
+    const states: Record<string, MatrixCellState> = {};
+    pastMatrixData.entries.forEach(entry => {
+      const key = `${entry.surgeryId}-${entry.itemId}`;
+      states[key] = {
+        checked: entry.checked,
+        note: entry.note || "",
+        isDirty: false,
+      };
+    });
+    return states;
   }, [pastMatrixData]);
+
+  // Local state for optimistic updates (merged with server data)
+  const [pastCellLocalOverrides, setPastCellLocalOverrides] = useState<Record<string, MatrixCellState>>({});
+  
+  // Reset local overrides when switching templates or data changes
+  useEffect(() => {
+    setPastCellLocalOverrides({});
+  }, [selectedTemplateId, pastMatrixData]);
 
   const getPastCellState = (surgeryId: string, itemId: string): MatrixCellState => {
     const key = `${surgeryId}-${itemId}`;
-    return pastCellStates[key] || { checked: false, note: "", isDirty: false };
+    // First check local overrides (for optimistic updates), then fall back to server data
+    const localOverride = pastCellLocalOverrides[key];
+    if (localOverride) {
+      return localOverride;
+    }
+    const serverState = pastCellStatesFromData[key];
+    if (serverState) {
+      return serverState;
+    }
+    return { checked: false, note: "", isDirty: false };
   };
 
   const updatePastCellState = (surgeryId: string, itemId: string, updates: Partial<MatrixCellState>) => {
     const key = `${surgeryId}-${itemId}`;
-    setPastCellStates(prev => ({
+    const current = getPastCellState(surgeryId, itemId);
+    setPastCellLocalOverrides(prev => ({
       ...prev,
       [key]: {
-        ...getPastCellState(surgeryId, itemId),
+        ...current,
         ...updates,
         isDirty: true,
       },
@@ -427,13 +429,16 @@ export default function ChecklistMatrix() {
     },
     onSuccess: (_, variables) => {
       const key = `${variables.surgeryId}-${variables.itemId}`;
-      setPastCellStates(prev => ({
-        ...prev,
-        [key]: {
-          ...prev[key],
-          isDirty: false,
-        },
-      }));
+      setPastCellLocalOverrides(prev => {
+        if (!prev[key]) return prev;
+        return {
+          ...prev,
+          [key]: {
+            ...prev[key],
+            isDirty: false,
+          },
+        };
+      });
     },
     onError: () => {
       toast({ title: t('checklistMatrix.saveFailed', 'Failed to save'), variant: "destructive" });
