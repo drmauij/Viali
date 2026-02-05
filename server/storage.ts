@@ -8641,8 +8641,8 @@ export class DatabaseStorage implements IStorage {
     const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Get surgeries in the date range with patient info and check for existing questionnaire links
-    const results = await db
+    // Get surgeries in the date range with patient info
+    const surgeryResults = await db
       .select({
         surgeryId: surgeries.id,
         patientId: surgeries.patientId,
@@ -8654,44 +8654,55 @@ export class DatabaseStorage implements IStorage {
         plannedDate: surgeries.plannedDate,
         plannedSurgery: surgeries.plannedSurgery,
         surgeryRoomId: surgeries.surgeryRoomId,
-        // Check if there's any questionnaire link with emailSent=true OR smsSent=true for this surgery OR patient
-        hasQuestionnaireSent: sql<boolean>`EXISTS (
-          SELECT 1 FROM patient_questionnaire_links pql 
-          WHERE (pql.surgery_id = ${surgeries.id} OR pql.patient_id = ${surgeries.patientId})
-            AND (pql.email_sent = true OR pql.sms_sent = true)
-        )`,
-        // Check if there's an existing submitted/reviewed questionnaire for this patient
-        // Either: linked directly to the patient, OR filled via tablet with matching name/birthday
-        hasExistingQuestionnaire: sql<boolean>`EXISTS (
-          SELECT 1 FROM patient_questionnaire_links pql
-          LEFT JOIN patient_questionnaire_responses pqr ON pqr.link_id = pql.id
-          WHERE pql.hospital_id = ${hospitalId}
-            AND pql.status IN ('submitted', 'reviewed')
-            AND (
-              -- Linked directly to this patient
-              pql.patient_id = surgeries.patient_id
-              -- OR filled via tablet with matching first name, last name, and birthday
-              OR (
-                pqr.id IS NOT NULL 
-                AND LOWER(pqr.patient_first_name) = LOWER(patients.first_name)
-                AND LOWER(pqr.patient_last_name) = LOWER(patients.surname)
-                AND pqr.patient_birthday = patients.birthday::date
-              )
-            )
-        )`,
       })
       .from(surgeries)
       .innerJoin(patients, eq(patients.id, surgeries.patientId))
       .where(and(
         eq(surgeries.hospitalId, hospitalId),
-        sql`${surgeries.plannedDate} >= ${startOfDay}`,
-        sql`${surgeries.plannedDate} <= ${endOfDay}`,
-        sql`${surgeries.status} IN ('planned', 'scheduled', 'confirmed')`,
-        isNull(surgeries.archivedAt),
-        isNotNull(surgeries.anesthesiaType)
+        gte(surgeries.plannedDate, startOfDay),
+        lte(surgeries.plannedDate, endOfDay),
+        inArray(surgeries.status, ['planned', 'scheduled', 'confirmed']),
+        isNull(surgeries.archivedAt)
       ));
 
-    return results;
+    // Get questionnaire links for these surgeries/patients to determine status
+    const surgeryIds = surgeryResults.map(s => s.surgeryId);
+    const patientIds = surgeryResults.map(s => s.patientId);
+    
+    // Get links that have been sent (email or sms)
+    const sentLinks = surgeryIds.length > 0 ? await db
+      .select({ surgeryId: patientQuestionnaireLinks.surgeryId, patientId: patientQuestionnaireLinks.patientId })
+      .from(patientQuestionnaireLinks)
+      .where(and(
+        or(
+          inArray(patientQuestionnaireLinks.surgeryId, surgeryIds),
+          inArray(patientQuestionnaireLinks.patientId, patientIds)
+        ),
+        or(
+          eq(patientQuestionnaireLinks.emailSent, true),
+          eq(patientQuestionnaireLinks.smsSent, true)
+        )
+      )) : [];
+    
+    // Get links that are submitted/reviewed
+    const completedLinks = patientIds.length > 0 ? await db
+      .select({ patientId: patientQuestionnaireLinks.patientId })
+      .from(patientQuestionnaireLinks)
+      .where(and(
+        eq(patientQuestionnaireLinks.hospitalId, hospitalId),
+        inArray(patientQuestionnaireLinks.status, ['submitted', 'reviewed']),
+        inArray(patientQuestionnaireLinks.patientId, patientIds)
+      )) : [];
+    
+    const sentSurgeryIds = new Set(sentLinks.filter(l => l.surgeryId).map(l => l.surgeryId));
+    const sentPatientIds = new Set(sentLinks.filter(l => l.patientId).map(l => l.patientId));
+    const completedPatientIds = new Set(completedLinks.map(l => l.patientId));
+    
+    return surgeryResults.map(s => ({
+      ...s,
+      hasQuestionnaireSent: sentSurgeryIds.has(s.surgeryId) || sentPatientIds.has(s.patientId),
+      hasExistingQuestionnaire: completedPatientIds.has(s.patientId),
+    }));
   }
 
   async getSurgeriesForPreSurgeryReminder(hospitalId: string, hoursAhead: number): Promise<Array<{
