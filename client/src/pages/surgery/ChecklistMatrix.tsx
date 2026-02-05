@@ -221,6 +221,16 @@ export default function ChecklistMatrix() {
     if (serverState) {
       return serverState;
     }
+    // Debug: Log when we can't find a matching entry (only first few times)
+    const stateKeys = Object.keys(pastCellStatesFromData);
+    if (stateKeys.length > 0 && !serverState) {
+      // Check if this surgery exists in any entry
+      const matchingSurgery = stateKeys.find(k => k.startsWith(surgeryId));
+      const matchingItem = stateKeys.find(k => k.endsWith(itemId));
+      if (!matchingSurgery && !matchingItem) {
+        console.log('[PastMatrix] No match for key:', key, 'Available keys sample:', stateKeys.slice(0, 3));
+      }
+    }
     return { checked: false, note: "", isDirty: false };
   };
 
@@ -748,10 +758,25 @@ export default function ChecklistMatrix() {
                   </tr>
                 </thead>
                 <tbody>
-                  {pastSurgeries.map((surgery) => {
+                  {pastSurgeries.map((surgery, surgeryIndex) => {
                     const stats = getPastCompletionStats(surgery.id, selectedTemplate.items);
                     const isComplete = stats.checked === stats.total;
                     const surgeryContext = getSurgeryContext(surgery);
+                    
+                    // Debug: Log first surgery's state lookup
+                    if (surgeryIndex === 0 && selectedTemplate.items.length > 0) {
+                      const firstItem = selectedTemplate.items[0];
+                      const testKey = `${surgery.id}-${firstItem.id}`;
+                      const stateKeys = Object.keys(pastCellStatesFromData);
+                      console.log('[PastMatrix Render] First surgery ID:', surgery.id);
+                      console.log('[PastMatrix Render] First item ID:', firstItem.id);
+                      console.log('[PastMatrix Render] Lookup key:', testKey);
+                      console.log('[PastMatrix Render] State has this key:', !!pastCellStatesFromData[testKey]);
+                      console.log('[PastMatrix Render] Total state keys:', stateKeys.length);
+                      if (stateKeys.length > 0) {
+                        console.log('[PastMatrix Render] Sample state key:', stateKeys[0]);
+                      }
+                    }
                     
                     return (
                       <tr key={surgery.id} className="border-b hover:bg-muted/30 group">
