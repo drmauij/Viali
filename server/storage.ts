@@ -6696,28 +6696,38 @@ export class DatabaseStorage implements IStorage {
     return entries.map(row => row.entry);
   }
 
-  async getPastChecklistMatrixEntries(templateId: string, hospitalId: string, limit: number = 100): Promise<SurgeryPreOpChecklistEntry[]> {
+  async getPastChecklistMatrixEntries(templateId: string, hospitalId: string, limit: number = 100): Promise<(SurgeryPreOpChecklistEntry & { itemLabel?: string })[]> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Order by surgery date DESC to match the past surgeries table display order
-    // This ensures entries for recent surgeries are returned first
+    // Get the selected template to know what items we're displaying
+    const template = await this.getSurgeonChecklistTemplate(templateId);
+    if (!template || !template.items.length) {
+      return [];
+    }
+
+    // Get all entries for past surgeries in this hospital (regardless of templateId)
+    // Include the item label so we can match by label when IDs don't match
     const entries = await db
       .select({
         entry: surgeryPreOpChecklistEntries,
+        itemLabel: surgeonChecklistTemplateItems.label,
       })
       .from(surgeryPreOpChecklistEntries)
       .innerJoin(surgeries, eq(surgeryPreOpChecklistEntries.surgeryId, surgeries.id))
+      .leftJoin(surgeonChecklistTemplateItems, eq(surgeryPreOpChecklistEntries.itemId, surgeonChecklistTemplateItems.id))
       .where(and(
-        eq(surgeryPreOpChecklistEntries.templateId, templateId),
         eq(surgeries.hospitalId, hospitalId),
         lt(surgeries.plannedDate, today),
         eq(surgeries.isArchived, false)
       ))
       .orderBy(desc(surgeries.plannedDate))
-      .limit(limit);
+      .limit(limit * template.items.length); // Increase limit to account for multiple items per surgery
 
-    return entries.map(row => row.entry);
+    return entries.map(row => ({
+      ...row.entry,
+      itemLabel: row.itemLabel || undefined,
+    }));
   }
 
   async toggleSurgeonChecklistTemplateDefault(templateId: string, userId: string): Promise<SurgeonChecklistTemplate> {

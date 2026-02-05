@@ -49,6 +49,7 @@ interface ChecklistEntryData {
   itemId: string;
   checked: boolean;
   note: string | null;
+  itemLabel?: string; // For matching when itemId doesn't match (template items recreated)
 }
 
 interface MatrixCellState {
@@ -171,19 +172,32 @@ export default function ChecklistMatrix() {
 
   // Past cell states (now editable)
   // Use useMemo to compute initial states directly from pastMatrixData to avoid race conditions
+  // Index by both itemId and itemLabel for fallback matching when template items were recreated
   const pastCellStatesFromData = useMemo(() => {
-    if (!pastMatrixData?.entries) return {};
+    if (!pastMatrixData?.entries) return { byId: {}, byLabel: {} };
     
-    const states: Record<string, MatrixCellState> = {};
+    const byId: Record<string, MatrixCellState> = {};
+    const byLabel: Record<string, MatrixCellState> = {};
+    
     pastMatrixData.entries.forEach(entry => {
-      const key = `${entry.surgeryId}-${entry.itemId}`;
-      states[key] = {
+      const state: MatrixCellState = {
         checked: entry.checked,
         note: entry.note || "",
         isDirty: false,
       };
+      
+      // Index by surgeryId-itemId
+      const idKey = `${entry.surgeryId}-${entry.itemId}`;
+      byId[idKey] = state;
+      
+      // Also index by surgeryId-itemLabel for fallback matching
+      if (entry.itemLabel) {
+        const labelKey = `${entry.surgeryId}-${entry.itemLabel}`;
+        byLabel[labelKey] = state;
+      }
     });
-    return states;
+    
+    return { byId, byLabel };
   }, [pastMatrixData]);
 
   // Local state for optimistic updates (merged with server data)
@@ -194,17 +208,30 @@ export default function ChecklistMatrix() {
     setPastCellLocalOverrides({});
   }, [selectedTemplateId, pastMatrixData]);
 
-  const getPastCellState = (surgeryId: string, itemId: string): MatrixCellState => {
-    const key = `${surgeryId}-${itemId}`;
-    // First check local overrides (for optimistic updates), then fall back to server data
-    const localOverride = pastCellLocalOverrides[key];
+  const getPastCellState = (surgeryId: string, itemId: string, itemLabel?: string): MatrixCellState => {
+    const idKey = `${surgeryId}-${itemId}`;
+    
+    // First check local overrides (for optimistic updates)
+    const localOverride = pastCellLocalOverrides[idKey];
     if (localOverride) {
       return localOverride;
     }
-    const serverState = pastCellStatesFromData[key];
-    if (serverState) {
-      return serverState;
+    
+    // Try matching by itemId first
+    const stateById = pastCellStatesFromData.byId[idKey];
+    if (stateById) {
+      return stateById;
     }
+    
+    // Fallback: try matching by label (for when template items were recreated with new IDs)
+    if (itemLabel) {
+      const labelKey = `${surgeryId}-${itemLabel}`;
+      const stateByLabel = pastCellStatesFromData.byLabel[labelKey];
+      if (stateByLabel) {
+        return stateByLabel;
+      }
+    }
+    
     return { checked: false, note: "", isDirty: false };
   };
 
@@ -519,7 +546,7 @@ export default function ChecklistMatrix() {
   const getPastCompletionStats = (surgeryId: string, items: SurgeonChecklistTemplateItem[]) => {
     let checked = 0;
     items.forEach(item => {
-      if (getPastCellState(surgeryId, item.id).checked) {
+      if (getPastCellState(surgeryId, item.id, item.label).checked) {
         checked++;
       }
     });
@@ -807,7 +834,7 @@ export default function ChecklistMatrix() {
                         </td>
                         {selectedTemplate.items.map((item) => {
                           const cellKey = `${surgery.id}-${item.id}`;
-                          const cellState = getPastCellState(surgery.id, item.id);
+                          const cellState = getPastCellState(surgery.id, item.id, item.label);
                           const resolvedLabel = resolvePlaceholders(item.label, surgeryContext);
                           const hasNote = cellState.note && cellState.note.length > 0;
                           const isEditing = editingCell === cellKey;
