@@ -1009,7 +1009,7 @@ export default function QuickCreateSurgeryDialog({
                           {sortedSurgeons.map((s) => (
                             <CommandItem
                               key={s.id}
-                              value={s.name}
+                              value={`${s.name}__${s.id}`}
                               onSelect={() => {
                                 setSurgeonId(s.id);
                                 setSurgeonSearchOpen(false);

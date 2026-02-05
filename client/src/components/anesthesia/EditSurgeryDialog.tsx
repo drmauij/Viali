@@ -910,7 +910,7 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                               {sortedSurgeons.map((s: any) => (
                                 <CommandItem
                                   key={s.id}
-                                  value={s.name}
+                                  value={`${s.name}__${s.id}`}
                                   onSelect={() => {
                                     setSurgeonId(s.id);
                                     setSurgeonSearchOpen(false);
