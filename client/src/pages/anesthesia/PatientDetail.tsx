@@ -6138,6 +6138,39 @@ export default function PatientDetail() {
                 * {t('anesthesia.patients.requiredFields', 'Required fields')}
               </div>
 
+              {/* Insurance Information */}
+              <div className="grid grid-cols-2 gap-4 pt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-insuranceProvider">{t('anesthesia.patients.insuranceProvider', 'Insurance Provider')}</Label>
+                  <Input
+                    id="edit-insuranceProvider"
+                    value={editForm.insuranceProvider}
+                    onChange={(e) => setEditForm({ ...editForm, insuranceProvider: e.target.value })}
+                    data-testid="input-edit-insuranceProvider"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-insuranceNumber">{t('anesthesia.patients.insuranceNumber', 'Insurance Number')}</Label>
+                  <Input
+                    id="edit-insuranceNumber"
+                    value={editForm.insuranceNumber}
+                    onChange={(e) => setEditForm({ ...editForm, insuranceNumber: e.target.value })}
+                    data-testid="input-edit-insuranceNumber"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-healthInsuranceNumber">{t('anesthesia.patients.healthInsuranceNumber', 'Health Insurance Number (AHV)')}</Label>
+                <Input
+                  id="edit-healthInsuranceNumber"
+                  value={editForm.healthInsuranceNumber}
+                  onChange={(e) => setEditForm({ ...editForm, healthInsuranceNumber: e.target.value })}
+                  placeholder="756.xxxx.xxxx.xx"
+                  data-testid="input-edit-healthInsuranceNumber"
+                />
+              </div>
+
               {/* Identity & Insurance Card Documents */}
               {patient && (
                 <Accordion type="single" collapsible className="w-full mt-4">
@@ -6255,38 +6288,6 @@ export default function PatientDetail() {
             </TabsContent>
             
             <TabsContent value="medical" className="space-y-4 pt-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-insuranceProvider">{t('anesthesia.patients.insuranceProvider', 'Insurance Provider')}</Label>
-                  <Input
-                    id="edit-insuranceProvider"
-                    value={editForm.insuranceProvider}
-                    onChange={(e) => setEditForm({ ...editForm, insuranceProvider: e.target.value })}
-                    data-testid="input-edit-insuranceProvider"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-insuranceNumber">{t('anesthesia.patients.insuranceNumber', 'Insurance Number')}</Label>
-                  <Input
-                    id="edit-insuranceNumber"
-                    value={editForm.insuranceNumber}
-                    onChange={(e) => setEditForm({ ...editForm, insuranceNumber: e.target.value })}
-                    data-testid="input-edit-insuranceNumber"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="edit-healthInsuranceNumber">{t('anesthesia.patients.healthInsuranceNumber', 'Health Insurance Number (AHV)')}</Label>
-                <Input
-                  id="edit-healthInsuranceNumber"
-                  value={editForm.healthInsuranceNumber}
-                  onChange={(e) => setEditForm({ ...editForm, healthInsuranceNumber: e.target.value })}
-                  placeholder="756.xxxx.xxxx.xx"
-                  data-testid="input-edit-healthInsuranceNumber"
-                />
-              </div>
-
               <div className="space-y-2">
                 <Label>{t('anesthesia.patients.allergies', 'Allergies')}</Label>
                 <div className="flex flex-wrap gap-2 mb-2">
