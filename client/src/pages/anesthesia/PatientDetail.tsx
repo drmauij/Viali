@@ -979,6 +979,7 @@ export default function PatientDetail() {
   });
   const [chopSearchTerm, setChopSearchTerm] = useState("");
   const [chopSearchOpen, setChopSearchOpen] = useState(false);
+  const [surgeonSearchOpen, setSurgeonSearchOpen] = useState(false);
   
   // CHOP procedure search query
   const { data: chopProcedures = [], isLoading: isLoadingChop } = useQuery<Array<{
@@ -2993,12 +2994,12 @@ export default function PatientDetail() {
                     {t('anesthesia.patientDetail.newSurgery')}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-h-[90vh] overflow-y-auto">
-                  <DialogHeader>
+                <DialogContent className="max-h-[90vh] flex flex-col p-0">
+                  <DialogHeader className="sticky top-0 z-10 bg-background px-6 pt-6 pb-4 border-b">
                     <DialogTitle>{t('anesthesia.patientDetail.createNewSurgery')}</DialogTitle>
                     <DialogDescription>{t('anesthesia.patientDetail.createNewSurgeryDesc')}</DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-4">
+                  <div className="space-y-4 py-4 px-6 flex-1 overflow-y-auto">
                     <div className="space-y-2">
                       <Label>{t('anesthesia.patientDetail.plannedSurgery')}</Label>
                       <Popover open={chopSearchOpen} onOpenChange={setChopSearchOpen}>
@@ -3235,46 +3236,69 @@ export default function PatientDetail() {
 
                     <div className="space-y-2">
                       <Label htmlFor="surgeon">{t('anesthesia.patientDetail.surgeon')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
-                      <Select 
-                        value={newCase.surgeonId || "none"} 
-                        onValueChange={(value) => {
-                          if (value === "none") {
-                            setNewCase({ ...newCase, surgeon: "", surgeonId: "" });
-                          } else {
-                            const selectedSurgeon = surgeons.find(s => s.id === value);
-                            setNewCase({ 
-                              ...newCase, 
-                              surgeon: selectedSurgeon?.name || "", 
-                              surgeonId: value 
-                            });
-                          }
-                        }}
-                        disabled={isLoadingSurgeons}
-                      >
-                        <SelectTrigger data-testid="select-surgeon">
-                          <SelectValue placeholder={isLoadingSurgeons ? t('anesthesia.patientDetail.loadingSurgeons') : t('anesthesia.patientDetail.selectSurgeonOptional')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">
-                            <span className="text-muted-foreground italic">{t('anesthesia.patientDetail.noSurgeonSelected')}</span>
-                          </SelectItem>
-                          {isLoadingSurgeons ? (
-                            <SelectItem value="loading" disabled>
-                              {t('anesthesia.patientDetail.loadingSurgeons')}
-                            </SelectItem>
-                          ) : surgeons.length === 0 ? (
-                            <SelectItem value="no-surgeons" disabled>
-                              {t('anesthesia.patientDetail.noSurgeonsAvailable')}
-                            </SelectItem>
-                          ) : (
-                            surgeons.map((surgeon) => (
-                              <SelectItem key={surgeon.id} value={surgeon.id}>
-                                {surgeon.name}
-                              </SelectItem>
-                            ))
-                          )}
-                        </SelectContent>
-                      </Select>
+                      <Popover open={surgeonSearchOpen} onOpenChange={setSurgeonSearchOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={surgeonSearchOpen}
+                            className="w-full justify-between"
+                            disabled={isLoadingSurgeons}
+                            data-testid="select-surgeon"
+                          >
+                            {isLoadingSurgeons 
+                              ? t('anesthesia.patientDetail.loadingSurgeons')
+                              : newCase.surgeonId
+                                ? surgeons.find(s => s.id === newCase.surgeonId)?.name || newCase.surgeon
+                                : t('anesthesia.patientDetail.noSurgeonSelected')}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder={t('anesthesia.quickSchedule.searchSurgeons', 'Search surgeons...')} />
+                            <CommandList>
+                              <CommandEmpty>{t('anesthesia.patientDetail.noSurgeonsAvailable')}</CommandEmpty>
+                              <CommandGroup>
+                                <CommandItem
+                                  value="none"
+                                  onSelect={() => {
+                                    setNewCase({ ...newCase, surgeon: "", surgeonId: "" });
+                                    setSurgeonSearchOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      !newCase.surgeonId ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <span className="text-muted-foreground italic">{t('anesthesia.patientDetail.noSurgeonSelected')}</span>
+                                </CommandItem>
+                                {surgeons.map((surgeon) => (
+                                  <CommandItem
+                                    key={surgeon.id}
+                                    value={`${surgeon.name}__${surgeon.id}`}
+                                    onSelect={() => {
+                                      setNewCase({ ...newCase, surgeon: surgeon.name, surgeonId: surgeon.id });
+                                      setSurgeonSearchOpen(false);
+                                    }}
+                                    data-testid={`surgeon-option-${surgeon.id}`}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        newCase.surgeonId === surgeon.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {surgeon.name}
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="surgery-room">{t('anesthesia.patientDetail.surgeryRoom')} <span className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.optional')}</span></Label>
@@ -3340,6 +3364,8 @@ export default function PatientDetail() {
                         rows={3}
                       />
                     </div>
+                  </div>
+                  <div className="sticky bottom-0 z-10 bg-background px-6 py-4 border-t">
                     <Button 
                       onClick={handleCreateCase} 
                       className="w-full" 
