@@ -237,17 +237,13 @@ export default function TimelineWeekView({
     return `${translatedDay} ${day.format('DD.MM')}`;
   };
 
-  const handleCanvasClick = (day: moment.Moment, hour: number) => {
-    if (!onCanvasClick) return;
-    const clickTime = day.clone().hour(hour).minute(0).toDate();
-    // Use first room as default
-    const roomId = surgeryRooms[0]?.id || '';
-    onCanvasClick(roomId, clickTime);
-  };
+  // Track whether mouse actually moved to a different hour (true drag vs click)
+  const hasDraggedRef = useRef(false);
 
   // Drag selection handlers - use refs to avoid stale closures
   const handleMouseDown = useCallback((dayIdx: number, hour: number) => {
     isDraggingRef.current = true;
+    hasDraggedRef.current = false;
     const newState: DragState = {
       isDragging: true,
       dayIdx,
@@ -261,6 +257,11 @@ export default function TimelineWeekView({
   const handleMouseEnter = useCallback((dayIdx: number, hour: number) => {
     if (!isDraggingRef.current || !dragStateRef.current) return;
     if (dayIdx !== dragStateRef.current.dayIdx) return;
+
+    // Mark that a real drag happened (mouse moved to a different hour)
+    if (hour !== dragStateRef.current.startHour) {
+      hasDraggedRef.current = true;
+    }
     
     const newEndHour = Math.max(hour + 1, dragStateRef.current.startHour + 1);
     const newState = { ...dragStateRef.current, endHour: newEndHour };
@@ -278,27 +279,26 @@ export default function TimelineWeekView({
     
     isDraggingRef.current = false;
     const currentDrag = dragStateRef.current;
+    const wasDragged = hasDraggedRef.current;
     dragStateRef.current = null;
+    hasDraggedRef.current = false;
     
     const day = weekDays[currentDrag.dayIdx];
-    const startTime = day.clone().hour(currentDrag.startHour).minute(0).toDate();
-    const endTime = day.clone().hour(currentDrag.endHour).minute(0).toDate();
     const roomId = surgeryRooms[0]?.id || '';
-    
-    if (onSlotSelect) {
+
+    if (wasDragged && onSlotSelect) {
+      // Real drag: use the dragged time range
+      const startTime = day.clone().hour(currentDrag.startHour).minute(0).toDate();
+      const endTime = day.clone().hour(currentDrag.endHour).minute(0).toDate();
       onSlotSelect(roomId, startTime, endTime);
     } else if (onCanvasClick) {
-      onCanvasClick(roomId, startTime);
+      // Single click: open dialog with default duration
+      const clickTime = day.clone().hour(currentDrag.startHour).minute(0).toDate();
+      onCanvasClick(roomId, clickTime);
     }
     
     setDragState(null);
   }, [weekDays, surgeryRooms, onSlotSelect, onCanvasClick]);
-
-  // Check if an hour slot is within the current drag selection
-  const isHourInDragSelection = (dayIdx: number, hour: number): boolean => {
-    if (!dragState || dragState.dayIdx !== dayIdx) return false;
-    return hour >= dragState.startHour && hour < dragState.endHour;
-  };
 
   // Global mouseup listener for drag selection
   useEffect(() => {
@@ -373,9 +373,7 @@ export default function TimelineWeekView({
                     key={hour}
                     className={cn(
                       "border-b cursor-pointer select-none",
-                      isHourInDragSelection(dayIdx, hour)
-                        ? "bg-primary/30"
-                        : "hover:bg-muted/30"
+                      "hover:bg-muted/30"
                     )}
                     style={{ height: HOUR_HEIGHT }}
                     onMouseDown={(e) => {
@@ -387,6 +385,26 @@ export default function TimelineWeekView({
                     data-testid={`time-slot-${day.format('YYYY-MM-DD')}-${hour}`}
                   />
                 ))}
+
+                {/* Drag selection preview overlay */}
+                {dragState && dragState.dayIdx === dayIdx && (
+                  <div
+                    className="absolute left-1 right-1 bg-primary/25 border-2 border-primary/60 rounded-md pointer-events-none z-10 flex flex-col justify-between"
+                    style={{
+                      top: (dragState.startHour - BUSINESS_HOUR_START) * HOUR_HEIGHT + 2,
+                      height: (dragState.endHour - dragState.startHour) * HOUR_HEIGHT - 4,
+                    }}
+                  >
+                    <div className="text-[10px] font-semibold text-primary px-1.5 pt-0.5">
+                      {dragState.startHour.toString().padStart(2, '0')}:00
+                    </div>
+                    {(dragState.endHour - dragState.startHour) > 1 && (
+                      <div className="text-[10px] font-semibold text-primary px-1.5 pb-0.5 text-right">
+                        {dragState.endHour.toString().padStart(2, '0')}:00
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Surgery events */}
                 {daySurgeries.map((surgery) => {
