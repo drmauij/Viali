@@ -282,11 +282,9 @@ export default function TimelineWeekView({
     const endTime = day.clone().hour(dragState.endHour).minute(0).toDate();
     const roomId = surgeryRooms[0]?.id || '';
     
-    // Only trigger if dragged more than 1 hour (otherwise it's a click)
-    if (dragState.endHour - dragState.startHour > 1 && onSlotSelect) {
+    if (onSlotSelect) {
       onSlotSelect(roomId, startTime, endTime);
     } else if (onCanvasClick) {
-      // Single click behavior
       onCanvasClick(roomId, startTime);
     }
     
@@ -409,7 +407,7 @@ export default function TimelineWeekView({
                       )}
                       style={{ top, height: Math.max(height - 2, 28), left, right, width }}
                       onClick={() => onEventClick?.(surgery.id, surgery.patientId)}
-                      title={`${startTime} - ${procedureName}\n${patientName}\n${roomName}${pacuBedName ? `\nAWR: ${pacuBedName}` : ''}`}
+                      title={`${startTime} - ${procedureName}\n${patientName}\n${roomName}${pacuBedName ? `\n${t('pacu.pacuBedShort', 'PACU')}: ${pacuBedName}` : ''}`}
                       data-testid={`surgery-event-${surgery.id}`}
                     >
                       {isTruncatedStart && (
@@ -430,7 +428,7 @@ export default function TimelineWeekView({
                       )}
                       {pacuBedName && surgery.status !== 'cancelled' && height > 40 && (
                         <div className="text-[8px] font-medium text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-900/50 px-0.5 rounded mt-0.5 truncate" data-testid={`badge-pacu-bed-week-${surgery.id}`}>
-                          AWR: {pacuBedName}
+                          {t('pacu.pacuBedShort', 'PACU')}: {pacuBedName}
                         </div>
                       )}
                       {isTruncatedEnd && height > 40 && (

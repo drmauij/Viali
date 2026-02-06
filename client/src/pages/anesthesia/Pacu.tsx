@@ -68,7 +68,7 @@ function PacuPatientCard({
   );
 
   const { data: allSurgeries = [] } = useQuery<Surgery[]>({
-    queryKey: [`/api/surgeries/hospital/${activeHospital?.id}`],
+    queryKey: [`/api/anesthesia/surgeries/today/${activeHospital?.id}`],
     enabled: !!activeHospital?.id,
   });
 
@@ -80,11 +80,12 @@ function PacuPatientCard({
 
   const assignBedMutation = useMutation({
     mutationFn: async (bedId: string | null) => {
-      await apiRequest("PATCH", `/api/surgeries/${patient.surgeryId}`, { pacuBedId: bedId });
+      await apiRequest("PATCH", `/api/anesthesia/surgeries/${patient.surgeryId}`, { pacuBedId: bedId });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/surgeries/${patient.surgeryId}`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/surgeries/hospital/${activeHospital?.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${patient.surgeryId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/today/${activeHospital?.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/pacu/${activeHospital?.id}`] });
       setOpen(false);
       toast({

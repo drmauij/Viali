@@ -817,7 +817,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         )}
         {event.pacuBedName && !event.isCancelled && (
           <div className="absolute bottom-0.5 right-1 flex items-center gap-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-1 py-0 rounded text-[9px] font-medium leading-tight" data-testid={`badge-pacu-bed-${event.surgeryId}`}>
-            AWR: {event.pacuBedName}
+            {t('pacu.pacuBedShort', 'PACU')}: {event.pacuBedName}
           </div>
         )}
       </div>
