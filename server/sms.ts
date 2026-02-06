@@ -26,7 +26,18 @@ async function getHospitalVonageCredentials(hospitalId: string): Promise<VonageC
   try {
     const config = await storage.getHospitalVonageConfig(hospitalId);
     
-    if (!config || !config.isEnabled || !config.encryptedApiKey || !config.encryptedApiSecret || !config.encryptedFromNumber) {
+    if (!config) {
+      console.log(`[SMS] No Vonage config found for hospital ${hospitalId}`);
+      return null;
+    }
+    
+    if (config.isEnabled === false) {
+      console.log(`[SMS] Vonage config exists but is disabled for hospital ${hospitalId}`);
+      return null;
+    }
+    
+    if (!config.encryptedApiKey || !config.encryptedApiSecret || !config.encryptedFromNumber) {
+      console.log(`[SMS] Vonage config incomplete for hospital ${hospitalId}: hasKey=${!!config.encryptedApiKey}, hasSecret=${!!config.encryptedApiSecret}, hasFrom=${!!config.encryptedFromNumber}`);
       return null;
     }
     
@@ -198,7 +209,7 @@ export function isSmsConfigured(): boolean {
 export async function isSmsConfiguredForHospital(hospitalId: string): Promise<boolean> {
   try {
     const config = await storage.getHospitalVonageConfig(hospitalId);
-    if (config && config.isEnabled && config.encryptedApiKey && config.encryptedApiSecret && config.encryptedFromNumber) {
+    if (config && config.isEnabled !== false && config.encryptedApiKey && config.encryptedApiSecret && config.encryptedFromNumber) {
       return true;
     }
   } catch {}
