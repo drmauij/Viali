@@ -1406,11 +1406,11 @@ export default function Op() {
         recordId={anesthesiaRecord?.id}
         isAdmin={activeHospital?.role === 'admin'}
         onSetApplied={() => {
-          queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/medications', anesthesiaRecord?.id] });
+          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/medications/${anesthesiaRecord?.id}`] });
           queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/records', anesthesiaRecord?.id, 'imported-medications'] });
           queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecord?.id] });
           queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/records', anesthesiaRecord?.id] });
-          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/installations/${anesthesiaRecord?.id}`] });
+          queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/installations', anesthesiaRecord?.id] });
           queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${anesthesiaRecord?.id}/airway`] });
           queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${anesthesiaRecord?.id}/general-technique`] });
           queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/${anesthesiaRecord?.id}/neuraxial-blocks`] });
