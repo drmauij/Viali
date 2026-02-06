@@ -756,6 +756,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
         
         switch (itemType) {
           case 'peripheral_iv':
+          case 'peripheral_venous':
             await storage.createAnesthesiaInstallation({
               anesthesiaRecordId,
               category: 'peripheral',
@@ -782,6 +783,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             break;
             
           case 'central_line':
+          case 'central_venous':
             await storage.createAnesthesiaInstallation({
               anesthesiaRecordId,
               category: 'central',
@@ -807,6 +809,21 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             appliedCount++;
             break;
             
+          case 'airway_management':
+            await storage.upsertAirwayManagement({
+              anesthesiaRecordId,
+              airwayDevice: config.device || 'ett',
+              size: config.size || null,
+              depth: config.depth ? parseInt(config.depth) : null,
+              cuffPressure: config.cuffPressure ? parseInt(config.cuffPressure) : null,
+              laryngoscopeType: config.laryngoscopeType || null,
+              intubationAttempts: config.attempts || 1,
+              cormackLehane: config.cormackLehane || null,
+              notes: config.notes || null,
+            });
+            appliedCount++;
+            break;
+
           case 'ett':
           case 'lma':
           case 'mask':
@@ -824,6 +841,30 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             appliedCount++;
             break;
             
+          case 'general_anesthesia':
+            await storage.upsertGeneralTechnique({
+              anesthesiaRecordId,
+              approach: (config.approach as 'tiva' | 'tci' | 'balanced-gas' | 'sedation') || 'balanced-gas',
+              rsi: config.rsi || false,
+              notes: config.notes || null,
+            });
+            appliedCount++;
+            break;
+
+          case 'tci':
+          case 'tiva':
+          case 'balanced-gas':
+          case 'sedation':
+          case 'general':
+            await storage.upsertGeneralTechnique({
+              anesthesiaRecordId,
+              approach: itemType === 'general' ? 'balanced-gas' : itemType as 'tiva' | 'tci' | 'balanced-gas' | 'sedation',
+              rsi: config.rsi || false,
+              notes: config.notes || null,
+            });
+            appliedCount++;
+            break;
+
           case 'spinal':
           case 'regional_spinal':
             await storage.createNeuraxialBlock({
@@ -845,9 +886,20 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             });
             appliedCount++;
             break;
+
+          case 'cse':
+            await storage.createNeuraxialBlock({
+              anesthesiaRecordId,
+              blockType: 'cse',
+              level: config.level || null,
+              notes: config.notes || null,
+            });
+            appliedCount++;
+            break;
             
           case 'nerve_block':
           case 'regional_peripheral':
+          case 'peripheral_block':
             await storage.createPeripheralBlock({
               anesthesiaRecordId,
               blockType: config.blockType || 'other',
@@ -857,24 +909,9 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
             });
             appliedCount++;
             break;
-          
-          case 'tci':
-          case 'tiva':
-          case 'balanced-gas':
-          case 'sedation':
-          case 'general':
-            // Apply general anesthesia technique
-            await storage.upsertGeneralTechnique({
-              anesthesiaRecordId,
-              approach: itemType === 'general' ? 'balanced-gas' : itemType as 'tiva' | 'tci' | 'balanced-gas' | 'sedation',
-              rsi: config.rsi || false,
-              notes: config.notes || null,
-            });
-            appliedCount++;
-            break;
             
           default:
-            console.log(`Unknown item type: ${item.itemType}`);
+            console.log(`[Apply Set] Skipping unsupported item type: ${item.itemType}`);
         }
       } catch (itemError) {
         console.error(`Error applying set item ${item.id}:`, itemError);
