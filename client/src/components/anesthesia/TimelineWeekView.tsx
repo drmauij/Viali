@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 
 interface TimelineWeekViewProps {
   surgeryRooms: any[];
+  allRooms?: any[];
   surgeries: any[];
   patients?: any[];
   selectedDate: Date;
@@ -31,6 +32,7 @@ const HOUR_HEIGHT = 60; // pixels per hour
 
 export default function TimelineWeekView({
   surgeryRooms,
+  allRooms = [],
   surgeries,
   patients = [],
   selectedDate,
@@ -164,6 +166,13 @@ export default function TimelineWeekView({
   const getRoomName = (roomId: string) => {
     const room = surgeryRooms.find((r: any) => r.id === roomId);
     return room ? room.name : t('opCalendar.weekView.unknownRoom');
+  };
+  
+  // Get PACU bed name
+  const getPacuBedName = (pacuBedId: string | null | undefined) => {
+    if (!pacuBedId) return null;
+    const bed = allRooms.find((r: any) => r.id === pacuBedId);
+    return bed?.name || null;
   };
 
   // Get status color for surgery - using theme-aware backgrounds
@@ -386,6 +395,7 @@ export default function TimelineWeekView({
                   const patientName = getPatientName(surgery.patientId);
                   const procedureName = surgery.plannedSurgery || 'Surgery';
                   const startTime = moment(displayStart).format('HH:mm');
+                  const pacuBedName = getPacuBedName(surgery.pacuBedId);
                   
                   return (
                     <div
@@ -399,7 +409,7 @@ export default function TimelineWeekView({
                       )}
                       style={{ top, height: Math.max(height - 2, 28), left, right, width }}
                       onClick={() => onEventClick?.(surgery.id, surgery.patientId)}
-                      title={`${startTime} - ${procedureName}\n${patientName}\n${roomName}`}
+                      title={`${startTime} - ${procedureName}\n${patientName}\n${roomName}${pacuBedName ? `\nAWR: ${pacuBedName}` : ''}`}
                       data-testid={`surgery-event-${surgery.id}`}
                     >
                       {isTruncatedStart && (
@@ -416,6 +426,11 @@ export default function TimelineWeekView({
                       {height > 55 && (
                         <div className="text-[10px] truncate opacity-70">
                           {patientName}
+                        </div>
+                      )}
+                      {pacuBedName && surgery.status !== 'cancelled' && height > 40 && (
+                        <div className="text-[8px] font-medium text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-900/50 px-0.5 rounded mt-0.5 truncate" data-testid={`badge-pacu-bed-week-${surgery.id}`}>
+                          AWR: {pacuBedName}
                         </div>
                       )}
                       {isTruncatedEnd && height > 40 && (

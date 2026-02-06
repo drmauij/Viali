@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff } from "lucide-react";
+import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff, Bed } from "lucide-react";
+import { PacuBedSelector } from "@/components/anesthesia/PacuBedSelector";
 import { apiRequest } from "@/lib/queryClient";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
@@ -97,6 +98,9 @@ export default function SurgerySummaryDialog({
 
   // Find the specific room for this surgery
   const room = rooms.find(r => r.id === surgery?.surgeryRoomId);
+  
+  // Find the PACU bed name
+  const pacuBed = rooms.find(r => r.id === surgery?.pacuBedId);
 
   // Fetch pre-op assessment data
   const { data: preOpAssessment, isLoading: isLoadingPreOp, isError: isPreOpError, error: preOpError } = useQuery<any>({
@@ -399,6 +403,25 @@ export default function SurgerySummaryDialog({
                 </div>
               </CardContent>
             </Card>
+
+            {/* PACU/AWR Bed Assignment */}
+            <div className="flex items-center justify-between px-4 py-3 bg-blue-50/50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900" data-testid="section-pacu-bed-assignment">
+              <div className="flex items-center gap-2">
+                <Bed className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium">{t('pacu.awrRoom', 'PACU/AWR')}</span>
+                {pacuBed && (
+                  <span className="text-sm text-blue-700 dark:text-blue-300 font-semibold" data-testid="text-pacu-bed-current">{pacuBed.name}</span>
+                )}
+              </div>
+              <PacuBedSelector
+                surgeryId={surgeryId}
+                hospitalId={activeHospital?.id}
+                currentBedId={surgery?.pacuBedId}
+                currentBedName={pacuBed?.name}
+                variant="inline"
+                size="sm"
+              />
+            </div>
 
             {/* Pre-OP Assessment - Only shown in anesthesia module */}
             {activeModule !== 'surgery' && (

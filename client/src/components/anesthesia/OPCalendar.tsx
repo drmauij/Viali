@@ -41,6 +41,7 @@ interface CalendarEvent {
   patientName: string;
   patientBirthday: string;
   isCancelled: boolean;
+  pacuBedName?: string | null;
   timeMarkers?: Array<{
     id: string;
     code: string;
@@ -402,6 +403,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       const isCancelled = surgery.status === "cancelled";
       const title = `${surgery.plannedSurgery || 'No surgery specified'} - ${patientName}`;
       
+      const pacuBedRoom = surgery.pacuBedId ? allSurgeryRooms.find((r: any) => r.id === surgery.pacuBedId) : null;
+      
       return {
         id: surgery.id,
         title,
@@ -414,10 +417,11 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         patientName,
         patientBirthday,
         isCancelled,
+        pacuBedName: pacuBedRoom?.name || null,
         timeMarkers: surgery.timeMarkers || null,
       };
     });
-  }, [surgeries, allPatients, surgeryRooms]);
+  }, [surgeries, allPatients, surgeryRooms, allSurgeryRooms]);
 
   // Convert surgery rooms to resources
   const resources = useMemo(() => {
@@ -800,7 +804,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   // Simplified event component for calendar display
   const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {
     return (
-      <div className="flex flex-col h-full p-1" data-testid={`event-${event.surgeryId}`}>
+      <div className="flex flex-col h-full p-1 relative" data-testid={`event-${event.surgeryId}`}>
         <div className={`font-bold text-xs ${event.isCancelled ? 'line-through' : ''}`}>
           {event.plannedSurgery}
         </div>
@@ -810,6 +814,11 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         </div>
         {event.isCancelled && (
           <div className="text-xs font-semibold mt-0.5">{t('opCalendar.cancelled')}</div>
+        )}
+        {event.pacuBedName && !event.isCancelled && (
+          <div className="absolute bottom-0.5 right-1 flex items-center gap-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-1 py-0 rounded text-[9px] font-medium leading-tight" data-testid={`badge-pacu-bed-${event.surgeryId}`}>
+            AWR: {event.pacuBedName}
+          </div>
         )}
       </div>
     );
@@ -1066,6 +1075,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           {currentView === "week" ? (
             <TimelineWeekView
               surgeryRooms={surgeryRooms}
+              allRooms={allSurgeryRooms}
               surgeries={surgeries}
               patients={allPatients}
               selectedDate={selectedDate}
