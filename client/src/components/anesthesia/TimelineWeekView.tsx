@@ -21,14 +21,28 @@ interface TimelineWeekViewProps {
 interface DragState {
   isDragging: boolean;
   dayIdx: number;
-  startHour: number;
-  endHour: number;
+  startSlot: number;
+  endSlot: number;
 }
 
 // Business hours
 const BUSINESS_HOUR_START = 7;
 const BUSINESS_HOUR_END = 22;
 const HOUR_HEIGHT = 60; // pixels per hour
+const SLOT_MINUTES = 15; // snap interval in minutes
+const SLOTS_PER_HOUR = 60 / SLOT_MINUTES;
+const SLOT_HEIGHT = HOUR_HEIGHT / SLOTS_PER_HOUR; // 15px per 15-min slot
+const TOTAL_SLOTS = (BUSINESS_HOUR_END - BUSINESS_HOUR_START) * SLOTS_PER_HOUR;
+
+// Convert slot index to fractional hour
+const slotToHour = (slot: number) => BUSINESS_HOUR_START + slot / SLOTS_PER_HOUR;
+// Format a slot index as HH:mm
+const formatSlotTime = (slot: number) => {
+  const totalMinutes = BUSINESS_HOUR_START * 60 + slot * SLOT_MINUTES;
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+};
 
 export default function TimelineWeekView({
   surgeryRooms,
@@ -237,34 +251,33 @@ export default function TimelineWeekView({
     return `${translatedDay} ${day.format('DD.MM')}`;
   };
 
-  // Track whether mouse actually moved to a different hour (true drag vs click)
+  // Track whether mouse actually moved to a different slot (true drag vs click)
   const hasDraggedRef = useRef(false);
 
   // Drag selection handlers - use refs to avoid stale closures
-  const handleMouseDown = useCallback((dayIdx: number, hour: number) => {
+  const handleMouseDown = useCallback((dayIdx: number, slotIdx: number) => {
     isDraggingRef.current = true;
     hasDraggedRef.current = false;
     const newState: DragState = {
       isDragging: true,
       dayIdx,
-      startHour: hour,
-      endHour: hour + 1,
+      startSlot: slotIdx,
+      endSlot: slotIdx + 1,
     };
     dragStateRef.current = newState;
     setDragState(newState);
   }, []);
 
-  const handleMouseEnter = useCallback((dayIdx: number, hour: number) => {
+  const handleMouseEnter = useCallback((dayIdx: number, slotIdx: number) => {
     if (!isDraggingRef.current || !dragStateRef.current) return;
     if (dayIdx !== dragStateRef.current.dayIdx) return;
 
-    // Mark that a real drag happened (mouse moved to a different hour)
-    if (hour !== dragStateRef.current.startHour) {
+    if (slotIdx !== dragStateRef.current.startSlot) {
       hasDraggedRef.current = true;
     }
     
-    const newEndHour = Math.max(hour + 1, dragStateRef.current.startHour + 1);
-    const newState = { ...dragStateRef.current, endHour: newEndHour };
+    const newEndSlot = Math.max(slotIdx + 1, dragStateRef.current.startSlot + 1);
+    const newState = { ...dragStateRef.current, endSlot: newEndSlot };
     dragStateRef.current = newState;
     setDragState(newState);
   }, []);
@@ -286,14 +299,21 @@ export default function TimelineWeekView({
     const day = weekDays[currentDrag.dayIdx];
     const roomId = surgeryRooms[0]?.id || '';
 
+    const startMinutes = currentDrag.startSlot * SLOT_MINUTES;
+    const endMinutes = currentDrag.endSlot * SLOT_MINUTES;
+
     if (wasDragged && onSlotSelect) {
-      // Real drag: use the dragged time range
-      const startTime = day.clone().hour(currentDrag.startHour).minute(0).toDate();
-      const endTime = day.clone().hour(currentDrag.endHour).minute(0).toDate();
+      const startTime = day.clone()
+        .hour(BUSINESS_HOUR_START).minute(0).second(0)
+        .add(startMinutes, 'minutes').toDate();
+      const endTime = day.clone()
+        .hour(BUSINESS_HOUR_START).minute(0).second(0)
+        .add(endMinutes, 'minutes').toDate();
       onSlotSelect(roomId, startTime, endTime);
     } else if (onCanvasClick) {
-      // Single click: open dialog with default duration
-      const clickTime = day.clone().hour(currentDrag.startHour).minute(0).toDate();
+      const clickTime = day.clone()
+        .hour(BUSINESS_HOUR_START).minute(0).second(0)
+        .add(startMinutes, 'minutes').toDate();
       onCanvasClick(roomId, clickTime);
     }
     
@@ -346,7 +366,7 @@ export default function TimelineWeekView({
             {timeSlots.map((hour) => (
               <div
                 key={hour}
-                className="border-b text-xs text-muted-foreground text-right pr-2 pt-1"
+                className="border-b text-xs text-muted-foreground text-right pr-2 pt-1 relative"
                 style={{ height: HOUR_HEIGHT }}
               >
                 {hour.toString().padStart(2, '0')}:00
@@ -367,40 +387,43 @@ export default function TimelineWeekView({
                 )}
                 data-testid={`day-column-${day.format('YYYY-MM-DD')}`}
               >
-                {/* Hour grid lines */}
-                {timeSlots.map((hour) => (
-                  <div
-                    key={hour}
-                    className={cn(
-                      "border-b cursor-pointer select-none",
-                      "hover:bg-muted/30"
-                    )}
-                    style={{ height: HOUR_HEIGHT }}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      handleMouseDown(dayIdx, hour);
-                    }}
-                    onMouseEnter={() => handleMouseEnter(dayIdx, hour)}
-                    onMouseUp={handleMouseUp}
-                    data-testid={`time-slot-${day.format('YYYY-MM-DD')}-${hour}`}
-                  />
-                ))}
+                {/* 15-minute slot grid */}
+                {Array.from({ length: TOTAL_SLOTS }, (_, slotIdx) => {
+                  const isHourBoundary = slotIdx % SLOTS_PER_HOUR === 0;
+                  return (
+                    <div
+                      key={slotIdx}
+                      className={cn(
+                        "cursor-pointer select-none",
+                        isHourBoundary ? "border-b border-border" : "border-b border-border/20"
+                      )}
+                      style={{ height: SLOT_HEIGHT }}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handleMouseDown(dayIdx, slotIdx);
+                      }}
+                      onMouseEnter={() => handleMouseEnter(dayIdx, slotIdx)}
+                      onMouseUp={handleMouseUp}
+                      data-testid={`time-slot-${day.format('YYYY-MM-DD')}-${slotIdx}`}
+                    />
+                  );
+                })}
 
                 {/* Drag selection preview overlay */}
                 {dragState && dragState.dayIdx === dayIdx && (
                   <div
                     className="absolute left-1 right-1 bg-primary/25 border-2 border-primary/60 rounded-md pointer-events-none z-10 flex flex-col justify-between"
                     style={{
-                      top: (dragState.startHour - BUSINESS_HOUR_START) * HOUR_HEIGHT + 2,
-                      height: (dragState.endHour - dragState.startHour) * HOUR_HEIGHT - 4,
+                      top: dragState.startSlot * SLOT_HEIGHT + 2,
+                      height: (dragState.endSlot - dragState.startSlot) * SLOT_HEIGHT - 4,
                     }}
                   >
                     <div className="text-[10px] font-semibold text-primary px-1.5 pt-0.5">
-                      {dragState.startHour.toString().padStart(2, '0')}:00
+                      {formatSlotTime(dragState.startSlot)}
                     </div>
-                    {(dragState.endHour - dragState.startHour) > 1 && (
+                    {(dragState.endSlot - dragState.startSlot) > 1 && (
                       <div className="text-[10px] font-semibold text-primary px-1.5 pb-0.5 text-right">
-                        {dragState.endHour.toString().padStart(2, '0')}:00
+                        {formatSlotTime(dragState.endSlot)}
                       </div>
                     )}
                   </div>
