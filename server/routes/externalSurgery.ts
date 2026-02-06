@@ -8,7 +8,7 @@ import { nanoid } from "nanoid";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
-import { sendSms, isSmsConfigured } from "../sms";
+import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
 import { Resend } from "resend";
 
 const router = Router();
@@ -526,12 +526,12 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
         }
       }
       
-      if (request.surgeonPhone && isSmsConfigured()) {
+      if (request.surgeonPhone && (await isSmsConfiguredForHospital(request.hospitalId) || isSmsConfigured())) {
         try {
           await sendSms(
-            request.hospitalId,
             request.surgeonPhone,
-            `Surgery confirmed at ${hospitalName}: ${request.patientLastName}, ${request.patientFirstName} on ${formattedDate}. - ${hospitalName}`
+            `Surgery confirmed at ${hospitalName}: ${request.patientLastName}, ${request.patientFirstName} on ${formattedDate}. - ${hospitalName}`,
+            request.hospitalId
           );
           
           await storage.updateExternalSurgeryRequest(id, {

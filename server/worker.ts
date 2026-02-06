@@ -7,7 +7,7 @@ import { eq, and, isNull, isNotNull, sql, or, inArray, desc } from 'drizzle-orm'
 import { db } from './storage';
 import { decryptCredential } from './utils/encryption';
 import { randomUUID } from 'crypto';
-import { sendSms, isSmsConfigured } from './sms';
+import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from './sms';
 
 const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
 const STUCK_JOB_CHECK_INTERVAL_MS = 60000; // Check for stuck jobs every minute
@@ -1230,7 +1230,7 @@ async function sendQuestionnaireSms(
   infoFlyers: InfoFlyerData[] = []
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (!isSmsConfigured()) {
+    if (!(await isSmsConfiguredForHospital(hospitalId))) {
       return { success: false, error: 'SMS is not configured (VONAGE credentials missing)' };
     }
 
@@ -1425,7 +1425,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
       }
       
       // If email failed or not available, try SMS
-      if (!sendSuccess && hasPhone && isSmsConfigured()) {
+      if (!sendSuccess && hasPhone && (await isSmsConfiguredForHospital(hospitalId))) {
         const smsResult = await sendQuestionnaireSms(
           linkToken,
           surgery.patientPhone!,
@@ -1954,7 +1954,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       
       // Try SMS first (preferred for urgent reminders)
       let sentMessageText = '';
-      if (hasPhone && isSmsConfigured()) {
+      if (hasPhone && (await isSmsConfiguredForHospital(hospitalId))) {
         // Build SMS message - only include time if admissionTime is provided
         const surgeryInfoDe = surgery.admissionTime 
           ? `Erinnerung an Ihre OP morgen. Bitte kommen Sie um ${new Date(surgery.admissionTime).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Zurich' })} in die Klinik.`

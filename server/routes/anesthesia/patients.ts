@@ -4,7 +4,7 @@ import { isAuthenticated } from "../../auth/google";
 import { insertPatientSchema } from "@shared/schema";
 import { z } from "zod";
 import { requireWriteAccess } from "../../utils";
-import { sendSms, isSmsConfigured } from "../../sms";
+import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../../sms";
 
 const router = Router();
 
@@ -977,7 +977,7 @@ router.post('/api/patients/:id/messages', isAuthenticated, requireWriteAccess, a
     let sendResult: { success: boolean; error?: string } = { success: false };
 
     if (channel === 'sms') {
-      if (!isSmsConfigured()) {
+      if (!(await isSmsConfiguredForHospital(hospitalId))) {
         return res.status(503).json({ message: "SMS service is not configured" });
       }
       console.log(`[Patient Messages] Sending SMS to ${recipient} for patient ${patientId}`);

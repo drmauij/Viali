@@ -8,7 +8,7 @@ import { nanoid } from "nanoid";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
-import { sendSms, isSmsConfigured } from "../sms";
+import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
 
 const router = Router();
 
@@ -731,7 +731,7 @@ router.post('/api/questionnaire/links/:linkId/send-sms', isAuthenticated, requir
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
 
-    if (!isSmsConfigured()) {
+    if (!(await isSmsConfiguredForHospital(hospitalId))) {
       return res.status(503).json({ message: "SMS service is not configured" });
     }
 
@@ -786,6 +786,11 @@ router.post('/api/questionnaire/links/:linkId/send-sms', isAuthenticated, requir
 
 // Endpoint to check if SMS is configured
 router.get('/api/questionnaire/sms-status', isAuthenticated, async (req: any, res: Response) => {
+  const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
+  if (hospitalId) {
+    const configured = await isSmsConfiguredForHospital(hospitalId);
+    return res.json({ configured });
+  }
   res.json({ configured: isSmsConfigured() });
 });
 
