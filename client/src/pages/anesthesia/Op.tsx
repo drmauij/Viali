@@ -1550,7 +1550,7 @@ export default function Op() {
                   )}
                 </Button>
               )}
-              {!isSurgeryMode && anesthesiaRecord?.id && (
+              {!isSurgeryMode && (
                 <Button 
                   variant="outline" 
                   size="sm"
