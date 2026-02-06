@@ -480,12 +480,12 @@ export default function QuickCreateSurgeryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] max-w-lg max-h-[85vh] flex flex-col p-0" data-testid="dialog-quick-create-surgery">
-        <DialogHeader className="sticky top-0 z-10 bg-background border-b px-4 sm:px-6 py-4">
+      <DialogContent className="w-[95vw] max-w-lg max-h-[85vh] flex flex-col p-0 overflow-hidden gap-0" data-testid="dialog-quick-create-surgery">
+        <DialogHeader className="shrink-0 bg-background border-b px-4 sm:px-6 py-4">
           <DialogTitle>{t('anesthesia.quickSchedule.title')}</DialogTitle>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4 min-h-0">
           {/* Patient Selection */}
           <div className="space-y-2">
             <Label>{t('anesthesia.quickSchedule.patient')} *</Label>
@@ -1125,7 +1125,7 @@ export default function QuickCreateSurgeryDialog({
           </div>
         </div>
 
-        <div className="sticky bottom-0 z-10 bg-background border-t px-4 sm:px-6 py-4 flex justify-end gap-2">
+        <div className="shrink-0 bg-background border-t px-4 sm:px-6 py-4 flex justify-end gap-2">
           <Button
             variant="outline"
             onClick={() => {

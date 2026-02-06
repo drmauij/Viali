@@ -46,6 +46,7 @@ export default function TimelineWeekView({
   // Drag selection state
   const [dragState, setDragState] = useState<DragState | null>(null);
   const isDraggingRef = useRef(false);
+  const dragStateRef = useRef<DragState | null>(null);
   
   // Set moment locale based on current language
   const momentLocale = i18n.language.startsWith('de') ? 'de' : 'en-gb';
@@ -244,42 +245,44 @@ export default function TimelineWeekView({
     onCanvasClick(roomId, clickTime);
   };
 
-  // Drag selection handlers
+  // Drag selection handlers - use refs to avoid stale closures
   const handleMouseDown = useCallback((dayIdx: number, hour: number) => {
     isDraggingRef.current = true;
-    setDragState({
+    const newState: DragState = {
       isDragging: true,
       dayIdx,
       startHour: hour,
-      endHour: hour + 1, // At least 1 hour selection
-    });
+      endHour: hour + 1,
+    };
+    dragStateRef.current = newState;
+    setDragState(newState);
   }, []);
 
   const handleMouseEnter = useCallback((dayIdx: number, hour: number) => {
-    if (!isDraggingRef.current || !dragState) return;
-    // Only allow dragging within the same day
-    if (dayIdx !== dragState.dayIdx) return;
+    if (!isDraggingRef.current || !dragStateRef.current) return;
+    if (dayIdx !== dragStateRef.current.dayIdx) return;
     
-    setDragState(prev => {
-      if (!prev) return null;
-      const newEndHour = Math.max(hour + 1, prev.startHour + 1);
-      return { ...prev, endHour: newEndHour };
-    });
-  }, [dragState]);
+    const newEndHour = Math.max(hour + 1, dragStateRef.current.startHour + 1);
+    const newState = { ...dragStateRef.current, endHour: newEndHour };
+    dragStateRef.current = newState;
+    setDragState(newState);
+  }, []);
 
   const handleMouseUp = useCallback(() => {
-    if (!isDraggingRef.current || !dragState) {
+    if (!isDraggingRef.current || !dragStateRef.current) {
       isDraggingRef.current = false;
+      dragStateRef.current = null;
       setDragState(null);
       return;
     }
     
     isDraggingRef.current = false;
+    const currentDrag = dragStateRef.current;
+    dragStateRef.current = null;
     
-    // Calculate time range
-    const day = weekDays[dragState.dayIdx];
-    const startTime = day.clone().hour(dragState.startHour).minute(0).toDate();
-    const endTime = day.clone().hour(dragState.endHour).minute(0).toDate();
+    const day = weekDays[currentDrag.dayIdx];
+    const startTime = day.clone().hour(currentDrag.startHour).minute(0).toDate();
+    const endTime = day.clone().hour(currentDrag.endHour).minute(0).toDate();
     const roomId = surgeryRooms[0]?.id || '';
     
     if (onSlotSelect) {
@@ -289,7 +292,7 @@ export default function TimelineWeekView({
     }
     
     setDragState(null);
-  }, [dragState, weekDays, surgeryRooms, onSlotSelect, onCanvasClick]);
+  }, [weekDays, surgeryRooms, onSlotSelect, onCanvasClick]);
 
   // Check if an hour slot is within the current drag selection
   const isHourInDragSelection = (dayIdx: number, hour: number): boolean => {

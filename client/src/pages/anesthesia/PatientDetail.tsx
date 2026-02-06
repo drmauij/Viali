@@ -2994,12 +2994,12 @@ export default function PatientDetail() {
                     {t('anesthesia.patientDetail.newSurgery')}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-h-[90vh] flex flex-col p-0">
-                  <DialogHeader className="sticky top-0 z-10 bg-background px-6 pt-6 pb-4 border-b">
+                <DialogContent className="max-h-[90vh] flex flex-col p-0 overflow-hidden gap-0">
+                  <DialogHeader className="shrink-0 bg-background px-6 pt-6 pb-4 border-b">
                     <DialogTitle>{t('anesthesia.patientDetail.createNewSurgery')}</DialogTitle>
                     <DialogDescription>{t('anesthesia.patientDetail.createNewSurgeryDesc')}</DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-4 px-6 flex-1 overflow-y-auto">
+                  <div className="space-y-4 py-4 px-6 flex-1 overflow-y-auto min-h-0">
                     <div className="space-y-2">
                       <Label>{t('anesthesia.patientDetail.plannedSurgery')}</Label>
                       <Popover open={chopSearchOpen} onOpenChange={setChopSearchOpen}>
@@ -3365,7 +3365,7 @@ export default function PatientDetail() {
                       />
                     </div>
                   </div>
-                  <div className="sticky bottom-0 z-10 bg-background px-6 py-4 border-t">
+                  <div className="shrink-0 bg-background px-6 py-4 border-t">
                     <Button 
                       onClick={handleCreateCase} 
                       className="w-full" 
