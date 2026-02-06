@@ -8055,11 +8055,22 @@ export class DatabaseStorage implements IStorage {
         )
       );
     
-    // Insert new absences
+    // Insert new absences (upsert to handle duplicate externalIds from recurring ICS events)
     for (const absence of absences) {
       await db
         .insert(providerAbsences)
-        .values({ ...absence, hospitalId, syncedAt: new Date() });
+        .values({ ...absence, hospitalId, syncedAt: new Date() })
+        .onConflictDoUpdate({
+          target: [providerAbsences.hospitalId, providerAbsences.externalId],
+          set: {
+            providerId: absence.providerId,
+            absenceType: absence.absenceType,
+            startDate: absence.startDate,
+            endDate: absence.endDate,
+            notes: absence.notes,
+            syncedAt: new Date(),
+          },
+        });
     }
   }
 

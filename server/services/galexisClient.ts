@@ -430,6 +430,15 @@ ${productLines}
       const parsed = this.parser.parse(responseXml);
       console.log('[Galexis] ProductAvailability Parsed response keys:', parsed ? Object.keys(parsed) : 'NULL');
 
+      // Handle GalexisXMLError responses (authentication failures, service errors, etc.)
+      if (parsed.GalexisXMLError) {
+        const xmlError = parsed.GalexisXMLError;
+        const errorCode = xmlError.errorCode || xmlError.code || 'unknown';
+        const errorMessage = xmlError.errorMessage || xmlError.message || xmlError.description || JSON.stringify(xmlError);
+        console.error(`[Galexis] API returned GalexisXMLError: code=${errorCode}, message=${errorMessage}`);
+        throw new Error(`Galexis API error (${errorCode}): ${errorMessage}`);
+      }
+
       const availabilityResponse = parsed.productAvailabilityResponse;
       if (!availabilityResponse) {
         const parsedKeys = parsed ? Object.keys(parsed) : [];
