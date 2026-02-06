@@ -239,7 +239,7 @@ export function UnifiedAnesthesiaSetsDialog({
   const [editingInvIdx, setEditingInvIdx] = useState<number | null>(null);
   const [editQtyValue, setEditQtyValue] = useState("");
 
-  const { data: sets = [], isLoading: isLoadingSets } = useQuery<AnesthesiaSet[]>({
+  const { data: sets = [], isLoading: isLoadingSets } = useQuery<AnesthesiaSetWithDetails[]>({
     queryKey: ['/api/anesthesia-sets', hospitalId],
     queryFn: async () => {
       const response = await fetch(`/api/anesthesia-sets/${hospitalId}`, {
@@ -578,6 +578,17 @@ export function UnifiedAnesthesiaSetsDialog({
             </div>
           ))}
         </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-muted-foreground">{t('anesthesia.documentation.notes', 'Notes')}</label>
+          <Textarea
+            rows={2}
+            placeholder={t('anesthesia.sets.notesPlaceholder', 'Notes to apply with this item...')}
+            value={currentTechniqueMetadata.notes || ""}
+            onChange={(e) => setCurrentTechniqueMetadata(prev => ({ ...prev, notes: e.target.value }))}
+            className="text-sm"
+            data-testid="textarea-technique-notes"
+          />
+        </div>
       </div>
     );
   };
@@ -585,6 +596,7 @@ export function UnifiedAnesthesiaSetsDialog({
   const formatTechniqueMetadata = (metadata: Record<string, any>) => {
     const parts: string[] = [];
     Object.entries(metadata).forEach(([key, value]) => {
+      if (key === 'notes') return;
       if (value && value !== "") {
         if (typeof value === 'boolean') {
           if (value) parts.push(key);
@@ -671,6 +683,9 @@ export function UnifiedAnesthesiaSetsDialog({
                         <div className="font-medium text-sm">{t.itemValue}</div>
                         {metaDisplay && (
                           <div className="text-xs text-muted-foreground truncate">{metaDisplay}</div>
+                        )}
+                        {t.metadata.notes && (
+                          <div className="text-xs text-muted-foreground italic mt-0.5 truncate">📝 {t.metadata.notes}</div>
                         )}
                       </div>
                       <Button size="sm" variant="ghost" onClick={() => setPendingTechniques(pendingTechniques.filter((_, i) => i !== idx))}>
@@ -900,13 +915,62 @@ export function UnifiedAnesthesiaSetsDialog({
               className="flex items-center justify-between p-3 border rounded-lg mb-2 hover:bg-muted/50"
               data-testid={`set-item-${set.id}`}
             >
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <Layers className="h-4 w-4 text-primary" />
                   <span className="font-medium">{set.name}</span>
                 </div>
                 {set.description && (
                   <p className="text-sm text-muted-foreground mt-1">{set.description}</p>
+                )}
+                {((set.items && set.items.length > 0) || (set.medications && set.medications.length > 0) || (set.inventoryItems && set.inventoryItems.length > 0)) && (
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {set.items?.map((item) => {
+                      const cat = TECHNIQUE_CATEGORIES.find(c => c.type === item.itemType);
+                      const cfg = item.config || {};
+                      const parts: string[] = [];
+                      if (cat) {
+                        const shortLabels: Record<string, string> = {
+                          'peripheral_venous': 'PVL',
+                          'arterial_line': 'Art',
+                          'central_venous': 'CVC',
+                          'bladder_catheter': 'BC',
+                          'general_anesthesia': 'GA',
+                          'airway_management': 'Airway',
+                          'spinal': 'Spinal',
+                          'epidural': 'Epidural',
+                          'cse': 'CSE',
+                          'peripheral_block': 'Block',
+                          'asa_status': 'ASA',
+                          'mallampati': 'Mallampati',
+                        };
+                        parts.push(shortLabels[item.itemType] || cat.label);
+                      }
+                      if (cfg.gauge) parts.push(cfg.gauge);
+                      if (cfg.device) parts.push(cfg.device.toUpperCase());
+                      if (cfg.size) parts.push(cfg.size);
+                      if (cfg.location) parts.push(cfg.location);
+                      if (cfg.approach) parts.push(cfg.approach.toUpperCase());
+                      if (cfg.blockType) parts.push(cfg.blockType);
+                      if (cfg.status) parts.push(cfg.status);
+                      if (cfg.score) parts.push(cfg.score);
+                      return (
+                        <Badge key={item.id} variant="outline" className="text-[10px] px-1.5 py-0 h-5">
+                          {parts.join(' ')}{cfg.notes ? ' 📝' : ''}
+                        </Badge>
+                      );
+                    })}
+                    {set.medications?.map((med) => (
+                      <Badge key={med.id} variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-blue-300 text-blue-700 dark:border-blue-600 dark:text-blue-400">
+                        {med.itemName}{med.customDose ? ` ${med.customDose}` : med.defaultDose ? ` ${med.defaultDose}` : ''}{med.administrationUnit ? med.administrationUnit : ''}
+                      </Badge>
+                    ))}
+                    {set.inventoryItems?.map((inv) => (
+                      <Badge key={inv.id} variant="outline" className="text-[10px] px-1.5 py-0 h-5 border-green-300 text-green-700 dark:border-green-600 dark:text-green-400">
+                        {inv.itemName}{inv.quantity > 1 ? ` x${inv.quantity}` : ''}
+                      </Badge>
+                    ))}
+                  </div>
                 )}
               </div>
               <div className="flex items-center gap-2">

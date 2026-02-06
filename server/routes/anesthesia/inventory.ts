@@ -474,7 +474,40 @@ router.get('/api/anesthesia-sets/:hospitalId', isAuthenticated, async (req: any,
     }
 
     const sets = await storage.getAnesthesiaSets(hospitalId);
-    res.json(sets);
+    
+    const enrichedSets = await Promise.all(
+      sets.map(async (set) => {
+        const [items, rawMedications, rawInventoryItems] = await Promise.all([
+          storage.getAnesthesiaSetItems(set.id),
+          storage.getAnesthesiaSetMedications(set.id),
+          storage.getAnesthesiaSetInventory(set.id),
+        ]);
+
+        const medications = await Promise.all(
+          rawMedications.map(async (med) => {
+            const config = await storage.getMedicationConfigById(med.medicationConfigId);
+            const item = config?.itemId ? await storage.getItem(config.itemId) : null;
+            return {
+              ...med,
+              itemName: item?.name || 'Unknown',
+              defaultDose: config?.defaultDose || null,
+              administrationUnit: config?.administrationUnit || null,
+            };
+          })
+        );
+
+        const inventoryItems = await Promise.all(
+          rawInventoryItems.map(async (inv) => {
+            const item = await storage.getItem(inv.itemId);
+            return { ...inv, itemName: item?.name || 'Unknown' };
+          })
+        );
+
+        return { ...set, items, medications, inventoryItems };
+      })
+    );
+    
+    res.json(enrichedSets);
   } catch (error) {
     console.error("Error fetching anesthesia sets:", error);
     res.status(500).json({ message: "Failed to fetch anesthesia sets" });
