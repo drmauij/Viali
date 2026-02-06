@@ -219,7 +219,14 @@ export function UnifiedAnesthesiaSetsDialog({
 }: UnifiedAnesthesiaSetsDialogProps) {
   const { toast } = useToast();
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = useState<"apply" | "manage">(isAdmin ? "manage" : "apply");
+  const [activeTab, setActiveTab] = useState<"apply" | "manage">(recordId ? "apply" : (isAdmin ? "manage" : "apply"));
+  
+  useEffect(() => {
+    if (open && recordId) {
+      setActiveTab("apply");
+    }
+  }, [open, recordId]);
+
   const [editingSet, setEditingSet] = useState<AnesthesiaSetWithDetails | null>(null);
   const [newSetName, setNewSetName] = useState("");
   const [newSetDescription, setNewSetDescription] = useState("");

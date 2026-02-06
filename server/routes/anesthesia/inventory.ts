@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { storage, db } from "../../storage";
-import { anesthesiaRecordMedications } from "@shared/schema";
+import { anesthesiaRecordMedications, medicationConfigs, administrationGroups } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { isAuthenticated } from "../../auth/google";
 import { requireWriteAccess } from "../../utils";
@@ -951,7 +951,7 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
       }
     }
 
-    // Apply medications - import them to the record
+    // Apply medications - import them to the record AND create dose events
     for (const med of setMedications) {
       try {
         // Check if medication is already imported to this record
@@ -962,11 +962,71 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
         const alreadyImported = existingMeds.some(m => m.medicationConfigId === med.medicationConfigId);
         
         if (!alreadyImported) {
-          // Import medication to record using direct db access
           await db.insert(anesthesiaRecordMedications).values({
             anesthesiaRecordId,
             medicationConfigId: med.medicationConfigId,
           });
+        }
+        
+        // Look up the medication config to get item details and administration group
+        const [medConfig] = await db
+          .select({
+            itemId: medicationConfigs.itemId,
+            defaultDose: medicationConfigs.defaultDose,
+            administrationUnit: medicationConfigs.administrationUnit,
+            administrationRoute: medicationConfigs.administrationRoute,
+            rateUnit: medicationConfigs.rateUnit,
+            administrationGroup: medicationConfigs.administrationGroup,
+          })
+          .from(medicationConfigs)
+          .where(eq(medicationConfigs.id, med.medicationConfigId));
+        
+        if (medConfig) {
+          // Determine administration group name to decide event type
+          let groupName = '';
+          if (medConfig.administrationGroup) {
+            const [group] = await db
+              .select({ name: administrationGroups.name })
+              .from(administrationGroups)
+              .where(eq(administrationGroups.id, medConfig.administrationGroup));
+            groupName = group?.name?.toLowerCase() || '';
+          }
+          
+          const dose = med.customDose || medConfig.defaultDose;
+          const isInfusion = groupName.includes('infusion') || medConfig.rateUnit === 'free' || medConfig.rateUnit === 'ml/h';
+          const timestamp = new Date();
+          
+          if (isInfusion && dose) {
+            // Create infusion start event
+            const { nanoid } = await import('nanoid');
+            const sessionId = nanoid();
+            await storage.createAnesthesiaMedication({
+              anesthesiaRecordId,
+              itemId: medConfig.itemId,
+              timestamp,
+              type: 'infusion_start',
+              dose,
+              unit: medConfig.administrationUnit || null,
+              route: medConfig.administrationRoute || 'i.v.',
+              rate: 'free',
+              infusionSessionId: sessionId,
+              administeredBy: userId,
+            });
+            console.log(`[Apply Set] Created infusion start for ${medConfig.itemId}: ${dose} ${medConfig.administrationUnit || ''}`);
+          } else if (dose) {
+            // Create bolus event
+            await storage.createAnesthesiaMedication({
+              anesthesiaRecordId,
+              itemId: medConfig.itemId,
+              timestamp,
+              type: 'bolus',
+              dose,
+              unit: medConfig.administrationUnit || null,
+              route: medConfig.administrationRoute || 'i.v.',
+              administeredBy: userId,
+            });
+            console.log(`[Apply Set] Created bolus for ${medConfig.itemId}: ${dose} ${medConfig.administrationUnit || ''}`);
+          }
         }
         
         medicationsApplied++;
