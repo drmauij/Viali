@@ -4051,12 +4051,17 @@ function VonageIntegrationCard({ hospitalId }: { hospitalId?: string }) {
                   Test SMS
                 </Button>
                 <Button
-                  onClick={() => saveVonageConfigMutation.mutate({
-                    apiKey: vonageApiKey || undefined,
-                    apiSecret: vonageApiSecret || undefined,
-                    fromNumber: vonageFromNumber || undefined,
-                    isEnabled: vonageEnabled,
-                  })}
+                  onClick={() => {
+                    const shouldAutoEnable = !isConfigured && (vonageApiKey || vonageApiSecret || vonageFromNumber);
+                    const enabled = shouldAutoEnable ? true : vonageEnabled;
+                    if (shouldAutoEnable) setVonageEnabled(true);
+                    saveVonageConfigMutation.mutate({
+                      apiKey: vonageApiKey || undefined,
+                      apiSecret: vonageApiSecret || undefined,
+                      fromNumber: vonageFromNumber || undefined,
+                      isEnabled: enabled,
+                    });
+                  }}
                   disabled={saveVonageConfigMutation.isPending || (!vonageApiKey && !vonageApiSecret && !vonageFromNumber)}
                   data-testid="button-save-vonage"
                 >
