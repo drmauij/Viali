@@ -20,7 +20,8 @@ import {
   Sun,
   Moon,
   ChevronRight,
-  UserRound
+  UserRound,
+  Users
 } from "lucide-react";
 
 interface PortalData {
@@ -77,6 +78,8 @@ const translations = {
     fastingNoFood: "Keine feste Nahrung ab 6 Stunden vor der OP",
     fastingLiquids: "Klare Flüssigkeiten bis 2 Stunden vorher erlaubt",
     fastingNoAlcohol: "Kein Alkohol 24 Stunden vor der OP",
+    companionTitle: "Begleitperson erforderlich",
+    companionText: "Nach der Operation dürfen Sie nicht selbst fahren. Bitte organisieren Sie eine Begleitperson, die Sie nach Hause bringt.",
     infoDocuments: "Informationsunterlagen",
     downloadFlyer: "Herunterladen",
     step3Title: "Operation",
@@ -123,6 +126,8 @@ const translations = {
     fastingNoFood: "No solid food 6 hours before surgery",
     fastingLiquids: "Clear liquids allowed until 2 hours before",
     fastingNoAlcohol: "No alcohol 24 hours before surgery",
+    companionTitle: "Companion Required",
+    companionText: "You will not be allowed to drive after surgery. Please arrange for someone to take you home.",
     infoDocuments: "Information Documents",
     downloadFlyer: "Download",
     step3Title: "Surgery",
@@ -425,6 +430,17 @@ export default function PatientPortal() {
                       {t.fastingNoAlcohol}
                     </li>
                   </ul>
+                </div>
+
+                {/* Companion Reminder */}
+                <div className="p-3 rounded-lg mb-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800" data-testid="card-companion-reminder">
+                  <h4 className="font-medium text-sm mb-1 flex items-center gap-1.5 text-blue-800 dark:text-blue-300">
+                    <Users className="h-4 w-4" />
+                    {t.companionTitle}
+                  </h4>
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    {t.companionText}
+                  </p>
                 </div>
 
                 {/* Info Flyers */}
