@@ -4,6 +4,14 @@ import "moment/locale/en-gb";
 import "moment/locale/de";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import type { LucideIcon } from "lucide-react";
+
+export interface PreOpStatusInfo {
+  key: string;
+  icon: LucideIcon;
+  color: string;
+  label: string;
+}
 
 interface TimelineWeekViewProps {
   surgeryRooms: any[];
@@ -16,6 +24,7 @@ interface TimelineWeekViewProps {
   onCanvasClick?: (groupId: string, time: Date) => void;
   onSlotSelect?: (roomId: string, start: Date, end: Date) => void;
   onDayClick?: (date: Date) => void;
+  getPreOpStatus?: (surgeryId: string) => PreOpStatusInfo;
 }
 
 interface DragState {
@@ -54,6 +63,7 @@ export default function TimelineWeekView({
   onCanvasClick,
   onSlotSelect,
   onDayClick,
+  getPreOpStatus,
 }: TimelineWeekViewProps) {
   const { t, i18n } = useTranslation();
   
@@ -470,6 +480,16 @@ export default function TimelineWeekView({
                           {patientName}
                         </div>
                       )}
+                      {getPreOpStatus && surgery.status !== 'cancelled' && height > 40 && (() => {
+                        const status = getPreOpStatus(surgery.id);
+                        const StatusIcon = status.icon;
+                        return (
+                          <div className={`flex items-center gap-0.5 text-[8px] leading-tight mt-0.5 ${status.color}`} data-testid={`preop-status-week-${surgery.id}`}>
+                            <StatusIcon className="w-2.5 h-2.5 shrink-0" />
+                            <span className="truncate">{status.label}</span>
+                          </div>
+                        );
+                      })()}
                       {pacuBedName && surgery.status !== 'cancelled' && height > 40 && (
                         <div className="text-[8px] font-medium text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-900/50 px-0.5 rounded mt-0.5 truncate" data-testid={`badge-pacu-bed-week-${surgery.id}`}>
                           {t('pacu.pacuBedShort', 'PACU')}: {pacuBedName}

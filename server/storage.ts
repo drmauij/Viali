@@ -577,6 +577,7 @@ export interface IStorage {
   
   // Surgery Pre-Op Assessment operations (Surgery module - simpler, file-based consent)
   getSurgeryPreOpAssessments(hospitalId: string): Promise<Array<any>>;
+  getSurgeryPreOpAssessmentsBySurgeryIds(surgeryIds: string[], authorizedHospitalIds: string[]): Promise<SurgeryPreOpAssessment[]>;
   getSurgeryPreOpAssessment(surgeryId: string): Promise<SurgeryPreOpAssessment | undefined>;
   getSurgeryPreOpAssessmentById(id: string): Promise<SurgeryPreOpAssessment | undefined>;
   createSurgeryPreOpAssessment(assessment: InsertSurgeryPreOpAssessment): Promise<SurgeryPreOpAssessment>;
@@ -3672,6 +3673,26 @@ export class DatabaseStorage implements IStorage {
         status: !row.surgery_preop_assessments ? 'planned' : row.surgery_preop_assessments.status || 'draft',
       };
     });
+  }
+
+  async getSurgeryPreOpAssessmentsBySurgeryIds(surgeryIds: string[], authorizedHospitalIds: string[]): Promise<SurgeryPreOpAssessment[]> {
+    if (surgeryIds.length === 0 || authorizedHospitalIds.length === 0) return [];
+    
+    const results = await db
+      .select({
+        assessment: surgeryPreOpAssessments,
+      })
+      .from(surgeryPreOpAssessments)
+      .innerJoin(surgeries, eq(surgeryPreOpAssessments.surgeryId, surgeries.id))
+      .where(
+        and(
+          inArray(surgeryPreOpAssessments.surgeryId, surgeryIds),
+          inArray(surgeries.hospitalId, authorizedHospitalIds),
+          eq(surgeries.isArchived, false)
+        )
+      );
+    
+    return results.map(r => r.assessment);
   }
 
   async getSurgeryPreOpAssessment(surgeryId: string): Promise<SurgeryPreOpAssessment | undefined> {

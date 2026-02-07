@@ -9,7 +9,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download } from "lucide-react";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle } from "lucide-react";
 import { format } from "date-fns";
 import { de, enGB } from "date-fns/locale";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
@@ -321,8 +321,10 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   // Get surgery IDs for pre-op assessment fetch
   const surgeryIds = useMemo(() => surgeries.map((s: any) => s.id), [surgeries]);
 
-  // Fetch pre-op assessments for surgeries (for PDF generation)
-  const { data: preOpAssessments = [] } = useQuery<any[]>({
+  const isSurgeryModule = activeHospital?.unitType === 'or';
+
+  // Fetch anesthesia pre-op assessments for surgeries
+  const { data: anesthesiaPreOpAssessments = [] } = useQuery<any[]>({
     queryKey: ["/api/anesthesia/preop-assessments/bulk", surgeryIds],
     queryFn: async () => {
       if (surgeryIds.length === 0) return [];
@@ -330,8 +332,22 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       if (!response.ok) return [];
       return response.json();
     },
-    enabled: surgeryIds.length > 0,
+    enabled: surgeryIds.length > 0 && !isSurgeryModule,
   });
+
+  // Fetch surgery pre-op assessments (for surgery module units)
+  const { data: surgeryPreOpAssessments = [] } = useQuery<any[]>({
+    queryKey: ["/api/surgery/preop-assessments/bulk", surgeryIds],
+    queryFn: async () => {
+      if (surgeryIds.length === 0) return [];
+      const response = await fetch(`/api/surgery/preop-assessments/bulk?surgeryIds=${surgeryIds.join(",")}`);
+      if (!response.ok) return [];
+      return response.json();
+    },
+    enabled: surgeryIds.length > 0 && isSurgeryModule === true,
+  });
+
+  const preOpAssessments = isSurgeryModule ? surgeryPreOpAssessments : anesthesiaPreOpAssessments;
 
   // Map pre-op assessments by surgery ID
   const preOpMap = useMemo(() => {
@@ -801,8 +817,40 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     return { style };
   }, []);
 
+  // Derive pre-op assessment status for a surgery
+  const getPreOpStatus = useCallback((surgeryId: string) => {
+    const data = preOpMap.get(surgeryId);
+    if (!data || !data.assessment) {
+      return { key: 'planned', icon: Circle, color: 'text-muted-foreground', label: t('opCalendar.preOpStatus.planned', 'Planned') };
+    }
+    const a = data.assessment;
+    if (a.standBy) {
+      const reasonKey = a.standByReason || '';
+      let reasonLabel = '';
+      if (reasonKey === 'signature_missing') reasonLabel = t('opCalendar.preOpStatus.standByReasons.signatureMissing', 'Signature missing');
+      else if (reasonKey === 'consent_required') reasonLabel = t('opCalendar.preOpStatus.standByReasons.consentRequired', 'Consent required');
+      else if (reasonKey === 'waiting_exams') reasonLabel = t('opCalendar.preOpStatus.standByReasons.waitingExams', 'Waiting exams');
+      else if (reasonKey === 'other') reasonLabel = a.standByReasonNote || t('opCalendar.preOpStatus.standByReasons.other', 'Other');
+      else if (a.standByReasonNote) reasonLabel = a.standByReasonNote;
+      return { key: 'standby', icon: PauseCircle, color: 'text-amber-500', label: `${t('opCalendar.preOpStatus.standBy', 'Stand-by')}${reasonLabel ? ` (${reasonLabel})` : ''}` };
+    }
+    const approval = isSurgeryModule ? a.surgicalApprovalStatus : a.surgicalApproval;
+    if (data.status === 'completed' || a.status === 'completed') {
+      if (approval === 'approved') {
+        return { key: 'approved', icon: CheckCircle2, color: 'text-green-500', label: t('opCalendar.preOpStatus.approved', 'Approved') };
+      }
+      if (approval === 'not-approved') {
+        return { key: 'not-approved', icon: XCircle, color: 'text-red-500', label: t('opCalendar.preOpStatus.notApproved', 'Not approved') };
+      }
+      return { key: 'approved', icon: CheckCircle2, color: 'text-green-500', label: t('opCalendar.preOpStatus.completed', 'Completed') };
+    }
+    return { key: 'started', icon: Pencil, color: 'text-muted-foreground', label: t('opCalendar.preOpStatus.started', 'Started') };
+  }, [preOpMap, isSurgeryModule, t]);
+
   // Simplified event component for calendar display
   const EventComponent: React.FC<EventProps<CalendarEvent>> = useCallback(({ event }: EventProps<CalendarEvent>) => {
+    const preOpStatus = getPreOpStatus(event.surgeryId);
+    const StatusIcon = preOpStatus.icon;
     return (
       <div className="flex flex-col h-full p-1 relative" data-testid={`event-${event.surgeryId}`}>
         <div className={`font-bold text-xs ${event.isCancelled ? 'line-through' : ''}`}>
@@ -812,6 +860,12 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           {event.patientName}
           {event.patientBirthday && ` ${event.patientBirthday}`}
         </div>
+        {!event.isCancelled && (
+          <div className={`flex items-center gap-0.5 text-[9px] leading-tight mt-0.5 ${preOpStatus.color}`} data-testid={`preop-status-${event.surgeryId}`}>
+            <StatusIcon className="w-3 h-3 shrink-0" />
+            <span className="truncate">{preOpStatus.label}</span>
+          </div>
+        )}
         {event.isCancelled && (
           <div className="text-xs font-semibold mt-0.5">{t('opCalendar.cancelled')}</div>
         )}
@@ -822,7 +876,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         )}
       </div>
     );
-  }, []);
+  }, [getPreOpStatus, t]);
 
   // Custom month date cell component - show indicator dots instead of event details
   const MonthDateHeader = useCallback(({ date, drilldownView }: { date: Date; drilldownView?: string }) => {
@@ -1130,6 +1184,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
                 setSelectedDate(date);
                 setCurrentView("day");
               }}
+              getPreOpStatus={getPreOpStatus}
             />
           ) : (
             <DragAndDropCalendar

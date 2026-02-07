@@ -552,6 +552,29 @@ router.get('/api/anesthesia/pacu/:hospitalId', isAuthenticated, async (req: any,
 
 // ========== SURGERY PRE-OP ASSESSMENT ROUTES (Surgery Module) ==========
 
+router.get('/api/surgery/preop-assessments/bulk', isAuthenticated, async (req: any, res) => {
+  try {
+    const { surgeryIds } = req.query;
+    const userId = req.user.id;
+
+    if (!surgeryIds) {
+      return res.json([]);
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hospitalIds = hospitals.map(h => h.id);
+
+    const surgeryIdArray = (surgeryIds as string).split(',');
+    
+    const assessments = await storage.getSurgeryPreOpAssessmentsBySurgeryIds(surgeryIdArray, hospitalIds);
+    
+    res.json(assessments);
+  } catch (error) {
+    console.error("Error fetching bulk surgery pre-op assessments:", error);
+    res.status(500).json({ message: "Failed to fetch surgery pre-op assessments" });
+  }
+});
+
 router.get('/api/surgery/preop', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.query;
