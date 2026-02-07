@@ -1618,6 +1618,15 @@ export const preOpAssessments = pgTable("preop_assessments", {
   emailSentAt: timestamp("email_sent_at"),
   consentNotes: text("consent_notes"),
   
+  consentSignedByProxy: boolean("consent_signed_by_proxy").default(false),
+  consentProxySignerName: varchar("consent_proxy_signer_name"),
+  consentProxySignerRelation: varchar("consent_proxy_signer_relation"),
+  consentSignerIdFrontUrl: text("consent_signer_id_front_url"),
+  consentSignerIdBackUrl: text("consent_signer_id_back_url"),
+  consentRemoteSignedAt: timestamp("consent_remote_signed_at"),
+  consentInvitationSentAt: timestamp("consent_invitation_sent_at"),
+  consentInvitationMethod: varchar("consent_invitation_method"), // 'sms' | 'email'
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [

@@ -3256,6 +3256,18 @@
         "other": "Anderes",
         "consentRequired": "Einwilligung erforderlich",
         "signatureMissing": "Unterschrift fehlt"
+      },
+      "consentInvitation": {
+        "title": "Patientenunterschrift erforderlich",
+        "description": "Die präoperative Bewertung wurde als Stand-By gespeichert. Wie soll der Patient die Einwilligungserklärung unterschreiben?",
+        "optionRemote": "Einladung zum Online-Unterschreiben senden",
+        "optionRemoteDesc": "Der Patient erhält eine SMS oder E-Mail mit einem Link, um die Einwilligungserklärung über das Patientenportal von seinem Gerät aus zu unterschreiben.",
+        "optionInPerson": "Patient unterschreibt vor Ort",
+        "optionInPersonDesc": "Es wird keine Benachrichtigung gesendet. Der Patient unterschreibt die Einwilligungserklärung vor dem Eingriff vor Ort.",
+        "sent": "Einladung gesendet!",
+        "sentViaSms": "SMS mit dem Unterschriftslink an den Patienten gesendet.",
+        "sentViaEmail": "E-Mail mit dem Unterschriftslink an den Patienten gesendet.",
+        "sendError": "Einladung konnte nicht gesendet werden. Prüfen Sie, ob der Patient eine Telefonnummer oder E-Mail-Adresse hat."
       }
     },
     "opDetail": {

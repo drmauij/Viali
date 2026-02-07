@@ -6,6 +6,8 @@ import { insertPreOpAssessmentSchema } from "@shared/schema";
 import { z } from "zod";
 import { requireWriteAccess } from "../../utils";
 import { Resend } from "resend";
+import { sendSms, isSmsConfiguredForHospital } from "../../sms";
+import { nanoid } from "nanoid";
 
 const router = Router();
 
@@ -2168,6 +2170,140 @@ router.post('/api/anesthesia/preop/:assessmentId/send-email', isAuthenticated, r
       message: userMessage, 
       error: error.message 
     });
+  }
+});
+
+router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { method } = req.body as { method?: 'sms' | 'email' };
+
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID required" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    const assessment = await storage.getPreOpAssessmentById(id);
+    if (!assessment) {
+      return res.status(404).json({ message: "Pre-op assessment not found" });
+    }
+
+    const surgery = await storage.getSurgery(assessment.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    if (surgery.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const patient = await storage.getPatient(surgery.patientId);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const existingLinks = await storage.getQuestionnaireLinksForPatient(patient.id);
+    const now = new Date();
+    let activeLink = existingLinks.find(l =>
+      l.hospitalId === hospitalId &&
+      l.status !== 'expired' &&
+      l.status !== 'submitted' &&
+      l.status !== 'reviewed' &&
+      l.expiresAt && new Date(l.expiresAt) > now
+    );
+
+    if (!activeLink) {
+      const token = nanoid(32);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      activeLink = await storage.createQuestionnaireLink({
+        token,
+        hospitalId,
+        patientId: patient.id,
+        surgeryId: surgery.id,
+        createdBy: userId,
+        expiresAt,
+        status: 'pending',
+        language: 'de',
+      });
+    }
+
+    const baseUrl = process.env.PRODUCTION_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
+    const portalUrl = `${baseUrl}/patient/${activeLink.token}`;
+
+    const hospital = await storage.getHospital(hospitalId);
+    const hospitalName = hospital?.name || 'Hospital';
+
+    let sentMethod: 'sms' | 'email' | null = null;
+
+    if (method === 'sms' || (!method && patient.phone)) {
+      if (patient.phone && await isSmsConfiguredForHospital(hospitalId)) {
+        const message = `${hospitalName}: Sie können Ihre Einwilligungserklärung online unterschreiben / You can sign the informed consent online:\n${portalUrl}`;
+        const smsResult = await sendSms(patient.phone, message, hospitalId);
+        if (smsResult.success) {
+          sentMethod = 'sms';
+        }
+      }
+    }
+
+    if (!sentMethod && (method === 'email' || !method)) {
+      if (patient.email) {
+        try {
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          const emailResult = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
+            to: patient.email,
+            subject: `${hospitalName}: Einwilligungserklärung online unterschreiben / Sign informed consent online`,
+            html: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>${hospitalName}</h2>
+                <p>Sie können Ihre Einwilligungserklärung online unterschreiben.<br/>You can sign the informed consent online.</p>
+                <a href="${portalUrl}" 
+                   style="display: inline-block; background: #2563eb; color: white; 
+                          padding: 12px 24px; text-decoration: none; border-radius: 6px; 
+                          font-weight: 500; margin: 16px 0;">
+                  Einwilligung unterschreiben / Sign consent
+                </a>
+                <p style="color: #999; font-size: 12px;">
+                  ${portalUrl}
+                </p>
+              </div>
+            `,
+          });
+          if (emailResult.data) {
+            sentMethod = 'email';
+          }
+        } catch (emailError) {
+          console.error("Error sending consent invitation email:", emailError);
+        }
+      }
+    }
+
+    if (!sentMethod) {
+      return res.status(400).json({ message: "Could not send invitation. Patient has no valid phone number or email, or messaging services are not configured." });
+    }
+
+    await storage.updatePreOpAssessment(id, {
+      consentInvitationSentAt: new Date(),
+      consentInvitationMethod: sentMethod,
+    });
+
+    res.json({
+      success: true,
+      method: sentMethod,
+      portalUrl,
+    });
+  } catch (error) {
+    console.error("Error sending consent invitation:", error);
+    res.status(500).json({ message: "Failed to send consent invitation" });
   }
 });
 

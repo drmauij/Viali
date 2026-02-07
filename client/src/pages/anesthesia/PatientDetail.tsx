@@ -1024,6 +1024,10 @@ export default function PatientDetail() {
   const [showConsentDoctorSignaturePad, setShowConsentDoctorSignaturePad] = useState(false);
   const [showConsentPatientSignaturePad, setShowConsentPatientSignaturePad] = useState(false);
   
+  const [showConsentInvitationDialog, setShowConsentInvitationDialog] = useState(false);
+  const [consentInvitationAssessmentId, setConsentInvitationAssessmentId] = useState<string | null>(null);
+  const [consentInvitationSending, setConsentInvitationSending] = useState(false);
+  
   const [assessmentData, setAssessmentData] = useState(() => ({
     // General Data
     height: "",
@@ -1583,7 +1587,6 @@ export default function PatientDetail() {
       return { response, shouldSendEmail: data.sendEmailCopy && data.emailForCopy };
     },
     onSuccess: async (result: { response: any; shouldSendEmail: boolean }) => {
-      // Clear saving flag after a short delay to allow React to settle
       setTimeout(() => { isSavingRef.current = false; }, 500);
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
@@ -1594,6 +1597,11 @@ export default function PatientDetail() {
       
       if (result.shouldSendEmail && result.response?.id) {
         sendEmailMutation.mutate(result.response.id);
+      }
+      
+      if (assessmentData.standBy && assessmentData.standByReason === 'signature_missing' && result.response?.id) {
+        setConsentInvitationAssessmentId(result.response.id);
+        setShowConsentInvitationDialog(true);
       }
     },
     onError: (error: any) => {
@@ -1606,14 +1614,12 @@ export default function PatientDetail() {
     },
   });
 
-  // Mutation to update pre-op assessment
   const updatePreOpMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest("PATCH", `/api/anesthesia/preop/${existingAssessment?.id}`, data);
       return { response, shouldSendEmail: data.sendEmailCopy && data.emailForCopy, assessmentId: existingAssessment?.id };
     },
     onSuccess: (result: { response: any; shouldSendEmail: boolean; assessmentId: string | undefined }) => {
-      // Clear saving flag after a short delay to allow React to settle
       setTimeout(() => { isSavingRef.current = false; }, 500);
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
@@ -1624,6 +1630,11 @@ export default function PatientDetail() {
       
       if (result.shouldSendEmail && result.assessmentId) {
         sendEmailMutation.mutate(result.assessmentId);
+      }
+      
+      if (assessmentData.standBy && assessmentData.standByReason === 'signature_missing' && result.assessmentId) {
+        setConsentInvitationAssessmentId(result.assessmentId);
+        setShowConsentInvitationDialog(true);
       }
     },
     onError: (error: any) => {
@@ -6498,6 +6509,81 @@ export default function PatientDetail() {
         }}
         title={t('anesthesia.patientDetail.patientSignature')}
       />
+
+      <Dialog open={showConsentInvitationDialog} onOpenChange={setShowConsentInvitationDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{t('anesthesia.patientDetail.consentInvitation.title', 'Patient Signature Required')}</DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              {t('anesthesia.patientDetail.consentInvitation.description', 'The pre-op assessment is saved in stand-by. How would you like the patient to sign the informed consent?')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <button
+              onClick={async () => {
+                if (!consentInvitationAssessmentId) return;
+                setConsentInvitationSending(true);
+                try {
+                  const res = await apiRequest("POST", `/api/anesthesia/preop/${consentInvitationAssessmentId}/send-consent-invitation`, {});
+                  const data = res as any;
+                  toast({
+                    title: t('anesthesia.patientDetail.consentInvitation.sent', 'Invitation sent!'),
+                    description: data.method === 'sms' 
+                      ? t('anesthesia.patientDetail.consentInvitation.sentViaSms', 'SMS sent to the patient with the signing link.')
+                      : t('anesthesia.patientDetail.consentInvitation.sentViaEmail', 'Email sent to the patient with the signing link.'),
+                  });
+                  setShowConsentInvitationDialog(false);
+                } catch (err: any) {
+                  toast({
+                    title: t('anesthesia.patientDetail.error'),
+                    description: err.message || t('anesthesia.patientDetail.consentInvitation.sendError', 'Failed to send invitation. Check that patient has a phone number or email.'),
+                    variant: "destructive",
+                  });
+                } finally {
+                  setConsentInvitationSending(false);
+                }
+              }}
+              disabled={consentInvitationSending}
+              className="flex items-start gap-4 p-5 rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-950/60 transition-all text-left group"
+              data-testid="button-send-consent-sms"
+            >
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-800 transition-colors">
+                {consentInvitationSending ? (
+                  <Loader2 className="h-6 w-6 text-blue-600 dark:text-blue-400 animate-spin" />
+                ) : (
+                  <Send className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-base text-blue-900 dark:text-blue-100">
+                  {t('anesthesia.patientDetail.consentInvitation.optionRemote', 'Send invitation to sign online')}
+                </p>
+                <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                  {t('anesthesia.patientDetail.consentInvitation.optionRemoteDesc', 'The patient receives an SMS or email with a link to sign the informed consent from their device via the Patient Portal.')}
+                </p>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setShowConsentInvitationDialog(false)}
+              className="flex items-start gap-4 p-5 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 hover:border-gray-400 dark:hover:border-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900/60 transition-all text-left group"
+              data-testid="button-consent-in-person"
+            >
+              <div className="flex-shrink-0 w-12 h-12 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center group-hover:bg-gray-200 dark:group-hover:bg-gray-700 transition-colors">
+                <UserRound className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-base text-gray-900 dark:text-gray-100">
+                  {t('anesthesia.patientDetail.consentInvitation.optionInPerson', 'Patient will sign in person')}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  {t('anesthesia.patientDetail.consentInvitation.optionInPersonDesc', 'No notification is sent. The patient will sign the informed consent on-site before the procedure.')}
+                </p>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Send Questionnaire Dialog */}
       {patient && (

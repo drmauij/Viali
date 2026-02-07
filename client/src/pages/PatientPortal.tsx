@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,8 +21,20 @@ import {
   Moon,
   ChevronRight,
   UserRound,
-  Users
+  Users,
+  Stethoscope,
+  Shield,
+  PenLine,
+  Upload,
+  Camera as CameraIcon,
+  ArrowLeft
 } from "lucide-react";
+import SignaturePad from "@/components/SignaturePad";
+import { CameraCapture } from "@/components/CameraCapture";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PortalData {
   token: string;
@@ -103,6 +115,58 @@ const translations = {
     regional_peripheral: "Regionalanästhesie",
     local: "Lokalanästhesie",
     standby: "Standby",
+    consentStepTitle: "Einwilligungserklärung unterschreiben",
+    consentStepDesc: "Bitte prüfen und unterschreiben Sie die Einwilligungserklärung für die Anästhesie",
+    consentStepDone: "Einwilligung erteilt",
+    consentStepAction: "Jetzt unterschreiben",
+    consentStepView: "Einwilligung ansehen",
+    consentAnesthesiaTypes: "Geplante Anästhesieverfahren",
+    consentGeneralTitle: "Allgemeinanästhesie",
+    consentGeneralDesc: "Vollständiger Bewusstseinsverlust durch intravenöse und/oder inhalierte Medikamente.",
+    consentGeneralRisks: "Übelkeit, Erbrechen, Halsschmerzen, Zahnschäden, Wachheit während der Anästhesie (selten), allergische Reaktionen, kardiovaskuläre Komplikationen.",
+    consentAnalgosedationTitle: "Analgosedierung (Überwachte Anästhesiebereitschaft)",
+    consentAnalgosedationDesc: "Leichte Sedierung für kleinere chirurgische Eingriffe, typischerweise kombiniert mit Lokalanästhesie durch den Chirurgen. Anästhesie-Standby zur Patientenüberwachung und Sicherheit.",
+    consentAnalgosedationRisks: "Allergische Reaktionen, Atemdepression, Notwendigkeit der Eskalation zur Allgemeinanästhesie, Übelkeit, paradoxe Reaktionen.",
+    consentRegionalTitle: "Regionalanästhesie",
+    consentRegionalDesc: "Betäubung einer bestimmten Region durch Lokalanästhetika-Injektionen (Spinal, Epidural, Nervenblockaden).",
+    consentRegionalRisks: "Kopfschmerzen, Rückenschmerzen, Nervenschäden (selten), Hypotonie, Blutung, Infektion an der Injektionsstelle.",
+    consentInstallationsTitle: "Geplante Installationen (IV-Zugänge, Katheter)",
+    consentInstallationsDesc: "Anlage von intravenösen Zugängen, arteriellen Leitungen, zentralen Leitungen oder Blasenkathetern nach Bedarf.",
+    consentInstallationsRisks: "Infektion, Blutung, Hämatom, Pneumothorax (bei zentralen Leitungen), Thrombose.",
+    consentIcuTitle: "Postoperative Intensivstationsaufnahme",
+    consentIcuDesc: "Verlegung auf die Intensivstation zur engmaschigen Überwachung nach der Operation.",
+    consentIcuPurpose: "Zweck: Engmaschige hämodynamische Überwachung, Atemunterstützung, Schmerzmanagement und frühzeitige Erkennung von Komplikationen.",
+    consentPossibleRisks: "Mögliche unerwünschte Ereignisse:",
+    consentDoctorNotes: "Zusätzliche Hinweise des Arztes",
+    consentIdRequired: "Identitätsnachweis erforderlich",
+    consentIdFront: "Vorderseite",
+    consentIdBack: "Rückseite",
+    consentUploadId: "Foto hochladen",
+    consentTakePhoto: "Foto aufnehmen",
+    consentChangePhoto: "Ändern",
+    consentSignatureRequired: "Unterschrift",
+    consentAddSignature: "Unterschrift hinzufügen",
+    consentChangeSignature: "Unterschrift ändern",
+    consentProxyCheckbox: "Ich unterschreibe als Vertretung für den Patienten",
+    consentProxyName: "Name des Vertreters",
+    consentProxyRelation: "Beziehung zum Patienten",
+    consentProxyRelationLegalGuardian: "Gesetzlicher Vertreter",
+    consentProxyRelationSpouse: "Ehepartner/Partner",
+    consentProxyRelationParent: "Elternteil",
+    consentProxyRelationChild: "Kind",
+    consentProxyRelationOther: "Andere",
+    consentSubmit: "Unterschreiben und absenden",
+    consentSubmitting: "Wird gesendet...",
+    consentSuccess: "Einwilligung erfolgreich unterschrieben",
+    consentSuccessDesc: "Ihre Einwilligung wurde erfolgreich registriert.",
+    consentBackToPortal: "Zurück zum Portal",
+    consentAlreadySigned: "Einwilligung bereits unterschrieben",
+    consentAlreadySignedDesc: "Diese Einwilligung wurde bereits am {date} unterschrieben.",
+    consentMissingFields: "Bitte füllen Sie alle erforderlichen Felder aus",
+    consentMissingIdFront: "Bitte laden Sie die Vorderseite Ihres Ausweises hoch",
+    consentMissingIdBack: "Bitte laden Sie die Rückseite Ihres Ausweises hoch",
+    consentMissingSignature: "Bitte fügen Sie Ihre Unterschrift hinzu",
+    consentMissingProxyName: "Bitte geben Sie den Namen des Vertreters ein",
   },
   en: {
     title: "Patient Portal",
@@ -151,6 +215,58 @@ const translations = {
     regional_peripheral: "Regional Anesthesia",
     local: "Local Anesthesia",
     standby: "Standby",
+    consentStepTitle: "Sign Informed Consent",
+    consentStepDesc: "Please review and sign the informed consent for anesthesia",
+    consentStepDone: "Consent signed",
+    consentStepAction: "Sign now",
+    consentStepView: "View consent",
+    consentAnesthesiaTypes: "Planned Anesthesia Procedures",
+    consentGeneralTitle: "General Anesthesia",
+    consentGeneralDesc: "Complete loss of consciousness using intravenous and/or inhaled medications.",
+    consentGeneralRisks: "Nausea, vomiting, sore throat, dental damage, awareness during anesthesia (rare), allergic reactions, cardiovascular complications.",
+    consentAnalgosedationTitle: "Analgosedation (Monitored Anesthesia Care)",
+    consentAnalgosedationDesc: "Light sedation for minor surgical procedures, typically combined with local anesthetic administered by the surgeon. Anesthesia stand-by for patient monitoring and safety.",
+    consentAnalgosedationRisks: "Allergic reactions, respiratory depression, need to escalate to general anesthesia, nausea, paradoxical reactions.",
+    consentRegionalTitle: "Regional Anesthesia",
+    consentRegionalDesc: "Numbing of a specific region using local anesthetic injections (spinal, epidural, nerve blocks).",
+    consentRegionalRisks: "Headache, back pain, nerve damage (rare), hypotension, bleeding, infection at injection site.",
+    consentInstallationsTitle: "Planned Installations (IV lines, catheters)",
+    consentInstallationsDesc: "Placement of intravenous lines, arterial lines, central lines, or urinary catheters as needed.",
+    consentInstallationsRisks: "Infection, bleeding, hematoma, pneumothorax (for central lines), thrombosis.",
+    consentIcuTitle: "Postoperative ICU Admission",
+    consentIcuDesc: "Transfer to Intensive Care Unit for close monitoring after surgery.",
+    consentIcuPurpose: "Purpose: Close hemodynamic monitoring, respiratory support, pain management, and early detection of complications.",
+    consentPossibleRisks: "Possible adverse events:",
+    consentDoctorNotes: "Additional notes from the doctor",
+    consentIdRequired: "Identity verification required",
+    consentIdFront: "Front side",
+    consentIdBack: "Back side",
+    consentUploadId: "Upload photo",
+    consentTakePhoto: "Take photo",
+    consentChangePhoto: "Change",
+    consentSignatureRequired: "Signature",
+    consentAddSignature: "Add signature",
+    consentChangeSignature: "Change signature",
+    consentProxyCheckbox: "I am signing on behalf of the patient",
+    consentProxyName: "Name of the representative",
+    consentProxyRelation: "Relationship to patient",
+    consentProxyRelationLegalGuardian: "Legal guardian",
+    consentProxyRelationSpouse: "Spouse/Partner",
+    consentProxyRelationParent: "Parent",
+    consentProxyRelationChild: "Child",
+    consentProxyRelationOther: "Other",
+    consentSubmit: "Sign and submit",
+    consentSubmitting: "Submitting...",
+    consentSuccess: "Consent signed successfully",
+    consentSuccessDesc: "Your informed consent has been recorded successfully.",
+    consentBackToPortal: "Back to portal",
+    consentAlreadySigned: "Consent already signed",
+    consentAlreadySignedDesc: "This consent was already signed on {date}.",
+    consentMissingFields: "Please fill in all required fields",
+    consentMissingIdFront: "Please upload the front of your ID",
+    consentMissingIdBack: "Please upload the back of your ID",
+    consentMissingSignature: "Please add your signature",
+    consentMissingProxyName: "Please enter the representative's name",
   }
 };
 
@@ -169,6 +285,22 @@ export default function PatientPortal() {
     return false;
   });
   const t = translations[lang];
+
+  const [showConsentSigning, setShowConsentSigning] = useState(false);
+  const [consentSignature, setConsentSignature] = useState<string | null>(null);
+  const [idFrontImage, setIdFrontImage] = useState<string | null>(null);
+  const [idBackImage, setIdBackImage] = useState<string | null>(null);
+  const [signedByProxy, setSignedByProxy] = useState(false);
+  const [proxySignerName, setProxySignerName] = useState('');
+  const [proxySignerRelation, setProxySignerRelation] = useState('');
+  const [showSignaturePad, setShowSignaturePad] = useState(false);
+  const [isCameraOpenFront, setIsCameraOpenFront] = useState(false);
+  const [isCameraOpenBack, setIsCameraOpenBack] = useState(false);
+  const [isSubmittingConsent, setIsSubmittingConsent] = useState(false);
+  const [consentSubmitted, setConsentSubmitted] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
+  const fileInputFrontRef = useRef<HTMLInputElement>(null);
+  const fileInputBackRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isDark) {
@@ -193,6 +325,34 @@ export default function PatientPortal() {
     },
     enabled: !!token,
     retry: false,
+  });
+
+  const { data: consentInfo } = useQuery<{
+    consentData: {
+      general: boolean;
+      analgosedation: boolean;
+      regional: boolean;
+      installations: boolean;
+      icuAdmission: boolean;
+      notes: string | null;
+      doctorSignature: string | null;
+      date: string | null;
+    };
+    patientSignature: string | null;
+    signedByProxy: boolean;
+    needsSignature: boolean;
+    patientName: string | null;
+    hospitalName: string | null;
+    surgeryDescription: string | null;
+    consentRemoteSignedAt: string | null;
+  }>({
+    queryKey: ['/api/patient-portal', token, 'consent'],
+    queryFn: async () => {
+      const res = await fetch(`/api/patient-portal/${token}/consent-data`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!token && !!data,
   });
 
   useEffect(() => {
@@ -227,6 +387,59 @@ export default function PatientPortal() {
   const getAnesthesiaTypeLabel = (type: string | null) => {
     if (!type) return null;
     return t[type as keyof typeof t] || type;
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setter(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmitConsent = async () => {
+    setConsentError(null);
+    if (!idFrontImage) {
+      setConsentError(t.consentMissingIdFront);
+      return;
+    }
+    if (!idBackImage) {
+      setConsentError(t.consentMissingIdBack);
+      return;
+    }
+    if (!consentSignature) {
+      setConsentError(t.consentMissingSignature);
+      return;
+    }
+    if (signedByProxy && !proxySignerName.trim()) {
+      setConsentError(t.consentMissingProxyName);
+      return;
+    }
+
+    setIsSubmittingConsent(true);
+    try {
+      const res = await fetch(`/api/patient-portal/${token}/sign-consent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          signature: consentSignature,
+          signedByProxy,
+          proxySignerName: proxySignerName || undefined,
+          proxySignerRelation: proxySignerRelation || undefined,
+          idFrontImage,
+          idBackImage,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ message: 'Error' }));
+        throw new Error(err.message || 'Failed to submit consent');
+      }
+      setConsentSubmitted(true);
+    } catch (err: any) {
+      setConsentError(err.message || t.error);
+    } finally {
+      setIsSubmittingConsent(false);
+    }
   };
 
   if (isLoading) {
@@ -270,6 +483,396 @@ export default function PatientPortal() {
   const step1Complete = data.questionnaireStatus === 'completed';
   const step1InProgress = data.questionnaireStatus === 'in_progress';
   const step3Complete = data.surgeryCompleted;
+
+  const consentStepVisible = !!(consentInfo?.needsSignature || consentInfo?.consentRemoteSignedAt);
+  const consentAlreadySigned = !!consentInfo?.consentRemoteSignedAt;
+  const prepStepNum = consentStepVisible ? 3 : 2;
+  const surgeryStepNum = consentStepVisible ? 4 : 3;
+
+  if (showConsentSigning) {
+    if (consentAlreadySigned || consentSubmitted) {
+      return (
+        <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950">
+          <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
+            <div className="flex items-center gap-3 mb-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowConsentSigning(false)}
+                className="dark:hover:bg-gray-800"
+                data-testid="button-consent-back"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+                {data.hospital.name}
+              </h1>
+            </div>
+            <Card className="border-green-300 dark:border-green-700 shadow-md bg-white dark:bg-gray-800">
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <CheckCircle2 className="h-16 w-16 text-green-500 dark:text-green-400 mb-4" />
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                  {t.consentAlreadySigned}
+                </h2>
+                <p className="text-muted-foreground dark:text-gray-400 text-center">
+                  {consentInfo?.consentRemoteSignedAt
+                    ? t.consentAlreadySignedDesc.replace('{date}', formatDate(consentInfo.consentRemoteSignedAt))
+                    : t.consentSuccessDesc}
+                </p>
+                <Button
+                  className="mt-6"
+                  onClick={() => setShowConsentSigning(false)}
+                  data-testid="button-consent-back-to-portal"
+                >
+                  {t.consentBackToPortal}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950">
+        <div className="max-w-lg mx-auto px-4 py-6 space-y-4">
+          <div className="flex items-center gap-3 mb-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowConsentSigning(false)}
+              className="dark:hover:bg-gray-800"
+              data-testid="button-consent-back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-gray-100">
+              {data.hospital.name}
+            </h1>
+          </div>
+
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+              {t.consentStepTitle}
+            </h2>
+            <p className="text-sm text-muted-foreground dark:text-gray-400">
+              {t.consentStepDesc}
+            </p>
+          </div>
+
+          <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base text-gray-900 dark:text-gray-100">
+                <Stethoscope className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                {t.consentAnesthesiaTypes}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {consentInfo?.consentData?.general && (
+                <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{t.consentGeneralTitle}</h4>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">{t.consentGeneralDesc}</p>
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    <span className="font-medium">{t.consentPossibleRisks}</span> {t.consentGeneralRisks}
+                  </p>
+                </div>
+              )}
+              {consentInfo?.consentData?.analgosedation && (
+                <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{t.consentAnalgosedationTitle}</h4>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">{t.consentAnalgosedationDesc}</p>
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    <span className="font-medium">{t.consentPossibleRisks}</span> {t.consentAnalgosedationRisks}
+                  </p>
+                </div>
+              )}
+              {consentInfo?.consentData?.regional && (
+                <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{t.consentRegionalTitle}</h4>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">{t.consentRegionalDesc}</p>
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    <span className="font-medium">{t.consentPossibleRisks}</span> {t.consentRegionalRisks}
+                  </p>
+                </div>
+              )}
+              {consentInfo?.consentData?.installations && (
+                <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{t.consentInstallationsTitle}</h4>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">{t.consentInstallationsDesc}</p>
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    <span className="font-medium">{t.consentPossibleRisks}</span> {t.consentInstallationsRisks}
+                  </p>
+                </div>
+              )}
+              {consentInfo?.consentData?.icuAdmission && (
+                <div className="p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/20">
+                  <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-1">{t.consentIcuTitle}</h4>
+                  <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">{t.consentIcuDesc}</p>
+                  <p className="text-sm text-blue-700 dark:text-blue-400">
+                    {t.consentIcuPurpose}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {consentInfo?.consentData?.notes && (
+            <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-base text-gray-900 dark:text-gray-100">
+                  <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  {t.consentDoctorNotes}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                  {consentInfo.consentData.notes}
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base text-gray-900 dark:text-gray-100">
+                <Shield className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                {t.consentIdRequired}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                    {t.consentIdFront}
+                  </Label>
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2 aspect-[3/2] flex flex-col items-center justify-center overflow-hidden">
+                    {idFrontImage ? (
+                      <img src={idFrontImage} alt="ID Front" className="w-full h-full object-cover rounded" />
+                    ) : (
+                      <Upload className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                    )}
+                  </div>
+                  <div className="flex gap-1 mt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => fileInputFrontRef.current?.click()}
+                      data-testid="button-upload-id-front"
+                    >
+                      <Upload className="h-3 w-3 mr-1" />
+                      {idFrontImage ? t.consentChangePhoto : t.consentUploadId}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => setIsCameraOpenFront(true)}
+                      data-testid="button-camera-id-front"
+                    >
+                      <CameraIcon className="h-3 w-3 mr-1" />
+                      {idFrontImage ? t.consentChangePhoto : t.consentTakePhoto}
+                    </Button>
+                  </div>
+                  <input
+                    ref={fileInputFrontRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleFileUpload(e, setIdFrontImage)}
+                    data-testid="input-file-id-front"
+                  />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                    {t.consentIdBack}
+                  </Label>
+                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-2 aspect-[3/2] flex flex-col items-center justify-center overflow-hidden">
+                    {idBackImage ? (
+                      <img src={idBackImage} alt="ID Back" className="w-full h-full object-cover rounded" />
+                    ) : (
+                      <Upload className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+                    )}
+                  </div>
+                  <div className="flex gap-1 mt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => fileInputBackRef.current?.click()}
+                      data-testid="button-upload-id-back"
+                    >
+                      <Upload className="h-3 w-3 mr-1" />
+                      {idBackImage ? t.consentChangePhoto : t.consentUploadId}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => setIsCameraOpenBack(true)}
+                      data-testid="button-camera-id-back"
+                    >
+                      <CameraIcon className="h-3 w-3 mr-1" />
+                      {idBackImage ? t.consentChangePhoto : t.consentTakePhoto}
+                    </Button>
+                  </div>
+                  <input
+                    ref={fileInputBackRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleFileUpload(e, setIdBackImage)}
+                    data-testid="input-file-id-back"
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+            <CardContent className="pt-4">
+              <div className="flex items-center space-x-2 mb-4">
+                <Checkbox
+                  id="proxy-signing"
+                  checked={signedByProxy}
+                  onCheckedChange={(checked) => setSignedByProxy(checked === true)}
+                  data-testid="checkbox-proxy-signing"
+                />
+                <Label htmlFor="proxy-signing" className="text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                  {t.consentProxyCheckbox}
+                </Label>
+              </div>
+              {signedByProxy && (
+                <div className="space-y-3 pl-6 border-l-2 border-blue-200 dark:border-blue-800">
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+                      {t.consentProxyName}
+                    </Label>
+                    <Input
+                      value={proxySignerName}
+                      onChange={(e) => setProxySignerName(e.target.value)}
+                      placeholder={t.consentProxyName}
+                      className="dark:bg-gray-700 dark:border-gray-600"
+                      data-testid="input-proxy-name"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 block">
+                      {t.consentProxyRelation}
+                    </Label>
+                    <Select value={proxySignerRelation} onValueChange={setProxySignerRelation}>
+                      <SelectTrigger className="dark:bg-gray-700 dark:border-gray-600" data-testid="select-proxy-relation">
+                        <SelectValue placeholder={t.consentProxyRelation} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="legalGuardian">{t.consentProxyRelationLegalGuardian}</SelectItem>
+                        <SelectItem value="spouse">{t.consentProxyRelationSpouse}</SelectItem>
+                        <SelectItem value="parent">{t.consentProxyRelationParent}</SelectItem>
+                        <SelectItem value="child">{t.consentProxyRelationChild}</SelectItem>
+                        <SelectItem value="other">{t.consentProxyRelationOther}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-base text-gray-900 dark:text-gray-100">
+                <PenLine className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                {t.consentSignatureRequired}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {consentSignature ? (
+                <div className="space-y-2">
+                  <div className="border rounded-lg p-2 bg-gray-50 dark:bg-gray-700">
+                    <img src={consentSignature} alt="Signature" className="w-full h-24 object-contain" />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowSignaturePad(true)}
+                    data-testid="button-change-signature"
+                  >
+                    <PenLine className="h-4 w-4 mr-1" />
+                    {t.consentChangeSignature}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => setShowSignaturePad(true)}
+                  className="w-full h-24 border-2 border-dashed"
+                  data-testid="button-add-signature"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <PenLine className="h-6 w-6 text-gray-400" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400">{t.consentAddSignature}</span>
+                  </div>
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {consentError && (
+            <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+              <p className="text-sm text-red-700 dark:text-red-400 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                {consentError}
+              </p>
+            </div>
+          )}
+
+          <Button
+            className="w-full h-12 text-base font-semibold"
+            onClick={handleSubmitConsent}
+            disabled={isSubmittingConsent}
+            data-testid="button-submit-consent"
+          >
+            {isSubmittingConsent ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                {t.consentSubmitting}
+              </>
+            ) : (
+              <>
+                <PenLine className="h-5 w-5 mr-2" />
+                {t.consentSubmit}
+              </>
+            )}
+          </Button>
+
+          <div className="pb-8" />
+        </div>
+
+        <SignaturePad
+          isOpen={showSignaturePad}
+          onClose={() => setShowSignaturePad(false)}
+          onSave={(sig) => setConsentSignature(sig)}
+          title={t.consentSignatureRequired}
+        />
+
+        <CameraCapture
+          isOpen={isCameraOpenFront}
+          onClose={() => setIsCameraOpenFront(false)}
+          onCapture={(photo) => setIdFrontImage(photo)}
+          fullFrame
+          hint={t.consentIdFront}
+        />
+
+        <CameraCapture
+          isOpen={isCameraOpenBack}
+          onClose={() => setIsCameraOpenBack(false)}
+          onCapture={(photo) => setIdBackImage(photo)}
+          fullFrame
+          hint={t.consentIdBack}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950">
@@ -382,7 +985,57 @@ export default function PatientPortal() {
           </CardContent>
         </Card>
 
-        {/* Step 2: Preparation */}
+        {/* Step 2 (conditional): Informed Consent */}
+        {consentStepVisible && (
+          <Card 
+            className={`shadow-md bg-white dark:bg-gray-800 border-2 transition-colors ${
+              consentAlreadySigned
+                ? 'border-green-300 dark:border-green-700' 
+                : 'border-amber-300 dark:border-amber-700'
+            }`}
+            data-testid="card-step2-consent"
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    consentAlreadySigned
+                      ? 'bg-green-100 dark:bg-green-900/50'
+                      : 'bg-amber-100 dark:bg-amber-900/50'
+                  }`}>
+                    {consentAlreadySigned ? (
+                      <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                    ) : (
+                      <span className="text-amber-600 dark:text-amber-400 font-bold">2</span>
+                    )}
+                  </div>
+                  <div className="w-0.5 h-full min-h-[20px] bg-gray-200 dark:bg-gray-700 mt-2" />
+                </div>
+                <div className="flex-1 pb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t.consentStepTitle}</h3>
+                    <Shield className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+                  </div>
+                  <p className="text-sm text-muted-foreground dark:text-gray-400 mb-3">
+                    {consentAlreadySigned ? t.consentStepDone : t.consentStepDesc}
+                  </p>
+                  <Button 
+                    size="sm"
+                    variant={consentAlreadySigned ? 'outline' : 'default'}
+                    onClick={() => setShowConsentSigning(true)}
+                    className="w-full sm:w-auto"
+                    data-testid="button-consent"
+                  >
+                    {consentAlreadySigned ? t.consentStepView : t.consentStepAction}
+                    <ChevronRight className="h-4 w-4 ml-1" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step: Preparation */}
         <Card 
           className="shadow-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700"
           data-testid="card-step2-preparation"
@@ -392,7 +1045,7 @@ export default function PatientPortal() {
               {/* Step Indicator */}
               <div className="flex flex-col items-center">
                 <div className="w-10 h-10 rounded-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/50">
-                  <span className="font-bold text-blue-600 dark:text-blue-400">2</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">{prepStepNum}</span>
                 </div>
                 {/* Connector Line */}
                 <div className="w-0.5 h-full min-h-[20px] bg-gray-200 dark:bg-gray-700 mt-2" />
@@ -474,7 +1127,7 @@ export default function PatientPortal() {
           </CardContent>
         </Card>
 
-        {/* Step 3: Surgery */}
+        {/* Step: Surgery */}
         <Card 
           className={`shadow-md bg-white dark:bg-gray-800 border-2 ${
             step3Complete 
@@ -495,7 +1148,7 @@ export default function PatientPortal() {
                   {step3Complete ? (
                     <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
                   ) : (
-                    <span className="text-blue-600 dark:text-blue-400 font-bold">3</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-bold">{surgeryStepNum}</span>
                   )}
                 </div>
               </div>

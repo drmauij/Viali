@@ -2077,4 +2077,152 @@ router.delete('/api/user/message-templates/:id', isAuthenticated, async (req: an
   }
 });
 
+// ========== PATIENT PORTAL CONSENT ENDPOINTS ==========
+
+const consentFetchLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 30,
+  keyPrefix: 'cfetch'
+});
+
+const consentSignLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  maxRequests: 10,
+  keyPrefix: 'csign'
+});
+
+router.get('/api/patient-portal/:token/consent-data', consentFetchLimiter, async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+
+    const link = await storage.getQuestionnaireLinkByToken(token);
+    if (!link) {
+      return res.status(404).json({ message: "Invalid link" });
+    }
+
+    if (link.expiresAt && new Date() > new Date(link.expiresAt)) {
+      return res.status(410).json({ message: "This link has expired" });
+    }
+
+    if (link.status === 'expired') {
+      return res.status(410).json({ message: "This link has been expired" });
+    }
+
+    const surgeryId = link.surgeryId;
+    if (!surgeryId) {
+      return res.status(404).json({ message: "No surgery linked to this questionnaire" });
+    }
+
+    const assessment = await storage.getPreOpAssessment(surgeryId);
+    if (!assessment) {
+      return res.status(404).json({ message: "No pre-op assessment found for this surgery" });
+    }
+
+    const needsSignature = assessment.standBy === true && assessment.standByReason === 'signature_missing';
+
+    const surgery = await storage.getSurgery(surgeryId);
+    const patient = surgery ? await storage.getPatient(surgery.patientId) : null;
+    const hospital = link.hospitalId ? await storage.getHospital(link.hospitalId) : null;
+
+    res.json({
+      consentData: {
+        general: assessment.consentGiven ?? false,
+        analgosedation: assessment.consentAnalgosedation ?? false,
+        regional: assessment.consentRegional ?? false,
+        installations: assessment.consentInstallations ?? false,
+        icuAdmission: assessment.consentICU ?? false,
+        notes: assessment.consentNotes ?? null,
+        doctorSignature: assessment.consentDoctorSignature ?? null,
+        date: assessment.consentDate ?? null,
+      },
+      patientSignature: assessment.patientSignature ?? null,
+      signedByProxy: assessment.consentSignedByProxy ?? false,
+      needsSignature,
+      patientName: patient ? `${patient.firstName || ''} ${patient.surname || ''}`.trim() : null,
+      hospitalName: hospital?.name ?? null,
+      surgeryDescription: surgery?.plannedSurgery ?? null,
+      consentRemoteSignedAt: assessment.consentRemoteSignedAt ?? null,
+    });
+  } catch (error) {
+    console.error("Error fetching consent data:", error);
+    res.status(500).json({ message: "Failed to fetch consent data" });
+  }
+});
+
+const signConsentSchema = z.object({
+  signature: z.string().min(1, "Signature is required"),
+  signedByProxy: z.boolean().default(false),
+  proxySignerName: z.string().optional(),
+  proxySignerRelation: z.string().optional(),
+  idFrontImage: z.string().min(1, "ID front image is required"),
+  idBackImage: z.string().min(1, "ID back image is required"),
+});
+
+router.post('/api/patient-portal/:token/sign-consent', consentSignLimiter, async (req: Request, res: Response) => {
+  try {
+    const { token } = req.params;
+
+    const link = await storage.getQuestionnaireLinkByToken(token);
+    if (!link) {
+      return res.status(404).json({ message: "Invalid link" });
+    }
+
+    if (link.expiresAt && new Date() > new Date(link.expiresAt)) {
+      return res.status(410).json({ message: "This link has expired" });
+    }
+
+    if (link.status === 'expired') {
+      return res.status(410).json({ message: "This link has been expired" });
+    }
+
+    const surgeryId = link.surgeryId;
+    if (!surgeryId) {
+      return res.status(404).json({ message: "No surgery linked to this questionnaire" });
+    }
+
+    const assessment = await storage.getPreOpAssessment(surgeryId);
+    if (!assessment) {
+      return res.status(404).json({ message: "No pre-op assessment found" });
+    }
+
+    if (!(assessment.standBy === true && assessment.standByReason === 'signature_missing')) {
+      return res.status(400).json({ message: "This consent does not require a remote signature" });
+    }
+
+    if (assessment.consentRemoteSignedAt) {
+      return res.status(400).json({ message: "This consent has already been signed remotely" });
+    }
+
+    const parsed = signConsentSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid request data", errors: parsed.error.errors });
+    }
+
+    const { signature, signedByProxy, proxySignerName, proxySignerRelation, idFrontImage, idBackImage } = parsed.data;
+
+    const assessmentUpdate: Record<string, any> = {
+      patientSignature: signature,
+      consentSignedByProxy: signedByProxy,
+      consentSignerIdFrontUrl: idFrontImage,
+      consentSignerIdBackUrl: idBackImage,
+      consentRemoteSignedAt: new Date(),
+      standBy: false,
+      standByReason: null,
+      standByReasonNote: null,
+    };
+
+    if (signedByProxy) {
+      assessmentUpdate.consentProxySignerName = proxySignerName || null;
+      assessmentUpdate.consentProxySignerRelation = proxySignerRelation || null;
+    }
+
+    await storage.updatePreOpAssessment(assessment.id, assessmentUpdate);
+
+    res.json({ success: true, message: "Consent signed successfully" });
+  } catch (error) {
+    console.error("Error signing consent:", error);
+    res.status(500).json({ message: "Failed to sign consent" });
+  }
+});
+
 export default router;

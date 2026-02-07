@@ -3228,6 +3228,18 @@
         "other": "Other",
         "consentRequired": "Consent Required",
         "signatureMissing": "Signature Missing"
+      },
+      "consentInvitation": {
+        "title": "Patient Signature Required",
+        "description": "The pre-op assessment is saved in stand-by. How would you like the patient to sign the informed consent?",
+        "optionRemote": "Send invitation to sign online",
+        "optionRemoteDesc": "The patient receives an SMS or email with a link to sign the informed consent from their device via the Patient Portal.",
+        "optionInPerson": "Patient will sign in person",
+        "optionInPersonDesc": "No notification is sent. The patient will sign the informed consent on-site before the procedure.",
+        "sent": "Invitation sent!",
+        "sentViaSms": "SMS sent to the patient with the signing link.",
+        "sentViaEmail": "Email sent to the patient with the signing link.",
+        "sendError": "Failed to send invitation. Check that patient has a phone number or email."
       }
     },
     "opDetail": {
