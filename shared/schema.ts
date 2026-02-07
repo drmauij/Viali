@@ -4981,3 +4981,26 @@ export const insertChopProcedureSchema = createInsertSchema(chopProcedures).omit
 
 export type ChopProcedure = typeof chopProcedures.$inferSelect;
 export type InsertChopProcedure = z.infer<typeof insertChopProcedureSchema>;
+
+// ========== USER MESSAGE TEMPLATES ==========
+// Reusable message snippets created per user for patient communication
+
+export const userMessageTemplates = pgTable("user_message_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  title: varchar("title", { length: 100 }).notNull(),
+  body: text("body").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_user_message_templates_user").on(table.userId),
+]);
+
+export const insertUserMessageTemplateSchema = createInsertSchema(userMessageTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type UserMessageTemplate = typeof userMessageTemplates.$inferSelect;
+export type InsertUserMessageTemplate = z.infer<typeof insertUserMessageTemplateSchema>;

@@ -8,14 +8,28 @@ import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country"
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Copy, Mail, Loader2, CheckCircle, MessageSquare, Clock, FileText, Send, Smartphone, Info, Plus, X, Languages } from "lucide-react";
-import { queryClient } from "@/lib/queryClient";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Copy, Mail, Loader2, CheckCircle, MessageSquare, Clock, FileText, Send, Smartphone, Info, Plus, X, Languages, BookmarkPlus, Settings2, Pencil, Trash2, ChevronDown } from "lucide-react";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
-import type { PatientMessage } from "@shared/schema";
+import type { PatientMessage, UserMessageTemplate } from "@shared/schema";
 
 interface PatientCommunicationContentProps {
   patientId: string;
@@ -52,6 +66,10 @@ export function PatientCommunicationContent({
   const [messageLang, setMessageLang] = useState<'de' | 'en'>(i18n.language?.startsWith('de') ? 'de' : 'en');
 
   const [copiedLinks, setCopiedLinks] = useState<Record<string, boolean>>({});
+  const [manageTemplatesOpen, setManageTemplatesOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<UserMessageTemplate | null>(null);
+  const [templateTitle, setTemplateTitle] = useState("");
+  const [templateBody, setTemplateBody] = useState("");
 
   const getQuestionnaireMessageTemplate = (lang: 'de' | 'en', url: string) => {
     const clinicName = activeHospital?.name || 'Klinik';
@@ -195,6 +213,49 @@ export function PatientCommunicationContent({
       return res.json();
     },
     enabled: isEnabled && !!patientId && !!activeHospital?.id,
+  });
+
+  const { data: messageTemplates } = useQuery<UserMessageTemplate[]>({
+    queryKey: ['/api/user/message-templates'],
+    enabled: isEnabled,
+  });
+
+  const createTemplateMutation = useMutation({
+    mutationFn: async (data: { title: string; body: string }) => {
+      const res = await apiRequest('POST', '/api/user/message-templates', data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user/message-templates'] });
+      setTemplateTitle("");
+      setTemplateBody("");
+      setEditingTemplate(null);
+      toast({ title: t('messages.templates.created', 'Template saved') });
+    },
+  });
+
+  const updateTemplateMutation = useMutation({
+    mutationFn: async ({ id, ...data }: { id: string; title: string; body: string }) => {
+      const res = await apiRequest('PATCH', `/api/user/message-templates/${id}`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user/message-templates'] });
+      setTemplateTitle("");
+      setTemplateBody("");
+      setEditingTemplate(null);
+      toast({ title: t('messages.templates.updated', 'Template updated') });
+    },
+  });
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest('DELETE', `/api/user/message-templates/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/user/message-templates'] });
+      toast({ title: t('messages.templates.deleted', 'Template deleted') });
+    },
   });
 
   useEffect(() => {
@@ -773,6 +834,62 @@ export function PatientCommunicationContent({
                   {t('messages.compose.addInfoflyer', '+ Infoflyer')}
                 </Button>
               )}
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    data-testid="button-templates-dropdown"
+                  >
+                    <BookmarkPlus className="h-3 w-3 mr-1" />
+                    {t('messages.compose.templates', 'Templates')}
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56">
+                  {(messageTemplates?.length || 0) > 0 ? (
+                    <>
+                      {messageTemplates!.map((tmpl) => (
+                        <DropdownMenuItem
+                          key={tmpl.id}
+                          onClick={() => {
+                            setCustomMessage(prev => {
+                              if (!prev.trim()) return tmpl.body;
+                              return prev + '\n\n' + tmpl.body;
+                            });
+                          }}
+                          data-testid={`dropdown-template-${tmpl.id}`}
+                        >
+                          <FileText className="h-3.5 w-3.5 mr-2 shrink-0" />
+                          <span className="truncate">{tmpl.title}</span>
+                        </DropdownMenuItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                    </>
+                  ) : (
+                    <>
+                      <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                        {t('messages.templates.empty', 'No templates yet')}
+                      </div>
+                      <DropdownMenuSeparator />
+                    </>
+                  )}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setEditingTemplate(null);
+                      setTemplateTitle("");
+                      setTemplateBody("");
+                      setManageTemplatesOpen(true);
+                    }}
+                    data-testid="button-manage-templates"
+                  >
+                    <Settings2 className="h-3.5 w-3.5 mr-2" />
+                    {t('messages.templates.manage', 'Manage Templates')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               
               <Button
                 variant="outline"
@@ -915,6 +1032,122 @@ export function PatientCommunicationContent({
           </div>
         )}
       </div>
+      <Dialog open={manageTemplatesOpen} onOpenChange={setManageTemplatesOpen}>
+        <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{t('messages.templates.manageTitle', 'Manage Message Templates')}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto space-y-4">
+            {(messageTemplates?.length || 0) > 0 && (
+              <div className="space-y-2">
+                {messageTemplates!.map((tmpl) => (
+                  <div
+                    key={tmpl.id}
+                    className="flex items-start justify-between gap-2 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700"
+                    data-testid={`template-item-${tmpl.id}`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{tmpl.title}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{tmpl.body}</p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => {
+                          setEditingTemplate(tmpl);
+                          setTemplateTitle(tmpl.title);
+                          setTemplateBody(tmpl.body);
+                        }}
+                        data-testid={`button-edit-template-${tmpl.id}`}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => deleteTemplateMutation.mutate(tmpl.id)}
+                        disabled={deleteTemplateMutation.isPending}
+                        data-testid={`button-delete-template-${tmpl.id}`}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+              <Label className="text-sm font-medium">
+                {editingTemplate
+                  ? t('messages.templates.editTemplate', 'Edit Template')
+                  : t('messages.templates.newTemplate', 'New Template')}
+              </Label>
+              <Input
+                placeholder={t('messages.templates.titlePlaceholder', 'Template name (e.g. "Pre-Op Reminder")')}
+                value={templateTitle}
+                onChange={(e) => setTemplateTitle(e.target.value)}
+                maxLength={100}
+                data-testid="input-template-title"
+              />
+              <Textarea
+                placeholder={t('messages.templates.bodyPlaceholder', 'Message text...')}
+                value={templateBody}
+                onChange={(e) => setTemplateBody(e.target.value)}
+                rows={4}
+                className="resize-none text-sm"
+                data-testid="input-template-body"
+              />
+              <div className="flex gap-2">
+                {editingTemplate && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditingTemplate(null);
+                      setTemplateTitle("");
+                      setTemplateBody("");
+                    }}
+                    data-testid="button-cancel-edit-template"
+                  >
+                    {t('common.cancel', 'Cancel')}
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    if (!templateTitle.trim() || !templateBody.trim()) return;
+                    if (editingTemplate) {
+                      updateTemplateMutation.mutate({
+                        id: editingTemplate.id,
+                        title: templateTitle.trim(),
+                        body: templateBody.trim(),
+                      });
+                    } else {
+                      createTemplateMutation.mutate({
+                        title: templateTitle.trim(),
+                        body: templateBody.trim(),
+                      });
+                    }
+                  }}
+                  disabled={!templateTitle.trim() || !templateBody.trim() || createTemplateMutation.isPending || updateTemplateMutation.isPending}
+                  data-testid="button-save-template"
+                >
+                  {(createTemplateMutation.isPending || updateTemplateMutation.isPending) && (
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  )}
+                  {editingTemplate
+                    ? t('messages.templates.update', 'Update')
+                    : t('messages.templates.save', 'Save Template')}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

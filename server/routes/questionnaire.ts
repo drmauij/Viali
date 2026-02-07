@@ -1,6 +1,9 @@
 import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { storage } from "../storage";
+import { db } from "../db";
+import { userMessageTemplates } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 import { isAuthenticated } from "../auth/google";
 import { requireWriteAccess, getUserUnitForHospital } from "../utils";
 import { z } from "zod";
@@ -1990,6 +1993,87 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
   } catch (error) {
     console.error("Error fetching patient portal data:", error);
     res.status(500).json({ message: "Failed to fetch portal data" });
+  }
+});
+
+// ========== USER MESSAGE TEMPLATES ==========
+
+router.get('/api/user/message-templates', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const templates = await db.select().from(userMessageTemplates)
+      .where(eq(userMessageTemplates.userId, userId))
+      .orderBy(userMessageTemplates.createdAt);
+    res.json(templates);
+  } catch (error) {
+    console.error("Error fetching message templates:", error);
+    res.status(500).json({ message: "Failed to fetch templates" });
+  }
+});
+
+router.post('/api/user/message-templates', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const schema = z.object({
+      title: z.string().min(1).max(100),
+      body: z.string().min(1),
+    });
+    const parsed = schema.parse(req.body);
+    const [template] = await db.insert(userMessageTemplates).values({
+      userId,
+      title: parsed.title,
+      body: parsed.body,
+    }).returning();
+    res.status(201).json(template);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid input", errors: error.errors });
+    }
+    console.error("Error creating message template:", error);
+    res.status(500).json({ message: "Failed to create template" });
+  }
+});
+
+router.patch('/api/user/message-templates/:id', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const templateId = req.params.id;
+    const schema = z.object({
+      title: z.string().min(1).max(100).optional(),
+      body: z.string().min(1).optional(),
+    });
+    const parsed = schema.parse(req.body);
+    const [updated] = await db.update(userMessageTemplates)
+      .set({ ...parsed, updatedAt: new Date() })
+      .where(and(eq(userMessageTemplates.id, templateId), eq(userMessageTemplates.userId, userId)))
+      .returning();
+    if (!updated) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+    res.json(updated);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: "Invalid input", errors: error.errors });
+    }
+    console.error("Error updating message template:", error);
+    res.status(500).json({ message: "Failed to update template" });
+  }
+});
+
+router.delete('/api/user/message-templates/:id', isAuthenticated, async (req: any, res: Response) => {
+  try {
+    const userId = req.user.id;
+    const templateId = req.params.id;
+    const [deleted] = await db.delete(userMessageTemplates)
+      .where(and(eq(userMessageTemplates.id, templateId), eq(userMessageTemplates.userId, userId)))
+      .returning();
+    if (!deleted) {
+      return res.status(404).json({ message: "Template not found" });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting message template:", error);
+    res.status(500).json({ message: "Failed to delete template" });
   }
 });
 
