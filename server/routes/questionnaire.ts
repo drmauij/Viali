@@ -1849,11 +1849,28 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
       }
     }
     
-    // Get surgery info if linked
+    // Get surgery info if linked, or fallback to patient's next upcoming surgery
     let surgeryInfo = null;
     let surgeryCompleted = false;
-    if (link.surgeryId) {
-      const surgery = await storage.getSurgery(link.surgeryId);
+    let resolvedSurgeryId = link.surgeryId;
+    
+    // If no surgery linked, try to find the patient's next upcoming surgery
+    if (!resolvedSurgeryId && link.patientId) {
+      const patientSurgeries = await storage.getSurgeries(link.hospitalId, {
+        patientId: link.patientId,
+        dateFrom: new Date(),
+      });
+      if (patientSurgeries.length > 0) {
+        // Sort by planned date ascending to get the next upcoming one
+        const sorted = patientSurgeries.sort((a, b) => 
+          new Date(a.plannedDate).getTime() - new Date(b.plannedDate).getTime()
+        );
+        resolvedSurgeryId = sorted[0].id;
+      }
+    }
+    
+    if (resolvedSurgeryId) {
+      const surgery = await storage.getSurgery(resolvedSurgeryId);
       if (surgery) {
         // Get surgery room info
         let roomName = null;
@@ -1864,9 +1881,19 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
         
         // Get anesthesia type from anesthesia record if available
         let anesthesiaType = null;
-        const anesthesiaRecordForType = await storage.getAnesthesiaRecord(link.surgeryId);
+        const anesthesiaRecordForType = await storage.getAnesthesiaRecord(resolvedSurgeryId);
         if (anesthesiaRecordForType?.anesthesiaType) {
           anesthesiaType = anesthesiaRecordForType.anesthesiaType;
+        }
+        
+        // Get surgeon name
+        let surgeonName = surgery.surgeon || null;
+        if (surgery.surgeonId) {
+          const surgeonUser = await storage.getUser(surgery.surgeonId);
+          if (surgeonUser) {
+            const fullName = [surgeonUser.firstName, surgeonUser.lastName].filter(Boolean).join(' ');
+            surgeonName = fullName || surgeonName;
+          }
         }
         
         surgeryInfo = {
@@ -1875,10 +1902,11 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
           procedure: surgery.plannedSurgery,
           roomName,
           anesthesiaType,
+          surgeonName,
         };
         
         // Check if surgery is completed (has an anesthesia record)
-        const anesthesiaRecord = await storage.getAnesthesiaRecord(link.surgeryId);
+        const anesthesiaRecord = await storage.getAnesthesiaRecord(resolvedSurgeryId);
         surgeryCompleted = !!anesthesiaRecord;
       }
     }
@@ -1887,8 +1915,8 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
     const flyers: Array<{ unitName: string; unitType: string | null; flyerUrl: string; downloadUrl?: string }> = [];
     
     // Get unit info flyers based on surgery room
-    if (surgeryInfo && link.surgeryId) {
-      const surgery = await storage.getSurgery(link.surgeryId);
+    if (surgeryInfo && resolvedSurgeryId) {
+      const surgery = await storage.getSurgery(resolvedSurgeryId);
       if (surgery?.surgeryRoomId) {
         const room = await storage.getSurgeryRoomById(surgery.surgeryRoomId);
         if (room) {

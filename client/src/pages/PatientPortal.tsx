@@ -19,7 +19,8 @@ import {
   Building2,
   Sun,
   Moon,
-  ChevronRight
+  ChevronRight,
+  UserRound
 } from "lucide-react";
 
 interface PortalData {
@@ -40,6 +41,7 @@ interface PortalData {
     procedure: string | null;
     roomName: string | null;
     anesthesiaType: string | null;
+    surgeonName: string | null;
   } | null;
   surgeryCompleted: boolean;
   flyers: Array<{
@@ -63,6 +65,8 @@ const translations = {
     location: "Standort",
     procedure: "Eingriff",
     anesthesiaType: "Narkoseart",
+    surgeon: "Chirurg",
+    plannedTime: "Geplante OP-Zeit",
     step1Title: "Fragebogen ausfüllen",
     step1Desc: "Bitte füllen Sie den präoperativen Fragebogen aus",
     step1Done: "Fragebogen abgeschlossen",
@@ -107,6 +111,8 @@ const translations = {
     location: "Location",
     procedure: "Procedure",
     anesthesiaType: "Anesthesia Type",
+    surgeon: "Surgeon",
+    plannedTime: "Planned Surgery Time",
     step1Title: "Complete Questionnaire",
     step1Desc: "Please fill out the pre-operative questionnaire",
     step1Done: "Questionnaire completed",
@@ -348,6 +354,26 @@ export default function PatientPortal() {
                   <div>
                     <p className="text-sm text-muted-foreground dark:text-gray-400">{t.procedure}</p>
                     <p className="font-medium text-gray-900 dark:text-gray-100">{data.surgery.procedure}</p>
+                  </div>
+                </div>
+              )}
+
+              {data.surgery.surgeonName && (
+                <div className="flex items-start gap-3">
+                  <UserRound className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground dark:text-gray-400">{t.surgeon}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{data.surgery.surgeonName}</p>
+                  </div>
+                </div>
+              )}
+
+              {data.surgery.plannedDate && (
+                <div className="flex items-start gap-3">
+                  <Clock className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-muted-foreground dark:text-gray-400">{t.plannedTime}</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{formatTime(data.surgery.plannedDate)}</p>
                   </div>
                 </div>
               )}
