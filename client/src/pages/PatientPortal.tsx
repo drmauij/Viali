@@ -310,87 +310,6 @@ export default function PatientPortal() {
           </CardHeader>
         </Card>
 
-        {/* Surgery Info Card - Always Visible */}
-        {data.surgery && (
-          <Card className="shadow-md bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700" data-testid="card-surgery-info">
-            <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2 text-lg text-gray-900 dark:text-gray-100">
-                <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                {t.yourSurgery}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-start gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
-                <div>
-                  <p className="text-sm text-muted-foreground dark:text-gray-400">{t.date}</p>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">{formatDate(data.surgery.plannedDate)}</p>
-                </div>
-              </div>
-              
-              {data.surgery.admissionTime && (
-                <div className="flex items-start gap-3">
-                  <Clock className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground dark:text-gray-400">{t.arrivalTime}</p>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{formatTime(data.surgery.admissionTime)}</p>
-                  </div>
-                </div>
-              )}
-              
-              {data.surgery.roomName && (
-                <div className="flex items-start gap-3">
-                  <MapPin className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground dark:text-gray-400">{t.location}</p>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{data.surgery.roomName}</p>
-                  </div>
-                </div>
-              )}
-              
-              {data.surgery.procedure && (
-                <div className="flex items-start gap-3">
-                  <FileText className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground dark:text-gray-400">{t.procedure}</p>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{data.surgery.procedure}</p>
-                  </div>
-                </div>
-              )}
-
-              {data.surgery.surgeonName && (
-                <div className="flex items-start gap-3">
-                  <UserRound className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground dark:text-gray-400">{t.surgeon}</p>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{data.surgery.surgeonName}</p>
-                  </div>
-                </div>
-              )}
-
-              {data.surgery.plannedDate && (
-                <div className="flex items-start gap-3">
-                  <Clock className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground dark:text-gray-400">{t.plannedTime}</p>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{formatTime(data.surgery.plannedDate)}</p>
-                  </div>
-                </div>
-              )}
-              
-              {data.surgery.anesthesiaType && (
-                <div className="flex items-start gap-3">
-                  <FileText className="h-5 w-5 text-muted-foreground dark:text-gray-400 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-muted-foreground dark:text-gray-400">{t.anesthesiaType}</p>
-                    <p className="font-medium text-gray-900 dark:text-gray-100">{getAnesthesiaTypeLabel(data.surgery.anesthesiaType)}</p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
         {/* Journey Title */}
         <div className="pt-2">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{t.yourJourney}</h2>
@@ -544,7 +463,7 @@ export default function PatientPortal() {
           className={`shadow-md bg-white dark:bg-gray-800 border-2 ${
             step3Complete 
               ? 'border-green-300 dark:border-green-700' 
-              : 'border-gray-200 dark:border-gray-700'
+              : 'border-blue-200 dark:border-blue-800'
           }`}
           data-testid="card-step3-surgery"
         >
@@ -555,27 +474,99 @@ export default function PatientPortal() {
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                   step3Complete 
                     ? 'bg-green-100 dark:bg-green-900/50' 
-                    : 'bg-gray-100 dark:bg-gray-700'
+                    : 'bg-blue-100 dark:bg-blue-900/50'
                 }`}>
                   {step3Complete ? (
                     <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
                   ) : (
-                    <span className="text-gray-400 dark:text-gray-500 font-bold">3</span>
+                    <span className="text-blue-600 dark:text-blue-400 font-bold">3</span>
                   )}
                 </div>
               </div>
               
               {/* Content */}
               <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h3 className={`font-semibold ${step3Complete ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                     {t.step3Title}
                   </h3>
-                  <Calendar className={`h-5 w-5 ${step3Complete ? 'text-green-600 dark:text-green-400' : 'text-gray-300 dark:text-gray-600'}`} />
+                  <Calendar className={`h-5 w-5 ${step3Complete ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}`} />
                 </div>
-                <p className={`text-sm ${step3Complete ? 'text-green-700 dark:text-green-400 font-medium' : 'text-gray-400 dark:text-gray-500'}`}>
+                <p className={`text-sm mb-3 ${step3Complete ? 'text-green-700 dark:text-green-400 font-medium' : 'text-muted-foreground dark:text-gray-400'}`}>
                   {step3Complete ? t.step3Done : t.step3Pending}
                 </p>
+
+                {data.surgery && (
+                  <div className="space-y-2.5 pt-2 border-t border-gray-100 dark:border-gray-700">
+                    <div className="flex items-start gap-3">
+                      <Calendar className="h-4 w-4 text-muted-foreground dark:text-gray-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground dark:text-gray-400">{t.date}</p>
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatDate(data.surgery.plannedDate)}</p>
+                      </div>
+                    </div>
+
+                    {data.surgery.plannedDate && (
+                      <div className="flex items-start gap-3">
+                        <Clock className="h-4 w-4 text-muted-foreground dark:text-gray-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs text-muted-foreground dark:text-gray-400">{t.plannedTime}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatTime(data.surgery.plannedDate)}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {data.surgery.admissionTime && (
+                      <div className="flex items-start gap-3">
+                        <Clock className="h-4 w-4 text-muted-foreground dark:text-gray-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs text-muted-foreground dark:text-gray-400">{t.arrivalTime}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{formatTime(data.surgery.admissionTime)}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {data.surgery.procedure && (
+                      <div className="flex items-start gap-3">
+                        <FileText className="h-4 w-4 text-muted-foreground dark:text-gray-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs text-muted-foreground dark:text-gray-400">{t.procedure}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{data.surgery.procedure}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {data.surgery.surgeonName && (
+                      <div className="flex items-start gap-3">
+                        <UserRound className="h-4 w-4 text-muted-foreground dark:text-gray-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs text-muted-foreground dark:text-gray-400">{t.surgeon}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{data.surgery.surgeonName}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {data.surgery.roomName && (
+                      <div className="flex items-start gap-3">
+                        <MapPin className="h-4 w-4 text-muted-foreground dark:text-gray-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs text-muted-foreground dark:text-gray-400">{t.location}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{data.surgery.roomName}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {data.surgery.anesthesiaType && (
+                      <div className="flex items-start gap-3">
+                        <FileText className="h-4 w-4 text-muted-foreground dark:text-gray-400 mt-0.5 shrink-0" />
+                        <div>
+                          <p className="text-xs text-muted-foreground dark:text-gray-400">{t.anesthesiaType}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{getAnesthesiaTypeLabel(data.surgery.anesthesiaType)}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
