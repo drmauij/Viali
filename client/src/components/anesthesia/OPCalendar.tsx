@@ -852,25 +852,25 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     const preOpStatus = getPreOpStatus(event.surgeryId);
     const StatusIcon = preOpStatus.icon;
     return (
-      <div className="flex flex-col h-full p-1 relative" data-testid={`event-${event.surgeryId}`}>
-        <div className={`font-bold text-xs ${event.isCancelled ? 'line-through' : ''}`}>
+      <div className="flex flex-col h-full p-0.5 sm:p-1 overflow-hidden relative" data-testid={`event-${event.surgeryId}`}>
+        <div className={`font-bold text-[10px] sm:text-xs leading-tight truncate ${event.isCancelled ? 'line-through' : ''}`}>
           {event.plannedSurgery}
         </div>
-        <div className={`text-xs ${event.isCancelled ? 'line-through' : ''}`}>
+        <div className={`text-[10px] sm:text-xs leading-tight truncate ${event.isCancelled ? 'line-through' : ''}`}>
           {event.patientName}
           {event.patientBirthday && ` ${event.patientBirthday}`}
         </div>
         {!event.isCancelled && (
-          <div className={`flex items-center gap-0.5 text-[9px] leading-tight mt-0.5 ${preOpStatus.color}`} data-testid={`preop-status-${event.surgeryId}`}>
-            <StatusIcon className="w-3 h-3 shrink-0" />
-            <span className="truncate">{preOpStatus.label}</span>
+          <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${preOpStatus.color}`} data-testid={`preop-status-${event.surgeryId}`} title={preOpStatus.label}>
+            <StatusIcon className="w-3.5 h-3.5 sm:w-3 sm:h-3 shrink-0" />
+            <span className="hidden sm:inline text-[11px] truncate">{preOpStatus.label}</span>
           </div>
         )}
         {event.isCancelled && (
-          <div className="text-xs font-semibold mt-0.5">{t('opCalendar.cancelled')}</div>
+          <div className="text-[10px] sm:text-xs font-semibold mt-0.5 truncate">{t('opCalendar.cancelled')}</div>
         )}
         {event.pacuBedName && !event.isCancelled && (
-          <div className="absolute bottom-0.5 right-1 flex items-center gap-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-1 py-0 rounded text-[9px] font-medium leading-tight" data-testid={`badge-pacu-bed-${event.surgeryId}`}>
+          <div className="absolute bottom-0.5 right-0.5 sm:right-1 flex items-center gap-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-0.5 sm:px-1 py-0 rounded text-[8px] sm:text-[9px] font-medium leading-tight" data-testid={`badge-pacu-bed-${event.surgeryId}`}>
             {t('pacu.pacuBedShort', 'PACU')}: {event.pacuBedName}
           </div>
         )}

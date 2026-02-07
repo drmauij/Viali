@@ -484,9 +484,9 @@ export default function TimelineWeekView({
                         const status = getPreOpStatus(surgery.id);
                         const StatusIcon = status.icon;
                         return (
-                          <div className={`flex items-center gap-0.5 text-[8px] leading-tight mt-0.5 ${status.color}`} data-testid={`preop-status-week-${surgery.id}`}>
-                            <StatusIcon className="w-2.5 h-2.5 shrink-0" />
-                            <span className="truncate">{status.label}</span>
+                          <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${status.color}`} data-testid={`preop-status-week-${surgery.id}`} title={status.label}>
+                            <StatusIcon className="w-3 h-3 sm:w-2.5 sm:h-2.5 shrink-0" />
+                            <span className="hidden sm:inline text-[9px] truncate">{status.label}</span>
                           </div>
                         );
                       })()}
