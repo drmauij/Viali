@@ -2066,6 +2066,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
   }, [showEventsTimesPanel]);
 
   // UI state for time markers (data managed by useEventState hook)
+  const bulkEditPacuEndWasSetRef = useRef(false);
   const [bulkEditDialogOpen, setBulkEditDialogOpen] = useState(false);
   const [editingTimeMarker, setEditingTimeMarker] = useState<{
     index: number;
@@ -3088,8 +3089,55 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       return;
     }
     
-    // No restrictions - allow editing at any time point on the timeline
-    
+    const nextMarker = timeMarkers[nextMarkerIndex];
+
+    if (nextMarker.code === 'P') {
+      const stoppedInfusions: string[] = [];
+      Object.entries(rateInfusionSessions).forEach(([swimlaneId, sessions]) => {
+        if (Array.isArray(sessions)) {
+          sessions.forEach(session => {
+            if (session.state === 'running' && session.id) {
+              stoppedInfusions.push(session.label || swimlaneId);
+              updateMedication.mutate({
+                id: session.id,
+                endTimestamp: new Date(currentTime),
+              });
+            }
+          });
+        }
+      });
+      Object.entries(freeFlowSessions).forEach(([swimlaneId, sessions]) => {
+        if (Array.isArray(sessions)) {
+          sessions.forEach(session => {
+            if (!session.endTime && session.id) {
+              stoppedInfusions.push(swimlaneId);
+              updateMedication.mutate({
+                id: session.id,
+                endTimestamp: new Date(currentTime),
+              });
+            }
+          });
+        }
+      });
+      if (stoppedInfusions.length > 0) {
+        console.log('[P_CHECK] Auto-stopped running infusions (swimlane click):', stoppedInfusions);
+        toast({
+          title: t('anesthesia.pacuEnd.infusionsStopped', 'Infusions stopped'),
+          description: t('anesthesia.pacuEnd.autoStoppedInfusions', '{{count}} running infusion(s) automatically stopped', { count: stoppedInfusions.length }),
+        });
+      }
+
+      if (inventoryCommitState.hasPendingCommits) {
+        console.log('[P_CHECK] Blocking PACU End (swimlane click) - pending commits exist');
+        toast({
+          title: t('anesthesia.pacuEnd.cannotSetTitle', 'Cannot set PACU End'),
+          description: t('anesthesia.pacuEnd.commitInventoryFirst', 'Please commit all inventory items before marking PACU End.'),
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     // Update the marker with the time
     const updated = [...timeMarkers];
     updated[nextMarkerIndex] = { ...updated[nextMarkerIndex], time: snappedTime };
@@ -3109,6 +3157,53 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     if (!editingTimeMarker) return;
     if (!canWrite) return; // Ignore updates on locked records
     
+    if (editingTimeMarker.marker.code === 'P') {
+      const stoppedInfusions: string[] = [];
+      Object.entries(rateInfusionSessions).forEach(([swimlaneId, sessions]) => {
+        if (Array.isArray(sessions)) {
+          sessions.forEach(session => {
+            if (session.state === 'running' && session.id) {
+              stoppedInfusions.push(session.label || swimlaneId);
+              updateMedication.mutate({
+                id: session.id,
+                endTimestamp: new Date(currentTime),
+              });
+            }
+          });
+        }
+      });
+      Object.entries(freeFlowSessions).forEach(([swimlaneId, sessions]) => {
+        if (Array.isArray(sessions)) {
+          sessions.forEach(session => {
+            if (!session.endTime && session.id) {
+              stoppedInfusions.push(swimlaneId);
+              updateMedication.mutate({
+                id: session.id,
+                endTimestamp: new Date(currentTime),
+              });
+            }
+          });
+        }
+      });
+      if (stoppedInfusions.length > 0) {
+        console.log('[P_CHECK] Auto-stopped running infusions (edit marker dialog):', stoppedInfusions);
+        toast({
+          title: t('anesthesia.pacuEnd.infusionsStopped', 'Infusions stopped'),
+          description: t('anesthesia.pacuEnd.autoStoppedInfusions', '{{count}} running infusion(s) automatically stopped', { count: stoppedInfusions.length }),
+        });
+      }
+
+      if (inventoryCommitState.hasPendingCommits) {
+        console.log('[P_CHECK] Blocking PACU End (edit marker dialog) - pending commits exist');
+        toast({
+          title: t('anesthesia.pacuEnd.cannotSetTitle', 'Cannot set PACU End'),
+          description: t('anesthesia.pacuEnd.commitInventoryFirst', 'Please commit all inventory items before marking PACU End.'),
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const updated = [...timeMarkers];
     updated[editingTimeMarker.index] = { ...updated[editingTimeMarker.index], time: newTime };
     setTimeMarkers(updated);
@@ -6734,7 +6829,11 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                     })()}
                   </button>
                   <button
-                    onClick={() => setBulkEditDialogOpen(true)}
+                    onClick={() => {
+                      const pMarker = timeMarkers.find(m => m.code === 'P');
+                      bulkEditPacuEndWasSetRef.current = pMarker?.time != null;
+                      setBulkEditDialogOpen(true);
+                    }}
                     className="hover:bg-background/10 transition-colors rounded p-0.5 pointer-events-auto"
                     data-testid="button-edit-anesthesia-times"
                     title={t('anesthesia.timeline.bulkEditTimes.title', 'Edit Anesthesia Times')}
@@ -9073,6 +9172,18 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
                   timeMarkersCount: timeMarkers.length,
                   timeMarkers
                 });
+
+                const pacuEndMarker = timeMarkers.find(m => m.code === 'P');
+                const pacuEndNewlySet = pacuEndMarker?.time != null && !bulkEditPacuEndWasSetRef.current;
+                if (pacuEndNewlySet && inventoryCommitState.hasPendingCommits) {
+                  console.log('[P_CHECK] Blocking PACU End (bulk edit dialog) - pending commits exist');
+                  toast({
+                    title: t('anesthesia.pacuEnd.cannotSetTitle', 'Cannot set PACU End'),
+                    description: t('anesthesia.pacuEnd.commitInventoryFirst', 'Please commit all inventory items before marking PACU End.'),
+                    variant: "destructive",
+                  });
+                  return;
+                }
                 
                 // Save time markers to database
                 if (anesthesiaRecordId) {
