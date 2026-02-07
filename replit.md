@@ -47,7 +47,8 @@ Core design decisions include:
 - **Raspberry Pi Camera Integration**: Automated vital signs capture using Raspberry Pi devices, uploading to Exoscale S3, with API endpoints and a React hook for image fetching and Vision AI OCR processing.
 - **Clinic Appointment Booking System**: Manages provider bookability and availability, supporting shared hospital calendars or unit-specific calendars via a `hasOwnCalendar` flag.
 - **Bidirectional Cal.com Sync for RetellAI Voice Booking**: Real-time synchronization between the clinic calendar and Cal.com for appointment booking.
-- **Patient Portal**: Public-facing mobile-first landing page for patients showing surgery information, fasting instructions, info flyer downloads, and questionnaire status, with bilingual support.
+- **Patient Portal**: Public-facing mobile-first landing page for patients showing surgery information, fasting instructions, info flyer downloads, and questionnaire status, with bilingual support. Includes remote informed consent signing with ID document upload, signature pad, and proxy signer support.
+- **Remote Consent Signing**: When a pre-op assessment is saved as stand-by with "Patient signature missing", doctors can send an SMS/email invitation. Patients sign via the Patient Portal with ID verification, digital signature, and optional proxy signing. Schema fields: `consentSignedByProxy`, `consentProxySignerName/Relation`, `consentSignerIdFrontUrl/BackUrl`, `consentRemoteSignedAt`, `consentInvitationSentAt/Method`.
 
 ## External Dependencies
 
