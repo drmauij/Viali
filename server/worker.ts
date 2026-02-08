@@ -1941,9 +1941,22 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       // Format surgery date for display
       const surgeryDate = new Date(surgery.plannedDate);
       
-      // Get relevant info flyers for this surgery
-      const flyers = await getRelevantInfoFlyers(hospitalId, surgery.surgeryRoomId);
-      const flyersWithUrls = await generateFlyerDownloadUrls(flyers);
+      // Look up patient portal link
+      let portalUrl = '';
+      if (surgery.patientId) {
+        const links = await storage.getQuestionnaireLinksForPatient(surgery.patientId);
+        const activeLink = links.find(l =>
+          l.hospitalId === hospitalId &&
+          l.status !== 'expired' &&
+          l.status !== 'submitted' &&
+          l.status !== 'reviewed' &&
+          l.expiresAt && new Date(l.expiresAt) > new Date()
+        );
+        if (activeLink) {
+          const baseUrl = process.env.PRODUCTION_URL || 'https://use.viali.app';
+          portalUrl = `${baseUrl}/patient/${activeLink.token}`;
+        }
+      }
       
       // Fasting instructions in German/English bilingual format
       const fastingInstructionsDe = 'Nüchternheitsregeln: Keine feste Nahrung ab 6 Stunden vor der OP. Klare Flüssigkeiten (Wasser, Tee ohne Milch) bis 2 Stunden vorher erlaubt.';
@@ -1965,12 +1978,9 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
         
         let smsMessage = `${hospitalName}: ${surgeryInfoDe}\n\n${fastingInstructionsDe}`;
         
-        // Add info flyer links if available
-        if (flyersWithUrls.length > 0) {
-          smsMessage += '\n\n📄 Infos:';
-          for (const flyer of flyersWithUrls) {
-            smsMessage += `\n${flyer.downloadUrl || flyer.flyerUrl}`;
-          }
+        // Add patient portal link if available
+        if (portalUrl) {
+          smsMessage += `\n\n📋 Alle Infos zu Ihrer OP / All info about your surgery:\n${portalUrl}`;
         }
         
         smsMessage += `\n\n---\n\n${surgeryInfoEn}\n\n${fastingInstructionsEn}`;
@@ -1993,7 +2003,7 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
           hospitalName,
           surgeryDate,
           surgery.admissionTime ? new Date(surgery.admissionTime) : null,
-          flyersWithUrls
+          portalUrl
         );
         
         if (emailResult.success) {
@@ -2081,7 +2091,7 @@ async function sendPreSurgeryReminderEmail(
   hospitalName: string,
   surgeryDate: Date,
   admissionTime: Date | null,
-  infoFlyers: InfoFlyerData[] = []
+  portalUrl: string = ''
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { Resend } = await import('resend');
@@ -2105,29 +2115,22 @@ async function sendPreSurgeryReminderEmail(
       admissionInfoEn = `<p style="color: #059669; font-weight: bold;">Please arrive at the clinic by ${admissionTimeStr}.</p>`;
     }
     
-    // Build info flyer section if available
-    let flyerSectionDE = '';
-    let flyerSectionEN = '';
-    if (infoFlyers.length > 0) {
-      const flyerLinksDE = infoFlyers.map(f => 
-        `<a href="${f.downloadUrl || f.flyerUrl}" style="color: #2563eb;">${f.unitName} Informationen</a>`
-      ).join('<br/>');
-      const flyerLinksEN = infoFlyers.map(f => 
-        `<a href="${f.downloadUrl || f.flyerUrl}" style="color: #2563eb;">${f.unitName} Information</a>`
-      ).join('<br/>');
-      
-      flyerSectionDE = `
+    // Build patient portal section if available
+    let portalSectionDE = '';
+    let portalSectionEN = '';
+    if (portalUrl) {
+      portalSectionDE = `
         <div style="background-color: #e0f2fe; border-left: 4px solid #2563eb; padding: 15px; margin: 20px 0;">
-          <h4 style="margin: 0 0 10px 0; color: #2563eb;">📄 Wichtige Dokumente</h4>
-          <p style="margin: 0; font-size: 14px;">Bitte lesen Sie die folgenden Informationen:</p>
-          <p style="margin: 10px 0 0 0;">${flyerLinksDE}</p>
+          <h4 style="margin: 0 0 10px 0; color: #2563eb;">📋 Ihr Patientenportal</h4>
+          <p style="margin: 0; font-size: 14px;">Alle wichtigen Informationen zu Ihrer OP finden Sie hier:</p>
+          <p style="margin: 10px 0 0 0;"><a href="${portalUrl}" style="color: #2563eb; font-weight: bold;">Patientenportal öffnen</a></p>
         </div>
       `;
-      flyerSectionEN = `
+      portalSectionEN = `
         <div style="background-color: #e0f2fe; border-left: 4px solid #2563eb; padding: 15px; margin: 20px 0;">
-          <h4 style="margin: 0 0 10px 0; color: #2563eb;">📄 Important Documents</h4>
-          <p style="margin: 0; font-size: 14px;">Please review the following information:</p>
-          <p style="margin: 10px 0 0 0;">${flyerLinksEN}</p>
+          <h4 style="margin: 0 0 10px 0; color: #2563eb;">📋 Your Patient Portal</h4>
+          <p style="margin: 0; font-size: 14px;">Find all important information about your surgery here:</p>
+          <p style="margin: 10px 0 0 0;"><a href="${portalUrl}" style="color: #2563eb; font-weight: bold;">Open Patient Portal</a></p>
         </div>
       `;
     }
@@ -2155,7 +2158,7 @@ async function sendPreSurgeryReminderEmail(
           </ul>
         </div>
         
-        ${flyerSectionDE}
+        ${portalSectionDE}
         
         <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;" />
         
@@ -2178,7 +2181,7 @@ async function sendPreSurgeryReminderEmail(
           </ul>
         </div>
         
-        ${flyerSectionEN}
+        ${portalSectionEN}
         
         <p style="color: #6b7280; font-size: 14px;">
           Bei Fragen kontaktieren Sie uns bitte. / Please contact us if you have questions.
