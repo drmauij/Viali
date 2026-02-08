@@ -1561,11 +1561,17 @@ export default function Hospital() {
                   try {
                     const res = await apiRequest("POST", "/api/questionnaire/fix-expired-links", {});
                     const data = await res.json();
+                    const skippedCount = data.skippedDetails?.length || 0;
+                    let description = data.fixedCount > 0
+                      ? `Extended ${data.fixedCount} expired link(s)`
+                      : "No expired links needed fixing";
+                    if (skippedCount > 0) {
+                      description += ` | ${skippedCount} skipped`;
+                    }
+                    console.log("Fix expired links result:", JSON.stringify(data, null, 2));
                     toast({
                       title: t("admin.fixExpiredLinksSuccess", "Links fixed"),
-                      description: data.fixedCount > 0
-                        ? t("admin.fixExpiredLinksCount", "Extended {{count}} expired link(s)", { count: data.fixedCount })
-                        : t("admin.fixExpiredLinksNone", "No expired links needed fixing"),
+                      description,
                     });
                   } catch (error: any) {
                     toast({ title: t("common.error"), description: error.message || "Failed to fix links", variant: "destructive" });
