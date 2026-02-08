@@ -167,6 +167,9 @@ const translations = {
     consentMissingIdBack: "Bitte laden Sie die Rückseite Ihres Ausweises hoch",
     consentMissingSignature: "Bitte fügen Sie Ihre Unterschrift hinzu",
     consentMissingProxyName: "Bitte geben Sie den Namen des Vertreters ein",
+    callbackStepTitle: "Aufklärungsgespräch",
+    callbackStepDesc: "Bitte rufen Sie uns an, um einen Termin für das Aufklärungsgespräch zu vereinbaren.",
+    callbackSlotsTimes: "Verfügbare Termine",
   },
   en: {
     title: "Patient Portal",
@@ -267,6 +270,9 @@ const translations = {
     consentMissingIdBack: "Please upload the back of your ID",
     consentMissingSignature: "Please add your signature",
     consentMissingProxyName: "Please enter the representative's name",
+    callbackStepTitle: "Consent Talk",
+    callbackStepDesc: "Please call us to schedule your consent talk.",
+    callbackSlotsTimes: "Available times",
   }
 };
 
@@ -341,6 +347,10 @@ export default function PatientPortal() {
     patientSignature: string | null;
     signedByProxy: boolean;
     needsSignature: boolean;
+    needsCallbackAppointment: boolean;
+    callbackAppointmentSlots: Array<{ date: string; fromTime: string; toTime: string }> | null;
+    callbackPhoneNumber: string | null;
+    callbackInvitationSentAt: string | null;
     patientName: string | null;
     hospitalName: string | null;
     surgeryDescription: string | null;
@@ -486,14 +496,19 @@ export default function PatientPortal() {
 
   const consentStepVisible = !!(consentInfo?.needsSignature || consentInfo?.consentRemoteSignedAt);
   const consentAlreadySigned = !!consentInfo?.consentRemoteSignedAt;
-  const prepStepNum = consentStepVisible ? 3 : 2;
-  const surgeryStepNum = consentStepVisible ? 4 : 3;
+  const callbackStepVisible = !!(consentInfo?.needsCallbackAppointment && consentInfo?.callbackAppointmentSlots && consentInfo.callbackAppointmentSlots.length > 0);
+  
+  const intermediateSteps = (consentStepVisible ? 1 : 0) + (callbackStepVisible ? 1 : 0);
+  const callbackStepNum = consentStepVisible ? 3 : 2;
+  const prepStepNum = 2 + intermediateSteps;
+  const surgeryStepNum = 3 + intermediateSteps;
 
   const step1Active = !step1Complete;
   const consentStepActive = consentStepVisible && step1Complete && !consentAlreadySigned;
   const consentStepDone = consentStepVisible && consentAlreadySigned;
-  const prepStepActive = step1Complete && (!consentStepVisible || consentAlreadySigned) && !step3Complete;
-  const surgeryStepActive = step1Complete && (!consentStepVisible || consentAlreadySigned) && !step3Complete;
+  const callbackStepActive = callbackStepVisible && step1Complete && (!consentStepVisible || consentAlreadySigned);
+  const prepStepActive = step1Complete && (!consentStepVisible || consentAlreadySigned) && !step3Complete && !callbackStepActive;
+  const surgeryStepActive = step1Complete && (!consentStepVisible || consentAlreadySigned) && !step3Complete && !callbackStepActive;
 
   if (showConsentSigning) {
     if (consentAlreadySigned || consentSubmitted) {
@@ -1039,6 +1054,72 @@ export default function PatientPortal() {
                     {consentAlreadySigned ? t.consentStepView : t.consentStepAction}
                     <ChevronRight className="h-4 w-4 ml-1" />
                   </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step: Callback Appointment (for consent talk) */}
+        {callbackStepVisible && (
+          <Card 
+            className={`shadow-md bg-white dark:bg-gray-800 border-2 transition-colors ${
+              callbackStepActive
+                ? 'border-amber-300 dark:border-amber-700'
+                : 'border-gray-200 dark:border-gray-700'
+            }`}
+            data-testid="card-step-callback"
+          >
+            <CardContent className="p-4">
+              <div className="flex items-start gap-4">
+                <div className="flex flex-col items-center">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    callbackStepActive ? 'bg-amber-100 dark:bg-amber-900/50' : 'bg-gray-100 dark:bg-gray-800'
+                  }`}>
+                    <span className={`font-bold ${callbackStepActive ? 'text-amber-600 dark:text-amber-400' : 'text-gray-400'}`}>{callbackStepNum}</span>
+                  </div>
+                  <div className="w-0.5 h-full min-h-[20px] bg-gray-200 dark:bg-gray-700 mt-2" />
+                </div>
+                <div className="flex-1 pb-2">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100">{t.callbackStepTitle}</h3>
+                    <Phone className="h-5 w-5 text-amber-500 dark:text-amber-400" />
+                  </div>
+                  <p className="text-sm text-muted-foreground dark:text-gray-400 mb-3">
+                    {t.callbackStepDesc}
+                  </p>
+
+                  {consentInfo?.callbackPhoneNumber && (
+                    <a 
+                      href={`tel:${consentInfo.callbackPhoneNumber}`}
+                      className="flex items-center gap-3 p-3 mb-3 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-950/60 transition-colors"
+                      data-testid="link-callback-phone"
+                    >
+                      <Phone className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <span className="font-semibold text-blue-900 dark:text-blue-100 text-lg">{consentInfo.callbackPhoneNumber}</span>
+                    </a>
+                  )}
+
+                  {consentInfo?.callbackAppointmentSlots && consentInfo.callbackAppointmentSlots.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                        {t.callbackSlotsTimes}
+                      </p>
+                      {consentInfo.callbackAppointmentSlots.map((slot, idx) => {
+                        const d = new Date(slot.date + 'T12:00:00');
+                        const dayName = d.toLocaleDateString(data.language === 'en' ? 'en-US' : 'de-CH', { weekday: 'long' });
+                        const dateStr = d.toLocaleDateString(data.language === 'en' ? 'en-US' : 'de-CH', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        return (
+                          <div key={idx} className="flex items-center gap-2 p-2 rounded-md bg-gray-50 dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700" data-testid={`callback-slot-display-${idx}`}>
+                            <Calendar className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{dayName}, {dateStr}</span>
+                            <Clock className="h-4 w-4 text-gray-500 flex-shrink-0 ml-2" />
+                            <span className="text-sm text-gray-700 dark:text-gray-300">{slot.fromTime} – {slot.toTime}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
             </CardContent>

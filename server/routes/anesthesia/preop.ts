@@ -2330,4 +2330,203 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
   }
 });
 
+router.post('/api/anesthesia/preop/:id/send-callback-appointment', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const { appointmentSlots, phoneNumber, method } = req.body as {
+      appointmentSlots: Array<{ date: string; fromTime: string; toTime: string }>;
+      phoneNumber: string;
+      method?: 'sms' | 'email';
+    };
+
+    if (!appointmentSlots || appointmentSlots.length === 0) {
+      return res.status(400).json({ message: "At least one appointment slot is required" });
+    }
+
+    if (!phoneNumber) {
+      return res.status(400).json({ message: "Phone number is required" });
+    }
+
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID required" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    const assessment = await storage.getPreOpAssessmentById(id);
+    if (!assessment) {
+      return res.status(404).json({ message: "Pre-op assessment not found" });
+    }
+
+    const surgery = await storage.getSurgery(assessment.surgeryId);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    if (surgery.hospitalId !== hospitalId) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const patient = await storage.getPatient(surgery.patientId);
+    if (!patient) {
+      return res.status(404).json({ message: "Patient not found" });
+    }
+
+    const existingLinks = await storage.getQuestionnaireLinksForPatient(patient.id);
+    const now = new Date();
+    let activeLink = existingLinks.find(l =>
+      l.hospitalId === hospitalId &&
+      l.status !== 'expired' &&
+      l.status !== 'submitted' &&
+      l.status !== 'reviewed' &&
+      l.expiresAt && new Date(l.expiresAt) > now
+    );
+
+    if (!activeLink) {
+      const token = nanoid(32);
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      activeLink = await storage.createQuestionnaireLink({
+        token,
+        hospitalId,
+        patientId: patient.id,
+        surgeryId: surgery.id,
+        createdBy: userId,
+        expiresAt,
+        status: 'pending',
+        language: 'de',
+      });
+    }
+
+    const baseUrl = process.env.PRODUCTION_URL || (req.headers.host ? `https://${req.headers.host}` : 'http://localhost:5000');
+    const portalUrl = `${baseUrl}/patient/${activeLink.token}`;
+
+    const hospital = await storage.getHospital(hospitalId);
+    const hospitalName = hospital?.name || 'Hospital';
+
+    const dayNames: Record<string, { de: string; en: string }> = {
+      '0': { de: 'Sonntag', en: 'Sunday' },
+      '1': { de: 'Montag', en: 'Monday' },
+      '2': { de: 'Dienstag', en: 'Tuesday' },
+      '3': { de: 'Mittwoch', en: 'Wednesday' },
+      '4': { de: 'Donnerstag', en: 'Thursday' },
+      '5': { de: 'Freitag', en: 'Friday' },
+      '6': { de: 'Samstag', en: 'Saturday' },
+    };
+
+    const formatSlot = (slot: { date: string; fromTime: string; toTime: string }, lang: 'de' | 'en') => {
+      const d = new Date(slot.date);
+      const dayOfWeek = dayNames[d.getDay().toString()] || { de: '', en: '' };
+      const dateStr = `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+      return `${dayOfWeek[lang]} ${dateStr}, ${slot.fromTime} - ${slot.toTime}`;
+    };
+
+    const slotsTextDe = appointmentSlots.map(s => `- ${formatSlot(s, 'de')}`).join('\n');
+    const slotsTextEn = appointmentSlots.map(s => `- ${formatSlot(s, 'en')}`).join('\n');
+
+    let sentMethod: 'sms' | 'email' | null = null;
+    let sentRecipient = '';
+    let sentMessageContent = '';
+
+    if (method === 'sms' || (!method && patient.phone)) {
+      if (patient.phone && await isSmsConfiguredForHospital(hospitalId)) {
+        const message = `${hospitalName}: Bitte rufen Sie uns an für ein Aufklärungsgespräch / Please call us for a consent talk.\n\nTel: ${phoneNumber}\n\n${slotsTextDe}\n\nPatientenportal / Patient Portal:\n${portalUrl}`;
+        const smsResult = await sendSms(patient.phone, message, hospitalId);
+        if (smsResult.success) {
+          sentMethod = 'sms';
+          sentRecipient = patient.phone;
+          sentMessageContent = message;
+        }
+      }
+    }
+
+    if (!sentMethod && (method === 'email' || !method)) {
+      if (patient.email) {
+        try {
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          const emailSubject = `${hospitalName}: Termin für Aufklärungsgespräch / Consent talk appointment`;
+          const slotsHtml = appointmentSlots.map(s => 
+            `<li style="margin: 4px 0;">${formatSlot(s, 'de')} / ${formatSlot(s, 'en')}</li>`
+          ).join('');
+          const emailResult = await resend.emails.send({
+            from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
+            to: patient.email,
+            subject: emailSubject,
+            html: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+                <h2>${hospitalName}</h2>
+                <p>Bitte rufen Sie uns für ein Aufklärungsgespräch an.<br/>Please call us for a consent talk.</p>
+                <p style="font-size: 18px; font-weight: bold;">
+                  <a href="tel:${phoneNumber}" style="color: #2563eb; text-decoration: none;">📞 ${phoneNumber}</a>
+                </p>
+                <p><strong>Termine / Appointments:</strong></p>
+                <ul style="list-style: none; padding: 0;">${slotsHtml}</ul>
+                <a href="${portalUrl}" 
+                   style="display: inline-block; background: #2563eb; color: white; 
+                          padding: 12px 24px; text-decoration: none; border-radius: 6px; 
+                          font-weight: 500; margin: 16px 0;">
+                  Patientenportal öffnen / Open Patient Portal
+                </a>
+                <p style="color: #999; font-size: 12px;">
+                  ${portalUrl}
+                </p>
+              </div>
+            `,
+          });
+          if (emailResult.data) {
+            sentMethod = 'email';
+            sentRecipient = patient.email;
+            sentMessageContent = `${emailSubject}\n\nTel: ${phoneNumber}\n\n${slotsTextDe}\n\n${portalUrl}`;
+          }
+        } catch (emailError) {
+          console.error("Error sending callback appointment email:", emailError);
+        }
+      }
+    }
+
+    if (!sentMethod) {
+      return res.status(400).json({ message: "Could not send invitation. Patient has no valid phone number or email, or messaging services are not configured." });
+    }
+
+    await storage.updatePreOpAssessment(id, {
+      callbackAppointmentSlots: appointmentSlots,
+      callbackPhoneNumber: phoneNumber,
+      callbackInvitationSentAt: new Date(),
+      callbackInvitationMethod: sentMethod,
+    });
+
+    try {
+      await storage.createPatientMessage({
+        hospitalId,
+        patientId: patient.id,
+        sentBy: userId,
+        channel: sentMethod,
+        recipient: sentRecipient,
+        message: sentMessageContent,
+        status: 'sent',
+        isAutomatic: true,
+        messageType: 'auto_callback_appointment',
+      });
+    } catch (msgErr) {
+      console.error("Error saving callback appointment to communication history:", msgErr);
+    }
+
+    res.json({
+      success: true,
+      method: sentMethod,
+      portalUrl,
+    });
+  } catch (error) {
+    console.error("Error sending callback appointment:", error);
+    res.status(500).json({ message: "Failed to send callback appointment" });
+  }
+});
+
 export default router;

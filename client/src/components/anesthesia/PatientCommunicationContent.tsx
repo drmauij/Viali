@@ -22,7 +22,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Copy, Mail, Loader2, CheckCircle, MessageSquare, Clock, FileText, Send, Smartphone, Info, Plus, X, Languages, BookmarkPlus, Settings2, Pencil, Trash2, ChevronDown } from "lucide-react";
+import { Copy, Mail, Loader2, CheckCircle, MessageSquare, Clock, FileText, Send, Smartphone, Info, Plus, X, Languages, BookmarkPlus, Settings2, Pencil, Trash2, ChevronDown, PenLine, PhoneCall } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
@@ -416,7 +416,7 @@ export function PatientCommunicationContent({
   const getCommunicationHistory = () => {
     const history: Array<{
       id: string;
-      type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder';
+      type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder' | 'auto_consent_invitation' | 'auto_callback_appointment';
       channel: 'email' | 'sms';
       recipient: string;
       date: Date;
@@ -481,13 +481,17 @@ export function PatientCommunicationContent({
         const isAutomatic = msgAny.isAutomatic === true;
         const messageType = msgAny.messageType || 'manual';
         
-        let type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder' = 'message';
+        let type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder' | 'auto_consent_invitation' | 'auto_callback_appointment' = 'message';
         if (msgAny.type === 'infoflyer') {
           type = 'infoflyer';
         } else if (messageType === 'auto_questionnaire') {
           type = 'auto_questionnaire';
         } else if (messageType === 'auto_reminder') {
           type = 'auto_reminder';
+        } else if (messageType === 'auto_consent_invitation') {
+          type = 'auto_consent_invitation';
+        } else if (messageType === 'auto_callback_appointment') {
+          type = 'auto_callback_appointment';
         }
         
         // Find link status for auto_questionnaire messages
@@ -520,20 +524,26 @@ export function PatientCommunicationContent({
 
   const communicationHistory = getCommunicationHistory();
 
-  const getMessageTypeIcon = (type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder') => {
+  type CommType = 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder' | 'auto_consent_invitation' | 'auto_callback_appointment';
+
+  const getMessageTypeIcon = (type: CommType) => {
     if (type === 'questionnaire' || type === 'auto_questionnaire') {
       return <FileText className="h-4 w-4" />;
     } else if (type === 'infoflyer') {
       return <Info className="h-4 w-4" />;
     } else if (type === 'auto_reminder') {
       return <Clock className="h-4 w-4" />;
+    } else if (type === 'auto_consent_invitation') {
+      return <PenLine className="h-4 w-4" />;
+    } else if (type === 'auto_callback_appointment') {
+      return <PhoneCall className="h-4 w-4" />;
     } else {
       return <MessageSquare className="h-4 w-4" />;
     }
   };
 
-  const getMessageBubbleColor = (type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder', isAutomatic?: boolean) => {
-    if (isAutomatic || type === 'auto_questionnaire' || type === 'auto_reminder') {
+  const getMessageBubbleColor = (type: CommType, isAutomatic?: boolean) => {
+    if (isAutomatic || type === 'auto_questionnaire' || type === 'auto_reminder' || type === 'auto_consent_invitation' || type === 'auto_callback_appointment') {
       return 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700';
     }
     switch (type) {
@@ -546,11 +556,15 @@ export function PatientCommunicationContent({
     }
   };
   
-  const getMessageTypeLabel = (type: 'questionnaire' | 'message' | 'infoflyer' | 'auto_questionnaire' | 'auto_reminder', isAutomatic?: boolean) => {
+  const getMessageTypeLabel = (type: CommType, isAutomatic?: boolean) => {
     if (type === 'auto_questionnaire') {
       return t('messages.historyAutoQuestionnaire', '🤖 Auto: Questionnaire');
     } else if (type === 'auto_reminder') {
       return t('messages.historyAutoReminder', '🤖 Auto: Surgery Reminder');
+    } else if (type === 'auto_consent_invitation') {
+      return t('messages.historyAutoConsentInvitation', '🤖 Auto: Consent Invitation');
+    } else if (type === 'auto_callback_appointment') {
+      return t('messages.historyAutoCallbackAppointment', '🤖 Auto: Callback Appointment');
     } else if (type === 'questionnaire') {
       return t('messages.historyQuestionnaire', 'Questionnaire');
     } else if (type === 'infoflyer') {
@@ -712,7 +726,7 @@ export function PatientCommunicationContent({
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className={`p-1 rounded ${
-                    (item.isAutomatic || item.type === 'auto_questionnaire' || item.type === 'auto_reminder') 
+                    (item.isAutomatic || item.type === 'auto_questionnaire' || item.type === 'auto_reminder' || item.type === 'auto_consent_invitation' || item.type === 'auto_callback_appointment') 
                       ? 'bg-amber-200 dark:bg-amber-800 text-amber-700 dark:text-amber-200' :
                     item.type === 'questionnaire' ? 'bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-200' :
                     item.type === 'infoflyer' ? 'bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-200' :

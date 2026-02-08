@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2 } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -641,6 +641,12 @@ export default function PatientDetail() {
     enabled: !!activeHospital?.id,
   });
 
+  const { data: hospitalUnits = [] } = useQuery<Array<{ id: string; questionnairePhone?: string | null }>>({
+    queryKey: [`/api/units/${activeHospital?.id}`],
+    enabled: !!activeHospital?.id,
+  });
+  const activeUnitPhone = hospitalUnits.find(u => u.id === activeHospital?.unitId)?.questionnairePhone || '';
+
   // Fetch questionnaire links/responses for the patient (for import feature)
   type QuestionnaireLink = {
     id: string;
@@ -1027,6 +1033,14 @@ export default function PatientDetail() {
   const [showConsentInvitationDialog, setShowConsentInvitationDialog] = useState(false);
   const [consentInvitationAssessmentId, setConsentInvitationAssessmentId] = useState<string | null>(null);
   const [consentInvitationSending, setConsentInvitationSending] = useState(false);
+  
+  const [showCallbackAppointmentDialog, setShowCallbackAppointmentDialog] = useState(false);
+  const [callbackAssessmentId, setCallbackAssessmentId] = useState<string | null>(null);
+  const [callbackSending, setCallbackSending] = useState(false);
+  const [callbackSlots, setCallbackSlots] = useState<Array<{ date: string; fromTime: string; toTime: string }>>([
+    { date: new Date().toISOString().split('T')[0], fromTime: '09:00', toTime: '10:00' }
+  ]);
+  const [callbackPhoneNumber, setCallbackPhoneNumber] = useState('');
   
   const [assessmentData, setAssessmentData] = useState(() => ({
     // General Data
@@ -1604,6 +1618,13 @@ export default function PatientDetail() {
         setConsentInvitationAssessmentId(result.response.id);
         setShowConsentInvitationDialog(true);
       }
+      
+      if (result.standByData.standBy && result.standByData.standByReason === 'consent_required' && result.response?.id) {
+        setCallbackAssessmentId(result.response.id);
+        setCallbackPhoneNumber(activeUnitPhone);
+        setCallbackSlots([{ date: new Date().toISOString().split('T')[0], fromTime: '09:00', toTime: '10:00' }]);
+        setShowCallbackAppointmentDialog(true);
+      }
     },
     onError: (error: any) => {
       isSavingRef.current = false;
@@ -1636,6 +1657,13 @@ export default function PatientDetail() {
       if (result.standByData.standBy && result.standByData.standByReason === 'signature_missing' && result.assessmentId) {
         setConsentInvitationAssessmentId(result.assessmentId);
         setShowConsentInvitationDialog(true);
+      }
+      
+      if (result.standByData.standBy && result.standByData.standByReason === 'consent_required' && result.assessmentId) {
+        setCallbackAssessmentId(result.assessmentId);
+        setCallbackPhoneNumber(activeUnitPhone);
+        setCallbackSlots([{ date: new Date().toISOString().split('T')[0], fromTime: '09:00', toTime: '10:00' }]);
+        setShowCallbackAppointmentDialog(true);
       }
     },
     onError: (error: any) => {
@@ -6582,6 +6610,162 @@ export default function PatientDetail() {
                 </p>
               </div>
             </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Callback Appointment Dialog */}
+      <Dialog open={showCallbackAppointmentDialog} onOpenChange={setShowCallbackAppointmentDialog}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl">{t('anesthesia.patientDetail.callbackAppointment.title', 'Consent Talk Required')}</DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              {t('anesthesia.patientDetail.callbackAppointment.description', 'Send the patient appointment times to call for a consent talk.')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                {t('anesthesia.patientDetail.callbackAppointment.phoneLabel', 'Phone number for patient to call')}
+              </label>
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-gray-500" />
+                <Input
+                  value={callbackPhoneNumber}
+                  onChange={(e) => setCallbackPhoneNumber(e.target.value)}
+                  placeholder={t('anesthesia.patientDetail.callbackAppointment.phonePlaceholder', 'Enter phone number')}
+                  data-testid="input-callback-phone"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                {t('anesthesia.patientDetail.callbackAppointment.slotsLabel', 'Appointment time slots')}
+              </label>
+              <div className="space-y-3">
+                {callbackSlots.map((slot, index) => {
+                  const dayName = (() => {
+                    try {
+                      const d = new Date(slot.date + 'T12:00:00');
+                      return d.toLocaleDateString('de-CH', { weekday: 'long' });
+                    } catch { return ''; }
+                  })();
+                  return (
+                    <div key={index} className="flex items-center gap-2 p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40" data-testid={`callback-slot-${index}`}>
+                      <div className="flex-1 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                          <Input
+                            type="date"
+                            value={slot.date}
+                            onChange={(e) => {
+                              const updated = [...callbackSlots];
+                              updated[index] = { ...updated[index], date: e.target.value };
+                              setCallbackSlots(updated);
+                            }}
+                            className="flex-1"
+                            data-testid={`input-callback-date-${index}`}
+                          />
+                          {dayName && <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">{dayName}</span>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                          <Input
+                            type="time"
+                            value={slot.fromTime}
+                            onChange={(e) => {
+                              const updated = [...callbackSlots];
+                              updated[index] = { ...updated[index], fromTime: e.target.value };
+                              setCallbackSlots(updated);
+                            }}
+                            className="flex-1"
+                            data-testid={`input-callback-from-${index}`}
+                          />
+                          <span className="text-gray-500">–</span>
+                          <Input
+                            type="time"
+                            value={slot.toTime}
+                            onChange={(e) => {
+                              const updated = [...callbackSlots];
+                              updated[index] = { ...updated[index], toTime: e.target.value };
+                              setCallbackSlots(updated);
+                            }}
+                            className="flex-1"
+                            data-testid={`input-callback-to-${index}`}
+                          />
+                        </div>
+                      </div>
+                      {callbackSlots.length > 1 && (
+                        <button
+                          onClick={() => setCallbackSlots(callbackSlots.filter((_, i) => i !== index))}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                          data-testid={`button-remove-slot-${index}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+                <button
+                  onClick={() => setCallbackSlots([...callbackSlots, { date: new Date().toISOString().split('T')[0], fromTime: '09:00', toTime: '10:00' }])}
+                  className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
+                  data-testid="button-add-slot"
+                >
+                  <Plus className="h-4 w-4" />
+                  {t('anesthesia.patientDetail.callbackAppointment.addSlot', 'Add another time slot')}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={async () => {
+                  if (!callbackAssessmentId || !callbackPhoneNumber) return;
+                  setCallbackSending(true);
+                  try {
+                    const res = await apiRequest("POST", `/api/anesthesia/preop/${callbackAssessmentId}/send-callback-appointment`, {
+                      appointmentSlots: callbackSlots,
+                      phoneNumber: callbackPhoneNumber,
+                    });
+                    const data = await res.json();
+                    toast({
+                      title: t('anesthesia.patientDetail.callbackAppointment.sent', 'Appointment sent!'),
+                      description: data.method === 'sms' 
+                        ? t('anesthesia.patientDetail.callbackAppointment.sentViaSms', 'SMS sent to the patient with the appointment details.')
+                        : t('anesthesia.patientDetail.callbackAppointment.sentViaEmail', 'Email sent to the patient with the appointment details.'),
+                    });
+                    setShowCallbackAppointmentDialog(false);
+                  } catch (err: any) {
+                    toast({
+                      title: t('anesthesia.patientDetail.error'),
+                      description: err.message || t('anesthesia.patientDetail.callbackAppointment.sendError', 'Failed to send appointment. Check that patient has a phone number or email.'),
+                      variant: "destructive",
+                    });
+                  } finally {
+                    setCallbackSending(false);
+                  }
+                }}
+                disabled={callbackSending || !callbackPhoneNumber}
+                className="flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/40 hover:border-blue-400 dark:hover:border-blue-600 hover:bg-blue-100 dark:hover:bg-blue-950/60 transition-all font-semibold text-blue-900 dark:text-blue-100 disabled:opacity-50"
+                data-testid="button-send-callback-appointment"
+              >
+                {callbackSending ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
+                {t('anesthesia.patientDetail.callbackAppointment.sendButton', 'Send appointment')}
+              </button>
+              <button
+                onClick={() => setShowCallbackAppointmentDialog(false)}
+                className="px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 hover:border-gray-400 dark:hover:border-gray-500 transition-all text-gray-700 dark:text-gray-300"
+                data-testid="button-skip-callback"
+              >
+                {t('anesthesia.patientDetail.callbackAppointment.skip', 'Skip')}
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

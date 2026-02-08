@@ -2131,6 +2131,7 @@ router.get('/api/patient-portal/:token/consent-data', consentFetchLimiter, async
     }
 
     const needsSignature = assessment.standBy === true && assessment.standByReason === 'signature_missing';
+    const needsCallbackAppointment = assessment.standBy === true && assessment.standByReason === 'consent_required';
 
     const surgery = await storage.getSurgery(surgeryId);
     const patient = surgery ? await storage.getPatient(surgery.patientId) : null;
@@ -2150,6 +2151,10 @@ router.get('/api/patient-portal/:token/consent-data', consentFetchLimiter, async
       patientSignature: assessment.patientSignature ?? null,
       signedByProxy: assessment.consentSignedByProxy ?? false,
       needsSignature,
+      needsCallbackAppointment,
+      callbackAppointmentSlots: assessment.callbackAppointmentSlots ?? null,
+      callbackPhoneNumber: assessment.callbackPhoneNumber ?? null,
+      callbackInvitationSentAt: assessment.callbackInvitationSentAt ?? null,
       patientName: patient ? `${patient.firstName || ''} ${patient.surname || ''}`.trim() : null,
       hospitalName: hospital?.name ?? null,
       surgeryDescription: surgery?.plannedSurgery ?? null,

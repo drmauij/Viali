@@ -3268,6 +3268,20 @@
         "sentViaSms": "SMS mit dem Unterschriftslink an den Patienten gesendet.",
         "sentViaEmail": "E-Mail mit dem Unterschriftslink an den Patienten gesendet.",
         "sendError": "Einladung konnte nicht gesendet werden. Prüfen Sie, ob der Patient eine Telefonnummer oder E-Mail-Adresse hat."
+      },
+      "callbackAppointment": {
+        "title": "Aufklärungsgespräch erforderlich",
+        "description": "Senden Sie dem Patienten Terminvorschläge für das Aufklärungsgespräch.",
+        "phoneLabel": "Telefonnummer für den Patienten zum Anrufen",
+        "phonePlaceholder": "Telefonnummer eingeben",
+        "slotsLabel": "Terminvorschläge",
+        "addSlot": "Weiteren Termin hinzufügen",
+        "sendButton": "Termin senden",
+        "skip": "Überspringen",
+        "sent": "Termin gesendet!",
+        "sentViaSms": "SMS mit den Termindetails an den Patienten gesendet.",
+        "sentViaEmail": "E-Mail mit den Termindetails an den Patienten gesendet.",
+        "sendError": "Termin konnte nicht gesendet werden. Prüfen Sie, ob der Patient eine Telefonnummer oder E-Mail-Adresse hat."
       }
     },
     "opDetail": {

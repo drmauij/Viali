@@ -3240,6 +3240,20 @@
         "sentViaSms": "SMS sent to the patient with the signing link.",
         "sentViaEmail": "Email sent to the patient with the signing link.",
         "sendError": "Failed to send invitation. Check that patient has a phone number or email."
+      },
+      "callbackAppointment": {
+        "title": "Consent Talk Required",
+        "description": "Send the patient appointment times to call for a consent talk.",
+        "phoneLabel": "Phone number for patient to call",
+        "phonePlaceholder": "Enter phone number",
+        "slotsLabel": "Appointment time slots",
+        "addSlot": "Add another time slot",
+        "sendButton": "Send appointment",
+        "skip": "Skip",
+        "sent": "Appointment sent!",
+        "sentViaSms": "SMS sent to the patient with the appointment details.",
+        "sentViaEmail": "Email sent to the patient with the appointment details.",
+        "sendError": "Failed to send appointment. Check that patient has a phone number or email."
       }
     },
     "opDetail": {

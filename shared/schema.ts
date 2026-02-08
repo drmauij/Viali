@@ -1627,6 +1627,12 @@ export const preOpAssessments = pgTable("preop_assessments", {
   consentInvitationSentAt: timestamp("consent_invitation_sent_at"),
   consentInvitationMethod: varchar("consent_invitation_method"), // 'sms' | 'email'
   
+  // Callback Appointment (for consent_required stand-by)
+  callbackAppointmentSlots: jsonb("callback_appointment_slots"), // Array of { date: string, fromTime: string, toTime: string }
+  callbackPhoneNumber: varchar("callback_phone_number"),
+  callbackInvitationSentAt: timestamp("callback_invitation_sent_at"),
+  callbackInvitationMethod: varchar("callback_invitation_method"), // 'sms' | 'email'
+  
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => [
