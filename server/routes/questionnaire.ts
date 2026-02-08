@@ -241,6 +241,17 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + expiresInDays);
 
+    if (surgeryId) {
+      const surgery = await storage.getSurgery(surgeryId);
+      if (surgery && surgery.plannedDate) {
+        const surgeryDeadline = new Date(surgery.plannedDate);
+        surgeryDeadline.setDate(surgeryDeadline.getDate() + 1);
+        if (surgeryDeadline > expiresAt) {
+          expiresAt.setTime(surgeryDeadline.getTime());
+        }
+      }
+    }
+
     const link = await storage.createQuestionnaireLink({
       token,
       hospitalId,
