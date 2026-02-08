@@ -1938,6 +1938,17 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
     }
     
     try {
+      // Double-check reminderSent flag (prevents race condition with concurrent jobs)
+      const freshSurgery = await storage.getSurgery(surgery.surgeryId);
+      if (freshSurgery?.reminderSent) {
+        console.log(`[Worker] Skipping ${patientName} - reminder already sent (race condition check)`);
+        results.push({ surgeryId: surgery.surgeryId, patientName, status: 'skipped_already_reminded' });
+        continue;
+      }
+
+      // Mark as reminded BEFORE sending to prevent duplicate sends from concurrent jobs
+      await storage.markSurgeryReminderSent(surgery.surgeryId);
+
       // Format surgery date for display
       const surgeryDate = new Date(surgery.plannedDate);
       
@@ -2020,9 +2031,6 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
       }
       
       if (sendSuccess) {
-        // Mark as reminded
-        await storage.markSurgeryReminderSent(surgery.surgeryId);
-        
         // Save the automatic message to patient communication history
         try {
           await storage.createPatientMessage({
