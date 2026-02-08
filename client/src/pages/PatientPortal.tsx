@@ -319,14 +319,18 @@ export default function PatientPortal() {
 
   const toggleTheme = () => setIsDark(prev => !prev);
 
+  const errorDebugRef = useRef<any>(null);
+
   const { data, isLoading, error } = useQuery<PortalData>({
     queryKey: ['/api/patient-portal', token],
     queryFn: async () => {
       const res = await fetch(`/api/patient-portal/${token}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: 'Error' }));
-        const debugStr = err.debug ? ` [${JSON.stringify(err.debug)}]` : '';
-        throw new Error((err.message || 'Failed to load') + debugStr);
+        if (err.debug) {
+          errorDebugRef.current = err.debug;
+        }
+        throw new Error(err.message || 'Failed to load');
       }
       return res.json();
     },

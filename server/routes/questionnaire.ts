@@ -861,8 +861,6 @@ router.post('/api/questionnaire/fix-expired-links', isAuthenticated, requireWrit
     const skippedDetails: Array<{ token: string; reason: string; status: string; expiresAt: string | null }> = [];
 
     for (const link of allLinks) {
-      if (link.status === 'submitted' || link.status === 'reviewed') continue;
-
       const isExpired = link.expiresAt && new Date(link.expiresAt) < now;
       const isStatusExpired = link.status === 'expired';
       if (!isExpired && !isStatusExpired) {
@@ -910,13 +908,17 @@ router.post('/api/questionnaire/fix-expired-links', isAuthenticated, requireWrit
       const newExpiresAt = new Date(surgeryDate);
       newExpiresAt.setDate(newExpiresAt.getDate() + 1);
 
-      const existingResponse = await storage.getQuestionnaireResponseByLinkId(link.id);
-      const restoredStatus = existingResponse ? 'started' : 'pending';
+      let restoredStatus = link.status;
+      if (link.status === 'expired') {
+        const existingResponse = await storage.getQuestionnaireResponseByLinkId(link.id);
+        restoredStatus = existingResponse ? 'started' : 'pending';
+      }
 
-      await storage.updateQuestionnaireLink(link.id, {
-        expiresAt: newExpiresAt,
-        status: restoredStatus,
-      });
+      const updateData: any = { expiresAt: newExpiresAt };
+      if (restoredStatus !== link.status) {
+        updateData.status = restoredStatus;
+      }
+      await storage.updateQuestionnaireLink(link.id, updateData);
       fixedCount++;
       fixedDetails.push({ token: link.token.substring(0, 10) + '...', patientId: link.patientId, surgeryId: link.surgeryId, newExpiresAt: newExpiresAt.toISOString(), restoredStatus });
     }
@@ -1970,18 +1972,59 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
       return res.status(404).json({ message: "Link not found or expired", debug: { reason: "not_found", token: token.substring(0, 10) } });
     }
     
-    // Check if expired or invalidated
-    if (link.expiresAt && new Date(link.expiresAt) < new Date()) {
-      const debugInfo = { reason: "expired_by_time", expiresAt: new Date(link.expiresAt).toISOString(), now: new Date().toISOString(), status: link.status, surgeryId: link.surgeryId, patientId: link.patientId };
-      console.log(`Patient portal: token ${token.substring(0, 10)}... expired by time`, debugInfo);
+    // Check if link status is invalidated (always block)
+    if (link.status === 'invalidated') {
+      const debugInfo = { reason: "invalidated", status: link.status, expiresAt: link.expiresAt ? new Date(link.expiresAt).toISOString() : null, surgeryId: link.surgeryId, patientId: link.patientId };
+      console.log(`Patient portal: token ${token.substring(0, 10)}... rejected - invalidated`, debugInfo);
       return res.status(410).json({ message: "Link has expired", debug: debugInfo });
     }
+
+    // Check if expired by time or status
+    const isTimeExpired = link.expiresAt && new Date(link.expiresAt) < new Date();
+    const isStatusExpired = link.status === 'expired';
     
-    // Check if link status is expired or invalidated
-    if (link.status === 'expired' || link.status === 'invalidated') {
-      const debugInfo = { reason: "expired_by_status", status: link.status, expiresAt: link.expiresAt ? new Date(link.expiresAt).toISOString() : null, surgeryId: link.surgeryId, patientId: link.patientId };
-      console.log(`Patient portal: token ${token.substring(0, 10)}... rejected by status`, debugInfo);
-      return res.status(410).json({ message: "Link has expired", debug: debugInfo });
+    if (isTimeExpired || isStatusExpired) {
+      // Before rejecting, check if there's an upcoming surgery — if so, auto-extend and allow access
+      let upcomingSurgeryDate: Date | null = null;
+      
+      if (link.surgeryId) {
+        const surgery = await storage.getSurgery(link.surgeryId);
+        if (surgery?.plannedDate && new Date(surgery.plannedDate) > new Date()) {
+          upcomingSurgeryDate = new Date(surgery.plannedDate);
+        }
+      }
+      
+      if (!upcomingSurgeryDate && link.patientId) {
+        const patientSurgeries = await storage.getSurgeries(link.hospitalId, {
+          patientId: link.patientId,
+          dateFrom: new Date(),
+        });
+        if (patientSurgeries.length > 0) {
+          const sorted = patientSurgeries.sort((a, b) =>
+            new Date(a.plannedDate).getTime() - new Date(b.plannedDate).getTime()
+          );
+          upcomingSurgeryDate = new Date(sorted[0].plannedDate);
+        }
+      }
+      
+      if (upcomingSurgeryDate) {
+        // Auto-extend the link to surgery date + 1 day
+        const newExpiresAt = new Date(upcomingSurgeryDate);
+        newExpiresAt.setDate(newExpiresAt.getDate() + 1);
+        
+        const updateData: any = { expiresAt: newExpiresAt };
+        if (link.status === 'expired') {
+          const existingResponse = await storage.getQuestionnaireResponseByLinkId(link.id);
+          updateData.status = existingResponse ? 'started' : 'pending';
+        }
+        await storage.updateQuestionnaireLink(link.id, updateData);
+        console.log(`Patient portal: token ${token.substring(0, 10)}... auto-extended to ${newExpiresAt.toISOString()} (surgery: ${upcomingSurgeryDate.toISOString()})`);
+        // Continue to load the portal (don't return error)
+      } else {
+        const debugInfo = { reason: isTimeExpired ? "expired_by_time" : "expired_by_status", expiresAt: link.expiresAt ? new Date(link.expiresAt).toISOString() : null, now: new Date().toISOString(), status: link.status, surgeryId: link.surgeryId, patientId: link.patientId };
+        console.log(`Patient portal: token ${token.substring(0, 10)}... expired, no upcoming surgery`, debugInfo);
+        return res.status(410).json({ message: "Link has expired", debug: debugInfo });
+      }
     }
     
     // Get hospital info
