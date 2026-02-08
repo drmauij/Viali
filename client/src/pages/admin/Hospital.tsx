@@ -109,6 +109,7 @@ export default function Hospital() {
   const [hinDebugQuery, setHinDebugQuery] = useState("");
   const [hinDebugResult, setHinDebugResult] = useState<any>(null);
   const [hinDebugLoading, setHinDebugLoading] = useState(false);
+  const [fixLinksResult, setFixLinksResult] = useState<any>(null);
 
   const hinResetMutation = useMutation({
     mutationFn: async () => {
@@ -1559,19 +1560,13 @@ export default function Hospital() {
                 size="sm"
                 onClick={async () => {
                   try {
+                    setFixLinksResult(null);
                     const res = await apiRequest("POST", "/api/questionnaire/fix-expired-links", {});
                     const data = await res.json();
-                    const skippedCount = data.skippedDetails?.length || 0;
-                    let description = data.fixedCount > 0
-                      ? `Extended ${data.fixedCount} expired link(s)`
-                      : "No expired links needed fixing";
-                    if (skippedCount > 0) {
-                      description += ` | ${skippedCount} skipped`;
-                    }
-                    console.log("Fix expired links result:", JSON.stringify(data, null, 2));
+                    setFixLinksResult(data);
                     toast({
-                      title: t("admin.fixExpiredLinksSuccess", "Links fixed"),
-                      description,
+                      title: "Links fixed",
+                      description: `Fixed ${data.fixedCount} | Skipped ${data.skippedDetails?.length || 0}`,
                     });
                   } catch (error: any) {
                     toast({ title: t("common.error"), description: error.message || "Failed to fix links", variant: "destructive" });
@@ -1583,6 +1578,33 @@ export default function Hospital() {
                 {t("admin.fixExpiredLinksButton", "Fix Links")}
               </Button>
             </div>
+            {fixLinksResult && (
+              <div className="mt-3 border-t pt-3 space-y-2">
+                <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                  Fixed: {fixLinksResult.fixedCount}
+                </p>
+                {fixLinksResult.fixedDetails?.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground">Fixed links:</p>
+                    {fixLinksResult.fixedDetails.map((d: any, i: number) => (
+                      <div key={i} className="text-xs bg-green-50 dark:bg-green-950 rounded px-2 py-1 font-mono">
+                        {d.token} | surgery: {d.surgeryId?.substring(0, 8) || 'n/a'} | new expiry: {d.newExpiresAt} | status → {d.restoredStatus}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {fixLinksResult.skippedDetails?.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground">Skipped ({fixLinksResult.skippedDetails.length}):</p>
+                    {fixLinksResult.skippedDetails.map((d: any, i: number) => (
+                      <div key={i} className="text-xs bg-yellow-50 dark:bg-yellow-950 rounded px-2 py-1 font-mono">
+                        {d.token} | status: {d.status} | expires: {d.expiresAt || 'n/a'} | reason: {d.reason}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Seed Default Data Card */}
