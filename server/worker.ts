@@ -1335,13 +1335,28 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
     error?: string;
   }> = [];
 
+  // Deduplicate by patient - if same patient has multiple surgeries, only send once
+  const processedPatientIds = new Set<string>();
+
   for (const surgery of eligibleSurgeries) {
     processedCount++;
     const patientName = `${surgery.patientFirstName} ${surgery.patientLastName}`;
     
+    // Skip if we already processed this patient in this batch (multiple surgeries for same patient)
+    if (processedPatientIds.has(surgery.patientId)) {
+      console.log(`[Worker] Skipping ${patientName} - already processed in this batch (multiple surgeries)`);
+      results.push({
+        surgeryId: surgery.surgeryId,
+        patientName,
+        status: 'skipped_already_sent',
+      });
+      continue;
+    }
+    
     // Skip if patient already has a filled/submitted questionnaire (via tablet or previous visit)
     if (surgery.hasExistingQuestionnaire) {
       console.log(`[Worker] Skipping ${patientName} - patient already has filled questionnaire`);
+      processedPatientIds.add(surgery.patientId);
       results.push({
         surgeryId: surgery.surgeryId,
         patientName,
@@ -1353,6 +1368,7 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
     // Skip if already has questionnaire sent
     if (surgery.hasQuestionnaireSent) {
       console.log(`[Worker] Skipping ${patientName} - questionnaire already sent`);
+      processedPatientIds.add(surgery.patientId);
       results.push({
         surgeryId: surgery.surgeryId,
         patientName,
@@ -1376,6 +1392,29 @@ async function processAutoQuestionnaireDispatch(job: any): Promise<void> {
     }
     
     try {
+      // Direct check: verify no existing link for this patient+hospital (catches race conditions
+      // and links created manually where emailSent/smsSent flags might not be set)
+      const existingLinks = await storage.getQuestionnaireLinksForPatient(surgery.patientId);
+      const hasActiveOrSubmittedLink = existingLinks.some(l =>
+        l.hospitalId === hospitalId && (
+          l.status === 'submitted' || l.status === 'reviewed' ||
+          (l.status === 'pending' && l.expiresAt && new Date(l.expiresAt) > new Date())
+        )
+      );
+      if (hasActiveOrSubmittedLink) {
+        console.log(`[Worker] Skipping ${patientName} - already has active or submitted questionnaire link`);
+        processedPatientIds.add(surgery.patientId);
+        results.push({
+          surgeryId: surgery.surgeryId,
+          patientName,
+          status: 'skipped_already_sent',
+        });
+        continue;
+      }
+
+      // Mark this patient as processed before sending (prevents duplicates from concurrent jobs)
+      processedPatientIds.add(surgery.patientId);
+
       // Generate a questionnaire link
       const linkToken = randomUUID();
       const expiresAt = new Date();
