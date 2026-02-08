@@ -841,6 +841,54 @@ router.post('/api/questionnaire/links/:linkId/invalidate', isAuthenticated, requ
   }
 });
 
+// Fix expired questionnaire links where the surgery is still upcoming
+router.post('/api/questionnaire/fix-expired-links', isAuthenticated, requireWriteAccess, async (req: any, res: Response) => {
+  try {
+    const hospitalId = (req.headers['x-active-hospital-id'] || req.headers['x-hospital-id']) as string;
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID required" });
+    }
+
+    const unitId = await getUserUnitForHospital(req.user.id, hospitalId);
+    if (!unitId) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    const allLinks = await storage.getQuestionnaireLinksForHospital(hospitalId);
+    const now = new Date();
+    let fixedCount = 0;
+
+    for (const link of allLinks) {
+      if (!link.surgeryId) continue;
+      if (link.status === 'submitted' || link.status === 'reviewed') continue;
+
+      const isExpired = link.expiresAt && new Date(link.expiresAt) < now;
+      const isStatusExpired = link.status === 'expired';
+      if (!isExpired && !isStatusExpired) continue;
+
+      const surgery = await storage.getSurgery(link.surgeryId);
+      if (!surgery || !surgery.plannedDate) continue;
+
+      const surgeryDate = new Date(surgery.plannedDate);
+      if (surgeryDate <= now) continue;
+
+      const newExpiresAt = new Date(surgeryDate);
+      newExpiresAt.setDate(newExpiresAt.getDate() + 1);
+
+      await storage.updateQuestionnaireLink(link.id, {
+        expiresAt: newExpiresAt,
+        status: 'pending',
+      });
+      fixedCount++;
+    }
+
+    res.json({ message: `Fixed ${fixedCount} expired link(s)`, fixedCount });
+  } catch (error) {
+    console.error("Error fixing expired links:", error);
+    res.status(500).json({ message: "Failed to fix expired links" });
+  }
+});
+
 // ========== OPEN HOSPITAL LINK ROUTES (for public access without patient association) ==========
 
 // Rate limiter for hospital open link
