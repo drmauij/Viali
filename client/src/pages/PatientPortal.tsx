@@ -325,7 +325,8 @@ export default function PatientPortal() {
       const res = await fetch(`/api/patient-portal/${token}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({ message: 'Error' }));
-        throw new Error(err.message || 'Failed to load');
+        const debugStr = err.debug ? ` [${JSON.stringify(err.debug)}]` : '';
+        throw new Error((err.message || 'Failed to load') + debugStr);
       }
       return res.json();
     },
@@ -469,6 +470,11 @@ export default function PatientPortal() {
     const errorMessage = (error as Error).message;
     const isExpired = errorMessage.includes('expired');
     const isNotFound = errorMessage.includes('not found');
+    const debugMatch = errorMessage.match(/\[(.+)\]$/);
+    let debugInfo: any = null;
+    if (debugMatch) {
+      try { debugInfo = JSON.parse(debugMatch[1]); } catch {}
+    }
     
     return (
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white dark:from-gray-900 dark:to-gray-950 flex items-center justify-center p-4">
@@ -478,6 +484,16 @@ export default function PatientPortal() {
             <p className="text-lg font-medium text-center text-gray-900 dark:text-gray-100">
               {isExpired ? t.linkExpired : isNotFound ? t.linkNotFound : t.error}
             </p>
+            {debugInfo && (
+              <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-900 rounded text-xs font-mono text-gray-600 dark:text-gray-400 w-full max-w-sm break-all">
+                <p>reason: {debugInfo.reason}</p>
+                {debugInfo.expiresAt && <p>expiresAt: {debugInfo.expiresAt}</p>}
+                {debugInfo.now && <p>now: {debugInfo.now}</p>}
+                {debugInfo.status && <p>status: {debugInfo.status}</p>}
+                {debugInfo.surgeryId && <p>surgeryId: {debugInfo.surgeryId}</p>}
+                {debugInfo.patientId && <p>patientId: {debugInfo.patientId}</p>}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

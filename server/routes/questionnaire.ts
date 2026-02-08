@@ -1967,19 +1967,21 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
     const link = await storage.getQuestionnaireLinkByToken(token);
     if (!link) {
       console.log(`Patient portal: token ${token.substring(0, 10)}... not found in database`);
-      return res.status(404).json({ message: "Link not found or expired" });
+      return res.status(404).json({ message: "Link not found or expired", debug: { reason: "not_found", token: token.substring(0, 10) } });
     }
     
     // Check if expired or invalidated
     if (link.expiresAt && new Date(link.expiresAt) < new Date()) {
-      console.log(`Patient portal: token ${token.substring(0, 10)}... expired by time. expiresAt=${new Date(link.expiresAt).toISOString()}, now=${new Date().toISOString()}, status=${link.status}`);
-      return res.status(410).json({ message: "Link has expired" });
+      const debugInfo = { reason: "expired_by_time", expiresAt: new Date(link.expiresAt).toISOString(), now: new Date().toISOString(), status: link.status, surgeryId: link.surgeryId, patientId: link.patientId };
+      console.log(`Patient portal: token ${token.substring(0, 10)}... expired by time`, debugInfo);
+      return res.status(410).json({ message: "Link has expired", debug: debugInfo });
     }
     
     // Check if link status is expired or invalidated
     if (link.status === 'expired' || link.status === 'invalidated') {
-      console.log(`Patient portal: token ${token.substring(0, 10)}... rejected by status=${link.status}, expiresAt=${link.expiresAt ? new Date(link.expiresAt).toISOString() : 'null'}`);
-      return res.status(410).json({ message: "Link has expired" });
+      const debugInfo = { reason: "expired_by_status", status: link.status, expiresAt: link.expiresAt ? new Date(link.expiresAt).toISOString() : null, surgeryId: link.surgeryId, patientId: link.patientId };
+      console.log(`Patient portal: token ${token.substring(0, 10)}... rejected by status`, debugInfo);
+      return res.status(410).json({ message: "Link has expired", debug: debugInfo });
     }
     
     // Get hospital info
