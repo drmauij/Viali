@@ -77,6 +77,15 @@ interface QuestionnaireResponse {
   ponvTransfusionNotes?: string;
   drugUse?: Record<string, boolean>;
   drugUseDetails?: string;
+  noAllergies?: boolean;
+  noMedications?: boolean;
+  noConditions?: boolean;
+  noSmokingAlcohol?: boolean;
+  noPreviousSurgeries?: boolean;
+  noAnesthesiaProblems?: boolean;
+  noDentalIssues?: boolean;
+  noPonvIssues?: boolean;
+  noDrugUse?: boolean;
   outpatientCaregiverFirstName?: string;
   outpatientCaregiverLastName?: string;
   outpatientCaregiverPhone?: string;
@@ -481,8 +490,18 @@ export default function QuestionnaireReviews() {
                       <h3 className="flex items-center gap-2 font-semibold mb-3">
                         <AlertTriangle className="h-4 w-4 text-orange-500" />
                         {t('questionnaire.allergies.title')}
+                        {responseDetail.response.noAllergies && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" data-testid="badge-no-allergies">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {t('questionnaire.review.noneConfirmed')}
+                          </span>
+                        )}
                       </h3>
-                      {responseDetail.response.allergies && responseDetail.response.allergies.length > 0 ? (
+                      {responseDetail.response.noAllergies ? (
+                        <p className="text-sm text-muted-foreground" data-testid="text-no-allergies">
+                          {t('questionnaire.allergies.none')}
+                        </p>
+                      ) : responseDetail.response.allergies && responseDetail.response.allergies.length > 0 ? (
                         <div className="space-y-2">
                           <div className="flex flex-wrap gap-2" data-testid="list-allergies">
                             {responseDetail.response.allergies.map((allergy, i) => (
@@ -508,8 +527,18 @@ export default function QuestionnaireReviews() {
                       <h3 className="flex items-center gap-2 font-semibold mb-3">
                         <Pill className="h-4 w-4 text-blue-500" />
                         {t('questionnaire.medications.title')}
+                        {responseDetail.response.noMedications && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" data-testid="badge-no-medications">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {t('questionnaire.review.noneConfirmed')}
+                          </span>
+                        )}
                       </h3>
-                      {responseDetail.response.medications && responseDetail.response.medications.length > 0 ? (
+                      {responseDetail.response.noMedications ? (
+                        <p className="text-sm text-muted-foreground" data-testid="text-no-medications">
+                          {t('questionnaire.review.noMedications')}
+                        </p>
+                      ) : responseDetail.response.medications && responseDetail.response.medications.length > 0 ? (
                         <div className="space-y-2" data-testid="list-medications">
                           {responseDetail.response.medications.map((med, i) => (
                             <div key={i} className="p-2 rounded border bg-muted/50">
@@ -540,8 +569,18 @@ export default function QuestionnaireReviews() {
                       <h3 className="flex items-center gap-2 font-semibold mb-3">
                         <Heart className="h-4 w-4 text-red-500" />
                         {t('questionnaire.conditions.title')}
+                        {responseDetail.response.noConditions && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" data-testid="badge-no-conditions">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {t('questionnaire.review.noneConfirmed')}
+                          </span>
+                        )}
                       </h3>
-                      {responseDetail.response.conditions && Object.keys(responseDetail.response.conditions).length > 0 ? (
+                      {responseDetail.response.noConditions ? (
+                        <p className="text-sm text-muted-foreground" data-testid="text-no-conditions">
+                          {t('questionnaire.review.noConditions')}
+                        </p>
+                      ) : responseDetail.response.conditions && Object.keys(responseDetail.response.conditions).length > 0 ? (
                         <div className="space-y-2" data-testid="list-conditions">
                           {Object.entries(responseDetail.response.conditions)
                             .filter(([_, val]) => val.checked)
@@ -573,31 +612,43 @@ export default function QuestionnaireReviews() {
                       <h3 className="flex items-center gap-2 font-semibold mb-3">
                         <Cigarette className="h-4 w-4 text-gray-500" />
                         {t('questionnaire.lifestyle.title')}
+                        {responseDetail.response.noSmokingAlcohol && responseDetail.response.noDrugUse && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" data-testid="badge-no-lifestyle">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {t('questionnaire.review.noneConfirmed')}
+                          </span>
+                        )}
                       </h3>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-muted-foreground">{t('questionnaire.lifestyle.smoking.title')}</div>
-                          <div data-testid="text-smoking-status">
-                            {responseDetail.response.smokingStatus 
-                              ? formatSmokingStatus(responseDetail.response.smokingStatus)
-                              : '-'}
+                      {responseDetail.response.noSmokingAlcohol ? (
+                        <p className="text-sm text-muted-foreground mb-2" data-testid="text-no-smoking-alcohol">
+                          {t('questionnaire.review.noSmokingAlcohol')}
+                        </p>
+                      ) : (
+                        <div className="grid gap-4 md:grid-cols-2 mb-2">
+                          <div className="space-y-1">
+                            <div className="text-sm font-medium text-muted-foreground">{t('questionnaire.lifestyle.smoking.title')}</div>
+                            <div data-testid="text-smoking-status">
+                              {responseDetail.response.smokingStatus 
+                                ? formatSmokingStatus(responseDetail.response.smokingStatus)
+                                : '-'}
+                            </div>
+                            {responseDetail.response.smokingDetails && (
+                              <p className="text-sm text-muted-foreground">{responseDetail.response.smokingDetails}</p>
+                            )}
                           </div>
-                          {responseDetail.response.smokingDetails && (
-                            <p className="text-sm text-muted-foreground">{responseDetail.response.smokingDetails}</p>
-                          )}
-                        </div>
-                        <div className="space-y-1">
-                          <div className="text-sm font-medium text-muted-foreground">{t('questionnaire.lifestyle.alcohol.title')}</div>
-                          <div data-testid="text-alcohol-status">
-                            {responseDetail.response.alcoholStatus 
-                              ? formatAlcoholStatus(responseDetail.response.alcoholStatus)
-                              : '-'}
+                          <div className="space-y-1">
+                            <div className="text-sm font-medium text-muted-foreground">{t('questionnaire.lifestyle.alcohol.title')}</div>
+                            <div data-testid="text-alcohol-status">
+                              {responseDetail.response.alcoholStatus 
+                                ? formatAlcoholStatus(responseDetail.response.alcoholStatus)
+                                : '-'}
+                            </div>
+                            {responseDetail.response.alcoholDetails && (
+                              <p className="text-sm text-muted-foreground">{responseDetail.response.alcoholDetails}</p>
+                            )}
                           </div>
-                          {responseDetail.response.alcoholDetails && (
-                            <p className="text-sm text-muted-foreground">{responseDetail.response.alcoholDetails}</p>
-                          )}
                         </div>
-                      </div>
+                      )}
                     </div>
 
                     <Separator />
@@ -610,15 +661,29 @@ export default function QuestionnaireReviews() {
                       <div className="space-y-4">
                         <div className="space-y-1">
                           <div className="text-sm font-medium text-muted-foreground">{t('questionnaire.history.surgeries')}</div>
-                          <div data-testid="text-previous-surgeries">
-                            {responseDetail.response.previousSurgeries || '-'}
-                          </div>
+                          {responseDetail.response.noPreviousSurgeries ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" data-testid="badge-no-surgeries">
+                              <CheckCircle2 className="h-3 w-3" />
+                              {t('questionnaire.review.noneConfirmed')}
+                            </span>
+                          ) : (
+                            <div data-testid="text-previous-surgeries">
+                              {responseDetail.response.previousSurgeries || '-'}
+                            </div>
+                          )}
                         </div>
                         <div className="space-y-1">
                           <div className="text-sm font-medium text-muted-foreground">{t('questionnaire.history.anesthesia')}</div>
-                          <div data-testid="text-anesthesia-problems">
-                            {responseDetail.response.previousAnesthesiaProblems || '-'}
-                          </div>
+                          {responseDetail.response.noAnesthesiaProblems ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" data-testid="badge-no-anesthesia">
+                              <CheckCircle2 className="h-3 w-3" />
+                              {t('questionnaire.review.noneConfirmed')}
+                            </span>
+                          ) : (
+                            <div data-testid="text-anesthesia-problems">
+                              {responseDetail.response.previousAnesthesiaProblems || '-'}
+                            </div>
+                          )}
                         </div>
                         {(responseDetail.response.pregnancyStatus || responseDetail.response.breastfeeding) && (
                           <div className="space-y-1">

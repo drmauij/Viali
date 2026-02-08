@@ -42,7 +42,10 @@ import {
   Home,
   FileCheck,
   Calendar,
-  Shield
+  Shield,
+  ClipboardList,
+  CheckCircle,
+  Pencil
 } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
 import { useTranslation } from "react-i18next";
@@ -148,24 +151,30 @@ interface FormData {
   weight: string;
   allergies: string[];
   allergiesNotes: string;
+  noAllergies: boolean;
   medications: Medication[];
   medicationsNotes: string;
+  noMedications: boolean;
   conditions: Record<string, ConditionState>;
+  noConditions: boolean;
   smokingStatus: string;
   smokingDetails: string;
   alcoholStatus: string;
   alcoholDetails: string;
   drugUse: Record<string, boolean>;
   drugUseDetails: string;
+  noDrugUse: boolean;
+  noSmokingAlcohol: boolean;
   previousSurgeries: string;
   previousAnesthesiaProblems: string;
-  // Dental status (matches schema field name: dentalIssues)
+  noPreviousSurgeries: boolean;
+  noAnesthesiaProblems: boolean;
   dentalIssues: Record<string, boolean>;
   dentalNotes: string;
-  // PONV & Transfusion (matches schema field name: ponvTransfusionIssues)
+  noDentalIssues: boolean;
   ponvTransfusionIssues: Record<string, boolean>;
   ponvTransfusionNotes: string;
-  // Outpatient care
+  noPonvIssues: boolean;
   outpatientCaregiverFirstName: string;
   outpatientCaregiverLastName: string;
   outpatientCaregiverPhone: string;
@@ -174,7 +183,6 @@ interface FormData {
   womanHealthNotes: string;
   additionalNotes: string;
   questionsForDoctor: string;
-  // Submission
   submissionDate: string;
   signature: string;
   privacyConsent: boolean;
@@ -191,6 +199,7 @@ const STEPS = [
   { id: "lifestyle", icon: Cigarette, labelKey: "questionnaire.steps.lifestyle" },
   { id: "uploads", icon: Paperclip, labelKey: "questionnaire.steps.uploads" },
   { id: "notes", icon: MessageSquare, labelKey: "questionnaire.steps.notes" },
+  { id: "summary", icon: ClipboardList, labelKey: "questionnaire.steps.summary" },
   { id: "submit", icon: FileCheck, labelKey: "questionnaire.steps.submit" },
 ];
 
@@ -215,9 +224,15 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.height": "Height (cm)",
     "questionnaire.personal.weight": "Weight (kg)",
     "questionnaire.conditions.title": "Do you have any of the following conditions?",
+    "questionnaire.conditions.noneCheckbox": "I have no pre-existing conditions",
+    "questionnaire.conditions.noPreviousSurgeries": "I have had no previous surgeries",
+    "questionnaire.conditions.noAnesthesiaProblems": "I have had no problems with anesthesia",
+    "questionnaire.conditions.noDentalIssues": "I have no dental issues",
+    "questionnaire.conditions.noPonvIssues": "I have had no previous reactions (PONV, transfusion)",
     "questionnaire.conditions.notes": "Additional details",
     "questionnaire.medications.title": "Current Medications",
     "questionnaire.medications.subtitle": "List all medications you are currently taking",
+    "questionnaire.medications.noneCheckbox": "I take no medications",
     "questionnaire.medications.selectFromList": "Select from common medications",
     "questionnaire.medications.orAddCustom": "Or add a custom medication",
     "questionnaire.medications.name": "Medication Name",
@@ -230,7 +245,11 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.allergies.title": "Allergies",
     "questionnaire.allergies.subtitle": "Do you have any allergies to medications, foods, or other substances?",
     "questionnaire.allergies.none": "No known allergies",
+    "questionnaire.allergies.noneCheckbox": "I have no allergies",
     "questionnaire.allergies.notes": "Please describe your allergies and reactions",
+    "questionnaire.lifestyle.noneCheckbox": "I don't smoke, drink alcohol, or use drugs",
+    "questionnaire.lifestyle.noSmokingAlcohol": "I don't smoke or drink alcohol",
+    "questionnaire.lifestyle.noDrugUse": "I don't use any recreational drugs",
     "questionnaire.lifestyle.smoking.title": "Smoking",
     "questionnaire.lifestyle.smoking.never": "Never smoked",
     "questionnaire.lifestyle.smoking.former": "Former smoker",
@@ -304,7 +323,26 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.notes.additionalHint": "Any other information you think is important",
     "questionnaire.notes.questions": "Questions for Your Doctor",
     "questionnaire.notes.questionsHint": "Do you have any questions or concerns about your procedure?",
+    "questionnaire.steps.summary": "Summary",
     "questionnaire.steps.submit": "Submit",
+    "questionnaire.summary.title": "Summary of Your Information",
+    "questionnaire.summary.subtitle": "Please review all your answers before submitting",
+    "questionnaire.summary.personalInfo": "Personal Information",
+    "questionnaire.summary.none": "None",
+    "questionnaire.summary.noneExplicit": "None (explicitly confirmed)",
+    "questionnaire.summary.notFilled": "Not filled",
+    "questionnaire.summary.smoking": "Smoking",
+    "questionnaire.summary.alcohol": "Alcohol",
+    "questionnaire.summary.drugs": "Drugs",
+    "questionnaire.summary.previousSurgeries": "Previous Surgeries",
+    "questionnaire.summary.anesthesiaProblems": "Anesthesia Problems",
+    "questionnaire.summary.dentalStatus": "Dental Status",
+    "questionnaire.summary.previousReactions": "Previous Reactions",
+    "questionnaire.summary.outpatientContact": "Outpatient Contact",
+    "questionnaire.summary.documents": "Documents",
+    "questionnaire.summary.additionalNotes": "Additional Notes",
+    "questionnaire.summary.questionsForDoctor": "Questions for Doctor",
+    "questionnaire.none.confirmed": "✓ Confirmed: None",
     "questionnaire.submit.title": "Review and Submit",
     "questionnaire.submit.subtitle": "Please review your information and sign to complete the questionnaire",
     "questionnaire.submit.date": "Today's Date",
@@ -358,9 +396,15 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.personal.height": "Größe (cm)",
     "questionnaire.personal.weight": "Gewicht (kg)",
     "questionnaire.conditions.title": "Haben Sie eine der folgenden Erkrankungen?",
+    "questionnaire.conditions.noneCheckbox": "Ich habe keine Vorerkrankungen",
+    "questionnaire.conditions.noPreviousSurgeries": "Ich hatte keine früheren Operationen",
+    "questionnaire.conditions.noAnesthesiaProblems": "Ich hatte keine Probleme mit der Narkose",
+    "questionnaire.conditions.noDentalIssues": "Ich habe keine Zahnprobleme",
+    "questionnaire.conditions.noPonvIssues": "Ich hatte keine früheren Reaktionen (PONV, Transfusion)",
     "questionnaire.conditions.notes": "Zusätzliche Details",
     "questionnaire.medications.title": "Aktuelle Medikamente",
     "questionnaire.medications.subtitle": "Listen Sie alle Medikamente auf, die Sie derzeit einnehmen",
+    "questionnaire.medications.noneCheckbox": "Ich nehme keine Medikamente",
     "questionnaire.medications.selectFromList": "Aus häufigen Medikamenten auswählen",
     "questionnaire.medications.orAddCustom": "Oder ein anderes Medikament hinzufügen",
     "questionnaire.medications.name": "Medikamentenname",
@@ -373,7 +417,11 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.allergies.title": "Allergien",
     "questionnaire.allergies.subtitle": "Haben Sie Allergien gegen Medikamente, Nahrungsmittel oder andere Substanzen?",
     "questionnaire.allergies.none": "Keine bekannten Allergien",
+    "questionnaire.allergies.noneCheckbox": "Ich habe keine Allergien",
     "questionnaire.allergies.notes": "Bitte beschreiben Sie Ihre Allergien und Reaktionen",
+    "questionnaire.lifestyle.noneCheckbox": "Ich rauche nicht, trinke keinen Alkohol und nehme keine Drogen",
+    "questionnaire.lifestyle.noSmokingAlcohol": "Ich rauche nicht und trinke keinen Alkohol",
+    "questionnaire.lifestyle.noDrugUse": "Ich nehme keine Freizeitdrogen",
     "questionnaire.lifestyle.smoking.title": "Rauchen",
     "questionnaire.lifestyle.smoking.never": "Nie geraucht",
     "questionnaire.lifestyle.smoking.former": "Ehemaliger Raucher",
@@ -447,7 +495,26 @@ const translations: Record<string, Record<string, string>> = {
     "questionnaire.notes.additionalHint": "Sonstige Informationen, die Sie für wichtig halten",
     "questionnaire.notes.questions": "Fragen an Ihren Arzt",
     "questionnaire.notes.questionsHint": "Haben Sie Fragen oder Bedenken zu Ihrem Eingriff?",
+    "questionnaire.steps.summary": "Zusammenfassung",
     "questionnaire.steps.submit": "Absenden",
+    "questionnaire.summary.title": "Zusammenfassung Ihrer Angaben",
+    "questionnaire.summary.subtitle": "Bitte überprüfen Sie alle Ihre Antworten vor dem Absenden",
+    "questionnaire.summary.personalInfo": "Persönliche Daten",
+    "questionnaire.summary.none": "Keine",
+    "questionnaire.summary.noneExplicit": "Keine (ausdrücklich bestätigt)",
+    "questionnaire.summary.notFilled": "Nicht ausgefüllt",
+    "questionnaire.summary.smoking": "Rauchen",
+    "questionnaire.summary.alcohol": "Alkohol",
+    "questionnaire.summary.drugs": "Drogen",
+    "questionnaire.summary.previousSurgeries": "Frühere Operationen",
+    "questionnaire.summary.anesthesiaProblems": "Narkoseprobleme",
+    "questionnaire.summary.dentalStatus": "Zahnstatus",
+    "questionnaire.summary.previousReactions": "Frühere Reaktionen",
+    "questionnaire.summary.outpatientContact": "Begleitperson",
+    "questionnaire.summary.documents": "Dokumente",
+    "questionnaire.summary.additionalNotes": "Zusätzliche Hinweise",
+    "questionnaire.summary.questionsForDoctor": "Fragen an den Arzt",
+    "questionnaire.none.confirmed": "✓ Bestätigt: Keine",
     "questionnaire.submit.title": "Überprüfen und Absenden",
     "questionnaire.submit.subtitle": "Bitte überprüfen Sie Ihre Angaben und unterschreiben Sie, um den Fragebogen abzuschließen",
     "questionnaire.submit.date": "Heutiges Datum",
@@ -510,21 +577,30 @@ export default function PatientQuestionnaire() {
     weight: "",
     allergies: [],
     allergiesNotes: "",
+    noAllergies: false,
     medications: [],
     medicationsNotes: "",
+    noMedications: false,
     conditions: {},
+    noConditions: false,
     smokingStatus: "",
     smokingDetails: "",
     alcoholStatus: "",
     alcoholDetails: "",
     drugUse: {},
     drugUseDetails: "",
+    noDrugUse: false,
+    noSmokingAlcohol: false,
     previousSurgeries: "",
     previousAnesthesiaProblems: "",
+    noPreviousSurgeries: false,
+    noAnesthesiaProblems: false,
     dentalIssues: {},
     dentalNotes: "",
+    noDentalIssues: false,
     ponvTransfusionIssues: {},
     ponvTransfusionNotes: "",
+    noPonvIssues: false,
     outpatientCaregiverFirstName: "",
     outpatientCaregiverLastName: "",
     outpatientCaregiverPhone: "",
@@ -582,21 +658,30 @@ export default function PatientQuestionnaire() {
         weight: existing?.weight || "",
         allergies: existing?.allergies || [],
         allergiesNotes: existing?.allergiesNotes || "",
+        noAllergies: (existing as any)?.noAllergies || false,
         medications: existing?.medications || [],
         medicationsNotes: existing?.medicationsNotes || "",
+        noMedications: (existing as any)?.noMedications || false,
         conditions: existing?.conditions || {},
+        noConditions: (existing as any)?.noConditions || false,
         smokingStatus: existing?.smokingStatus || "",
         smokingDetails: existing?.smokingDetails || "",
         alcoholStatus: existing?.alcoholStatus || "",
         alcoholDetails: existing?.alcoholDetails || "",
         drugUse: (existing as any)?.drugUse || {},
         drugUseDetails: (existing as any)?.drugUseDetails || "",
+        noDrugUse: (existing as any)?.noDrugUse || false,
+        noSmokingAlcohol: (existing as any)?.noSmokingAlcohol || false,
         previousSurgeries: existing?.previousSurgeries || "",
         previousAnesthesiaProblems: existing?.previousAnesthesiaProblems || "",
+        noPreviousSurgeries: (existing as any)?.noPreviousSurgeries || false,
+        noAnesthesiaProblems: (existing as any)?.noAnesthesiaProblems || false,
         dentalIssues: (existing as any)?.dentalIssues || {},
         dentalNotes: (existing as any)?.dentalNotes || "",
+        noDentalIssues: (existing as any)?.noDentalIssues || false,
         ponvTransfusionIssues: (existing as any)?.ponvTransfusionIssues || {},
         ponvTransfusionNotes: (existing as any)?.ponvTransfusionNotes || "",
+        noPonvIssues: (existing as any)?.noPonvIssues || false,
         outpatientCaregiverFirstName: (existing as any)?.outpatientCaregiverFirstName || "",
         outpatientCaregiverLastName: (existing as any)?.outpatientCaregiverLastName || "",
         outpatientCaregiverPhone: (existing as any)?.outpatientCaregiverPhone || "",
@@ -776,6 +861,32 @@ export default function PatientQuestionnaire() {
     }
   }, [activeToken]);
 
+  const isStepValid = useCallback((stepIndex: number): boolean => {
+    const stepId = STEPS[stepIndex]?.id;
+    switch (stepId) {
+      case 'personal':
+        return !!(formData.patientFirstName && formData.patientLastName);
+      case 'allergies':
+        return formData.noAllergies || formData.allergies.length > 0 || !!formData.allergiesNotes;
+      case 'conditions':
+        return (formData.noConditions && formData.noPreviousSurgeries && formData.noAnesthesiaProblems && formData.noDentalIssues && formData.noPonvIssues)
+          || Object.values(formData.conditions).some(c => c.checked)
+          || !!formData.previousSurgeries
+          || !!formData.previousAnesthesiaProblems
+          || Object.values(formData.dentalIssues).some(v => v)
+          || Object.values(formData.ponvTransfusionIssues).some(v => v);
+      case 'medications':
+        return formData.noMedications || formData.medications.length > 0 || !!formData.medicationsNotes;
+      case 'lifestyle':
+        return (formData.noSmokingAlcohol && formData.noDrugUse)
+          || (formData.noSmokingAlcohol && Object.values(formData.drugUse).some(v => v))
+          || (formData.noDrugUse && (!!formData.smokingStatus || !!formData.alcoholStatus))
+          || (!!formData.smokingStatus || !!formData.alcoholStatus || Object.values(formData.drugUse).some(v => v));
+      default:
+        return true;
+    }
+  }, [formData]);
+
   const handleNext = useCallback(() => {
     const stepId = STEPS[currentStep].id;
     const newCompletedSteps = formData.completedSteps.includes(stepId) 
@@ -796,6 +907,12 @@ export default function PatientQuestionnaire() {
       completedSteps: newCompletedSteps,
     });
   }, [currentStep, formData, saveMutation]);
+
+  const handleAutoAdvance = useCallback(() => {
+    setTimeout(() => {
+      handleNext();
+    }, 600);
+  }, [handleNext]);
 
   const handleBack = useCallback(() => {
     const newStep = currentStep - 1;
@@ -1076,6 +1193,7 @@ export default function PatientQuestionnaire() {
                 allergyList={config.allergyList}
                 t={t}
                 language={language}
+                onNoneChecked={() => handleAutoAdvance()}
               />
             )}
             {currentStep === 2 && config && (
@@ -1085,6 +1203,7 @@ export default function PatientQuestionnaire() {
                 conditions={config.conditionsList}
                 t={t}
                 language={language}
+                onNoneChecked={() => handleAutoAdvance()}
               />
             )}
             {currentStep === 3 && (
@@ -1093,6 +1212,7 @@ export default function PatientQuestionnaire() {
                 updateField={updateField}
                 t={t}
                 medicationsList={config?.medicationsList}
+                onNoneChecked={() => handleAutoAdvance()}
               />
             )}
             {currentStep === 4 && (
@@ -1100,6 +1220,7 @@ export default function PatientQuestionnaire() {
                 formData={formData}
                 updateField={updateField}
                 t={t}
+                onNoneChecked={() => handleAutoAdvance()}
               />
             )}
             {currentStep === 5 && (
@@ -1119,6 +1240,17 @@ export default function PatientQuestionnaire() {
               />
             )}
             {currentStep === 7 && (
+              <SummaryStep
+                formData={formData}
+                t={t}
+                uploads={uploads}
+                onEditStep={(stepIndex: number) => setCurrentStep(stepIndex)}
+                allergyList={config?.allergyList}
+                conditionsList={config?.conditionsList}
+                language={language}
+              />
+            )}
+            {currentStep === 8 && (
               <SubmitStep
                 formData={formData}
                 updateField={updateField}
@@ -1156,6 +1288,7 @@ export default function PatientQuestionnaire() {
               <Button
                 onClick={handleNext}
                 className="flex-1"
+                disabled={!isStepValid(currentStep)}
                 data-testid="button-next"
               >
                 {t("questionnaire.nav.next")}
@@ -1192,6 +1325,37 @@ interface StepProps {
   formData: FormData;
   updateField: <K extends keyof FormData>(field: K, value: FormData[K]) => void;
   t: (key: string) => string;
+}
+
+function NoneCheckbox({ checked, onChange, label, testId }: { checked: boolean; onChange: (checked: boolean) => void; label: string; testId: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-300 ${
+        checked
+          ? 'border-green-500 bg-green-50 dark:bg-green-900/30 shadow-sm'
+          : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600'
+      }`}
+      data-testid={testId}
+    >
+      <div className={`flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
+        checked
+          ? 'border-green-500 bg-green-500 text-white'
+          : 'border-gray-300 dark:border-gray-600'
+      }`}>
+        {checked && <Check className="h-4 w-4" />}
+      </div>
+      <span className={`text-base font-medium ${
+        checked ? 'text-green-700 dark:text-green-300' : 'text-gray-700 dark:text-gray-300'
+      }`}>
+        {label}
+      </span>
+      {checked && (
+        <CheckCircle className="h-5 w-5 text-green-500 ml-auto flex-shrink-0" />
+      )}
+    </button>
+  );
 }
 
 function PersonalInfoStep({ formData, updateField, t }: StepProps) {
@@ -1304,9 +1468,10 @@ function PersonalInfoStep({ formData, updateField, t }: StepProps) {
 interface ConditionsStepProps extends StepProps {
   conditions: Array<{ id: string; label: string; labelDe?: string; labelEn?: string; helpText?: string; category: string }>;
   language: string;
+  onNoneChecked: () => void;
 }
 
-function ConditionsStep({ formData, updateField, conditions, t, language }: ConditionsStepProps) {
+function ConditionsStep({ formData, updateField, conditions, t, language, onNoneChecked }: ConditionsStepProps) {
   const getLabel = (item: { label: string; labelDe?: string; labelEn?: string }) => {
     if (language === "en" && item.labelEn) return item.labelEn;
     if (language === "de" && item.labelDe) return item.labelDe;
@@ -1356,114 +1521,265 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
     });
   };
 
+  const handleNoneConditionsToggle = (checked: boolean) => {
+    updateField("noConditions", checked);
+    if (checked) {
+      updateField("conditions", {});
+    }
+  };
+
+  const handleNoneSurgeriesToggle = (checked: boolean) => {
+    updateField("noPreviousSurgeries", checked);
+    if (checked) {
+      updateField("previousSurgeries", "");
+    }
+  };
+
+  const handleNoneAnesthesiaToggle = (checked: boolean) => {
+    updateField("noAnesthesiaProblems", checked);
+    if (checked) {
+      updateField("previousAnesthesiaProblems", "");
+    }
+  };
+
+  const handleNoneDentalToggle = (checked: boolean) => {
+    updateField("noDentalIssues", checked);
+    if (checked) {
+      updateField("dentalIssues", {});
+      updateField("dentalNotes", "");
+    }
+  };
+
+  const handleNonePonvToggle = (checked: boolean) => {
+    updateField("noPonvIssues", checked);
+    if (checked) {
+      updateField("ponvTransfusionIssues", {});
+      updateField("ponvTransfusionNotes", "");
+    }
+  };
+
+  const allNoneChecked = formData.noConditions && formData.noPreviousSurgeries && formData.noAnesthesiaProblems && formData.noDentalIssues && formData.noPonvIssues;
+
+  const handleAllNone = () => {
+    updateField("noConditions", true);
+    updateField("conditions", {});
+    updateField("noPreviousSurgeries", true);
+    updateField("previousSurgeries", "");
+    updateField("noAnesthesiaProblems", true);
+    updateField("previousAnesthesiaProblems", "");
+    updateField("noDentalIssues", true);
+    updateField("dentalIssues", {});
+    updateField("dentalNotes", "");
+    updateField("noPonvIssues", true);
+    updateField("ponvTransfusionIssues", {});
+    updateField("ponvTransfusionNotes", "");
+    onNoneChecked();
+  };
+
   return (
     <div className="space-y-6">
       <p className="text-sm text-gray-600 dark:text-gray-400">
         {t("questionnaire.conditions.title")}
       </p>
 
-      {sortedCategories.map((category) => {
-        const items = groupedConditions[category];
-        return (
-          <div key={category}>
-            <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2 capitalize">
-              {category}
-            </h3>
-            <div className="space-y-2">
-              {items.map((condition) => {
-                const state = formData.conditions[condition.id];
-                return (
-                  <div key={condition.id} className="border rounded-lg p-3">
-                    <div className="flex items-start gap-3">
-                      <Checkbox
-                        id={`condition-${condition.id}`}
-                        checked={state?.checked || false}
-                        onCheckedChange={() => toggleCondition(condition.id)}
-                        data-testid={`checkbox-condition-${condition.id}`}
-                      />
-                      <div className="flex-1">
-                        <Label
-                          htmlFor={`condition-${condition.id}`}
-                          className="font-normal cursor-pointer"
-                        >
-                          {getLabel(condition)}
-                        </Label>
-                        {condition.helpText && (
-                          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                            <Info className="h-3 w-3" />
-                            {condition.helpText}
-                          </p>
+      <NoneCheckbox
+        checked={formData.noConditions}
+        onChange={handleNoneConditionsToggle}
+        label={t("questionnaire.conditions.noneCheckbox")}
+        testId="checkbox-no-conditions"
+      />
+
+      {!formData.noConditions && (
+        <>
+          {sortedCategories.map((category) => {
+            const items = groupedConditions[category];
+            return (
+              <div key={category}>
+                <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300 mb-2 capitalize">
+                  {category}
+                </h3>
+                <div className="space-y-2">
+                  {items.map((condition) => {
+                    const state = formData.conditions[condition.id];
+                    return (
+                      <div key={condition.id} className="border rounded-lg p-3">
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            id={`condition-${condition.id}`}
+                            checked={state?.checked || false}
+                            onCheckedChange={() => toggleCondition(condition.id)}
+                            data-testid={`checkbox-condition-${condition.id}`}
+                          />
+                          <div className="flex-1">
+                            <Label
+                              htmlFor={`condition-${condition.id}`}
+                              className="font-normal cursor-pointer"
+                            >
+                              {getLabel(condition)}
+                            </Label>
+                            {condition.helpText && (
+                              <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                <Info className="h-3 w-3" />
+                                {condition.helpText}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        {state?.checked && (
+                          <div className="mt-2 pl-6">
+                            <Input
+                              placeholder={t("questionnaire.conditions.notes")}
+                              value={state.notes || ""}
+                              onChange={(e) => updateConditionNotes(condition.id, e.target.value)}
+                              className="text-sm"
+                              data-testid={`input-condition-notes-${condition.id}`}
+                            />
+                          </div>
                         )}
                       </div>
-                    </div>
-                    {state?.checked && (
-                      <div className="mt-2 pl-6">
-                        <Input
-                          placeholder={t("questionnaire.conditions.notes")}
-                          value={state.notes || ""}
-                          onChange={(e) => updateConditionNotes(condition.id, e.target.value)}
-                          className="text-sm"
-                          data-testid={`input-condition-notes-${condition.id}`}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
 
       <Separator className="my-6" />
 
-      <div>
-        <Label htmlFor="previousSurgeries">{t("questionnaire.history.surgeries")}</Label>
-        <p className="text-xs text-gray-500 mb-2">{t("questionnaire.history.surgeriesHint")}</p>
-        <Textarea
-          id="previousSurgeries"
-          value={formData.previousSurgeries}
-          onChange={(e) => updateField("previousSurgeries", e.target.value)}
-          rows={4}
-          data-testid="input-previous-surgeries"
-        />
-      </div>
+      <NoneCheckbox
+        checked={formData.noPreviousSurgeries}
+        onChange={handleNoneSurgeriesToggle}
+        label={t("questionnaire.conditions.noPreviousSurgeries")}
+        testId="checkbox-no-previous-surgeries"
+      />
 
-      <Separator className="my-6" />
-
-      <div>
-        <h3 className="font-semibold mb-2">{t("questionnaire.history.dental.title")}</h3>
-        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.dental.subtitle")}</p>
-        <div className="space-y-2">
-          {[
-            { id: "dentures", label: t("questionnaire.history.dental.dentures") },
-            { id: "crowns", label: t("questionnaire.history.dental.crowns") },
-            { id: "implants", label: t("questionnaire.history.dental.implants") },
-            { id: "looseTeeth", label: t("questionnaire.history.dental.looseTeeth") },
-            { id: "damagedTeeth", label: t("questionnaire.history.dental.damagedTeeth") },
-          ].map((item) => (
-            <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
-              <Checkbox
-                id={`dental-${item.id}`}
-                checked={formData.dentalIssues[item.id] || false}
-                onCheckedChange={(checked) => updateField("dentalIssues", { ...formData.dentalIssues, [item.id]: !!checked })}
-                data-testid={`checkbox-dental-${item.id}`}
-              />
-              <Label htmlFor={`dental-${item.id}`} className="font-normal cursor-pointer">
-                {item.label}
-              </Label>
-            </div>
-          ))}
-        </div>
-        <div className="mt-3">
-          <Input
-            placeholder={t("questionnaire.history.dental.notes")}
-            value={formData.dentalNotes}
-            onChange={(e) => updateField("dentalNotes", e.target.value)}
-            data-testid="input-dental-notes"
+      {!formData.noPreviousSurgeries && (
+        <div>
+          <Label htmlFor="previousSurgeries">{t("questionnaire.history.surgeries")}</Label>
+          <p className="text-xs text-gray-500 mb-2">{t("questionnaire.history.surgeriesHint")}</p>
+          <Textarea
+            id="previousSurgeries"
+            value={formData.previousSurgeries}
+            onChange={(e) => updateField("previousSurgeries", e.target.value)}
+            rows={4}
+            data-testid="input-previous-surgeries"
           />
         </div>
-      </div>
+      )}
+
+      <Separator className="my-6" />
+
+      <NoneCheckbox
+        checked={formData.noAnesthesiaProblems}
+        onChange={handleNoneAnesthesiaToggle}
+        label={t("questionnaire.conditions.noAnesthesiaProblems")}
+        testId="checkbox-no-anesthesia-problems"
+      />
+
+      {!formData.noAnesthesiaProblems && (
+        <div>
+          <Label htmlFor="previousAnesthesiaProblems">{t("questionnaire.history.anesthesia")}</Label>
+          <p className="text-xs text-gray-500 mb-2">{t("questionnaire.history.anesthesiaHint")}</p>
+          <Textarea
+            id="previousAnesthesiaProblems"
+            value={formData.previousAnesthesiaProblems}
+            onChange={(e) => updateField("previousAnesthesiaProblems", e.target.value)}
+            rows={4}
+            data-testid="input-anesthesia-problems"
+          />
+        </div>
+      )}
+
+      <Separator className="my-6" />
+
+      <NoneCheckbox
+        checked={formData.noDentalIssues}
+        onChange={handleNoneDentalToggle}
+        label={t("questionnaire.conditions.noDentalIssues")}
+        testId="checkbox-no-dental-issues"
+      />
+
+      {!formData.noDentalIssues && (
+        <div>
+          <h3 className="font-semibold mb-2">{t("questionnaire.history.dental.title")}</h3>
+          <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.dental.subtitle")}</p>
+          <div className="space-y-2">
+            {[
+              { id: "dentures", label: t("questionnaire.history.dental.dentures") },
+              { id: "crowns", label: t("questionnaire.history.dental.crowns") },
+              { id: "implants", label: t("questionnaire.history.dental.implants") },
+              { id: "looseTeeth", label: t("questionnaire.history.dental.looseTeeth") },
+              { id: "damagedTeeth", label: t("questionnaire.history.dental.damagedTeeth") },
+            ].map((item) => (
+              <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
+                <Checkbox
+                  id={`dental-${item.id}`}
+                  checked={formData.dentalIssues[item.id] || false}
+                  onCheckedChange={(checked) => updateField("dentalIssues", { ...formData.dentalIssues, [item.id]: !!checked })}
+                  data-testid={`checkbox-dental-${item.id}`}
+                />
+                <Label htmlFor={`dental-${item.id}`} className="font-normal cursor-pointer">
+                  {item.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3">
+            <Input
+              placeholder={t("questionnaire.history.dental.notes")}
+              value={formData.dentalNotes}
+              onChange={(e) => updateField("dentalNotes", e.target.value)}
+              data-testid="input-dental-notes"
+            />
+          </div>
+        </div>
+      )}
+
+      <Separator className="my-6" />
+
+      <NoneCheckbox
+        checked={formData.noPonvIssues}
+        onChange={handleNonePonvToggle}
+        label={t("questionnaire.conditions.noPonvIssues")}
+        testId="checkbox-no-ponv-issues"
+      />
+
+      {!formData.noPonvIssues && (
+        <div>
+          <h3 className="font-semibold mb-2">{t("questionnaire.history.ponv.title")}</h3>
+          <p className="text-xs text-gray-500 mb-3">{t("questionnaire.history.ponv.subtitle")}</p>
+          <div className="space-y-2">
+            {[
+              { id: "ponvPrevious", label: t("questionnaire.history.ponv.ponvPrevious") },
+              { id: "ponvFamily", label: t("questionnaire.history.ponv.ponvFamily") },
+              { id: "bloodTransfusion", label: t("questionnaire.history.ponv.bloodTransfusion") },
+              { id: "transfusionReaction", label: t("questionnaire.history.ponv.transfusionReaction") },
+            ].map((item) => (
+              <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
+                <Checkbox
+                  id={`ponv-${item.id}`}
+                  checked={formData.ponvTransfusionIssues[item.id] || false}
+                  onCheckedChange={(checked) => updateField("ponvTransfusionIssues", { ...formData.ponvTransfusionIssues, [item.id]: !!checked })}
+                  data-testid={`checkbox-ponv-${item.id}`}
+                />
+                <Label htmlFor={`ponv-${item.id}`} className="font-normal cursor-pointer">
+                  {item.label}
+                </Label>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3">
+            <Input
+              placeholder={t("questionnaire.history.ponv.notes")}
+              value={formData.ponvTransfusionNotes}
+              onChange={(e) => updateField("ponvTransfusionNotes", e.target.value)}
+              data-testid="input-ponv-notes"
+            />
+          </div>
+        </div>
+      )}
 
     </div>
   );
@@ -1471,9 +1787,10 @@ function ConditionsStep({ formData, updateField, conditions, t, language }: Cond
 
 interface MedicationsStepProps extends StepProps {
   medicationsList?: Array<{ id: string; label: string; category: string }>;
+  onNoneChecked: () => void;
 }
 
-function MedicationsStep({ formData, updateField, t, medicationsList }: MedicationsStepProps) {
+function MedicationsStep({ formData, updateField, t, medicationsList, onNoneChecked }: MedicationsStepProps) {
   const addMedication = (name?: string) => {
     updateField("medications", [
       ...formData.medications,
@@ -1513,6 +1830,15 @@ function MedicationsStep({ formData, updateField, t, medicationsList }: Medicati
 
   const hasPredefinedMedications = medicationsList && medicationsList.length > 0;
 
+  const handleNoneToggle = (checked: boolean) => {
+    updateField("noMedications", checked);
+    if (checked) {
+      updateField("medications", []);
+      updateField("medicationsNotes", "");
+      onNoneChecked();
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -1522,7 +1848,14 @@ function MedicationsStep({ formData, updateField, t, medicationsList }: Medicati
         </p>
       </div>
 
-      {hasPredefinedMedications && (
+      <NoneCheckbox
+        checked={formData.noMedications}
+        onChange={handleNoneToggle}
+        label={t("questionnaire.medications.noneCheckbox")}
+        testId="checkbox-no-medications"
+      />
+
+      {!formData.noMedications && hasPredefinedMedications && (
         <div className="space-y-3">
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {t("questionnaire.medications.selectFromList")}
@@ -1549,11 +1882,11 @@ function MedicationsStep({ formData, updateField, t, medicationsList }: Medicati
         </div>
       )}
 
-      {hasPredefinedMedications && (
+      {!formData.noMedications && hasPredefinedMedications && (
         <Separator className="my-4" />
       )}
 
-      {formData.medications.length > 0 && (
+      {!formData.noMedications && formData.medications.length > 0 && (
         <div className="space-y-4">
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
             {hasPredefinedMedications ? t("questionnaire.medications.orAddCustom") : ""}
@@ -1603,26 +1936,30 @@ function MedicationsStep({ formData, updateField, t, medicationsList }: Medicati
         </div>
       )}
 
-      <Button 
-        variant="outline" 
-        onClick={() => addMedication()} 
-        className="w-full" 
-        data-testid="button-add-medication"
-      >
-        <Plus className="h-4 w-4 mr-1" />
-        {hasPredefinedMedications ? t("questionnaire.medications.addCustom") : t("questionnaire.medications.add")}
-      </Button>
+      {!formData.noMedications && (
+        <Button 
+          variant="outline" 
+          onClick={() => addMedication()} 
+          className="w-full" 
+          data-testid="button-add-medication"
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          {hasPredefinedMedications ? t("questionnaire.medications.addCustom") : t("questionnaire.medications.add")}
+        </Button>
+      )}
 
-      <div>
-        <Label htmlFor="medicationsNotes">{t("questionnaire.medications.notes")}</Label>
-        <Textarea
-          id="medicationsNotes"
-          value={formData.medicationsNotes}
-          onChange={(e) => updateField("medicationsNotes", e.target.value)}
-          rows={3}
-          data-testid="input-medications-notes"
-        />
-      </div>
+      {!formData.noMedications && (
+        <div>
+          <Label htmlFor="medicationsNotes">{t("questionnaire.medications.notes")}</Label>
+          <Textarea
+            id="medicationsNotes"
+            value={formData.medicationsNotes}
+            onChange={(e) => updateField("medicationsNotes", e.target.value)}
+            rows={3}
+            data-testid="input-medications-notes"
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -1630,9 +1967,10 @@ function MedicationsStep({ formData, updateField, t, medicationsList }: Medicati
 interface AllergiesStepProps extends StepProps {
   allergyList: Array<{ id: string; label: string; labelDe?: string; labelEn?: string; helpText?: string }>;
   language: string;
+  onNoneChecked: () => void;
 }
 
-function AllergiesStep({ formData, updateField, allergyList, t, language }: AllergiesStepProps) {
+function AllergiesStep({ formData, updateField, allergyList, t, language, onNoneChecked }: AllergiesStepProps) {
   const getLabel = (item: { label: string; labelDe?: string; labelEn?: string }) => {
     if (language === "en" && item.labelEn) return item.labelEn;
     if (language === "de" && item.labelDe) return item.labelDe;
@@ -1647,6 +1985,15 @@ function AllergiesStep({ formData, updateField, allergyList, t, language }: Alle
     }
   };
 
+  const handleNoneToggle = (checked: boolean) => {
+    updateField("noAllergies", checked);
+    if (checked) {
+      updateField("allergies", []);
+      updateField("allergiesNotes", "");
+      onNoneChecked();
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div>
@@ -1656,170 +2003,225 @@ function AllergiesStep({ formData, updateField, allergyList, t, language }: Alle
         </p>
       </div>
 
-      {allergyList.length > 0 && (
-        <div className="space-y-2">
-          {allergyList.map((allergy) => (
-            <div key={allergy.id} className="flex items-start gap-3 p-2 border rounded">
-              <Checkbox
-                id={`allergy-${allergy.id}`}
-                checked={formData.allergies.includes(allergy.id)}
-                onCheckedChange={() => toggleAllergy(allergy.id)}
-                data-testid={`checkbox-allergy-${allergy.id}`}
-              />
-              <div>
-                <Label htmlFor={`allergy-${allergy.id}`} className="font-normal cursor-pointer">
-                  {getLabel(allergy)}
-                </Label>
-                {allergy.helpText && (
-                  <p className="text-xs text-gray-500">{allergy.helpText}</p>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <NoneCheckbox
+        checked={formData.noAllergies}
+        onChange={handleNoneToggle}
+        label={t("questionnaire.allergies.noneCheckbox")}
+        testId="checkbox-no-allergies"
+      />
 
-      <div>
-        <Label htmlFor="allergiesNotes">{t("questionnaire.allergies.notes")}</Label>
-        <Textarea
-          id="allergiesNotes"
-          value={formData.allergiesNotes}
-          onChange={(e) => updateField("allergiesNotes", e.target.value)}
-          rows={4}
-          placeholder={t("questionnaire.allergies.notes")}
-          data-testid="input-allergies-notes"
-        />
-      </div>
+      {!formData.noAllergies && (
+        <>
+          {allergyList.length > 0 && (
+            <div className="space-y-2">
+              {allergyList.map((allergy) => (
+                <div key={allergy.id} className="flex items-start gap-3 p-2 border rounded">
+                  <Checkbox
+                    id={`allergy-${allergy.id}`}
+                    checked={formData.allergies.includes(allergy.id)}
+                    onCheckedChange={() => toggleAllergy(allergy.id)}
+                    data-testid={`checkbox-allergy-${allergy.id}`}
+                  />
+                  <div>
+                    <Label htmlFor={`allergy-${allergy.id}`} className="font-normal cursor-pointer">
+                      {getLabel(allergy)}
+                    </Label>
+                    {allergy.helpText && (
+                      <p className="text-xs text-gray-500">{allergy.helpText}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="allergiesNotes">{t("questionnaire.allergies.notes")}</Label>
+            <Textarea
+              id="allergiesNotes"
+              value={formData.allergiesNotes}
+              onChange={(e) => updateField("allergiesNotes", e.target.value)}
+              rows={4}
+              placeholder={t("questionnaire.allergies.notes")}
+              data-testid="input-allergies-notes"
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
-function LifestyleStep({ formData, updateField, t }: StepProps) {
+interface LifestyleStepProps extends StepProps {
+  onNoneChecked: () => void;
+}
+
+function LifestyleStep({ formData, updateField, t, onNoneChecked }: LifestyleStepProps) {
+  const handleNoneSmokingAlcoholToggle = (checked: boolean) => {
+    updateField("noSmokingAlcohol", checked);
+    if (checked) {
+      updateField("smokingStatus", "never");
+      updateField("smokingDetails", "");
+      updateField("alcoholStatus", "never");
+      updateField("alcoholDetails", "");
+    }
+  };
+
+  const handleNoneDrugUseToggle = (checked: boolean) => {
+    updateField("noDrugUse", checked);
+    if (checked) {
+      updateField("drugUse", {});
+      updateField("drugUseDetails", "");
+    }
+  };
+
+  const allNone = formData.noSmokingAlcohol && formData.noDrugUse;
+
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="font-semibold mb-3">{t("questionnaire.lifestyle.smoking.title")}</h3>
-        <RadioGroup
-          value={formData.smokingStatus}
-          onValueChange={(value) => updateField("smokingStatus", value)}
-        >
-          <div className="space-y-2">
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="never" id="smoking-never" data-testid="radio-smoking-never" />
-              <Label htmlFor="smoking-never" className="font-normal cursor-pointer">
-                {t("questionnaire.lifestyle.smoking.never")}
-              </Label>
-            </div>
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="former" id="smoking-former" data-testid="radio-smoking-former" />
-              <Label htmlFor="smoking-former" className="font-normal cursor-pointer">
-                {t("questionnaire.lifestyle.smoking.former")}
-              </Label>
-            </div>
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="current" id="smoking-current" data-testid="radio-smoking-current" />
-              <Label htmlFor="smoking-current" className="font-normal cursor-pointer">
-                {t("questionnaire.lifestyle.smoking.current")}
-              </Label>
-            </div>
+      <NoneCheckbox
+        checked={formData.noSmokingAlcohol}
+        onChange={handleNoneSmokingAlcoholToggle}
+        label={t("questionnaire.lifestyle.noSmokingAlcohol")}
+        testId="checkbox-no-smoking-alcohol"
+      />
+
+      {!formData.noSmokingAlcohol && (
+        <>
+          <div>
+            <h3 className="font-semibold mb-3">{t("questionnaire.lifestyle.smoking.title")}</h3>
+            <RadioGroup
+              value={formData.smokingStatus}
+              onValueChange={(value) => updateField("smokingStatus", value)}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="never" id="smoking-never" data-testid="radio-smoking-never" />
+                  <Label htmlFor="smoking-never" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.smoking.never")}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="former" id="smoking-former" data-testid="radio-smoking-former" />
+                  <Label htmlFor="smoking-former" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.smoking.former")}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="current" id="smoking-current" data-testid="radio-smoking-current" />
+                  <Label htmlFor="smoking-current" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.smoking.current")}
+                  </Label>
+                </div>
+              </div>
+            </RadioGroup>
+            {(formData.smokingStatus === "former" || formData.smokingStatus === "current") && (
+              <div className="mt-3">
+                <Input
+                  placeholder={t("questionnaire.lifestyle.smoking.details")}
+                  value={formData.smokingDetails}
+                  onChange={(e) => updateField("smokingDetails", e.target.value)}
+                  data-testid="input-smoking-details"
+                />
+              </div>
+            )}
           </div>
-        </RadioGroup>
-        {(formData.smokingStatus === "former" || formData.smokingStatus === "current") && (
-          <div className="mt-3">
-            <Input
-              placeholder={t("questionnaire.lifestyle.smoking.details")}
-              value={formData.smokingDetails}
-              onChange={(e) => updateField("smokingDetails", e.target.value)}
-              data-testid="input-smoking-details"
-            />
+
+          <Separator />
+
+          <div>
+            <h3 className="font-semibold mb-3">{t("questionnaire.lifestyle.alcohol.title")}</h3>
+            <RadioGroup
+              value={formData.alcoholStatus}
+              onValueChange={(value) => updateField("alcoholStatus", value)}
+            >
+              <div className="space-y-2">
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="never" id="alcohol-never" data-testid="radio-alcohol-never" />
+                  <Label htmlFor="alcohol-never" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.alcohol.never")}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="occasional" id="alcohol-occasional" data-testid="radio-alcohol-occasional" />
+                  <Label htmlFor="alcohol-occasional" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.alcohol.occasional")}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="moderate" id="alcohol-moderate" data-testid="radio-alcohol-moderate" />
+                  <Label htmlFor="alcohol-moderate" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.alcohol.moderate")}
+                  </Label>
+                </div>
+                <div className="flex items-center gap-3 p-2 border rounded">
+                  <RadioGroupItem value="heavy" id="alcohol-heavy" data-testid="radio-alcohol-heavy" />
+                  <Label htmlFor="alcohol-heavy" className="font-normal cursor-pointer">
+                    {t("questionnaire.lifestyle.alcohol.heavy")}
+                  </Label>
+                </div>
+              </div>
+            </RadioGroup>
+            {formData.alcoholStatus && formData.alcoholStatus !== "never" && (
+              <div className="mt-3">
+                <Input
+                  placeholder={t("questionnaire.lifestyle.alcohol.details")}
+                  value={formData.alcoholDetails}
+                  onChange={(e) => updateField("alcoholDetails", e.target.value)}
+                  data-testid="input-alcohol-details"
+                />
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       <Separator />
 
-      <div>
-        <h3 className="font-semibold mb-3">{t("questionnaire.lifestyle.alcohol.title")}</h3>
-        <RadioGroup
-          value={formData.alcoholStatus}
-          onValueChange={(value) => updateField("alcoholStatus", value)}
-        >
+      <NoneCheckbox
+        checked={formData.noDrugUse}
+        onChange={handleNoneDrugUseToggle}
+        label={t("questionnaire.lifestyle.noDrugUse")}
+        testId="checkbox-no-drug-use"
+      />
+
+      {!formData.noDrugUse && (
+        <div>
+          <h3 className="font-semibold mb-2">{t("questionnaire.lifestyle.drugs.title")}</h3>
+          <p className="text-xs text-gray-500 mb-3">{t("questionnaire.lifestyle.drugs.subtitle")}</p>
           <div className="space-y-2">
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="never" id="alcohol-never" data-testid="radio-alcohol-never" />
-              <Label htmlFor="alcohol-never" className="font-normal cursor-pointer">
-                {t("questionnaire.lifestyle.alcohol.never")}
-              </Label>
-            </div>
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="occasional" id="alcohol-occasional" data-testid="radio-alcohol-occasional" />
-              <Label htmlFor="alcohol-occasional" className="font-normal cursor-pointer">
-                {t("questionnaire.lifestyle.alcohol.occasional")}
-              </Label>
-            </div>
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="moderate" id="alcohol-moderate" data-testid="radio-alcohol-moderate" />
-              <Label htmlFor="alcohol-moderate" className="font-normal cursor-pointer">
-                {t("questionnaire.lifestyle.alcohol.moderate")}
-              </Label>
-            </div>
-            <div className="flex items-center gap-3 p-2 border rounded">
-              <RadioGroupItem value="heavy" id="alcohol-heavy" data-testid="radio-alcohol-heavy" />
-              <Label htmlFor="alcohol-heavy" className="font-normal cursor-pointer">
-                {t("questionnaire.lifestyle.alcohol.heavy")}
-              </Label>
-            </div>
+            {[
+              { id: "thc", label: t("questionnaire.lifestyle.drugs.thc") },
+              { id: "cocaine", label: t("questionnaire.lifestyle.drugs.cocaine") },
+              { id: "heroin", label: t("questionnaire.lifestyle.drugs.heroin") },
+              { id: "mdma", label: t("questionnaire.lifestyle.drugs.mdma") },
+              { id: "other", label: t("questionnaire.lifestyle.drugs.other") },
+            ].map((item) => (
+              <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
+                <Checkbox
+                  id={`drug-${item.id}`}
+                  checked={formData.drugUse[item.id] || false}
+                  onCheckedChange={(checked) => updateField("drugUse", { ...formData.drugUse, [item.id]: !!checked })}
+                  data-testid={`checkbox-drug-${item.id}`}
+                />
+                <Label htmlFor={`drug-${item.id}`} className="font-normal cursor-pointer">
+                  {item.label}
+                </Label>
+              </div>
+            ))}
           </div>
-        </RadioGroup>
-        {formData.alcoholStatus && formData.alcoholStatus !== "never" && (
-          <div className="mt-3">
-            <Input
-              placeholder={t("questionnaire.lifestyle.alcohol.details")}
-              value={formData.alcoholDetails}
-              onChange={(e) => updateField("alcoholDetails", e.target.value)}
-              data-testid="input-alcohol-details"
-            />
-          </div>
-        )}
-      </div>
-
-      <Separator />
-
-      <div>
-        <h3 className="font-semibold mb-2">{t("questionnaire.lifestyle.drugs.title")}</h3>
-        <p className="text-xs text-gray-500 mb-3">{t("questionnaire.lifestyle.drugs.subtitle")}</p>
-        <div className="space-y-2">
-          {[
-            { id: "thc", label: t("questionnaire.lifestyle.drugs.thc") },
-            { id: "cocaine", label: t("questionnaire.lifestyle.drugs.cocaine") },
-            { id: "heroin", label: t("questionnaire.lifestyle.drugs.heroin") },
-            { id: "mdma", label: t("questionnaire.lifestyle.drugs.mdma") },
-            { id: "other", label: t("questionnaire.lifestyle.drugs.other") },
-          ].map((item) => (
-            <div key={item.id} className="flex items-center gap-3 p-2 border rounded">
-              <Checkbox
-                id={`drug-${item.id}`}
-                checked={formData.drugUse[item.id] || false}
-                onCheckedChange={(checked) => updateField("drugUse", { ...formData.drugUse, [item.id]: !!checked })}
-                data-testid={`checkbox-drug-${item.id}`}
+          {Object.values(formData.drugUse).some(v => v) && (
+            <div className="mt-3">
+              <Input
+                placeholder={t("questionnaire.lifestyle.drugs.details")}
+                value={formData.drugUseDetails}
+                onChange={(e) => updateField("drugUseDetails", e.target.value)}
+                data-testid="input-drug-details"
               />
-              <Label htmlFor={`drug-${item.id}`} className="font-normal cursor-pointer">
-                {item.label}
-              </Label>
             </div>
-          ))}
+          )}
         </div>
-        {Object.values(formData.drugUse).some(v => v) && (
-          <div className="mt-3">
-            <Input
-              placeholder={t("questionnaire.lifestyle.drugs.details")}
-              value={formData.drugUseDetails}
-              onChange={(e) => updateField("drugUseDetails", e.target.value)}
-              data-testid="input-drug-details"
-            />
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }
@@ -2029,6 +2431,208 @@ function UploadsStep({ uploads, uploadError, onUpload, onDelete, t }: UploadsSte
       <p className="text-center text-gray-500 text-sm">
         {t("questionnaire.uploads.skip")}
       </p>
+    </div>
+  );
+}
+
+interface SummaryStepProps {
+  formData: FormData;
+  t: (key: string) => string;
+  uploads: FileUpload[];
+  onEditStep: (stepIndex: number) => void;
+  allergyList?: Array<{ id: string; label: string; labelDe?: string; labelEn?: string }>;
+  conditionsList?: Array<{ id: string; label: string; labelDe?: string; labelEn?: string }>;
+  language: string;
+}
+
+function SummaryStep({ formData, t, uploads, onEditStep, allergyList, conditionsList, language }: SummaryStepProps) {
+  const getLabel = (item: { label: string; labelDe?: string; labelEn?: string }) => {
+    if (language === "en" && item.labelEn) return item.labelEn;
+    if (language === "de" && item.labelDe) return item.labelDe;
+    return item.label;
+  };
+
+  const NoneBadge = () => (
+    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+      <CheckCircle className="h-3 w-3" />
+      {t("questionnaire.summary.noneExplicit")}
+    </span>
+  );
+
+  const SectionHeader = ({ title, stepIndex }: { title: string; stepIndex: number }) => (
+    <div className="flex items-center justify-between">
+      <h4 className="font-semibold text-sm">{title}</h4>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => onEditStep(stepIndex)}
+        className="text-primary h-7 px-2"
+        data-testid={`button-edit-step-${stepIndex}`}
+      >
+        <Pencil className="h-3 w-3 mr-1" />
+        {language === "de" ? "Bearbeiten" : "Edit"}
+      </Button>
+    </div>
+  );
+
+  const checkedConditions = conditionsList?.filter(c => formData.conditions[c.id]?.checked) || [];
+  const selectedAllergies = allergyList?.filter(a => formData.allergies.includes(a.id)) || [];
+  const dentalItems = Object.entries(formData.dentalIssues).filter(([_, v]) => v);
+  const ponvItems = Object.entries(formData.ponvTransfusionIssues).filter(([_, v]) => v);
+  const drugItems = Object.entries(formData.drugUse).filter(([_, v]) => v);
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h3 className="font-semibold text-lg">{t("questionnaire.summary.title")}</h3>
+        <p className="text-sm text-gray-500">{t("questionnaire.summary.subtitle")}</p>
+      </div>
+
+      <div className="space-y-4">
+        <div className="border rounded-lg p-3 space-y-1">
+          <SectionHeader title={t("questionnaire.summary.personalInfo")} stepIndex={0} />
+          <p className="text-sm">{formData.patientFirstName} {formData.patientLastName}</p>
+          {formData.dateOfBirth && <p className="text-sm text-gray-500">{formData.dateOfBirth}</p>}
+          {formData.patientPhone && <p className="text-sm text-gray-500">{formData.patientPhone}</p>}
+        </div>
+
+        <div className="border rounded-lg p-3 space-y-1">
+          <SectionHeader title={t("questionnaire.steps.allergies")} stepIndex={1} />
+          {formData.noAllergies ? (
+            <NoneBadge />
+          ) : selectedAllergies.length > 0 || formData.allergiesNotes ? (
+            <div>
+              {selectedAllergies.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {selectedAllergies.map(a => (
+                    <span key={a.id} className="px-2 py-0.5 bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 rounded-full text-xs">
+                      {getLabel(a)}
+                    </span>
+                  ))}
+                </div>
+              )}
+              {formData.allergiesNotes && <p className="text-sm text-gray-600 mt-1">{formData.allergiesNotes}</p>}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>
+          )}
+        </div>
+
+        <div className="border rounded-lg p-3 space-y-2">
+          <SectionHeader title={t("questionnaire.steps.conditions")} stepIndex={2} />
+          {formData.noConditions ? (
+            <NoneBadge />
+          ) : checkedConditions.length > 0 ? (
+            <div className="flex flex-wrap gap-1">
+              {checkedConditions.map(c => (
+                <span key={c.id} className="px-2 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 rounded-full text-xs">
+                  {getLabel(c)}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>
+          )}
+
+          <div className="border-t pt-2 mt-2">
+            <p className="text-xs font-medium text-gray-500 mb-1">{t("questionnaire.summary.previousSurgeries")}</p>
+            {formData.noPreviousSurgeries ? <NoneBadge /> : formData.previousSurgeries ? (
+              <p className="text-sm">{formData.previousSurgeries}</p>
+            ) : <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>}
+          </div>
+
+          <div className="border-t pt-2">
+            <p className="text-xs font-medium text-gray-500 mb-1">{t("questionnaire.summary.anesthesiaProblems")}</p>
+            {formData.noAnesthesiaProblems ? <NoneBadge /> : formData.previousAnesthesiaProblems ? (
+              <p className="text-sm">{formData.previousAnesthesiaProblems}</p>
+            ) : <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>}
+          </div>
+
+          <div className="border-t pt-2">
+            <p className="text-xs font-medium text-gray-500 mb-1">{t("questionnaire.summary.dentalStatus")}</p>
+            {formData.noDentalIssues ? <NoneBadge /> : dentalItems.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {dentalItems.map(([key]) => (
+                  <span key={key} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs">{key}</span>
+                ))}
+              </div>
+            ) : <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>}
+          </div>
+
+          <div className="border-t pt-2">
+            <p className="text-xs font-medium text-gray-500 mb-1">{t("questionnaire.summary.previousReactions")}</p>
+            {formData.noPonvIssues ? <NoneBadge /> : ponvItems.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {ponvItems.map(([key]) => (
+                  <span key={key} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs">{key}</span>
+                ))}
+              </div>
+            ) : <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>}
+          </div>
+        </div>
+
+        <div className="border rounded-lg p-3 space-y-1">
+          <SectionHeader title={t("questionnaire.steps.medications")} stepIndex={3} />
+          {formData.noMedications ? (
+            <NoneBadge />
+          ) : formData.medications.length > 0 ? (
+            <div className="space-y-1">
+              {formData.medications.map((med, i) => (
+                <p key={i} className="text-sm">
+                  {med.name}{med.dosage ? ` - ${med.dosage}` : ""}{med.frequency ? ` (${med.frequency})` : ""}
+                </p>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>
+          )}
+        </div>
+
+        <div className="border rounded-lg p-3 space-y-2">
+          <SectionHeader title={t("questionnaire.steps.lifestyle")} stepIndex={4} />
+          <div>
+            <p className="text-xs font-medium text-gray-500">{t("questionnaire.summary.smoking")}</p>
+            {formData.noSmokingAlcohol ? <NoneBadge /> : formData.smokingStatus ? (
+              <p className="text-sm capitalize">{formData.smokingStatus}{formData.smokingDetails ? `: ${formData.smokingDetails}` : ""}</p>
+            ) : <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>}
+          </div>
+          {!formData.noSmokingAlcohol && (
+            <div>
+              <p className="text-xs font-medium text-gray-500">{t("questionnaire.summary.alcohol")}</p>
+              {formData.alcoholStatus ? (
+                <p className="text-sm capitalize">{formData.alcoholStatus}{formData.alcoholDetails ? `: ${formData.alcoholDetails}` : ""}</p>
+              ) : <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>}
+            </div>
+          )}
+          <div>
+            <p className="text-xs font-medium text-gray-500">{t("questionnaire.summary.drugs")}</p>
+            {formData.noDrugUse ? <NoneBadge /> : drugItems.length > 0 ? (
+              <div className="flex flex-wrap gap-1">
+                {drugItems.map(([key]) => (
+                  <span key={key} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs capitalize">{key}</span>
+                ))}
+              </div>
+            ) : <p className="text-sm text-gray-400 italic">{t("questionnaire.summary.notFilled")}</p>}
+          </div>
+        </div>
+
+        {uploads.length > 0 && (
+          <div className="border rounded-lg p-3 space-y-1">
+            <SectionHeader title={t("questionnaire.summary.documents")} stepIndex={5} />
+            <p className="text-sm">{uploads.length} {language === "de" ? "Dokument(e)" : "document(s)"}</p>
+          </div>
+        )}
+
+        {(formData.additionalNotes || formData.questionsForDoctor) && (
+          <div className="border rounded-lg p-3 space-y-1">
+            <SectionHeader title={t("questionnaire.summary.additionalNotes")} stepIndex={6} />
+            {formData.additionalNotes && <p className="text-sm">{formData.additionalNotes}</p>}
+            {formData.questionsForDoctor && (
+              <p className="text-sm text-gray-500">{t("questionnaire.summary.questionsForDoctor")}: {formData.questionsForDoctor}</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

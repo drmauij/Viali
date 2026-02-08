@@ -4312,7 +4312,9 @@
       "savedDesc": "The review has been saved successfully",
       "saveError": "Failed to save review",
       "noMedications": "No medications listed",
-      "noConditions": "No conditions reported"
+      "noConditions": "No conditions reported",
+      "noneConfirmed": "None (confirmed)",
+      "noSmokingAlcohol": "No smoking or alcohol (confirmed by patient)"
     },
     "personal": {
       "height": "Height",

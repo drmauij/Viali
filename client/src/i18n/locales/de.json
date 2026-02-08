@@ -4364,7 +4364,9 @@
       "savedDesc": "Die Überprüfung wurde erfolgreich gespeichert",
       "saveError": "Überprüfung konnte nicht gespeichert werden",
       "noMedications": "Keine Medikamente angegeben",
-      "noConditions": "Keine Erkrankungen gemeldet"
+      "noConditions": "Keine Erkrankungen gemeldet",
+      "noneConfirmed": "Keine (bestätigt)",
+      "noSmokingAlcohol": "Kein Rauchen oder Alkohol (vom Patienten bestätigt)"
     },
     "personal": {
       "height": "Körpergrösse",

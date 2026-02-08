@@ -3676,6 +3676,17 @@ export const patientQuestionnaireResponses = pgTable("patient_questionnaire_resp
   drugUse: jsonb("drug_use").$type<Record<string, boolean>>(),
   drugUseDetails: text("drug_use_details"),
   
+  // Explicit "none" confirmation flags
+  noAllergies: boolean("no_allergies").default(false),
+  noMedications: boolean("no_medications").default(false),
+  noConditions: boolean("no_conditions").default(false),
+  noSmokingAlcohol: boolean("no_smoking_alcohol").default(false),
+  noPreviousSurgeries: boolean("no_previous_surgeries").default(false),
+  noAnesthesiaProblems: boolean("no_anesthesia_problems").default(false),
+  noDentalIssues: boolean("no_dental_issues").default(false),
+  noPonvIssues: boolean("no_ponv_issues").default(false),
+  noDrugUse: boolean("no_drug_use").default(false),
+  
   // Outpatient caregiver contact
   outpatientCaregiverFirstName: varchar("outpatient_caregiver_first_name"),
   outpatientCaregiverLastName: varchar("outpatient_caregiver_last_name"),
