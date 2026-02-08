@@ -2243,6 +2243,8 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
     const hospitalName = hospital?.name || 'Hospital';
 
     let sentMethod: 'sms' | 'email' | null = null;
+    let sentRecipient = '';
+    let sentMessageContent = '';
 
     if (method === 'sms' || (!method && patient.phone)) {
       if (patient.phone && await isSmsConfiguredForHospital(hospitalId)) {
@@ -2250,6 +2252,8 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
         const smsResult = await sendSms(patient.phone, message, hospitalId);
         if (smsResult.success) {
           sentMethod = 'sms';
+          sentRecipient = patient.phone;
+          sentMessageContent = message;
         }
       }
     }
@@ -2258,10 +2262,11 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
       if (patient.email) {
         try {
           const resend = new Resend(process.env.RESEND_API_KEY);
+          const emailSubject = `${hospitalName}: Einwilligungserklärung online unterschreiben / Sign informed consent online`;
           const emailResult = await resend.emails.send({
             from: process.env.RESEND_FROM_EMAIL || 'noreply@viali.app',
             to: patient.email,
-            subject: `${hospitalName}: Einwilligungserklärung online unterschreiben / Sign informed consent online`,
+            subject: emailSubject,
             html: `
               <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
                 <h2>${hospitalName}</h2>
@@ -2280,6 +2285,8 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
           });
           if (emailResult.data) {
             sentMethod = 'email';
+            sentRecipient = patient.email;
+            sentMessageContent = `${emailSubject}\n\nSie können Ihre Einwilligungserklärung online unterschreiben. / You can sign the informed consent online.\n${portalUrl}`;
           }
         } catch (emailError) {
           console.error("Error sending consent invitation email:", emailError);
@@ -2295,6 +2302,22 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
       consentInvitationSentAt: new Date(),
       consentInvitationMethod: sentMethod,
     });
+
+    try {
+      await storage.createPatientMessage({
+        hospitalId,
+        patientId: patient.id,
+        sentBy: userId,
+        channel: sentMethod,
+        recipient: sentRecipient,
+        message: sentMessageContent,
+        status: 'sent',
+        isAutomatic: true,
+        messageType: 'auto_consent_invitation',
+      });
+    } catch (msgErr) {
+      console.error("Error saving consent invitation to communication history:", msgErr);
+    }
 
     res.json({
       success: true,
