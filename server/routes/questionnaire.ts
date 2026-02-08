@@ -859,25 +859,45 @@ router.post('/api/questionnaire/fix-expired-links', isAuthenticated, requireWrit
     let fixedCount = 0;
 
     for (const link of allLinks) {
-      if (!link.surgeryId) continue;
       if (link.status === 'submitted' || link.status === 'reviewed') continue;
 
       const isExpired = link.expiresAt && new Date(link.expiresAt) < now;
       const isStatusExpired = link.status === 'expired';
       if (!isExpired && !isStatusExpired) continue;
 
-      const surgery = await storage.getSurgery(link.surgeryId);
-      if (!surgery || !surgery.plannedDate) continue;
+      let surgeryDate: Date | null = null;
 
-      const surgeryDate = new Date(surgery.plannedDate);
-      if (surgeryDate <= now) continue;
+      if (link.surgeryId) {
+        const surgery = await storage.getSurgery(link.surgeryId);
+        if (surgery?.plannedDate) {
+          surgeryDate = new Date(surgery.plannedDate);
+        }
+      }
+
+      if (!surgeryDate && link.patientId) {
+        const patientSurgeries = await storage.getSurgeries(hospitalId, {
+          patientId: link.patientId,
+          dateFrom: now,
+        });
+        if (patientSurgeries.length > 0) {
+          const sorted = patientSurgeries.sort((a, b) =>
+            new Date(a.plannedDate).getTime() - new Date(b.plannedDate).getTime()
+          );
+          surgeryDate = new Date(sorted[0].plannedDate);
+        }
+      }
+
+      if (!surgeryDate || surgeryDate <= now) continue;
 
       const newExpiresAt = new Date(surgeryDate);
       newExpiresAt.setDate(newExpiresAt.getDate() + 1);
 
+      const existingResponse = await storage.getQuestionnaireResponseByLinkId(link.id);
+      const restoredStatus = existingResponse ? 'started' : 'pending';
+
       await storage.updateQuestionnaireLink(link.id, {
         expiresAt: newExpiresAt,
-        status: 'pending',
+        status: restoredStatus,
       });
       fixedCount++;
     }
