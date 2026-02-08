@@ -2108,7 +2108,19 @@ router.get('/api/patient-portal/:token/consent-data', consentFetchLimiter, async
       return res.status(410).json({ message: "This link has been expired" });
     }
 
-    const surgeryId = link.surgeryId;
+    let surgeryId = link.surgeryId;
+    if (!surgeryId && link.patientId) {
+      const patientSurgeries = await storage.getSurgeries(link.hospitalId, {
+        patientId: link.patientId,
+        dateFrom: new Date(),
+      });
+      if (patientSurgeries.length > 0) {
+        const sorted = patientSurgeries.sort((a, b) =>
+          new Date(a.plannedDate).getTime() - new Date(b.plannedDate).getTime()
+        );
+        surgeryId = sorted[0].id;
+      }
+    }
     if (!surgeryId) {
       return res.status(404).json({ message: "No surgery linked to this questionnaire" });
     }
@@ -2175,7 +2187,19 @@ router.post('/api/patient-portal/:token/sign-consent', consentSignLimiter, async
       return res.status(410).json({ message: "This link has been expired" });
     }
 
-    const surgeryId = link.surgeryId;
+    let surgeryId = link.surgeryId;
+    if (!surgeryId && link.patientId) {
+      const patientSurgeries = await storage.getSurgeries(link.hospitalId, {
+        patientId: link.patientId,
+        dateFrom: new Date(),
+      });
+      if (patientSurgeries.length > 0) {
+        const sorted = patientSurgeries.sort((a, b) =>
+          new Date(a.plannedDate).getTime() - new Date(b.plannedDate).getTime()
+        );
+        surgeryId = sorted[0].id;
+      }
+    }
     if (!surgeryId) {
       return res.status(404).json({ message: "No surgery linked to this questionnaire" });
     }

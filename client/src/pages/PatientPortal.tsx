@@ -489,6 +489,12 @@ export default function PatientPortal() {
   const prepStepNum = consentStepVisible ? 3 : 2;
   const surgeryStepNum = consentStepVisible ? 4 : 3;
 
+  const step1Active = !step1Complete;
+  const consentStepActive = consentStepVisible && step1Complete && !consentAlreadySigned;
+  const consentStepDone = consentStepVisible && consentAlreadySigned;
+  const prepStepActive = step1Complete && (!consentStepVisible || consentAlreadySigned) && !step3Complete;
+  const surgeryStepActive = step1Complete && (!consentStepVisible || consentAlreadySigned) && !step3Complete;
+
   if (showConsentSigning) {
     if (consentAlreadySigned || consentSubmitted) {
       return (
@@ -930,7 +936,9 @@ export default function PatientPortal() {
               ? 'border-green-300 dark:border-green-700' 
               : step1InProgress 
                 ? 'border-amber-300 dark:border-amber-700' 
-                : 'border-blue-300 dark:border-blue-700'
+                : step1Active
+                  ? 'border-blue-300 dark:border-blue-700'
+                  : 'border-gray-200 dark:border-gray-700'
           }`} 
           data-testid="card-step1-questionnaire"
         >
@@ -991,7 +999,9 @@ export default function PatientPortal() {
             className={`shadow-md bg-white dark:bg-gray-800 border-2 transition-colors ${
               consentAlreadySigned
                 ? 'border-green-300 dark:border-green-700' 
-                : 'border-amber-300 dark:border-amber-700'
+                : consentStepActive
+                  ? 'border-amber-300 dark:border-amber-700'
+                  : 'border-gray-200 dark:border-gray-700'
             }`}
             data-testid="card-step2-consent"
           >
@@ -1037,7 +1047,11 @@ export default function PatientPortal() {
 
         {/* Step: Preparation */}
         <Card 
-          className="shadow-md bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700"
+          className={`shadow-md bg-white dark:bg-gray-800 border-2 ${
+            prepStepActive
+              ? 'border-blue-200 dark:border-blue-800'
+              : 'border-gray-200 dark:border-gray-700'
+          }`}
           data-testid="card-step2-preparation"
         >
           <CardContent className="p-4">
@@ -1132,7 +1146,9 @@ export default function PatientPortal() {
           className={`shadow-md bg-white dark:bg-gray-800 border-2 ${
             step3Complete 
               ? 'border-green-300 dark:border-green-700' 
-              : 'border-blue-200 dark:border-blue-800'
+              : surgeryStepActive
+                ? 'border-blue-200 dark:border-blue-800'
+                : 'border-gray-200 dark:border-gray-700'
           }`}
           data-testid="card-step3-surgery"
         >

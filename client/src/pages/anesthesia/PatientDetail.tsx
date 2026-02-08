@@ -1584,9 +1584,10 @@ export default function PatientDetail() {
         surgeryId: selectedCaseId,
         ...data,
       });
-      return { response, shouldSendEmail: data.sendEmailCopy && data.emailForCopy };
+      const responseData = await response.json();
+      return { response: responseData, shouldSendEmail: data.sendEmailCopy && data.emailForCopy, standByData: { standBy: data.standBy, standByReason: data.standByReason } };
     },
-    onSuccess: async (result: { response: any; shouldSendEmail: boolean }) => {
+    onSuccess: async (result: { response: any; shouldSendEmail: boolean; standByData: { standBy: boolean; standByReason: string } }) => {
       setTimeout(() => { isSavingRef.current = false; }, 500);
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
@@ -1599,7 +1600,7 @@ export default function PatientDetail() {
         sendEmailMutation.mutate(result.response.id);
       }
       
-      if (assessmentData.standBy && assessmentData.standByReason === 'signature_missing' && result.response?.id) {
+      if (result.standByData.standBy && result.standByData.standByReason === 'signature_missing' && result.response?.id) {
         setConsentInvitationAssessmentId(result.response.id);
         setShowConsentInvitationDialog(true);
       }
@@ -1617,9 +1618,9 @@ export default function PatientDetail() {
   const updatePreOpMutation = useMutation({
     mutationFn: async (data: any) => {
       const response = await apiRequest("PATCH", `/api/anesthesia/preop/${existingAssessment?.id}`, data);
-      return { response, shouldSendEmail: data.sendEmailCopy && data.emailForCopy, assessmentId: existingAssessment?.id };
+      return { response, shouldSendEmail: data.sendEmailCopy && data.emailForCopy, assessmentId: existingAssessment?.id, standByData: { standBy: data.standBy, standByReason: data.standByReason } };
     },
-    onSuccess: (result: { response: any; shouldSendEmail: boolean; assessmentId: string | undefined }) => {
+    onSuccess: (result: { response: any; shouldSendEmail: boolean; assessmentId: string | undefined; standByData: { standBy: boolean; standByReason: string } }) => {
       setTimeout(() => { isSavingRef.current = false; }, 500);
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
@@ -1632,7 +1633,7 @@ export default function PatientDetail() {
         sendEmailMutation.mutate(result.assessmentId);
       }
       
-      if (assessmentData.standBy && assessmentData.standByReason === 'signature_missing' && result.assessmentId) {
+      if (result.standByData.standBy && result.standByData.standByReason === 'signature_missing' && result.assessmentId) {
         setConsentInvitationAssessmentId(result.assessmentId);
         setShowConsentInvitationDialog(true);
       }
