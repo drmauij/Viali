@@ -109,7 +109,6 @@ export default function Hospital() {
   const [hinDebugQuery, setHinDebugQuery] = useState("");
   const [hinDebugResult, setHinDebugResult] = useState<any>(null);
   const [hinDebugLoading, setHinDebugLoading] = useState(false);
-  const [fixLinksResult, setFixLinksResult] = useState<any>(null);
 
   const hinResetMutation = useMutation({
     mutationFn: async () => {
@@ -1537,74 +1536,6 @@ export default function Hospital() {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Fix Expired Questionnaire Links Card */}
-          <div className="bg-card border border-border rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-foreground text-lg">
-                  <LinkIcon className="inline-block w-4 h-4 mr-2 text-primary" />
-                  {t("admin.fixExpiredLinks", "Fix Expired Patient Links")}
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  {t("admin.fixExpiredLinksDescription", "Extend expired questionnaire links where the surgery is still upcoming")}
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  <AlertCircle className="inline-block w-3 h-3 mr-1" />
-                  {t("admin.fixExpiredLinksNote", "Only fixes links with a future surgery date")}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  try {
-                    setFixLinksResult(null);
-                    const res = await apiRequest("POST", "/api/questionnaire/fix-expired-links", {});
-                    const data = await res.json();
-                    setFixLinksResult(data);
-                    toast({
-                      title: "Links fixed",
-                      description: `Fixed ${data.fixedCount} | Skipped ${data.skippedDetails?.length || 0}`,
-                    });
-                  } catch (error: any) {
-                    toast({ title: t("common.error"), description: error.message || "Failed to fix links", variant: "destructive" });
-                  }
-                }}
-                data-testid="button-fix-expired-links"
-              >
-                <RefreshCw className="w-4 h-4 mr-2" />
-                {t("admin.fixExpiredLinksButton", "Fix Links")}
-              </Button>
-            </div>
-            {fixLinksResult && (
-              <div className="mt-3 border-t pt-3 space-y-2">
-                <p className="text-sm font-medium text-green-600 dark:text-green-400">
-                  Fixed: {fixLinksResult.fixedCount}
-                </p>
-                {fixLinksResult.fixedDetails?.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-semibold text-muted-foreground">Fixed links:</p>
-                    {fixLinksResult.fixedDetails.map((d: any, i: number) => (
-                      <div key={i} className="text-xs bg-green-50 dark:bg-green-950 rounded px-2 py-1 font-mono">
-                        {d.token} | surgery: {d.surgeryId?.substring(0, 8) || 'n/a'} | new expiry: {d.newExpiresAt} | status → {d.restoredStatus}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {fixLinksResult.skippedDetails?.length > 0 && (
-                  <div className="space-y-1">
-                    <p className="text-xs font-semibold text-muted-foreground">Skipped ({fixLinksResult.skippedDetails.length}):</p>
-                    {fixLinksResult.skippedDetails.map((d: any, i: number) => (
-                      <div key={i} className="text-xs bg-yellow-50 dark:bg-yellow-950 rounded px-2 py-1 font-mono">
-                        {d.token} | status: {d.status} | expires: {d.expiresAt || 'n/a'} | reason: {d.reason}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Seed Default Data Card */}
