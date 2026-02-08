@@ -2011,9 +2011,13 @@ router.get('/api/patient-portal/:token', patientPortalLimiter, async (req: Reque
           surgeonName,
         };
         
-        // Check if surgery is completed (has an anesthesia record)
-        const anesthesiaRecord = await storage.getAnesthesiaRecord(resolvedSurgeryId);
-        surgeryCompleted = !!anesthesiaRecord;
+        // Check if surgery is actually completed
+        // A surgery is completed only if its status indicates completion AND the date has passed
+        // Having an anesthesia record alone doesn't mean surgery is done (records are created early for pre-op)
+        const completedStatuses = ['completed', 'discharged', 'finished'];
+        const surgeryDatePassed = new Date(surgery.plannedDate) < new Date();
+        surgeryCompleted = completedStatuses.includes(surgery.status || '') || 
+          (surgeryDatePassed && surgery.status !== 'planned' && surgery.status !== 'scheduled' && surgery.status !== 'confirmed');
       }
     }
     
