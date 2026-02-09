@@ -606,7 +606,7 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}`, effectiveUnitId] });
-      // Keep dialog open on save - user can close manually
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${activeHospital?.id}?unitId=${effectiveUnitId}&includeArchived=true`, effectiveUnitId] });
       toast({
         title: t('common.success'),
         description: t('items.itemUpdatedSuccess'),
@@ -5970,8 +5970,11 @@ export default function Items({ overrideUnitId, readOnly = false }: ItemsProps =
                       const newStatus = editFormData.status === 'archived' ? 'active' : 'archived';
                       setEditFormData(prev => ({ ...prev, status: newStatus }));
                       updateItemMutation.mutate({
-                        id: selectedItem.id,
-                        status: newStatus,
+                        itemData: { status: newStatus },
+                      }, {
+                        onSuccess: () => {
+                          handleCloseEditDialog();
+                        },
                       });
                     }
                   }}
