@@ -593,6 +593,7 @@ export default function Op() {
             description: 'Team Time Out',
           });
           queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/events/${anesthesiaRecord.id}`] });
         } catch (error) {
           console.error('[TIME_OUT] Failed to save Team Timeout event:', error);
         }
