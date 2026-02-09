@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock } from "lucide-react";
+import { ArrowLeft, Calendar, User, FileText, Plus, Mail, Phone, AlertCircle, FileText as NoteIcon, Cake, UserCircle, UserRound, ClipboardList, Activity, BedDouble, X, Loader2, Pencil, Archive, Download, CheckCircle, Save, Send, Import, ImageIcon, Receipt, AlertTriangle, Users, StickyNote, Stethoscope, Camera, Paperclip, Image as ImageLucide, Trash2, Clock, ShieldCheck, UserCheck, IdCard } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -5947,6 +5947,87 @@ export default function PatientDetail() {
                           </Label>
                         </div>
                       </div>
+
+                      {existingAssessment?.consentRemoteSignedAt && (
+                        <div className="space-y-3 pt-3 border-t border-green-200 dark:border-green-800">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="h-5 w-5 text-green-600" />
+                            <Label className="text-green-700 dark:text-green-400 font-semibold">
+                              {t('anesthesia.patientDetail.remoteConsentSigned', 'Remote Consent Signed')}
+                            </Label>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {t('anesthesia.patientDetail.remoteConsentSignedOn', 'Signed remotely on {{date}}', {
+                              date: new Date(existingAssessment.consentRemoteSignedAt).toLocaleDateString('de-CH', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            })}
+                          </p>
+
+                          {existingAssessment.consentSignedByProxy && (
+                            <div className="bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-2">
+                              <div className="flex items-center gap-2">
+                                <UserCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                                  {t('anesthesia.patientDetail.signedByProxy', 'Signed by representative')}
+                                </span>
+                              </div>
+                              {existingAssessment.consentProxySignerName && (
+                                <p className="text-sm">
+                                  <span className="text-muted-foreground">{t('anesthesia.patientDetail.proxyName', 'Name')}:</span>{' '}
+                                  <span className="font-medium">{existingAssessment.consentProxySignerName}</span>
+                                </p>
+                              )}
+                              {existingAssessment.consentProxySignerRelation && (
+                                <p className="text-sm">
+                                  <span className="text-muted-foreground">{t('anesthesia.patientDetail.proxyRelation', 'Relationship')}:</span>{' '}
+                                  <span className="font-medium">{existingAssessment.consentProxySignerRelation}</span>
+                                </p>
+                              )}
+                            </div>
+                          )}
+
+                          {(existingAssessment.consentSignerIdFrontUrl || existingAssessment.consentSignerIdBackUrl) && (
+                            <div className="space-y-2">
+                              <div className="flex items-center gap-2">
+                                <IdCard className="h-4 w-4 text-muted-foreground" />
+                                <Label className="text-sm font-medium">
+                                  {existingAssessment.consentSignedByProxy
+                                    ? t('anesthesia.patientDetail.proxyIdDocument', 'Representative ID Document')
+                                    : t('anesthesia.patientDetail.signerIdDocument', 'Signer ID Document')
+                                  }
+                                </Label>
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                {existingAssessment.consentSignerIdFrontUrl && (
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.idFront', 'Front')}</p>
+                                    <div className="border rounded-lg overflow-hidden bg-muted/30 cursor-pointer" onClick={() => window.open(existingAssessment.consentSignerIdFrontUrl, '_blank')}>
+                                      <img
+                                        src={existingAssessment.consentSignerIdFrontUrl}
+                                        alt={t('anesthesia.patientDetail.idFront', 'Front')}
+                                        className="w-full h-auto max-h-48 object-contain"
+                                        data-testid="img-signer-id-front"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                                {existingAssessment.consentSignerIdBackUrl && (
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground">{t('anesthesia.patientDetail.idBack', 'Back')}</p>
+                                    <div className="border rounded-lg overflow-hidden bg-muted/30 cursor-pointer" onClick={() => window.open(existingAssessment.consentSignerIdBackUrl, '_blank')}>
+                                      <img
+                                        src={existingAssessment.consentSignerIdBackUrl}
+                                        alt={t('anesthesia.patientDetail.idBack', 'Back')}
+                                        className="w-full h-auto max-h-48 object-contain"
+                                        data-testid="img-signer-id-back"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     
                     {/* Email copy option */}
