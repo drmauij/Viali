@@ -1564,6 +1564,28 @@ export default function Users() {
                 />
               </div>
 
+              {/* Admin Notes */}
+              <div>
+                <Label htmlFor="edit-admin-notes" className="flex items-center gap-2 mb-2">
+                  <StickyNote className="h-4 w-4" />
+                  {t("admin.adminNotes")}
+                </Label>
+                <Textarea
+                  id="edit-admin-notes"
+                  rows={3}
+                  value={editingUserDetails?.adminNotes || ""}
+                  onChange={(e) => {
+                    if (editingUserDetails) {
+                      setEditingUserDetails({ ...editingUserDetails, adminNotes: e.target.value });
+                      handleNotesChange(editingUserDetails.id, e.target.value);
+                    }
+                  }}
+                  placeholder={t("admin.adminNotesPlaceholder")}
+                  className="text-sm resize-none"
+                  data-testid="textarea-edit-admin-notes"
+                />
+              </div>
+
               {/* Change Password Button */}
               <div className="border-t pt-4">
                 <Button
@@ -1643,28 +1665,6 @@ export default function Users() {
                     </Select>
                   </div>
                 </div>
-              </div>
-
-              {/* Admin Notes */}
-              <div className="border-t pt-4">
-                <Label htmlFor="edit-admin-notes" className="flex items-center gap-2 mb-2">
-                  <StickyNote className="h-4 w-4" />
-                  {t("admin.adminNotes")}
-                </Label>
-                <Textarea
-                  id="edit-admin-notes"
-                  rows={3}
-                  value={editingUserDetails?.adminNotes || ""}
-                  onChange={(e) => {
-                    if (editingUserDetails) {
-                      setEditingUserDetails({ ...editingUserDetails, adminNotes: e.target.value });
-                      handleNotesChange(editingUserDetails.id, e.target.value);
-                    }
-                  }}
-                  placeholder={t("admin.adminNotesPlaceholder")}
-                  className="text-sm resize-none"
-                  data-testid="textarea-edit-admin-notes"
-                />
               </div>
 
               {/* Role/Unit Pairs */}
