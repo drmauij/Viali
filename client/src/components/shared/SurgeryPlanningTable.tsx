@@ -1426,10 +1426,11 @@ export function SurgeryPlanningTable({
       { ...defaultColumns.preOp(formatPreOpSummaryForPdf), width: 50 },
     ];
 
+    const activeSurgeries = daySurgeries.filter((s: any) => !s.isSuspended);
     generateDayPlanPdf({
       date: new Date(dateKey + 'T12:00:00'),
       hospitalName: activeHospital?.name || '',
-      surgeries: daySurgeries,
+      surgeries: activeSurgeries,
       patientMap,
       roomMap,
       columns,

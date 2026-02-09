@@ -558,7 +558,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     
     const daySurgeries = surgeries.filter((s: any) => {
       const date = new Date(s.plannedDate);
-      return date >= dayStart && date <= dayEnd;
+      return date >= dayStart && date <= dayEnd && !s.isSuspended;
     });
 
     if (daySurgeries.length === 0) {
