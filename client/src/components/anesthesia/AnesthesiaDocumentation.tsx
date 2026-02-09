@@ -1751,6 +1751,7 @@ export function PeripheralBlocksSection({ anesthesiaRecordId }: SectionProps) {
 // DIFFICULT AIRWAY DETAILS SECTION
 // ============================================================================
 function DifficultAirwayDetailsSection({ airwayManagementId }: { airwayManagementId: string }) {
+  const { t } = useTranslation();
   const { data: report, isLoading } = useDifficultAirwayReport(airwayManagementId);
   const upsertMutation = useUpsertDifficultAirwayReport(airwayManagementId);
 
