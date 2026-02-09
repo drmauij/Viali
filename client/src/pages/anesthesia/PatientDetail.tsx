@@ -1638,10 +1638,12 @@ export default function PatientDetail() {
 
   const updatePreOpMutation = useMutation({
     mutationFn: async (data: any) => {
+      const prevStandBy = existingAssessment?.standBy || false;
+      const prevStandByReason = existingAssessment?.standByReason || '';
       const response = await apiRequest("PATCH", `/api/anesthesia/preop/${existingAssessment?.id}`, data);
-      return { response, shouldSendEmail: data.sendEmailCopy && data.emailForCopy, assessmentId: existingAssessment?.id, standByData: { standBy: data.standBy, standByReason: data.standByReason } };
+      return { response, shouldSendEmail: data.sendEmailCopy && data.emailForCopy, assessmentId: existingAssessment?.id, standByData: { standBy: data.standBy, standByReason: data.standByReason }, prevStandByData: { standBy: prevStandBy, standByReason: prevStandByReason } };
     },
-    onSuccess: (result: { response: any; shouldSendEmail: boolean; assessmentId: string | undefined; standByData: { standBy: boolean; standByReason: string } }) => {
+    onSuccess: (result: { response: any; shouldSendEmail: boolean; assessmentId: string | undefined; standByData: { standBy: boolean; standByReason: string }; prevStandByData: { standBy: boolean; standByReason: string } }) => {
       setTimeout(() => { isSavingRef.current = false; }, 500);
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop/surgery/${selectedCaseId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/preop?hospitalId=${activeHospital?.id}`] });
@@ -1654,12 +1656,14 @@ export default function PatientDetail() {
         sendEmailMutation.mutate(result.assessmentId);
       }
       
-      if (result.standByData.standBy && result.standByData.standByReason === 'signature_missing' && result.assessmentId) {
+      const isNewStandByReason = !(result.prevStandByData.standBy && result.prevStandByData.standByReason === result.standByData.standByReason);
+      
+      if (isNewStandByReason && result.standByData.standBy && result.standByData.standByReason === 'signature_missing' && result.assessmentId) {
         setConsentInvitationAssessmentId(result.assessmentId);
         setShowConsentInvitationDialog(true);
       }
       
-      if (result.standByData.standBy && result.standByData.standByReason === 'consent_required' && result.assessmentId) {
+      if (isNewStandByReason && result.standByData.standBy && result.standByData.standByReason === 'consent_required' && result.assessmentId) {
         setCallbackAssessmentId(result.assessmentId);
         setCallbackPhoneNumber(activeUnitPhone);
         setCallbackSlots([{ date: new Date().toISOString().split('T')[0], fromTime: '09:00', toTime: '10:00' }]);
