@@ -719,6 +719,41 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
   }
 });
 
+router.patch('/api/admin/users/:userId/notes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { userId } = req.params;
+    const { adminNotes, hospitalId } = req.body;
+
+    if (!hospitalId) {
+      return res.status(400).json({ message: "Hospital ID is required" });
+    }
+
+    const currentUserId = req.user.id;
+    const hospitals = await storage.getUserHospitals(currentUserId);
+    const hasAdminRole = hospitals.some(h => h.id === hospitalId && h.role === 'admin');
+    if (!hasAdminRole) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const targetUser = await storage.getUser(userId);
+    if (!targetUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const targetUserHospitals = await storage.getUserHospitals(userId);
+    const userBelongsToHospital = targetUserHospitals.some(h => h.id === hospitalId);
+    if (!userBelongsToHospital) {
+      return res.status(403).json({ message: "User does not belong to this hospital" });
+    }
+
+    await storage.updateUser(userId, { adminNotes: adminNotes || null });
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error updating user notes:", error);
+    res.status(500).json({ message: "Failed to update user notes" });
+  }
+});
+
 router.patch('/api/admin/users/:userId/email', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { userId } = req.params;

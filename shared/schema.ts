@@ -46,6 +46,7 @@ export const users = pgTable("users", {
   hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }), // Hourly pay rate for cost calculations
   preferences: jsonb("preferences"), // User preferences including clinic provider filter
   timebutlerIcsUrl: varchar("timebutler_ics_url"), // Personal Timebutler iCal export URL for syncing absences
+  adminNotes: text("admin_notes"),
   archivedAt: timestamp("archived_at"), // Soft delete - archived users are hidden from lists but preserved for audit
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

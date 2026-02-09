@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { PhoneInputWithCountry } from "@/components/ui/phone-input-with-country";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -13,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail, Users as UsersIcon, UserCog, ArrowRightLeft, AlertTriangle, Star, Loader2 } from "lucide-react";
+import { Key, Wand2, UserCheck, UserX, Building2, ExternalLink, Mail, Users as UsersIcon, UserCog, ArrowRightLeft, AlertTriangle, Star, Loader2, Search, ArrowUpDown, StickyNote } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { Unit, UserHospitalRole, User } from "@shared/schema";
 
@@ -81,6 +82,113 @@ interface GroupedHospitalUser extends HospitalUser {
   roles: Array<{ role: string; units: Unit; roleId: string; unitId: string; isBookable?: boolean; isDefaultLogin?: boolean }>;
 }
 
+function UserNotesField({ userId, initialNotes, onSave, placeholder, label }: {
+  userId: string;
+  initialNotes: string;
+  onSave: (userId: string, value: string) => void;
+  placeholder: string;
+  label: string;
+}) {
+  const [notes, setNotes] = useState(initialNotes);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    setNotes(initialNotes);
+  }, [initialNotes]);
+
+  const hasNotes = notes.trim().length > 0;
+
+  if (!expanded && !hasNotes) {
+    return (
+      <button
+        onClick={() => setExpanded(true)}
+        className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        data-testid={`button-add-notes-${userId}`}
+      >
+        <StickyNote className="h-3 w-3" />
+        {label}
+      </button>
+    );
+  }
+
+  return (
+    <div className="mt-2">
+      <Textarea
+        rows={2}
+        placeholder={placeholder}
+        value={notes}
+        onChange={(e) => {
+          setNotes(e.target.value);
+          onSave(userId, e.target.value);
+        }}
+        onBlur={() => { if (!notes.trim()) setExpanded(false); }}
+        className="text-xs resize-none"
+        data-testid={`textarea-admin-notes-${userId}`}
+      />
+    </div>
+  );
+}
+
+function ListToolbar({ search, onSearchChange, sortAsc, onToggleSort, staffTypeFilter, onStaffTypeFilterChange, searchPlaceholder, totalCount, filteredCount }: {
+  search: string;
+  onSearchChange: (v: string) => void;
+  sortAsc: boolean;
+  onToggleSort: () => void;
+  staffTypeFilter: "all" | "internal" | "external";
+  onStaffTypeFilterChange: (v: "all" | "internal" | "external") => void;
+  searchPlaceholder: string;
+  totalCount: number;
+  filteredCount: number;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-2 mb-3">
+      <div className="flex gap-2 items-center">
+        <div className="relative flex-1">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={searchPlaceholder}
+            className="pl-9 h-9"
+            data-testid="input-search-users"
+          />
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onToggleSort}
+          className="h-9 whitespace-nowrap"
+          data-testid="button-toggle-sort"
+          title={sortAsc ? t("admin.sortAZ") : t("admin.sortZA")}
+        >
+          <ArrowUpDown className="h-4 w-4 mr-1" />
+          {sortAsc ? t("admin.sortAZ") : t("admin.sortZA")}
+        </Button>
+      </div>
+      <div className="flex gap-1 items-center">
+        {(["all", "internal", "external"] as const).map((val) => (
+          <Button
+            key={val}
+            variant={staffTypeFilter === val ? "default" : "outline"}
+            size="sm"
+            className="h-7 text-xs"
+            onClick={() => onStaffTypeFilterChange(val)}
+            data-testid={`filter-staff-type-${val}`}
+          >
+            {val === "all" ? t("admin.filterAll") : val === "internal" ? t("admin.filterInternal") : t("admin.filterExternal")}
+          </Button>
+        ))}
+        {filteredCount !== totalCount && (
+          <span className="text-xs text-muted-foreground ml-2">
+            {filteredCount} / {totalCount}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Users() {
   const { t } = useTranslation();
   const activeHospital = useActiveHospital();
@@ -133,6 +241,14 @@ export default function Users() {
 
   // Tab state for user types
   const [activeTab, setActiveTab] = useState<"appUsers" | "staffMembers">("appUsers");
+
+  // Search, sort, and filter states
+  const [appUserSearch, setAppUserSearch] = useState("");
+  const [staffSearch, setStaffSearch] = useState("");
+  const [appUserSortAsc, setAppUserSortAsc] = useState(true);
+  const [staffSortAsc, setStaffSortAsc] = useState(true);
+  const [appUserStaffTypeFilter, setAppUserStaffTypeFilter] = useState<"all" | "internal" | "external">("all");
+  const [staffStaffTypeFilter, setStaffStaffTypeFilter] = useState<"all" | "internal" | "external">("all");
 
   // Staff member dialog states
   const [staffMemberDialogOpen, setStaffMemberDialogOpen] = useState(false);
@@ -194,13 +310,48 @@ export default function Users() {
   }, [rawUsers]);
 
   // Filter users into app users and staff members based on canLogin
-  const appUsers = useMemo(() => {
+  const appUsersRaw = useMemo(() => {
     return users.filter(u => u.user.canLogin);
   }, [users]);
 
-  const staffMembers = useMemo(() => {
+  const staffMembersRaw = useMemo(() => {
     return users.filter(u => !u.user.canLogin);
   }, [users]);
+
+  // Helper: filter and sort a user list
+  const filterAndSortUsers = useCallback((
+    list: GroupedHospitalUser[],
+    search: string,
+    sortAsc: boolean,
+    staffTypeFilter: "all" | "internal" | "external",
+    includeEmail: boolean
+  ) => {
+    let result = list;
+    if (staffTypeFilter !== "all") {
+      result = result.filter(u => (u.user.staffType || "internal") === staffTypeFilter);
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(u => {
+        const first = (u.user.firstName || "").toLowerCase();
+        const last = (u.user.lastName || "").toLowerCase();
+        const email = includeEmail ? (u.user.email || "").toLowerCase() : "";
+        return first.includes(q) || last.includes(q) || email.includes(q);
+      });
+    }
+    result = [...result].sort((a, b) => {
+      const nameA = `${a.user.lastName || ""} ${a.user.firstName || ""}`.toLowerCase();
+      const nameB = `${b.user.lastName || ""} ${b.user.firstName || ""}`.toLowerCase();
+      return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+    });
+    return result;
+  }, []);
+
+  const appUsers = useMemo(() => filterAndSortUsers(appUsersRaw, appUserSearch, appUserSortAsc, appUserStaffTypeFilter, true),
+    [appUsersRaw, appUserSearch, appUserSortAsc, appUserStaffTypeFilter, filterAndSortUsers]);
+
+  const staffMembers = useMemo(() => filterAndSortUsers(staffMembersRaw, staffSearch, staffSortAsc, staffStaffTypeFilter, false),
+    [staffMembersRaw, staffSearch, staffSortAsc, staffStaffTypeFilter, filterAndSortUsers]);
 
   // User mutations
   const createUserRoleMutation = useMutation({
@@ -492,6 +643,35 @@ export default function Users() {
       toast({ title: t("common.error"), description: error.message || t("admin.failedToUpdateAccess"), variant: "destructive" });
     },
   });
+
+  // Update admin notes mutation
+  const updateNotesMutation = useMutation({
+    mutationFn: async ({ userId, adminNotes }: { userId: string; adminNotes: string }) => {
+      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/notes`, {
+        adminNotes,
+        hospitalId: activeHospital?.id,
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
+      toast({ title: t("common.success"), description: t("admin.adminNotesSaved") });
+    },
+    onError: (error: any) => {
+      toast({ title: t("common.error"), description: error.message || t("admin.adminNotesSaveError"), variant: "destructive" });
+    },
+  });
+
+  // Debounced notes save
+  const notesTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
+  const handleNotesChange = useCallback((userId: string, value: string) => {
+    if (notesTimerRef.current[userId]) {
+      clearTimeout(notesTimerRef.current[userId]);
+    }
+    notesTimerRef.current[userId] = setTimeout(() => {
+      updateNotesMutation.mutate({ userId, adminNotes: value });
+    }, 800);
+  }, [updateNotesMutation]);
 
   const resetUserForm = () => {
     setUserForm({ email: "", password: "", firstName: "", lastName: "", phone: "", unitId: "", role: "" });
@@ -935,6 +1115,13 @@ export default function Users() {
           </Button>
         </div>
       </div>
+      <UserNotesField
+        userId={user.user.id}
+        initialNotes={user.user.adminNotes || ""}
+        onSave={handleNotesChange}
+        placeholder={t("admin.adminNotesPlaceholder")}
+        label={t("admin.adminNotes")}
+      />
     </div>
   );
 
@@ -954,11 +1141,11 @@ export default function Users() {
             <TabsList>
               <TabsTrigger value="appUsers" className="flex items-center gap-2" data-testid="tab-app-users">
                 <UsersIcon className="h-4 w-4" />
-                {t("admin.appUsers")} ({appUsers.length})
+                {t("admin.appUsers")} ({appUsersRaw.length})
               </TabsTrigger>
               <TabsTrigger value="staffMembers" className="flex items-center gap-2" data-testid="tab-staff-members">
                 <UserCog className="h-4 w-4" />
-                {t("admin.staffMembers")} ({staffMembers.length})
+                {t("admin.staffMembers")} ({staffMembersRaw.length})
               </TabsTrigger>
             </TabsList>
             {activeTab === "appUsers" ? (
@@ -975,7 +1162,7 @@ export default function Users() {
           </div>
 
           <TabsContent value="appUsers">
-            {appUsers.length === 0 ? (
+            {appUsersRaw.length === 0 ? (
               <div className="bg-card border border-border rounded-lg p-8 text-center">
                 <UsersIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noUsers")}</h3>
@@ -986,15 +1173,28 @@ export default function Users() {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-2">
-                {appUsers.map((user) => renderUserCard(user, false))}
-              </div>
+              <>
+                <ListToolbar
+                  search={appUserSearch}
+                  onSearchChange={setAppUserSearch}
+                  sortAsc={appUserSortAsc}
+                  onToggleSort={() => setAppUserSortAsc(v => !v)}
+                  staffTypeFilter={appUserStaffTypeFilter}
+                  onStaffTypeFilterChange={setAppUserStaffTypeFilter}
+                  searchPlaceholder={t("admin.searchUsers")}
+                  totalCount={appUsersRaw.length}
+                  filteredCount={appUsers.length}
+                />
+                <div className="space-y-2">
+                  {appUsers.map((user) => renderUserCard(user, false))}
+                </div>
+              </>
             )}
           </TabsContent>
 
           <TabsContent value="staffMembers">
             <p className="text-sm text-muted-foreground mb-4">{t("admin.staffMemberDescription")}</p>
-            {staffMembers.length === 0 ? (
+            {staffMembersRaw.length === 0 ? (
               <div className="bg-card border border-border rounded-lg p-8 text-center">
                 <UserCog className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-lg font-semibold text-foreground mb-2">{t("admin.noStaffMembers")}</h3>
@@ -1005,9 +1205,22 @@ export default function Users() {
                 </Button>
               </div>
             ) : (
-              <div className="space-y-2">
-                {staffMembers.map((user) => renderUserCard(user, true))}
-              </div>
+              <>
+                <ListToolbar
+                  search={staffSearch}
+                  onSearchChange={setStaffSearch}
+                  sortAsc={staffSortAsc}
+                  onToggleSort={() => setStaffSortAsc(v => !v)}
+                  staffTypeFilter={staffStaffTypeFilter}
+                  onStaffTypeFilterChange={setStaffStaffTypeFilter}
+                  searchPlaceholder={t("admin.searchStaff")}
+                  totalCount={staffMembersRaw.length}
+                  filteredCount={staffMembers.length}
+                />
+                <div className="space-y-2">
+                  {staffMembers.map((user) => renderUserCard(user, true))}
+                </div>
+              </>
             )}
           </TabsContent>
         </Tabs>
