@@ -1085,7 +1085,7 @@ export default function Hospital() {
       {activeTab === "settings" && (
         <div className="space-y-6">
           {/* Company Settings Section */}
-          <div className="bg-card border border-border rounded-lg p-6">
+          <div className="bg-card border border-border rounded-lg p-4 sm:p-6">
             <h2 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
               <i className="fas fa-building text-primary"></i>
               {t("admin.companySettings", "Company Settings")}
@@ -1106,9 +1106,9 @@ export default function Hospital() {
               </div>
 
               {/* Logo Section */}
-              <div className="flex gap-6">
-                <div className="flex-shrink-0">
-                  <div className="w-32 h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
+              <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
+                <div className="flex-shrink-0 flex flex-col items-center sm:items-start">
+                  <div className="w-24 h-24 sm:w-32 sm:h-32 border-2 border-dashed border-border rounded-lg flex items-center justify-center bg-muted/50 overflow-hidden">
                     {hospitalForm.companyLogoUrl ? (
                       <img 
                         src={hospitalForm.companyLogoUrl} 
@@ -1172,7 +1172,7 @@ export default function Hospital() {
                   </div>
 
                   {/* Postal Code and City on same row */}
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                     <div>
                       <Label htmlFor="company-postal-code-inline">{t("admin.companyPostalCode")}</Label>
                       <Input
@@ -1183,7 +1183,7 @@ export default function Hospital() {
                         data-testid="input-company-postal-code-inline"
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="sm:col-span-2">
                       <Label htmlFor="company-city-inline">{t("admin.companyCity")}</Label>
                       <Input
                         id="company-city-inline"
@@ -1196,7 +1196,7 @@ export default function Hospital() {
                   </div>
 
                   {/* Phone and Email on same row */}
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <Label htmlFor="company-phone-inline">{t("admin.companyPhone")}</Label>
                       <PhoneInputWithCountry
@@ -1229,7 +1229,7 @@ export default function Hospital() {
                   {t("admin.runwayConfigTitle")}
                 </h4>
                 <p className="text-sm text-muted-foreground mb-4">{t("admin.runwayConfigDescription")}</p>
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
                   <div>
                     <Label htmlFor="runway-target-inline">{t("admin.runwayTargetDays")}</Label>
                     <Input
