@@ -202,6 +202,9 @@ export default function TimelineWeekView({
 
   // Get status color for surgery - using theme-aware backgrounds
   const getStatusClass = (surgery: any) => {
+    if (surgery.isSuspended) {
+      return "bg-amber-200 dark:bg-amber-900 border-amber-500 text-amber-900 dark:text-amber-100 border-dashed border-2";
+    }
     if (surgery.status === "cancelled") {
       return "bg-gray-200 dark:bg-gray-700 border-gray-500 text-gray-700 dark:text-gray-300 line-through";
     }
@@ -480,7 +483,12 @@ export default function TimelineWeekView({
                           {patientName}
                         </div>
                       )}
-                      {getPreOpStatus && surgery.status !== 'cancelled' && height > 40 && (() => {
+                      {surgery.isSuspended && height > 30 && (
+                        <div className="text-[9px] font-bold truncate text-amber-800 dark:text-amber-200" data-testid={`badge-suspended-week-${surgery.id}`}>
+                          {t('opCalendar.suspended', 'ABGESETZT')}
+                        </div>
+                      )}
+                      {getPreOpStatus && surgery.status !== 'cancelled' && !surgery.isSuspended && height > 40 && (() => {
                         const status = getPreOpStatus(surgery.id);
                         const StatusIcon = status.icon;
                         return (
@@ -490,7 +498,7 @@ export default function TimelineWeekView({
                           </div>
                         );
                       })()}
-                      {pacuBedName && surgery.status !== 'cancelled' && height > 40 && (
+                      {pacuBedName && surgery.status !== 'cancelled' && !surgery.isSuspended && height > 40 && (
                         <div className="text-[8px] font-medium text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-900/50 px-0.5 rounded mt-0.5 truncate" data-testid={`badge-pacu-bed-week-${surgery.id}`}>
                           {t('pacu.pacuBedShort', 'PACU')}: {pacuBedName}
                         </div>

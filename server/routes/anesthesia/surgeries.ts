@@ -303,12 +303,21 @@ router.patch('/api/anesthesia/surgeries/:id', isAuthenticated, requireWriteAcces
       updateData.admissionTime = new Date(updateData.admissionTime);
     }
 
+    if (updateData.isSuspended === true && !surgery.isSuspended) {
+      updateData.suspendedAt = new Date();
+      updateData.suspendedBy = userId;
+    } else if (updateData.isSuspended === false) {
+      updateData.suspendedAt = null;
+      updateData.suspendedBy = null;
+      updateData.suspendedReason = null;
+    }
+
     const updatedSurgery = await storage.updateSurgery(id, updateData);
     
     (async () => {
       try {
         const { syncSingleSurgery, deleteCalcomBlock } = await import("../../services/calcomSync");
-        if (updatedSurgery.status === 'cancelled' || updatedSurgery.isArchived) {
+        if (updatedSurgery.status === 'cancelled' || updatedSurgery.isArchived || updatedSurgery.isSuspended) {
           if (updatedSurgery.calcomBusyBlockUid) {
             await deleteCalcomBlock(updatedSurgery.calcomBusyBlockUid, updatedSurgery.hospitalId);
           }

@@ -8798,6 +8798,7 @@ export class DatabaseStorage implements IStorage {
         eq(surgeries.reminderSent, false),
         sql`${surgeries.status} IN ('planned', 'in-progress')`,
         eq(surgeries.isArchived, false),
+        eq(surgeries.isSuspended, false),
         eq(surgeries.noPreOpRequired, false) // Only send to surgeries that require anesthesia pre-op
       ));
 

@@ -41,6 +41,8 @@ interface CalendarEvent {
   patientName: string;
   patientBirthday: string;
   isCancelled: boolean;
+  isSuspended: boolean;
+  suspendedReason?: string | null;
   pacuBedName?: string | null;
   timeMarkers?: Array<{
     id: string;
@@ -417,6 +419,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       }
       
       const isCancelled = surgery.status === "cancelled";
+      const isSuspended = surgery.isSuspended === true;
       const title = `${surgery.plannedSurgery || 'No surgery specified'} - ${patientName}`;
       
       const pacuBedRoom = surgery.pacuBedId ? allSurgeryRooms.find((r: any) => r.id === surgery.pacuBedId) : null;
@@ -433,6 +436,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         patientName,
         patientBirthday,
         isCancelled,
+        isSuspended,
+        suspendedReason: surgery.suspendedReason || null,
         pacuBedName: pacuBedRoom?.name || null,
         timeMarkers: surgery.timeMarkers || null,
       };
@@ -777,8 +782,10 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     let backgroundColor = '#3b82f6'; // Default blue
     let borderColor = '#2563eb';
     
-    // If cancelled, use gray
-    if (event.isCancelled) {
+    if (event.isSuspended) {
+      backgroundColor = '#f59e0b';
+      borderColor = '#d97706';
+    } else if (event.isCancelled) {
       backgroundColor = '#9ca3af';
       borderColor = '#6b7280';
     } else if (event.timeMarkers) {
@@ -808,8 +815,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       borderColor,
       color: '#ffffff',
       borderRadius: '4px',
-      opacity: event.isCancelled ? 0.7 : 1,
-      border: '1px solid',
+      opacity: (event.isCancelled || event.isSuspended) ? 0.7 : 1,
+      border: event.isSuspended ? '2px dashed' : '1px solid',
       display: 'block',
       textDecoration: event.isCancelled ? 'line-through' : 'none',
     };
@@ -860,16 +867,22 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           {event.patientName}
           {event.patientBirthday && ` ${event.patientBirthday}`}
         </div>
-        {!event.isCancelled && (
+        {!event.isCancelled && !event.isSuspended && (
           <div className={`flex items-center gap-0.5 leading-tight mt-0.5 ${preOpStatus.color}`} data-testid={`preop-status-${event.surgeryId}`} title={preOpStatus.label}>
             <StatusIcon className="w-3.5 h-3.5 sm:w-3 sm:h-3 shrink-0" />
             <span className="hidden sm:inline text-[11px] truncate">{preOpStatus.label}</span>
           </div>
         )}
-        {event.isCancelled && (
+        {event.isSuspended && (
+          <div className="text-[10px] sm:text-xs font-bold mt-0.5 truncate" data-testid={`badge-suspended-${event.surgeryId}`} title={event.suspendedReason || ''}>
+            {t('opCalendar.suspended', 'ABGESETZT')}
+            {event.suspendedReason && <span className="font-normal opacity-80"> – {event.suspendedReason}</span>}
+          </div>
+        )}
+        {event.isCancelled && !event.isSuspended && (
           <div className="text-[10px] sm:text-xs font-semibold mt-0.5 truncate">{t('opCalendar.cancelled')}</div>
         )}
-        {event.pacuBedName && !event.isCancelled && (
+        {event.pacuBedName && !event.isCancelled && !event.isSuspended && (
           <div className="absolute bottom-0.5 right-0.5 sm:right-1 flex items-center gap-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 px-0.5 sm:px-1 py-0 rounded text-[8px] sm:text-[9px] font-medium leading-tight" data-testid={`badge-pacu-bed-${event.surgeryId}`}>
             {t('pacu.pacuBedShort', 'PACU')}: {event.pacuBedName}
           </div>

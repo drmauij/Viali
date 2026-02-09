@@ -1775,7 +1775,8 @@ export function SurgeryPlanningTable({
                 <TableRow
                   className={cn(
                     "cursor-pointer hover:bg-muted/50",
-                    onSurgeryClick && "hover:bg-accent"
+                    onSurgeryClick && "hover:bg-accent",
+                    surgery.isSuspended && "bg-amber-50/50 dark:bg-amber-950/20 border-l-4 border-l-amber-400"
                   )}
                   onClick={() => onSurgeryClick?.(surgery)}
                   data-testid={`row-surgery-${surgery.id}`}
@@ -1807,6 +1808,11 @@ export function SurgeryPlanningTable({
                           <div className="text-xs text-muted-foreground">
                             {formatDate(patient.birthday)}
                           </div>
+                        )}
+                        {surgery.isSuspended && (
+                          <span className="inline-block mt-0.5 text-[10px] font-bold bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200 px-1.5 py-0.5 rounded" data-testid={`badge-suspended-table-${surgery.id}`}>
+                            {t('opCalendar.suspended', 'ABGESETZT')}
+                          </span>
                         )}
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate" title={surgery.plannedSurgery}>

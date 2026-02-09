@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useCanWrite } from "@/hooks/useCanWrite";
 import { useState, useEffect, useMemo } from "react";
-import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo, UserPlus, Check, ChevronsUpDown } from "lucide-react";
+import { Loader2, Archive, Save, X, Eye, ClipboardList, FileEdit, StickyNote, Plus, Pencil, Trash2, ListTodo, UserPlus, Check, ChevronsUpDown, Ban, RotateCcw } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,8 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const { toast } = useToast();
   const canWrite = useCanWrite();
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [showSuspendDialog, setShowSuspendDialog] = useState(false);
+  const [suspendReason, setSuspendReason] = useState("");
   const [activeTab, setActiveTab] = useState("details");
   const [newNoteContent, setNewNoteContent] = useState("");
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -419,6 +421,47 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
     },
   });
 
+  const suspendMutation = useMutation({
+    mutationFn: async (data: { isSuspended: boolean; suspendedReason: string | null }) => {
+      const response = await apiRequest("PATCH", `/api/anesthesia/surgeries/${surgeryId}`, data);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ 
+        predicate: (query) => {
+          const key = query.queryKey[0];
+          return typeof key === 'string' && key.includes('/api/anesthesia/surgeries');
+        }
+      });
+      if (surgery?.hospitalId) {
+        queryClient.invalidateQueries({ 
+          predicate: (query) => {
+            const key = query.queryKey[0];
+            return typeof key === 'string' && key.includes(`/api/anesthesia/preop?hospitalId=${surgery.hospitalId}`);
+          }
+        });
+      }
+      toast({
+        title: surgery?.isSuspended
+          ? t('anesthesia.editSurgery.suspendReactivated', 'Surgery reactivated')
+          : t('anesthesia.editSurgery.suspendSuspended', 'Surgery suspended'),
+        description: surgery?.isSuspended
+          ? t('anesthesia.editSurgery.suspendReactivatedDescription', 'The surgery has been reactivated successfully.')
+          : t('anesthesia.editSurgery.suspendSuspendedDescription', 'The surgery has been marked as suspended.'),
+      });
+      setShowSuspendDialog(false);
+      setSuspendReason("");
+      onClose();
+    },
+    onError: () => {
+      toast({
+        title: t('common.error'),
+        description: t('anesthesia.editSurgery.suspendFailed', 'Failed to update surgery suspension status.'),
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleUpdate = () => {
     if (!surgeryDate || !startTime || !plannedSurgery || !surgeryRoomId) {
       toast({
@@ -498,6 +541,33 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                       <p className="font-medium text-amber-800 dark:text-amber-200">{t('common.viewOnlyMode')}</p>
                       <p className="text-sm text-amber-600 dark:text-amber-400">{t('common.readOnlyAccess')}</p>
                     </div>
+                  </div>
+                )}
+                {/* Suspended banner */}
+                {surgery?.isSuspended && (
+                  <div className="bg-amber-50 dark:bg-amber-950 border border-amber-300 dark:border-amber-700 rounded-lg p-4 flex items-start gap-3" data-testid="banner-surgery-suspended">
+                    <Ban className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-amber-800 dark:text-amber-200 uppercase tracking-wide text-sm">
+                        {t('anesthesia.editSurgery.suspendBannerTitle', 'ABGESETZT')}
+                      </p>
+                      {surgery.suspendedReason && (
+                        <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">{surgery.suspendedReason}</p>
+                      )}
+                    </div>
+                    {canWrite && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950"
+                        onClick={() => suspendMutation.mutate({ isSuspended: false, suspendedReason: null })}
+                        disabled={suspendMutation.isPending}
+                        data-testid="button-unsuspend-banner"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                        {t('anesthesia.editSurgery.suspendReactivate', 'Reaktivieren')}
+                      </Button>
+                    )}
                   </div>
                 )}
                 {/* Patient Information (Read-only) */}
@@ -1249,17 +1319,46 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   <Button
                     variant="outline"
                     onClick={onClose}
-                    disabled={archiveMutation.isPending || updateMutation.isPending}
+                    disabled={archiveMutation.isPending || updateMutation.isPending || suspendMutation.isPending}
                     data-testid="button-cancel-surgery"
                     className="w-full sm:flex-1"
                   >
                     <X className="mr-2 h-4 w-4" />
                     {t('common.cancel')}
                   </Button>
+                  {surgery?.isSuspended ? (
+                    <Button
+                      variant="outline"
+                      onClick={() => suspendMutation.mutate({ isSuspended: false, suspendedReason: null })}
+                      disabled={archiveMutation.isPending || updateMutation.isPending || suspendMutation.isPending}
+                      data-testid="button-unsuspend-surgery"
+                      className="w-full sm:flex-1 border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950"
+                    >
+                      {suspendMutation.isPending ? (
+                        <>{t('anesthesia.editSurgery.suspendReactivating', 'Reactivating...')}</>
+                      ) : (
+                        <>
+                          <RotateCcw className="mr-2 h-4 w-4" />
+                          {t('anesthesia.editSurgery.suspendReactivate', 'Reaktivieren')}
+                        </>
+                      )}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowSuspendDialog(true)}
+                      disabled={archiveMutation.isPending || updateMutation.isPending || suspendMutation.isPending}
+                      data-testid="button-suspend-surgery"
+                      className="w-full sm:flex-1 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950"
+                    >
+                      <Ban className="mr-2 h-4 w-4" />
+                      {t('anesthesia.editSurgery.suspendButton', 'Absetzen')}
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     onClick={handleArchive}
-                    disabled={archiveMutation.isPending || updateMutation.isPending}
+                    disabled={archiveMutation.isPending || updateMutation.isPending || suspendMutation.isPending}
                     data-testid="button-archive-surgery"
                     className="w-full sm:flex-1"
                   >
@@ -1307,6 +1406,48 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
               data-testid="button-confirm-archive"
             >
               {t('anesthesia.editSurgery.archiveSurgery', 'Archive')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Suspend Confirmation Dialog */}
+      <AlertDialog open={showSuspendDialog} onOpenChange={(open) => {
+        setShowSuspendDialog(open);
+        if (!open) setSuspendReason("");
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('anesthesia.editSurgery.suspendConfirmTitle', 'OP absetzen?')}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('anesthesia.editSurgery.suspendConfirmDescription', 'The surgery will stay on the plan but will be marked as suspended. No SMS reminder will be sent for suspended surgeries.')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Label htmlFor="suspend-reason" className="text-sm font-medium">
+              {t('anesthesia.editSurgery.suspendReasonLabel', 'Reason (optional)')}
+            </Label>
+            <Textarea
+              id="suspend-reason"
+              placeholder={t('anesthesia.editSurgery.suspendReasonPlaceholder', 'Enter reason for suspension...')}
+              value={suspendReason}
+              onChange={(e) => setSuspendReason(e.target.value)}
+              rows={3}
+              className="mt-2"
+              data-testid="textarea-suspend-reason"
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-suspend">{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => suspendMutation.mutate({ isSuspended: true, suspendedReason: suspendReason || null })}
+              disabled={suspendMutation.isPending}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              data-testid="button-confirm-suspend"
+            >
+              {suspendMutation.isPending
+                ? t('anesthesia.editSurgery.suspendSuspending', 'Suspending...')
+                : t('anesthesia.editSurgery.suspendConfirmAction', 'Absetzen')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -885,6 +885,12 @@ export const surgeries = pgTable("surgeries", {
   // Pre-op assessment flag - surgeries with local anesthesia only (done by surgeon) don't need anesthesia pre-op
   noPreOpRequired: boolean("no_pre_op_required").default(false).notNull(),
   
+  // Suspended (soft cancel - surgery stays on plan but marked as "will not take place")
+  isSuspended: boolean("is_suspended").default(false).notNull(),
+  suspendedReason: text("suspended_reason"),
+  suspendedAt: timestamp("suspended_at"),
+  suspendedBy: varchar("suspended_by").references(() => users.id),
+
   // Archive (soft delete - surgeries should never be fully deleted)
   isArchived: boolean("is_archived").default(false).notNull(),
   archivedAt: timestamp("archived_at"),
