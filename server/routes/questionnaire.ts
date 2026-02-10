@@ -213,14 +213,12 @@ router.post('/api/questionnaire/generate-link', isAuthenticated, requireWriteAcc
       return res.status(404).json({ message: "Patient not found" });
     }
 
-    // Check for existing active link (not expired, not submitted, not reviewed)
+    // Check for existing active link (reuse any non-expired link for the same patient portal)
     const existingLinks = await storage.getQuestionnaireLinksForPatient(patientId);
     const now = new Date();
     const activeLink = existingLinks.find(l => 
       l.hospitalId === hospitalId &&
       l.status !== 'expired' && 
-      l.status !== 'submitted' &&
-      l.status !== 'reviewed' &&
       l.expiresAt && new Date(l.expiresAt) > now
     );
 
