@@ -1457,7 +1457,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto space-y-4 mt-4 pr-1">
+          <div className="flex-1 overflow-y-auto space-y-4 mt-4 pr-4">
             {!selectedChecklist && checklistRoomId && (
               <div className="space-y-2">
                 {(checklistsByRoom.get(checklistRoomId) || []).map((cl) => (
