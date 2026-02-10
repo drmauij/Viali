@@ -2525,7 +2525,8 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(checklistTemplates.hospitalId, hospitalId),
         eq(checklistTemplates.active, true),
-        inArray(checklistTemplates.id, templateIds)
+        inArray(checklistTemplates.id, templateIds),
+        isNull(checklistTemplates.roomId)
       ));
 
     const allAssignments = await db

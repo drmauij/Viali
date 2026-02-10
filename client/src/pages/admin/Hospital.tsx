@@ -2798,7 +2798,7 @@ export default function Hospital() {
                     <SelectValue placeholder={t("admin.selectRoom", "Select room")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">{t("admin.allRooms", "All rooms")}</SelectItem>
+                    <SelectItem value="__none__">{t("admin.noRoom", "No specific room")}</SelectItem>
                     {surgeryRooms.filter(r => r.type === 'OP').map((room) => (
                       <SelectItem key={room.id} value={room.id}>
                         {room.name}
