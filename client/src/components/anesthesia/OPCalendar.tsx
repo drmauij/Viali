@@ -148,7 +148,7 @@ function DroppableRoomHeader({
       }`}
       data-testid={`room-header-${resource.id}`}
     >
-      <div className="font-semibold text-sm p-2 pb-1 flex items-center justify-between">
+      <div className="font-semibold text-sm p-2 pb-1 flex items-center justify-center relative">
         <span>{label}</span>
         {checklists.length > 0 && onChecklistClick && (
           <button
@@ -156,7 +156,7 @@ function DroppableRoomHeader({
               e.stopPropagation();
               onChecklistClick(resource.id);
             }}
-            className={`p-0 leading-none transition-colors ${
+            className={`absolute right-2 p-0 leading-none transition-colors ${
               checklists.some(c => c.isOverdue)
                 ? 'text-destructive animate-pulse'
                 : 'text-amber-500'
