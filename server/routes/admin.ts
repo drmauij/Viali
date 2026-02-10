@@ -1410,15 +1410,18 @@ router.post('/api/admin/catalog/preview', isAuthenticated, async (req: any, res)
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    const data: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    const rawData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    if (data.length === 0) {
+    if (rawData.length === 0) {
       return res.json({ headers: [], sampleRows: [], totalRows: 0 });
     }
 
-    const headers = (data[0] || []).map((h: any) => String(h ?? ''));
-    const sampleRows = data.slice(1, 6);
-    const totalRows = data.length - 1;
+    const headers = (rawData[0] || []).map((h: any) => String(h ?? ''));
+    const dataRows = rawData.slice(1).filter((row: any[]) =>
+      row && row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== '')
+    );
+    const sampleRows = dataRows.slice(0, 5);
+    const totalRows = dataRows.length;
 
     res.json({ headers, sampleRows, totalRows });
   } catch (error: any) {
@@ -1449,13 +1452,15 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    const data: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    const rawData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    if (data.length <= 1) {
+    if (rawData.length <= 1) {
       return res.json({ success: true, imported: 0, skipped: 0, errors: ["No data rows found"] });
     }
 
-    const rows = data.slice(1);
+    const rows = rawData.slice(1).filter((row: any[]) =>
+      row && row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== '')
+    );
 
     if (replaceExisting) {
       await db.delete(hinArticles);
