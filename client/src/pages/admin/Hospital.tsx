@@ -66,6 +66,7 @@ export default function Hospital() {
   const [catalogPreview, setCatalogPreview] = useState<{ headers: string[]; sampleRows: any[][]; totalRows: number } | null>(null);
   const [catalogMapping, setCatalogMapping] = useState<Record<string, number | undefined>>({});
   const [catalogImporting, setCatalogImporting] = useState(false);
+  const [catalogParsing, setCatalogParsing] = useState(false);
   const [catalogSyncing, setCatalogSyncing] = useState(false);
   const [showMappingDialog, setShowMappingDialog] = useState(false);
 
@@ -522,6 +523,7 @@ export default function Hospital() {
     const file = e.target.files?.[0];
     if (!file) return;
     setCatalogFile(file);
+    setCatalogParsing(true);
     
     const reader = new FileReader();
     reader.onload = async () => {
@@ -559,6 +561,8 @@ export default function Hospital() {
         setShowMappingDialog(true);
       } catch (error: any) {
         toast({ title: t("common.error"), description: error.message || "Failed to preview file", variant: "destructive" });
+      } finally {
+        setCatalogParsing(false);
       }
     };
     reader.readAsDataURL(file);
@@ -2000,12 +2004,17 @@ export default function Hospital() {
                     accept=".xlsx,.xls,.csv"
                     className="hidden"
                     onChange={handleCatalogFileSelect}
+                    disabled={catalogParsing}
                     data-testid="input-catalog-file"
                   />
-                  <Button variant="outline" size="sm" asChild>
+                  <Button variant="outline" size="sm" asChild disabled={catalogParsing}>
                     <span>
-                      <Plus className="w-4 h-4 mr-1" />
-                      Upload Excel
+                      {catalogParsing ? (
+                        <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                      ) : (
+                        <Plus className="w-4 h-4 mr-1" />
+                      )}
+                      {catalogParsing ? 'Reading file...' : 'Upload Excel'}
                     </span>
                   </Button>
                 </label>
