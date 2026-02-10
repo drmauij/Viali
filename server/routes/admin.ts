@@ -1439,7 +1439,7 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
       return res.status(403).json({ message: "Admin access required" });
     }
 
-    const { fileData, fileName, columnMapping, replaceExisting } = req.body;
+    const { fileData, fileName, columnMapping } = req.body;
     if (!fileData || !fileName || !columnMapping) {
       return res.status(400).json({ message: "fileData, fileName, and columnMapping are required" });
     }
@@ -1462,9 +1462,7 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
       row && row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== '')
     );
 
-    if (replaceExisting) {
-      await db.delete(hinArticles);
-    }
+    await db.delete(hinArticles);
 
     let imported = 0;
     let skipped = 0;

@@ -580,7 +580,6 @@ export default function Hospital() {
         fileData: base64,
         fileName: catalogFile.name,
         columnMapping: catalogMapping,
-        replaceExisting: true,
       });
       const result = await response.json();
       
