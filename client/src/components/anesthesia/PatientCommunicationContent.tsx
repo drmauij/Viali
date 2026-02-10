@@ -80,16 +80,6 @@ export function PatientCommunicationContent({
     }
   };
 
-  const getInfoflyerMessageTemplate = (lang: 'de' | 'en', flyers: Array<{ unitName: string; downloadUrl: string }>) => {
-    const clinicName = activeHospital?.name || 'Klinik';
-    const flyerLinks = flyers.map(f => `• ${f.unitName}: ${f.downloadUrl}`).join('\n');
-    if (lang === 'de') {
-      return `${clinicName}: Wichtige Dokumente für Ihre Vorbereitung:\n${flyerLinks}`;
-    } else {
-      return `${clinicName}: Important documents for your preparation:\n${flyerLinks}`;
-    }
-  };
-
   const handleCopyIndividualLink = async (linkId: string, url: string) => {
     try {
       await navigator.clipboard.writeText(url);
@@ -116,16 +106,12 @@ export function PatientCommunicationContent({
     if (fromLang === 'de' && toLang === 'en') {
       return msg
         .replace(/Bitte füllen Sie Ihren präoperativen Fragebogen aus:/g, 'Please complete your pre-operative questionnaire:')
-        .replace(/Wichtige Dokumente für Ihre Vorbereitung:/g, 'Important documents for your preparation:')
-        .replace(/Wichtige Dokumente:/g, 'Important documents:')
         .replace(/Bitte beachten Sie die folgenden Informationen:/g, 'Please review the following information:')
         .replace(/Liebe(r)? Patient(in)?/g, 'Dear Patient')
         .replace(/Mit freundlichen Grüßen/g, 'Kind regards');
     } else if (fromLang === 'en' && toLang === 'de') {
       return msg
         .replace(/Please complete your pre-operative questionnaire:/g, 'Bitte füllen Sie Ihren präoperativen Fragebogen aus:')
-        .replace(/Important documents for your preparation:/g, 'Wichtige Dokumente für Ihre Vorbereitung:')
-        .replace(/Important documents:/g, 'Wichtige Dokumente:')
         .replace(/Please review the following information:/g, 'Bitte beachten Sie die folgenden Informationen:')
         .replace(/Dear Patient/g, 'Liebe(r) Patient(in)')
         .replace(/Kind regards/g, 'Mit freundlichen Grüßen');
@@ -152,38 +138,6 @@ export function PatientCommunicationContent({
   });
 
   const isSmsConfigured = smsStatus?.configured ?? false;
-
-  const { data: unitSettings } = useQuery<{ infoflyerEnabled?: boolean; infoflyerContent?: string }>({
-    queryKey: ['/api/anesthesia/unit-settings', activeHospital?.id],
-    queryFn: async () => {
-      const res = await fetch(`/api/anesthesia/unit-settings`, {
-        headers: {
-          'X-Hospital-Id': activeHospital?.id || '',
-        },
-        credentials: 'include',
-      });
-      if (!res.ok) return { infoflyerEnabled: false };
-      return res.json();
-    },
-    enabled: isEnabled && !!activeHospital?.id,
-  });
-
-  const hasInfoflyer = unitSettings?.infoflyerEnabled && unitSettings?.infoflyerContent;
-
-  const { data: patientFlyers } = useQuery<{ flyers: Array<{ unitName: string; downloadUrl: string }> }>({
-    queryKey: ['/api/patients', patientId, 'info-flyers'],
-    queryFn: async () => {
-      const res = await fetch(`/api/patients/${patientId}/info-flyers`, {
-        headers: {
-          'X-Hospital-Id': activeHospital?.id || '',
-        },
-        credentials: 'include',
-      });
-      if (!res.ok) return { flyers: [] };
-      return res.json();
-    },
-    enabled: isEnabled && !!patientId && !!activeHospital?.id,
-  });
 
   const { data: existingLinks } = useQuery<any[]>({
     queryKey: ['/api/questionnaire/patient', patientId, 'links'],
@@ -828,27 +782,6 @@ export function PatientCommunicationContent({
                 )}
                 {t('messages.compose.addQuestionnaire', '+ Patient Portal')}
               </Button>
-              {(patientFlyers?.flyers?.length || 0) > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => {
-                    if (patientFlyers?.flyers) {
-                      const templateText = getInfoflyerMessageTemplate(messageLang, patientFlyers.flyers);
-                      setCustomMessage(prev => {
-                        if (!prev.trim()) return templateText;
-                        return prev + '\n\n' + templateText;
-                      });
-                    }
-                  }}
-                  data-testid="button-append-infoflyer"
-                >
-                  <Info className="h-3 w-3 mr-1" />
-                  {t('messages.compose.addInfoflyer', '+ Infoflyer')}
-                </Button>
-              )}
-
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -946,16 +879,6 @@ export function PatientCommunicationContent({
                 }
               }
               
-              patientFlyers?.flyers?.forEach((flyer, index) => {
-                if (customMessage.includes(flyer.downloadUrl)) {
-                  detectedLinks.push({ 
-                    label: flyer.unitName, 
-                    url: flyer.downloadUrl, 
-                    id: `flyer-${index}` 
-                  });
-                }
-              });
-
               if (detectedLinks.length === 0) return null;
 
               return (
