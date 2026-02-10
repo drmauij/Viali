@@ -2,9 +2,11 @@ import { Router } from "express";
 import type { Request, Response, NextFunction } from "express";
 import { storage, db } from "../storage";
 import { isAuthenticated } from "../auth/google";
-import { users, userHospitalRoles, activities, chopProcedures } from "@shared/schema";
+import { users, userHospitalRoles, activities, chopProcedures, hinArticles, items, itemCodes, supplierCodes } from "@shared/schema";
 import { importChopProcedures } from "../scripts/importChop";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, or, isNotNull, desc, max } from "drizzle-orm";
+import * as XLSX from 'xlsx';
+import { randomUUID } from 'crypto';
 import { requireWriteAccess, requireResourceAdmin } from "../utils";
 
 interface AuthenticatedRequest extends Request {
@@ -1387,6 +1389,268 @@ router.get('/api/admin/chop-status', isAuthenticated, async (req: any, res) => {
   } catch (error: any) {
     console.error("[Admin] CHOP status error:", error);
     res.status(500).json({ message: "Failed to get CHOP status", error: error.message });
+  }
+});
+
+router.post('/api/admin/catalog/preview', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const hospitals = await storage.getUserHospitals(userId);
+    const isAnyAdmin = hospitals.some(h => h.role === 'admin');
+    if (!isAnyAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const { fileData, fileName } = req.body;
+    if (!fileData || !fileName) {
+      return res.status(400).json({ message: "fileData and fileName are required" });
+    }
+
+    const buffer = Buffer.from(fileData, 'base64');
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const data: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    if (data.length === 0) {
+      return res.json({ headers: [], sampleRows: [], totalRows: 0 });
+    }
+
+    const headers = (data[0] || []).map((h: any) => String(h ?? ''));
+    const sampleRows = data.slice(1, 6);
+    const totalRows = data.length - 1;
+
+    res.json({ headers, sampleRows, totalRows });
+  } catch (error: any) {
+    console.error("[Admin] Catalog preview error:", error);
+    res.status(500).json({ message: "Failed to preview file", error: error.message });
+  }
+});
+
+router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const hospitals = await storage.getUserHospitals(userId);
+    const isAnyAdmin = hospitals.some(h => h.role === 'admin');
+    if (!isAnyAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const { fileData, fileName, columnMapping, replaceExisting } = req.body;
+    if (!fileData || !fileName || !columnMapping) {
+      return res.status(400).json({ message: "fileData, fileName, and columnMapping are required" });
+    }
+
+    if (columnMapping.descriptionDe === undefined || columnMapping.descriptionDe === null) {
+      return res.status(400).json({ message: "descriptionDe column mapping is required" });
+    }
+
+    const buffer = Buffer.from(fileData, 'base64');
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const data: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+    if (data.length <= 1) {
+      return res.json({ success: true, imported: 0, skipped: 0, errors: ["No data rows found"] });
+    }
+
+    const rows = data.slice(1);
+
+    if (replaceExisting) {
+      await db.delete(hinArticles);
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    const getVal = (row: any[], colIndex: number | undefined): string | null => {
+      if (colIndex === undefined || colIndex === null) return null;
+      const val = row[colIndex];
+      if (val === undefined || val === null || String(val).trim() === '') return null;
+      return String(val).trim();
+    };
+
+    const batch: any[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const descriptionDe = getVal(row, columnMapping.descriptionDe);
+
+      if (!descriptionDe) {
+        skipped++;
+        continue;
+      }
+
+      try {
+        const record: any = {
+          id: randomUUID(),
+          descriptionDe,
+          pharmacode: getVal(row, columnMapping.pharmacode),
+          gtin: getVal(row, columnMapping.gtin),
+          pexf: getVal(row, columnMapping.pexf),
+          ppub: getVal(row, columnMapping.ppub),
+          swissmedicNo: getVal(row, columnMapping.swissmedicNo),
+          smcat: getVal(row, columnMapping.smcat),
+          saleCode: getVal(row, columnMapping.saleCode),
+          lastUpdated: new Date(),
+        };
+
+        batch.push(record);
+
+        if (batch.length >= 500) {
+          await db.insert(hinArticles).values(batch);
+          imported += batch.length;
+          batch.length = 0;
+        }
+      } catch (rowError: any) {
+        errors.push(`Row ${i + 2}: ${rowError.message}`);
+        skipped++;
+      }
+    }
+
+    if (batch.length > 0) {
+      try {
+        await db.insert(hinArticles).values(batch);
+        imported += batch.length;
+      } catch (batchError: any) {
+        errors.push(`Final batch error: ${batchError.message}`);
+        skipped += batch.length;
+      }
+    }
+
+    res.json({ success: true, imported, skipped, errors });
+  } catch (error: any) {
+    console.error("[Admin] Catalog import error:", error);
+    res.status(500).json({ message: "Failed to import catalog", error: error.message });
+  }
+});
+
+router.get('/api/admin/catalog/status', isAuthenticated, async (req: any, res) => {
+  try {
+    const userId = req.user.id;
+    const hospitals = await storage.getUserHospitals(userId);
+    const isAnyAdmin = hospitals.some(h => h.role === 'admin');
+    if (!isAnyAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+
+    const [countResult] = await db.select({ count: sql<number>`count(*)` }).from(hinArticles);
+    const articlesCount = Number(countResult?.count || 0);
+
+    const [lastResult] = await db.select({ lastUpdated: max(hinArticles.lastUpdated) }).from(hinArticles);
+    const lastUpdated = lastResult?.lastUpdated ? lastResult.lastUpdated.toISOString() : null;
+
+    res.json({ articlesCount, lastUpdated });
+  } catch (error: any) {
+    console.error("[Admin] Catalog status error:", error);
+    res.status(500).json({ message: "Failed to get catalog status", error: error.message });
+  }
+});
+
+router.post('/api/admin/catalog/sync-items/:hospitalId', isAuthenticated, isAdmin, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+
+    const itemsWithCodes = await db
+      .select({
+        itemId: items.id,
+        itemName: items.name,
+        pharmacode: itemCodes.pharmacode,
+        gtin: itemCodes.gtin,
+      })
+      .from(items)
+      .leftJoin(itemCodes, eq(itemCodes.itemId, items.id))
+      .where(
+        and(
+          eq(items.hospitalId, hospitalId),
+          or(
+            isNotNull(itemCodes.pharmacode),
+            isNotNull(itemCodes.gtin)
+          )
+        )
+      );
+
+    let matched = 0;
+    let updated = 0;
+    let created = 0;
+    let unmatched = 0;
+
+    for (const item of itemsWithCodes) {
+      let catalogArticle: any = null;
+
+      if (item.pharmacode) {
+        const [found] = await db
+          .select()
+          .from(hinArticles)
+          .where(eq(hinArticles.pharmacode, item.pharmacode))
+          .limit(1);
+        if (found) catalogArticle = found;
+      }
+
+      if (!catalogArticle && item.gtin) {
+        const [found] = await db
+          .select()
+          .from(hinArticles)
+          .where(eq(hinArticles.gtin, item.gtin))
+          .limit(1);
+        if (found) catalogArticle = found;
+      }
+
+      if (!catalogArticle) {
+        unmatched++;
+        continue;
+      }
+
+      matched++;
+
+      const [existingSupplier] = await db
+        .select()
+        .from(supplierCodes)
+        .where(
+          and(
+            eq(supplierCodes.itemId, item.itemId),
+            eq(supplierCodes.supplierName, 'Catalog')
+          )
+        )
+        .limit(1);
+
+      const supplierData = {
+        basispreis: catalogArticle.pexf,
+        publikumspreis: catalogArticle.ppub,
+        matchStatus: 'confirmed',
+        isPreferred: true,
+        matchedProductName: catalogArticle.descriptionDe,
+        articleCode: catalogArticle.pharmacode || null,
+        lastPriceUpdate: new Date(),
+        lastChecked: new Date(),
+        matchConfidence: '1.00',
+        updatedAt: new Date(),
+      };
+
+      if (existingSupplier) {
+        await db
+          .update(supplierCodes)
+          .set(supplierData)
+          .where(eq(supplierCodes.id, existingSupplier.id));
+        updated++;
+      } else {
+        await db.insert(supplierCodes).values({
+          id: randomUUID(),
+          itemId: item.itemId,
+          supplierName: 'Catalog',
+          ...supplierData,
+          createdAt: new Date(),
+        });
+        created++;
+      }
+    }
+
+    res.json({ success: true, matched, updated, created, unmatched });
+  } catch (error: any) {
+    console.error("[Admin] Catalog sync error:", error);
+    res.status(500).json({ message: "Failed to sync items with catalog", error: error.message });
   }
 });
 

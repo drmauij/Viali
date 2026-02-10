@@ -15,8 +15,6 @@ const STUCK_JOB_THRESHOLD_MINUTES = 30; // Jobs stuck for >30 minutes
 const SCHEDULED_JOB_CHECK_INTERVAL_MS = 60000; // Check for scheduled jobs every minute
 const AUTO_QUESTIONNAIRE_DAYS_AHEAD = 14; // Send questionnaires 2 weeks before surgery
 const PRE_SURGERY_REMINDER_HOURS_AHEAD = 24; // Send fasting reminders 24 hours before surgery
-const HIN_SYNC_CHECK_INTERVAL_MS = 3600000; // Check HIN sync status every hour
-const HIN_SYNC_MAX_AGE_HOURS = 24; // Re-sync HIN database if older than 24 hours
 const PRICE_SYNC_CHECK_INTERVAL_MS = 3600000; // Check price sync status every hour
 const PRICE_SYNC_MAX_AGE_HOURS = 24; // Auto-sync prices if last sync > 24 hours ago
 const INVENTORY_SNAPSHOT_CHECK_INTERVAL_MS = 3600000; // Check for inventory snapshots every hour
@@ -762,147 +760,6 @@ async function processNextPriceSyncJob() {
         }
       }
 
-      // HIN fallback: Try to match items that weren't found in Galexis
-      let hinMatchedCount = 0;
-      let hinCreatedCount = 0;
-      
-      if (unmatchedWithCodes.length > 0) {
-        console.log(`[Worker] Attempting HIN fallback for ${unmatchedWithCodes.length} items not found in Galexis...`);
-        
-        try {
-          const { hinClient, parsePackSizeFromDescription: parseHinPackSize } = await import('./services/hinMediupdateClient');
-          const hinStatus = await hinClient.getSyncStatus();
-          
-          // Check if HIN database has any articles (more reliable than checking lastSyncAt)
-          const hinHasData = hinStatus.articlesCount > 0;
-          if (!hinHasData) {
-            console.log(`[Worker] HIN database has no articles (count: ${hinStatus.articlesCount}, lastSync: ${hinStatus.lastSyncAt || 'never'}). Skipping HIN fallback.`);
-          }
-          
-          if (hinHasData) {
-            await storage.updatePriceSyncJob(job.id, {
-              progressPercent: 70,
-            });
-            
-            for (const item of unmatchedWithCodes) {
-              try {
-                // lookupByCode only takes one code - try pharmacode first, then GTIN
-                const lookupCode = item.pharmacode || item.gtin;
-                if (!lookupCode) continue;
-                
-                const hinResult = await hinClient.lookupByCode(lookupCode);
-                
-                if (hinResult && hinResult.found && hinResult.article) {
-                  const basispreis = hinResult.article.pexf;
-                  const publikumspreis = hinResult.article.ppub;
-                  
-                  if (basispreis || publikumspreis) {
-                    // Parse pack size from HIN description
-                    const hinPackSize = parseHinPackSize(hinResult.article.descriptionDe);
-                    
-                    // Check if HIN supplier code already exists
-                    const existingHinCode = await db
-                      .select({ id: supplierCodes.id })
-                      .from(supplierCodes)
-                      .where(and(
-                        eq(supplierCodes.itemId, item.itemId),
-                        eq(supplierCodes.supplierName, 'HIN')
-                      ))
-                      .limit(1);
-                    
-                    if (existingHinCode.length > 0) {
-                      // Update existing HIN supplier code
-                      await db
-                        .update(supplierCodes)
-                        .set({
-                          basispreis: basispreis ? String(basispreis) : undefined,
-                          publikumspreis: publikumspreis ? String(publikumspreis) : undefined,
-                          lastPriceUpdate: new Date(),
-                          lastChecked: new Date(),
-                          isPreferred: true,
-                          matchStatus: 'confirmed',
-                          matchedProductName: hinResult.article.descriptionDe || undefined,
-                          articleCode: hinResult.article.pharmacode || item.pharmacode || undefined,
-                          updatedAt: new Date(),
-                        })
-                        .where(eq(supplierCodes.id, existingHinCode[0].id));
-                      
-                      hinMatchedCount++;
-                      console.log(`[Worker] HIN fallback: Updated existing code for "${item.itemName}"`);
-                    } else {
-                      // Demote other preferred suppliers
-                      await db
-                        .update(supplierCodes)
-                        .set({
-                          isPreferred: false,
-                          updatedAt: new Date(),
-                        })
-                        .where(and(
-                          eq(supplierCodes.itemId, item.itemId),
-                          eq(supplierCodes.isPreferred, true)
-                        ));
-                      
-                      // Create new HIN supplier code
-                      const newId = randomUUID();
-                      await db.insert(supplierCodes).values({
-                        id: newId,
-                        itemId: item.itemId,
-                        supplierName: 'HIN',
-                        articleCode: hinResult.article.pharmacode || item.pharmacode || undefined,
-                        basispreis: basispreis ? String(basispreis) : undefined,
-                        publikumspreis: publikumspreis ? String(publikumspreis) : undefined,
-                        lastPriceUpdate: new Date(),
-                        lastChecked: new Date(),
-                        isPreferred: true,
-                        matchStatus: 'confirmed',
-                        matchedProductName: hinResult.article.descriptionDe || undefined,
-                        createdAt: new Date(),
-                        updatedAt: new Date(),
-                      });
-                      
-                      hinMatchedCount++;
-                      hinCreatedCount++;
-                      console.log(`[Worker] HIN fallback: Created supplier code for "${item.itemName}" - price: ${basispreis}`);
-                    }
-                    
-                    // Update itemCodes if we got GTIN or packSize from HIN
-                    if (hinResult.article.gtin || hinPackSize) {
-                      const existingItemCode = await db.select({ gtin: itemCodes.gtin, unitsPerPack: itemCodes.unitsPerPack }).from(itemCodes).where(eq(itemCodes.itemId, item.itemId)).limit(1);
-                      if (existingItemCode.length > 0) {
-                        const updateFields: any = { updatedAt: new Date() };
-                        if (hinResult.article.gtin && !existingItemCode[0].gtin) {
-                          updateFields.gtin = hinResult.article.gtin;
-                        }
-                        if (hinPackSize && !existingItemCode[0].unitsPerPack) {
-                          updateFields.unitsPerPack = hinPackSize;
-                        }
-                        if (Object.keys(updateFields).length > 1) {
-                          await db.update(itemCodes).set(updateFields).where(eq(itemCodes.itemId, item.itemId));
-                        }
-                      }
-                    }
-                    
-                    // Remove from unmatched list since we found it in HIN
-                    const unmatchedIndex = unmatchedWithCodes.findIndex(u => u.itemId === item.itemId);
-                    if (unmatchedIndex !== -1) {
-                      unmatchedWithCodes.splice(unmatchedIndex, 1);
-                    }
-                  }
-                }
-              } catch (hinItemError: any) {
-                console.error(`[Worker] HIN lookup failed for item "${item.itemName}":`, hinItemError.message);
-              }
-            }
-            
-            console.log(`[Worker] HIN fallback: matched ${hinMatchedCount} items (${hinCreatedCount} new codes created)`);
-          } else {
-            console.log(`[Worker] HIN database not synced, skipping HIN fallback`);
-          }
-        } catch (hinError: any) {
-          console.error(`[Worker] HIN fallback error:`, hinError.message);
-        }
-      }
-
       // Count how many zero-price items got resolved vs still unmatched
       const zeroPriceItemsResolved = zeroPriceSuppliers.filter(s => itemsWithGalexisCode.has(s.itemId)).length;
       const zeroPriceItemsStillUnmatched = zeroPriceSuppliers.filter(s => 
@@ -973,15 +830,13 @@ async function processNextPriceSyncJob() {
         totalItemsLookedUp: itemsToLookup.length,
         totalPricesFound: priceMap.size,
         totalItemsInHospital: allHospitalItems.length,
-        itemsWithSupplierCode: existingSupplierCodes.length + autoCreatedCount + hinCreatedCount,
-        matchedItems: matchedCount + autoMatchedCount + hinMatchedCount,
+        itemsWithSupplierCode: existingSupplierCodes.length + autoCreatedCount,
+        matchedItems: matchedCount + autoMatchedCount,
         updatedItems: updatedCount,
         autoMatchedByPharmacode: autoMatchedCount,
         autoCreatedSupplierCodes: autoCreatedCount,
-        hinFallbackMatched: hinMatchedCount,
-        hinFallbackCreated: hinCreatedCount,
         unmatchedSupplierCodes: existingSupplierCodes.length - matchedCount,
-        itemsWithoutSupplierCode: allHospitalItems.length - existingSupplierCodes.length - autoCreatedCount - hinCreatedCount,
+        itemsWithoutSupplierCode: allHospitalItems.length - existingSupplierCodes.length - autoCreatedCount,
         itemsWithGtinNoSupplierCode: unmatchedWithCodes.length,
         zeroPriceSuppliersTotal: zeroPriceSuppliers.length,
         zeroPriceSuppliersResolved: zeroPriceItemsResolved,
@@ -991,26 +846,23 @@ async function processNextPriceSyncJob() {
         galexisApiDebug: galexisDebugInfo || null,
       };
 
-      console.log(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched, ${hinMatchedCount} HIN fallback, ${duplicatesRemoved} duplicates removed, ${unmatchedWithCodes.length} items still unmatched`);
+      console.log(`[Worker] Summary: ${matchedCount} existing matched, ${updatedCount} updated, ${autoMatchedCount} auto-matched, ${duplicatesRemoved} duplicates removed, ${unmatchedWithCodes.length} items still unmatched`);
 
       await storage.updatePriceSyncJob(job.id, {
         status: 'completed',
         completedAt: new Date(),
         totalItems: itemsToLookup.length,
         processedItems: itemsToLookup.length,
-        matchedItems: matchedCount + autoMatchedCount + hinMatchedCount,
+        matchedItems: matchedCount + autoMatchedCount,
         updatedItems: updatedCount,
         progressPercent: 100,
         summary: JSON.stringify(summary),
       });
 
-      const totalMatched = matchedCount + autoMatchedCount + hinMatchedCount;
+      const totalMatched = matchedCount + autoMatchedCount;
       let syncMessage = `Matched ${totalMatched} items`;
-      if (autoMatchedCount > 0 || hinMatchedCount > 0) {
-        const parts: string[] = [];
-        if (autoMatchedCount > 0) parts.push(`${autoMatchedCount} auto-matched`);
-        if (hinMatchedCount > 0) parts.push(`${hinMatchedCount} via HIN`);
-        syncMessage += ` (${parts.join(', ')})`;
+      if (autoMatchedCount > 0) {
+        syncMessage += ` (${autoMatchedCount} auto-matched)`;
       }
       syncMessage += `, updated ${updatedCount} prices`;
       if (duplicatesRemoved > 0) {
@@ -2596,189 +2448,11 @@ async function scheduleAutoPriceSyncJobs(): Promise<void> {
           }
         }
       } else {
-        // Hospital doesn't have Galexis - use HIN database for price lookup
-        await performHinPriceSyncForHospital(hospital.id, hospital.name);
+        // Hospital doesn't have Galexis - catalog-based pricing handled via manual upload
       }
     }
   } catch (error: any) {
     console.error('[Worker] Error in scheduleAutoPriceSyncJobs:', error.message);
-  }
-}
-
-/**
- * Perform HIN-based price sync for a hospital without Galexis credentials
- * Looks up items by pharmacode/GTIN in the HIN database and updates prices
- */
-async function performHinPriceSyncForHospital(hospitalId: string, hospitalName: string): Promise<void> {
-  try {
-    const { hinClient } = await import('./services/hinMediupdateClient');
-    
-    // Check if HIN database is available
-    const hinStatus = await hinClient.getSyncStatus();
-    if (!hinStatus.lastSyncAt) {
-      console.log(`[Worker] HIN database not available, skipping price sync for hospital "${hospitalName}"`);
-      return;
-    }
-    
-    // Get items with pharmacodes/GTINs that don't have recent price updates
-    const hospitalItems = await db
-      .select({
-        itemId: items.id,
-        itemName: items.name,
-        pharmacode: itemCodes.pharmacode,
-        gtin: itemCodes.gtin,
-      })
-      .from(items)
-      .leftJoin(itemCodes, eq(itemCodes.itemId, items.id))
-      .where(and(
-        eq(items.hospitalId, hospitalId),
-        or(
-          isNotNull(itemCodes.pharmacode),
-          isNotNull(itemCodes.gtin)
-        )
-      ));
-    
-    if (hospitalItems.length === 0) {
-      return; // No items with codes to sync
-    }
-    
-    // Check existing supplier codes to see when they were last updated
-    const existingHinCodes = await db
-      .select({
-        id: supplierCodes.id,
-        itemId: supplierCodes.itemId,
-        lastPriceUpdate: supplierCodes.lastPriceUpdate,
-      })
-      .from(supplierCodes)
-      .innerJoin(items, eq(items.id, supplierCodes.itemId))
-      .where(and(
-        eq(items.hospitalId, hospitalId),
-        eq(supplierCodes.supplierName, 'HIN')
-      ));
-    
-    const hinCodesByItem = new Map(existingHinCodes.map(c => [c.itemId, c]));
-    
-    let updatedCount = 0;
-    let createdCount = 0;
-    
-    const { parsePackSizeFromDescription: parseHinPackSize } = await import('./services/hinMediupdateClient');
-    
-    for (const item of hospitalItems) {
-      // Skip if item was updated recently (within 24 hours)
-      const existingCode = hinCodesByItem.get(item.itemId);
-      if (existingCode?.lastPriceUpdate) {
-        const hoursSinceUpdate = (Date.now() - new Date(existingCode.lastPriceUpdate).getTime()) / (1000 * 60 * 60);
-        if (hoursSinceUpdate < PRICE_SYNC_MAX_AGE_HOURS) {
-          continue;
-        }
-      }
-      
-      // Look up in HIN database - try pharmacode first, then GTIN
-      const pharmacode = item.pharmacode || undefined;
-      const gtin = item.gtin || undefined;
-      const lookupCode = pharmacode || gtin;
-      
-      if (!lookupCode) continue;
-      
-      const hinResult = await hinClient.lookupByCode(lookupCode);
-      
-      if (hinResult && hinResult.found && hinResult.article) {
-        const basispreis = hinResult.article.pexf;
-        const publikumspreis = hinResult.article.ppub;
-        
-        if (basispreis || publikumspreis) {
-          // Parse pack size from HIN description
-          const hinPackSize = parseHinPackSize(hinResult.article.descriptionDe);
-          
-          if (existingCode) {
-            // Update existing HIN supplier code
-            await db.update(supplierCodes).set({
-              basispreis: basispreis ? String(basispreis) : undefined,
-              publikumspreis: publikumspreis ? String(publikumspreis) : null,
-              lastPriceUpdate: new Date(),
-              lastChecked: new Date(),
-              matchedProductName: hinResult.article.descriptionDe,
-              updatedAt: new Date(),
-            }).where(eq(supplierCodes.id, existingCode.id));
-            updatedCount++;
-          } else {
-            // Create new HIN supplier code
-            await db.insert(supplierCodes).values({
-              id: randomUUID(),
-              itemId: item.itemId,
-              supplierName: 'HIN',
-              articleCode: hinResult.article.pharmacode || pharmacode || gtin || '',
-              basispreis: basispreis ? String(basispreis) : undefined,
-              publikumspreis: publikumspreis ? String(publikumspreis) : null,
-              lastPriceUpdate: new Date(),
-              lastChecked: new Date(),
-              isPreferred: true,
-              matchStatus: 'confirmed',
-              matchedProductName: hinResult.article.descriptionDe,
-              createdAt: new Date(),
-              updatedAt: new Date(),
-            });
-            createdCount++;
-          }
-          
-          // Also update itemCodes with pack size if available and not already set
-          if (hinPackSize) {
-            const existingItemCode = await db.select({ unitsPerPack: itemCodes.unitsPerPack }).from(itemCodes).where(eq(itemCodes.itemId, item.itemId)).limit(1);
-            if (existingItemCode.length > 0 && !existingItemCode[0].unitsPerPack) {
-              await db.update(itemCodes).set({ unitsPerPack: hinPackSize, updatedAt: new Date() }).where(eq(itemCodes.itemId, item.itemId));
-            }
-          }
-        }
-      }
-    }
-    
-    if (updatedCount > 0 || createdCount > 0) {
-      console.log(`[Worker] HIN price sync for "${hospitalName}": updated ${updatedCount}, created ${createdCount} supplier codes`);
-    }
-  } catch (error: any) {
-    console.error(`[Worker] Error in HIN price sync for hospital "${hospitalName}":`, error.message);
-  }
-}
-
-/**
- * Check and perform HIN MediUpdate database sync if needed
- * This is a shared database (not hospital-specific) used as fallback for hospitals without Galexis
- */
-async function checkAndSyncHinDatabase(): Promise<void> {
-  try {
-    const { hinClient } = await import('./services/hinMediupdateClient');
-    const status = await hinClient.getSyncStatus();
-    
-    if (!status.lastSyncAt) {
-      console.log('[Worker] HIN database never synced, triggering initial sync...');
-    } else {
-      const hoursSinceSync = (Date.now() - new Date(status.lastSyncAt).getTime()) / (1000 * 60 * 60);
-      
-      if (hoursSinceSync < HIN_SYNC_MAX_AGE_HOURS) {
-        return;
-      }
-      
-      console.log(`[Worker] HIN database is ${hoursSinceSync.toFixed(1)} hours old, triggering daily sync...`);
-    }
-    
-    if (status.status === 'syncing') {
-      console.log('[Worker] HIN sync already in progress, skipping...');
-      return;
-    }
-    
-    const result = await hinClient.syncArticles((processed, total) => {
-      if (processed % 10000 === 0) {
-        console.log(`[Worker] HIN sync progress: ${processed}/${total} articles`);
-      }
-    });
-    
-    if (result.success) {
-      console.log(`[Worker] HIN sync completed: ${result.articlesCount} articles in ${(result.duration / 1000).toFixed(1)}s`);
-    } else {
-      console.error(`[Worker] HIN sync failed: ${result.error}`);
-    }
-  } catch (error: any) {
-    console.error('[Worker] Error checking/syncing HIN database:', error.message);
   }
 }
 
@@ -2872,7 +2546,6 @@ async function workerLoop() {
   
   let lastStuckJobCheck = Date.now();
   let lastScheduledJobCheck = Date.now();
-  let lastHinSyncCheck = 0; // Check immediately on startup
   let lastPriceSyncCheck = 0; // Check immediately on startup
   let lastInventorySnapshotCheck = 0; // Check immediately on startup
   
@@ -2892,12 +2565,6 @@ async function workerLoop() {
         await schedulePreSurgeryReminderJobs();
         await scheduleMonthlyBillingJobs();
         lastScheduledJobCheck = Date.now();
-      }
-      
-      // Check HIN database sync (every hour, syncs if older than 24 hours)
-      if (Date.now() - lastHinSyncCheck >= HIN_SYNC_CHECK_INTERVAL_MS) {
-        await checkAndSyncHinDatabase();
-        lastHinSyncCheck = Date.now();
       }
       
       // Schedule automatic price sync for all hospitals (every hour, syncs if >24 hours old)

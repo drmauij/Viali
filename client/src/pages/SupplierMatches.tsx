@@ -19,7 +19,7 @@ import { CameraCapture } from "@/components/CameraCapture";
 import { isTouchDevice } from "@/pages/items/helpers";
 import { 
   Check, X, ExternalLink, Package, Loader2, 
-  XCircle, DollarSign, CheckCircle2, Search, ChevronRight, AlertCircle, Trash2, Star, Edit, Plus, Building2
+  XCircle, DollarSign, CheckCircle2, Search, ChevronRight, Trash2, Star, Edit, Plus, Building2
 } from "lucide-react";
 
 interface Unit {
@@ -130,7 +130,7 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
     basispreis: ""
   });
   
-  // Galexis/HIN lookup state
+  // Product catalog lookup state
   const [isLookingUp, setIsLookingUp] = useState(false);
   const [lookupMessage, setLookupMessage] = useState<string | null>(null);
   const lookupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -270,12 +270,12 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
     }
   };
   
-  // Galexis/HIN product lookup for Edit Codes dialog
+  // Product catalog lookup for Edit Codes dialog
   const lookupProduct = async (gtin?: string, pharmacode?: string) => {
     if ((!gtin && !pharmacode) || !activeHospital?.id || !editingItem) return;
     
     setIsLookingUp(true);
-    setLookupMessage(t('items.lookingUpGalexis', 'Looking up in Galexis/HIN...'));
+    setLookupMessage(t('items.lookingUpCatalog', 'Looking up in product catalog...'));
     
     try {
       const response = await apiRequest('POST', '/api/items/galexis-lookup', {
@@ -324,10 +324,10 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
           return;
         }
         
-        // Auto-add supplier with Galexis/HIN data
+        // Auto-add supplier with catalog data
         const priceValue = result.yourPrice || result.basispreis;
         const supplierData = {
-          supplierName: result.supplierName || (result.source === 'hin' ? 'HIN' : 'Galexis'),
+          supplierName: result.supplierName || (result.source === 'catalog' ? 'Catalog' : 'Galexis'),
           articleCode: result.pharmacode || pharmacode || null,
           catalogUrl: result.catalogUrl || null,
           basispreis: priceValue ? String(priceValue) : null,
@@ -365,7 +365,7 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
           setLookupMessage(t('items.lookupFoundButAddFailed', 'Product found but failed to add supplier'));
         }
       } else {
-        setLookupMessage(t('items.productNotFound', 'Product not found in Galexis/HIN'));
+        setLookupMessage(t('items.productNotFound', 'Product not found in catalog'));
       }
     } catch (err: any) {
       console.error('Lookup failed:', err);
@@ -557,112 +557,13 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
     },
   });
 
-  // HIN matches query for the "To Verify" tab
-  interface HinMatchData {
-    matched: any[];
-    toVerify: any[];
-    unmatched: any[];
-    rejected: any[];
-    counts: {
-      matched: number;
-      toVerify: number;
-      unmatched: number;
-      rejected: number;
-      total: number;
-    };
-  }
-  
-  const { data: hinMatchData, refetch: refetchHinMatches, isLoading: isLoadingHin } = useQuery<HinMatchData>({
-    queryKey: [`/api/hin-matches/${activeHospital?.id}`],
-    enabled: !!activeHospital?.id,
-  });
-
-  const [isSyncingHin, setIsSyncingHin] = useState(false);
-  const [searchToVerify, setSearchToVerify] = useState("");
-  
-  // Trigger HIN batch sync
-  const syncWithHin = async () => {
-    if (!activeHospital?.id) return;
-    setIsSyncingHin(true);
-    try {
-      const response = await apiRequest("POST", `/api/hin-matches/${activeHospital.id}/sync`);
-      const result = await response.json();
-      toast({
-        title: t("hinMatches.syncComplete", "HIN Sync Complete"),
-        description: t("hinMatches.syncResults", `Matched: ${result.matched}, To Verify: ${result.toVerify}, Unmatched: ${result.unmatched}`),
-      });
-      refetchHinMatches();
-      refetch();
-    } catch (error: any) {
-      toast({
-        title: t("common.error"),
-        description: error.message || t("hinMatches.syncFailed", "Failed to sync with HIN"),
-        variant: "destructive",
-      });
-    } finally {
-      setIsSyncingHin(false);
-    }
-  };
-
-  // Approve HIN fuzzy match
-  const approveHinMatch = useMutation({
-    mutationFn: async (matchId: string) => {
-      const response = await apiRequest("POST", `/api/hin-matches/${matchId}/approve`);
-      return response.json();
-    },
-    onSuccess: () => {
-      refetchHinMatches();
-      refetch();
-      toast({ title: t("common.success"), description: t("hinMatches.matchApproved", "Match approved and codes updated") });
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
-    },
-  });
-
-  // Reject HIN fuzzy match
-  const rejectHinMatch = useMutation({
-    mutationFn: async (matchId: string) => {
-      const response = await apiRequest("POST", `/api/hin-matches/${matchId}/reject`);
-      return response.json();
-    },
-    onSuccess: () => {
-      refetchHinMatches();
-      toast({ title: t("common.success"), description: t("hinMatches.matchRejected", "Match rejected") });
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
-    },
-  });
-  
-  // Filter HIN matches by search
-  const filterHinMatches = (matches: any[], search: string) => {
-    if (!search.trim()) return matches;
-    const lower = search.toLowerCase();
-    return matches.filter(m => 
-      m.itemName?.toLowerCase().includes(lower) ||
-      m.hinDescriptionDe?.toLowerCase().includes(lower) ||
-      m.originalPharmacode?.includes(search) ||
-      m.hinPharmacode?.includes(search)
-    );
-  };
-
   const formatPrice = (price: string | null) => {
     if (!price) return "-";
     return `CHF ${parseFloat(price).toFixed(2)}`;
   };
 
-  const getConfidenceBadge = (confidence: string | number | null | undefined) => {
-    if (confidence == null) return null;
-    const conf = typeof confidence === 'number' ? confidence : parseFloat(String(confidence));
-    if (isNaN(conf)) return null;
-    if (conf >= 0.9) {
-      return <Badge variant="default" className="bg-green-600 text-xs">{Math.round(conf * 100)}%</Badge>;
-    } else if (conf >= 0.7) {
-      return <Badge variant="secondary" className="text-xs">{Math.round(conf * 100)}%</Badge>;
-    } else {
-      return <Badge variant="outline" className="text-xs">{Math.round(conf * 100)}%</Badge>;
-    }
+  const getConfidenceBadge = (_confidence: string | number | null | undefined) => {
+    return null;
   };
 
   if (!activeHospital) {
@@ -742,14 +643,6 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
               <span className="block sm:inline text-[9px] sm:text-xs opacity-80"> ({counts.unmatched})</span>
             </span>
           </TabsTrigger>
-          <TabsTrigger value="toVerify" data-testid="tab-to-verify" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 flex-col sm:flex-row gap-0.5 sm:gap-1">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-            <span className="leading-tight">
-              <span className="hidden sm:inline">{t("hinMatches.toVerify", "To Verify")}</span>
-              <span className="sm:hidden">Check</span>
-              <span className="block sm:inline text-[9px] sm:text-xs opacity-80"> ({hinMatchData?.counts?.toVerify || 0})</span>
-            </span>
-          </TabsTrigger>
           <TabsTrigger value="confirmedNoPrice" data-testid="tab-confirmed-no-price" className="text-[10px] sm:text-sm px-1 sm:px-3 py-2 flex-col sm:flex-row gap-0.5 sm:gap-1">
             <DollarSign className="w-3.5 h-3.5 shrink-0" />
             <span className="leading-tight">
@@ -819,144 +712,6 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
                       {t("supplierMatches.noMatch", "No Match")}
                     </Badge>
                     <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          )}
-        </TabsContent>
-
-        {/* To Verify Tab - HIN fuzzy matches requiring manual confirmation */}
-        <TabsContent value="toVerify" className="space-y-3 mt-4">
-          <div className="bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg p-3 text-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-purple-700 dark:text-purple-300">
-                {t("hinMatches.toVerifyDesc", "Items matched by name similarity to HIN database. Review each match and approve or reject.")}
-              </p>
-              <Button 
-                size="sm"
-                variant="outline"
-                onClick={syncWithHin}
-                disabled={isSyncingHin}
-                data-testid="button-sync-hin"
-              >
-                {isSyncingHin ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />{t("hinMatches.syncing", "Syncing...")}</>
-                ) : (
-                  <>{t("hinMatches.syncWithHin", "Sync with HIN")}</>
-                )}
-              </Button>
-            </div>
-          </div>
-          
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder={t("common.search", "Search")}
-              value={searchToVerify}
-              onChange={(e) => setSearchToVerify(e.target.value)}
-              className="pl-9"
-              data-testid="input-search-to-verify"
-            />
-          </div>
-          
-          {isLoadingHin ? (
-            <div className="space-y-3">
-              <Skeleton className="h-24 w-full" />
-              <Skeleton className="h-24 w-full" />
-            </div>
-          ) : filterHinMatches(hinMatchData?.toVerify || [], searchToVerify).length === 0 ? (
-            <div className="bg-card border border-border rounded-lg p-6 text-center">
-              {searchToVerify.trim() ? (
-                <>
-                  <Search className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-muted-foreground">{t("common.noSearchResults", "No items match your search")}</p>
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-8 h-8 mx-auto text-green-500 mb-2" />
-                  <p className="text-muted-foreground">{t("hinMatches.noItemsToVerify", "No items need verification. Click 'Sync with HIN' to find matches.")}</p>
-                </>
-              )}
-            </div>
-          ) : (
-            filterHinMatches(hinMatchData?.toVerify || [], searchToVerify).map((match) => (
-              <Card 
-                key={match.id} 
-                data-testid={`card-to-verify-${match.id}`}
-                className="border-purple-200 dark:border-purple-800"
-              >
-                <CardContent className="p-4">
-                  <div className="space-y-3">
-                    {/* Your Item */}
-                    <div className="flex items-start gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-xs">{t("hinMatches.yourItem", "Your Item")}</Badge>
-                          {getConfidenceBadge(match.matchConfidence)}
-                        </div>
-                        <h3 className="font-semibold text-foreground">{match.itemName}</h3>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          {match.originalPharmacode && <span>Pharmacode: {match.originalPharmacode}</span>}
-                          {match.originalGtin && <span>GTIN: {match.originalGtin}</span>}
-                          {!match.originalPharmacode && !match.originalGtin && <span className="italic">{t("hinMatches.noCodes", "No codes")}</span>}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Arrow */}
-                    <div className="flex items-center justify-center">
-                      <ChevronRight className="w-5 h-5 text-muted-foreground rotate-90" />
-                    </div>
-                    
-                    {/* HIN Match */}
-                    <div className="flex items-start gap-3 bg-muted/50 rounded-lg p-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">{t("hinMatches.hinMatch", "HIN Match")}</Badge>
-                        </div>
-                        <h3 className="font-medium text-foreground">{match.hinDescriptionDe}</h3>
-                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
-                          {match.hinPharmacode && <span>Pharmacode: {match.hinPharmacode}</span>}
-                          {match.hinGtin && <span>GTIN: {match.hinGtin}</span>}
-                          {match.hinSmcat && <span className="text-blue-600">Cat. {match.hinSmcat}</span>}
-                        </div>
-                        {(match.hinPexf || match.hinPpub) && (
-                          <div className="flex items-center gap-3 text-sm mt-2">
-                            {match.hinPexf && <span className="font-medium text-green-600">PEXF: CHF {parseFloat(String(match.hinPexf)).toFixed(2)}</span>}
-                            {match.hinPpub && <span className="text-muted-foreground">PPUB: CHF {parseFloat(String(match.hinPpub)).toFixed(2)}</span>}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Match reason */}
-                    {match.matchReason && (
-                      <p className="text-xs text-muted-foreground italic">{match.matchReason}</p>
-                    )}
-                    
-                    {/* Action buttons */}
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => rejectHinMatch.mutate(match.id)}
-                        disabled={rejectHinMatch.isPending}
-                        data-testid={`button-reject-${match.id}`}
-                      >
-                        <X className="w-4 h-4 mr-1" />
-                        {t("common.reject", "Reject")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => approveHinMatch.mutate(match.id)}
-                        disabled={approveHinMatch.isPending}
-                        data-testid={`button-approve-${match.id}`}
-                      >
-                        <Check className="w-4 h-4 mr-1" />
-                        {t("common.approve", "Approve")}
-                      </Button>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1282,13 +1037,13 @@ export default function SupplierMatches({ overrideUnitId }: SupplierMatchesProps
                   </div>
                 </div>
 
-                {/* Galexis/HIN Lookup Status */}
+                {/* Product Catalog Lookup Status */}
                 {(isLookingUp || lookupMessage) && (
                   <div className={`flex items-center gap-2 p-3 rounded-lg text-sm ${isLookingUp ? 'bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300' : lookupMessage?.includes('not found') || lookupMessage?.includes('failed') ? 'bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300' : 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300'}`} data-testid="lookup-status">
                     {isLookingUp ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>{t('items.lookingUpGalexis', 'Looking up in Galexis/HIN...')}</span>
+                        <span>{t('items.lookingUpCatalog', 'Looking up in product catalog...')}</span>
                       </>
                     ) : (
                       <>

@@ -83,7 +83,7 @@ import {
   externalWorklogLinks,
   externalWorklogEntries,
   workerContracts,
-  hinSyncStatus,
+  hinArticles,
   chopProcedures
 } from "@shared/schema";
 import { z } from "zod";
@@ -460,28 +460,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get Galexis catalog credentials for this hospital
       const catalog = await storage.getGalexisCatalogWithCredentials(hospitalId);
       
-      // If Galexis not configured, try HIN MediUpdate directly
       if (!catalog || !catalog.customerNumber || !catalog.apiPassword) {
-        const { hinClient, parsePackSizeFromDescription: parseHinPackSize } = await import('./services/hinMediupdateClient');
-        const hinResult = await hinClient.lookupByCode(pharmacode || gtin);
+        // If Galexis not configured, try catalog database (uploaded product data)
+        const catalogResult = await db
+          .select()
+          .from(hinArticles)
+          .where(
+            pharmacode 
+              ? eq(hinArticles.pharmacode, pharmacode)
+              : gtin ? eq(hinArticles.gtin, gtin) : sql`false`
+          )
+          .limit(1);
         
-        if (hinResult.found && hinResult.article) {
-          // Try to parse pack size from HIN description
-          const hinPackSize = parseHinPackSize(hinResult.article.descriptionDe);
-          
+        if (catalogResult.length > 0) {
+          const article = catalogResult[0];
           return res.json({
             found: true,
-            source: 'hin',
-            gtin: hinResult.article.gtin || gtin,
-            pharmacode: hinResult.article.pharmacode || pharmacode,
-            name: hinResult.article.descriptionDe,
-            basispreis: hinResult.article.pexf,
-            publikumspreis: hinResult.article.ppub,
-            yourPrice: hinResult.article.pexf,
+            source: 'catalog',
+            gtin: article.gtin || gtin,
+            pharmacode: article.pharmacode || pharmacode,
+            name: article.descriptionDe,
+            basispreis: article.pexf ? Number(article.pexf) : undefined,
+            publikumspreis: article.ppub ? Number(article.ppub) : undefined,
+            yourPrice: article.pexf ? Number(article.pexf) : undefined,
             discountPercent: 0,
-            available: hinResult.article.saleCode === 'A',
-            availabilityMessage: hinResult.article.saleCode === 'A' ? 'Available' : 'Inactive',
-            packSize: hinPackSize,
+            available: article.saleCode === 'A',
+            availabilityMessage: article.saleCode === 'A' ? 'Available' : (article.saleCode === 'I' ? 'Inactive' : 'Unknown'),
             noGalexis: true,
             existingItem: existingItem || null,
           });
@@ -489,7 +493,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         return res.json({ 
           found: false, 
-          message: "Galexis not configured and product not found in HIN database.",
+          message: "Product not found in catalog database.",
           noIntegration: true,
           existingItem: existingItem || null,
         });
@@ -531,45 +535,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         res.json(response);
       } else {
-        // Galexis not found - try HIN MediUpdate as fallback
-        const { hinClient, parsePackSizeFromDescription: parseHinPackSize } = await import('./services/hinMediupdateClient');
-        const hinResult = await hinClient.lookupByCode(pharmacode || gtin);
+        // Galexis not found - try catalog database as fallback
+        const catalogResult = await db
+          .select()
+          .from(hinArticles)
+          .where(
+            pharmacode
+              ? eq(hinArticles.pharmacode, pharmacode)
+              : gtin ? eq(hinArticles.gtin, gtin) : sql`false`
+          )
+          .limit(1);
         
-        if (hinResult.found && hinResult.article) {
-          // Try to parse pack size from HIN description
-          const hinPackSize = parseHinPackSize(hinResult.article.descriptionDe);
-          
+        if (catalogResult.length > 0) {
+          const article = catalogResult[0];
           const response: any = {
             found: true,
-            source: 'hin',
-            gtin: hinResult.article.gtin || gtin,
-            pharmacode: hinResult.article.pharmacode || pharmacode,
-            name: hinResult.article.descriptionDe,
-            basispreis: hinResult.article.pexf,
-            publikumspreis: hinResult.article.ppub,
-            yourPrice: hinResult.article.pexf, // HIN doesn't have customer-specific pricing
+            source: 'catalog',
+            gtin: article.gtin || gtin,
+            pharmacode: article.pharmacode || pharmacode,
+            name: article.descriptionDe,
+            basispreis: article.pexf ? Number(article.pexf) : undefined,
+            publikumspreis: article.ppub ? Number(article.ppub) : undefined,
+            yourPrice: article.pexf ? Number(article.pexf) : undefined,
             discountPercent: 0,
-            available: hinResult.article.saleCode === 'A',
-            availabilityMessage: hinResult.article.saleCode === 'A' ? 'Available' : 'Inactive',
-            packSize: hinPackSize,
+            available: article.saleCode === 'A',
+            availabilityMessage: article.saleCode === 'A' ? 'Available' : (article.saleCode === 'I' ? 'Inactive' : 'Unknown'),
             existingItem: existingItem || null,
           };
           
           if (debug) {
-            response.debugInfo = { source: 'hin', galexisDebugInfo: debugInfo };
+            response.debugInfo = { source: 'catalog', galexisDebugInfo: debugInfo };
           }
           
           res.json(response);
         } else {
           const response: any = {
             found: false,
-            message: results[0]?.error || "Product not found in Galexis or HIN database",
+            message: results[0]?.error || "Product not found in Galexis or catalog database",
             gtin,
             pharmacode,
             existingItem: existingItem || null,
           };
           
-          // Include debug info if requested (important for troubleshooting)
           if (debug) {
             response.debugInfo = debugInfo;
             response.rawResult = results[0];
@@ -581,169 +588,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("Error looking up product in Galexis:", error);
       res.status(500).json({ message: error.message || "Failed to lookup product in Galexis" });
-    }
-  });
-
-  // HIN MediUpdate product lookup - free fallback when Galexis not configured
-  app.post('/api/items/hin-lookup', isAuthenticated, async (req: any, res) => {
-    try {
-      const { gtin, pharmacode } = req.body;
-      if (!gtin && !pharmacode) {
-        return res.status(400).json({ message: "GTIN or Pharmacode is required" });
-      }
-
-      const { hinClient, parsePackSizeFromDescription: parseHinPackSize } = await import('./services/hinMediupdateClient');
-      const result = await hinClient.lookupByCode(pharmacode || gtin);
-      
-      if (result.found && result.article) {
-        // Try to parse pack size from HIN description
-        const hinPackSize = parseHinPackSize(result.article.descriptionDe);
-        
-        res.json({
-          found: true,
-          source: 'hin',
-          gtin: result.article.gtin,
-          pharmacode: result.article.pharmacode,
-          name: result.article.descriptionDe,
-          nameFr: result.article.descriptionFr,
-          basispreis: result.article.pexf,
-          publikumspreis: result.article.ppub,
-          swissmedicNo: result.article.swissmedicNo,
-          smcat: result.article.smcat,
-          saleCode: result.article.saleCode,
-          available: result.article.saleCode === 'A',
-          packSize: hinPackSize,
-        });
-      } else {
-        res.json({
-          found: false,
-          message: "Product not found in HIN MediUpdate database",
-        });
-      }
-    } catch (error: any) {
-      console.error("Error looking up product in HIN:", error);
-      res.status(500).json({ message: error.message || "Failed to lookup product in HIN" });
-    }
-  });
-
-  // HIN MediUpdate sync status
-  app.get('/api/hin/status', isAuthenticated, async (req: any, res) => {
-    try {
-      const { hinClient } = await import('./services/hinMediupdateClient');
-      const status = await hinClient.getSyncStatus();
-      res.json(status);
-    } catch (error: any) {
-      console.error("Error getting HIN sync status:", error);
-      res.status(500).json({ message: error.message || "Failed to get HIN sync status" });
-    }
-  });
-
-  // Trigger HIN MediUpdate sync (admin only)
-  app.post('/api/hin/sync', isAuthenticated, async (req: any, res) => {
-    try {
-      // Check if user is admin
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const hospitals = await storage.getUserHospitals(userId);
-      const hasAdminRole = hospitals.some(h => h.role === 'admin');
-      
-      if (!hasAdminRole) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
-      // Start sync in background
-      const { hinClient } = await import('./services/hinMediupdateClient');
-      
-      // Return immediately, sync runs in background
-      res.json({ message: "HIN sync started", status: "syncing" });
-      
-      // Run sync async
-      hinClient.syncArticles((processed, total) => {
-        console.log(`[HIN Sync] Progress: ${processed}/${total}`);
-      }).then(result => {
-        if (result.success) {
-          console.log(`[HIN Sync] Completed: ${result.articlesCount} articles in ${(result.duration / 1000).toFixed(1)}s`);
-        } else {
-          console.error(`[HIN Sync] Failed: ${result.error}`);
-        }
-      }).catch(err => {
-        console.error(`[HIN Sync] Error:`, err);
-      });
-    } catch (error: any) {
-      console.error("Error triggering HIN sync:", error);
-      res.status(500).json({ message: error.message || "Failed to trigger HIN sync" });
-    }
-  });
-
-  // Reset stuck HIN sync status (admin only)
-  app.post('/api/hin/reset-status', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user?.id;
-      if (!userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const hospitals = await storage.getUserHospitals(userId);
-      const hasAdminRole = hospitals.some(h => h.role === 'admin');
-      
-      if (!hasAdminRole) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
-      // Reset any stuck "syncing" status to "idle"
-      await db
-        .update(hinSyncStatus)
-        .set({ status: 'idle', errorMessage: 'Reset by admin' })
-        .where(eq(hinSyncStatus.status, 'syncing'));
-      
-      console.log('[HIN] Sync status reset by admin');
-      res.json({ message: "HIN sync status reset successfully" });
-    } catch (error: any) {
-      console.error("Error resetting HIN sync status:", error);
-      res.status(500).json({ message: error.message || "Failed to reset HIN sync status" });
-    }
-  });
-
-  // HIN test lookup endpoint - test a specific code
-  app.post('/api/hin/lookup', isAuthenticated, async (req: any, res) => {
-    try {
-      const { code } = req.body;
-      if (!code) {
-        return res.status(400).json({ message: "Code (pharmacode or GTIN) is required" });
-      }
-
-      const { hinClient, parsePackSizeFromDescription } = await import('./services/hinMediupdateClient');
-      
-      // First check sync status
-      const status = await hinClient.getSyncStatus();
-      
-      const result = await hinClient.lookupByCode(code);
-      
-      if (result.found && result.article) {
-        const packSize = parsePackSizeFromDescription(result.article.descriptionDe);
-        res.json({
-          found: true,
-          syncStatus: status,
-          article: {
-            ...result.article,
-            packSize,
-          },
-        });
-      } else {
-        res.json({
-          found: false,
-          syncStatus: status,
-          message: status.articlesCount === 0 
-            ? "HIN database is empty - please sync first" 
-            : "Product not found in HIN database",
-        });
-      }
-    } catch (error: any) {
-      console.error("Error looking up HIN product:", error);
-      res.status(500).json({ message: error.message || "Failed to lookup HIN product" });
     }
   });
 

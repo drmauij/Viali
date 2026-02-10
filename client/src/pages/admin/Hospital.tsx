@@ -61,83 +61,26 @@ export default function Hospital() {
     apiPassword: "",
   });
 
-  // HIN Database sync state - track if syncing for faster polling
-  const [hinIsSyncing, setHinIsSyncing] = useState(false);
-  const { data: hinStatus, isLoading: hinStatusLoading, refetch: refetchHinStatus } = useQuery<{
-    articlesCount: number;
-    lastSyncAt: string | null;
-    status: string;
-    errorMessage?: string;
-    syncDurationMs?: number;
-    processedItems?: number;
-    totalItems?: number;
-  }>({
-    queryKey: ['/api/hin/status'],
-    enabled: activeTab === 'suppliers',
-    refetchInterval: hinIsSyncing ? 3000 : 30000, // Poll faster during sync
-  });
-  
-  // Update syncing state when status changes
-  useEffect(() => {
-    if (hinStatus?.status === 'syncing') {
-      setHinIsSyncing(true);
-    } else if (hinIsSyncing && hinStatus?.status !== 'syncing') {
-      setHinIsSyncing(false);
-    }
-  }, [hinStatus?.status, hinIsSyncing]);
+  // Catalog upload state
+  const [catalogFile, setCatalogFile] = useState<File | null>(null);
+  const [catalogPreview, setCatalogPreview] = useState<{ headers: string[]; sampleRows: any[][]; totalRows: number } | null>(null);
+  const [catalogMapping, setCatalogMapping] = useState<Record<string, number | undefined>>({});
+  const [catalogImporting, setCatalogImporting] = useState(false);
+  const [catalogSyncing, setCatalogSyncing] = useState(false);
+  const [showMappingDialog, setShowMappingDialog] = useState(false);
 
-  const hinSyncMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/hin/sync");
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({ title: t("common.success"), description: "HIN sync started in background" });
-      setTimeout(() => refetchHinStatus(), 3000);
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || "Failed to start HIN sync", variant: "destructive" });
-    },
+  const { data: catalogStatus, isLoading: catalogStatusLoading, refetch: refetchCatalogStatus } = useQuery<{
+    articlesCount: number;
+    lastUpdated: string | null;
+  }>({
+    queryKey: ['/api/admin/catalog/status'],
+    enabled: activeTab === 'suppliers',
   });
   
   // Galexis debug test state
   const [galexisDebugQuery, setGalexisDebugQuery] = useState("");
   const [galexisDebugResult, setGalexisDebugResult] = useState<any>(null);
   const [galexisDebugLoading, setGalexisDebugLoading] = useState(false);
-
-  // HIN debug test state
-  const [hinDebugQuery, setHinDebugQuery] = useState("");
-  const [hinDebugResult, setHinDebugResult] = useState<any>(null);
-  const [hinDebugLoading, setHinDebugLoading] = useState(false);
-
-  const hinResetMutation = useMutation({
-    mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/hin/reset-status");
-      return response.json();
-    },
-    onSuccess: () => {
-      toast({ title: t("common.success"), description: "HIN sync status reset" });
-      refetchHinStatus();
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message, variant: "destructive" });
-    },
-  });
-
-  const handleHinLookup = async () => {
-    if (!hinDebugQuery.trim()) return;
-    setHinDebugLoading(true);
-    setHinDebugResult(null);
-    try {
-      const response = await apiRequest("POST", "/api/hin/lookup", { code: hinDebugQuery.trim() });
-      const result = await response.json();
-      setHinDebugResult(result);
-    } catch (error: any) {
-      setHinDebugResult({ error: error.message });
-    } finally {
-      setHinDebugLoading(false);
-    }
-  };
 
   // Hospital company data states
   const [hospitalDialogOpen, setHospitalDialogOpen] = useState(false);
@@ -572,6 +515,106 @@ export default function Hospital() {
       setLinkCopied(true);
       setTimeout(() => setLinkCopied(false), 2000);
       toast({ title: t("common.success"), description: "Link copied to clipboard" });
+    }
+  };
+
+  const handleCatalogFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCatalogFile(file);
+    
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = (reader.result as string).split(',')[1];
+        const response = await apiRequest("POST", "/api/admin/catalog/preview", {
+          fileData: base64,
+          fileName: file.name,
+        });
+        const preview = await response.json();
+        setCatalogPreview(preview);
+        
+        const autoMapping: Record<string, number | undefined> = {};
+        const mappableFields = [
+          { key: 'descriptionDe', patterns: ['description', 'beschreibung', 'name', 'bezeichnung', 'artikel', 'product'] },
+          { key: 'pharmacode', patterns: ['pharmacode', 'pharma'] },
+          { key: 'gtin', patterns: ['gtin', 'ean', 'barcode'] },
+          { key: 'pexf', patterns: ['pexf', 'fabrikabgabe', 'ex-factory', 'exfactory', 'basispreis', 'einkauf'] },
+          { key: 'ppub', patterns: ['ppub', 'publikum', 'public', 'verkauf'] },
+          { key: 'swissmedicNo', patterns: ['swissmedic', 'zulassung'] },
+          { key: 'smcat', patterns: ['kategorie', 'category', 'smcat', 'kat'] },
+          { key: 'saleCode', patterns: ['sale', 'status', 'verkaufscode'] },
+        ];
+        
+        preview.headers.forEach((header: string, idx: number) => {
+          const lower = header.toLowerCase().trim();
+          for (const field of mappableFields) {
+            if (field.patterns.some(p => lower.includes(p)) && !autoMapping[field.key]) {
+              autoMapping[field.key] = idx;
+            }
+          }
+        });
+        
+        setCatalogMapping(autoMapping);
+        setShowMappingDialog(true);
+      } catch (error: any) {
+        toast({ title: t("common.error"), description: error.message || "Failed to preview file", variant: "destructive" });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCatalogImport = async () => {
+    if (!catalogFile || catalogMapping.descriptionDe === undefined) return;
+    setCatalogImporting(true);
+    
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(catalogFile);
+      });
+      
+      const response = await apiRequest("POST", "/api/admin/catalog/import", {
+        fileData: base64,
+        fileName: catalogFile.name,
+        columnMapping: catalogMapping,
+        replaceExisting: true,
+      });
+      const result = await response.json();
+      
+      toast({ 
+        title: t("common.success"), 
+        description: `Imported ${result.imported} articles${result.skipped > 0 ? `, skipped ${result.skipped}` : ''}`,
+      });
+      
+      setShowMappingDialog(false);
+      setCatalogFile(null);
+      setCatalogPreview(null);
+      setCatalogMapping({});
+      refetchCatalogStatus();
+    } catch (error: any) {
+      toast({ title: t("common.error"), description: error.message || "Failed to import catalog", variant: "destructive" });
+    } finally {
+      setCatalogImporting(false);
+    }
+  };
+
+  const handleCatalogSync = async () => {
+    if (!activeHospital?.id) return;
+    setCatalogSyncing(true);
+    try {
+      const response = await apiRequest("POST", `/api/admin/catalog/sync-items/${activeHospital.id}`);
+      const result = await response.json();
+      toast({
+        title: t("common.success"),
+        description: `Synced items: ${result.matched} matched, ${result.created} new, ${result.updated} updated, ${result.unmatched} unmatched`,
+      });
+    } catch (error: any) {
+      toast({ title: t("common.error"), description: error.message || "Failed to sync items", variant: "destructive" });
+    } finally {
+      setCatalogSyncing(false);
     }
   };
 
@@ -1907,133 +1950,82 @@ export default function Hospital() {
             </div>
           </div>
 
-          {/* HIN Database Card */}
-          <div className="bg-card border border-border rounded-lg p-4" data-testid="card-hin-database">
+          {/* Product Catalog Card */}
+          <div className="bg-card border border-border rounded-lg p-4" data-testid="card-product-catalog">
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-foreground">HIN Database</h3>
+                  <h3 className="font-semibold text-foreground">Product Catalog</h3>
                   <span className="px-2 py-0.5 rounded-full text-xs bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200">
                     Database
                   </span>
-                  {hinStatus && hinStatus.articlesCount > 0 ? (
+                  {catalogStatus && catalogStatus.articlesCount > 0 ? (
                     <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                      <i className="fas fa-check mr-1"></i>Synced
+                      <CheckCircle2 className="w-3 h-3 inline mr-1" />Loaded
                     </span>
                   ) : (
                     <span className="px-2 py-0.5 rounded-full text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
-                      <i className="fas fa-exclamation-triangle mr-1"></i>Not Synced
+                      <AlertCircle className="w-3 h-3 inline mr-1" />Empty
                     </span>
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground mt-1">
-                  <i className="fas fa-database mr-1"></i>
-                  Swiss medication database from HIN (oddb2xml)
+                  <Database className="w-3 h-3 inline mr-1" />
+                  Upload supplier Excel file with product prices
                 </p>
-                {hinStatusLoading ? (
+                {catalogStatusLoading ? (
                   <p className="text-sm text-muted-foreground">
-                    <i className="fas fa-spinner fa-spin mr-1"></i>Loading status...
+                    <Loader2 className="w-3 h-3 inline mr-1 animate-spin" />Loading status...
                   </p>
-                ) : hinStatus ? (
+                ) : catalogStatus ? (
                   <>
                     <p className="text-sm text-muted-foreground">
-                      Articles: <span className="font-medium">{hinStatus.articlesCount?.toLocaleString() || 0}</span>
+                      Articles: <span className="font-medium">{catalogStatus.articlesCount?.toLocaleString() || 0}</span>
                     </p>
-                    {hinStatus.lastSyncAt && (
+                    {catalogStatus.lastUpdated && (
                       <p className="text-xs text-muted-foreground mt-1">
-                        Last sync: {new Date(hinStatus.lastSyncAt).toLocaleString()}
+                        Last updated: {new Date(catalogStatus.lastUpdated).toLocaleString()}
                       </p>
                     )}
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    Database not initialized
+                    No catalog uploaded yet
                   </p>
                 )}
               </div>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => hinSyncMutation.mutate()}
-                  disabled={hinSyncMutation.isPending || hinStatus?.status === 'syncing'}
-                  data-testid="button-hin-sync"
-                >
-                  {hinSyncMutation.isPending || hinStatus?.status === 'syncing' ? (
-                    <>
-                      <i className="fas fa-spinner fa-spin mr-2"></i>
-                      Syncing...
-                    </>
-                  ) : (
-                    <>
-                      <i className="fas fa-sync mr-2"></i>
-                      {hinStatus && hinStatus.articlesCount > 0 ? 'Resync' : 'Initialize'}
-                    </>
-                  )}
-                </Button>
-                {hinStatus?.status === 'syncing' && (
+                <label>
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    className="hidden"
+                    onChange={handleCatalogFileSelect}
+                    data-testid="input-catalog-file"
+                  />
+                  <Button variant="outline" size="sm" asChild>
+                    <span>
+                      <Plus className="w-4 h-4 mr-1" />
+                      Upload Excel
+                    </span>
+                  </Button>
+                </label>
+                {catalogStatus && catalogStatus.articlesCount > 0 && (
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    onClick={() => hinResetMutation.mutate()}
-                    disabled={hinResetMutation.isPending}
-                    title="Reset stuck sync status"
-                    data-testid="button-hin-reset"
+                    onClick={handleCatalogSync}
+                    disabled={catalogSyncing}
+                    data-testid="button-catalog-sync"
                   >
-                    <i className="fas fa-undo"></i>
+                    {catalogSyncing ? (
+                      <><Loader2 className="w-4 h-4 mr-1 animate-spin" />Syncing...</>
+                    ) : (
+                      <><RefreshCw className="w-4 h-4 mr-1" />Sync Items</>
+                    )}
                   </Button>
                 )}
               </div>
-            </div>
-            
-            {/* HIN Test Lookup */}
-            <div className="mt-4 pt-4 border-t border-border">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Test lookup (pharmacode or GTIN)..."
-                  value={hinDebugQuery}
-                  onChange={(e) => setHinDebugQuery(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleHinLookup()}
-                  className="flex-1"
-                  data-testid="input-hin-lookup"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleHinLookup}
-                  disabled={hinDebugLoading || !hinDebugQuery.trim()}
-                  data-testid="button-hin-lookup"
-                >
-                  {hinDebugLoading ? <i className="fas fa-spinner fa-spin"></i> : <i className="fas fa-search"></i>}
-                </Button>
-              </div>
-              {hinDebugResult && (
-                <div className="mt-3 p-3 rounded-lg bg-muted/50 text-xs">
-                  {hinDebugResult.error ? (
-                    <p className="text-destructive">{hinDebugResult.error}</p>
-                  ) : hinDebugResult.found ? (
-                    <div className="space-y-1">
-                      <p className="font-medium text-foreground">{hinDebugResult.article.descriptionDe}</p>
-                      <p className="text-muted-foreground">
-                        Pharmacode: {hinDebugResult.article.pharmacode || 'N/A'} | 
-                        GTIN: {hinDebugResult.article.gtin || 'N/A'}
-                      </p>
-                      <p className="text-muted-foreground">
-                        PEXF: {hinDebugResult.article.pexf?.toFixed(2) || 'N/A'} | 
-                        PPUB: {hinDebugResult.article.ppub?.toFixed(2) || 'N/A'}
-                      </p>
-                      {hinDebugResult.article.packSize && (
-                        <p className="text-muted-foreground">Pack Size: {hinDebugResult.article.packSize}</p>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground">{hinDebugResult.message}</p>
-                  )}
-                  <p className="text-muted-foreground/70 mt-2">
-                    DB Status: {hinDebugResult.syncStatus?.articlesCount?.toLocaleString() || 0} articles
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 
@@ -2262,82 +2254,10 @@ export default function Hospital() {
           )}
 
           {/* Recent Sync Jobs */}
-          {(priceSyncJobs.length > 0 || (hinStatus && hinStatus.status !== 'never_synced')) && (
+          {priceSyncJobs.length > 0 && (
             <div className="mt-6">
               <h3 className="text-md font-semibold text-foreground mb-3">Recent Sync Jobs</h3>
               <div className="space-y-2">
-                {/* HIN Database Sync Status */}
-                {hinStatus && hinStatus.status !== 'never_synced' && (
-                  <div className="bg-muted/50 rounded-lg p-3 text-sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className={`w-2 h-2 rounded-full ${
-                          hinStatus.status === 'success' ? 'bg-green-500' :
-                          hinStatus.status === 'error' ? 'bg-red-500' :
-                          hinStatus.status === 'syncing' ? 'bg-yellow-500 animate-pulse' :
-                          'bg-gray-400'
-                        }`} />
-                        <span className="font-medium">
-                          <i className="fas fa-database mr-1 text-blue-500"></i>
-                          HIN Database
-                        </span>
-                        <span className="capitalize text-muted-foreground">
-                          ({hinStatus.status === 'success' ? 'completed' : hinStatus.status})
-                        </span>
-                      </div>
-                      <span className="text-muted-foreground">
-                        {hinStatus.lastSyncAt ? new Date(hinStatus.lastSyncAt).toLocaleString() : 'Never'}
-                      </span>
-                    </div>
-                    {hinStatus.status === 'success' && (
-                      <div className="text-muted-foreground mt-1 text-xs">
-                        <p className="text-green-600 dark:text-green-400 font-medium">
-                          Synced {hinStatus.articlesCount?.toLocaleString() || 0} articles
-                          {hinStatus.syncDurationMs && ` in ${(hinStatus.syncDurationMs / 1000).toFixed(1)}s`}
-                        </p>
-                      </div>
-                    )}
-                    {hinStatus.status === 'syncing' && (
-                      <div className="text-muted-foreground mt-2 text-xs space-y-2">
-                        <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
-                            <div 
-                              className="bg-blue-500 h-full transition-all duration-300"
-                              style={{ 
-                                width: `${hinStatus.totalItems && hinStatus.totalItems > 0 
-                                  ? Math.round((hinStatus.processedItems || 0) / hinStatus.totalItems * 100) 
-                                  : 0}%` 
-                              }}
-                            />
-                          </div>
-                          <span className="text-muted-foreground whitespace-nowrap min-w-[120px] text-right">
-                            {hinStatus.processedItems?.toLocaleString() || 0} / {hinStatus.totalItems?.toLocaleString() || '?'} articles
-                          </span>
-                        </div>
-                        <p className="text-yellow-600 dark:text-yellow-400">
-                          <i className="fas fa-spinner fa-spin mr-1"></i>
-                          {hinStatus.totalItems && hinStatus.totalItems > 0 
-                            ? `${Math.round((hinStatus.processedItems || 0) / hinStatus.totalItems * 100)}% complete`
-                            : 'Downloading...'}
-                        </p>
-                      </div>
-                    )}
-                    {hinStatus.status === 'error' && hinStatus.errorMessage && (
-                      <div className="mt-2">
-                        <p className="text-red-500 text-sm">{hinStatus.errorMessage}</p>
-                        <details className="mt-2">
-                          <summary className="cursor-pointer text-blue-600 dark:text-blue-400 hover:underline text-xs">
-                            Show Error Details
-                          </summary>
-                          <pre className="mt-2 p-2 bg-red-950/20 border border-red-500/30 rounded text-xs overflow-auto max-h-64 whitespace-pre-wrap text-red-400">
-                            {hinStatus.errorMessage}
-                          </pre>
-                        </details>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
                 {/* Galexis/Supplier Sync Jobs */}
                 {priceSyncJobs.slice(0, 5).map((job: any) => (
                   <div key={job.id} className="bg-muted/50 rounded-lg p-3 text-sm">
@@ -3232,6 +3152,102 @@ export default function Hospital() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Catalog Column Mapping Dialog */}
+      <Dialog open={showMappingDialog} onOpenChange={setShowMappingDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Map Excel Columns</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              File: <span className="font-medium">{catalogFile?.name}</span> — {catalogPreview?.totalRows?.toLocaleString()} rows
+            </p>
+            
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { key: 'descriptionDe', label: 'Description (required)', required: true },
+                { key: 'pharmacode', label: 'Pharmacode', required: false },
+                { key: 'gtin', label: 'GTIN / EAN', required: false },
+                { key: 'pexf', label: 'Price PEXF (Ex-Factory)', required: false },
+                { key: 'ppub', label: 'Price PPUB (Public)', required: false },
+                { key: 'swissmedicNo', label: 'Swissmedic No.', required: false },
+                { key: 'smcat', label: 'Category (A/B/C/D)', required: false },
+                { key: 'saleCode', label: 'Sale Code', required: false },
+              ].map(field => (
+                <div key={field.key} className="space-y-1">
+                  <Label className="text-xs">
+                    {field.label}
+                    {field.required && <span className="text-destructive ml-1">*</span>}
+                  </Label>
+                  <Select
+                    value={catalogMapping[field.key] !== undefined ? String(catalogMapping[field.key]) : "__none__"}
+                    onValueChange={(val: string) => setCatalogMapping((prev: Record<string, number | undefined>) => ({
+                      ...prev,
+                      [field.key]: val === "__none__" ? undefined : Number(val),
+                    }))}
+                  >
+                    <SelectTrigger className="h-8 text-xs" data-testid={`select-mapping-${field.key}`}>
+                      <SelectValue placeholder="— Select column —" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">— None —</SelectItem>
+                      {catalogPreview?.headers.map((h: string, idx: number) => (
+                        <SelectItem key={idx} value={String(idx)}>{h}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+
+            {catalogPreview && catalogPreview.sampleRows.length > 0 && (
+              <div className="mt-4">
+                <Label className="text-xs text-muted-foreground mb-2 block">Preview (first {catalogPreview.sampleRows.length} rows)</Label>
+                <div className="overflow-x-auto border rounded-lg">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="bg-muted">
+                        {catalogPreview.headers.map((h: string, idx: number) => (
+                          <th key={idx} className="px-2 py-1 text-left font-medium whitespace-nowrap">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {catalogPreview.sampleRows.map((row: any[], rowIdx: number) => (
+                        <tr key={rowIdx} className="border-t">
+                          {catalogPreview.headers.map((_: string, colIdx: number) => (
+                            <td key={colIdx} className="px-2 py-1 whitespace-nowrap max-w-[200px] truncate">
+                              {row[colIdx] ?? ''}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setShowMappingDialog(false)} data-testid="button-cancel-mapping">
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCatalogImport}
+                disabled={catalogImporting || catalogMapping.descriptionDe === undefined}
+                data-testid="button-import-catalog"
+              >
+                {catalogImporting ? (
+                  <><Loader2 className="w-4 h-4 mr-1 animate-spin" />Importing...</>
+                ) : (
+                  <>Import {catalogPreview?.totalRows?.toLocaleString()} Articles</>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
