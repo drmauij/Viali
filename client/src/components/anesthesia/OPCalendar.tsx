@@ -156,20 +156,15 @@ function DroppableRoomHeader({
               e.stopPropagation();
               onChecklistClick(resource.id);
             }}
-            className={`relative p-1 rounded-md transition-colors ${
+            className={`p-0 leading-none transition-colors ${
               checklists.some(c => c.isOverdue)
-                ? 'text-destructive hover:bg-destructive/10 animate-pulse'
-                : 'text-amber-500 hover:bg-amber-500/10'
+                ? 'text-destructive animate-pulse'
+                : 'text-amber-500'
             }`}
             title={`${checklists.length} checklist(s) due`}
             data-testid={`button-room-checklist-${resource.id}`}
           >
-            <ClipboardCheck className="h-4 w-4" />
-            <span className={`absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center text-[9px] font-bold rounded-full text-white ${
-              checklists.some(c => c.isOverdue) ? 'bg-destructive' : 'bg-amber-500'
-            }`}>
-              {checklists.length}
-            </span>
+            <ClipboardCheck className="h-3.5 w-3.5" />
           </button>
         )}
       </div>
