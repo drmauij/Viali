@@ -838,16 +838,20 @@ export default function Users() {
       updateNotesMutation.mutate({ userId: editingUserDetails.id, adminNotes: editingUserDetails.adminNotes || "" });
     }
 
+    const detailsPayload = {
+      firstName: userForm.firstName,
+      lastName: userForm.lastName,
+      phone: userForm.phone || null,
+    };
+    console.log('[DEBUG] handleSaveUserDetails - userForm.phone:', JSON.stringify(userForm.phone), '- payload:', JSON.stringify(detailsPayload));
+
     try {
       await updateUserDetailsMutation.mutateAsync({
         userId: editingUserDetails.id,
-        data: {
-          firstName: userForm.firstName,
-          lastName: userForm.lastName,
-          phone: userForm.phone || null,
-        }
+        data: detailsPayload,
       });
     } catch (error) {
+      console.error('[DEBUG] handleSaveUserDetails - error:', error);
       return;
     }
 

@@ -682,6 +682,8 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
   try {
     const { userId } = req.params;
     const { firstName, lastName, phone, hospitalId } = req.body;
+    console.log('[DEBUG] Update user details - body:', JSON.stringify(req.body));
+    console.log('[DEBUG] Update user details - phone value:', JSON.stringify(phone), 'type:', typeof phone);
     
     if (!firstName || !lastName) {
       return res.status(400).json({ message: "First name and last name are required" });
