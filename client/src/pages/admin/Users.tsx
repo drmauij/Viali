@@ -436,7 +436,7 @@ export default function Users() {
   });
 
   const updateUserDetailsMutation = useMutation({
-    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string; phone?: string } }) => {
+    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string; phone?: string | null } }) => {
       const response = await apiRequest("PATCH", `/api/admin/users/${userId}/details`, { 
         ...data,
         hospitalId: activeHospital?.id 
@@ -877,13 +877,21 @@ export default function Users() {
       return;
     }
 
+    if (notesTimerRef.current[editingUserDetails.id]) {
+      clearTimeout(notesTimerRef.current[editingUserDetails.id]);
+      delete notesTimerRef.current[editingUserDetails.id];
+    }
+    if (editingUserDetails.adminNotes !== undefined) {
+      updateNotesMutation.mutate({ userId: editingUserDetails.id, adminNotes: editingUserDetails.adminNotes || "" });
+    }
+
     try {
       await updateUserDetailsMutation.mutateAsync({
         userId: editingUserDetails.id,
         data: {
           firstName: userForm.firstName,
           lastName: userForm.lastName,
-          phone: userForm.phone || undefined,
+          phone: userForm.phone || null,
         }
       });
     } catch (error) {
