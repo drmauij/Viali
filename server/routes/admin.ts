@@ -1485,31 +1485,32 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
 
     const batch: any[] = [];
 
-    console.log("[Admin] Import columnMapping:", JSON.stringify(columnMapping));
-    console.log("[Admin] Total rows to process:", rows.length);
-    if (rows.length > 0) {
-      console.log("[Admin] First row sample:", JSON.stringify(rows[0]));
-      console.log("[Admin] descriptionDe col index:", columnMapping.descriptionDe, "value:", rows[0]?.[columnMapping.descriptionDe]);
-    }
-
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const descriptionDe = getVal(row, columnMapping.descriptionDe);
 
       if (!descriptionDe) {
         skipped++;
-        if (i < 3) console.log(`[Admin] Row ${i} skipped, descriptionDe is null. Row data:`, JSON.stringify(row));
+        continue;
+      }
+
+      const pharmacodeVal = getVal(row, columnMapping.pharmacode);
+      if (pharmacodeVal && !/\d/.test(pharmacodeVal)) {
+        skipped++;
         continue;
       }
 
       try {
+        const pexfVal = getVal(row, columnMapping.pexf);
+        const ppubVal = getVal(row, columnMapping.ppub);
+
         const record: any = {
           id: randomUUID(),
           descriptionDe,
-          pharmacode: getVal(row, columnMapping.pharmacode),
+          pharmacode: pharmacodeVal,
           gtin: getVal(row, columnMapping.gtin),
-          pexf: getVal(row, columnMapping.pexf),
-          ppub: getVal(row, columnMapping.ppub),
+          pexf: pexfVal ? pexfVal.replace(/[^\d.\-]/g, '') || null : null,
+          ppub: ppubVal ? ppubVal.replace(/[^\d.\-]/g, '') || null : null,
           swissmedicNo: getVal(row, columnMapping.swissmedicNo),
           smcat: getVal(row, columnMapping.smcat),
           saleCode: getVal(row, columnMapping.saleCode),
@@ -1534,6 +1535,7 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
         await db.insert(hinArticles).values(batch);
         imported += batch.length;
       } catch (batchError: any) {
+        console.error("[Admin] Batch insert error:", batchError.message);
         errors.push(`Final batch error: ${batchError.message}`);
         skipped += batch.length;
       }
