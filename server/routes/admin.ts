@@ -1485,12 +1485,20 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
 
     const batch: any[] = [];
 
+    console.log("[Admin] Import columnMapping:", JSON.stringify(columnMapping));
+    console.log("[Admin] Total rows to process:", rows.length);
+    if (rows.length > 0) {
+      console.log("[Admin] First row sample:", JSON.stringify(rows[0]));
+      console.log("[Admin] descriptionDe col index:", columnMapping.descriptionDe, "value:", rows[0]?.[columnMapping.descriptionDe]);
+    }
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
       const descriptionDe = getVal(row, columnMapping.descriptionDe);
 
       if (!descriptionDe) {
         skipped++;
+        if (i < 3) console.log(`[Admin] Row ${i} skipped, descriptionDe is null. Row data:`, JSON.stringify(row));
         continue;
       }
 
