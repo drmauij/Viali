@@ -2824,7 +2824,16 @@ export default function Hospital() {
               <div className="space-y-2">
                 {templateForm.items.map((item, index) => (
                   <div key={index} className="flex items-center gap-2">
-                    <Input value={item} disabled className="flex-1" data-testid={`item-${index}`} />
+                    <Input
+                      value={item}
+                      onChange={(e) => {
+                        const updated = [...templateForm.items];
+                        updated[index] = e.target.value;
+                        setTemplateForm(prev => ({ ...prev, items: updated }));
+                      }}
+                      className="flex-1"
+                      data-testid={`item-${index}`}
+                    />
                     <Button
                       variant="outline"
                       size="sm"
