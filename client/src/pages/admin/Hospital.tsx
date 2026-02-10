@@ -549,6 +549,7 @@ export default function Hospital() {
         ];
         
         preview.headers.forEach((header: string, idx: number) => {
+          if (!header) return;
           const lower = header.toLowerCase().trim();
           for (const field of mappableFields) {
             if (field.patterns.some(p => lower.includes(p)) && !autoMapping[field.key]) {

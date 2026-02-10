@@ -1424,24 +1424,10 @@ router.post('/api/admin/catalog/preview', isAuthenticated, async (req: any, res)
       return res.json({ headers: [], sampleRows: [], totalRows: 0 });
     }
 
-    const firstRow = nonEmptyRows[0];
-    const firstRowValues = firstRow.map((h: any) => String(h ?? '').trim());
-    const hasRealHeaders = firstRowValues.some((h: string) => h.length > 0 && isNaN(Number(h)) && h.length > 1);
-
-    let headers: string[];
-    let dataRows: any[][];
-
-    if (hasRealHeaders) {
-      headers = firstRowValues.map((h: string, idx: number) => h || `Column ${idx + 1}`);
-      dataRows = nonEmptyRows.slice(1);
-    } else {
-      const maxCols = Math.max(...nonEmptyRows.slice(0, 20).map((r: any[]) => r.length));
-      headers = Array.from({ length: maxCols }, (_, idx) => `Column ${idx + 1}`);
-      dataRows = nonEmptyRows;
-    }
-
-    const sampleRows = dataRows.slice(0, 5);
-    const totalRows = dataRows.length;
+    const maxCols = Math.max(...nonEmptyRows.slice(0, 20).map((r: any[]) => r.length));
+    const headers = Array.from({ length: maxCols }, (_, idx) => `Column ${idx + 1}`);
+    const sampleRows = nonEmptyRows.slice(0, 5);
+    const totalRows = nonEmptyRows.length;
 
     res.json({ headers, sampleRows, totalRows });
   } catch (error: any) {
@@ -1482,9 +1468,7 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
       return res.json({ success: true, imported: 0, skipped: 0, errors: ["No data rows found"] });
     }
 
-    const firstRowValues = nonEmptyRows[0].map((h: any) => String(h ?? '').trim());
-    const hasRealHeaders = firstRowValues.some((h: string) => h.length > 0 && isNaN(Number(h)) && h.length > 1);
-    const rows = hasRealHeaders ? nonEmptyRows.slice(1) : nonEmptyRows;
+    const rows = nonEmptyRows;
 
     await db.delete(hinArticles);
 
