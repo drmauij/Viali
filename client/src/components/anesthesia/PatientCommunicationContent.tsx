@@ -558,7 +558,7 @@ export function PatientCommunicationContent({
   
   const getMessageTypeLabel = (type: CommType, isAutomatic?: boolean) => {
     if (type === 'auto_questionnaire') {
-      return t('messages.historyAutoQuestionnaire', '🤖 Auto: Questionnaire');
+      return t('messages.historyAutoQuestionnaire', '🤖 Auto: Patient Portal');
     } else if (type === 'auto_reminder') {
       return t('messages.historyAutoReminder', '🤖 Auto: Surgery Reminder');
     } else if (type === 'auto_consent_invitation') {
@@ -566,7 +566,7 @@ export function PatientCommunicationContent({
     } else if (type === 'auto_callback_appointment') {
       return t('messages.historyAutoCallbackAppointment', '🤖 Auto: Callback Appointment');
     } else if (type === 'questionnaire') {
-      return t('messages.historyQuestionnaire', 'Questionnaire');
+      return t('messages.historyQuestionnaire', 'Patient Portal');
     } else if (type === 'infoflyer') {
       return t('messages.historyInfoflyer', 'Infoflyer');
     } else if (isAutomatic) {
@@ -666,7 +666,7 @@ export function PatientCommunicationContent({
                   rel="noopener noreferrer"
                   className="text-blue-600 dark:text-blue-400 hover:underline text-xs font-medium"
                 >
-                  {t('messages.questionnaireLink', 'Questionnaire')}
+                  {t('messages.questionnaireLink', 'Patient Portal')}
                 </a>
                 {getQuestionnaireStatusBadge(status)}
               </span>
@@ -826,7 +826,7 @@ export function PatientCommunicationContent({
                 ) : (
                   <FileText className="h-3 w-3 mr-1" />
                 )}
-                {t('messages.compose.addQuestionnaire', '+ Questionnaire')}
+                {t('messages.compose.addQuestionnaire', '+ Patient Portal')}
               </Button>
               {(patientFlyers?.flyers?.length || 0) > 0 && (
                 <Button
@@ -939,7 +939,7 @@ export function PatientCommunicationContent({
                 const portalUrl = `${window.location.origin}/patient/${generatedLink.token}`;
                 if (customMessage.includes(portalUrl)) {
                   detectedLinks.push({ 
-                    label: t('messages.compose.questionnaire', 'Questionnaire'), 
+                    label: t('messages.compose.questionnaire', 'Patient Portal'), 
                     url: portalUrl, 
                     id: 'questionnaire' 
                   });
