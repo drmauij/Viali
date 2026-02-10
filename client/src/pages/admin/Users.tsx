@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { useTranslation } from "react-i18next";
@@ -389,7 +389,7 @@ export default function Users() {
   });
 
   const updateUserDetailsMutation = useMutation({
-    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string; phone?: string | null } }) => {
+    mutationFn: async ({ userId, data }: { userId: string; data: { firstName: string; lastName: string; phone?: string | null; adminNotes?: string | null } }) => {
       const response = await apiRequest("PATCH", `/api/admin/users/${userId}/details`, { 
         ...data,
         hospitalId: activeHospital?.id 
@@ -597,35 +597,6 @@ export default function Users() {
     },
   });
 
-  // Update admin notes mutation
-  const updateNotesMutation = useMutation({
-    mutationFn: async ({ userId, adminNotes }: { userId: string; adminNotes: string }) => {
-      const response = await apiRequest("PATCH", `/api/admin/users/${userId}/notes`, {
-        adminNotes,
-        hospitalId: activeHospital?.id,
-      });
-      return await response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/admin/${activeHospital?.id}/users`] });
-      toast({ title: t("common.success"), description: t("admin.adminNotesSaved") });
-    },
-    onError: (error: any) => {
-      toast({ title: t("common.error"), description: error.message || t("admin.adminNotesSaveError"), variant: "destructive" });
-    },
-  });
-
-  // Debounced notes save
-  const notesTimerRef = useRef<Record<string, NodeJS.Timeout>>({});
-  const handleNotesChange = useCallback((userId: string, value: string) => {
-    if (notesTimerRef.current[userId]) {
-      clearTimeout(notesTimerRef.current[userId]);
-    }
-    notesTimerRef.current[userId] = setTimeout(() => {
-      updateNotesMutation.mutate({ userId, adminNotes: value });
-    }, 800);
-  }, [updateNotesMutation]);
-
   const resetUserForm = () => {
     setUserForm({ email: "", password: "", firstName: "", lastName: "", phone: "", unitId: "", role: "" });
     setDetectedExistingUser(null);
@@ -704,8 +675,6 @@ export default function Users() {
 
   const [editEmail, setEditEmail] = useState("");
 
-  const originalNotesRef = useRef<string>("");
-
   const handleEditUser = (user: GroupedHospitalUser) => {
     const userPairs = user.roles?.map((r: any) => ({ 
       id: r.roleId, 
@@ -715,7 +684,6 @@ export default function Users() {
       isDefaultLogin: r.isDefaultLogin ?? false
     })) || [];
     
-    originalNotesRef.current = user.user.adminNotes || "";
     setEditingUserDetails(user.user);
     setEditEmail(user.user.email || "");
     setUserForm({
@@ -833,23 +801,6 @@ export default function Users() {
       return;
     }
 
-    if (notesTimerRef.current[editingUserDetails.id]) {
-      clearTimeout(notesTimerRef.current[editingUserDetails.id]);
-      delete notesTimerRef.current[editingUserDetails.id];
-    }
-
-    const currentNotes = editingUserDetails.adminNotes || "";
-    const notesChanged = currentNotes !== originalNotesRef.current;
-    if (notesChanged) {
-      try {
-        await apiRequest("PATCH", `/api/admin/users/${editingUserDetails.id}/notes`, {
-          adminNotes: currentNotes,
-          hospitalId: activeHospital?.id,
-        });
-      } catch (error) {
-      }
-    }
-
     try {
       await updateUserDetailsMutation.mutateAsync({
         userId: editingUserDetails.id,
@@ -857,6 +808,7 @@ export default function Users() {
           firstName: userForm.firstName,
           lastName: userForm.lastName,
           phone: userForm.phone || null,
+          adminNotes: editingUserDetails.adminNotes ?? null,
         },
       });
     } catch (error) {
@@ -1543,7 +1495,6 @@ export default function Users() {
                   onChange={(e) => {
                     if (editingUserDetails) {
                       setEditingUserDetails({ ...editingUserDetails, adminNotes: e.target.value });
-                      handleNotesChange(editingUserDetails.id, e.target.value);
                     }
                   }}
                   placeholder={t("admin.adminNotesPlaceholder")}

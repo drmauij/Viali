@@ -681,7 +681,7 @@ router.post('/api/admin/:hospitalId/users/create', isAuthenticated, isAdmin, asy
 router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const { userId } = req.params;
-    const { firstName, lastName, phone, hospitalId } = req.body;
+    const { firstName, lastName, phone, adminNotes, hospitalId } = req.body;
     
     if (!firstName || !lastName) {
       return res.status(400).json({ message: "First name and last name are required" });
@@ -712,6 +712,9 @@ router.patch('/api/admin/users/:userId/details', isAuthenticated, requireWriteAc
     const updateData: any = { firstName, lastName };
     if (phone !== undefined) {
       updateData.phone = phone || null;
+    }
+    if (adminNotes !== undefined) {
+      updateData.adminNotes = adminNotes || null;
     }
     await storage.updateUser(userId, updateData);
     res.json({ success: true });
