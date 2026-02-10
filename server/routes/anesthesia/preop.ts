@@ -2214,8 +2214,6 @@ router.post('/api/anesthesia/preop/:id/send-consent-invitation', isAuthenticated
     let activeLink = existingLinks.find(l =>
       l.hospitalId === hospitalId &&
       l.status !== 'expired' &&
-      l.status !== 'submitted' &&
-      l.status !== 'reviewed' &&
       l.expiresAt && new Date(l.expiresAt) > now
     );
 
@@ -2383,8 +2381,6 @@ router.post('/api/anesthesia/preop/:id/send-callback-appointment', isAuthenticat
     let activeLink = existingLinks.find(l =>
       l.hospitalId === hospitalId &&
       l.status !== 'expired' &&
-      l.status !== 'submitted' &&
-      l.status !== 'reviewed' &&
       l.expiresAt && new Date(l.expiresAt) > now
     );
 
