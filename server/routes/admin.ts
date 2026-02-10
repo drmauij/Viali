@@ -1416,8 +1416,12 @@ router.post('/api/admin/catalog/preview', isAuthenticated, async (req: any, res)
       return res.json({ headers: [], sampleRows: [], totalRows: 0 });
     }
 
-    const headers = (rawData[0] || []).map((h: any) => String(h ?? ''));
-    const dataRows = rawData.slice(1).filter((row: any[]) =>
+    const rawHeaders = (rawData[0] || []).map((h: any) => String(h ?? '').trim());
+    const hasRealHeaders = rawHeaders.some((h: string) => h.length > 0 && isNaN(Number(h)));
+    const headers = hasRealHeaders
+      ? rawHeaders.map((h: string, idx: number) => h || `Column ${idx + 1}`)
+      : rawHeaders.map((_: string, idx: number) => `Column ${idx + 1}`);
+    const dataRows = rawData.slice(hasRealHeaders ? 1 : 0).filter((row: any[]) =>
       row && row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== '')
     );
     const sampleRows = dataRows.slice(0, 5);
@@ -1454,13 +1458,20 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
     const sheet = workbook.Sheets[sheetName];
     const rawData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    if (rawData.length <= 1) {
+    if (rawData.length === 0) {
       return res.json({ success: true, imported: 0, skipped: 0, errors: ["No data rows found"] });
     }
 
-    const rows = rawData.slice(1).filter((row: any[]) =>
+    const rawHeaders = (rawData[0] || []).map((h: any) => String(h ?? '').trim());
+    const hasRealHeaders = rawHeaders.some((h: string) => h.length > 0 && isNaN(Number(h)));
+
+    const rows = rawData.slice(hasRealHeaders ? 1 : 0).filter((row: any[]) =>
       row && row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== '')
     );
+
+    if (rows.length === 0) {
+      return res.json({ success: true, imported: 0, skipped: 0, errors: ["No data rows found"] });
+    }
 
     await db.delete(hinArticles);
 
