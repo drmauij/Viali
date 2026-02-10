@@ -1416,14 +1416,30 @@ router.post('/api/admin/catalog/preview', isAuthenticated, async (req: any, res)
       return res.json({ headers: [], sampleRows: [], totalRows: 0 });
     }
 
-    const rawHeaders = (rawData[0] || []).map((h: any) => String(h ?? '').trim());
-    const hasRealHeaders = rawHeaders.some((h: string) => h.length > 0 && isNaN(Number(h)));
-    const headers = hasRealHeaders
-      ? rawHeaders.map((h: string, idx: number) => h || `Column ${idx + 1}`)
-      : rawHeaders.map((_: string, idx: number) => `Column ${idx + 1}`);
-    const dataRows = rawData.slice(hasRealHeaders ? 1 : 0).filter((row: any[]) =>
-      row && row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== '')
+    const nonEmptyRows = rawData.filter((row: any[]) =>
+      row && row.length > 0 && row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== '')
     );
+
+    if (nonEmptyRows.length === 0) {
+      return res.json({ headers: [], sampleRows: [], totalRows: 0 });
+    }
+
+    const firstRow = nonEmptyRows[0];
+    const firstRowValues = firstRow.map((h: any) => String(h ?? '').trim());
+    const hasRealHeaders = firstRowValues.some((h: string) => h.length > 0 && isNaN(Number(h)) && h.length > 1);
+
+    let headers: string[];
+    let dataRows: any[][];
+
+    if (hasRealHeaders) {
+      headers = firstRowValues.map((h: string, idx: number) => h || `Column ${idx + 1}`);
+      dataRows = nonEmptyRows.slice(1);
+    } else {
+      const maxCols = Math.max(...nonEmptyRows.slice(0, 20).map((r: any[]) => r.length));
+      headers = Array.from({ length: maxCols }, (_, idx) => `Column ${idx + 1}`);
+      dataRows = nonEmptyRows;
+    }
+
     const sampleRows = dataRows.slice(0, 5);
     const totalRows = dataRows.length;
 
@@ -1458,20 +1474,17 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
     const sheet = workbook.Sheets[sheetName];
     const rawData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
 
-    if (rawData.length === 0) {
-      return res.json({ success: true, imported: 0, skipped: 0, errors: ["No data rows found"] });
-    }
-
-    const rawHeaders = (rawData[0] || []).map((h: any) => String(h ?? '').trim());
-    const hasRealHeaders = rawHeaders.some((h: string) => h.length > 0 && isNaN(Number(h)));
-
-    const rows = rawData.slice(hasRealHeaders ? 1 : 0).filter((row: any[]) =>
-      row && row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== '')
+    const nonEmptyRows = rawData.filter((row: any[]) =>
+      row && row.length > 0 && row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== '')
     );
 
-    if (rows.length === 0) {
+    if (nonEmptyRows.length === 0) {
       return res.json({ success: true, imported: 0, skipped: 0, errors: ["No data rows found"] });
     }
+
+    const firstRowValues = nonEmptyRows[0].map((h: any) => String(h ?? '').trim());
+    const hasRealHeaders = firstRowValues.some((h: string) => h.length > 0 && isNaN(Number(h)) && h.length > 1);
+    const rows = hasRealHeaders ? nonEmptyRows.slice(1) : nonEmptyRows;
 
     await db.delete(hinArticles);
 
