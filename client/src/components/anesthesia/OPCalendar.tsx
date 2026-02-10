@@ -9,7 +9,12 @@ import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import SignaturePad from "@/components/SignaturePad";
+import type { ChecklistTemplate, ChecklistCompletion } from "@shared/schema";
+import { Calendar as CalendarIcon, CalendarDays, CalendarRange, Building2, Users, User, X, Download, Circle, Pencil, PauseCircle, CheckCircle2, XCircle, ClipboardCheck, FileSignature } from "lucide-react";
 import { format } from "date-fns";
 import { de, enGB } from "date-fns/locale";
 import { generateDayPlanPdf, defaultColumns, DayPlanPdfColumn, RoomStaffInfo } from "@/lib/dayPlanPdf";
@@ -98,19 +103,30 @@ interface RoomStaffAssignment {
   role: string;
 }
 
+interface RoomPendingChecklist extends ChecklistTemplate {
+  lastCompletion?: ChecklistCompletion;
+  nextDueDate: Date;
+  isOverdue: boolean;
+}
+
 function DroppableRoomHeader({ 
   resource, 
   label, 
   roomStaff,
   onRemoveStaff,
-  dropStaffText
+  dropStaffText,
+  roomChecklists,
+  onChecklistClick,
 }: { 
   resource: CalendarResource; 
   label: string;
   roomStaff: RoomStaffAssignment[];
   onRemoveStaff: (assignmentId: string) => void;
   dropStaffText: string;
+  roomChecklists?: RoomPendingChecklist[];
+  onChecklistClick?: (roomId: string) => void;
 }) {
+  const checklists = roomChecklists || [];
   const { isOver, setNodeRef } = useDroppable({
     id: `room-${resource.id}`,
     data: {
@@ -132,7 +148,31 @@ function DroppableRoomHeader({
       }`}
       data-testid={`room-header-${resource.id}`}
     >
-      <div className="font-semibold text-sm p-2 pb-1">{label}</div>
+      <div className="font-semibold text-sm p-2 pb-1 flex items-center justify-between">
+        <span>{label}</span>
+        {checklists.length > 0 && onChecklistClick && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onChecklistClick(resource.id);
+            }}
+            className={`relative p-1 rounded-md transition-colors ${
+              checklists.some(c => c.isOverdue)
+                ? 'text-destructive hover:bg-destructive/10 animate-pulse'
+                : 'text-amber-500 hover:bg-amber-500/10'
+            }`}
+            title={`${checklists.length} checklist(s) due`}
+            data-testid={`button-room-checklist-${resource.id}`}
+          >
+            <ClipboardCheck className="h-4 w-4" />
+            <span className={`absolute -top-1 -right-1 min-w-[14px] h-[14px] flex items-center justify-center text-[9px] font-bold rounded-full text-white ${
+              checklists.some(c => c.isOverdue) ? 'bg-destructive' : 'bg-amber-500'
+            }`}>
+              {checklists.length}
+            </span>
+          </button>
+        )}
+      </div>
       <div className={`min-h-[28px] px-2 pb-1 border-t border-border/30 ${assignedStaff.length > 0 ? 'bg-muted/20' : ''}`}>
         {assignedStaff.length > 0 ? (
           <div className="flex flex-wrap gap-1 pt-1">
@@ -214,6 +254,15 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     sessionStorage.setItem(CALENDAR_DATE_KEY, selectedDate.toISOString());
   }, [selectedDate]);
   
+  // Room checklist state
+  const [checklistDialogOpen, setChecklistDialogOpen] = useState(false);
+  const [checklistRoomId, setChecklistRoomId] = useState<string | null>(null);
+  const [selectedChecklist, setSelectedChecklist] = useState<RoomPendingChecklist | null>(null);
+  const [checklistCheckedItems, setChecklistCheckedItems] = useState<Set<number>>(new Set());
+  const [checklistSignature, setChecklistSignature] = useState("");
+  const [checklistComment, setChecklistComment] = useState("");
+  const [showChecklistSignaturePad, setShowChecklistSignaturePad] = useState(false);
+
   // Quick create dialog state
   const [quickCreateOpen, setQuickCreateOpen] = useState(false);
   const [quickCreateData, setQuickCreateData] = useState<{
@@ -319,6 +368,31 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
     },
     enabled: !!activeHospital?.id,
   });
+
+  // Fetch room-specific pending checklists for the selected date
+  const { data: roomPendingChecklists = [] } = useQuery<RoomPendingChecklist[]>({
+    queryKey: ['/api/checklists/room-pending', activeHospital?.id, dateString],
+    queryFn: async () => {
+      const res = await fetch(`/api/checklists/room-pending/${activeHospital?.id}?date=${dateString}`, {
+        credentials: 'include',
+      });
+      if (!res.ok) throw new Error('Failed to fetch room checklists');
+      return res.json();
+    },
+    enabled: !!activeHospital?.id,
+  });
+
+  const checklistsByRoom = useMemo(() => {
+    const map = new Map<string, RoomPendingChecklist[]>();
+    for (const cl of roomPendingChecklists) {
+      if (cl.roomId) {
+        const list = map.get(cl.roomId) || [];
+        list.push(cl);
+        map.set(cl.roomId, list);
+      }
+    }
+    return map;
+  }, [roomPendingChecklists]);
 
   // Get surgery IDs for pre-op assessment fetch
   const surgeryIds = useMemo(() => surgeries.map((s: any) => s.id), [surgeries]);
@@ -668,6 +742,82 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
   const handleRemoveRoomStaff = useCallback((assignmentId: string) => {
     removeRoomStaffMutation.mutate(assignmentId);
   }, [removeRoomStaffMutation]);
+
+  // Checklist completion mutation
+  const completeChecklistMutation = useMutation({
+    mutationFn: async (data: {
+      templateId: string;
+      dueDate: Date;
+      comment?: string;
+      signature: string;
+      templateSnapshot: Pick<ChecklistTemplate, 'name' | 'description' | 'recurrency' | 'items' | 'role'>;
+    }) => {
+      const response = await apiRequest("POST", `/api/checklists/complete`, {
+        templateId: data.templateId,
+        dueDate: new Date(data.dueDate).toISOString(),
+        comment: data.comment,
+        signature: data.signature,
+        templateSnapshot: data.templateSnapshot,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/checklists/room-pending', activeHospital?.id, dateString] });
+      toast({
+        title: t("checklists.completed", "Checklist completed"),
+        description: t("checklists.completionSuccess", "The checklist has been completed successfully."),
+      });
+      setSelectedChecklist(null);
+      setChecklistDialogOpen(false);
+      setChecklistSignature("");
+      setChecklistComment("");
+      setChecklistCheckedItems(new Set());
+    },
+    onError: () => {
+      toast({
+        title: t("common.error", "Error"),
+        description: t("checklists.completionError", "Failed to complete the checklist."),
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRoomChecklistClick = useCallback((roomId: string) => {
+    setChecklistRoomId(roomId);
+    const checklists = checklistsByRoom.get(roomId) || [];
+    if (checklists.length === 1) {
+      setSelectedChecklist(checklists[0]);
+      setChecklistCheckedItems(new Set());
+    } else {
+      setSelectedChecklist(null);
+    }
+    setChecklistDialogOpen(true);
+  }, [checklistsByRoom]);
+
+  const handleSelectChecklist = useCallback((cl: RoomPendingChecklist) => {
+    setSelectedChecklist(cl);
+    setChecklistCheckedItems(new Set());
+    setChecklistSignature("");
+    setChecklistComment("");
+  }, []);
+
+  const handleSubmitChecklistCompletion = useCallback(() => {
+    if (!selectedChecklist || !checklistSignature) return;
+
+    completeChecklistMutation.mutate({
+      templateId: selectedChecklist.id,
+      dueDate: selectedChecklist.nextDueDate,
+      comment: checklistComment.trim() || undefined,
+      signature: checklistSignature,
+      templateSnapshot: {
+        name: selectedChecklist.name,
+        description: selectedChecklist.description,
+        recurrency: selectedChecklist.recurrency,
+        items: selectedChecklist.items,
+        role: selectedChecklist.role,
+      },
+    });
+  }, [selectedChecklist, checklistSignature, checklistComment, completeChecklistMutation]);
 
   // Handle staff drag start
   const handleDragStart = (event: any) => {
@@ -1233,6 +1383,8 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
                     roomStaff={roomStaff}
                     onRemoveStaff={handleRemoveRoomStaff}
                     dropStaffText={t('opCalendar.dropStaffHere')}
+                    roomChecklists={checklistsByRoom.get(resource.id) || []}
+                    onChecklistClick={handleRoomChecklistClick}
                   />
                 ),
               }}
@@ -1278,6 +1430,216 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       )}
 
       </div>
+
+      {/* Room Checklist Completion Dialog */}
+      <Dialog
+        open={checklistDialogOpen}
+        onOpenChange={(open) => {
+          setChecklistDialogOpen(open);
+          if (!open) {
+            setSelectedChecklist(null);
+            setChecklistRoomId(null);
+            setChecklistSignature("");
+            setChecklistComment("");
+            setChecklistCheckedItems(new Set());
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col" data-testid="dialog-room-checklist">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle data-testid="text-room-checklist-title">
+              {selectedChecklist
+                ? `${t("checklists.complete", "Complete")} - ${selectedChecklist.name}`
+                : t("checklists.roomChecklists", "Room Checklists")
+              }
+            </DialogTitle>
+            <DialogDescription data-testid="text-room-checklist-description">
+              {checklistRoomId && surgeryRooms.find((r: any) => r.id === checklistRoomId)?.name}
+              {selectedChecklist
+                ? ` — ${t("checklists.completionDescription", "Check all items and sign to complete.")}`
+                : ` — ${t("checklists.selectChecklistToComplete", "Select a checklist to complete.")}`
+              }
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto space-y-4 mt-4 pr-1">
+            {!selectedChecklist && checklistRoomId && (
+              <div className="space-y-2">
+                {(checklistsByRoom.get(checklistRoomId) || []).map((cl) => (
+                  <button
+                    key={cl.id}
+                    onClick={() => handleSelectChecklist(cl)}
+                    className="w-full text-left p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                    data-testid={`button-select-checklist-${cl.id}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{cl.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {Array.isArray(cl.items) ? cl.items.length : 0} {t("checklists.items", "items")}
+                        </p>
+                      </div>
+                      <span className={`text-xs px-2 py-1 rounded-full ${
+                        cl.isOverdue
+                          ? 'bg-destructive/10 text-destructive'
+                          : 'bg-amber-500/10 text-amber-600'
+                      }`}>
+                        {cl.isOverdue ? t("checklists.overdue", "Overdue") : t("checklists.dueToday", "Due today")}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {selectedChecklist && (
+              <>
+                {checklistRoomId && (checklistsByRoom.get(checklistRoomId) || []).length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedChecklist(null);
+                      setChecklistSignature("");
+                      setChecklistComment("");
+                      setChecklistCheckedItems(new Set());
+                    }}
+                    data-testid="button-back-to-list"
+                  >
+                    <span className="mr-1">←</span> {t("common.back", "Back")}
+                  </Button>
+                )}
+
+                {Array.isArray(selectedChecklist.items) && selectedChecklist.items.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-semibold mb-3 block" data-testid="label-room-checklist-items">
+                      {t("checklists.itemsToCheck", "Items to check")}
+                    </Label>
+                    <ul className="space-y-3" data-testid="list-room-checklist-items">
+                      {selectedChecklist.items.map((item, index) => {
+                        const isChecked = checklistCheckedItems.has(index);
+                        return (
+                          <li
+                            key={index}
+                            onClick={() => {
+                              setChecklistCheckedItems(prev => {
+                                const next = new Set(prev);
+                                if (next.has(index)) next.delete(index);
+                                else next.add(index);
+                                return next;
+                              });
+                            }}
+                            className="flex items-center gap-3 p-4 rounded-lg bg-muted hover:bg-muted/80 transition-colors cursor-pointer active:scale-[0.98]"
+                            data-testid={`room-checklist-item-${index}`}
+                          >
+                            <div
+                              className={`min-w-6 w-6 h-6 border-2 rounded flex items-center justify-center transition-all ${
+                                isChecked
+                                  ? 'bg-primary border-primary'
+                                  : 'border-muted-foreground/40'
+                              }`}
+                            >
+                              {isChecked && (
+                                <svg className="w-4 h-4 text-primary-foreground" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path d="M5 13l4 4L19 7"></path>
+                                </svg>
+                              )}
+                            </div>
+                            <span className={`text-base ${isChecked ? 'line-through text-muted-foreground' : ''}`}>
+                              {typeof item === 'string' ? item : (item as any).description}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
+                <div>
+                  <Label htmlFor="room-checklist-comment" className="mb-2 block" data-testid="label-room-checklist-comment">
+                    {t("checklists.comment", "Comment")} ({t("checklists.optional", "optional")})
+                  </Label>
+                  <Textarea
+                    id="room-checklist-comment"
+                    value={checklistComment}
+                    onChange={(e) => setChecklistComment(e.target.value)}
+                    placeholder={t("checklists.commentPlaceholder", "Add a comment...")}
+                    className="min-h-24"
+                    data-testid="input-room-checklist-comment"
+                  />
+                </div>
+
+                <div>
+                  <Label className="mb-2 block" data-testid="label-room-checklist-signature">
+                    {t("checklists.signature", "Signature")} *
+                  </Label>
+                  <div
+                    className="signature-pad cursor-pointer border-2 border-dashed border-border rounded-lg p-6 hover:bg-muted/50 transition-colors"
+                    onClick={() => setShowChecklistSignaturePad(true)}
+                    data-testid="room-checklist-signature-trigger"
+                  >
+                    {checklistSignature ? (
+                      <div className="text-center">
+                        <FileSignature className="w-8 h-8 text-green-600 mx-auto mb-2" />
+                        <p className="text-sm font-medium text-green-600" data-testid="text-room-signature-added">
+                          {t("checklists.signatureAdded", "Signature added")}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {t("checklists.clickToChange", "Click to change")}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <FileSignature className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm font-medium" data-testid="text-room-signature-required">
+                          {t("checklists.clickToSign", "Click to sign")}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {selectedChecklist && (
+            <div className="flex gap-3 mt-6 flex-shrink-0 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setChecklistDialogOpen(false);
+                  setSelectedChecklist(null);
+                  setChecklistSignature("");
+                  setChecklistComment("");
+                  setChecklistCheckedItems(new Set());
+                }}
+                disabled={completeChecklistMutation.isPending}
+                data-testid="button-room-checklist-cancel"
+              >
+                {t("common.cancel", "Cancel")}
+              </Button>
+              <Button
+                onClick={handleSubmitChecklistCompletion}
+                disabled={completeChecklistMutation.isPending || !checklistSignature}
+                className="flex-1"
+                data-testid="button-room-checklist-submit"
+              >
+                {completeChecklistMutation.isPending
+                  ? t("checklists.completing", "Completing...")
+                  : t("checklists.submitCompletion", "Complete Checklist")
+                }
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <SignaturePad
+        isOpen={showChecklistSignaturePad}
+        onClose={() => setShowChecklistSignaturePad(false)}
+        onSave={(sig) => setChecklistSignature(sig)}
+        title={t("checklists.yourSignature", "Your Signature")}
+      />
       
       {/* Drag Overlay - shows visual feedback during drag */}
       <DragOverlay>

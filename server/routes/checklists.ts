@@ -158,6 +158,26 @@ router.delete('/api/checklists/templates/:id', isAuthenticated, requireWriteAcce
   }
 });
 
+router.get('/api/checklists/room-pending/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const { date } = req.query;
+    const userId = req.user.id;
+
+    const hospitals = await storage.getUserHospitals(userId);
+    if (!hospitals.some(h => h.id === hospitalId)) {
+      return res.status(403).json({ message: "Access denied to this hospital" });
+    }
+
+    const queryDate = date ? new Date(date as string) : new Date();
+    const pending = await storage.getRoomPendingChecklists(hospitalId, queryDate);
+    res.json(pending);
+  } catch (error) {
+    console.error("Error fetching room pending checklists:", error);
+    res.status(500).json({ message: "Failed to fetch room pending checklists" });
+  }
+});
+
 router.get('/api/checklists/pending/:hospitalId', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
