@@ -1850,8 +1850,6 @@ async function processPreSurgeryReminder(job: any): Promise<void> {
         const activeLink = links.find(l =>
           l.hospitalId === hospitalId &&
           l.status !== 'expired' &&
-          l.status !== 'submitted' &&
-          l.status !== 'reviewed' &&
           l.expiresAt && new Date(l.expiresAt) > new Date()
         );
         if (activeLink) {
