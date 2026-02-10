@@ -704,6 +704,8 @@ export default function Users() {
 
   const [editEmail, setEditEmail] = useState("");
 
+  const originalNotesRef = useRef<string>("");
+
   const handleEditUser = (user: GroupedHospitalUser) => {
     const userPairs = user.roles?.map((r: any) => ({ 
       id: r.roleId, 
@@ -713,6 +715,7 @@ export default function Users() {
       isDefaultLogin: r.isDefaultLogin ?? false
     })) || [];
     
+    originalNotesRef.current = user.user.adminNotes || "";
     setEditingUserDetails(user.user);
     setEditEmail(user.user.email || "");
     setUserForm({
@@ -834,24 +837,29 @@ export default function Users() {
       clearTimeout(notesTimerRef.current[editingUserDetails.id]);
       delete notesTimerRef.current[editingUserDetails.id];
     }
-    if (editingUserDetails.adminNotes !== undefined) {
-      updateNotesMutation.mutate({ userId: editingUserDetails.id, adminNotes: editingUserDetails.adminNotes || "" });
-    }
 
-    const detailsPayload = {
-      firstName: userForm.firstName,
-      lastName: userForm.lastName,
-      phone: userForm.phone || null,
-    };
-    console.log('[DEBUG] handleSaveUserDetails - userForm.phone:', JSON.stringify(userForm.phone), '- payload:', JSON.stringify(detailsPayload));
+    const currentNotes = editingUserDetails.adminNotes || "";
+    const notesChanged = currentNotes !== originalNotesRef.current;
+    if (notesChanged) {
+      try {
+        await apiRequest("PATCH", `/api/admin/users/${editingUserDetails.id}/notes`, {
+          adminNotes: currentNotes,
+          hospitalId: activeHospital?.id,
+        });
+      } catch (error) {
+      }
+    }
 
     try {
       await updateUserDetailsMutation.mutateAsync({
         userId: editingUserDetails.id,
-        data: detailsPayload,
+        data: {
+          firstName: userForm.firstName,
+          lastName: userForm.lastName,
+          phone: userForm.phone || null,
+        },
       });
     } catch (error) {
-      console.error('[DEBUG] handleSaveUserDetails - error:', error);
       return;
     }
 
