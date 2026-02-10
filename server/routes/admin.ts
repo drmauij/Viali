@@ -1410,7 +1410,7 @@ router.post('/api/admin/catalog/preview', isAuthenticated, async (req: any, res)
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    const rawData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    const rawData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
 
     if (rawData.length === 0) {
       return res.json({ headers: [], sampleRows: [], totalRows: 0 });
@@ -1458,7 +1458,7 @@ router.post('/api/admin/catalog/import', isAuthenticated, async (req: any, res) 
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
-    const rawData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    const rawData: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false });
 
     const nonEmptyRows = rawData.filter((row: any[]) =>
       row && row.length > 0 && row.some(cell => cell !== undefined && cell !== null && String(cell).trim() !== '')
