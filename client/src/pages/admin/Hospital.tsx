@@ -130,8 +130,9 @@ export default function Hospital() {
     name: "",
     recurrency: "",
     items: [] as string[],
-    unitId: "",
-    role: "",
+    assignments: [{ unitId: "", role: "" }] as { unitId: string; role: string }[],
+    roomId: "",
+    excludeWeekends: false,
     startDate: new Date().toISOString().split('T')[0],
   });
   const [newTemplateItem, setNewTemplateItem] = useState("");
@@ -780,8 +781,9 @@ export default function Hospital() {
       name: "",
       recurrency: "",
       items: [],
-      unitId: "",
-      role: "",
+      assignments: [{ unitId: "", role: "" }],
+      roomId: "",
+      excludeWeekends: false,
       startDate: new Date().toISOString().split('T')[0],
     });
     setNewTemplateItem("");
@@ -856,12 +858,18 @@ export default function Hospital() {
 
   const handleEditTemplate = (template: any) => {
     setEditingTemplate(template);
+    const assignments = template.assignments && template.assignments.length > 0
+      ? template.assignments.map((a: any) => ({ unitId: a.unitId || "", role: a.role || "" }))
+      : template.unitId
+        ? [{ unitId: template.unitId || "", role: template.role || "" }]
+        : [{ unitId: "", role: "" }];
     setTemplateForm({
       name: template.name,
       recurrency: template.recurrency,
       items: (template.items || []).map((item: any) => typeof item === 'string' ? item : (item.description || "")),
-      unitId: template.unitId || "",
-      role: template.role || "",
+      assignments,
+      roomId: template.roomId || "",
+      excludeWeekends: template.excludeWeekends || false,
       startDate: template.startDate?.split('T')[0] || new Date().toISOString().split('T')[0],
     });
     setTemplateDialogOpen(true);
@@ -873,9 +881,14 @@ export default function Hospital() {
       name: `${template.name} (${t("common.copy")})`,
       recurrency: template.recurrency,
       items: (template.items || []).map((item: any) => typeof item === 'string' ? item : (item.description || "")),
-      unitId: template.unitId || "",
-      role: template.role || "",
-      startDate: new Date().toISOString().split('T')[0], // Reset start date to today
+      assignments: template.assignments && template.assignments.length > 0
+        ? template.assignments.map((a: any) => ({ unitId: a.unitId || "", role: a.role || "" }))
+        : template.unitId
+          ? [{ unitId: template.unitId || "", role: template.role || "" }]
+          : [{ unitId: "", role: "" }],
+      roomId: template.roomId || "",
+      excludeWeekends: template.excludeWeekends || false,
+      startDate: new Date().toISOString().split('T')[0],
     });
     setTemplateDialogOpen(true);
   };
@@ -889,8 +902,8 @@ export default function Hospital() {
       toast({ title: t("common.error"), description: t("admin.recurrencyRequired"), variant: "destructive" });
       return;
     }
-    if (!templateForm.unitId) {
-      toast({ title: t("common.error"), description: t("admin.unitRequired"), variant: "destructive" });
+    if (templateForm.assignments.length === 0) {
+      toast({ title: t("common.error"), description: t("admin.atLeastOneAssignment", "At least one unit/role assignment is required"), variant: "destructive" });
       return;
     }
     if (templateForm.items.length === 0) {
@@ -902,8 +915,12 @@ export default function Hospital() {
       name: templateForm.name.trim(),
       recurrency: templateForm.recurrency,
       items: templateForm.items.filter(item => item.trim()).map(item => ({ description: item.trim() })),
-      unitId: templateForm.unitId,
-      role: templateForm.role || null,
+      assignments: templateForm.assignments.map(a => ({
+        unitId: a.unitId || null,
+        role: a.role || null,
+      })),
+      roomId: templateForm.roomId || null,
+      excludeWeekends: templateForm.excludeWeekends,
       startDate: templateForm.startDate,
     };
 
@@ -1868,16 +1885,28 @@ export default function Hospital() {
                       <h3 className="font-semibold text-foreground">{template.name}</h3>
                       <div className="flex flex-wrap gap-2 mt-2 text-sm text-muted-foreground">
                         <span className="status-chip chip-primary text-xs">
-                          {t(`checklists.recurrency.${template.recurrency}`)}
+                          {String(t(`checklists.recurrency.${template.recurrency}`, template.recurrency))}
                         </span>
-                        {template.role && (
+                        {template.assignments && template.assignments.length > 0 ? (
+                          template.assignments.map((a: any, idx: number) => (
+                            <span key={idx} className="status-chip chip-muted text-xs">
+                              {a.unitId ? units.find(u => u.id === a.unitId)?.name || a.unitId : t("admin.allUnits", "All units")}
+                              {a.role ? ` / ${t(`checklists.role.${a.role}`, a.role)}` : ""}
+                            </span>
+                          ))
+                        ) : template.role ? (
                           <span className="status-chip chip-muted text-xs">
                             {t(`checklists.role.${template.role}`)}
                           </span>
-                        )}
-                        {template.location && (
+                        ) : null}
+                        {template.excludeWeekends && (
                           <span className="status-chip chip-muted text-xs">
-                            {template.location.name}
+                            <i className="fas fa-calendar-xmark mr-1"></i>{t("admin.noWeekends", "No weekends")}
+                          </span>
+                        )}
+                        {template.roomId && (
+                          <span className="status-chip chip-muted text-xs">
+                            <i className="fas fa-door-open mr-1"></i>{surgeryRooms.find(r => r.id === template.roomId)?.name || template.roomId}
                           </span>
                         )}
                         <span className="text-xs">
@@ -2737,58 +2766,121 @@ export default function Hospital() {
                 data-testid="input-template-name"
               />
             </div>
-            <div>
-              <Label htmlFor="template-recurrency">{t("admin.recurrency")} *</Label>
-              <Select
-                value={templateForm.recurrency}
-                onValueChange={(value) => setTemplateForm({ ...templateForm, recurrency: value })}
-              >
-                <SelectTrigger data-testid="select-template-recurrency">
-                  <SelectValue placeholder={t("admin.selectRecurrency")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">{t("checklists.recurrency.daily")}</SelectItem>
-                  <SelectItem value="weekly">{t("checklists.recurrency.weekly")}</SelectItem>
-                  <SelectItem value="monthly">{t("checklists.recurrency.monthly")}</SelectItem>
-                  <SelectItem value="yearly">{t("checklists.recurrency.yearly")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <Label htmlFor="template-location">{t("admin.location")} *</Label>
+                <Label htmlFor="template-recurrency">{t("admin.recurrency")} *</Label>
                 <Select
-                  value={templateForm.unitId}
-                  onValueChange={(value) => setTemplateForm({ ...templateForm, unitId: value })}
+                  value={templateForm.recurrency}
+                  onValueChange={(value) => setTemplateForm({ ...templateForm, recurrency: value })}
                 >
-                  <SelectTrigger data-testid="select-template-location">
-                    <SelectValue placeholder={t("admin.selectLocation")} />
+                  <SelectTrigger data-testid="select-template-recurrency">
+                    <SelectValue placeholder={t("admin.selectRecurrency")} />
                   </SelectTrigger>
                   <SelectContent>
-                    {units.map((unit) => (
-                      <SelectItem key={unit.id} value={unit.id}>
-                        {unit.name}
+                    <SelectItem value="daily">{t("checklists.recurrency.daily", "Daily")}</SelectItem>
+                    <SelectItem value="weekly">{t("checklists.recurrency.weekly", "Weekly")}</SelectItem>
+                    <SelectItem value="monthly">{t("checklists.recurrency.monthly", "Monthly")}</SelectItem>
+                    <SelectItem value="bimonthly">{t("checklists.recurrency.bimonthly", "Every 2 Months")}</SelectItem>
+                    <SelectItem value="quarterly">{t("checklists.recurrency.quarterly", "Every 3 Months")}</SelectItem>
+                    <SelectItem value="triannual">{t("checklists.recurrency.triannual", "Every 4 Months")}</SelectItem>
+                    <SelectItem value="biannual">{t("checklists.recurrency.biannual", "Every 6 Months")}</SelectItem>
+                    <SelectItem value="yearly">{t("checklists.recurrency.yearly", "Yearly")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>{t("admin.room", "Room")} ({t("checklists.optional", "optional")})</Label>
+                <Select
+                  value={templateForm.roomId || "__none__"}
+                  onValueChange={(value) => setTemplateForm({ ...templateForm, roomId: value === "__none__" ? "" : value })}
+                >
+                  <SelectTrigger data-testid="select-template-room">
+                    <SelectValue placeholder={t("admin.selectRoom", "Select room")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">{t("admin.allRooms", "All rooms")}</SelectItem>
+                    {surgeryRooms.filter(r => r.type === 'OP').map((room) => (
+                      <SelectItem key={room.id} value={room.id}>
+                        {room.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label htmlFor="template-role">{t("admin.role")} ({t("checklists.optional")})</Label>
-                <Select
-                  value={templateForm.role}
-                  onValueChange={(value) => setTemplateForm({ ...templateForm, role: value })}
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label>{t("admin.assignments", "Unit / Role Assignments")} *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setTemplateForm(prev => ({
+                    ...prev,
+                    assignments: [...prev.assignments, { unitId: "", role: "" }],
+                  }))}
+                  data-testid="button-add-assignment"
                 >
-                  <SelectTrigger data-testid="select-template-role">
-                    <SelectValue placeholder={t("admin.selectRole")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">{t("checklists.role.admin")}</SelectItem>
-                    <SelectItem value="staff">{t("checklists.role.staff")}</SelectItem>
-                    <SelectItem value="nurse">{t("checklists.role.nurse")}</SelectItem>
-                    <SelectItem value="doctor">{t("checklists.role.doctor")}</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <i className="fas fa-plus mr-1"></i> {t("admin.addAssignment", "Add")}
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {templateForm.assignments.map((assignment, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    <Select
+                      value={assignment.unitId || "__all__"}
+                      onValueChange={(value) => {
+                        const updated = [...templateForm.assignments];
+                        updated[index] = { ...updated[index], unitId: value === "__all__" ? "" : value };
+                        setTemplateForm(prev => ({ ...prev, assignments: updated }));
+                      }}
+                    >
+                      <SelectTrigger className="flex-1" data-testid={`select-assignment-unit-${index}`}>
+                        <SelectValue placeholder={t("admin.selectLocation")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">{t("admin.allUnits", "All units")}</SelectItem>
+                        {units.map((unit) => (
+                          <SelectItem key={unit.id} value={unit.id}>
+                            {unit.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={assignment.role || "__all__"}
+                      onValueChange={(value) => {
+                        const updated = [...templateForm.assignments];
+                        updated[index] = { ...updated[index], role: value === "__all__" ? "" : value };
+                        setTemplateForm(prev => ({ ...prev, assignments: updated }));
+                      }}
+                    >
+                      <SelectTrigger className="flex-1" data-testid={`select-assignment-role-${index}`}>
+                        <SelectValue placeholder={t("admin.selectRole")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__all__">{t("admin.allRoles", "All roles")}</SelectItem>
+                        <SelectItem value="admin">{t("checklists.role.admin")}</SelectItem>
+                        <SelectItem value="staff">{t("checklists.role.staff")}</SelectItem>
+                        <SelectItem value="nurse">{t("checklists.role.nurse")}</SelectItem>
+                        <SelectItem value="doctor">{t("checklists.role.doctor")}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    {templateForm.assignments.length > 1 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const updated = templateForm.assignments.filter((_, i) => i !== index);
+                          setTemplateForm(prev => ({ ...prev, assignments: updated }));
+                        }}
+                        data-testid={`button-remove-assignment-${index}`}
+                      >
+                        <i className="fas fa-trash text-destructive"></i>
+                      </Button>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
             <div>
@@ -2818,6 +2910,19 @@ export default function Hospital() {
                   />
                 </PopoverContent>
               </Popover>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="exclude-weekends"
+                checked={templateForm.excludeWeekends}
+                onChange={(e) => setTemplateForm({ ...templateForm, excludeWeekends: e.target.checked })}
+                className="h-4 w-4 rounded border-gray-300"
+                data-testid="checkbox-exclude-weekends"
+              />
+              <Label htmlFor="exclude-weekends" className="text-sm font-normal cursor-pointer">
+                {t("admin.excludeWeekends", "Exclude weekends (Sat-Sun)")}
+              </Label>
             </div>
             <div>
               <Label>{t("admin.checklistItems")} *</Label>

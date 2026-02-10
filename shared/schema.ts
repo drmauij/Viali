@@ -581,14 +581,16 @@ export const importJobs = pgTable("import_jobs", {
 export const checklistTemplates = pgTable("checklist_templates", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
-  unitId: varchar("unit_id").notNull().references(() => units.id),
-  role: varchar("role"), // null = any role, otherwise specific role required
-  name: varchar("name").notNull(), // e.g., "Emergency Backpack", "Ventilator"
+  unitId: varchar("unit_id").references(() => units.id),
+  role: varchar("role"),
+  name: varchar("name").notNull(),
   description: text("description"),
-  recurrency: varchar("recurrency").notNull(), // daily, weekly, monthly, yearly
-  startDate: timestamp("start_date").notNull(), // when the recurrency starts
-  items: jsonb("items").notNull(), // array of { description: string } - items to check
-  active: boolean("active").default(true), // allow templates to be archived
+  recurrency: varchar("recurrency").notNull(), // daily, weekly, monthly, bimonthly, quarterly, triannual, biannual, yearly
+  startDate: timestamp("start_date").notNull(),
+  items: jsonb("items").notNull(), // array of { description: string }
+  active: boolean("active").default(true),
+  roomId: varchar("room_id").references(() => surgeryRooms.id),
+  excludeWeekends: boolean("exclude_weekends").default(false),
   createdBy: varchar("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -596,6 +598,16 @@ export const checklistTemplates = pgTable("checklist_templates", {
   index("idx_checklist_templates_hospital").on(table.hospitalId),
   index("idx_checklist_templates_unit").on(table.unitId),
   index("idx_checklist_templates_active").on(table.active),
+]);
+
+export const checklistTemplateAssignments = pgTable("checklist_template_assignments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull().references(() => checklistTemplates.id, { onDelete: 'cascade' }),
+  unitId: varchar("unit_id").references(() => units.id),
+  role: varchar("role"),
+}, (table) => [
+  index("idx_checklist_template_assignments_template").on(table.templateId),
+  index("idx_checklist_template_assignments_unit").on(table.unitId),
 ]);
 
 // Checklist Completions (record of completed checklists)
@@ -2313,8 +2325,15 @@ export const importJobsRelations = relations(importJobs, ({ one }) => ({
 export const checklistTemplatesRelations = relations(checklistTemplates, ({ one, many }) => ({
   hospital: one(hospitals, { fields: [checklistTemplates.hospitalId], references: [hospitals.id] }),
   unit: one(units, { fields: [checklistTemplates.unitId], references: [units.id] }),
+  room: one(surgeryRooms, { fields: [checklistTemplates.roomId], references: [surgeryRooms.id] }),
   createdByUser: one(users, { fields: [checklistTemplates.createdBy], references: [users.id] }),
   completions: many(checklistCompletions),
+  assignments: many(checklistTemplateAssignments),
+}));
+
+export const checklistTemplateAssignmentsRelations = relations(checklistTemplateAssignments, ({ one }) => ({
+  template: one(checklistTemplates, { fields: [checklistTemplateAssignments.templateId], references: [checklistTemplates.id] }),
+  unit: one(units, { fields: [checklistTemplateAssignments.unitId], references: [units.id] }),
 }));
 
 export const checklistCompletionsRelations = relations(checklistCompletions, ({ one }) => ({
@@ -2441,6 +2460,14 @@ export const insertChecklistTemplateSchema = createInsertSchema(checklistTemplat
     description: z.string().trim().min(1, "Item description cannot be empty"),
   })).min(1, "At least one checklist item is required"),
   startDate: z.coerce.date(),
+  unitId: z.string().nullable().optional(),
+  role: z.string().nullable().optional(),
+  roomId: z.string().nullable().optional(),
+  excludeWeekends: z.boolean().optional(),
+});
+
+export const insertChecklistTemplateAssignmentSchema = createInsertSchema(checklistTemplateAssignments).omit({
+  id: true,
 });
 
 export const insertChecklistCompletionSchema = createInsertSchema(checklistCompletions).omit({
@@ -3255,6 +3282,8 @@ export type ImportJob = typeof importJobs.$inferSelect;
 export type InsertImportJob = z.infer<typeof insertImportJobSchema>;
 export type ChecklistTemplate = typeof checklistTemplates.$inferSelect;
 export type InsertChecklistTemplate = z.infer<typeof insertChecklistTemplateSchema>;
+export type ChecklistTemplateAssignment = typeof checklistTemplateAssignments.$inferSelect;
+export type InsertChecklistTemplateAssignment = z.infer<typeof insertChecklistTemplateAssignmentSchema>;
 export type ChecklistCompletion = typeof checklistCompletions.$inferSelect;
 export type InsertChecklistCompletion = z.infer<typeof insertChecklistCompletionSchema>;
 export type ChecklistDismissal = typeof checklistDismissals.$inferSelect;

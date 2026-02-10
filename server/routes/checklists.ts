@@ -30,19 +30,16 @@ const router = Router();
 router.post('/api/checklists/templates', isAuthenticated, requireWriteAccess, async (req: any, res) => {
   try {
     const userId = req.user.id;
-    const templateData = req.body;
+    const { assignments, ...templateData } = req.body;
     
     if (!templateData.hospitalId) {
       return res.status(400).json({ message: "Hospital ID is required" });
     }
     
-    if (!templateData.unitId) {
-      return res.status(400).json({ message: "Location ID is required" });
-    }
-    
-    const [location] = await db.select().from(locations).where(eq(locations.id, templateData.unitId));
-    if (!location || location.hospitalId !== templateData.hospitalId) {
-      return res.status(400).json({ message: "Invalid location for this hospital" });
+    if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
+      if (!templateData.unitId) {
+        return res.status(400).json({ message: "At least one assignment (unit/role) is required" });
+      }
     }
     
     const hospitals = await storage.getUserHospitals(userId);
@@ -53,10 +50,18 @@ router.post('/api/checklists/templates', isAuthenticated, requireWriteAccess, as
     
     const validated = insertChecklistTemplateSchema.parse({
       ...templateData,
+      unitId: templateData.unitId || null,
+      role: templateData.role || null,
       createdBy: userId,
     });
     
-    const template = await storage.createChecklistTemplate(validated);
+    const assignmentsList = assignments && Array.isArray(assignments) && assignments.length > 0
+      ? assignments.map((a: any) => ({ unitId: a.unitId || null, role: a.role || null }))
+      : templateData.unitId 
+        ? [{ unitId: templateData.unitId, role: templateData.role || null }]
+        : [];
+    
+    const template = await storage.createChecklistTemplate(validated, assignmentsList);
     res.status(201).json(template);
   } catch (error: any) {
     console.error("Error creating checklist template:", error);
@@ -81,17 +86,7 @@ router.get('/api/checklists/templates/:hospitalId', isAuthenticated, async (req:
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
     
-    const uniqueLocationIds = Array.from(new Set(userLocations.map(loc => loc.unitId)));
-    
-    const allTemplates = await Promise.all(
-      uniqueLocationIds.map(unitId => storage.getChecklistTemplates(hospitalId, unitId, active))
-    );
-    
-    const templatesMap = new Map();
-    allTemplates.flat().forEach(template => {
-      templatesMap.set(template.id, template);
-    });
-    const templates = Array.from(templatesMap.values());
+    const templates = await storage.getChecklistTemplates(hospitalId, undefined, active);
     res.json(templates);
   } catch (error) {
     console.error("Error fetching checklist templates:", error);
@@ -103,18 +98,11 @@ router.patch('/api/checklists/templates/:id', isAuthenticated, requireWriteAcces
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const updates = req.body;
+    const { assignments, ...updates } = req.body;
     
     const template = await storage.getChecklistTemplate(id);
     if (!template) {
       return res.status(404).json({ message: "Template not found" });
-    }
-    
-    if (updates.unitId && updates.unitId !== template.unitId) {
-      const [location] = await db.select().from(locations).where(eq(locations.id, updates.unitId));
-      if (!location || location.hospitalId !== template.hospitalId) {
-        return res.status(400).json({ message: "Invalid location for this hospital" });
-      }
     }
     
     const hospitals = await storage.getUserHospitals(userId);
@@ -134,7 +122,11 @@ router.patch('/api/checklists/templates/:id', isAuthenticated, requireWriteAcces
       );
     }
     
-    const updated = await storage.updateChecklistTemplate(id, processedUpdates);
+    const assignmentsList = assignments && Array.isArray(assignments)
+      ? assignments.map((a: any) => ({ unitId: a.unitId || null, role: a.role || null }))
+      : undefined;
+    
+    const updated = await storage.updateChecklistTemplate(id, processedUpdates, assignmentsList);
     res.json(updated);
   } catch (error: any) {
     console.error("Error updating checklist template:", error);
@@ -169,7 +161,7 @@ router.delete('/api/checklists/templates/:id', isAuthenticated, requireWriteAcce
 router.get('/api/checklists/pending/:hospitalId', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const { unitId } = req.query; // Optional unitId filter
+    const { unitId } = req.query;
     const userId = req.user.id;
     
     const hospitals = await storage.getUserHospitals(userId);
@@ -179,7 +171,6 @@ router.get('/api/checklists/pending/:hospitalId', isAuthenticated, async (req: a
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
     
-    // If unitId is provided, filter to only that unit
     if (unitId) {
       userLocations = userLocations.filter(loc => loc.unitId === unitId);
       if (userLocations.length === 0) {
@@ -211,7 +202,7 @@ router.get('/api/checklists/pending/:hospitalId', isAuthenticated, async (req: a
 router.get('/api/checklists/count/:hospitalId', isAuthenticated, async (req: any, res) => {
   try {
     const { hospitalId } = req.params;
-    const { unitId } = req.query; // Optional unitId filter
+    const { unitId } = req.query;
     const userId = req.user.id;
     
     const hospitals = await storage.getUserHospitals(userId);
@@ -221,7 +212,6 @@ router.get('/api/checklists/count/:hospitalId', isAuthenticated, async (req: any
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
     
-    // If unitId is provided, filter to only that unit
     if (unitId) {
       userLocations = userLocations.filter(loc => loc.unitId === unitId);
       if (userLocations.length === 0) {
@@ -258,7 +248,12 @@ router.post('/api/checklists/complete', isAuthenticated, requireWriteAccess, asy
       return res.status(404).json({ message: "Template not found" });
     }
     
-    const access = await verifyUserHospitalUnitAccess(userId, template.hospitalId, template.unitId);
+    const unitId = completionData.unitId || template.unitId;
+    if (!unitId) {
+      return res.status(400).json({ message: "Unit ID is required for completion" });
+    }
+    
+    const access = await verifyUserHospitalUnitAccess(userId, template.hospitalId, unitId);
     if (!access.hasAccess) {
       return res.status(403).json({ message: "Access denied to this unit" });
     }
@@ -269,13 +264,12 @@ router.post('/api/checklists/complete', isAuthenticated, requireWriteAccess, asy
       ...completionData,
       completedBy: userId,
       hospitalId: template.hospitalId,
-      unitId: template.unitId,
+      unitId: unitId,
       completedAt: new Date(),
     });
     
     const completion = await storage.completeChecklist(validated);
     
-    // Broadcast checklist update to all connected clients
     broadcastChecklistUpdate({
       hospitalId: template.hospitalId,
       section: 'checklists',
@@ -308,7 +302,12 @@ router.post('/api/checklists/dismiss', isAuthenticated, requireWriteAccess, asyn
       return res.status(404).json({ message: "Template not found" });
     }
     
-    const access = await verifyUserHospitalUnitAccess(userId, template.hospitalId, template.unitId);
+    const unitId = dismissalData.unitId || template.unitId;
+    if (!unitId) {
+      return res.status(400).json({ message: "Unit ID is required for dismissal" });
+    }
+    
+    const access = await verifyUserHospitalUnitAccess(userId, template.hospitalId, unitId);
     if (!access.hasAccess) {
       return res.status(403).json({ message: "Access denied to this unit" });
     }
@@ -319,13 +318,12 @@ router.post('/api/checklists/dismiss', isAuthenticated, requireWriteAccess, asyn
       ...dismissalData,
       dismissedBy: userId,
       hospitalId: template.hospitalId,
-      unitId: template.unitId,
+      unitId: unitId,
       dismissedAt: new Date(),
     });
     
     const dismissal = await storage.dismissChecklist(validated);
     
-    // Broadcast checklist update to all connected clients
     broadcastChecklistUpdate({
       hospitalId: template.hospitalId,
       section: 'checklists',
@@ -348,7 +346,7 @@ router.get('/api/checklists/history/:hospitalId', isAuthenticated, async (req: a
   try {
     const { hospitalId } = req.params;
     const userId = req.user.id;
-    const { templateId, limit, unitId } = req.query; // Added unitId filter
+    const { templateId, limit, unitId } = req.query;
     
     const hospitals = await storage.getUserHospitals(userId);
     let userLocations = hospitals.filter(h => h.id === hospitalId);
@@ -357,7 +355,6 @@ router.get('/api/checklists/history/:hospitalId', isAuthenticated, async (req: a
       return res.status(403).json({ message: "Access denied to this hospital" });
     }
     
-    // If unitId is provided, filter to only that unit
     if (unitId) {
       userLocations = userLocations.filter(loc => loc.unitId === unitId);
       if (userLocations.length === 0) {

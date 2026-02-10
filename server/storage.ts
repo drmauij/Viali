@@ -19,6 +19,7 @@ import {
   controlledChecks,
   importJobs,
   checklistTemplates,
+  checklistTemplateAssignments,
   checklistCompletions,
   checklistDismissals,
   medicationConfigs,
@@ -100,6 +101,8 @@ import {
   type ImportJob,
   type ChecklistTemplate,
   type InsertChecklistTemplate,
+  type ChecklistTemplateAssignment,
+  type InsertChecklistTemplateAssignment,
   type ChecklistCompletion,
   type InsertChecklistCompletion,
   type ChecklistDismissal,
@@ -430,12 +433,12 @@ export interface IStorage {
   deleteControlledCheck(id: string): Promise<void>;
   
   // Checklist operations
-  createChecklistTemplate(template: InsertChecklistTemplate): Promise<ChecklistTemplate>;
-  getChecklistTemplates(hospitalId: string, unitId?: string, active?: boolean): Promise<ChecklistTemplate[]>;
-  getChecklistTemplate(id: string): Promise<ChecklistTemplate | undefined>;
-  updateChecklistTemplate(id: string, updates: Partial<ChecklistTemplate>): Promise<ChecklistTemplate>;
+  createChecklistTemplate(template: InsertChecklistTemplate, assignments?: { unitId: string | null; role: string | null }[]): Promise<ChecklistTemplate & { assignments: ChecklistTemplateAssignment[] }>;
+  getChecklistTemplates(hospitalId: string, unitId?: string, active?: boolean): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[] })[]>;
+  getChecklistTemplate(id: string): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[] }) | undefined>;
+  updateChecklistTemplate(id: string, updates: Partial<ChecklistTemplate>, assignments?: { unitId: string | null; role: string | null }[]): Promise<ChecklistTemplate & { assignments: ChecklistTemplateAssignment[] }>;
   deleteChecklistTemplate(id: string): Promise<void>;
-  getPendingChecklists(hospitalId: string, unitId: string, role?: string): Promise<(ChecklistTemplate & { lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]>;
+  getPendingChecklists(hospitalId: string, unitId: string, role?: string): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]>;
   completeChecklist(completion: InsertChecklistCompletion): Promise<ChecklistCompletion>;
   dismissChecklist(dismissal: InsertChecklistDismissal): Promise<ChecklistDismissal>;
   getChecklistCompletions(hospitalId: string, unitId?: string, templateId?: string, limit?: number): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[]>;
@@ -2397,15 +2400,39 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Checklist implementations
-  async createChecklistTemplate(template: InsertChecklistTemplate): Promise<ChecklistTemplate> {
+  async createChecklistTemplate(template: InsertChecklistTemplate, assignments?: { unitId: string | null; role: string | null }[]): Promise<ChecklistTemplate & { assignments: ChecklistTemplateAssignment[] }> {
     const [created] = await db.insert(checklistTemplates).values(template).returning();
-    return created;
+    
+    let createdAssignments: ChecklistTemplateAssignment[] = [];
+    if (assignments && assignments.length > 0) {
+      createdAssignments = await db.insert(checklistTemplateAssignments).values(
+        assignments.map(a => ({ templateId: created.id, unitId: a.unitId, role: a.role }))
+      ).returning();
+    }
+    
+    return { ...created, assignments: createdAssignments };
   }
 
-  async getChecklistTemplates(hospitalId: string, unitId?: string, active: boolean = true): Promise<ChecklistTemplate[]> {
-    const conditions = [eq(checklistTemplates.hospitalId, hospitalId)];
-    if (unitId) conditions.push(eq(checklistTemplates.unitId, unitId));
+  async getChecklistTemplates(hospitalId: string, unitId?: string, active: boolean = true): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[] })[]> {
+    const conditions: any[] = [eq(checklistTemplates.hospitalId, hospitalId)];
     if (active !== undefined) conditions.push(eq(checklistTemplates.active, active));
+
+    let templateIds: string[] | undefined;
+    if (unitId) {
+      const matchingAssignments = await db
+        .select({ templateId: checklistTemplateAssignments.templateId })
+        .from(checklistTemplateAssignments)
+        .where(or(
+          eq(checklistTemplateAssignments.unitId, unitId),
+          isNull(checklistTemplateAssignments.unitId)
+        ));
+      templateIds = matchingAssignments.map(a => a.templateId);
+      
+      if (templateIds.length === 0) {
+        return [];
+      }
+      conditions.push(inArray(checklistTemplates.id, templateIds));
+    }
 
     const templates = await db
       .select()
@@ -2413,50 +2440,105 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(asc(checklistTemplates.name));
     
-    return templates;
+    const allAssignments = await db
+      .select()
+      .from(checklistTemplateAssignments)
+      .where(inArray(checklistTemplateAssignments.templateId, templates.map(t => t.id)));
+    
+    const assignmentsByTemplate = new Map<string, ChecklistTemplateAssignment[]>();
+    for (const a of allAssignments) {
+      const list = assignmentsByTemplate.get(a.templateId) || [];
+      list.push(a);
+      assignmentsByTemplate.set(a.templateId, list);
+    }
+    
+    return templates.map(t => ({
+      ...t,
+      assignments: assignmentsByTemplate.get(t.id) || [],
+    }));
   }
 
-  async getChecklistTemplate(id: string): Promise<ChecklistTemplate | undefined> {
+  async getChecklistTemplate(id: string): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[] }) | undefined> {
     const [template] = await db.select().from(checklistTemplates).where(eq(checklistTemplates.id, id));
-    return template;
+    if (!template) return undefined;
+    
+    const assignments = await db
+      .select()
+      .from(checklistTemplateAssignments)
+      .where(eq(checklistTemplateAssignments.templateId, id));
+    
+    return { ...template, assignments };
   }
 
-  async updateChecklistTemplate(id: string, updates: Partial<ChecklistTemplate>): Promise<ChecklistTemplate> {
+  async updateChecklistTemplate(id: string, updates: Partial<ChecklistTemplate>, assignments?: { unitId: string | null; role: string | null }[]): Promise<ChecklistTemplate & { assignments: ChecklistTemplateAssignment[] }> {
     const [updated] = await db
       .update(checklistTemplates)
       .set({ ...updates, updatedAt: new Date() })
       .where(eq(checklistTemplates.id, id))
       .returning();
-    return updated;
+    
+    let updatedAssignments: ChecklistTemplateAssignment[] = [];
+    if (assignments !== undefined) {
+      await db.delete(checklistTemplateAssignments).where(eq(checklistTemplateAssignments.templateId, id));
+      if (assignments.length > 0) {
+        updatedAssignments = await db.insert(checklistTemplateAssignments).values(
+          assignments.map(a => ({ templateId: id, unitId: a.unitId, role: a.role }))
+        ).returning();
+      }
+    } else {
+      updatedAssignments = await db
+        .select()
+        .from(checklistTemplateAssignments)
+        .where(eq(checklistTemplateAssignments.templateId, id));
+    }
+    
+    return { ...updated, assignments: updatedAssignments };
   }
 
   async deleteChecklistTemplate(id: string): Promise<void> {
-    // Delete all associated checklist completions and dismissals first (cascade delete)
     await db.delete(checklistCompletions).where(eq(checklistCompletions.templateId, id));
     await db.delete(checklistDismissals).where(eq(checklistDismissals.templateId, id));
-    // Then delete the template
+    await db.delete(checklistTemplateAssignments).where(eq(checklistTemplateAssignments.templateId, id));
     await db.delete(checklistTemplates).where(eq(checklistTemplates.id, id));
   }
 
-  async getPendingChecklists(hospitalId: string, unitId: string, role?: string): Promise<(ChecklistTemplate & { lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]> {
-    const conditions = [
-      eq(checklistTemplates.hospitalId, hospitalId),
-      eq(checklistTemplates.unitId, unitId),
-      eq(checklistTemplates.active, true),
-    ];
+  async getPendingChecklists(hospitalId: string, unitId: string, role?: string): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]> {
+    const matchingAssignments = await db
+      .select({ templateId: checklistTemplateAssignments.templateId })
+      .from(checklistTemplateAssignments)
+      .where(and(
+        or(
+          eq(checklistTemplateAssignments.unitId, unitId),
+          isNull(checklistTemplateAssignments.unitId)
+        ),
+        role
+          ? or(isNull(checklistTemplateAssignments.role), eq(checklistTemplateAssignments.role, role))
+          : isNull(checklistTemplateAssignments.role)
+      ));
     
-    if (role) {
-      conditions.push(
-        sql`(${checklistTemplates.role} IS NULL OR ${checklistTemplates.role} = ${role})`
-      );
-    } else {
-      conditions.push(sql`${checklistTemplates.role} IS NULL`);
-    }
+    const templateIds = Array.from(new Set(matchingAssignments.map(a => a.templateId)));
+    if (templateIds.length === 0) return [];
 
     const templates = await db
       .select()
       .from(checklistTemplates)
-      .where(and(...conditions));
+      .where(and(
+        eq(checklistTemplates.hospitalId, hospitalId),
+        eq(checklistTemplates.active, true),
+        inArray(checklistTemplates.id, templateIds)
+      ));
+
+    const allAssignments = await db
+      .select()
+      .from(checklistTemplateAssignments)
+      .where(inArray(checklistTemplateAssignments.templateId, templates.map(t => t.id)));
+    
+    const assignmentsByTemplate = new Map<string, ChecklistTemplateAssignment[]>();
+    for (const a of allAssignments) {
+      const list = assignmentsByTemplate.get(a.templateId) || [];
+      list.push(a);
+      assignmentsByTemplate.set(a.templateId, list);
+    }
 
     const result = [];
     const now = new Date();
@@ -2483,7 +2565,6 @@ export class DatabaseStorage implements IStorage {
       const lastCompletion = completions[0];
       const lastDismissal = dismissals[0];
       
-      // Use the latest due date from either completion or dismissal
       let lastHandledDueDate: Date | undefined;
       if (lastCompletion && lastDismissal) {
         lastHandledDueDate = new Date(lastCompletion.dueDate) > new Date(lastDismissal.dueDate) 
@@ -2495,12 +2576,13 @@ export class DatabaseStorage implements IStorage {
         lastHandledDueDate = lastDismissal.dueDate;
       }
       
-      const nextDueDate = this.calculateNextDueDate(template.startDate, template.recurrency, lastHandledDueDate);
+      const nextDueDate = this.calculateNextDueDate(template.startDate, template.recurrency, lastHandledDueDate, template.excludeWeekends ?? false);
       const isOverdue = nextDueDate <= now;
 
       if (isOverdue || nextDueDate <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)) {
         result.push({
           ...template,
+          assignments: assignmentsByTemplate.get(template.id) || [],
           lastCompletion,
           nextDueDate,
           isOverdue,
@@ -2511,13 +2593,15 @@ export class DatabaseStorage implements IStorage {
     return result.sort((a, b) => a.nextDueDate.getTime() - b.nextDueDate.getTime());
   }
 
-  private calculateNextDueDate(startDate: Date, recurrency: string, lastDueDate?: Date): Date {
-    // If no last completion, the first due date IS the start date
+  private calculateNextDueDate(startDate: Date, recurrency: string, lastDueDate?: Date, excludeWeekends: boolean = false): Date {
     if (!lastDueDate) {
-      return new Date(startDate);
+      const start = new Date(startDate);
+      if (excludeWeekends) {
+        return this.skipWeekends(start);
+      }
+      return start;
     }
     
-    // Otherwise, calculate next due date based on last completion
     const date = new Date(lastDueDate);
 
     switch (recurrency) {
@@ -2530,11 +2614,36 @@ export class DatabaseStorage implements IStorage {
       case 'monthly':
         date.setMonth(date.getMonth() + 1);
         break;
+      case 'bimonthly':
+        date.setMonth(date.getMonth() + 2);
+        break;
+      case 'quarterly':
+        date.setMonth(date.getMonth() + 3);
+        break;
+      case 'triannual':
+        date.setMonth(date.getMonth() + 4);
+        break;
+      case 'biannual':
+        date.setMonth(date.getMonth() + 6);
+        break;
       case 'yearly':
         date.setFullYear(date.getFullYear() + 1);
         break;
     }
 
+    if (excludeWeekends) {
+      return this.skipWeekends(date);
+    }
+    return date;
+  }
+
+  private skipWeekends(date: Date): Date {
+    const day = date.getDay();
+    if (day === 0) { // Sunday -> Monday
+      date.setDate(date.getDate() + 1);
+    } else if (day === 6) { // Saturday -> Monday
+      date.setDate(date.getDate() + 2);
+    }
     return date;
   }
 
