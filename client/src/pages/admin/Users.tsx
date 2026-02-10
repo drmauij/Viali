@@ -82,53 +82,6 @@ interface GroupedHospitalUser extends HospitalUser {
   roles: Array<{ role: string; units: Unit; roleId: string; unitId: string; isBookable?: boolean; isDefaultLogin?: boolean }>;
 }
 
-function UserNotesField({ userId, initialNotes, onSave, placeholder, label }: {
-  userId: string;
-  initialNotes: string;
-  onSave: (userId: string, value: string) => void;
-  placeholder: string;
-  label: string;
-}) {
-  const [notes, setNotes] = useState(initialNotes);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    setNotes(initialNotes);
-  }, [initialNotes]);
-
-  const hasNotes = notes.trim().length > 0;
-
-  if (!expanded && !hasNotes) {
-    return (
-      <button
-        onClick={() => setExpanded(true)}
-        className="mt-2 flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-        data-testid={`button-add-notes-${userId}`}
-      >
-        <StickyNote className="h-3 w-3" />
-        {label}
-      </button>
-    );
-  }
-
-  return (
-    <div className="mt-2">
-      <Textarea
-        rows={2}
-        placeholder={placeholder}
-        value={notes}
-        onChange={(e) => {
-          setNotes(e.target.value);
-          onSave(userId, e.target.value);
-        }}
-        onBlur={() => { if (!notes.trim()) setExpanded(false); }}
-        className="text-xs resize-none"
-        data-testid={`textarea-admin-notes-${userId}`}
-      />
-    </div>
-  );
-}
-
 function ListToolbar({ search, onSearchChange, sortAsc, onToggleSort, staffTypeFilter, onStaffTypeFilterChange, searchPlaceholder, totalCount, filteredCount }: {
   search: string;
   onSearchChange: (v: string) => void;
@@ -1123,13 +1076,6 @@ export default function Users() {
           </Button>
         </div>
       </div>
-      <UserNotesField
-        userId={user.user.id}
-        initialNotes={user.user.adminNotes || ""}
-        onSave={handleNotesChange}
-        placeholder={t("admin.adminNotesPlaceholder")}
-        label={t("admin.adminNotes")}
-      />
     </div>
   );
 
