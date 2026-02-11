@@ -406,11 +406,11 @@ export default function Checklists() {
 
       {/* Template Dialog */}
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader className="flex-shrink-0">
             <DialogTitle>{editingTemplate ? t("admin.editTemplate") : t("admin.addTemplate")}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="flex-1 overflow-y-auto space-y-4 pr-2">
             <div>
               <Label htmlFor="template-name">{t("admin.templateName")} *</Label>
               <Input
@@ -572,18 +572,18 @@ export default function Checklists() {
                 </div>
               </div>
             </div>
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>
-                {t("common.cancel")}
-              </Button>
-              <Button
-                onClick={handleSaveTemplate}
-                disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}
-                data-testid="button-save-template"
-              >
-                {t("common.save")}
-              </Button>
-            </div>
+          </div>
+          <div className="flex gap-2 justify-end flex-shrink-0 pt-4 border-t">
+            <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              onClick={handleSaveTemplate}
+              disabled={createTemplateMutation.isPending || updateTemplateMutation.isPending}
+              data-testid="button-save-template"
+            >
+              {t("common.save")}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
