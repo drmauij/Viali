@@ -1906,7 +1906,7 @@ export default function Hospital() {
                         )}
                         {template.roomIds && template.roomIds.length > 0 && (
                           <span className="status-chip chip-muted text-xs">
-                            <i className="fas fa-door-open mr-1"></i>{template.roomIds.length} {t("admin.rooms")}
+                            <i className="fas fa-door-open mr-1"></i>{template.roomIds.length} {t("admin.rooms", "Rooms")}
                           </span>
                         )}
                         <span className="text-xs">
