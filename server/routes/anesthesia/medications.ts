@@ -361,6 +361,9 @@ router.post('/api/anesthesia/medications/:recordId/apply-set', isAuthenticated, 
         customDose: medicationSetItems.customDose,
         configDefaultDose: medicationConfigs.defaultDose,
         itemId: items.id,
+        rateUnit: medicationConfigs.rateUnit,
+        administrationUnit: medicationConfigs.administrationUnit,
+        administrationRoute: medicationConfigs.administrationRoute,
       })
       .from(medicationSetItems)
       .innerJoin(medicationConfigs, eq(medicationSetItems.medicationConfigId, medicationConfigs.id))
@@ -369,7 +372,7 @@ router.post('/api/anesthesia/medications/:recordId/apply-set', isAuthenticated, 
       .orderBy(medicationSetItems.sortOrder);
     
     const importedMedications: any[] = [];
-    const timestamp = new Date().toISOString();
+    const timestamp = new Date();
     
     for (const item of setItems) {
       // Check if medication is already imported to the record
@@ -404,16 +407,38 @@ router.post('/api/anesthesia/medications/:recordId/apply-set', isAuthenticated, 
         });
       }
       
-      // Create a medication entry (dose administration) with the effective dose
       const effectiveDose = item.customDose || item.configDefaultDose || undefined;
+      const isInfusion = !!item.rateUnit;
       
-      const medication = await storage.createAnesthesiaMedication({
-        anesthesiaRecordId: recordId,
-        itemId: item.itemId,
-        timestamp,
-        type: 'bolus',
-        dose: effectiveDose,
-      });
+      let medication;
+      if (isInfusion) {
+        const { nanoid } = await import('nanoid');
+        const sessionId = nanoid();
+        const isFreeRunning = item.rateUnit === 'free';
+        medication = await storage.createAnesthesiaMedication({
+          anesthesiaRecordId: recordId,
+          itemId: item.itemId,
+          timestamp,
+          type: 'infusion_start',
+          dose: isFreeRunning ? effectiveDose : (effectiveDose || undefined),
+          unit: item.administrationUnit || null,
+          route: item.administrationRoute || 'i.v.',
+          rate: isFreeRunning ? 'free' : (effectiveDose || undefined),
+          infusionSessionId: sessionId,
+          administeredBy: userId,
+        });
+      } else {
+        medication = await storage.createAnesthesiaMedication({
+          anesthesiaRecordId: recordId,
+          itemId: item.itemId,
+          timestamp,
+          type: 'bolus',
+          dose: effectiveDose,
+          unit: item.administrationUnit || null,
+          route: item.administrationRoute || 'i.v.',
+          administeredBy: userId,
+        });
+      }
       
       importedMedications.push(medication);
       

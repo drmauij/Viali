@@ -993,26 +993,26 @@ router.post('/api/anesthesia-sets/:setId/apply/:anesthesiaRecordId', isAuthentic
           }
           
           const dose = med.customDose || medConfig.defaultDose;
-          const isInfusion = groupName.includes('infusion') || medConfig.rateUnit === 'free' || medConfig.rateUnit === 'ml/h';
+          const isInfusion = groupName.includes('infusion') || !!medConfig.rateUnit;
           const timestamp = new Date();
           
-          if (isInfusion && dose) {
-            // Create infusion start event
+          if (isInfusion) {
             const { nanoid } = await import('nanoid');
             const sessionId = nanoid();
+            const isFreeRunning = medConfig.rateUnit === 'free';
             await storage.createAnesthesiaMedication({
               anesthesiaRecordId,
               itemId: medConfig.itemId,
               timestamp,
               type: 'infusion_start',
-              dose,
+              dose: isFreeRunning ? dose : (dose || undefined),
               unit: medConfig.administrationUnit || null,
               route: medConfig.administrationRoute || 'i.v.',
-              rate: 'free',
+              rate: isFreeRunning ? 'free' : (dose || undefined),
               infusionSessionId: sessionId,
               administeredBy: userId,
             });
-            console.log(`[Apply Set] Created infusion start for ${medConfig.itemId}: ${dose} ${medConfig.administrationUnit || ''}`);
+            console.log(`[Apply Set] Created infusion start for ${medConfig.itemId}: ${dose} ${medConfig.administrationUnit || ''} (rateUnit: ${medConfig.rateUnit})`);
           } else if (dose) {
             // Create bolus event
             await storage.createAnesthesiaMedication({
