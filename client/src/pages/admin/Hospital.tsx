@@ -2766,55 +2766,26 @@ export default function Hospital() {
                 data-testid="input-template-name"
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <Label htmlFor="template-recurrency">{t("admin.recurrency")} *</Label>
-                <Select
-                  value={templateForm.recurrency}
-                  onValueChange={(value) => setTemplateForm({ ...templateForm, recurrency: value })}
-                >
-                  <SelectTrigger data-testid="select-template-recurrency">
-                    <SelectValue placeholder={t("admin.selectRecurrency")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">{t("checklists.recurrency.daily", "Daily")}</SelectItem>
-                    <SelectItem value="weekly">{t("checklists.recurrency.weekly", "Weekly")}</SelectItem>
-                    <SelectItem value="monthly">{t("checklists.recurrency.monthly", "Monthly")}</SelectItem>
-                    <SelectItem value="bimonthly">{t("checklists.recurrency.bimonthly", "Every 2 Months")}</SelectItem>
-                    <SelectItem value="quarterly">{t("checklists.recurrency.quarterly", "Every 3 Months")}</SelectItem>
-                    <SelectItem value="triannual">{t("checklists.recurrency.triannual", "Every 4 Months")}</SelectItem>
-                    <SelectItem value="biannual">{t("checklists.recurrency.biannual", "Every 6 Months")}</SelectItem>
-                    <SelectItem value="yearly">{t("checklists.recurrency.yearly", "Yearly")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>{t("admin.rooms", "Rooms")} ({t("checklists.optional", "optional")})</Label>
-                <div className="border rounded-md p-2 max-h-32 overflow-y-auto space-y-1 mt-1">
-                  {surgeryRooms.filter(r => r.type === 'OP').map((room) => (
-                    <label
-                      key={room.id}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
-                      data-testid={`checkbox-room-${room.id}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={templateForm.roomIds.includes(room.id)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setTemplateForm({ ...templateForm, roomIds: [...templateForm.roomIds, room.id] });
-                          } else {
-                            setTemplateForm({ ...templateForm, roomIds: templateForm.roomIds.filter((id: string) => id !== room.id) });
-                          }
-                        }}
-                        className="rounded"
-                      />
-                      <span className="text-sm">{room.name}</span>
-                    </label>
-                  ))}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">{t("admin.roomsHelp", "Select rooms to track completion separately for each room. Leave empty for a general checklist.")}</p>
-              </div>
+            <div>
+              <Label htmlFor="template-recurrency">{t("admin.recurrency")} *</Label>
+              <Select
+                value={templateForm.recurrency}
+                onValueChange={(value) => setTemplateForm({ ...templateForm, recurrency: value })}
+              >
+                <SelectTrigger data-testid="select-template-recurrency">
+                  <SelectValue placeholder={t("admin.selectRecurrency")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">{t("checklists.recurrency.daily", "Daily")}</SelectItem>
+                  <SelectItem value="weekly">{t("checklists.recurrency.weekly", "Weekly")}</SelectItem>
+                  <SelectItem value="monthly">{t("checklists.recurrency.monthly", "Monthly")}</SelectItem>
+                  <SelectItem value="bimonthly">{t("checklists.recurrency.bimonthly", "Every 2 Months")}</SelectItem>
+                  <SelectItem value="quarterly">{t("checklists.recurrency.quarterly", "Every 3 Months")}</SelectItem>
+                  <SelectItem value="triannual">{t("checklists.recurrency.triannual", "Every 4 Months")}</SelectItem>
+                  <SelectItem value="biannual">{t("checklists.recurrency.biannual", "Every 6 Months")}</SelectItem>
+                  <SelectItem value="yearly">{t("checklists.recurrency.yearly", "Yearly")}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -2891,6 +2862,42 @@ export default function Hospital() {
                 ))}
               </div>
             </div>
+            {surgeryRooms.filter(r => r.type === 'OP').length > 0 && (
+              <div className="rounded-lg border border-dashed border-border bg-muted/30 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <i className="fas fa-door-open text-muted-foreground text-sm"></i>
+                  <Label className="text-sm font-medium text-muted-foreground">{t("admin.rooms", "Rooms")} ({t("checklists.optional", "optional")})</Label>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {surgeryRooms.filter(r => r.type === 'OP').map((room) => (
+                    <label
+                      key={room.id}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-md border cursor-pointer transition-colors ${
+                        templateForm.roomIds.includes(room.id)
+                          ? 'bg-primary/10 border-primary text-primary'
+                          : 'bg-background border-border hover:bg-muted'
+                      }`}
+                      data-testid={`checkbox-room-${room.id}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={templateForm.roomIds.includes(room.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setTemplateForm({ ...templateForm, roomIds: [...templateForm.roomIds, room.id] });
+                          } else {
+                            setTemplateForm({ ...templateForm, roomIds: templateForm.roomIds.filter((id: string) => id !== room.id) });
+                          }
+                        }}
+                        className="rounded sr-only"
+                      />
+                      <span className="text-sm">{room.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">{t("admin.roomsHelp", "Select rooms to track completion separately for each room. Leave empty for a general checklist.")}</p>
+              </div>
+            )}
             <div>
               <Label>{t("admin.startDate")} *</Label>
               <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
