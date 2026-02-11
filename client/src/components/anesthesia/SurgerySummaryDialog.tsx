@@ -685,9 +685,9 @@ export default function SurgerySummaryDialog({
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
-            data-testid="button-cancel-summary"
+            data-testid="button-close-summary"
           >
-            {t('anesthesia.preop.cancel')}
+            {t('common.close')}
           </Button>
         </div>
       </DialogContent>
