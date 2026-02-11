@@ -2695,10 +2695,14 @@ export class DatabaseStorage implements IStorage {
           });
         } else if (lastCompletion && new Date(lastCompletion.dueDate) >= dayStart && new Date(lastCompletion.dueDate) <= dayEnd) {
           const completedByUser = await db
-            .select({ name: users.name })
+            .select({ firstName: users.firstName, lastName: users.lastName })
             .from(users)
             .where(eq(users.id, lastCompletion.completedBy))
             .limit(1);
+
+          const userName = completedByUser[0]
+            ? [completedByUser[0].firstName, completedByUser[0].lastName].filter(Boolean).join(' ')
+            : undefined;
 
           result.push({
             ...template,
@@ -2710,7 +2714,7 @@ export class DatabaseStorage implements IStorage {
             completedToday: true,
             todayCompletion: {
               completedBy: lastCompletion.completedBy,
-              completedByName: completedByUser[0]?.name || undefined,
+              completedByName: userName || undefined,
               completedAt: lastCompletion.completedAt,
               comment: lastCompletion.comment,
               signature: lastCompletion.signature,
