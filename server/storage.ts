@@ -2693,7 +2693,7 @@ export class DatabaseStorage implements IStorage {
             isOverdue,
             roomId,
           });
-        } else if (lastCompletion && lastCompletion.completedAt && new Date(lastCompletion.completedAt) >= dayStart && new Date(lastCompletion.completedAt) <= dayEnd) {
+        } else if (lastCompletion && new Date(lastCompletion.dueDate) >= dayStart && new Date(lastCompletion.dueDate) <= dayEnd) {
           const completedByUser = await db
             .select({ name: users.name })
             .from(users)
