@@ -108,6 +108,14 @@ interface RoomPendingChecklist extends ChecklistTemplate {
   nextDueDate: Date;
   isOverdue: boolean;
   roomId: string;
+  completedToday?: boolean;
+  todayCompletion?: {
+    completedBy: string;
+    completedByName?: string;
+    completedAt: Date | null;
+    comment: string | null;
+    signature: string;
+  };
 }
 
 function DroppableRoomHeader({ 
@@ -151,23 +159,32 @@ function DroppableRoomHeader({
     >
       <div className="font-semibold text-sm p-2 pb-1 flex items-center justify-center relative">
         <span>{label}</span>
-        {checklists.length > 0 && onChecklistClick && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onChecklistClick(resource.id);
-            }}
-            className={`absolute right-2 p-0 leading-none transition-colors ${
-              checklists.some(c => c.isOverdue)
-                ? 'text-destructive animate-pulse'
-                : 'text-amber-500'
-            }`}
-            title={`${checklists.length} checklist(s) due`}
-            data-testid={`button-room-checklist-${resource.id}`}
-          >
-            <ClipboardCheck className="h-3.5 w-3.5" />
-          </button>
-        )}
+        {checklists.length > 0 && onChecklistClick && (() => {
+          const pendingChecklists = checklists.filter(c => !c.completedToday);
+          const allCompleted = pendingChecklists.length === 0;
+          return (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onChecklistClick(resource.id);
+              }}
+              className={`absolute right-2 p-0 leading-none transition-colors ${
+                allCompleted
+                  ? 'text-green-600'
+                  : pendingChecklists.some(c => c.isOverdue)
+                    ? 'text-destructive animate-pulse'
+                    : 'text-amber-500'
+              }`}
+              title={allCompleted
+                ? `${checklists.length} checklist(s) completed`
+                : `${pendingChecklists.length} checklist(s) due`
+              }
+              data-testid={`button-room-checklist-${resource.id}`}
+            >
+              <ClipboardCheck className="h-3.5 w-3.5" />
+            </button>
+          );
+        })()}
       </div>
       <div className={`min-h-[28px] px-2 pb-1 border-t border-border/30 ${assignedStaff.length > 0 ? 'bg-muted/20' : ''}`}>
         {assignedStaff.length > 0 ? (
@@ -1448,14 +1465,18 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
           <DialogHeader className="flex-shrink-0">
             <DialogTitle data-testid="text-room-checklist-title">
               {selectedChecklist
-                ? `${t("checklists.complete", "Complete")} - ${selectedChecklist.name}`
+                ? selectedChecklist.completedToday
+                  ? `${selectedChecklist.name}`
+                  : `${t("checklists.complete", "Complete")} - ${selectedChecklist.name}`
                 : t("checklists.roomChecklists", "Room Checklists")
               }
             </DialogTitle>
             <DialogDescription data-testid="text-room-checklist-description">
               {checklistRoomId && surgeryRooms.find((r: any) => r.id === checklistRoomId)?.name}
               {selectedChecklist
-                ? ` — ${t("checklists.completionDescription", "Check all items and sign to complete.")}`
+                ? selectedChecklist.completedToday
+                  ? ` — ${t("checklists.completedDescription", "This checklist has been completed.")}`
+                  : ` — ${t("checklists.completionDescription", "Check all items and sign to complete.")}`
                 : ` — ${t("checklists.selectChecklistToComplete", "Select a checklist to complete.")}`
               }
             </DialogDescription>
@@ -1466,9 +1487,13 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
               <div className="space-y-2">
                 {(checklistsByRoom.get(checklistRoomId) || []).map((cl) => (
                   <button
-                    key={cl.id}
+                    key={`${cl.id}-${cl.roomId}`}
                     onClick={() => handleSelectChecklist(cl)}
-                    className="w-full text-left p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                    className={`w-full text-left p-4 rounded-lg border transition-colors ${
+                      cl.completedToday
+                        ? 'border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-950/30'
+                        : 'border-border hover:bg-muted/50'
+                    }`}
                     data-testid={`button-select-checklist-${cl.id}`}
                   >
                     <div className="flex items-center justify-between">
@@ -1478,20 +1503,97 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
                           {Array.isArray(cl.items) ? cl.items.length : 0} {t("checklists.items", "items")}
                         </p>
                       </div>
-                      <span className={`text-xs px-2 py-1 rounded-full ${
-                        cl.isOverdue
-                          ? 'bg-destructive/10 text-destructive'
-                          : 'bg-amber-500/10 text-amber-600'
-                      }`}>
-                        {cl.isOverdue ? t("checklists.overdue", "Overdue") : t("checklists.dueToday", "Due today")}
-                      </span>
+                      {cl.completedToday ? (
+                        <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7"></path></svg>
+                          {t("checklists.completed", "Completed")}
+                        </span>
+                      ) : (
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          cl.isOverdue
+                            ? 'bg-destructive/10 text-destructive'
+                            : 'bg-amber-500/10 text-amber-600'
+                        }`}>
+                          {cl.isOverdue ? t("checklists.overdue", "Overdue") : t("checklists.dueToday", "Due today")}
+                        </span>
+                      )}
                     </div>
                   </button>
                 ))}
               </div>
             )}
 
-            {selectedChecklist && (
+            {selectedChecklist && selectedChecklist.completedToday && selectedChecklist.todayCompletion && (
+              <>
+                {checklistRoomId && (checklistsByRoom.get(checklistRoomId) || []).length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setSelectedChecklist(null);
+                    }}
+                    data-testid="button-back-to-list"
+                  >
+                    <span className="mr-1">←</span> {t("common.back", "Back")}
+                  </Button>
+                )}
+
+                <div className="rounded-lg border border-green-200 bg-green-50 dark:bg-green-950/20 dark:border-green-800 p-4" data-testid="completed-checklist-info">
+                  <div className="flex items-center gap-2 mb-3">
+                    <svg className="w-5 h-5 text-green-600" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor"><path d="M5 13l4 4L19 7"></path></svg>
+                    <span className="font-semibold text-green-700 dark:text-green-400">{t("checklists.completedToday", "Completed today")}</span>
+                  </div>
+                  <div className="space-y-1 text-sm text-muted-foreground">
+                    <p><span className="font-medium text-foreground">{t("checklists.completedBy", "Completed by")}:</span> {selectedChecklist.todayCompletion.completedByName || selectedChecklist.todayCompletion.completedBy}</p>
+                    {selectedChecklist.todayCompletion.completedAt && (
+                      <p><span className="font-medium text-foreground">{t("checklists.completedAt", "Time")}:</span> {new Date(selectedChecklist.todayCompletion.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                    )}
+                    {selectedChecklist.todayCompletion.comment && (
+                      <p><span className="font-medium text-foreground">{t("checklists.comment", "Comment")}:</span> {selectedChecklist.todayCompletion.comment}</p>
+                    )}
+                  </div>
+                </div>
+
+                {Array.isArray(selectedChecklist.items) && selectedChecklist.items.length > 0 && (
+                  <div>
+                    <Label className="text-sm font-semibold mb-3 block" data-testid="label-room-checklist-items-completed">
+                      {t("checklists.checkedItems", "Checked items")}
+                    </Label>
+                    <ul className="space-y-2" data-testid="list-room-checklist-items-completed">
+                      {selectedChecklist.items.map((item, index) => (
+                        <li
+                          key={index}
+                          className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
+                          data-testid={`room-checklist-item-completed-${index}`}
+                        >
+                          <div className="min-w-5 w-5 h-5 bg-green-600 border-2 border-green-600 rounded flex items-center justify-center">
+                            <svg className="w-3.5 h-3.5 text-white" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
+                              <path d="M5 13l4 4L19 7"></path>
+                            </svg>
+                          </div>
+                          <span className="text-sm text-muted-foreground">
+                            {typeof item === 'string' ? item : (item as any).description}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {selectedChecklist.todayCompletion.signature && (
+                  <div>
+                    <Label className="text-sm font-semibold mb-2 block" data-testid="label-room-checklist-signature-view">
+                      {t("checklists.signature", "Signature")}
+                    </Label>
+                    <div className="border rounded-lg p-3 bg-white dark:bg-gray-900" data-testid="completed-checklist-signature">
+                      <img src={selectedChecklist.todayCompletion.signature} alt="Signature" className="max-h-24 mx-auto" />
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {selectedChecklist && !selectedChecklist.completedToday && (
               <>
                 {checklistRoomId && (checklistsByRoom.get(checklistRoomId) || []).length > 1 && (
                   <Button
@@ -1601,7 +1703,23 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
             )}
           </div>
 
-          {selectedChecklist && (
+          {selectedChecklist && selectedChecklist.completedToday && (
+            <div className="flex gap-3 mt-6 flex-shrink-0 pt-4 border-t">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setChecklistDialogOpen(false);
+                  setSelectedChecklist(null);
+                }}
+                className="flex-1"
+                data-testid="button-room-checklist-close"
+              >
+                {t("common.close", "Close")}
+              </Button>
+            </div>
+          )}
+
+          {selectedChecklist && !selectedChecklist.completedToday && (
             <div className="flex gap-3 mt-6 flex-shrink-0 pt-4 border-t">
               <Button
                 variant="outline"

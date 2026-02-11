@@ -439,7 +439,7 @@ export interface IStorage {
   updateChecklistTemplate(id: string, updates: Partial<ChecklistTemplate>, assignments?: { unitId: string | null; role: string | null }[]): Promise<ChecklistTemplate & { assignments: ChecklistTemplateAssignment[] }>;
   deleteChecklistTemplate(id: string): Promise<void>;
   getPendingChecklists(hospitalId: string, unitId: string, role?: string): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]>;
-  getRoomPendingChecklists(hospitalId: string, date?: Date): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean; roomId: string })[]>;
+  getRoomPendingChecklists(hospitalId: string, date?: Date): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean; roomId: string; completedToday?: boolean; todayCompletion?: { completedBy: string; completedByName?: string; completedAt: Date | null; comment: string | null; signature: string } })[]>;
   completeChecklist(completion: InsertChecklistCompletion): Promise<ChecklistCompletion>;
   dismissChecklist(dismissal: InsertChecklistDismissal): Promise<ChecklistDismissal>;
   getChecklistCompletions(hospitalId: string, unitId?: string, templateId?: string, limit?: number): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[]>;
@@ -2605,7 +2605,7 @@ export class DatabaseStorage implements IStorage {
     return result.sort((a, b) => a.nextDueDate.getTime() - b.nextDueDate.getTime());
   }
 
-  async getRoomPendingChecklists(hospitalId: string, date?: Date): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean; roomId: string })[]> {
+  async getRoomPendingChecklists(hospitalId: string, date?: Date): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean; roomId: string; completedToday?: boolean; todayCompletion?: { completedBy: string; completedByName?: string; completedAt: Date | null; comment: string | null; signature: string } })[]> {
     const templates = await db
       .select()
       .from(checklistTemplates)
@@ -2629,7 +2629,7 @@ export class DatabaseStorage implements IStorage {
       assignmentsByTemplate.set(a.templateId, list);
     }
 
-    const result: (ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean; roomId: string })[] = [];
+    const result: (ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean; roomId: string; completedToday?: boolean; todayCompletion?: { completedBy: string; completedByName?: string; completedAt: Date | null; comment: string | null; signature: string } })[] = [];
     const now = date || new Date();
     const dayStart = new Date(now);
     dayStart.setHours(0, 0, 0, 0);
@@ -2693,11 +2693,38 @@ export class DatabaseStorage implements IStorage {
             isOverdue,
             roomId,
           });
+        } else if (lastCompletion && lastCompletion.completedAt && new Date(lastCompletion.completedAt) >= dayStart && new Date(lastCompletion.completedAt) <= dayEnd) {
+          const completedByUser = await db
+            .select({ name: users.name })
+            .from(users)
+            .where(eq(users.id, lastCompletion.completedBy))
+            .limit(1);
+
+          result.push({
+            ...template,
+            assignments: assignmentsByTemplate.get(template.id) || [],
+            lastCompletion,
+            nextDueDate,
+            isOverdue: false,
+            roomId,
+            completedToday: true,
+            todayCompletion: {
+              completedBy: lastCompletion.completedBy,
+              completedByName: completedByUser[0]?.name || undefined,
+              completedAt: lastCompletion.completedAt,
+              comment: lastCompletion.comment,
+              signature: lastCompletion.signature,
+            },
+          });
         }
       }
     }
 
-    return result.sort((a, b) => a.nextDueDate.getTime() - b.nextDueDate.getTime());
+    return result.sort((a, b) => {
+      if (a.completedToday && !b.completedToday) return 1;
+      if (!a.completedToday && b.completedToday) return -1;
+      return a.nextDueDate.getTime() - b.nextDueDate.getTime();
+    });
   }
 
   private calculateNextDueDate(startDate: Date, recurrency: string, lastDueDate?: Date, excludeWeekends: boolean = false): Date {
