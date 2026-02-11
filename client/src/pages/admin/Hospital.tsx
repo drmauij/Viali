@@ -131,7 +131,7 @@ export default function Hospital() {
     recurrency: "",
     items: [] as string[],
     assignments: [{ unitId: "", role: "" }] as { unitId: string; role: string }[],
-    roomId: "",
+    roomIds: [] as string[],
     excludeWeekends: false,
     startDate: new Date().toISOString().split('T')[0],
   });
@@ -782,7 +782,7 @@ export default function Hospital() {
       recurrency: "",
       items: [],
       assignments: [{ unitId: "", role: "" }],
-      roomId: "",
+      roomIds: [],
       excludeWeekends: false,
       startDate: new Date().toISOString().split('T')[0],
     });
@@ -868,7 +868,7 @@ export default function Hospital() {
       recurrency: template.recurrency,
       items: (template.items || []).map((item: any) => typeof item === 'string' ? item : (item.description || "")),
       assignments,
-      roomId: template.roomId || "",
+      roomIds: template.roomIds || [],
       excludeWeekends: template.excludeWeekends || false,
       startDate: template.startDate?.split('T')[0] || new Date().toISOString().split('T')[0],
     });
@@ -886,7 +886,7 @@ export default function Hospital() {
         : template.unitId
           ? [{ unitId: template.unitId || "", role: template.role || "" }]
           : [{ unitId: "", role: "" }],
-      roomId: template.roomId || "",
+      roomIds: template.roomIds || [],
       excludeWeekends: template.excludeWeekends || false,
       startDate: new Date().toISOString().split('T')[0],
     });
@@ -919,7 +919,7 @@ export default function Hospital() {
         unitId: a.unitId || null,
         role: a.role || null,
       })),
-      roomId: templateForm.roomId || null,
+      roomIds: templateForm.roomIds,
       excludeWeekends: templateForm.excludeWeekends,
       startDate: templateForm.startDate,
     };
@@ -1904,9 +1904,9 @@ export default function Hospital() {
                             <i className="fas fa-calendar-xmark mr-1"></i>{t("admin.noWeekends", "No weekends")}
                           </span>
                         )}
-                        {template.roomId && (
+                        {template.roomIds && template.roomIds.length > 0 && (
                           <span className="status-chip chip-muted text-xs">
-                            <i className="fas fa-door-open mr-1"></i>{surgeryRooms.find(r => r.id === template.roomId)?.name || template.roomId}
+                            <i className="fas fa-door-open mr-1"></i>{template.roomIds.length} {t("admin.rooms")}
                           </span>
                         )}
                         <span className="text-xs">
@@ -2789,23 +2789,31 @@ export default function Hospital() {
                 </Select>
               </div>
               <div>
-                <Label>{t("admin.room", "Room")} ({t("checklists.optional", "optional")})</Label>
-                <Select
-                  value={templateForm.roomId || "__none__"}
-                  onValueChange={(value) => setTemplateForm({ ...templateForm, roomId: value === "__none__" ? "" : value })}
-                >
-                  <SelectTrigger data-testid="select-template-room">
-                    <SelectValue placeholder={t("admin.selectRoom", "Select room")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">{t("admin.noRoom", "No specific room")}</SelectItem>
-                    {surgeryRooms.filter(r => r.type === 'OP').map((room) => (
-                      <SelectItem key={room.id} value={room.id}>
-                        {room.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>{t("admin.rooms", "Rooms")} ({t("checklists.optional", "optional")})</Label>
+                <div className="border rounded-md p-2 max-h-32 overflow-y-auto space-y-1 mt-1">
+                  {surgeryRooms.filter(r => r.type === 'OP').map((room) => (
+                    <label
+                      key={room.id}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
+                      data-testid={`checkbox-room-${room.id}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={templateForm.roomIds.includes(room.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setTemplateForm({ ...templateForm, roomIds: [...templateForm.roomIds, room.id] });
+                          } else {
+                            setTemplateForm({ ...templateForm, roomIds: templateForm.roomIds.filter((id: string) => id !== room.id) });
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm">{room.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">{t("admin.roomsHelp")}</p>
               </div>
             </div>
             <div>
