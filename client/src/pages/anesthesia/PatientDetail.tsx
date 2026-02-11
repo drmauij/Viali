@@ -3882,14 +3882,11 @@ export default function PatientDetail() {
         if (!open) {
           // Clear document preview when closing dialog
           setPreviewDocument(null);
-          // If in direct pre-op route mode, navigate back to pre-op list
-          if (isPreOpRoute) {
-            setLocation('/anesthesia/preop');
-          } else if (preOpOpenedViaUrl.current && window.history.length > 1) {
-            // If opened via URL navigation, use history.back() to return to previous page
+          if (preOpOpenedViaUrl.current && window.history.length > 1) {
             window.history.back();
+          } else if (isPreOpRoute) {
+            setLocation('/anesthesia/preop');
           } else {
-            // If opened via button click, just close the dialog
             setIsPreOpOpen(false);
           }
         } else {
@@ -3931,14 +3928,11 @@ export default function PatientDetail() {
                   variant="ghost"
                   size="icon"
                   onClick={() => {
-                    // If in direct pre-op route mode, navigate back to pre-op list
-                    if (isPreOpRoute) {
-                      setLocation('/anesthesia/preop');
-                    } else if (preOpOpenedViaUrl.current && window.history.length > 1) {
-                      // If opened via URL navigation, use history.back() to return to previous page
+                    if (preOpOpenedViaUrl.current && window.history.length > 1) {
                       window.history.back();
+                    } else if (isPreOpRoute) {
+                      setLocation('/anesthesia/preop');
                     } else {
-                      // If opened via button click, just close the dialog
                       setIsPreOpOpen(false);
                     }
                   }}
