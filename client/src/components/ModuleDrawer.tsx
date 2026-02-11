@@ -5,7 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useHospitalAddons } from "@/hooks/useHospitalAddons";
-import { Copy, Check, Link as LinkIcon, FileText, Clock, Calendar } from "lucide-react";
+import { Copy, Check, Link as LinkIcon, FileText, Clock, Calendar, ClipboardCheck } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 interface ModuleCard {
   id: string;
@@ -53,6 +54,15 @@ export default function ModuleDrawer() {
   const hasClinicAccess = activeHospital?.unitType === 'clinic';
   const hasLogisticAccess = activeHospital?.unitType === 'logistic';
   const isAdmin = activeHospital?.role === "admin";
+  const canAccessPreOp = activeHospital?.role === "admin" || activeHospital?.role === "doctor";
+
+  const { data: pendingCountData } = useQuery<{ count: number }>({
+    queryKey: [`/api/checklists/count/${activeHospital?.id}?unitId=${activeHospital?.unitId}`],
+    enabled: !!activeHospital?.id && !!activeHospital?.unitId,
+    refetchInterval: 30000,
+  });
+
+  const hasPendingChecklists = (pendingCountData?.count || 0) > 0;
 
   const allModules: ModuleCard[] = [
     {
@@ -196,7 +206,7 @@ export default function ModuleDrawer() {
 
   // Menu items for navigation (shown in drawer, not as copy links)
   const menuItems = useMemo(() => {
-    const items: { id: string; icon: JSX.Element; label: string; route: string }[] = [];
+    const items: { id: string; icon: JSX.Element; label: string; route: string; badge?: number }[] = [];
     
     // Worklogs links - only show if worktime addon is enabled
     // Show separate links if user has access to both modules
@@ -233,8 +243,20 @@ export default function ModuleDrawer() {
       }
     }
     
+    const showSurgeryChecklists = hasSurgeryAccess && canAccessPreOp && addons.surgery;
+    if (showSurgeryChecklists || hasPendingChecklists) {
+      const checklistRoute = showSurgeryChecklists ? '/surgery/checklists' : '/inventory/checklists';
+      items.push({
+        id: 'checklists',
+        icon: <ClipboardCheck className="w-4 h-4" />,
+        label: t('bottomNav.checklists', 'Checklists'),
+        route: checklistRoute,
+        ...(hasPendingChecklists ? { badge: pendingCountData?.count } : {}),
+      });
+    }
+
     return items;
-  }, [addons.worktime, hasAnesthesiaAccess, hasSurgeryAccess, t]);
+  }, [addons.worktime, addons.surgery, hasAnesthesiaAccess, hasSurgeryAccess, canAccessPreOp, hasPendingChecklists, pendingCountData?.count, t]);
 
   if (!isDrawerOpen) return null;
 
@@ -360,8 +382,13 @@ export default function ModuleDrawer() {
                     className="flex items-center gap-3 p-3 rounded-lg border border-border bg-muted/30 hover:bg-muted/50 transition-colors text-left"
                     data-testid={`menu-item-${item.id}`}
                   >
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                    <div className="relative w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                       {item.icon}
+                      {item.badge && item.badge > 0 && (
+                        <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                          {item.badge > 9 ? '9+' : item.badge}
+                        </span>
+                      )}
                     </div>
                     <span className="text-sm font-medium text-foreground">{item.label}</span>
                   </button>
