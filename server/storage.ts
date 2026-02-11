@@ -2581,7 +2581,14 @@ export class DatabaseStorage implements IStorage {
         lastHandledDueDate = lastDismissal.dueDate;
       }
       
-      const nextDueDate = this.calculateNextDueDate(template.startDate, template.recurrency, lastHandledDueDate, template.excludeWeekends ?? false);
+      let nextDueDate = this.calculateNextDueDate(template.startDate, template.recurrency, lastHandledDueDate, template.excludeWeekends ?? false);
+      
+      const todayStart = new Date(now);
+      todayStart.setHours(0, 0, 0, 0);
+      if (nextDueDate < todayStart) {
+        nextDueDate = new Date(todayStart);
+      }
+      
       const isOverdue = nextDueDate <= now;
 
       if (isOverdue || nextDueDate <= new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)) {
@@ -2642,7 +2649,7 @@ export class DatabaseStorage implements IStorage {
           ))
           .orderBy(desc(checklistCompletions.dueDate))
           .limit(1);
-
+        
         const dismissals = await db
           .select()
           .from(checklistDismissals)
@@ -2668,7 +2675,12 @@ export class DatabaseStorage implements IStorage {
           lastHandledDueDate = lastDismissal.dueDate;
         }
 
-        const nextDueDate = this.calculateNextDueDate(template.startDate, template.recurrency, lastHandledDueDate, template.excludeWeekends ?? false);
+        let nextDueDate = this.calculateNextDueDate(template.startDate, template.recurrency, lastHandledDueDate, template.excludeWeekends ?? false);
+        
+        if (nextDueDate < dayStart) {
+          nextDueDate = new Date(dayStart);
+        }
+        
         const isOverdue = nextDueDate <= now;
         const isDueToday = nextDueDate >= dayStart && nextDueDate <= dayEnd;
 
