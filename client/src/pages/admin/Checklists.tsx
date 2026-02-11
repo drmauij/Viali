@@ -501,7 +501,7 @@ export default function Checklists() {
                     </label>
                   ))}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{t("admin.roomsHelp")}</p>
+                <p className="text-xs text-muted-foreground mt-1">{t("admin.roomsHelp", "Select rooms to track completion separately for each room. Leave empty for a general checklist.")}</p>
               </div>
             )}
             <div>
