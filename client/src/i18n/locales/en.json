@@ -1953,6 +1953,7 @@
       "items": "Items",
       "groups": "Groups",
       "rooms": "Rooms",
+      "roomsHelp": "Select rooms to track completion separately for each room. Leave empty for a general checklist.",
       "allergies": "Allergies",
       "medications": "Medications",
       "medicalHistory": "Medical History",

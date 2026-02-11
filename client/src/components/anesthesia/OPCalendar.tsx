@@ -107,6 +107,7 @@ interface RoomPendingChecklist extends ChecklistTemplate {
   lastCompletion?: ChecklistCompletion;
   nextDueDate: Date;
   isOverdue: boolean;
+  roomId: string;
 }
 
 function DroppableRoomHeader({ 
@@ -745,6 +746,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       dueDate: Date;
       comment?: string;
       signature: string;
+      roomId?: string;
       templateSnapshot: Pick<ChecklistTemplate, 'name' | 'description' | 'recurrency' | 'items' | 'role'>;
     }) => {
       const response = await apiRequest("POST", `/api/checklists/complete`, {
@@ -752,6 +754,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
         dueDate: new Date(data.dueDate).toISOString(),
         comment: data.comment,
         signature: data.signature,
+        roomId: data.roomId || null,
         templateSnapshot: data.templateSnapshot,
       });
       return response.json();
@@ -804,6 +807,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       dueDate: selectedChecklist.nextDueDate,
       comment: checklistComment.trim() || undefined,
       signature: checklistSignature,
+      roomId: selectedChecklist.roomId,
       templateSnapshot: {
         name: selectedChecklist.name,
         description: selectedChecklist.description,

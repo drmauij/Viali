@@ -439,7 +439,7 @@ export interface IStorage {
   updateChecklistTemplate(id: string, updates: Partial<ChecklistTemplate>, assignments?: { unitId: string | null; role: string | null }[]): Promise<ChecklistTemplate & { assignments: ChecklistTemplateAssignment[] }>;
   deleteChecklistTemplate(id: string): Promise<void>;
   getPendingChecklists(hospitalId: string, unitId: string, role?: string): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]>;
-  getRoomPendingChecklists(hospitalId: string, date?: Date): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]>;
+  getRoomPendingChecklists(hospitalId: string, date?: Date): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean; roomId: string })[]>;
   completeChecklist(completion: InsertChecklistCompletion): Promise<ChecklistCompletion>;
   dismissChecklist(dismissal: InsertChecklistDismissal): Promise<ChecklistDismissal>;
   getChecklistCompletions(hospitalId: string, unitId?: string, templateId?: string, limit?: number): Promise<(ChecklistCompletion & { template: ChecklistTemplate; completedByUser: User })[]>;
@@ -2527,7 +2527,10 @@ export class DatabaseStorage implements IStorage {
         eq(checklistTemplates.hospitalId, hospitalId),
         eq(checklistTemplates.active, true),
         inArray(checklistTemplates.id, templateIds),
-        isNull(checklistTemplates.roomId)
+        or(
+          isNull(checklistTemplates.roomIds),
+          sql`${checklistTemplates.roomIds} = '{}'`
+        )
       ));
 
     const allAssignments = await db
@@ -2595,14 +2598,14 @@ export class DatabaseStorage implements IStorage {
     return result.sort((a, b) => a.nextDueDate.getTime() - b.nextDueDate.getTime());
   }
 
-  async getRoomPendingChecklists(hospitalId: string, date?: Date): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean })[]> {
+  async getRoomPendingChecklists(hospitalId: string, date?: Date): Promise<(ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean; roomId: string })[]> {
     const templates = await db
       .select()
       .from(checklistTemplates)
       .where(and(
         eq(checklistTemplates.hospitalId, hospitalId),
         eq(checklistTemplates.active, true),
-        isNotNull(checklistTemplates.roomId)
+        sql`${checklistTemplates.roomIds} IS NOT NULL AND ${checklistTemplates.roomIds} != '{}'`
       ));
 
     if (templates.length === 0) return [];
@@ -2619,7 +2622,7 @@ export class DatabaseStorage implements IStorage {
       assignmentsByTemplate.set(a.templateId, list);
     }
 
-    const result = [];
+    const result: (ChecklistTemplate & { assignments: ChecklistTemplateAssignment[]; lastCompletion?: ChecklistCompletion; nextDueDate: Date; isOverdue: boolean; roomId: string })[] = [];
     const now = date || new Date();
     const dayStart = new Date(now);
     dayStart.setHours(0, 0, 0, 0);
@@ -2627,49 +2630,58 @@ export class DatabaseStorage implements IStorage {
     dayEnd.setHours(23, 59, 59, 999);
 
     for (const template of templates) {
-      const completions = await db
-        .select()
-        .from(checklistCompletions)
-        .where(eq(checklistCompletions.templateId, template.id))
-        .orderBy(desc(checklistCompletions.dueDate))
-        .limit(1);
+      const roomIds = (template.roomIds || []) as string[];
+      
+      for (const roomId of roomIds) {
+        const completions = await db
+          .select()
+          .from(checklistCompletions)
+          .where(and(
+            eq(checklistCompletions.templateId, template.id),
+            eq(checklistCompletions.roomId, roomId)
+          ))
+          .orderBy(desc(checklistCompletions.dueDate))
+          .limit(1);
 
-      const dismissals = await db
-        .select()
-        .from(checklistDismissals)
-        .where(and(
-          eq(checklistDismissals.templateId, template.id),
-          eq(checklistDismissals.hospitalId, hospitalId)
-        ))
-        .orderBy(desc(checklistDismissals.dueDate))
-        .limit(1);
+        const dismissals = await db
+          .select()
+          .from(checklistDismissals)
+          .where(and(
+            eq(checklistDismissals.templateId, template.id),
+            eq(checklistDismissals.hospitalId, hospitalId),
+            eq(checklistDismissals.roomId, roomId)
+          ))
+          .orderBy(desc(checklistDismissals.dueDate))
+          .limit(1);
 
-      const lastCompletion = completions[0];
-      const lastDismissal = dismissals[0];
+        const lastCompletion = completions[0];
+        const lastDismissal = dismissals[0];
 
-      let lastHandledDueDate: Date | undefined;
-      if (lastCompletion && lastDismissal) {
-        lastHandledDueDate = new Date(lastCompletion.dueDate) > new Date(lastDismissal.dueDate)
-          ? lastCompletion.dueDate
-          : lastDismissal.dueDate;
-      } else if (lastCompletion) {
-        lastHandledDueDate = lastCompletion.dueDate;
-      } else if (lastDismissal) {
-        lastHandledDueDate = lastDismissal.dueDate;
-      }
+        let lastHandledDueDate: Date | undefined;
+        if (lastCompletion && lastDismissal) {
+          lastHandledDueDate = new Date(lastCompletion.dueDate) > new Date(lastDismissal.dueDate)
+            ? lastCompletion.dueDate
+            : lastDismissal.dueDate;
+        } else if (lastCompletion) {
+          lastHandledDueDate = lastCompletion.dueDate;
+        } else if (lastDismissal) {
+          lastHandledDueDate = lastDismissal.dueDate;
+        }
 
-      const nextDueDate = this.calculateNextDueDate(template.startDate, template.recurrency, lastHandledDueDate, template.excludeWeekends ?? false);
-      const isOverdue = nextDueDate <= now;
-      const isDueToday = nextDueDate >= dayStart && nextDueDate <= dayEnd;
+        const nextDueDate = this.calculateNextDueDate(template.startDate, template.recurrency, lastHandledDueDate, template.excludeWeekends ?? false);
+        const isOverdue = nextDueDate <= now;
+        const isDueToday = nextDueDate >= dayStart && nextDueDate <= dayEnd;
 
-      if (isOverdue || isDueToday) {
-        result.push({
-          ...template,
-          assignments: assignmentsByTemplate.get(template.id) || [],
-          lastCompletion,
-          nextDueDate,
-          isOverdue,
-        });
+        if (isOverdue || isDueToday) {
+          result.push({
+            ...template,
+            assignments: assignmentsByTemplate.get(template.id) || [],
+            lastCompletion,
+            nextDueDate,
+            isOverdue,
+            roomId,
+          });
+        }
       }
     }
 

@@ -1980,6 +1980,7 @@
       "items": "Artikel",
       "groups": "Gruppen",
       "rooms": "Räume",
+      "roomsHelp": "Wählen Sie Räume aus, um die Erledigung für jeden Raum separat zu verfolgen. Leer lassen für eine allgemeine Checkliste.",
       "allergies": "Allergien",
       "medications": "Medikamente",
       "medicalHistory": "Medizinische Vorgeschichte",

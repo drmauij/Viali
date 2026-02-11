@@ -589,7 +589,7 @@ export const checklistTemplates = pgTable("checklist_templates", {
   startDate: timestamp("start_date").notNull(),
   items: jsonb("items").notNull(), // array of { description: string }
   active: boolean("active").default(true),
-  roomId: varchar("room_id").references(() => surgeryRooms.id),
+  roomIds: text("room_ids").array().default([]),
   excludeWeekends: boolean("exclude_weekends").default(false),
   createdBy: varchar("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -616,6 +616,7 @@ export const checklistCompletions = pgTable("checklist_completions", {
   templateId: varchar("template_id").notNull().references(() => checklistTemplates.id),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   unitId: varchar("unit_id").notNull().references(() => units.id),
+  roomId: varchar("room_id").references(() => surgeryRooms.id),
   completedBy: varchar("completed_by").notNull().references(() => users.id),
   completedAt: timestamp("completed_at").defaultNow(),
   dueDate: timestamp("due_date").notNull(), // which recurrency period this completion covers
@@ -636,6 +637,7 @@ export const checklistDismissals = pgTable("checklist_dismissals", {
   templateId: varchar("template_id").notNull().references(() => checklistTemplates.id),
   hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
   unitId: varchar("unit_id").notNull().references(() => units.id),
+  roomId: varchar("room_id").references(() => surgeryRooms.id),
   dismissedBy: varchar("dismissed_by").notNull().references(() => users.id),
   dismissedAt: timestamp("dismissed_at").defaultNow(),
   dueDate: timestamp("due_date").notNull(), // which recurrency period this dismissal covers
@@ -2325,7 +2327,6 @@ export const importJobsRelations = relations(importJobs, ({ one }) => ({
 export const checklistTemplatesRelations = relations(checklistTemplates, ({ one, many }) => ({
   hospital: one(hospitals, { fields: [checklistTemplates.hospitalId], references: [hospitals.id] }),
   unit: one(units, { fields: [checklistTemplates.unitId], references: [units.id] }),
-  room: one(surgeryRooms, { fields: [checklistTemplates.roomId], references: [surgeryRooms.id] }),
   createdByUser: one(users, { fields: [checklistTemplates.createdBy], references: [users.id] }),
   completions: many(checklistCompletions),
   assignments: many(checklistTemplateAssignments),
@@ -2340,6 +2341,7 @@ export const checklistCompletionsRelations = relations(checklistCompletions, ({ 
   template: one(checklistTemplates, { fields: [checklistCompletions.templateId], references: [checklistTemplates.id] }),
   hospital: one(hospitals, { fields: [checklistCompletions.hospitalId], references: [hospitals.id] }),
   unit: one(units, { fields: [checklistCompletions.unitId], references: [units.id] }),
+  room: one(surgeryRooms, { fields: [checklistCompletions.roomId], references: [surgeryRooms.id] }),
   completedByUser: one(users, { fields: [checklistCompletions.completedBy], references: [users.id] }),
 }));
 
@@ -2462,7 +2464,7 @@ export const insertChecklistTemplateSchema = createInsertSchema(checklistTemplat
   startDate: z.coerce.date(),
   unitId: z.string().nullable().optional(),
   role: z.string().nullable().optional(),
-  roomId: z.string().nullable().optional(),
+  roomIds: z.array(z.string()).optional(),
   excludeWeekends: z.boolean().optional(),
 });
 

@@ -35,6 +35,7 @@ export default function Checklists() {
     unitId: "",
     role: "",
     startDate: new Date().toISOString().split('T')[0],
+    roomIds: [] as string[],
   });
   const [newTemplateItem, setNewTemplateItem] = useState("");
 
@@ -44,6 +45,12 @@ export default function Checklists() {
   // Fetch units
   const { data: units = [] } = useQuery<any[]>({
     queryKey: [`/api/admin/${activeHospital?.id}/units`],
+    enabled: !!activeHospital?.id && isAdmin,
+  });
+
+  // Fetch surgery rooms
+  const { data: surgeryRooms = [] } = useQuery<any[]>({
+    queryKey: [`/api/surgery-rooms/${activeHospital?.id}`],
     enabled: !!activeHospital?.id && isAdmin,
   });
 
@@ -145,6 +152,7 @@ export default function Checklists() {
       unitId: "",
       role: "",
       startDate: new Date().toISOString().split('T')[0],
+      roomIds: [],
     });
     setNewTemplateItem("");
     setEditingTemplate(null);
@@ -164,19 +172,21 @@ export default function Checklists() {
       unitId: template.unitId || "",
       role: template.role || "",
       startDate: template.startDate?.split('T')[0] || new Date().toISOString().split('T')[0],
+      roomIds: template.roomIds || [],
     });
     setTemplateDialogOpen(true);
   };
 
   const handleDuplicateTemplate = (template: any) => {
-    setEditingTemplate(null); // Clear editing template so it creates a new one
+    setEditingTemplate(null);
     setTemplateForm({
       name: `${template.name} (${t("common.copy")})`,
       recurrency: template.recurrency,
       items: (template.items || []).map((item: any) => typeof item === 'string' ? item : (item.description || "")),
       unitId: template.unitId || "",
       role: template.role || "",
-      startDate: new Date().toISOString().split('T')[0], // Reset start date to today
+      startDate: new Date().toISOString().split('T')[0],
+      roomIds: template.roomIds || [],
     });
     setTemplateDialogOpen(true);
   };
@@ -206,6 +216,7 @@ export default function Checklists() {
       unitId: templateForm.unitId,
       role: templateForm.role || null,
       startDate: templateForm.startDate,
+      roomIds: templateForm.roomIds,
     };
 
     if (editingTemplate) {
@@ -346,6 +357,11 @@ export default function Checklists() {
                           {template.units.name}
                         </span>
                       )}
+                      {template.roomIds && template.roomIds.length > 0 && (
+                        <span className="status-chip chip-muted text-xs">
+                          {template.roomIds.length} {t("admin.rooms")}
+                        </span>
+                      )}
                       <span className="text-xs">
                         {template.items?.length || 0} {t("checklists.items")}
                       </span>
@@ -459,6 +475,35 @@ export default function Checklists() {
                 </Select>
               </div>
             </div>
+            {surgeryRooms.length > 0 && (
+              <div>
+                <Label>{t("admin.rooms")} ({t("checklists.optional")})</Label>
+                <div className="border rounded-md p-2 max-h-32 overflow-y-auto space-y-1 mt-1">
+                  {surgeryRooms.map((room: any) => (
+                    <label
+                      key={room.id}
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-muted cursor-pointer"
+                      data-testid={`checkbox-room-${room.id}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={templateForm.roomIds.includes(room.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setTemplateForm({ ...templateForm, roomIds: [...templateForm.roomIds, room.id] });
+                          } else {
+                            setTemplateForm({ ...templateForm, roomIds: templateForm.roomIds.filter((id: string) => id !== room.id) });
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm">{room.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">{t("admin.roomsHelp")}</p>
+              </div>
+            )}
             <div>
               <Label>{t("admin.startDate")} *</Label>
               <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
