@@ -880,6 +880,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       });
       
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
       
       toast({
         title: t('opCalendar.surgeryRescheduled'),
@@ -887,6 +888,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       });
     } catch (error) {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
       toast({
         title: t('opCalendar.rescheduleFailed'),
         description: t('opCalendar.rescheduleFailedDesc'),
@@ -906,6 +908,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       });
       
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
       
       toast({
         title: "Surgery Duration Updated",
@@ -913,6 +916,7 @@ export default function OPCalendar({ onEventClick }: OPCalendarProps) {
       });
     } catch (error) {
       queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/surgeries/${surgeryId}`] });
       toast({
         title: "Update Failed",
         description: "Failed to update surgery duration. Please try again.",
