@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ScrollArea } from "@/components/ui/scroll-area";
+
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { Plus, Pill, Trash2, Loader2, Check, ChevronsUpDown, AlertTriangle, Package, User, Calendar, X, Search } from "lucide-react";
@@ -374,8 +374,8 @@ export function DischargeMedicationsTab({
       )}
 
       <Dialog open={isCreateDialogOpen} onOpenChange={(open) => { if (!open) { resetForm(); } setIsCreateDialogOpen(open); }}>
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle data-testid="dialog-title-discharge-medications">
               <Pill className="h-5 w-5 inline mr-2" />
               {t('dischargeMedications.createTitle', 'Add Discharge Medications')}
@@ -385,7 +385,7 @@ export function DischargeMedicationsTab({
             </DialogDescription>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 max-h-[60vh] pr-4">
+          <div className="flex-1 overflow-y-auto pr-2 min-h-0">
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -732,9 +732,9 @@ export function DischargeMedicationsTab({
                 </>
               )}
             </div>
-          </ScrollArea>
+          </div>
 
-          <div className="flex gap-2 justify-end pt-4 border-t">
+          <div className="flex gap-2 justify-end pt-4 border-t shrink-0">
             <Button
               variant="outline"
               onClick={() => { resetForm(); setIsCreateDialogOpen(false); }}
