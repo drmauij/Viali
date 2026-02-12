@@ -887,6 +887,14 @@ export const surgeries = pgTable("surgeries", {
   // Administrative notes (for business tracking - e.g., payment issues, patient contact status)
   administrativeNote: text("administrative_note"),
   
+  // Patient positioning
+  patientPosition: varchar("patient_position", { enum: [
+    "supine", "trendelenburg", "reverse_trendelenburg", "lithotomy",
+    "lateral_decubitus", "prone", "jackknife", "sitting", "kidney", "lloyd_davies"
+  ] }),
+  leftArmPosition: varchar("left_arm_position", { enum: ["ausgelagert", "angelagert"] }),
+  rightArmPosition: varchar("right_arm_position", { enum: ["ausgelagert", "angelagert"] }),
+
   // Actual execution
   actualStartTime: timestamp("actual_start_time"),
   actualEndTime: timestamp("actual_end_time"),
@@ -4635,6 +4643,14 @@ export const externalSurgeryRequests = pgTable("external_surgery_requests", {
   withAnesthesia: boolean("with_anesthesia").default(true).notNull(),
   surgeryNotes: text("surgery_notes"),
   wishedDate: date("wished_date").notNull(),
+  
+  // Patient positioning (preference from external surgeon)
+  patientPosition: varchar("patient_position", { enum: [
+    "supine", "trendelenburg", "reverse_trendelenburg", "lithotomy",
+    "lateral_decubitus", "prone", "jackknife", "sitting", "kidney", "lloyd_davies"
+  ] }),
+  leftArmPosition: varchar("left_arm_position", { enum: ["ausgelagert", "angelagert"] }),
+  rightArmPosition: varchar("right_arm_position", { enum: ["ausgelagert", "angelagert"] }),
   
   // Patient info
   patientFirstName: varchar("patient_first_name").notNull(),
