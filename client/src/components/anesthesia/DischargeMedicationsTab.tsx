@@ -106,8 +106,8 @@ export function DischargeMedicationsTab({
   });
 
   const { data: inventoryItems = [] } = useQuery<any[]>({
-    queryKey: [`/api/items/${hospitalId}`],
-    enabled: !!hospitalId,
+    queryKey: [`/api/items/${hospitalId}?unitId=${unitId}`],
+    enabled: !!hospitalId && !!unitId,
   });
 
   const { data: doctors = [] } = useQuery<any[]>({
@@ -154,7 +154,7 @@ export function DischargeMedicationsTab({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/patients', patientId, 'discharge-medications'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${hospitalId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${hospitalId}?unitId=${unitId}`] });
       toast({ title: t('dischargeMedications.saved', 'Discharge medications saved successfully') });
       resetForm();
       setIsCreateDialogOpen(false);
@@ -170,7 +170,7 @@ export function DischargeMedicationsTab({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/patients', patientId, 'discharge-medications'] });
-      queryClient.invalidateQueries({ queryKey: [`/api/items/${hospitalId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${hospitalId}?unitId=${unitId}`] });
       toast({ title: t('dischargeMedications.deleted', 'Discharge medication entry deleted and inventory restored') });
       setDeleteSlotId(null);
     },
