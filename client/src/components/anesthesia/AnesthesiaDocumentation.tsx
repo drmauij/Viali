@@ -633,6 +633,7 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
   const [size, setSize] = useState("");
   const [depth, setDepth] = useState("");
   const [cuffPressure, setCuffPressure] = useState("");
+  const [showCustomCuffPressure, setShowCustomCuffPressure] = useState(false);
   const [intubationPreExisting, setIntubationPreExisting] = useState(false);
   const [airwayNotes, setAirwayNotes] = useState("");
   const [laryngoscopeType, setLaryngoscopeType] = useState("");
@@ -653,7 +654,10 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
       setAirwayDevice(airwayManagement.airwayDevice || "");
       setSize(airwayManagement.size || "");
       setDepth(airwayManagement.depth?.toString() || "");
-      setCuffPressure(airwayManagement.cuffPressure?.toString() || "");
+      const loadedCuff = airwayManagement.cuffPressure?.toString() || "";
+      setCuffPressure(loadedCuff);
+      const presetValues = ['', '15', '20', '22', '24', '25', '26', '28', '30', '40', '50', '60'];
+      setShowCustomCuffPressure(loadedCuff !== '' && !presetValues.includes(loadedCuff));
       setIntubationPreExisting(airwayManagement.intubationPreExisting || false);
       setAirwayNotes(airwayManagement.notes || "");
       setLaryngoscopeType(airwayManagement.laryngoscopeType || "");
@@ -981,26 +985,74 @@ export function GeneralAnesthesiaSection({ anesthesiaRecordId }: SectionProps) {
             </div>
             <div className="space-y-2">
               <Label>{t('anesthesia.documentation.cuffPressure')}</Label>
-              <select
-                className="w-full border rounded-md p-2 bg-background"
-                value={cuffPressure}
-                onChange={(e) => {
-                  const nextCuffPressure = e.target.value;
-                  setCuffPressure(nextCuffPressure);
-                  airwayAutoSave.mutate(buildAirwaySavePayload({ cuffPressure: nextCuffPressure ? parseInt(nextCuffPressure) : null }));
-                }}
-                data-testid="select-airway-cuff"
-              >
-                <option value="">{t('anesthesia.documentation.selectPressure')}</option>
-                <option value="15">15 cmH₂O</option>
-                <option value="20">20 cmH₂O ({t('anesthesia.documentation.recommendedMin')})</option>
-                <option value="22">22 cmH₂O</option>
-                <option value="24">24 cmH₂O</option>
-                <option value="25">25 cmH₂O</option>
-                <option value="26">26 cmH₂O</option>
-                <option value="28">28 cmH₂O</option>
-                <option value="30">30 cmH₂O ({t('anesthesia.documentation.recommendedMax')})</option>
-              </select>
+              {showCustomCuffPressure ? (
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    min="0"
+                    max="120"
+                    placeholder="cmH₂O"
+                    value={cuffPressure}
+                    onChange={(e) => {
+                      const nextCuffPressure = e.target.value;
+                      setCuffPressure(nextCuffPressure);
+                    }}
+                    onBlur={() => {
+                      airwayAutoSave.mutate(buildAirwaySavePayload({ cuffPressure: cuffPressure ? parseInt(cuffPressure) : null }));
+                    }}
+                    className="flex-1"
+                    data-testid="input-airway-cuff-custom"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="px-2"
+                    onClick={() => {
+                      setShowCustomCuffPressure(false);
+                      setCuffPressure("");
+                      airwayAutoSave.mutate(buildAirwaySavePayload({ cuffPressure: null }));
+                    }}
+                    data-testid="button-cuff-preset"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <select
+                  className="w-full border rounded-md p-2 bg-background"
+                  value={cuffPressure}
+                  onChange={(e) => {
+                    const nextCuffPressure = e.target.value;
+                    if (nextCuffPressure === '__custom__') {
+                      setShowCustomCuffPressure(true);
+                      setCuffPressure("");
+                      return;
+                    }
+                    setCuffPressure(nextCuffPressure);
+                    airwayAutoSave.mutate(buildAirwaySavePayload({ cuffPressure: nextCuffPressure ? parseInt(nextCuffPressure) : null }));
+                  }}
+                  data-testid="select-airway-cuff"
+                >
+                  <option value="">{t('anesthesia.documentation.selectPressure')}</option>
+                  <option value="15">15 cmH₂O</option>
+                  <option value="20">20 cmH₂O ({t('anesthesia.documentation.recommendedMin')})</option>
+                  <option value="22">22 cmH₂O</option>
+                  <option value="24">24 cmH₂O</option>
+                  <option value="25">25 cmH₂O</option>
+                  <option value="26">26 cmH₂O</option>
+                  <option value="28">28 cmH₂O</option>
+                  <option value="30">30 cmH₂O ({t('anesthesia.documentation.recommendedMax')})</option>
+                  {(airwayDevice === 'lma' || airwayDevice === 'lma-auragain') && (
+                    <>
+                      <option value="40">40 cmH₂O</option>
+                      <option value="50">50 cmH₂O</option>
+                      <option value="60">60 cmH₂O ({t('anesthesia.documentation.recommendedMaxLMA')})</option>
+                    </>
+                  )}
+                  <option value="__custom__">{t('anesthesia.documentation.customPressure')}</option>
+                </select>
+              )}
             </div>
           </div>
 

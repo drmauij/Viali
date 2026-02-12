@@ -143,7 +143,7 @@ const TECHNIQUE_CATEGORIES = [
       { key: 'device', label: 'Device', type: 'select', options: ['ett', 'spiral-tube', 'rae-tube', 'dlt-left', 'dlt-right', 'lma', 'lma-auragain', 'facemask', 'tracheostomy'] },
       { key: 'size', label: 'Size', type: 'text' },
       { key: 'depth', label: 'Depth (cm)', type: 'select', options: ['19', '20', '21', '22', '23', '24', '25'] },
-      { key: 'cuffPressure', label: 'Cuff Pressure (cmH₂O)', type: 'select', options: ['15', '20', '22', '24', '25', '26', '28', '30'] },
+      { key: 'cuffPressure', label: 'Cuff Pressure (cmH₂O)', type: 'select', options: ['15', '20', '22', '24', '25', '26', '28', '30', '40', '50', '60'] },
     ]
   },
   { 
