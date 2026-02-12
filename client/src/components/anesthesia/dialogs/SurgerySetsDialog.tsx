@@ -83,7 +83,7 @@ export function SurgerySetsDialog({
   const { data: inventoryItems = [] } = useQuery<InventoryItemOption[]>({
     queryKey: ['/api/items', hospitalId],
     queryFn: async () => {
-      const res = await fetch(`/api/items?hospitalId=${hospitalId}`, { credentials: 'include' });
+      const res = await fetch(`/api/items/${hospitalId}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch');
       return res.json();
     },
@@ -494,24 +494,31 @@ export function SurgerySetsDialog({
             className="pl-7 h-8 text-sm"
             data-testid="input-search-inventory"
           />
-        </div>
-        {inventorySearch && filteredInventoryItems.length > 0 && (
-          <ScrollArea className="h-32 border rounded">
-            <div className="p-1">
-              {filteredInventoryItems.slice(0, 20).map(item => (
-                <button
-                  key={item.id}
-                  className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted rounded flex items-center gap-2"
-                  onClick={() => addInventoryItem(item)}
-                  data-testid={`button-add-item-${item.id}`}
-                >
-                  <Plus className="h-3.5 w-3.5 text-muted-foreground" />
-                  {item.name}
-                </button>
-              ))}
+          {inventorySearch && filteredInventoryItems.length > 0 && (
+            <div className="absolute left-0 right-0 top-full z-50 mt-1 border rounded-md bg-popover shadow-md">
+              <ScrollArea className="max-h-40">
+                <div className="p-1">
+                  {filteredInventoryItems.slice(0, 20).map(item => (
+                    <button
+                      key={item.id}
+                      className="w-full text-left px-2 py-1.5 text-sm hover:bg-muted rounded flex items-center gap-2"
+                      onClick={() => { addInventoryItem(item); setInventorySearch(""); }}
+                      data-testid={`button-add-item-${item.id}`}
+                    >
+                      <Plus className="h-3.5 w-3.5 text-muted-foreground" />
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
+              </ScrollArea>
             </div>
-          </ScrollArea>
-        )}
+          )}
+          {inventorySearch && filteredInventoryItems.length === 0 && (
+            <div className="absolute left-0 right-0 top-full z-50 mt-1 border rounded-md bg-popover shadow-md p-3 text-center text-sm text-muted-foreground">
+              {t("common.noResults", "No items found")}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex gap-2 pt-2">

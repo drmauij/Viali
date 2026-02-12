@@ -768,22 +768,32 @@ export function UnifiedAnesthesiaSetsDialog({
                   className="pl-8"
                   data-testid="input-search-medications"
                 />
+                {medSearchQuery && filteredMedications.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 border rounded-md bg-popover shadow-md">
+                    <ScrollArea className="max-h-40">
+                      <div className="p-1">
+                        {filteredMedications.slice(0, 10).map(med => (
+                          <div
+                            key={med.id}
+                            className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer"
+                            onClick={() => { handleAddMedication(med); setMedSearchQuery(""); }}
+                            data-testid={`medication-option-${med.id}`}
+                          >
+                            <Plus className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <span className="text-sm flex-1">{med.itemName}</span>
+                            <span className="text-xs text-muted-foreground">{med.defaultDose} {med.administrationUnit}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
+                {medSearchQuery && filteredMedications.length === 0 && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 border rounded-md bg-popover shadow-md p-3 text-center text-sm text-muted-foreground">
+                    {t("common.noResults", "No items found")}
+                  </div>
+                )}
               </div>
-              {medSearchQuery && filteredMedications.length > 0 && (
-                <ScrollArea className="h-32 border rounded-md p-2">
-                  {filteredMedications.slice(0, 10).map(med => (
-                    <div
-                      key={med.id}
-                      className="flex items-center justify-between p-1 hover:bg-muted rounded cursor-pointer"
-                      onClick={() => handleAddMedication(med)}
-                      data-testid={`medication-option-${med.id}`}
-                    >
-                      <span className="text-sm">{med.itemName}</span>
-                      <span className="text-xs text-muted-foreground">{med.defaultDose} {med.administrationUnit}</span>
-                    </div>
-                  ))}
-                </ScrollArea>
-              )}
               <div className="space-y-1">
                 {pendingMedications.map((med, idx) => (
                   <div key={idx} className="flex items-center justify-between bg-muted/50 rounded p-2">
@@ -853,21 +863,31 @@ export function UnifiedAnesthesiaSetsDialog({
                   className="pl-8"
                   data-testid="input-search-inventory"
                 />
+                {invSearchQuery && filteredInventory.length > 0 && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 border rounded-md bg-popover shadow-md">
+                    <ScrollArea className="max-h-40">
+                      <div className="p-1">
+                        {filteredInventory.slice(0, 10).map(item => (
+                          <div
+                            key={item.id}
+                            className="flex items-center gap-2 px-2 py-1.5 hover:bg-muted rounded cursor-pointer"
+                            onClick={() => { handleAddInventoryItem(item); setInvSearchQuery(""); }}
+                            data-testid={`inventory-option-${item.id}`}
+                          >
+                            <Plus className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                            <span className="text-sm">{item.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
+                {invSearchQuery && filteredInventory.length === 0 && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 border rounded-md bg-popover shadow-md p-3 text-center text-sm text-muted-foreground">
+                    {t("common.noResults", "No items found")}
+                  </div>
+                )}
               </div>
-              {invSearchQuery && filteredInventory.length > 0 && (
-                <ScrollArea className="h-32 border rounded-md p-2">
-                  {filteredInventory.slice(0, 10).map(item => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-1 hover:bg-muted rounded cursor-pointer"
-                      onClick={() => handleAddInventoryItem(item)}
-                      data-testid={`inventory-option-${item.id}`}
-                    >
-                      <span className="text-sm">{item.name}</span>
-                    </div>
-                  ))}
-                </ScrollArea>
-              )}
               <div className="space-y-1">
                 {pendingInventory.map((item, idx) => (
                   <div key={idx} className="flex items-center justify-between bg-muted/50 rounded p-2">
