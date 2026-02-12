@@ -3,6 +3,7 @@ import type { Request } from "express";
 import { storage } from "../../storage";
 import { isAuthenticated } from "../../auth/google";
 import { sendSurgeryNoteMentionEmail } from "../../email";
+import { sendSurgerySummaryEmail } from "../../resend";
 import {
   insertCaseSchema,
   insertSurgerySchema,
@@ -696,6 +697,58 @@ router.patch('/api/surgery/preop/:id', isAuthenticated, requireWriteAccess, asyn
   } catch (error) {
     console.error("Error updating surgery pre-op assessment:", error);
     res.status(500).json({ message: "Failed to update surgery pre-op assessment" });
+  }
+});
+
+router.post('/api/anesthesia/surgeries/:id/send-summary', isAuthenticated, async (req: any, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+
+    const bodySchema = z.object({
+      toEmail: z.string().email(),
+      pdfBase64: z.string().min(1),
+      patientName: z.string(),
+      procedureName: z.string(),
+      surgeryDate: z.string(),
+      language: z.enum(['de', 'en']).optional().default('en'),
+    });
+
+    const parsed = bodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ message: "Invalid request body", errors: parsed.error.errors });
+    }
+
+    const surgery = await storage.getSurgery(id);
+    if (!surgery) {
+      return res.status(404).json({ message: "Surgery not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === surgery.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const { toEmail, pdfBase64, patientName, procedureName, surgeryDate, language } = parsed.data;
+
+    const result = await sendSurgerySummaryEmail(
+      toEmail,
+      patientName,
+      procedureName,
+      surgeryDate,
+      pdfBase64,
+      language,
+    );
+
+    if (result.success) {
+      res.json({ success: true, message: "Surgery summary sent successfully" });
+    } else {
+      res.status(500).json({ success: false, message: "Failed to send email", error: result.error });
+    }
+  } catch (error) {
+    console.error("Error sending surgery summary email:", error);
+    res.status(500).json({ message: "Failed to send surgery summary email" });
   }
 });
 

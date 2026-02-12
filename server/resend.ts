@@ -701,3 +701,90 @@ export async function sendInvoiceEmail(
     return { success: false, error };
   }
 }
+
+export async function sendSurgerySummaryEmail(
+  toEmail: string,
+  patientName: string,
+  procedureName: string,
+  surgeryDate: string,
+  pdfBase64: string,
+  language: 'de' | 'en' = 'en'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    console.log('[Email] Sending surgery summary from:', fromEmail, 'to:', toEmail);
+
+    const isGerman = language === 'de';
+
+    const subject = isGerman
+      ? `OP-Zusammenfassung: ${patientName} – ${procedureName} (${surgeryDate})`
+      : `Surgery Summary: ${patientName} – ${procedureName} (${surgeryDate})`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .details { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${isGerman ? 'OP-Zusammenfassung' : 'Surgery Summary'}</h1>
+            </div>
+            <div class="content">
+              <p>${isGerman ? 'Guten Tag,' : 'Hello,'}</p>
+              <p>${isGerman
+                ? 'Im Anhang finden Sie die Zusammenfassung der folgenden Operation:'
+                : 'Please find attached the summary for the following surgery:'}</p>
+
+              <div class="details">
+                <p><strong>${isGerman ? 'Patient' : 'Patient'}:</strong> ${patientName}</p>
+                <p><strong>${isGerman ? 'Eingriff' : 'Procedure'}:</strong> ${procedureName}</p>
+                <p><strong>${isGerman ? 'Datum' : 'Date'}:</strong> ${surgeryDate}</p>
+              </div>
+
+              <p>${isGerman
+                ? 'Bei Fragen stehen wir Ihnen gerne zur Verfügung.'
+                : 'Please do not hesitate to contact us if you have any questions.'}</p>
+            </div>
+            <div class="footer">
+              <p>Viali</p>
+              <p>${isGerman ? 'Dies ist eine automatische E-Mail.' : 'This is an automated email.'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+      attachments: [
+        {
+          filename: `Surgery_Summary_${patientName.replace(/\s+/g, '_')}_${surgeryDate.replace(/\//g, '-')}.pdf`,
+          content: pdfBase64,
+        }
+      ]
+    });
+
+    if (error) {
+      console.error('Failed to send surgery summary email:', error);
+      return { success: false, error };
+    }
+
+    console.log(`[Email] Successfully sent surgery summary to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error sending surgery summary email:', error);
+    return { success: false, error };
+  }
+}

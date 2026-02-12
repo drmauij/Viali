@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff, Bed } from "lucide-react";
+import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff, Bed, Mail } from "lucide-react";
 import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { PacuBedSelector } from "@/components/anesthesia/PacuBedSelector";
 import { apiRequest } from "@/lib/queryClient";
@@ -16,6 +16,7 @@ import { useHospitalAnesthesiaSettings } from "@/hooks/useHospitalAnesthesiaSett
 import { useToast } from "@/hooks/use-toast";
 import type { Module } from "@/contexts/ModuleContext";
 import { downloadAnesthesiaRecordPdf } from "@/lib/downloadAnesthesiaRecordPdf";
+import { SendSurgeonSummaryDialog } from "@/components/anesthesia/SendSurgeonSummaryDialog";
 
 interface SurgerySummaryDialogProps {
   open: boolean;
@@ -49,6 +50,7 @@ export default function SurgerySummaryDialog({
   const { data: anesthesiaSettings } = useHospitalAnesthesiaSettings();
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [sendSummaryDialogOpen, setSendSummaryDialogOpen] = useState(false);
   const [isPhoneRevealed, setIsPhoneRevealed] = useState(false);
 
   // Reset phone reveal state when dialog opens
@@ -691,25 +693,35 @@ export default function SurgerySummaryDialog({
         </div>
 
         {/* Footer with Buttons */}
-        <div className="shrink-0 bg-background border-t px-6 py-4 flex justify-between">
-          <Button
-            variant="outline"
-            onClick={handleDownloadPDF}
-            disabled={isDownloadingPdf}
-            data-testid="button-download-pdf-summary"
-          >
-            {isDownloadingPdf ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                {t('anesthesia.op.generatingPdf')}
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 mr-2" />
-                {t('anesthesia.op.downloadPdf')}
-              </>
-            )}
-          </Button>
+        <div className="shrink-0 bg-background border-t px-6 py-4 flex flex-wrap gap-2 justify-between">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleDownloadPDF}
+              disabled={isDownloadingPdf}
+              data-testid="button-download-pdf-summary"
+            >
+              {isDownloadingPdf ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t('anesthesia.op.generatingPdf')}
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 mr-2" />
+                  {t('anesthesia.op.downloadPdf')}
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setSendSummaryDialogOpen(true)}
+              data-testid="button-send-surgeon-summary"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              {t('anesthesia.surgerySummary.sendSummary', 'Send Summary')}
+            </Button>
+          </div>
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
@@ -729,6 +741,16 @@ export default function SurgerySummaryDialog({
           patientName={`${patient.firstName} ${patient.surname}`}
           patientEmail={patient.email}
           patientPhone={patient.phone}
+        />
+      )}
+
+      {/* Send Surgeon Summary Dialog */}
+      {patient && surgery && (
+        <SendSurgeonSummaryDialog
+          open={sendSummaryDialogOpen}
+          onOpenChange={setSendSummaryDialogOpen}
+          surgery={surgery}
+          patient={patient}
         />
       )}
     </Dialog>

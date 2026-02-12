@@ -45,6 +45,7 @@ Core design decisions include:
 - **Hospital Seed Data System**: Automated and manual provisioning of new hospitals with default data.
 - **Universal Value Editing System**: Consistent `EditableValue` component for click-to-edit functionality.
 - **Anesthesia Record Enhancements**: Common event quick-add, OP calendar status indicators, full localization, comprehensive PDF export, record locking, and sticker documentation storage in Exoscale S3.
+- **Surgeon Summary Email**: Simplified surgery summary PDF (patient info, surgery details, anesthesia times, staff list) that can be emailed to the surgeon directly from the SurgerySummaryDialog. Uses `client/src/lib/surgeonSummaryPdf.ts` for client-side PDF generation and `POST /api/anesthesia/surgeries/:id/send-summary` to send via Resend with PDF attachment. Surgeon email is pre-filled from hospital users if surgeonId is linked.
 - **Raspberry Pi Camera Integration**: Automated vital signs capture using Raspberry Pi devices, uploading to Exoscale S3, with API endpoints and a React hook for image fetching and Vision AI OCR processing.
 - **Clinic Appointment Booking System**: Manages provider bookability and availability, supporting shared hospital calendars or unit-specific calendars via a `hasOwnCalendar` flag.
 - **Bidirectional Cal.com Sync for RetellAI Voice Booking**: Real-time synchronization between the clinic calendar and Cal.com for appointment booking.
