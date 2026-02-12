@@ -1,5 +1,7 @@
 import * as Sentry from "@sentry/node";
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import path from "path";
 import { fileURLToPath } from "url";
 import { registerRoutes } from "./routes";
@@ -28,6 +30,48 @@ const __dirname = path.dirname(__filename);
 const migrationsPath = path.resolve(__dirname, "..", "migrations");
 
 const app = express();
+
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
+const apiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => !req.path.startsWith('/api'),
+  message: { message: 'Too many requests, please try again later.' },
+});
+app.use(apiLimiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many authentication attempts, please try again later.' },
+});
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/signup', authLimiter);
+app.use('/api/auth/reset-password', authLimiter);
+
+const aiLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many AI requests, please try again later.' },
+});
+app.use('/api/analyze-monitor', aiLimiter);
+app.use('/api/items/analyze-image', aiLimiter);
+app.use('/api/items/analyze-images', aiLimiter);
+app.use('/api/items/analyze-codes', aiLimiter);
+app.use('/api/items/analyze-bulk-codes', aiLimiter);
+app.use('/api/transcribe-voice', aiLimiter);
+app.use('/api/parse-drug-command', aiLimiter);
+app.use('/api/translate', aiLimiter);
 
 declare module 'http' {
   interface IncomingMessage {

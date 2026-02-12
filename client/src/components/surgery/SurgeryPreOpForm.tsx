@@ -1169,7 +1169,31 @@ export default function SurgeryPreOpForm({ surgeryId, hospitalId, patientId }: S
                                   target.style.display = 'none';
                                   const parent = target.parentElement;
                                   if (parent) {
-                                    parent.innerHTML = '<div class="w-full h-full flex items-center justify-center"><svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted-foreground"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></div>';
+                                    while (parent.firstChild) parent.removeChild(parent.firstChild);
+                                    const wrapper = document.createElement('div');
+                                    wrapper.className = 'w-full h-full flex items-center justify-center';
+                                    const ns = 'http://www.w3.org/2000/svg';
+                                    const svg = document.createElementNS(ns, 'svg');
+                                    svg.setAttribute('width', '48');
+                                    svg.setAttribute('height', '48');
+                                    svg.setAttribute('viewBox', '0 0 24 24');
+                                    svg.setAttribute('fill', 'none');
+                                    svg.setAttribute('stroke', 'currentColor');
+                                    svg.setAttribute('stroke-width', '2');
+                                    svg.setAttribute('stroke-linecap', 'round');
+                                    svg.setAttribute('stroke-linejoin', 'round');
+                                    svg.setAttribute('class', 'text-muted-foreground');
+                                    const rect = document.createElementNS(ns, 'rect');
+                                    rect.setAttribute('width', '18'); rect.setAttribute('height', '18');
+                                    rect.setAttribute('x', '3'); rect.setAttribute('y', '3');
+                                    rect.setAttribute('rx', '2'); rect.setAttribute('ry', '2');
+                                    const circle = document.createElementNS(ns, 'circle');
+                                    circle.setAttribute('cx', '9'); circle.setAttribute('cy', '9'); circle.setAttribute('r', '2');
+                                    const path = document.createElementNS(ns, 'path');
+                                    path.setAttribute('d', 'm21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21');
+                                    svg.appendChild(rect); svg.appendChild(circle); svg.appendChild(path);
+                                    wrapper.appendChild(svg);
+                                    parent.appendChild(wrapper);
                                   }
                                 }}
                               />

@@ -86,3 +86,17 @@ Core design decisions include:
 **AI Services:**
 - OpenAI Vision API
 - OpenAI GPT-4
+
+**Security & Performance (Feb 2026):**
+- Helmet middleware for HTTP security headers (X-Content-Type-Options, X-Frame-Options, HSTS, etc.)
+- express-rate-limit: global API (300/min), auth routes (20/15min), AI routes (30/min)
+- Zod validation on all API routes that accept request bodies in routes.ts
+- React.lazy() + Suspense code-splitting for all 50+ page routes (massive bundle size reduction)
+- All innerHTML usage replaced with safe DOM API calls
+
+**Recommended Follow-Up Optimizations:**
+- Split `server/storage.ts` (9.8K lines) into domain-specific modules
+- Migrate remaining routes from `server/routes.ts` (4.7K lines) into `server/routes/` modules
+- Break down largest frontend components (UnifiedTimeline 10K, Items 7.5K, PatientDetail 7.5K lines)
+- Replace `any` types across route handlers with proper Express Request/Response types
+- Add a structured logger (e.g. pino) to replace 1,200+ console.log/warn/error calls

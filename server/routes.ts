@@ -86,7 +86,7 @@ import {
   hinArticles,
   chopProcedures
 } from "@shared/schema";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import { eq, and, or, inArray, sql, asc, desc } from "drizzle-orm";
 import OpenAI from "openai";
 import crypto from "crypto";
@@ -214,11 +214,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Vitabyte API Proxy (to avoid CORS issues when testing external APIs)
   app.post('/api/proxy-vitabyte', async (req: Request, res: Response) => {
     try {
-      const { url, body } = req.body;
-      
-      if (!url || typeof url !== 'string') {
-        return res.status(400).json({ error: 'URL is required' });
+      const proxySchema = z.object({
+        url: z.string().url(),
+        body: z.any().optional(),
+      });
+      let parsedBody;
+      try {
+        parsedBody = proxySchema.parse(req.body);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ error: 'Invalid request body', details: err.errors });
+        }
+        throw err;
       }
+      const { url, body } = parsedBody;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -242,12 +251,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Activity logging endpoint for tracking sensitive data access
   app.post('/api/activity/log', isAuthenticated, async (req: any, res) => {
     try {
-      const { action, resourceType, resourceId, hospitalId, details } = req.body;
-      const userId = req.user.id;
-      
-      if (!action || !resourceType || !resourceId) {
-        return res.status(400).json({ message: "Missing required fields: action, resourceType, resourceId" });
+      const activitySchema = z.object({
+        action: z.string(),
+        resourceType: z.string(),
+        resourceId: z.string(),
+        hospitalId: z.string().optional(),
+        details: z.any().optional(),
+      });
+      let parsedActivity;
+      try {
+        parsedActivity = activitySchema.parse(req.body);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ message: "Invalid request body", details: err.errors });
+        }
+        throw err;
       }
+      const { action, resourceType, resourceId, hospitalId, details } = parsedActivity;
+      const userId = req.user.id;
 
       await storage.createActivity({
         userId,
@@ -352,14 +373,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required to update hospital settings" });
       }
       
-      // Whitelist allowed fields to update
-      const { visionAiProvider } = req.body;
+      const hospitalUpdateSchema = z.object({
+        visionAiProvider: z.enum(['openai', 'pixtral']).optional(),
+      });
+      let parsedHospitalUpdate;
+      try {
+        parsedHospitalUpdate = hospitalUpdateSchema.parse(req.body);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ message: "Invalid request body", details: err.errors });
+        }
+        throw err;
+      }
+      const { visionAiProvider } = parsedHospitalUpdate;
       const updates: any = {};
       
       if (visionAiProvider !== undefined) {
-        if (!['openai', 'pixtral'].includes(visionAiProvider)) {
-          return res.status(400).json({ message: "Invalid vision AI provider. Must be 'openai' or 'pixtral'" });
-        }
         updates.visionAiProvider = visionAiProvider;
       }
       
@@ -378,14 +407,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI image analysis for item data extraction
   app.post('/api/items/analyze-image', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
-      const { image } = req.body;
-      if (!image) {
-        return res.status(400).json({ message: "Image data is required" });
+      const analyzeImageSchema = z.object({
+        image: z.string(),
+        hospitalId: z.string().optional(),
+      });
+      let parsedAnalyzeImage;
+      try {
+        parsedAnalyzeImage = analyzeImageSchema.parse(req.body);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ message: "Invalid request body", details: err.errors });
+        }
+        throw err;
       }
+      const { image } = parsedAnalyzeImage;
 
       // Remove data URL prefix if present
       const base64Image = image.replace(/^data:image\/\w+;base64,/, '');
-      const hospitalId = req.body.hospitalId || req.headers['x-active-hospital-id'];
+      const hospitalId = parsedAnalyzeImage.hospitalId || req.headers['x-active-hospital-id'];
       
       const { analyzeItemImage } = await import('./openai');
       const extractedData = await analyzeItemImage(base64Image, hospitalId);
@@ -400,14 +439,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI image analysis for extracting ONLY product codes (pharmacode, GTIN, EAN, supplier codes)
   app.post('/api/items/analyze-codes', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
-      const { image } = req.body;
-      if (!image) {
-        return res.status(400).json({ message: "Image data is required" });
+      const analyzeCodesSchema = z.object({
+        image: z.string(),
+        hospitalId: z.string().optional(),
+      });
+      let parsedAnalyzeCodes;
+      try {
+        parsedAnalyzeCodes = analyzeCodesSchema.parse(req.body);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ message: "Invalid request body", details: err.errors });
+        }
+        throw err;
       }
+      const { image } = parsedAnalyzeCodes;
 
       // Remove data URL prefix if present
       const base64Image = image.replace(/^data:image\/\w+;base64,/, '');
-      const hospitalId = req.body.hospitalId || req.headers['x-active-hospital-id'];
+      const hospitalId = parsedAnalyzeCodes.hospitalId || req.headers['x-active-hospital-id'];
       
       const { analyzeCodesImage } = await import('./openai');
       const extractedCodes = await analyzeCodesImage(base64Image, hospitalId);
@@ -422,13 +471,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Galexis product lookup by GTIN - fetches full product info including name, price, pharmacode
   app.post('/api/items/galexis-lookup', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
-      const { gtin, pharmacode, hospitalId, unitId, debug, skipExistingItem } = req.body;
-      if (!gtin && !pharmacode) {
-        return res.status(400).json({ message: "GTIN or Pharmacode is required" });
+      const galexisLookupSchema = z.object({
+        gtin: z.string().optional(),
+        pharmacode: z.string().optional(),
+        hospitalId: z.string(),
+        unitId: z.string().optional(),
+        debug: z.boolean().optional(),
+        skipExistingItem: z.boolean().optional(),
+      }).refine(data => data.gtin || data.pharmacode, {
+        message: "GTIN or Pharmacode is required",
+      });
+      let parsedGalexis;
+      try {
+        parsedGalexis = galexisLookupSchema.parse(req.body);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ message: "Invalid request body", details: err.errors });
+        }
+        throw err;
       }
-      if (!hospitalId) {
-        return res.status(400).json({ message: "Hospital ID is required" });
-      }
+      const { gtin, pharmacode, hospitalId, unitId, debug, skipExistingItem } = parsedGalexis;
 
       // Check if item with same pharmacode/GTIN already exists in this unit (not hospital-wide)
       // Different units can have the same item - inventories are separated by unit
@@ -598,14 +660,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.setTimeout(300000); // 5 minutes in milliseconds
       res.setTimeout(300000);
 
-      const { images, hospitalId } = req.body;
-      if (!images || !Array.isArray(images) || images.length === 0) {
-        return res.status(400).json({ message: "Images array is required" });
+      const analyzeImagesSchema = z.object({
+        images: z.array(z.string()).min(1, "Images array is required"),
+        hospitalId: z.string(),
+      });
+      let parsedAnalyzeImages;
+      try {
+        parsedAnalyzeImages = analyzeImagesSchema.parse(req.body);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ message: "Invalid request body", details: err.errors });
+        }
+        throw err;
       }
-
-      if (!hospitalId) {
-        return res.status(400).json({ message: "Hospital ID is required" });
-      }
+      const { images, hospitalId } = parsedAnalyzeImages;
 
       // Get hospital license type to determine image limit
       const hospital = await storage.getHospital(hospitalId);
@@ -655,13 +723,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       req.setTimeout(300000);
       res.setTimeout(300000);
 
-      const { images, hospitalId } = req.body;
-      if (!images || !Array.isArray(images) || images.length === 0) {
-        return res.status(400).json({ message: "Images array is required" });
+      const bulkCodesSchema = z.object({
+        images: z.array(z.string()).min(1, "Images array is required"),
+        hospitalId: z.string(),
+      });
+      let parsedBulkCodes;
+      try {
+        parsedBulkCodes = bulkCodesSchema.parse(req.body);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ message: "Invalid request body", details: err.errors });
+        }
+        throw err;
       }
-      if (!hospitalId) {
-        return res.status(400).json({ message: "Hospital ID is required" });
-      }
+      const { images, hospitalId } = parsedBulkCodes;
 
       const hospital = await storage.getHospital(hospitalId);
       if (!hospital) {
@@ -763,11 +838,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // AI medical monitor analysis for anesthesia vitals and ventilation
   app.post('/api/analyze-monitor', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
-      const { image, hospitalId } = req.body;
-      const effectiveHospitalId = hospitalId || req.headers['x-active-hospital-id'];
-      if (!image) {
-        return res.status(400).json({ message: "Image data is required" });
+      const monitorSchema = z.object({
+        image: z.string(),
+        hospitalId: z.string().optional(),
+      });
+      let parsedMonitor;
+      try {
+        parsedMonitor = monitorSchema.parse(req.body);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ message: "Invalid request body", details: err.errors });
+        }
+        throw err;
       }
+      const { image, hospitalId } = parsedMonitor;
+      const effectiveHospitalId = hospitalId || req.headers['x-active-hospital-id'];
 
       const result = await analyzeMonitorImage(image, effectiveHospitalId);
       res.json(result);
@@ -780,10 +865,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Voice transcription for drug administration commands
   app.post('/api/transcribe-voice', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
-      const { audioData } = req.body;
-      if (!audioData) {
-        return res.status(400).json({ message: "Audio data is required" });
+      const voiceSchema = z.object({
+        audioData: z.string(),
+      });
+      let parsedVoice;
+      try {
+        parsedVoice = voiceSchema.parse(req.body);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ message: "Invalid request body", details: err.errors });
+        }
+        throw err;
       }
+      const { audioData } = parsedVoice;
 
       const transcription = await transcribeVoice(audioData);
       res.json({ transcription });
@@ -796,10 +890,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Parse drug administration command
   app.post('/api/parse-drug-command', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
-      const { transcription } = req.body;
-      if (!transcription) {
-        return res.status(400).json({ message: "Transcription is required" });
+      const drugCommandSchema = z.object({
+        transcription: z.string(),
+      });
+      let parsedDrugCommand;
+      try {
+        parsedDrugCommand = drugCommandSchema.parse(req.body);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ message: "Invalid request body", details: err.errors });
+        }
+        throw err;
       }
+      const { transcription } = parsedDrugCommand;
 
       const drugs = await parseDrugCommand(transcription);
       res.json({ drugs });
@@ -812,10 +915,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Translate items between English and German
   app.post('/api/translate', isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
-      const { items } = req.body;
-      if (!items || !Array.isArray(items) || items.length === 0) {
-        return res.status(400).json({ message: "Items array is required" });
+      const translateSchema = z.object({
+        items: z.array(z.string()).min(1, "Items array is required"),
+      });
+      let parsedTranslate;
+      try {
+        parsedTranslate = translateSchema.parse(req.body);
+      } catch (err) {
+        if (err instanceof ZodError) {
+          return res.status(400).json({ message: "Invalid request body", details: err.errors });
+        }
+        throw err;
       }
+      const { items } = parsedTranslate;
 
       const openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
