@@ -94,8 +94,15 @@ Core design decisions include:
 - React.lazy() + Suspense code-splitting for all 50+ page routes (massive bundle size reduction)
 - All innerHTML usage replaced with safe DOM API calls
 
+**Completed Optimizations (Feb 2026):**
+- Split `server/storage.ts` from 9,820 lines into 12 domain-specific modules under `server/storage/`:
+  - `users.ts` (14 methods), `hospitals.ts` (11), `inventory.ts` (50+), `orders.ts` (11)
+  - `activities.ts` (12), `checklists.ts` (12), `importJobs.ts` (20), `chat.ts` (28)
+  - `questionnaires.ts` (36), `clinic.ts` (74), `anesthesia.ts` (194 methods, largest domain)
+  - `storage.ts` is now a thin 1,420-line file with IStorage interface + DatabaseStorage delegation class
+  - Pattern: standalone exported async functions per module, DatabaseStorage delegates via property assignment
+
 **Recommended Follow-Up Optimizations:**
-- Split `server/storage.ts` (9.8K lines) into domain-specific modules
 - Migrate remaining routes from `server/routes.ts` (4.7K lines) into `server/routes/` modules
 - Break down largest frontend components (UnifiedTimeline 10K, Items 7.5K, PatientDetail 7.5K lines)
 - Replace `any` types across route handlers with proper Express Request/Response types
