@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { Plus, Pill, Trash2, Loader2, Check, ChevronsUpDown, AlertTriangle, Package, User, Calendar, X, Search, Printer, FileText } from "lucide-react";
+import { Plus, Pill, Trash2, Loader2, Check, ChevronsUpDown, AlertTriangle, Package, User, Calendar, X, Search, Printer, FileText, Pencil } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
 import { formatDate } from "@/lib/dateUtils";
 import jsPDF from "jspdf";
@@ -81,6 +81,7 @@ export function DischargeMedicationsTab({
   const { user } = useAuth();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [editingSlotId, setEditingSlotId] = useState<string | null>(null);
   const [deleteSlotId, setDeleteSlotId] = useState<string | null>(null);
   const [selectedDoctorId, setSelectedDoctorId] = useState("");
   const [slotNotes, setSlotNotes] = useState("");
@@ -180,14 +181,77 @@ export function DischargeMedicationsTab({
     },
   });
 
+  const updateMutation = useMutation({
+    mutationFn: async (data: { signature: string | null }) => {
+      return apiRequest("PUT", `/api/discharge-medications/${editingSlotId}`, {
+        doctorId: selectedDoctorId || null,
+        notes: slotNotes || null,
+        signature: data.signature,
+        items: medicationItems.map(item => ({
+          itemId: item.itemId,
+          quantity: item.quantity,
+          unitType: item.unitType,
+          administrationRoute: item.administrationRoute || null,
+          frequency: item.frequency || null,
+          notes: item.notes || null,
+          endPrice: item.endPrice ? item.endPrice : null,
+        })),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/patients', patientId, 'discharge-medications'] });
+      queryClient.invalidateQueries({ queryKey: [`/api/items/${hospitalId}?unitId=${unitId}`] });
+      toast({ title: t('dischargeMedications.updated', 'Discharge medications updated successfully') });
+      resetForm();
+      setIsCreateDialogOpen(false);
+    },
+    onError: (error: any) => {
+      toast({ title: t('common.error', 'Error'), description: error.message, variant: "destructive" });
+    },
+  });
+
   const resetForm = () => {
     setSelectedDoctorId("");
     setSlotNotes("");
     setMedicationItems([]);
     setSignature(null);
     setPendingSave(false);
+    setEditingSlotId(null);
     setRouteCustomInput({});
     setFrequencyCustomInput({});
+  };
+
+  const startEditing = (slot: any) => {
+    setEditingSlotId(slot.id);
+    setSelectedDoctorId(slot.doctorId || "");
+    setSlotNotes(slot.notes || "");
+    setSignature(slot.signature || null);
+    setMedicationItems(
+      (slot.items || []).map((medItem: any) => ({
+        itemId: medItem.itemId,
+        itemName: medItem.item?.name || medItem.itemId,
+        quantity: medItem.quantity || 1,
+        unitType: medItem.unitType || "packs",
+        administrationRoute: medItem.administrationRoute || "p.o.",
+        frequency: medItem.frequency || "1-0-1-0",
+        notes: medItem.notes || "",
+        endPrice: medItem.endPrice || "",
+        isControlled: medItem.item?.controlled || false,
+      }))
+    );
+    const customRoutes: Record<number, boolean> = {};
+    const customFreqs: Record<number, boolean> = {};
+    (slot.items || []).forEach((medItem: any, i: number) => {
+      if (medItem.administrationRoute && !ADMINISTRATION_ROUTES.some(r => r.value === medItem.administrationRoute)) {
+        customRoutes[i] = true;
+      }
+      if (medItem.frequency && !FREQUENCY_PRESETS.some(f => f.value === medItem.frequency)) {
+        customFreqs[i] = true;
+      }
+    });
+    setRouteCustomInput(customRoutes);
+    setFrequencyCustomInput(customFreqs);
+    setIsCreateDialogOpen(true);
   };
 
   const addMedicationItem = (item: any) => {
@@ -359,6 +423,9 @@ export function DischargeMedicationsTab({
     doc.save(`discharge-labels-${fullPatientName.replace(/\s+/g, '_')}-${dateStr}.pdf`);
   };
 
+  const isEditing = !!editingSlotId;
+  const activeMutation = isEditing ? updateMutation : createMutation;
+
   const handleSave = () => {
     if (medicationItems.length === 0) {
       toast({ title: t('dischargeMedications.noItems', 'Please add at least one medication'), variant: "destructive" });
@@ -371,7 +438,7 @@ export function DischargeMedicationsTab({
       return;
     }
 
-    createMutation.mutate({ signature });
+    activeMutation.mutate({ signature });
   };
 
   const handleSignatureSave = (sig: string) => {
@@ -379,7 +446,7 @@ export function DischargeMedicationsTab({
     setShowSignaturePad(false);
     if (pendingSave) {
       setPendingSave(false);
-      createMutation.mutate({ signature: sig });
+      activeMutation.mutate({ signature: sig });
     }
   };
 
@@ -426,14 +493,24 @@ export function DischargeMedicationsTab({
                       </Badge>
                     )}
                     {canWrite && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleteSlotId(slot.id)}
-                        data-testid={`button-delete-slot-${slot.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => startEditing(slot)}
+                          data-testid={`button-edit-slot-${slot.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteSlotId(slot.id)}
+                          data-testid={`button-delete-slot-${slot.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -565,10 +642,16 @@ export function DischargeMedicationsTab({
           <DialogHeader className="shrink-0">
             <DialogTitle data-testid="dialog-title-discharge-medications">
               <Pill className="h-5 w-5 inline mr-2" />
-              {t('dischargeMedications.createTitle', 'Add Discharge Medications')}
+              {isEditing
+                ? t('dischargeMedications.editTitle', 'Edit Discharge Medications')
+                : t('dischargeMedications.createTitle', 'Add Discharge Medications')
+              }
             </DialogTitle>
             <DialogDescription>
-              {t('dischargeMedications.createDesc', 'Select medications to give the patient at discharge. Inventory will be deducted automatically.')}
+              {isEditing
+                ? t('dischargeMedications.editDesc', 'Update medications. Inventory adjustments will be recalculated automatically.')
+                : t('dischargeMedications.createDesc', 'Select medications to give the patient at discharge. Inventory will be deducted automatically.')
+              }
             </DialogDescription>
           </DialogHeader>
 
@@ -925,20 +1008,20 @@ export function DischargeMedicationsTab({
             <Button
               variant="outline"
               onClick={() => { resetForm(); setIsCreateDialogOpen(false); }}
-              disabled={createMutation.isPending}
+              disabled={activeMutation.isPending}
               data-testid="button-cancel-discharge"
             >
               {t('common.cancel', 'Cancel')}
             </Button>
             <Button
               onClick={handleSave}
-              disabled={createMutation.isPending || medicationItems.length === 0 || (hasControlledItems && !signature)}
+              disabled={activeMutation.isPending || medicationItems.length === 0 || (hasControlledItems && !signature)}
               data-testid="button-save-discharge"
             >
-              {createMutation.isPending ? (
+              {activeMutation.isPending ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />{t('common.saving', 'Saving...')}</>
               ) : (
-                <><Package className="h-4 w-4 mr-2" />{t('dischargeMedications.save', 'Save & Deduct Inventory')}</>
+                <><Package className="h-4 w-4 mr-2" />{isEditing ? t('dischargeMedications.update', 'Update Medications') : t('dischargeMedications.save', 'Save & Deduct Inventory')}</>
               )}
             </Button>
           </div>

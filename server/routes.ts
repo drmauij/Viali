@@ -4603,6 +4603,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/discharge-medications/:id", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const { doctorId, notes, signature, items: medItems } = req.body;
+
+      if (!medItems || !Array.isArray(medItems) || medItems.length === 0) {
+        return res.status(400).json({ error: "At least one medication item is required" });
+      }
+
+      const existing = await storage.getPatientDischargeMedication(id);
+      if (!existing) return res.status(404).json({ error: "Not found" });
+
+      if (medItems && medItems.length > 0) {
+        const itemIds = medItems.map((m: any) => m.itemId);
+        let hasControlled = false;
+        for (const itemId of itemIds) {
+          const item = await storage.getItem(itemId);
+          if (item?.controlled) {
+            hasControlled = true;
+            break;
+          }
+        }
+        if (hasControlled && !signature) {
+          return res.status(400).json({ error: "Signature required for controlled substances" });
+        }
+      }
+
+      await storage.updatePatientDischargeMedication(
+        id,
+        { doctorId, notes, signature },
+        medItems || []
+      );
+
+      const fullSlot = await storage.getPatientDischargeMedication(id);
+      res.json(fullSlot);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.delete("/api/discharge-medications/:id", isAuthenticated, requireWriteAccess, async (req: any, res) => {
     try {
       await storage.deletePatientDischargeMedication(req.params.id);

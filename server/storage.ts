@@ -1052,6 +1052,7 @@ export interface IStorage {
   getPatientDischargeMedications(patientId: string, hospitalId: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item })[], doctor: User | null })[]>;
   getPatientDischargeMedication(id: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item })[], doctor: User | null }) | undefined>;
   createPatientDischargeMedication(data: InsertPatientDischargeMedication, items: InsertPatientDischargeMedicationItem[]): Promise<PatientDischargeMedication>;
+  updatePatientDischargeMedication(id: string, data: Partial<InsertPatientDischargeMedication>, newItems: InsertPatientDischargeMedicationItem[]): Promise<PatientDischargeMedication>;
   deletePatientDischargeMedication(id: string): Promise<PatientDischargeMedicationItem[]>;
 }
 
@@ -9719,6 +9720,70 @@ export class DatabaseStorage implements IStorage {
     }
 
     return slot;
+  }
+
+  async updatePatientDischargeMedication(id: string, data: Partial<InsertPatientDischargeMedication>, newItems: InsertPatientDischargeMedicationItem[]): Promise<PatientDischargeMedication> {
+    const oldItems = await db
+      .select()
+      .from(patientDischargeMedicationItems)
+      .where(eq(patientDischargeMedicationItems.dischargeMedicationId, id));
+
+    for (const medItem of oldItems) {
+      const [item] = await db.select().from(items).where(eq(items.id, medItem.itemId));
+      if (item) {
+        if (item.trackExactQuantity) {
+          const newUnits = (item.currentUnits || 0) + (medItem.quantity || 1);
+          await db.update(items).set({ currentUnits: newUnits, updatedAt: new Date() }).where(eq(items.id, item.id));
+        } else {
+          const [stockLevel] = await db.select().from(stockLevels).where(and(eq(stockLevels.itemId, item.id), eq(stockLevels.unitId, item.unitId)));
+          if (stockLevel) {
+            const restoreQty = medItem.unitType === 'pills'
+              ? Math.ceil((medItem.quantity || 1) / (item.packSize || 1))
+              : (medItem.quantity || 1);
+            const newQty = (stockLevel.qtyOnHand || 0) + restoreQty;
+            await db.update(stockLevels).set({ qtyOnHand: newQty }).where(eq(stockLevels.id, stockLevel.id));
+          }
+        }
+      }
+    }
+
+    await db.delete(patientDischargeMedicationItems).where(eq(patientDischargeMedicationItems.dischargeMedicationId, id));
+
+    const updateData: Record<string, any> = {};
+    if (data.doctorId !== undefined) updateData.doctorId = data.doctorId;
+    if (data.notes !== undefined) updateData.notes = data.notes;
+    if (data.signature !== undefined) updateData.signature = data.signature;
+
+    if (Object.keys(updateData).length > 0) {
+      await db.update(patientDischargeMedications).set(updateData).where(eq(patientDischargeMedications.id, id));
+    }
+
+    for (const medItem of newItems) {
+      await db.insert(patientDischargeMedicationItems).values({
+        ...medItem,
+        dischargeMedicationId: id,
+      });
+
+      const [item] = await db.select().from(items).where(eq(items.id, medItem.itemId));
+      if (item) {
+        if (item.trackExactQuantity) {
+          const newUnits = Math.max(0, (item.currentUnits || 0) - (medItem.quantity || 1));
+          await db.update(items).set({ currentUnits: newUnits, updatedAt: new Date() }).where(eq(items.id, item.id));
+        } else {
+          const [stockLevel] = await db.select().from(stockLevels).where(and(eq(stockLevels.itemId, item.id), eq(stockLevels.unitId, item.unitId)));
+          if (stockLevel) {
+            const deductQty = medItem.unitType === 'pills'
+              ? Math.ceil((medItem.quantity || 1) / (item.packSize || 1))
+              : (medItem.quantity || 1);
+            const newQty = Math.max(0, (stockLevel.qtyOnHand || 0) - deductQty);
+            await db.update(stockLevels).set({ qtyOnHand: newQty }).where(eq(stockLevels.id, stockLevel.id));
+          }
+        }
+      }
+    }
+
+    const [updated] = await db.select().from(patientDischargeMedications).where(eq(patientDischargeMedications.id, id));
+    return updated;
   }
 
   async deletePatientDischargeMedication(id: string): Promise<PatientDischargeMedicationItem[]> {
