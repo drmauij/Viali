@@ -4615,12 +4615,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/hospitals/:hospitalId/doctors", isAuthenticated, async (req: any, res) => {
     try {
       const hospitalUsers = await storage.getHospitalUsers(req.params.hospitalId);
-      const seen = new Set<string>();
+      const seenIds = new Set<string>();
+      const seenNames = new Set<string>();
       const doctors = hospitalUsers
         .filter(hu => hu.role.toLowerCase() === 'doctor')
         .filter(hu => {
-          if (seen.has(hu.user.id)) return false;
-          seen.add(hu.user.id);
+          if (seenIds.has(hu.user.id)) return false;
+          seenIds.add(hu.user.id);
+          const fullName = `${hu.user.firstName || ''} ${hu.user.lastName || ''}`.trim().toLowerCase();
+          if (seenNames.has(fullName)) return false;
+          seenNames.add(fullName);
           return true;
         })
         .map(hu => ({
