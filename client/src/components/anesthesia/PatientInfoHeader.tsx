@@ -1,8 +1,10 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { UserCircle, AlertCircle, Download, X, Wifi, WifiOff, RefreshCw, Users, Camera, CameraOff } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { UserCircle, AlertCircle, Download, X, Wifi, WifiOff, RefreshCw, Users, Camera, CameraOff, ChevronRight } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
 import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
@@ -52,6 +54,7 @@ export function PatientInfoHeader({
 }: PatientInfoHeaderProps) {
   const { t, i18n } = useTranslation();
   const isGerman = i18n.language === 'de';
+  const [showProcedureDialog, setShowProcedureDialog] = useState(false);
 
   const getConnectionIcon = () => {
     switch (connectionState) {
@@ -213,25 +216,81 @@ export function PatientInfoHeader({
             </div>
           </div>
 
-          {/* Surgery Info */}
-          <div className="px-3 py-2 bg-primary/10 border border-primary/30 rounded-lg">
-            <p className="text-xs font-medium text-primary/70">{t('anesthesia.op.procedure').toUpperCase()}</p>
-            <p className="font-semibold text-sm text-primary">{surgery.plannedSurgery}</p>
-            {surgery.surgeon && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {surgery.surgeon} • {formatDate(surgery.plannedDate)}
-              </p>
-            )}
-            {(surgery.patientPosition || surgery.leftArmPosition || surgery.rightArmPosition) && (
-              <p className="text-xs text-primary/80 mt-1">
-                {[
-                  surgery.patientPosition && getPositionDisplayLabel(surgery.patientPosition, isGerman),
-                  surgery.leftArmPosition && `${isGerman ? 'L. Arm' : 'L. Arm'}: ${getArmDisplayLabel(surgery.leftArmPosition, isGerman)}`,
-                  surgery.rightArmPosition && `${isGerman ? 'R. Arm' : 'R. Arm'}: ${getArmDisplayLabel(surgery.rightArmPosition, isGerman)}`,
-                ].filter(Boolean).join(' · ')}
-              </p>
-            )}
+          {/* Surgery Info - Compact clickable card */}
+          <div
+            className="px-3 py-2 bg-primary/10 border border-primary/30 rounded-lg cursor-pointer hover:bg-primary/15 transition-colors flex items-center gap-2"
+            onClick={() => setShowProcedureDialog(true)}
+            data-testid="button-procedure-details"
+          >
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-primary/70">{t('anesthesia.op.procedure').toUpperCase()}</p>
+              <p className="font-semibold text-sm text-primary truncate">{surgery.plannedSurgery}</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-primary/50 shrink-0" />
           </div>
+
+          {/* Procedure Details Dialog */}
+          <Dialog open={showProcedureDialog} onOpenChange={setShowProcedureDialog}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader>
+                <DialogTitle>{t('anesthesia.op.procedure')}</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Eingriff' : 'Procedure'}</p>
+                  <p className="font-semibold text-base mt-0.5">{surgery.plannedSurgery}</p>
+                </div>
+
+                {surgery.surgeon && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Chirurg' : 'Surgeon'}</p>
+                    <p className="font-semibold text-base mt-0.5">{surgery.surgeon}</p>
+                    {surgery.surgeonPhone && (
+                      <a href={`tel:${surgery.surgeonPhone}`} className="text-xs text-primary underline mt-0.5 block" data-testid="link-surgeon-phone">
+                        {surgery.surgeonPhone}
+                      </a>
+                    )}
+                  </div>
+                )}
+
+                {surgery.plannedDate && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Datum & Dauer' : 'Date & Duration'}</p>
+                    <p className="font-semibold text-base mt-0.5">
+                      {formatDate(surgery.plannedDate)}
+                      {surgery.actualEndTime && (() => {
+                        const mins = Math.round((new Date(surgery.actualEndTime).getTime() - new Date(surgery.plannedDate).getTime()) / 60000);
+                        if (mins <= 0) return '';
+                        const h = Math.floor(mins / 60);
+                        const m = mins % 60;
+                        return ` · ${h > 0 ? `${h}h${m > 0 ? ` ${m}min` : ''}` : `${m} min`}`;
+                      })()}
+                    </p>
+                  </div>
+                )}
+
+                {(surgery.patientPosition || surgery.leftArmPosition || surgery.rightArmPosition) && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Lagerung' : 'Positioning'}</p>
+                    <p className="font-semibold text-base mt-0.5">
+                      {[
+                        surgery.patientPosition && getPositionDisplayLabel(surgery.patientPosition, isGerman),
+                        surgery.leftArmPosition && `${isGerman ? 'L. Arm' : 'L. Arm'}: ${getArmDisplayLabel(surgery.leftArmPosition, isGerman)}`,
+                        surgery.rightArmPosition && `${isGerman ? 'R. Arm' : 'R. Arm'}: ${getArmDisplayLabel(surgery.rightArmPosition, isGerman)}`,
+                      ].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                )}
+
+                {surgery.notes && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{isGerman ? 'Bemerkungen' : 'Notes'}</p>
+                    <p className="text-sm mt-0.5 whitespace-pre-wrap">{surgery.notes}</p>
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Allergies & CAVE - Clickable Display */}
           {(selectedAllergies.length > 0 || otherAllergies || cave) && (
