@@ -14,6 +14,7 @@ import { FlexibleDateInput } from "@/components/ui/flexible-date-input";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { PatientPositionFields } from "@/components/surgery/PatientPositionFields";
 import { 
   User,
   Stethoscope,
@@ -43,6 +44,9 @@ interface FormData {
   surgeryName: string;
   chopCode: string;
   surgerySide: "" | "left" | "right" | "both";
+  patientPosition: "" | "supine" | "trendelenburg" | "reverse_trendelenburg" | "lithotomy" | "lateral_decubitus" | "prone" | "jackknife" | "sitting" | "kidney" | "lloyd_davies";
+  leftArmPosition: "" | "ausgelagert" | "angelagert";
+  rightArmPosition: "" | "ausgelagert" | "angelagert";
   antibioseProphylaxe: boolean;
   surgeryDurationMinutes: number;
   withAnesthesia: boolean;
@@ -90,6 +94,9 @@ export default function ExternalSurgeryRequest() {
     surgeryName: '',
     chopCode: '',
     surgerySide: '',
+    patientPosition: '',
+    leftArmPosition: '',
+    rightArmPosition: '',
     antibioseProphylaxe: false,
     surgeryDurationMinutes: 60,
     withAnesthesia: true,
@@ -649,6 +656,17 @@ export default function ExternalSurgeryRequest() {
                     )}
                   </div>
                 </div>
+
+                {/* Patient Positioning */}
+                <PatientPositionFields
+                  patientPosition={formData.patientPosition}
+                  leftArmPosition={formData.leftArmPosition}
+                  rightArmPosition={formData.rightArmPosition}
+                  onPatientPositionChange={(v) => updateField('patientPosition', v)}
+                  onLeftArmPositionChange={(v) => updateField('leftArmPosition', v)}
+                  onRightArmPositionChange={(v) => updateField('rightArmPosition', v)}
+                  testIdPrefix="external-"
+                />
 
                 {/* Section Divider: Scheduling */}
                 <div className="flex items-center gap-2 pt-2">

@@ -16,6 +16,7 @@ import { Loader2, Check, ChevronsUpDown, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
+import { PatientPositionFields } from "@/components/surgery/PatientPositionFields";
 
 interface QuickCreateSurgeryDialogProps {
   open: boolean;
@@ -89,6 +90,9 @@ export default function QuickCreateSurgeryDialog({
   const [noPreOpRequired, setNoPreOpRequired] = useState(false);
   const [surgerySide, setSurgerySide] = useState<"left" | "right" | "both" | "">("");
   const [antibioseProphylaxe, setAntibioseProphylaxe] = useState(false);
+  const [patientPosition, setPatientPosition] = useState<"" | "supine" | "trendelenburg" | "reverse_trendelenburg" | "lithotomy" | "lateral_decubitus" | "prone" | "jackknife" | "sitting" | "kidney" | "lloyd_davies">("");
+  const [leftArmPosition, setLeftArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
+  const [rightArmPosition, setRightArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
   
   // New patient form state
   const [newPatientFirstName, setNewPatientFirstName] = useState("");
@@ -367,6 +371,9 @@ export default function QuickCreateSurgeryDialog({
     setNoPreOpRequired(false);
     setSurgerySide("");
     setAntibioseProphylaxe(false);
+    setPatientPosition("");
+    setLeftArmPosition("");
+    setRightArmPosition("");
     setShowNewPatientForm(false);
     setNewPatientFirstName("");
     setNewPatientSurname("");
@@ -472,6 +479,9 @@ export default function QuickCreateSurgeryDialog({
       noPreOpRequired: noPreOpRequired,
       surgerySide: surgerySide || undefined,
       antibioseProphylaxe: antibioseProphylaxe,
+      patientPosition: patientPosition || undefined,
+      leftArmPosition: leftArmPosition || undefined,
+      rightArmPosition: rightArmPosition || undefined,
       status: "planned",
     });
   };
@@ -918,6 +928,17 @@ export default function QuickCreateSurgeryDialog({
               )}
             </div>
           </div>
+
+          {/* Patient Positioning */}
+          <PatientPositionFields
+            patientPosition={patientPosition}
+            leftArmPosition={leftArmPosition}
+            rightArmPosition={rightArmPosition}
+            onPatientPositionChange={setPatientPosition}
+            onLeftArmPositionChange={setLeftArmPosition}
+            onRightArmPositionChange={setRightArmPosition}
+            testIdPrefix="quick-"
+          />
 
           {/* Section Divider: Requirements */}
           <div className="flex items-center gap-2 pt-2">

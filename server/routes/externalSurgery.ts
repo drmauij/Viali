@@ -100,6 +100,9 @@ const externalSurgeryRequestSchema = z.object({
   patientBirthday: z.string().min(1, "Patient birthday is required"),
   patientEmail: z.string().optional().nullable(),
   patientPhone: z.string().min(5, "Patient phone is required"),
+  patientPosition: z.enum(["supine", "trendelenburg", "reverse_trendelenburg", "lithotomy", "lateral_decubitus", "prone", "jackknife", "sitting", "kidney", "lloyd_davies"]).optional().nullable().or(z.literal("").transform(() => null)),
+  leftArmPosition: z.enum(["ausgelagert", "angelagert"]).optional().nullable().or(z.literal("").transform(() => null)),
+  rightArmPosition: z.enum(["ausgelagert", "angelagert"]).optional().nullable().or(z.literal("").transform(() => null)),
 });
 
 router.get('/public/external-surgery/:token', fetchLimiter, async (req: Request, res: Response) => {
@@ -510,6 +513,9 @@ router.post('/api/external-surgery-requests/:id/schedule', isAuthenticated, requ
       surgeonId: surgeonUserId,
       notes: request.surgeryNotes || '',
       admissionTime: admissionTime ? new Date(admissionTime) : undefined,
+      patientPosition: request.patientPosition || null,
+      leftArmPosition: request.leftArmPosition || null,
+      rightArmPosition: request.rightArmPosition || null,
     });
     
     await storage.updateExternalSurgeryRequest(id, {

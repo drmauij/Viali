@@ -24,6 +24,7 @@ import { useTranslation } from "react-i18next";
 import { SurgeonChecklistTab } from "./SurgeonChecklistTab";
 import type { SurgeryContext } from "@shared/checklistPlaceholders";
 import { parseFlexibleDate, isoToDisplayDate } from "@/lib/dateUtils";
+import { PatientPositionFields } from "@/components/surgery/PatientPositionFields";
 
 interface EditSurgeryDialogProps {
   surgeryId: string | null;
@@ -56,6 +57,9 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
   const [noPreOpRequired, setNoPreOpRequired] = useState(false);
   const [surgerySide, setSurgerySide] = useState<"left" | "right" | "both" | "">("");
   const [antibioseProphylaxe, setAntibioseProphylaxe] = useState(false);
+  const [patientPosition, setPatientPosition] = useState<"" | "supine" | "trendelenburg" | "reverse_trendelenburg" | "lithotomy" | "lateral_decubitus" | "prone" | "jackknife" | "sitting" | "kidney" | "lloyd_davies">("");
+  const [leftArmPosition, setLeftArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
+  const [rightArmPosition, setRightArmPosition] = useState<"" | "ausgelagert" | "angelagert">("");
   
   // CHOP procedure selector state
   const [selectedChopCode, setSelectedChopCode] = useState("");
@@ -303,6 +307,9 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
       setNoPreOpRequired(surgery.noPreOpRequired || false);
       setSurgerySide(surgery.surgerySide || "");
       setAntibioseProphylaxe(surgery.antibioseProphylaxe || false);
+      setPatientPosition(surgery.patientPosition || "");
+      setLeftArmPosition(surgery.leftArmPosition || "");
+      setRightArmPosition(surgery.rightArmPosition || "");
       
       if (surgery.admissionTime) {
         const admissionDateObj = new Date(surgery.admissionTime);
@@ -350,6 +357,9 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
         noPreOpRequired,
         surgerySide: surgerySide || null,
         antibioseProphylaxe,
+        patientPosition: patientPosition || null,
+        leftArmPosition: leftArmPosition || null,
+        rightArmPosition: rightArmPosition || null,
       });
       return response.json();
     },
@@ -886,6 +896,18 @@ export function EditSurgeryDialog({ surgeryId, onClose }: EditSurgeryDialogProps
                   )}
                 </div>
               </div>
+
+              {/* Patient Positioning */}
+              <PatientPositionFields
+                patientPosition={patientPosition}
+                leftArmPosition={leftArmPosition}
+                rightArmPosition={rightArmPosition}
+                onPatientPositionChange={setPatientPosition}
+                onLeftArmPositionChange={setLeftArmPosition}
+                onRightArmPositionChange={setRightArmPosition}
+                disabled={!canWrite}
+                testIdPrefix="edit-"
+              />
 
               {/* Section Divider: Requirements */}
               <div className="flex items-center gap-2 pt-2">

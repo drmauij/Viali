@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -126,6 +127,18 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
             </p>
             {request.surgeryNotes && (
               <p className="text-sm text-muted-foreground">{request.surgeryNotes}</p>
+            )}
+            {request.patientPosition && (
+              <p className="text-sm text-muted-foreground">
+                {isGerman ? 'Lagerung' : 'Position'}: {getPositionDisplayLabel(request.patientPosition, isGerman)}
+              </p>
+            )}
+            {(request.leftArmPosition || request.rightArmPosition) && (
+              <p className="text-sm text-muted-foreground">
+                {request.leftArmPosition && `${isGerman ? 'L. Arm' : 'L. Arm'}: ${getArmDisplayLabel(request.leftArmPosition, isGerman)}`}
+                {request.leftArmPosition && request.rightArmPosition && ' | '}
+                {request.rightArmPosition && `${isGerman ? 'R. Arm' : 'R. Arm'}: ${getArmDisplayLabel(request.rightArmPosition, isGerman)}`}
+              </p>
             )}
           </div>
 

@@ -41,6 +41,7 @@ import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnai
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
 import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
+import { PatientPositionFields } from "@/components/surgery/PatientPositionFields";
 
 type Patient = {
   id: string;
@@ -974,6 +975,9 @@ export default function PatientDetail() {
     plannedSurgery: "",
     chopCode: "",
     surgerySide: "" as "" | "left" | "right" | "both",
+    patientPosition: "" as "" | "supine" | "trendelenburg" | "reverse_trendelenburg" | "lithotomy" | "lateral_decubitus" | "prone" | "jackknife" | "sitting" | "kidney" | "lloyd_davies",
+    leftArmPosition: "" as "" | "ausgelagert" | "angelagert",
+    rightArmPosition: "" as "" | "ausgelagert" | "angelagert",
     antibioseProphylaxe: false,
     surgeon: "",
     surgeonId: "",
@@ -1191,7 +1195,7 @@ export default function PatientDetail() {
         description: t('anesthesia.patientDetail.successSurgeryCreatedDesc'),
       });
       setIsCreateCaseOpen(false);
-      setNewCase({ plannedSurgery: "", chopCode: "", surgerySide: "", antibioseProphylaxe: false, surgeon: "", surgeonId: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
+      setNewCase({ plannedSurgery: "", chopCode: "", surgerySide: "", patientPosition: "", leftArmPosition: "", rightArmPosition: "", antibioseProphylaxe: false, surgeon: "", surgeonId: "", plannedDate: "", surgeryRoomId: "", duration: 180, notes: "", noPreOpRequired: false });
     },
     onError: (error: any) => {
       toast({
@@ -1740,6 +1744,9 @@ export default function PatientDetail() {
       notes: newCase.notes || null,
       noPreOpRequired: newCase.noPreOpRequired,
       surgerySide: newCase.surgerySide || null,
+      patientPosition: newCase.patientPosition || null,
+      leftArmPosition: newCase.leftArmPosition || null,
+      rightArmPosition: newCase.rightArmPosition || null,
       antibioseProphylaxe: newCase.antibioseProphylaxe,
     };
     
@@ -3234,6 +3241,17 @@ export default function PatientDetail() {
                         )}
                       </div>
                     </div>
+
+                    {/* Patient Positioning */}
+                    <PatientPositionFields
+                      patientPosition={newCase.patientPosition}
+                      leftArmPosition={newCase.leftArmPosition}
+                      rightArmPosition={newCase.rightArmPosition}
+                      onPatientPositionChange={(v) => setNewCase({ ...newCase, patientPosition: v })}
+                      onLeftArmPositionChange={(v) => setNewCase({ ...newCase, leftArmPosition: v })}
+                      onRightArmPositionChange={(v) => setNewCase({ ...newCase, rightArmPosition: v })}
+                      testIdPrefix="newcase-"
+                    />
 
                     {/* Section Divider: Requirements */}
                     <div className="flex items-center gap-2 pt-2">
