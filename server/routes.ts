@@ -4615,8 +4615,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/hospitals/:hospitalId/doctors", isAuthenticated, async (req: any, res) => {
     try {
       const hospitalUsers = await storage.getHospitalUsers(req.params.hospitalId);
+      const seen = new Set<string>();
       const doctors = hospitalUsers
         .filter(hu => hu.role.toLowerCase() === 'doctor')
+        .filter(hu => {
+          if (seen.has(hu.user.id)) return false;
+          seen.add(hu.user.id);
+          return true;
+        })
         .map(hu => ({
           id: hu.user.id,
           firstName: hu.user.firstName,
