@@ -580,24 +580,26 @@ export default function SurgerySummaryDialog({
               </Card>
             )}
 
-            {/* PACU Bed Assignment */}
-            <div className="flex items-center justify-between px-4 py-3 bg-blue-50/50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900" data-testid="section-pacu-bed-assignment">
-              <div className="flex items-center gap-2">
-                <Bed className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium">{t('pacu.pacuBed', 'PACU Bed')}</span>
-                {pacuBed && (
-                  <span className="text-sm text-blue-700 dark:text-blue-300 font-semibold" data-testid="text-pacu-bed-current">{pacuBed.name}</span>
-                )}
+            {/* PACU Bed Assignment - Only shown in anesthesia module */}
+            {(!activeModule || activeModule === 'anesthesia') && (
+              <div className="flex items-center justify-between px-4 py-3 bg-blue-50/50 dark:bg-blue-950/30 rounded-lg border border-blue-100 dark:border-blue-900" data-testid="section-pacu-bed-assignment">
+                <div className="flex items-center gap-2">
+                  <Bed className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium">{t('pacu.pacuBed', 'PACU Bed')}</span>
+                  {pacuBed && (
+                    <span className="text-sm text-blue-700 dark:text-blue-300 font-semibold" data-testid="text-pacu-bed-current">{pacuBed.name}</span>
+                  )}
+                </div>
+                <PacuBedSelector
+                  surgeryId={surgeryId}
+                  hospitalId={activeHospital?.id}
+                  currentBedId={surgery?.pacuBedId}
+                  currentBedName={pacuBed?.name}
+                  variant="inline"
+                  size="sm"
+                />
               </div>
-              <PacuBedSelector
-                surgeryId={surgeryId}
-                hospitalId={activeHospital?.id}
-                currentBedId={surgery?.pacuBedId}
-                currentBedName={pacuBed?.name}
-                variant="inline"
-                size="sm"
-              />
-            </div>
+            )}
 
             {/* Surgery Pre-Op Assessment - Only shown in surgery module */}
             {activeModule === 'surgery' && onOpenSurgeryPreOp && (
