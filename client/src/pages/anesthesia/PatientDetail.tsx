@@ -4252,6 +4252,20 @@ export default function PatientDetail() {
                         })()}
                       </p>
                     </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('anesthesia.patientDetail.duration', 'Duration')}</p>
+                      <p className="font-semibold text-base">
+                        {(() => {
+                          const s = surgeries?.find(s => s.id === selectedCaseId);
+                          if (!s?.plannedDate || !s?.actualEndTime) return '—';
+                          const mins = Math.round((new Date(s.actualEndTime).getTime() - new Date(s.plannedDate).getTime()) / 60000);
+                          if (mins <= 0) return '—';
+                          const h = Math.floor(mins / 60);
+                          const m = mins % 60;
+                          return h > 0 ? `${h}h ${m > 0 ? `${m}min` : ''}` : `${m} min`;
+                        })()}
+                      </p>
+                    </div>
                   </div>
                   {(() => {
                     const selectedSurgery = surgeries?.find(s => s.id === selectedCaseId);
