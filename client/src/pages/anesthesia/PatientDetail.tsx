@@ -42,6 +42,7 @@ import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
 import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
 import { PatientPositionFields, getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
+import { DischargeMedicationsTab } from "@/components/anesthesia/DischargeMedicationsTab";
 
 type Patient = {
   id: string;
@@ -2738,9 +2739,9 @@ export default function PatientDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Main Content Tabs - Notes, Surgeries, Documents, and Invoices */}
+      {/* Main Content Tabs - Notes, Surgeries, Documents, Invoices, and Medications */}
       <Tabs defaultValue="notes" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-4">
+        <TabsList className="grid w-full grid-cols-5 mb-4">
           <TabsTrigger value="notes" data-testid="tab-notes">
             <StickyNote className="h-4 w-4 mr-1" />
             {t('anesthesia.patientDetail.notes', 'Notes')}
@@ -2765,6 +2766,9 @@ export default function PatientDetail() {
             {patientInvoices.length > 0 && (
               <Badge variant="secondary" className="ml-2">{patientInvoices.length}</Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="medications" data-testid="tab-medications">
+            {t('anesthesia.patientDetail.medications', 'Medications')}
           </TabsTrigger>
         </TabsList>
 
@@ -3892,6 +3896,17 @@ export default function PatientDetail() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="medications" className="mt-0">
+          <DischargeMedicationsTab
+            patientId={derivedPatientId || ""}
+            hospitalId={activeHospital?.id || ""}
+            unitId={activeHospital?.unitId || ""}
+            patientName={patient ? `${patient.surname} ${patient.firstName}` : undefined}
+            patientBirthday={patient?.birthday}
+            canWrite={canWrite}
+          />
         </TabsContent>
       </Tabs>
 

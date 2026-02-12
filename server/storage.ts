@@ -276,6 +276,12 @@ import {
   type InsertSurgerySet,
   type SurgerySetInventoryItem,
   type InsertSurgerySetInventoryItem,
+  patientDischargeMedications,
+  patientDischargeMedicationItems,
+  type PatientDischargeMedication,
+  type InsertPatientDischargeMedication,
+  type PatientDischargeMedicationItem,
+  type InsertPatientDischargeMedicationItem,
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { db } from "./db";
@@ -1041,6 +1047,12 @@ export interface IStorage {
   getSurgerySetInventory(setId: string): Promise<SurgerySetInventoryItem[]>;
   createSurgerySetInventoryItem(item: InsertSurgerySetInventoryItem): Promise<SurgerySetInventoryItem>;
   deleteSurgerySetInventory(setId: string): Promise<void>;
+
+  // Patient Discharge Medications
+  getPatientDischargeMedications(patientId: string, hospitalId: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item })[], doctor: User | null })[]>;
+  getPatientDischargeMedication(id: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item })[], doctor: User | null }) | undefined>;
+  createPatientDischargeMedication(data: InsertPatientDischargeMedication, items: InsertPatientDischargeMedicationItem[]): Promise<PatientDischargeMedication>;
+  deletePatientDischargeMedication(id: string): Promise<PatientDischargeMedicationItem[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -9613,6 +9625,129 @@ export class DatabaseStorage implements IStorage {
 
   async deleteSurgerySetInventory(setId: string): Promise<void> {
     await db.delete(surgerySetInventory).where(eq(surgerySetInventory.setId, setId));
+  }
+
+  // ========== PATIENT DISCHARGE MEDICATIONS ==========
+
+  async getPatientDischargeMedications(patientId: string, hospitalId: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item })[], doctor: User | null })[]> {
+    const slots = await db
+      .select()
+      .from(patientDischargeMedications)
+      .where(and(
+        eq(patientDischargeMedications.patientId, patientId),
+        eq(patientDischargeMedications.hospitalId, hospitalId)
+      ))
+      .orderBy(desc(patientDischargeMedications.createdAt));
+
+    const results = [];
+    for (const slot of slots) {
+      const slotItems = await db
+        .select()
+        .from(patientDischargeMedicationItems)
+        .innerJoin(items, eq(patientDischargeMedicationItems.itemId, items.id))
+        .where(eq(patientDischargeMedicationItems.dischargeMedicationId, slot.id));
+
+      let doctor: User | null = null;
+      if (slot.doctorId) {
+        const [doc] = await db.select().from(users).where(eq(users.id, slot.doctorId));
+        doctor = doc || null;
+      }
+
+      results.push({
+        ...slot,
+        items: slotItems.map(si => ({ ...si.patient_discharge_medication_items, item: si.items })),
+        doctor,
+      });
+    }
+    return results;
+  }
+
+  async getPatientDischargeMedication(id: string): Promise<(PatientDischargeMedication & { items: (PatientDischargeMedicationItem & { item: Item })[], doctor: User | null }) | undefined> {
+    const [slot] = await db
+      .select()
+      .from(patientDischargeMedications)
+      .where(eq(patientDischargeMedications.id, id));
+    if (!slot) return undefined;
+
+    const slotItems = await db
+      .select()
+      .from(patientDischargeMedicationItems)
+      .innerJoin(items, eq(patientDischargeMedicationItems.itemId, items.id))
+      .where(eq(patientDischargeMedicationItems.dischargeMedicationId, slot.id));
+
+    let doctor: User | null = null;
+    if (slot.doctorId) {
+      const [doc] = await db.select().from(users).where(eq(users.id, slot.doctorId));
+      doctor = doc || null;
+    }
+
+    return {
+      ...slot,
+      items: slotItems.map(si => ({ ...si.patient_discharge_medication_items, item: si.items })),
+      doctor,
+    };
+  }
+
+  async createPatientDischargeMedication(data: InsertPatientDischargeMedication, medItems: InsertPatientDischargeMedicationItem[]): Promise<PatientDischargeMedication> {
+    const [slot] = await db
+      .insert(patientDischargeMedications)
+      .values(data)
+      .returning();
+
+    for (const medItem of medItems) {
+      await db.insert(patientDischargeMedicationItems).values({
+        ...medItem,
+        dischargeMedicationId: slot.id,
+      });
+
+      const [item] = await db.select().from(items).where(eq(items.id, medItem.itemId));
+      if (item) {
+        if (item.trackExactQuantity) {
+          const newUnits = Math.max(0, (item.currentUnits || 0) - (medItem.quantity || 1));
+          await db.update(items).set({ currentUnits: newUnits, updatedAt: new Date() }).where(eq(items.id, item.id));
+        } else {
+          const [stockLevel] = await db.select().from(stockLevels).where(and(eq(stockLevels.itemId, item.id), eq(stockLevels.unitId, item.unitId)));
+          if (stockLevel) {
+            const deductQty = medItem.unitType === 'pills'
+              ? Math.ceil((medItem.quantity || 1) / (item.packSize || 1))
+              : (medItem.quantity || 1);
+            const newQty = Math.max(0, (stockLevel.qtyOnHand || 0) - deductQty);
+            await db.update(stockLevels).set({ qtyOnHand: newQty }).where(eq(stockLevels.id, stockLevel.id));
+          }
+        }
+      }
+    }
+
+    return slot;
+  }
+
+  async deletePatientDischargeMedication(id: string): Promise<PatientDischargeMedicationItem[]> {
+    const deletedItems = await db
+      .select()
+      .from(patientDischargeMedicationItems)
+      .where(eq(patientDischargeMedicationItems.dischargeMedicationId, id));
+
+    for (const medItem of deletedItems) {
+      const [item] = await db.select().from(items).where(eq(items.id, medItem.itemId));
+      if (item) {
+        if (item.trackExactQuantity) {
+          const newUnits = (item.currentUnits || 0) + (medItem.quantity || 1);
+          await db.update(items).set({ currentUnits: newUnits, updatedAt: new Date() }).where(eq(items.id, item.id));
+        } else {
+          const [stockLevel] = await db.select().from(stockLevels).where(and(eq(stockLevels.itemId, item.id), eq(stockLevels.unitId, item.unitId)));
+          if (stockLevel) {
+            const restoreQty = medItem.unitType === 'pills'
+              ? Math.ceil((medItem.quantity || 1) / (item.packSize || 1))
+              : (medItem.quantity || 1);
+            const newQty = (stockLevel.qtyOnHand || 0) + restoreQty;
+            await db.update(stockLevels).set({ qtyOnHand: newQty }).where(eq(stockLevels.id, stockLevel.id));
+          }
+        }
+      }
+    }
+
+    await db.delete(patientDischargeMedications).where(eq(patientDischargeMedications.id, id));
+    return deletedItems;
   }
 }
 

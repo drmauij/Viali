@@ -5131,3 +5131,54 @@ export const insertUserMessageTemplateSchema = createInsertSchema(userMessageTem
 
 export type UserMessageTemplate = typeof userMessageTemplates.$inferSelect;
 export type InsertUserMessageTemplate = z.infer<typeof insertUserMessageTemplateSchema>;
+
+// ========== PATIENT DISCHARGE MEDICATIONS ==========
+// Medication slots given to patients at discharge (day-surgery)
+
+export const patientDischargeMedications = pgTable("patient_discharge_medications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  patientId: varchar("patient_id").notNull().references(() => patients.id, { onDelete: 'cascade' }),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id),
+  doctorId: varchar("doctor_id").references(() => users.id),
+  notes: text("notes"),
+  signature: text("signature"),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_discharge_meds_patient").on(table.patientId),
+  index("idx_discharge_meds_hospital").on(table.hospitalId),
+  index("idx_discharge_meds_doctor").on(table.doctorId),
+]);
+
+export const patientDischargeMedicationItems = pgTable("patient_discharge_medication_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  dischargeMedicationId: varchar("discharge_medication_id").notNull().references(() => patientDischargeMedications.id, { onDelete: 'cascade' }),
+  itemId: varchar("item_id").notNull().references(() => items.id),
+  quantity: integer("quantity").notNull().default(1),
+  unitType: varchar("unit_type").notNull().default("packs"),
+  administrationRoute: varchar("administration_route"),
+  frequency: varchar("frequency"),
+  notes: text("notes"),
+  endPrice: decimal("end_price", { precision: 10, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_discharge_med_items_slot").on(table.dischargeMedicationId),
+  index("idx_discharge_med_items_item").on(table.itemId),
+]);
+
+export const insertPatientDischargeMedicationSchema = createInsertSchema(patientDischargeMedications).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertPatientDischargeMedicationItemSchema = createInsertSchema(patientDischargeMedicationItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type PatientDischargeMedication = typeof patientDischargeMedications.$inferSelect;
+export type InsertPatientDischargeMedication = z.infer<typeof insertPatientDischargeMedicationSchema>;
+export type PatientDischargeMedicationItem = typeof patientDischargeMedicationItems.$inferSelect;
+export type InsertPatientDischargeMedicationItem = z.infer<typeof insertPatientDischargeMedicationItemSchema>;

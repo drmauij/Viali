@@ -4546,5 +4546,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ========== PATIENT DISCHARGE MEDICATIONS ==========
+
+  app.get("/api/patients/:patientId/discharge-medications", isAuthenticated, async (req: any, res) => {
+    try {
+      const { patientId } = req.params;
+      const hospitalId = req.query.hospitalId as string;
+      if (!hospitalId) return res.status(400).json({ error: "hospitalId required" });
+      const slots = await storage.getPatientDischargeMedications(patientId, hospitalId);
+      res.json(slots);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/discharge-medications/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const slot = await storage.getPatientDischargeMedication(req.params.id);
+      if (!slot) return res.status(404).json({ error: "Not found" });
+      res.json(slot);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/patients/:patientId/discharge-medications", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      const { patientId } = req.params;
+      const { hospitalId, doctorId, notes, signature, createdBy, items: medItems } = req.body;
+      if (!hospitalId) return res.status(400).json({ error: "hospitalId required" });
+
+      if (medItems && medItems.length > 0) {
+        const itemIds = medItems.map((m: any) => m.itemId);
+        let hasControlled = false;
+        for (const itemId of itemIds) {
+          const item = await storage.getItem(itemId);
+          if (item?.controlled) {
+            hasControlled = true;
+            break;
+          }
+        }
+        if (hasControlled && !signature) {
+          return res.status(400).json({ error: "Signature required for controlled substances" });
+        }
+      }
+
+      const slot = await storage.createPatientDischargeMedication(
+        { patientId, hospitalId, doctorId, notes, signature, createdBy },
+        medItems || []
+      );
+
+      const fullSlot = await storage.getPatientDischargeMedication(slot.id);
+      res.json(fullSlot);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.delete("/api/discharge-medications/:id", isAuthenticated, requireWriteAccess, async (req: any, res) => {
+    try {
+      await storage.deletePatientDischargeMedication(req.params.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.get("/api/hospitals/:hospitalId/doctors", isAuthenticated, async (req: any, res) => {
+    try {
+      const hospitalUsers = await storage.getHospitalUsers(req.params.hospitalId);
+      const doctors = hospitalUsers
+        .filter(hu => hu.role.toLowerCase() === 'doctor')
+        .map(hu => ({
+          id: hu.user.id,
+          firstName: hu.user.firstName,
+          lastName: hu.user.lastName,
+          email: hu.user.email,
+        }));
+      res.json(doctors);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }
