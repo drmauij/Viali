@@ -1430,9 +1430,17 @@ export default function Op() {
         hospitalId={activeHospital.id}
         recordId={anesthesiaRecord?.id}
         isAdmin={activeHospital?.role === 'admin'}
-        onSetApplied={() => {
+        onSetApplied={async () => {
+          await queryClient.refetchQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
           queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecord?.id] });
-          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+          const freshData = queryClient.getQueryData<any>([`/api/anesthesia/records/surgery/${surgeryId}`]);
+          const freshRecord = freshData?.anesthesiaRecord || freshData;
+          if (freshRecord) {
+            const freshIntraOp = freshRecord.intraOpData || freshRecord.intra_op_data;
+            if (freshIntraOp) {
+              setIntraOpData(freshIntraOp);
+            }
+          }
         }}
       />
     )}
