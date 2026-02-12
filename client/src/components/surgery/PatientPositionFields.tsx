@@ -1,6 +1,5 @@
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
 import { useTranslation } from "react-i18next";
 
 export const PATIENT_POSITIONS = [
@@ -91,111 +90,65 @@ export function PatientPositionFields({
       <div className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
           <Label>{isGerman ? "Linker Arm" : "Left Arm"}</Label>
-          <div className="flex gap-1 flex-wrap">
-            <label
+          <div className="flex gap-1">
+            <button
+              type="button"
               className={`flex items-center justify-center cursor-pointer px-3 py-2 rounded-lg border transition-colors min-h-[44px] flex-1 text-center ${
                 leftArmPosition === "ausgelagert"
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-input bg-background hover:bg-accent"
               } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+              onClick={() => !disabled && onLeftArmPositionChange(leftArmPosition === "ausgelagert" ? "" : "ausgelagert")}
+              disabled={disabled}
               data-testid={`${testIdPrefix}radio-left-arm-ausgelagert`}
             >
-              <input
-                type="radio"
-                name={`${testIdPrefix}leftArm`}
-                value="ausgelagert"
-                checked={leftArmPosition === "ausgelagert"}
-                onChange={() => onLeftArmPositionChange("ausgelagert")}
-                disabled={disabled}
-                className="sr-only"
-              />
               <span className="text-xs font-medium">{getArmLabel("ausgelagert")}</span>
-            </label>
-            <label
+            </button>
+            <button
+              type="button"
               className={`flex items-center justify-center cursor-pointer px-3 py-2 rounded-lg border transition-colors min-h-[44px] flex-1 text-center ${
                 leftArmPosition === "angelagert"
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-input bg-background hover:bg-accent"
               } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+              onClick={() => !disabled && onLeftArmPositionChange(leftArmPosition === "angelagert" ? "" : "angelagert")}
+              disabled={disabled}
               data-testid={`${testIdPrefix}radio-left-arm-angelagert`}
             >
-              <input
-                type="radio"
-                name={`${testIdPrefix}leftArm`}
-                value="angelagert"
-                checked={leftArmPosition === "angelagert"}
-                onChange={() => onLeftArmPositionChange("angelagert")}
-                disabled={disabled}
-                className="sr-only"
-              />
               <span className="text-xs font-medium">{getArmLabel("angelagert")}</span>
-            </label>
-            {leftArmPosition && !disabled && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onLeftArmPositionChange("")}
-                className="text-xs min-h-[44px] px-2"
-              >
-                ✕
-              </Button>
-            )}
+            </button>
           </div>
         </div>
 
         <div className="space-y-2">
           <Label>{isGerman ? "Rechter Arm" : "Right Arm"}</Label>
-          <div className="flex gap-1 flex-wrap">
-            <label
+          <div className="flex gap-1">
+            <button
+              type="button"
               className={`flex items-center justify-center cursor-pointer px-3 py-2 rounded-lg border transition-colors min-h-[44px] flex-1 text-center ${
                 rightArmPosition === "ausgelagert"
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-input bg-background hover:bg-accent"
               } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+              onClick={() => !disabled && onRightArmPositionChange(rightArmPosition === "ausgelagert" ? "" : "ausgelagert")}
+              disabled={disabled}
               data-testid={`${testIdPrefix}radio-right-arm-ausgelagert`}
             >
-              <input
-                type="radio"
-                name={`${testIdPrefix}rightArm`}
-                value="ausgelagert"
-                checked={rightArmPosition === "ausgelagert"}
-                onChange={() => onRightArmPositionChange("ausgelagert")}
-                disabled={disabled}
-                className="sr-only"
-              />
               <span className="text-xs font-medium">{getArmLabel("ausgelagert")}</span>
-            </label>
-            <label
+            </button>
+            <button
+              type="button"
               className={`flex items-center justify-center cursor-pointer px-3 py-2 rounded-lg border transition-colors min-h-[44px] flex-1 text-center ${
                 rightArmPosition === "angelagert"
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-input bg-background hover:bg-accent"
               } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
+              onClick={() => !disabled && onRightArmPositionChange(rightArmPosition === "angelagert" ? "" : "angelagert")}
+              disabled={disabled}
               data-testid={`${testIdPrefix}radio-right-arm-angelagert`}
             >
-              <input
-                type="radio"
-                name={`${testIdPrefix}rightArm`}
-                value="angelagert"
-                checked={rightArmPosition === "angelagert"}
-                onChange={() => onRightArmPositionChange("angelagert")}
-                disabled={disabled}
-                className="sr-only"
-              />
               <span className="text-xs font-medium">{getArmLabel("angelagert")}</span>
-            </label>
-            {rightArmPosition && !disabled && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onRightArmPositionChange("")}
-                className="text-xs min-h-[44px] px-2"
-              >
-                ✕
-              </Button>
-            )}
+            </button>
           </div>
         </div>
       </div>
