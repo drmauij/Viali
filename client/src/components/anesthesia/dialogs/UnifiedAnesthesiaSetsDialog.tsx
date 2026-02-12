@@ -239,6 +239,7 @@ export function UnifiedAnesthesiaSetsDialog({
   const [pendingInventory, setPendingInventory] = useState<Array<{ itemId: string; itemName: string; quantity: number }>>([]);
   
   const [techniqueType, setTechniqueType] = useState<string>("");
+  const [editingTechniqueIdx, setEditingTechniqueIdx] = useState<number | null>(null);
   const [medSearchQuery, setMedSearchQuery] = useState("");
   const [invSearchQuery, setInvSearchQuery] = useState("");
   const [editingMedIdx, setEditingMedIdx] = useState<number | null>(null);
@@ -390,6 +391,7 @@ export function UnifiedAnesthesiaSetsDialog({
     setPendingMedications([]);
     setPendingInventory([]);
     setTechniqueType("");
+    setEditingTechniqueIdx(null);
     setCurrentTechniqueMetadata({});
     setMedSearchQuery("");
     setInvSearchQuery("");
@@ -431,13 +433,38 @@ export function UnifiedAnesthesiaSetsDialog({
     if (!techniqueType) return;
     const category = TECHNIQUE_CATEGORIES.find(c => c.type === techniqueType);
     if (!category) return;
-    setPendingTechniques([...pendingTechniques, { 
-      itemType: techniqueType, 
-      itemValue: category.label,
-      metadata: { ...currentTechniqueMetadata }
-    }]);
+    
+    if (editingTechniqueIdx !== null) {
+      const updated = [...pendingTechniques];
+      updated[editingTechniqueIdx] = {
+        itemType: techniqueType,
+        itemValue: category.label,
+        metadata: { ...currentTechniqueMetadata },
+      };
+      setPendingTechniques(updated);
+      setEditingTechniqueIdx(null);
+    } else {
+      setPendingTechniques([...pendingTechniques, { 
+        itemType: techniqueType, 
+        itemValue: category.label,
+        metadata: { ...currentTechniqueMetadata }
+      }]);
+    }
     setTechniqueType("");
     setCurrentTechniqueMetadata({});
+  };
+
+  const handleEditTechnique = (idx: number) => {
+    const technique = pendingTechniques[idx];
+    setTechniqueType(technique.itemType);
+    setCurrentTechniqueMetadata({ ...technique.metadata });
+    setEditingTechniqueIdx(idx);
+  };
+
+  const handleCancelEditTechnique = () => {
+    setTechniqueType("");
+    setCurrentTechniqueMetadata({});
+    setEditingTechniqueIdx(null);
   };
 
   const handleAddMedication = (med: AvailableMedication) => {
@@ -647,7 +674,7 @@ export function UnifiedAnesthesiaSetsDialog({
           <AccordionContent>
             <div className="space-y-3">
               <div className="flex gap-2">
-                <Select value={techniqueType} onValueChange={(v) => { setTechniqueType(v); setCurrentTechniqueMetadata({}); }}>
+                <Select value={techniqueType} onValueChange={(v) => { setTechniqueType(v); setCurrentTechniqueMetadata(editingTechniqueIdx !== null && v === pendingTechniques[editingTechniqueIdx]?.itemType ? { ...pendingTechniques[editingTechniqueIdx].metadata } : {}); }}>
                   <SelectTrigger className="flex-1">
                     <SelectValue placeholder={t("anesthesia.sets.selectType", "Select technique type...")} />
                   </SelectTrigger>
@@ -674,9 +701,14 @@ export function UnifiedAnesthesiaSetsDialog({
                     ))}
                   </SelectContent>
                 </Select>
-                <Button onClick={handleAddTechnique} disabled={!techniqueType} size="icon" variant="outline" data-testid="button-add-technique">
-                  <Plus className="h-4 w-4" />
+                <Button onClick={handleAddTechnique} disabled={!techniqueType} size="icon" variant={editingTechniqueIdx !== null ? "default" : "outline"} data-testid="button-add-technique">
+                  {editingTechniqueIdx !== null ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
                 </Button>
+                {editingTechniqueIdx !== null && (
+                  <Button onClick={handleCancelEditTechnique} size="icon" variant="ghost" data-testid="button-cancel-edit-technique">
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
               
               {renderTechniqueFields()}
@@ -684,8 +716,9 @@ export function UnifiedAnesthesiaSetsDialog({
               <div className="space-y-2">
                 {pendingTechniques.map((t, idx) => {
                   const metaDisplay = formatTechniqueMetadata(t.metadata);
+                  const isBeingEdited = editingTechniqueIdx === idx;
                   return (
-                    <div key={idx} className="flex items-start justify-between bg-muted/50 rounded p-2 gap-2">
+                    <div key={idx} className={`flex items-start justify-between rounded p-2 gap-2 ${isBeingEdited ? 'bg-primary/10 ring-1 ring-primary' : 'bg-muted/50'}`}>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm">{t.itemValue}</div>
                         {metaDisplay && (
@@ -695,9 +728,17 @@ export function UnifiedAnesthesiaSetsDialog({
                           <div className="text-xs text-muted-foreground italic mt-0.5 truncate">📝 {t.metadata.notes}</div>
                         )}
                       </div>
-                      <Button size="sm" variant="ghost" onClick={() => setPendingTechniques(pendingTechniques.filter((_, i) => i !== idx))}>
-                        <X className="h-3 w-3" />
-                      </Button>
+                      <div className="flex gap-1 shrink-0">
+                        <Button size="sm" variant="ghost" onClick={() => isBeingEdited ? handleCancelEditTechnique() : handleEditTechnique(idx)} data-testid={`button-edit-technique-${idx}`}>
+                          {isBeingEdited ? <X className="h-3 w-3" /> : <Pencil className="h-3 w-3" />}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => {
+                          if (isBeingEdited) handleCancelEditTechnique();
+                          setPendingTechniques(pendingTechniques.filter((_, i) => i !== idx));
+                        }} data-testid={`button-delete-technique-${idx}`}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
                     </div>
                   );
                 })}
