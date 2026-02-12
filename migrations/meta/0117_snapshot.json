@@ -1,6 +1,6 @@
 {
-  "id": "edeef554-f2ab-4987-9a29-5315ee6cef50",
-  "prevId": "12d7692e-0e17-444d-b26f-00cf79dc96a3",
+  "id": "d3b07d14-f26d-4c8e-8a30-7950812b6279",
+  "prevId": "edeef554-f2ab-4987-9a29-5315ee6cef50",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -19550,7 +19550,7 @@
           "type": "varchar",
           "primaryKey": true,
           "notNull": true,
-          "default": "sql`gen_random_uuid()`"
+          "default": "gen_random_uuid()"
         },
         "hospital_id": {
           "name": "hospital_id",
@@ -19671,7 +19671,7 @@
           "type": "varchar",
           "primaryKey": true,
           "notNull": true,
-          "default": "sql`gen_random_uuid()`"
+          "default": "gen_random_uuid()"
         },
         "set_id": {
           "name": "set_id",
