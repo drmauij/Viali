@@ -18,9 +18,10 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { Plus, Pill, Trash2, Loader2, Check, ChevronsUpDown, AlertTriangle, Package, User, Calendar, X, Search } from "lucide-react";
+import { Plus, Pill, Trash2, Loader2, Check, ChevronsUpDown, AlertTriangle, Package, User, Calendar, X, Search, Printer, FileText } from "lucide-react";
 import SignaturePad from "@/components/SignaturePad";
 import { formatDate } from "@/lib/dateUtils";
+import jsPDF from "jspdf";
 
 interface DischargeMedicationsTabProps {
   patientId: string;
@@ -219,6 +220,145 @@ export function DischargeMedicationsTab({
 
   const hasControlledItems = medicationItems.some(item => item.isControlled);
 
+  const createInvoiceMutation = useMutation({
+    mutationFn: async (slot: any) => {
+      const patientRes = await fetch(`/api/patients/${patientId}`, { credentials: "include" });
+      if (!patientRes.ok) throw new Error("Could not load patient data");
+      const patient = await patientRes.json();
+      const customerName = `${patient.firstName || ''} ${patient.surname || ''}`.trim();
+      if (!customerName) throw new Error("Patient name is required for invoice");
+      const addressParts = [patient.street, [patient.postalCode, patient.city].filter(Boolean).join(' ')].filter(Boolean);
+      const customerAddress = addressParts.join(', ') || null;
+
+      const invoiceItems = (slot.items || []).map((medItem: any) => ({
+        lineType: "item" as const,
+        itemId: medItem.itemId,
+        description: medItem.item?.name || medItem.itemId,
+        quantity: medItem.quantity || 1,
+        unitPrice: medItem.endPrice ? parseFloat(medItem.endPrice) : 0,
+        taxRate: 2.6,
+      }));
+
+      if (invoiceItems.length === 0) throw new Error("No medication items to invoice");
+
+      return apiRequest("POST", `/api/clinic/${hospitalId}/invoices`, {
+        hospitalId,
+        patientId,
+        customerName,
+        customerAddress,
+        date: new Date().toISOString(),
+        vatRate: 2.6,
+        comments: slot.notes || null,
+        status: "draft",
+        items: invoiceItems,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: t('dischargeMedications.invoiceCreated', 'Draft invoice created successfully. You can find it in the Invoices section.') });
+      queryClient.invalidateQueries({ queryKey: ['/api/clinic', hospitalId, 'invoices'] });
+    },
+    onError: (error: any) => {
+      const msg = error.message?.includes('403') || error.message?.includes('Access denied')
+        ? t('dischargeMedications.invoiceAccessDenied', 'Invoice creation requires clinic module access. Please check with your administrator.')
+        : error.message;
+      toast({ title: t('common.error', 'Error'), description: msg, variant: "destructive" });
+    },
+  });
+
+  const printLabels = (slot: any, columns: number) => {
+    const items = slot.items || [];
+    if (items.length === 0) {
+      toast({ title: t('dischargeMedications.noItemsToPrint', 'No medications to print labels for'), variant: "destructive" });
+      return;
+    }
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = 210;
+    const pageH = 297;
+    const marginX = 10;
+    const marginY = 10;
+    const gap = 4;
+    const labelW = (pageW - 2 * marginX - (columns - 1) * gap) / columns;
+    const labelH = columns === 2 ? 50 : 38;
+    const rows = Math.floor((pageH - 2 * marginY + gap) / (labelH + gap));
+    const doctorName = slot.doctor ? `Dr. ${slot.doctor.firstName} ${slot.doctor.lastName}` : '';
+    const dateStr = formatDate(slot.createdAt);
+    const fullPatientName = patientName || t('dischargeMedications.unknownPatient', 'Patient');
+
+    let labelIdx = 0;
+
+    for (const medItem of items) {
+      const col = labelIdx % columns;
+      const row = Math.floor(labelIdx / columns) % rows;
+      const page = Math.floor(labelIdx / (columns * rows));
+
+      if (page > 0 && col === 0 && row === 0) {
+        doc.addPage();
+      }
+
+      const x = marginX + col * (labelW + gap);
+      const y = marginY + row * (labelH + gap);
+
+      doc.setDrawColor(180);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(x, y, labelW, labelH, 2, 2);
+
+      const px = x + 3;
+      let py = y + 5;
+      const maxTextW = labelW - 6;
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text(fullPatientName, px, py, { maxWidth: maxTextW });
+      py += 4;
+      if (patientBirthday) {
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.text(`geb. ${patientBirthday}`, px, py, { maxWidth: maxTextW });
+        py += 3.5;
+      }
+
+      doc.setDrawColor(200);
+      doc.line(px, py, x + labelW - 3, py);
+      py += 3;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      const medName = medItem.item?.name || medItem.itemId || '';
+      const nameLines = doc.splitTextToSize(medName, maxTextW);
+      doc.text(nameLines.slice(0, 2), px, py);
+      py += nameLines.slice(0, 2).length * 4;
+
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      const detailParts: string[] = [];
+      if (medItem.quantity) detailParts.push(`${medItem.quantity} ${medItem.unitType === 'pills' ? 'Tbl.' : 'Pkg.'}`);
+      if (medItem.administrationRoute) detailParts.push(medItem.administrationRoute);
+      if (medItem.frequency) detailParts.push(medItem.frequency);
+      if (detailParts.length > 0) {
+        doc.text(detailParts.join('  |  '), px, py, { maxWidth: maxTextW });
+        py += 3.5;
+      }
+      if (medItem.notes) {
+        doc.setFontSize(7);
+        doc.text(medItem.notes, px, py, { maxWidth: maxTextW });
+        py += 3;
+      }
+
+      doc.setFontSize(6.5);
+      doc.setTextColor(100);
+      const footerY = y + labelH - 3;
+      doc.text(dateStr, px, footerY);
+      if (doctorName) {
+        doc.text(doctorName, x + labelW - 3, footerY, { align: "right" });
+      }
+      doc.setTextColor(0);
+
+      labelIdx++;
+    }
+
+    doc.save(`discharge-labels-${fullPatientName.replace(/\s+/g, '_')}-${dateStr}.pdf`);
+  };
+
   const handleSave = () => {
     if (medicationItems.length === 0) {
       toast({ title: t('dischargeMedications.noItems', 'Please add at least one medication'), variant: "destructive" });
@@ -352,6 +492,53 @@ export function DischargeMedicationsTab({
                       </div>
                     </div>
                   ))}
+                </div>
+                <Separator className="my-3" />
+                <div className="flex flex-wrap gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" data-testid={`button-print-labels-${slot.id}`}>
+                        <Printer className="h-4 w-4 mr-1" />
+                        {t('dischargeMedications.printLabels', 'Print Labels')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2" align="start">
+                      <div className="flex flex-col gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start"
+                          onClick={() => printLabels(slot, 2)}
+                          data-testid={`button-print-labels-2col-${slot.id}`}
+                        >
+                          {t('dischargeMedications.printLabels2col', '2 Columns (larger labels)')}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="justify-start"
+                          onClick={() => printLabels(slot, 3)}
+                          data-testid={`button-print-labels-3col-${slot.id}`}
+                        >
+                          {t('dischargeMedications.printLabels3col', '3 Columns (smaller labels)')}
+                        </Button>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => createInvoiceMutation.mutate(slot)}
+                    disabled={createInvoiceMutation.isPending}
+                    data-testid={`button-create-invoice-${slot.id}`}
+                  >
+                    {createInvoiceMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4 mr-1" />
+                    )}
+                    {t('dischargeMedications.createInvoice', 'Create Invoice Draft')}
+                  </Button>
                 </div>
               </CardContent>
             </Card>
