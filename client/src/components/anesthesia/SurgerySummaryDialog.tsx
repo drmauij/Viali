@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, ClipboardList, Activity, ChevronRight, Download, Loader2, ExternalLink, UserRoundCog, Send, Eye, EyeOff, Bed } from "lucide-react";
+import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 import { PacuBedSelector } from "@/components/anesthesia/PacuBedSelector";
 import { apiRequest } from "@/lib/queryClient";
 import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnaireDialog";
@@ -41,7 +42,7 @@ export default function SurgerySummaryDialog({
   onEditPatient,
   activeModule,
 }: SurgerySummaryDialogProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
   const { addons } = useHospitalAddons();
@@ -395,6 +396,31 @@ export default function SurgerySummaryDialog({
                         <div className="text-sm mt-2 pt-2 border-t border-border/50">
                           <span className="text-xs font-medium text-muted-foreground">{t('anesthesia.surgerySummary.notes')}</span>
                           <p className="text-sm mt-0.5 whitespace-pre-wrap" data-testid="text-summary-notes">{surgery.notes}</p>
+                        </div>
+                      )}
+                      {(surgery.patientPosition || surgery.leftArmPosition || surgery.rightArmPosition) && (
+                        <div className="mt-3 p-2.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg" data-testid="text-summary-positioning">
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <Bed className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                            <span className="text-xs font-semibold text-indigo-700 dark:text-indigo-300 uppercase tracking-wide">{t('anesthesia.surgerySummary.positioning', 'Positioning')}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {surgery.patientPosition && (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-indigo-100 dark:bg-indigo-900/60 text-xs font-semibold text-indigo-800 dark:text-indigo-200">
+                                {getPositionDisplayLabel(surgery.patientPosition, i18n.language === 'de')}
+                              </span>
+                            )}
+                            {surgery.leftArmPosition && (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-900/60 text-xs font-medium text-blue-800 dark:text-blue-200">
+                                {i18n.language === 'de' ? 'L. Arm' : 'L. Arm'}: {getArmDisplayLabel(surgery.leftArmPosition, i18n.language === 'de')}
+                              </span>
+                            )}
+                            {surgery.rightArmPosition && (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-900/60 text-xs font-medium text-blue-800 dark:text-blue-200">
+                                {i18n.language === 'de' ? 'R. Arm' : 'R. Arm'}: {getArmDisplayLabel(surgery.rightArmPosition, i18n.language === 'de')}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
