@@ -9,7 +9,11 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { randomUUID } from "crypto";
 import { sendSms, isSmsConfigured, isSmsConfiguredForHospital } from "../sms";
+import { sendExternalSurgeryRequestNotification } from "../resend";
 import { Resend } from "resend";
+import { db } from "../db";
+import { users, userHospitalRoles, units } from "@shared/schema";
+import { eq, and } from "drizzle-orm";
 
 const router = Router();
 
@@ -144,6 +148,57 @@ router.post('/public/external-surgery/:token', submitLimiter, async (req: Reques
       requestId: request.id,
       message: "Your surgery reservation request has been submitted successfully."
     });
+
+    (async () => {
+      try {
+        const orAdmins = await db
+          .select({
+            email: users.email,
+            firstName: users.firstName,
+            lastName: users.lastName,
+          })
+          .from(userHospitalRoles)
+          .innerJoin(users, eq(users.id, userHospitalRoles.userId))
+          .innerJoin(units, eq(units.id, userHospitalRoles.unitId))
+          .where(
+            and(
+              eq(userHospitalRoles.hospitalId, result.hospital.id),
+              eq(userHospitalRoles.role, 'admin'),
+              eq(units.type, 'or')
+            )
+          );
+
+        if (orAdmins.length === 0) {
+          console.log('[ExternalSurgery] No OR-admin users found for hospital', result.hospital.id);
+          return;
+        }
+
+        const baseUrl = process.env.PRODUCTION_URL || process.env.PUBLIC_URL || 'http://localhost:5000';
+        const deepLinkUrl = `${baseUrl}/anesthesia/op?openRequests=true`;
+        const patientName = `${parsed.data.patientLastName}, ${parsed.data.patientFirstName}`;
+        const surgeonName = `Dr. ${parsed.data.surgeonLastName}, ${parsed.data.surgeonFirstName}`;
+        const wishedDate = parsed.data.wishedDate || '';
+
+        for (const admin of orAdmins) {
+          if (!admin.email) continue;
+          const userName = [admin.firstName, admin.lastName].filter(Boolean).join(' ') || 'Admin';
+          sendExternalSurgeryRequestNotification(
+            admin.email,
+            userName,
+            result.hospital.name,
+            patientName,
+            parsed.data.surgeryName,
+            surgeonName,
+            wishedDate,
+            deepLinkUrl,
+            'de'
+          ).catch(err => console.error('[ExternalSurgery] Failed to send notification to', admin.email, err));
+        }
+        console.log(`[ExternalSurgery] Sent notifications to ${orAdmins.length} OR-admin(s) for hospital ${result.hospital.name}`);
+      } catch (err) {
+        console.error('[ExternalSurgery] Error sending admin notifications:', err);
+      }
+    })();
   } catch (error) {
     console.error("Error submitting external surgery request:", error);
     res.status(500).json({ message: "Failed to submit request" });

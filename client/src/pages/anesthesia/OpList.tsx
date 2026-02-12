@@ -61,6 +61,10 @@ export default function OpList() {
   const isGerman = i18n.language === 'de';
   const hasExternalSurgeryToken = !!activeHospital?.externalSurgeryToken;
   const showExternalRequests = hasExternalSurgeryToken && activeHospital?.unitType === 'or' && activeHospital?.role === 'admin';
+  const [openRequestsFromUrl] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('openRequests') === 'true';
+  });
   
   // Initialize viewMode from sessionStorage to persist across navigation
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -285,6 +289,7 @@ export default function OpList() {
         <div className="flex items-center gap-3">
           {showExternalRequests && (
             <ExternalReservationsPanel
+              defaultOpen={openRequestsFromUrl}
               trigger={
                 <Button 
                   variant="outline" 

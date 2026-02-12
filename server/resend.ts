@@ -283,6 +283,93 @@ export async function sendBulkImportCompleteEmail(
   }
 }
 
+export async function sendExternalSurgeryRequestNotification(
+  toEmail: string,
+  userName: string,
+  hospitalName: string,
+  patientName: string,
+  surgeryName: string,
+  surgeonName: string,
+  wishedDate: string,
+  deepLinkUrl: string,
+  language: 'de' | 'en' = 'en'
+) {
+  try {
+    const { client, fromEmail } = getResendClient();
+    console.log('[Email] Sending external surgery request notification from:', fromEmail, 'to:', toEmail);
+
+    const isGerman = language === 'de';
+
+    const subject = isGerman
+      ? `Neue externe OP-Anfrage: ${patientName} – ${surgeryName}`
+      : `New External Surgery Request: ${patientName} – ${surgeryName}`;
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background-color: #2563eb; color: white; padding: 20px; text-align: center; }
+            .content { padding: 30px; background-color: #f9fafb; }
+            .details { background: white; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #2563eb; }
+            .button { display: inline-block; padding: 12px 24px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+            .footer { padding: 20px; text-align: center; font-size: 12px; color: #666; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${isGerman ? 'Neue externe OP-Anfrage' : 'New External Surgery Request'}</h1>
+              <p style="margin: 0;">${hospitalName}</p>
+            </div>
+            <div class="content">
+              <p>${isGerman ? 'Guten Tag' : 'Hello'} ${userName},</p>
+              <p>${isGerman
+                ? 'Eine neue externe OP-Anfrage wurde für Ihr Spital eingereicht:'
+                : 'A new external surgery request has been submitted for your hospital:'}</p>
+
+              <div class="details">
+                <p><strong>${isGerman ? 'Patient' : 'Patient'}:</strong> ${patientName}</p>
+                <p><strong>${isGerman ? 'Eingriff' : 'Surgery'}:</strong> ${surgeryName}</p>
+                <p><strong>${isGerman ? 'Chirurg' : 'Surgeon'}:</strong> ${surgeonName}</p>
+                <p><strong>${isGerman ? 'Gewünschtes Datum' : 'Requested Date'}:</strong> ${wishedDate}</p>
+              </div>
+
+              <p style="text-align: center;">
+                <a href="${deepLinkUrl}" class="button">${isGerman ? 'Anfrage ansehen' : 'View Request'}</a>
+              </p>
+            </div>
+            <div class="footer">
+              <p>Viali Hospital Inventory Management System</p>
+              <p>${isGerman ? 'Dies ist eine automatische E-Mail.' : 'This is an automated email.'}</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const { data, error } = await client.emails.send({
+      from: fromEmail,
+      to: toEmail,
+      subject,
+      html,
+    });
+
+    if (error) {
+      console.error('Failed to send external surgery request notification:', error);
+      return { success: false, error };
+    }
+
+    console.log(`[Email] Successfully sent external surgery request notification to ${toEmail}`);
+    return { success: true, data };
+  } catch (error) {
+    console.error('Error sending external surgery request notification:', error);
+    return { success: false, error };
+  }
+}
+
 export interface StockAlertItem {
   itemName: string;
   currentUnits: number;

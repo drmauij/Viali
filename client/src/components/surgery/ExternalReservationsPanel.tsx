@@ -219,14 +219,15 @@ function ScheduleDialog({ request, open, onOpenChange, onScheduled, surgeryRooms
 
 interface ExternalReservationsPanelProps {
   trigger?: React.ReactNode;
+  defaultOpen?: boolean;
 }
 
-export function ExternalReservationsPanel({ trigger }: ExternalReservationsPanelProps) {
+export function ExternalReservationsPanel({ trigger, defaultOpen = false }: ExternalReservationsPanelProps) {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
   const activeHospital = useActiveHospital();
   const isGerman = i18n.language === 'de';
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [selectedRequest, setSelectedRequest] = useState<ExternalSurgeryRequest | null>(null);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
 
