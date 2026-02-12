@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { storage, db } from "../../storage";
-import { anesthesiaRecordMedications, medicationConfigs, administrationGroups } from "@shared/schema";
+import { anesthesiaRecordMedications, medicationConfigs, administrationGroups, anesthesiaRecords, items } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { isAuthenticated } from "../../auth/google";
 import { requireWriteAccess } from "../../utils";
@@ -1278,6 +1278,253 @@ router.post('/api/inventory-sets/:setId/apply', isAuthenticated, requireWriteAcc
   } catch (error) {
     console.error("Error applying inventory set:", error);
     res.status(500).json({ message: "Failed to apply inventory set" });
+  }
+});
+
+// =====================================
+// Surgery Sets Endpoints
+// =====================================
+
+router.get('/api/surgery-sets/:hospitalId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { hospitalId } = req.params;
+    const userId = req.user.id;
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const sets = await storage.getSurgerySets(hospitalId);
+    
+    const setsWithDetails = await Promise.all(sets.map(async (set) => {
+      const inventoryItems = await storage.getSurgerySetInventory(set.id);
+      const inventoryWithNames = await Promise.all(inventoryItems.map(async (inv) => {
+        const [item] = await db.select({ name: items.name }).from(items).where(eq(items.id, inv.itemId));
+        return { ...inv, itemName: item?.name || 'Unknown' };
+      }));
+      return { ...set, inventoryItems: inventoryWithNames };
+    }));
+    
+    res.json(setsWithDetails);
+  } catch (error) {
+    console.error("Error fetching surgery sets:", error);
+    res.status(500).json({ message: "Failed to fetch surgery sets" });
+  }
+});
+
+router.get('/api/surgery-sets/set/:setId', isAuthenticated, async (req: any, res) => {
+  try {
+    const { setId } = req.params;
+    const userId = req.user.id;
+
+    const set = await storage.getSurgerySet(setId);
+    if (!set) {
+      return res.status(404).json({ message: "Surgery set not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const inventoryItems = await storage.getSurgerySetInventory(set.id);
+    const inventoryWithNames = await Promise.all(inventoryItems.map(async (inv) => {
+      const [item] = await db.select({ name: items.name }).from(items).where(eq(items.id, inv.itemId));
+      return { ...inv, itemName: item?.name || 'Unknown' };
+    }));
+
+    res.json({ ...set, inventoryItems: inventoryWithNames });
+  } catch (error) {
+    console.error("Error fetching surgery set:", error);
+    res.status(500).json({ message: "Failed to fetch surgery set" });
+  }
+});
+
+router.post('/api/surgery-sets', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { hospitalId, name, description, intraOpData, inventoryItems } = req.body;
+    const userId = req.user.id;
+
+    if (!hospitalId || !name) {
+      return res.status(400).json({ message: "hospitalId and name are required" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const set = await storage.createSurgerySet({
+      hospitalId,
+      name,
+      description: description || null,
+      intraOpData: intraOpData || null,
+      createdBy: userId,
+    });
+
+    if (inventoryItems?.length) {
+      for (let i = 0; i < inventoryItems.length; i++) {
+        await storage.createSurgerySetInventoryItem({
+          setId: set.id,
+          itemId: inventoryItems[i].itemId,
+          quantity: inventoryItems[i].quantity || 1,
+          sortOrder: i,
+        });
+      }
+    }
+
+    res.status(201).json(set);
+  } catch (error) {
+    console.error("Error creating surgery set:", error);
+    res.status(500).json({ message: "Failed to create surgery set" });
+  }
+});
+
+router.patch('/api/surgery-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { setId } = req.params;
+    const { name, description, intraOpData, inventoryItems } = req.body;
+    const userId = req.user.id;
+
+    const set = await storage.getSurgerySet(setId);
+    if (!set) {
+      return res.status(404).json({ message: "Surgery set not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    const updated = await storage.updateSurgerySet(setId, {
+      name: name || set.name,
+      description: description !== undefined ? description : set.description,
+      intraOpData: intraOpData !== undefined ? intraOpData : set.intraOpData,
+    });
+
+    if (inventoryItems !== undefined) {
+      await storage.deleteSurgerySetInventory(setId);
+      for (let i = 0; i < inventoryItems.length; i++) {
+        await storage.createSurgerySetInventoryItem({
+          setId,
+          itemId: inventoryItems[i].itemId,
+          quantity: inventoryItems[i].quantity || 1,
+          sortOrder: i,
+        });
+      }
+    }
+
+    res.json(updated);
+  } catch (error) {
+    console.error("Error updating surgery set:", error);
+    res.status(500).json({ message: "Failed to update surgery set" });
+  }
+});
+
+router.delete('/api/surgery-sets/:setId', isAuthenticated, requireAdminRole, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { setId } = req.params;
+    const userId = req.user.id;
+
+    const set = await storage.getSurgerySet(setId);
+    if (!set) {
+      return res.status(404).json({ message: "Surgery set not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    await storage.deleteSurgerySet(setId);
+    res.json({ message: "Surgery set deleted" });
+  } catch (error) {
+    console.error("Error deleting surgery set:", error);
+    res.status(500).json({ message: "Failed to delete surgery set" });
+  }
+});
+
+router.post('/api/surgery-sets/:setId/apply/:anesthesiaRecordId', isAuthenticated, requireWriteAccess, async (req: any, res) => {
+  try {
+    const { setId, anesthesiaRecordId } = req.params;
+    const userId = req.user.id;
+
+    const set = await storage.getSurgerySet(setId);
+    if (!set) {
+      return res.status(404).json({ message: "Surgery set not found" });
+    }
+
+    const record = await storage.getAnesthesiaRecordById(anesthesiaRecordId);
+    if (!record) {
+      return res.status(404).json({ message: "Anesthesia record not found" });
+    }
+
+    const hospitals = await storage.getUserHospitals(userId);
+    const hasAccess = hospitals.some(h => h.id === set.hospitalId);
+    if (!hasAccess) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    let intraOpApplied = false;
+    let inventoryApplied = 0;
+
+    if (set.intraOpData && Object.keys(set.intraOpData).length > 0) {
+      const existingIntraOp = (record as any).intraOpData || (record as any).intra_op_data || {};
+      const mergedIntraOp = { ...existingIntraOp };
+      
+      const setData = set.intraOpData as Record<string, any>;
+      for (const [section, values] of Object.entries(setData)) {
+        if (typeof values === 'object' && values !== null && !Array.isArray(values)) {
+          mergedIntraOp[section] = { ...(mergedIntraOp[section] || {}), ...values };
+        } else {
+          mergedIntraOp[section] = values;
+        }
+      }
+
+      await db
+        .update(anesthesiaRecords)
+        .set({ intraOpData: mergedIntraOp })
+        .where(eq(anesthesiaRecords.id, anesthesiaRecordId));
+      
+      intraOpApplied = true;
+    }
+
+    const setInventoryItems = await storage.getSurgerySetInventory(setId);
+    for (const inv of setInventoryItems) {
+      try {
+        const existingUsage = await storage.getInventoryUsageByItem(anesthesiaRecordId, inv.itemId);
+        if (!existingUsage) {
+          await storage.createInventoryUsage({
+            anesthesiaRecordId,
+            itemId: inv.itemId,
+            calculatedQty: "0",
+            overrideQty: String(inv.quantity),
+            overrideReason: `Applied surgery set: ${set.name}`,
+            overriddenBy: userId,
+            overriddenAt: new Date(),
+          });
+          inventoryApplied++;
+        }
+      } catch (invError) {
+        console.error(`Error applying surgery set inventory item ${inv.itemId}:`, invError);
+      }
+    }
+
+    res.json({
+      message: "Surgery set applied successfully",
+      intraOpApplied,
+      inventoryApplied,
+    });
+  } catch (error) {
+    console.error("Error applying surgery set:", error);
+    res.status(500).json({ message: "Failed to apply surgery set" });
   }
 });
 

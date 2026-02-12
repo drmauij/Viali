@@ -40,7 +40,8 @@ Core design decisions include:
 - **Custom Sorting**: Drag-and-drop functionality for organizing items and folders.
 - **Bulk Import with AI & Background Worker**: AI-powered bulk photo import using Vision AI, processed asynchronously.
 - **Switchable Vision AI Provider**: Hospital-level selection between OpenAI GPT-4o-mini and Mistral Pixtral for vision analysis tasks.
-- **Anesthesia Module**: Configurable inventory locations, role-based access, comprehensive timeline CRUD, BIS/TOF monitoring, automated inventory usage, and extensive documentation with e-signatures.
+- **Anesthesia Module**: Configurable inventory locations, role-based access, comprehensive timeline CRUD, BIS/TOF monitoring, automated inventory usage, and extensive documentation with e-signatures. Includes "Anesthesia Sets" for predefined technique/medication/inventory bundles.
+- **Surgery Sets**: Predefined sets for surgery nursing documentation containing intraOpData snapshots (positioning, disinfection, equipment, irrigation, medications, dressing, drainage) and inventory items. Admin-only CRUD via `/api/surgery-sets` routes. Apply endpoint merges set data with existing intraOpData. Schema: `surgery_sets` (JSONB intraOpData) and `surgery_set_inventory` tables. UI: `SurgerySetsDialog` component accessible via Sets button in surgery mode on Op.tsx.
 - **Hospital Seed Data System**: Automated and manual provisioning of new hospitals with default data.
 - **Universal Value Editing System**: Consistent `EditableValue` component for click-to-edit functionality.
 - **Anesthesia Record Enhancements**: Common event quick-add, OP calendar status indicators, full localization, comprehensive PDF export, record locking, and sticker documentation storage in Exoscale S3.

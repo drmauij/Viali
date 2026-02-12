@@ -22,6 +22,7 @@ import { PatientWeightDialog } from "@/components/anesthesia/dialogs/PatientWeig
 import { DuplicateRecordsDialog } from "@/components/anesthesia/DuplicateRecordsDialog";
 import { CameraConnectionDialog } from "@/components/anesthesia/dialogs/CameraConnectionDialog";
 import { UnifiedAnesthesiaSetsDialog } from "@/components/anesthesia/dialogs/UnifiedAnesthesiaSetsDialog";
+import { SurgerySetsDialog } from "@/components/anesthesia/dialogs/SurgerySetsDialog";
 import { useOpData } from "@/hooks/useOpData";
 import { useChecklistState } from "@/hooks/useChecklistState";
 import { usePacuDataFiltering } from "@/hooks/usePacuDataFiltering";
@@ -102,6 +103,7 @@ export default function Op() {
   const [isOpen, setIsOpen] = useState(true);
   const [openEventsPanel, setOpenEventsPanel] = useState(false);
   const [showSetsDialog, setShowSetsDialog] = useState(false);
+  const [showSurgerySetsDialog, setShowSurgerySetsDialog] = useState(false);
   const activeHospital = useActiveHospital();
   const { toast } = useToast();
   const { activeModule } = useModule();
@@ -1419,6 +1421,21 @@ export default function Op() {
         }}
       />
     )}
+
+    {/* Surgery Sets Dialog */}
+    {activeHospital?.id && isSurgeryMode && (
+      <SurgerySetsDialog
+        open={showSurgerySetsDialog}
+        onOpenChange={setShowSurgerySetsDialog}
+        hospitalId={activeHospital.id}
+        recordId={anesthesiaRecord?.id}
+        isAdmin={activeHospital?.role === 'admin'}
+        onSetApplied={() => {
+          queryClient.invalidateQueries({ queryKey: ['/api/anesthesia/inventory', anesthesiaRecord?.id] });
+          queryClient.invalidateQueries({ queryKey: [`/api/anesthesia/records/surgery/${surgeryId}`] });
+        }}
+      />
+    )}
     
     <Dialog open={isOpen && !showWeightDialog && !showDuplicatesDialog} onOpenChange={handleDialogChange}>
       <DialogContent className="max-w-full h-[100dvh] m-0 p-0 gap-0 flex flex-col [&>button]:hidden" aria-describedby="op-dialog-description">
@@ -1561,6 +1578,18 @@ export default function Op() {
                 >
                   <Layers className="h-4 w-4" />
                   <span className="hidden sm:inline">{t('anesthesia.sets.title', 'Sets')}</span>
+                </Button>
+              )}
+              {isSurgeryMode && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center gap-1 sm:gap-2 shrink-0"
+                  data-testid="button-open-surgery-sets"
+                  onClick={() => setShowSurgerySetsDialog(true)}
+                >
+                  <Layers className="h-4 w-4" />
+                  <span className="hidden sm:inline">{t('surgery.sets.title', 'Sets')}</span>
                 </Button>
               )}
               {!isSurgeryMode && (

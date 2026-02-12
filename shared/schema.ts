@@ -4914,6 +4914,53 @@ export type InsertInventorySet = z.infer<typeof insertInventorySetSchema>;
 export type InventorySetItem = typeof inventorySetItems.$inferSelect;
 export type InsertInventorySetItem = z.infer<typeof insertInventorySetItemSchema>;
 
+// ========== SURGERY SETS ==========
+// Predefined sets of intraoperative data + inventory items for quick surgery documentation
+
+export const surgerySets = pgTable("surgery_sets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  hospitalId: varchar("hospital_id").notNull().references(() => hospitals.id, { onDelete: 'cascade' }),
+  name: varchar("name").notNull(),
+  description: text("description"),
+  intraOpData: jsonb("intra_op_data").$type<Record<string, any>>(),
+  sortOrder: integer("sort_order").default(0),
+  isActive: boolean("is_active").default(true),
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  index("idx_surgery_sets_hospital").on(table.hospitalId),
+]);
+
+export const surgerySetInventory = pgTable("surgery_set_inventory", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  setId: varchar("set_id").notNull().references(() => surgerySets.id, { onDelete: 'cascade' }),
+  itemId: varchar("item_id").notNull().references(() => items.id, { onDelete: 'cascade' }),
+  quantity: integer("quantity").notNull().default(1),
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => [
+  index("idx_surgery_set_inventory_set").on(table.setId),
+  index("idx_surgery_set_inventory_item").on(table.itemId),
+  unique("uq_surgery_set_inventory").on(table.setId, table.itemId),
+]);
+
+export const insertSurgerySetSchema = createInsertSchema(surgerySets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertSurgerySetInventorySchema = createInsertSchema(surgerySetInventory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type SurgerySet = typeof surgerySets.$inferSelect;
+export type InsertSurgerySet = z.infer<typeof insertSurgerySetSchema>;
+export type SurgerySetInventoryItem = typeof surgerySetInventory.$inferSelect;
+export type InsertSurgerySetInventoryItem = z.infer<typeof insertSurgerySetInventorySchema>;
+
 // ========== HIN MEDIUPDATE ARTICLES ==========
 // Swiss medication/product database from HIN MediUpdate XML (free public data)
 // Used as fallback when Dispocura/Galexis integration is not available
