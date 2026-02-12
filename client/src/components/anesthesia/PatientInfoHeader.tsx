@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { UserCircle, AlertCircle, Download, X, Wifi, WifiOff, RefreshCw, Users, Camera, CameraOff } from "lucide-react";
 import { formatDate } from "@/lib/dateUtils";
 import { useTranslation } from "react-i18next";
+import { getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 
 type ConnectionState = 'connected' | 'connecting' | 'disconnected' | 'stale';
 
@@ -49,7 +50,8 @@ export function PatientInfoHeader({
   isCameraConnected = false,
   onOpenCameraDialog,
 }: PatientInfoHeaderProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isGerman = i18n.language === 'de';
 
   const getConnectionIcon = () => {
     switch (connectionState) {
@@ -218,6 +220,15 @@ export function PatientInfoHeader({
             {surgery.surgeon && (
               <p className="text-xs text-muted-foreground mt-0.5">
                 {surgery.surgeon} • {formatDate(surgery.plannedDate)}
+              </p>
+            )}
+            {(surgery.patientPosition || surgery.leftArmPosition || surgery.rightArmPosition) && (
+              <p className="text-xs text-primary/80 mt-1">
+                {[
+                  surgery.patientPosition && getPositionDisplayLabel(surgery.patientPosition, isGerman),
+                  surgery.leftArmPosition && `${isGerman ? 'L. Arm' : 'L. Arm'}: ${getArmDisplayLabel(surgery.leftArmPosition, isGerman)}`,
+                  surgery.rightArmPosition && `${isGerman ? 'R. Arm' : 'R. Arm'}: ${getArmDisplayLabel(surgery.rightArmPosition, isGerman)}`,
+                ].filter(Boolean).join(' · ')}
               </p>
             )}
           </div>

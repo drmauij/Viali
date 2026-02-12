@@ -41,7 +41,7 @@ import { SendQuestionnaireDialog } from "@/components/anesthesia/SendQuestionnai
 import AddressAutocomplete from "@/components/AddressAutocomplete";
 import { CameraCapture } from "@/components/CameraCapture";
 import { PatientDocumentsSection } from "@/components/shared/PatientDocumentsSection";
-import { PatientPositionFields } from "@/components/surgery/PatientPositionFields";
+import { PatientPositionFields, getPositionDisplayLabel, getArmDisplayLabel } from "@/components/surgery/PatientPositionFields";
 
 type Patient = {
   id: string;
@@ -314,7 +314,7 @@ function PatientCardImageUploader({
 }
 
 export default function PatientDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // Support anesthesia, surgery, and clinic module routes
   const [, anesthesiaParams] = useRoute("/anesthesia/patients/:id");
   const [, surgeryParams] = useRoute("/surgery/patients/:id");
@@ -4253,6 +4253,23 @@ export default function PatientDetail() {
                       </p>
                     </div>
                   </div>
+                  {(() => {
+                    const selectedSurgery = surgeries?.find(s => s.id === selectedCaseId);
+                    if (!selectedSurgery?.patientPosition && !selectedSurgery?.leftArmPosition && !selectedSurgery?.rightArmPosition) return null;
+                    const isDE = i18n.language === 'de';
+                    return (
+                      <div className="mt-3 pt-3 border-t border-primary/20">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">{isDE ? 'Lagerung' : 'Positioning'}</p>
+                        <p className="font-semibold text-base" data-testid="text-preop-positioning">
+                          {[
+                            selectedSurgery.patientPosition && getPositionDisplayLabel(selectedSurgery.patientPosition, isDE),
+                            selectedSurgery.leftArmPosition && `${isDE ? 'L. Arm' : 'L. Arm'}: ${getArmDisplayLabel(selectedSurgery.leftArmPosition, isDE)}`,
+                            selectedSurgery.rightArmPosition && `${isDE ? 'R. Arm' : 'R. Arm'}: ${getArmDisplayLabel(selectedSurgery.rightArmPosition, isDE)}`,
+                          ].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+                    );
+                  })()}
                 </CardContent>
               </Card>
 
