@@ -81,9 +81,9 @@ export function SurgerySetsDialog({
   });
 
   const { data: inventoryItems = [] } = useQuery<InventoryItemOption[]>({
-    queryKey: ['/api/items', hospitalId],
+    queryKey: ['/api/items', hospitalId, 'surgery'],
     queryFn: async () => {
-      const res = await fetch(`/api/items/${hospitalId}`, { credentials: 'include' });
+      const res = await fetch(`/api/items/${hospitalId}?module=surgery`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch');
       return res.json();
     },
