@@ -81,7 +81,7 @@ import { useTranslation } from "react-i18next";
 import { saveMedication, saveTimeMarkers } from "@/services/timelinePersistence";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useVitalsState } from "@/hooks/useVitalsState";
-import { useMedicationState } from "@/hooks/useMedicationState";
+import { useMedicationState, type MedicationDosePoint } from "@/hooks/useMedicationState";
 import { useVentilationState } from "@/hooks/useVentilationState";
 import { useEventState } from "@/hooks/useEventState";
 import { useOutputState } from "@/hooks/useOutputState";
@@ -293,6 +293,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         if (item && item.administrationGroup) {
           const swimlaneId = `admingroup-${item.administrationGroup}-item-${item.id}`;
           const newSession = {
+            id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             swimlaneId,
             startTime: new Date(variables.timestamp).getTime(),
             dose: variables.dose,
@@ -587,6 +588,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     setInfusionData,
     setRateInfusionSessions,
     setFreeFlowSessions,
+    addMedicationDose,
+    addInfusionPoint,
     getActiveRateSession,
     getActiveFreeFlowSession,
     resetMedicationData,
@@ -719,6 +722,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     ventilationModeData,
     setVentilationData,
     setVentilationModeData,
+    addVentilationPoint,
+    addVentilationMode,
     resetVentilationData,
   } = useVentilationState({
     ventilation: {},
@@ -1130,7 +1135,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       setOutputData(outputDataEntries);
     } else {
       // Clear stale state when switching to record with no data
-      setOutputData({});
+      setOutputData({ urine: [], blood: [], gastricTube: [], drainage: [], vomit: [] });
     }
   }, [clinicalSnapshot, setOutputData]);
 
@@ -1735,7 +1740,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     Object.keys(freeFlowSessions).forEach(swimlaneId => {
       const sessions = freeFlowSessions[swimlaneId];
       if (sessions && sessions.length > 0) {
-        trackCounts[swimlaneId] = calculateMaxTracks(sessions, maxTime);
+        trackCounts[swimlaneId] = calculateMaxTracks(sessions.map(s => ({ ...s, endTime: s.endTime ?? null })), maxTime);
       }
     });
     
@@ -3514,7 +3519,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
       
       // Step 3 & 4: Process each drug in the command
       const addedDrugs: string[] = [];
-      const doseUpdates: Record<string, [number, string][]> = {};
+      const doseUpdates: Record<string, MedicationDosePoint[]> = {};
       
       for (const drugCommand of response.drugs) {
         if (!drugCommand.drug || !drugCommand.dose) continue;
@@ -3531,7 +3536,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           if (!doseUpdates[targetSwimlaneId]) {
             doseUpdates[targetSwimlaneId] = [];
           }
-          doseUpdates[targetSwimlaneId].push([timestamp, drugCommand.dose] as [number, string]);
+          doseUpdates[targetSwimlaneId].push([timestamp, drugCommand.dose, `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, null]);
           
           addedDrugs.push(`${drugCommand.drug} ${drugCommand.dose}${matchInfo}`);
         } else {
@@ -3653,6 +3658,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // Create new session
     const newSession: FreeFlowSession = {
+      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       swimlaneId,
       startTime: time,
       dose: doseValue,
@@ -3712,7 +3718,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     toast({
       title: "Administration stopped",
-      description: `${managingFreeFlowSession.label} stopped at ${formatTime(stopTime)}`,
+      description: `${managingFreeFlowSession.label} stopped at ${formatTime(new Date(stopTime))}`,
     });
     
     // Reset dialog state
@@ -3730,6 +3736,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // Create new session to resume the infusion
     const newSession: FreeFlowSession = {
+      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       swimlaneId,
       startTime: resumeTime,
       dose,
@@ -3787,6 +3794,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // Create new session with same dose at the new start time
     const newSession: FreeFlowSession = {
+      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       swimlaneId,
       startTime: newStartTime,
       dose,
@@ -4181,6 +4189,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // Create a new session at current time
     const newSession: FreeFlowSession = {
+      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       swimlaneId,
       startTime: newStartTime,
       dose,
@@ -4249,6 +4258,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // 🔥 FIX: Update local state optimistically
     const newSession: FreeFlowSession = {
+      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       swimlaneId,
       startTime: newStartTime,
       dose: newDose,
@@ -4281,7 +4291,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     try {
       await saveMedicationMutation.mutateAsync({
-        anesthesiaRecordId,
+        anesthesiaRecordId: anesthesiaRecordId!,
         itemId: item.id,
         timestamp: new Date(newStartTime),
         type: 'infusion_start' as const,
@@ -4339,6 +4349,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // Update local state optimistically
     const newSession: FreeFlowSession = {
+      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       swimlaneId,
       startTime: newStartTime,
       dose: newDose,
@@ -4371,7 +4382,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     try {
       await saveMedicationMutation.mutateAsync({
-        anesthesiaRecordId,
+        anesthesiaRecordId: anesthesiaRecordId!,
         itemId: item.id,
         timestamp: new Date(newStartTime),
         type: 'infusion_start' as const,
@@ -4594,8 +4605,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     
     // Add new rate segment
     setRateInfusionSessions(prev => {
-      const session = prev[swimlaneId];
-      if (!session) return prev;
+      const sessions = prev[swimlaneId];
+      if (!sessions || sessions.length === 0) return prev;
       
       const newSegment: RateInfusionSegment = {
         startTime: changeTime,
@@ -4603,12 +4614,13 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         rateUnit: rateUnit,
       };
       
+      const activeSession = sessions.find(s => s.state === 'running') || sessions[sessions.length - 1];
       return {
         ...prev,
-        [swimlaneId]: {
-          ...session,
-          segments: [...session.segments, newSegment],
-        },
+        [swimlaneId]: sessions.map(s => s === activeSession ? {
+          ...s,
+          segments: [...s.segments, newSegment],
+        } : s),
       };
     });
     
@@ -4661,13 +4673,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     setRateInfusionSessions(prev => {
       return {
         ...prev,
-        [swimlaneId]: {
+        [swimlaneId]: [...(prev[swimlaneId] || []), {
+          id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           swimlaneId,
           label,
-          syringeQuantity: newQuantity || "50ml", // Default if not specified
+          syringeQuantity: newQuantity || "50ml",
+          startDose: newRate,
           segments: [newSegment],
-          state: 'running',
-        },
+          state: 'running' as const,
+        }],
       };
     });
     
@@ -4753,13 +4767,15 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     };
     setRateInfusionSessions(prev => ({
       ...prev,
-      [swimlaneId]: {
+      [swimlaneId]: [...(prev[swimlaneId] || []), {
+        id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         swimlaneId,
         label,
-        syringeQuantity: "50ml", // Default
+        syringeQuantity: "50ml",
+        startDose: selectedRate,
         segments: [newSegment],
-        state: 'running',
-      },
+        state: 'running' as const,
+      }],
     }));
     
     // Persist to database
@@ -5093,6 +5109,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     setInfusionData,
     setRateInfusionSessions,
     setFreeFlowSessions,
+    addMedicationDose,
+    addInfusionPoint,
     getActiveRateSession,
     getActiveFreeFlowSession,
     resetMedicationData,
@@ -5103,6 +5121,8 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
     ventilationModeData,
     setVentilationData,
     setVentilationModeData,
+    addVentilationPoint,
+    addVentilationMode,
     resetVentilationData,
   };
   
@@ -5867,7 +5887,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
           const topOffset = lane.top - (VITALS_TOP_POS + VITALS_HEIGHT);
           
           // Check if this is a stopped TCI with editable amount via infusion_stop record
-          const stoppedTciSession = isTciMode && sessions.find(s => s.endTime && s.stopRecordId && s.actualAmountUsed);
+          const stoppedTciSession = isTciMode ? sessions.find(s => s.endTime && s.stopRecordId && s.actualAmountUsed) : undefined;
           
           // All medication pills are now editable when canWrite is true
           // Users can override calculated totals with manual values
@@ -6043,7 +6063,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
             // Update local state immediately
             setMedicationDoseData(prev => {
               const existing = prev[swimlaneId] || [];
-              const newEntry: [number, string, string] = [time, dose, `temp-${Date.now()}`];
+              const newEntry: MedicationDosePoint = [time, dose, `temp-${Date.now()}`, null];
               return {
                 ...prev,
                 [swimlaneId]: [...existing, newEntry].sort((a, b) => a[0] - b[0])
@@ -6700,6 +6720,7 @@ export const UnifiedTimeline = forwardRef<UnifiedTimelineRef, {
         onFreeFlowDoseEntry={(swimlaneId, time, dose, label) => {
           // Create new session
           const newSession: FreeFlowSession = {
+            id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
             swimlaneId,
             startTime: time,
             dose,

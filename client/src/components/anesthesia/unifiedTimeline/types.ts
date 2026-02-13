@@ -64,7 +64,7 @@ export type SwimlaneConfig = {
   administrationUnit?: string | null;
   ampuleTotalContent?: string | null;
   itemId?: string;
-  hierarchyLevel?: 'parent' | 'group' | 'item';
+  hierarchyLevel?: 'parent' | 'group' | 'item' | 'entry';
 };
 
 export type AnesthesiaItem = {
@@ -79,6 +79,7 @@ export type AnesthesiaItem = {
   rateUnit?: string | null;
   administrationGroup?: string;
   defaultDose?: string | null;
+  medicationSortOrder?: number | null;
   onDemandOnly?: boolean | null;
 };
 
