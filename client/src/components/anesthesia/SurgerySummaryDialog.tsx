@@ -400,6 +400,90 @@ export default function SurgerySummaryDialog({
             )}
           </div>
 
+          {/* Collapsible Case Notes Section */}
+          <div data-testid="section-case-notes">
+            <button
+              onClick={() => setNotesExpanded(!notesExpanded)}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
+              data-testid="button-toggle-case-notes"
+            >
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-sm font-medium">{t('anesthesia.caseNotes.title')}</span>
+                {caseNotes.length > 0 && (
+                  <span className="text-xs bg-primary/10 text-primary font-medium rounded-full px-1.5 py-0.5" data-testid="badge-notes-count">
+                    {caseNotes.length}
+                  </span>
+                )}
+                {!notesExpanded && caseNotes.length > 0 && (
+                  <span className="text-xs text-muted-foreground truncate ml-1" data-testid="text-latest-note-preview">
+                    {caseNotes[0]?.author?.firstName ? `${caseNotes[0].author.firstName}: ` : ''}
+                    {caseNotes[0]?.content?.slice(0, 60)}{caseNotes[0]?.content?.length > 60 ? '…' : ''}
+                  </span>
+                )}
+              </div>
+              <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${notesExpanded ? 'rotate-180' : ''}`} />
+            </button>
+
+            {notesExpanded && (
+              <div className="mt-2 space-y-3 px-1">
+                <div className="flex gap-2">
+                  <Textarea
+                    placeholder={t('anesthesia.caseNotes.placeholder')}
+                    value={newNoteContent}
+                    onChange={(e) => setNewNoteContent(e.target.value)}
+                    rows={2}
+                    className="text-sm min-h-[60px]"
+                    data-testid="textarea-summary-case-note"
+                  />
+                  <Button
+                    size="icon"
+                    className="shrink-0 h-[60px] w-10"
+                    onClick={() => {
+                      if (newNoteContent.trim()) {
+                        createNoteMutation.mutate(newNoteContent.trim());
+                      }
+                    }}
+                    disabled={!newNoteContent.trim() || createNoteMutation.isPending}
+                    data-testid="button-add-summary-note"
+                  >
+                    {createNoteMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+
+                {caseNotes.length === 0 ? (
+                  <div className="text-center py-4 text-muted-foreground">
+                    <StickyNote className="h-6 w-6 mx-auto mb-1 opacity-50" />
+                    <p className="text-xs">{t('anesthesia.caseNotes.noNotes')}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {caseNotes.map((note: any) => (
+                      <div
+                        key={note.id}
+                        className="border rounded-md p-2.5 text-sm"
+                        data-testid={`summary-case-note-${note.id}`}
+                      >
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
+                          <span className="font-medium text-foreground">
+                            {note.author?.firstName} {note.author?.lastName}
+                          </span>
+                          <span>•</span>
+                          {note.createdAt && format(new Date(note.createdAt), 'dd.MM HH:mm')}
+                        </div>
+                        <p className="whitespace-pre-wrap text-sm leading-snug">{note.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Action Cards */}
           <div className="space-y-3">
             {/* Surgery Data */}
@@ -727,92 +811,6 @@ export default function SurgerySummaryDialog({
                   </div>
                 </CardContent>
               </Card>
-            )}
-          </div>
-
-          {/* Collapsible Case Notes Section */}
-          <div className="px-6 pb-4" data-testid="section-case-notes">
-            <button
-              onClick={() => setNotesExpanded(!notesExpanded)}
-              className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg border bg-muted/30 hover:bg-muted/50 transition-colors"
-              data-testid="button-toggle-case-notes"
-            >
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
-                <span className="text-sm font-medium">{t('anesthesia.caseNotes.title')}</span>
-                {caseNotes.length > 0 && (
-                  <span className="text-xs bg-primary/10 text-primary font-medium rounded-full px-1.5 py-0.5" data-testid="badge-notes-count">
-                    {caseNotes.length}
-                  </span>
-                )}
-                {!notesExpanded && caseNotes.length > 0 && (
-                  <span className="text-xs text-muted-foreground truncate ml-1" data-testid="text-latest-note-preview">
-                    {caseNotes[0]?.author?.firstName ? `${caseNotes[0].author.firstName}: ` : ''}
-                    {caseNotes[0]?.content?.slice(0, 60)}{caseNotes[0]?.content?.length > 60 ? '…' : ''}
-                  </span>
-                )}
-              </div>
-              <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${notesExpanded ? 'rotate-180' : ''}`} />
-            </button>
-
-            {notesExpanded && (
-              <div className="mt-2 space-y-3 px-1">
-                {/* Add new note input */}
-                <div className="flex gap-2">
-                  <Textarea
-                    placeholder={t('anesthesia.caseNotes.placeholder')}
-                    value={newNoteContent}
-                    onChange={(e) => setNewNoteContent(e.target.value)}
-                    rows={2}
-                    className="text-sm min-h-[60px]"
-                    data-testid="textarea-summary-case-note"
-                  />
-                  <Button
-                    size="icon"
-                    className="shrink-0 h-[60px] w-10"
-                    onClick={() => {
-                      if (newNoteContent.trim()) {
-                        createNoteMutation.mutate(newNoteContent.trim());
-                      }
-                    }}
-                    disabled={!newNoteContent.trim() || createNoteMutation.isPending}
-                    data-testid="button-add-summary-note"
-                  >
-                    {createNoteMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-
-                {/* Notes list */}
-                {caseNotes.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    <StickyNote className="h-6 w-6 mx-auto mb-1 opacity-50" />
-                    <p className="text-xs">{t('anesthesia.caseNotes.noNotes')}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                    {caseNotes.map((note: any) => (
-                      <div
-                        key={note.id}
-                        className="border rounded-md p-2.5 text-sm"
-                        data-testid={`summary-case-note-${note.id}`}
-                      >
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-                          <span className="font-medium text-foreground">
-                            {note.author?.firstName} {note.author?.lastName}
-                          </span>
-                          <span>•</span>
-                          {note.createdAt && format(new Date(note.createdAt), 'dd.MM HH:mm')}
-                        </div>
-                        <p className="whitespace-pre-wrap text-sm leading-snug">{note.content}</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             )}
           </div>
         </div>
