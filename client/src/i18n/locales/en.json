@@ -1505,6 +1505,8 @@
       "tabInRecovery": "In Recovery",
       "tabDischarged": "Discharged",
       "pacuBed": "PACU Bed",
+      "pacuBedShort": "PACU",
+      "bed": "Bed",
       "assignBed": "Assign Bed",
       "selectBed": "Select PACU Bed",
       "noBedAssigned": "No bed assigned",

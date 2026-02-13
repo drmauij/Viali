@@ -1532,6 +1532,8 @@
       "tabInRecovery": "In Behandlung",
       "tabDischarged": "Entlassen",
       "pacuBed": "AWR-Bett",
+      "pacuBedShort": "AWR",
+      "bed": "Bett",
       "assignBed": "Bett zuweisen",
       "selectBed": "AWR-Bett auswählen",
       "noBedAssigned": "Kein Bett zugewiesen",
