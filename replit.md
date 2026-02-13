@@ -101,9 +101,16 @@ Core design decisions include:
   - `questionnaires.ts` (36), `clinic.ts` (74), `anesthesia.ts` (194 methods, largest domain)
   - `storage.ts` is now a thin 1,420-line file with IStorage interface + DatabaseStorage delegation class
   - Pattern: standalone exported async functions per module, DatabaseStorage delegates via property assignment
+- Split `server/routes.ts` from 4,796 lines into 21 domain-specific modules under `server/routes/`:
+  - `auth.ts`, `inventory.ts`, `items.ts`, `orders.ts`, `admin.ts`, `checklists.ts`
+  - `anesthesia.ts`, `business.ts`, `clinic.ts`, `surgeonChecklists.ts`, `chat.ts`
+  - `questionnaire.ts`, `cameras.ts`, `billing.ts`, `externalSurgery.ts`
+  - `controlled.ts`, `worklog.ts`, `notes.ts`, `ai.ts`, `importJobs.ts`, `hospitals.ts`
+  - `routes.ts` is now an 18-line file with only server setup (auth, socket.io, route registration)
+  - `routes/index.ts` registers all 21 domain routers via `app.use(router)`
+  - Pattern: `Router` from express, `router.get/post/patch/delete`, `export default router`
 
 **Recommended Follow-Up Optimizations:**
-- Migrate remaining routes from `server/routes.ts` (4.7K lines) into `server/routes/` modules
 - Break down largest frontend components (UnifiedTimeline 10K, Items 7.5K, PatientDetail 7.5K lines)
 - Replace `any` types across route handlers with proper Express Request/Response types
 - Add a structured logger (e.g. pino) to replace 1,200+ console.log/warn/error calls

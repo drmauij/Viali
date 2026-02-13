@@ -12,10 +12,20 @@ import questionnaireRouter from "./questionnaire";
 import camerasRouter from "./cameras";
 import billingRouter from "./billing";
 import externalSurgeryRouter from "./externalSurgery";
+import itemsRouter from "./items";
+import ordersRouter from "./orders";
+import controlledRouter from "./controlled";
+import worklogRouter from "./worklog";
+import notesRouter from "./notes";
+import aiRouter from "./ai";
+import importJobsRouter from "./importJobs";
+import hospitalsRouter from "./hospitals";
 
 export function registerDomainRoutes(app: Express) {
   app.use(authRouter);
   app.use(inventoryRouter);
+  app.use(itemsRouter);
+  app.use(ordersRouter);
   app.use(adminRouter);
   app.use(checklistsRouter);
   app.use(anesthesiaRouter);
@@ -27,4 +37,10 @@ export function registerDomainRoutes(app: Express) {
   app.use(camerasRouter);
   app.use(billingRouter);
   app.use(externalSurgeryRouter);
+  app.use(controlledRouter);
+  app.use(worklogRouter);
+  app.use(notesRouter);
+  app.use(aiRouter);
+  app.use(importJobsRouter);
+  app.use(hospitalsRouter);
 }
