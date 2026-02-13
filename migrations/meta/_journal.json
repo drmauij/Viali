@@ -834,6 +834,13 @@
       "when": 1770896827129,
       "tag": "0118_flowery_night_thrasher",
       "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1770991800000,
+      "tag": "0119_checklist_room_ids_array",
+      "breakpoints": true
     }
   ]
 }
