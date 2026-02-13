@@ -841,6 +841,13 @@
       "when": 1770991800000,
       "tag": "0119_checklist_room_ids_array",
       "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1771021600000,
+      "tag": "0120_checklist_completion_room_id",
+      "breakpoints": true
     }
   ]
 }
