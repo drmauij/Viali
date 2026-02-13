@@ -266,6 +266,9 @@ export async function getPendingChecklists(hospitalId: string, unitId: string, r
     todayStart.setHours(0, 0, 0, 0);
     if (nextDueDate < todayStart) {
       nextDueDate = new Date(todayStart);
+      if (template.excludeWeekends) {
+        nextDueDate = skipWeekends(nextDueDate);
+      }
     }
     
     const isOverdue = nextDueDate <= now;
@@ -358,6 +361,9 @@ export async function getRoomPendingChecklists(hospitalId: string, date?: Date):
       
       if (nextDueDate < dayStart) {
         nextDueDate = new Date(dayStart);
+        if (template.excludeWeekends) {
+          nextDueDate = skipWeekends(nextDueDate);
+        }
       }
       
       const isOverdue = nextDueDate <= now;
