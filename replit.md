@@ -110,7 +110,19 @@ Core design decisions include:
   - `routes/index.ts` registers all 21 domain routers via `app.use(router)`
   - Pattern: `Router` from express, `router.get/post/patch/delete`, `export default router`
 
+- UnifiedTimeline refactoring in progress (Feb 2026):
+  - Extracted `useTimelineExport` hook (~400 lines) to `client/src/components/anesthesia/unifiedTimeline/useTimelineExport.ts`
+    - PDF/image export logic from useImperativeHandle, including chart screenshots and PDF generation
+  - Extracted `useViewportController` hook (~760 lines) to `client/src/components/anesthesia/unifiedTimeline/useViewportController.ts`
+    - Current time + timer, zoom state, NOW line position, midnight line positions, viewport init
+    - Zoom/pan handlers (handleZoomIn/Out, handlePanLeft/Right, handleResetZoom)
+    - Content bounds calculation, snap intervals, historical record detection
+    - Pattern: hook receives chartRef, isChartReady, isMountedRef, data; returns all viewport state + handlers
+  - `UnifiedTimeline.tsx` reduced from 9,851 to 8,636 lines (~1,215 lines extracted)
+  - Note: dataZoom xAxisIndex sync effect kept in main component (depends on activeSwimlanes defined locally)
+
 **Recommended Follow-Up Optimizations:**
-- Break down largest frontend components (UnifiedTimeline 10K, Items 7.5K, PatientDetail 7.5K lines)
+- Continue UnifiedTimeline breakdown: camera/AI handlers (~465 lines), infusion handlers (~1,300 lines), dialog JSX (~2,000 lines)
+- Break down other large frontend components (Items 7.5K, PatientDetail 7.5K lines)
 - Replace `any` types across route handlers with proper Express Request/Response types
 - Add a structured logger (e.g. pino) to replace 1,200+ console.log/warn/error calls
