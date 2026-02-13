@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { eq, and, desc, asc, sql, inArray, or, isNull } from "drizzle-orm";
+import logger from "../logger";
 import {
   users,
   checklistTemplates,
@@ -87,7 +88,6 @@ export async function getChecklistTemplates(hospitalId: string, unitId?: string,
   const conditions: any[] = [eq(checklistTemplates.hospitalId, hospitalId)];
   if (active !== undefined) conditions.push(eq(checklistTemplates.active, active));
 
-  let templateIds: string[] | undefined;
   if (unitId) {
     const matchingAssignments = await db
       .select({ templateId: checklistTemplateAssignments.templateId })
@@ -96,12 +96,12 @@ export async function getChecklistTemplates(hospitalId: string, unitId?: string,
         eq(checklistTemplateAssignments.unitId, unitId),
         isNull(checklistTemplateAssignments.unitId)
       ));
-    templateIds = matchingAssignments.map(a => a.templateId);
-    
-    if (templateIds.length === 0) {
-      return [];
-    }
-    conditions.push(inArray(checklistTemplates.id, templateIds));
+    const assignedIds = matchingAssignments.map(a => a.templateId);
+
+    conditions.push(or(
+      ...(assignedIds.length > 0 ? [inArray(checklistTemplates.id, assignedIds)] : []),
+      eq(checklistTemplates.unitId, unitId)
+    ));
   }
 
   const templates = await db
@@ -110,10 +110,13 @@ export async function getChecklistTemplates(hospitalId: string, unitId?: string,
     .where(and(...conditions))
     .orderBy(asc(checklistTemplates.name));
   
-  const allAssignments = await db
-    .select()
-    .from(checklistTemplateAssignments)
-    .where(inArray(checklistTemplateAssignments.templateId, templates.map(t => t.id)));
+  const templateIds = templates.map(t => t.id);
+  const allAssignments = templateIds.length > 0
+    ? await db
+        .select()
+        .from(checklistTemplateAssignments)
+        .where(inArray(checklistTemplateAssignments.templateId, templateIds))
+    : [];
   
   const assignmentsByTemplate = new Map<string, ChecklistTemplateAssignment[]>();
   for (const a of allAssignments) {
@@ -186,8 +189,12 @@ export async function getPendingChecklists(hospitalId: string, unitId: string, r
         : isNull(checklistTemplateAssignments.role)
     ));
   
-  const templateIds = Array.from(new Set(matchingAssignments.map(a => a.templateId)));
-  if (templateIds.length === 0) return [];
+  const assignedIds = Array.from(new Set(matchingAssignments.map(a => a.templateId)));
+
+  const unitMatchCondition = or(
+    ...(assignedIds.length > 0 ? [inArray(checklistTemplates.id, assignedIds)] : []),
+    eq(checklistTemplates.unitId, unitId)
+  );
 
   const templates = await db
     .select()
@@ -195,17 +202,20 @@ export async function getPendingChecklists(hospitalId: string, unitId: string, r
     .where(and(
       eq(checklistTemplates.hospitalId, hospitalId),
       eq(checklistTemplates.active, true),
-      inArray(checklistTemplates.id, templateIds),
+      unitMatchCondition,
       or(
         isNull(checklistTemplates.roomIds),
         sql`${checklistTemplates.roomIds} = '{}'`
       )
     ));
 
-  const allAssignments = await db
-    .select()
-    .from(checklistTemplateAssignments)
-    .where(inArray(checklistTemplateAssignments.templateId, templates.map(t => t.id)));
+  const pendingTemplateIds = templates.map(t => t.id);
+  const allAssignments = pendingTemplateIds.length > 0
+    ? await db
+        .select()
+        .from(checklistTemplateAssignments)
+        .where(inArray(checklistTemplateAssignments.templateId, pendingTemplateIds))
+    : [];
   
   const assignmentsByTemplate = new Map<string, ChecklistTemplateAssignment[]>();
   for (const a of allAssignments) {
@@ -449,4 +459,22 @@ export async function getChecklistCompletion(id: string): Promise<(ChecklistComp
 export async function getPendingChecklistCount(hospitalId: string, unitId: string, role?: string): Promise<number> {
   const pending = await getPendingChecklists(hospitalId, unitId, role);
   return pending.filter(c => c.isOverdue).length;
+}
+
+export async function backfillChecklistTemplateAssignments(): Promise<number> {
+  const result = await db.execute(sql`
+    INSERT INTO checklist_template_assignments (id, template_id, unit_id, role)
+    SELECT gen_random_uuid(), t.id, t.unit_id, t.role
+    FROM checklist_templates t
+    WHERE t.unit_id IS NOT NULL
+      AND NOT EXISTS (
+        SELECT 1 FROM checklist_template_assignments a WHERE a.template_id = t.id
+      )
+  `);
+
+  const count = result.rowCount ?? 0;
+  if (count > 0) {
+    logger.info(`Backfilled ${count} checklist template assignment(s) from legacy unitId/role fields`);
+  }
+  return count;
 }

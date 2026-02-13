@@ -11,6 +11,7 @@ import { sql } from "drizzle-orm";
 import { db, pool } from "./db";
 import { storage } from "./storage";
 import { startWorker } from "./worker";
+import { backfillChecklistTemplateAssignments } from "./storage/checklists";
 import logger from "./logger";
 
 // Initialize Sentry for backend error monitoring
@@ -278,6 +279,12 @@ app.use((req, res, next) => {
           throw error;
         }
       }
+    }
+
+    try {
+      await backfillChecklistTemplateAssignments();
+    } catch (err) {
+      logger.warn("Checklist assignment backfill skipped or failed:", err);
     }
 
     const server = await registerRoutes(app);
