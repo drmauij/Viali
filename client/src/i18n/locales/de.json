@@ -1546,7 +1546,8 @@
       "changeBed": "Ändern",
       "noPacuBeds": "Keine AWR-Betten verfügbar",
       "occupied": "Belegt",
-      "unassignBed": "Bett freigeben"
+      "unassignBed": "Bett freigeben",
+      "removeBed": "Bett-Zuweisung entfernen"
     },
     "op": {
       "title": "OP-Überwachung",

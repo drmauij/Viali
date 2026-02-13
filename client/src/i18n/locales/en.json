@@ -1519,7 +1519,8 @@
       "changeBed": "Change",
       "noPacuBeds": "No PACU beds available",
       "occupied": "Occupied",
-      "unassignBed": "Unassign Bed"
+      "unassignBed": "Unassign Bed",
+      "removeBed": "Remove bed assignment"
     },
     "op": {
       "title": "OP Monitoring",

@@ -110,14 +110,14 @@ export function PacuBedSelector({
       toast({
         title: t("common.success"),
         description: bedId
-          ? t("pacu.bedAssigned", "PACU bed assigned")
-          : t("pacu.bedUnassigned", "PACU bed unassigned"),
+          ? t("anesthesia.pacu.bedAssigned", "PACU bed assigned")
+          : t("anesthesia.pacu.bedUnassigned", "PACU bed unassigned"),
       });
     },
     onError: (error: any) => {
       toast({
         title: t("common.error"),
-        description: error.message || t("pacu.failedToAssignBed", "Failed to assign PACU bed"),
+        description: error.message || t("anesthesia.pacu.failedToAssignBed", "Failed to assign PACU bed"),
         variant: "destructive",
       });
     },
@@ -200,12 +200,12 @@ export function PacuBedSelector({
               {currentBedId ? (
                 <>
                   <Bed className="h-3 w-3 mr-1" />
-                  {t("pacu.changeBed", "Change")}
+                  {t("anesthesia.pacu.changeBed", "Change")}
                 </>
               ) : (
                 <>
                   <Bed className="h-3 w-3 mr-1" />
-                  {t("pacu.assignBed", "Assign Bed")}
+                  {t("anesthesia.pacu.assignBed", "Assign Bed")}
                 </>
               )}
             </Button>
@@ -239,7 +239,7 @@ export function PacuBedSelector({
           <Bed className="h-4 w-4 mr-2" />
           {currentBedId && displayBedName
             ? displayBedName
-            : t("pacu.assignBed", "Assign PACU Bed")}
+            : t("anesthesia.pacu.assignBed", "Assign PACU Bed")}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-64 p-2" align="start">
@@ -304,7 +304,7 @@ export function PacuBedSquare({ surgeryId, pacuBedName, pacuBedId }: PacuBedSqua
         data-testid="button-assign-pacu-bed-square"
       >
         <Bed className="h-10 w-10 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
-        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('pacu.assignBed', 'Assign Bed')}</p>
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('anesthesia.pacu.assignBed', 'Assign Bed')}</p>
       </div>
       <PacuBedSelector
         surgeryId={surgeryId}
@@ -322,7 +322,7 @@ function BedList({ beds, currentBedId, occupiedBeds, onSelect, isPending }: BedL
   if (beds.length === 0) {
     return (
       <div className="p-4 text-center text-muted-foreground text-sm">
-        {t("pacu.noPacuBeds", "No PACU beds configured")}
+        {t("anesthesia.pacu.noPacuBeds", "No PACU beds configured")}
       </div>
     );
   }
@@ -330,7 +330,7 @@ function BedList({ beds, currentBedId, occupiedBeds, onSelect, isPending }: BedL
   return (
     <div className="space-y-1">
       <div className="text-xs font-medium text-muted-foreground px-2 py-1">
-        {t("pacu.selectBed", "Select PACU Bed")}
+        {t("anesthesia.pacu.selectBed", "Select PACU Bed")}
       </div>
       {beds.map((bed) => {
         const isOccupied = occupiedBeds.has(bed.id);
@@ -357,7 +357,7 @@ function BedList({ beds, currentBedId, occupiedBeds, onSelect, isPending }: BedL
             </div>
             <div className="flex items-center gap-1">
               {isOccupied && (
-                <span className="text-xs text-gray-500">{t("pacu.occupied", "Occupied")}</span>
+                <span className="text-xs text-gray-500">{t("anesthesia.pacu.occupied", "Occupied")}</span>
               )}
               {isSelected && <Check className="h-4 w-4 text-blue-600" />}
               {isPending && isSelected && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -375,7 +375,7 @@ function BedList({ beds, currentBedId, occupiedBeds, onSelect, isPending }: BedL
             data-testid="button-unassign-pacu-bed"
           >
             <X className="h-4 w-4" />
-            {t("pacu.unassignBed", "Unassign Bed")}
+            {t("anesthesia.pacu.unassignBed", "Unassign Bed")}
           </button>
         </>
       )}

@@ -90,13 +90,13 @@ function PacuPatientCard({
       setOpen(false);
       toast({
         title: t("common.success"),
-        description: t("pacu.bedAssigned", "PACU bed assigned successfully"),
+        description: t("anesthesia.pacu.bedAssigned", "PACU bed assigned successfully"),
       });
     },
     onError: (error: any) => {
       toast({
         title: t("common.error"),
-        description: error.message || t("pacu.failedToAssignBed", "Failed to assign PACU bed"),
+        description: error.message || t("anesthesia.pacu.failedToAssignBed", "Failed to assign PACU bed"),
         variant: "destructive",
       });
     },
@@ -171,14 +171,14 @@ function PacuPatientCard({
                   data-testid={`button-assign-bed-${patient.surgeryId}`}
                 >
                   <Plus className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400 dark:text-gray-500 mx-auto mb-1" />
-                  <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{t('pacu.bed', 'Bed')}</p>
+                  <p className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">{t('anesthesia.pacu.bed', 'Bed')}</p>
                 </div>
               )}
             </div>
           </PopoverTrigger>
           <PopoverContent className="w-64 p-2" align="end">
             <div className="space-y-1">
-              <p className="text-sm font-medium px-2 py-1">{t("pacu.selectBed", "Select PACU Bed")}</p>
+              <p className="text-sm font-medium px-2 py-1">{t("anesthesia.pacu.selectBed", "Select PACU Bed")}</p>
               {pacuBeds.map((bed) => {
                 const isOccupied = occupiedBeds.includes(bed.id);
                 const isCurrentBed = bed.id === patient.pacuBedId;
@@ -201,7 +201,7 @@ function PacuPatientCard({
                     </span>
                     {isCurrentBed && <Check className="h-4 w-4 text-blue-600" />}
                     {isOccupied && !isCurrentBed && (
-                      <span className="text-xs text-muted-foreground">{t("pacu.occupied", "Occupied")}</span>
+                      <span className="text-xs text-muted-foreground">{t("anesthesia.pacu.occupied", "Occupied")}</span>
                     )}
                   </button>
                 );
@@ -216,7 +216,7 @@ function PacuPatientCard({
                     data-testid="button-remove-bed"
                   >
                     <X className="h-4 w-4" />
-                    {t("pacu.removeBed", "Remove bed assignment")}
+                    {t("anesthesia.pacu.removeBed", "Remove bed assignment")}
                   </button>
                 </>
               )}

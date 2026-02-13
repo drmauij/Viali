@@ -464,7 +464,7 @@ export default function TimelineWeekView({
                       )}
                       style={{ top, height: Math.max(height - 2, 28), left, right, width }}
                       onClick={() => onEventClick?.(surgery.id, surgery.patientId)}
-                      title={`${startTime} - ${procedureName}\n${patientName}\n${roomName}${pacuBedName ? `\n${t('pacu.pacuBedShort', 'PACU')}: ${pacuBedName}` : ''}`}
+                      title={`${startTime} - ${procedureName}\n${patientName}\n${roomName}${pacuBedName ? `\n${t('anesthesia.pacu.pacuBedShort', 'PACU')}: ${pacuBedName}` : ''}`}
                       data-testid={`surgery-event-${surgery.id}`}
                     >
                       {isTruncatedStart && (
@@ -500,7 +500,7 @@ export default function TimelineWeekView({
                       })()}
                       {pacuBedName && surgery.status !== 'cancelled' && !surgery.isSuspended && height > 40 && (
                         <div className="text-[8px] font-medium text-blue-700 dark:text-blue-300 bg-blue-100/80 dark:bg-blue-900/50 px-0.5 rounded mt-0.5 truncate" data-testid={`badge-pacu-bed-week-${surgery.id}`}>
-                          {t('pacu.pacuBedShort', 'PACU')}: {pacuBedName}
+                          {t('anesthesia.pacu.pacuBedShort', 'PACU')}: {pacuBedName}
                         </div>
                       )}
                       {isTruncatedEnd && height > 40 && (

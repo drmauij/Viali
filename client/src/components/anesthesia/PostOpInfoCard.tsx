@@ -61,7 +61,7 @@ export function PostOpInfoCard({ postOpData, pacuBedName, pacuBedId, surgeryId, 
       data-testid="button-assign-pacu-bed"
     >
       <Plus className="h-10 w-10 text-gray-400 dark:text-gray-500 mx-auto mb-2" />
-      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('pacu.assignBed', 'Assign Bed')}</p>
+      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{t('anesthesia.pacu.assignBed', 'Assign Bed')}</p>
     </div>
   );
 
