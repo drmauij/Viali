@@ -244,20 +244,18 @@ export default function ModuleDrawer() {
       }
     }
     
-    const showSurgeryChecklists = hasSurgeryAccess && canAccessPreOp && addons.surgery;
-    if (showSurgeryChecklists || hasPendingChecklists) {
-      const checklistRoute = showSurgeryChecklists ? '/surgery/checklists' : '/inventory/checklists';
+    if (hasPendingChecklists) {
       items.push({
         id: 'checklists',
         icon: <ClipboardCheck className="w-4 h-4" />,
         label: t('bottomNav.checklists', 'Checklists'),
-        route: checklistRoute,
+        route: '/inventory/checklists',
         ...(hasOverdueChecklists ? { badge: pendingCountData?.overdue } : {}),
       });
     }
 
     return items;
-  }, [addons.worktime, addons.surgery, hasAnesthesiaAccess, hasSurgeryAccess, canAccessPreOp, hasPendingChecklists, hasOverdueChecklists, pendingCountData?.overdue, t]);
+  }, [addons.worktime, hasAnesthesiaAccess, hasSurgeryAccess, hasPendingChecklists, hasOverdueChecklists, pendingCountData?.overdue, t]);
 
   if (!isDrawerOpen) return null;
 
