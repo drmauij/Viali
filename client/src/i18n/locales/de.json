@@ -1542,7 +1542,11 @@
       "noPacuBedsConfigured": "Keine AWR-Betten für dieses Krankenhaus konfiguriert",
       "bedAssigned": "AWR-Bett erfolgreich zugewiesen",
       "bedUnassigned": "AWR-Bett-Zuweisung aufgehoben",
-      "failedToAssignBed": "AWR-Bett-Zuweisung fehlgeschlagen"
+      "failedToAssignBed": "AWR-Bett-Zuweisung fehlgeschlagen",
+      "changeBed": "Ändern",
+      "noPacuBeds": "Keine AWR-Betten verfügbar",
+      "occupied": "Belegt",
+      "unassignBed": "Bett freigeben"
     },
     "op": {
       "title": "OP-Überwachung",

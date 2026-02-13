@@ -1515,7 +1515,11 @@
       "noPacuBedsConfigured": "No PACU beds configured for this hospital",
       "bedAssigned": "PACU bed assigned successfully",
       "bedUnassigned": "PACU bed unassigned",
-      "failedToAssignBed": "Failed to assign PACU bed"
+      "failedToAssignBed": "Failed to assign PACU bed",
+      "changeBed": "Change",
+      "noPacuBeds": "No PACU beds available",
+      "occupied": "Occupied",
+      "unassignBed": "Unassign Bed"
     },
     "op": {
       "title": "OP Monitoring",
