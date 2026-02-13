@@ -1,6 +1,6 @@
 {
-  "id": "3f44a615-90f3-4e21-9729-766dbab41de6",
-  "prevId": "d3b07d14-f26d-4c8e-8a30-7950812b6279",
+  "id": "0119_checklist_room_ids_array",
+  "prevId": "0118_flowery_night_thrasher",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
