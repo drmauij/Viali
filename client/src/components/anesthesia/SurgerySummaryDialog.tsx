@@ -551,19 +551,19 @@ export default function SurgerySummaryDialog({
             {/* Pre-OP Assessment - Only shown in anesthesia module */}
             {activeModule !== 'surgery' && (
               <Card 
-                className={surgery?.anesthesiaType ? "cursor-pointer hover:bg-accent transition-colors" : "opacity-50 pointer-events-none"}
-                onClick={surgery?.anesthesiaType ? onOpenPreOp : undefined}
+                className={!surgery?.noPreOpRequired ? "cursor-pointer hover:bg-accent transition-colors" : "opacity-50 pointer-events-none"}
+                onClick={!surgery?.noPreOpRequired ? onOpenPreOp : undefined}
                 data-testid="card-open-preop"
               >
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3 flex-1">
-                      <div className={`p-2 rounded-lg shrink-0 ${surgery?.anesthesiaType ? 'bg-green-100 dark:bg-green-900' : 'bg-muted'}`}>
-                        <ClipboardList className={`h-5 w-5 ${surgery?.anesthesiaType ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`} />
+                      <div className={`p-2 rounded-lg shrink-0 ${!surgery?.noPreOpRequired ? 'bg-green-100 dark:bg-green-900' : 'bg-muted'}`}>
+                        <ClipboardList className={`h-5 w-5 ${!surgery?.noPreOpRequired ? 'text-green-600 dark:text-green-400' : 'text-muted-foreground'}`} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold mb-2">{t('anesthesia.surgerySummary.preOpAssessment')}</div>
-                        {!surgery?.anesthesiaType ? (
+                        {surgery?.noPreOpRequired ? (
                           <div className="text-sm text-muted-foreground">
                             {t('anesthesia.surgerySummary.noAnesthesiaPlanned')}
                           </div>
@@ -679,27 +679,27 @@ export default function SurgerySummaryDialog({
             {/* Anesthesia Record - Only shown in anesthesia module */}
             {activeModule !== 'surgery' && (
               <Card 
-                className={surgery?.anesthesiaType ? "cursor-pointer hover:bg-accent transition-colors" : "opacity-50 pointer-events-none"}
-                onClick={surgery?.anesthesiaType ? onOpenAnesthesia : undefined}
+                className={!surgery?.noPreOpRequired ? "cursor-pointer hover:bg-accent transition-colors" : "opacity-50 pointer-events-none"}
+                onClick={!surgery?.noPreOpRequired ? onOpenAnesthesia : undefined}
                 data-testid="card-open-anesthesia"
               >
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${surgery?.anesthesiaType ? 'bg-red-100 dark:bg-red-900' : 'bg-muted'}`}>
-                        <Activity className={`h-5 w-5 ${surgery?.anesthesiaType ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
+                      <div className={`p-2 rounded-lg ${!surgery?.noPreOpRequired ? 'bg-red-100 dark:bg-red-900' : 'bg-muted'}`}>
+                        <Activity className={`h-5 w-5 ${!surgery?.noPreOpRequired ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`} />
                       </div>
                       <div>
                         <div className="font-semibold">{t('anesthesia.surgerySummary.anesthesiaRecord')}</div>
                         <div className="text-sm text-muted-foreground">
-                          {surgery?.anesthesiaType
+                          {!surgery?.noPreOpRequired
                             ? t('anesthesia.surgerySummary.viewManage')
                             : t('anesthesia.surgerySummary.noAnesthesiaPlanned')
                           }
                         </div>
                       </div>
                     </div>
-                    {surgery?.anesthesiaType && <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+                    {!surgery?.noPreOpRequired && <ChevronRight className="h-5 w-5 text-muted-foreground" />}
                   </div>
                 </CardContent>
               </Card>
