@@ -16,6 +16,8 @@ import { useActiveHospital } from "@/hooks/useActiveHospital";
 import { apiRequest } from "@/lib/queryClient";
 import type { Surgery } from "@shared/schema";
 
+const preloadOp = () => import("@/pages/anesthesia/Op");
+
 const SURGERY_CONTEXT_KEY = "oplist_surgery_context";
 const VIEW_MODE_KEY = "oplist_view_mode";
 const TABLE_TAB_KEY = "oplist_table_tab";
@@ -76,6 +78,11 @@ export default function OpList() {
     return (saved === "current" || saved === "past") ? saved : "current";
   });
   
+  // Preload the Op (Anesthesia Record) chunk so it opens instantly
+  useEffect(() => {
+    preloadOp();
+  }, []);
+
   // Persist viewMode changes to sessionStorage
   useEffect(() => {
     sessionStorage.setItem(VIEW_MODE_KEY, viewMode);
